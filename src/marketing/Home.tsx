@@ -1,10 +1,7 @@
 import { discordUrl, SiteHeader } from './SiteHeader'
-
-type NavLink = {
-	label: string
-	href: string
-	external?: boolean
-}
+import SiteFooter from './SiteFooter'
+import HomeLoginModal from '@/src/platform/auth/HomeLoginModal'
+import { Suspense } from 'react'
 
 type Service = {
 	title: string
@@ -18,13 +15,6 @@ type Stat = {
 	value: string
 	label: string
 }
-
-const footerLinks: NavLink[] = [
-	{ label: 'About', href: '#about' },
-	{ label: 'Services', href: '#services' },
-	{ label: 'Eligibility', href: '#eligibility' },
-	{ label: 'Discord', href: discordUrl, external: true },
-]
 
 const stats: Stat[] = [
 	{ value: '700+', label: 'Members' },
@@ -247,43 +237,11 @@ function Cta() {
 	)
 }
 
-function Footer() {
-	return (
-		<footer className="site-footer">
-			<div className="footer-top">
-				<a className="footer-brand" href="#">
-					<img src="/assets/logo-Czz1Kl8u.png" alt="ATCMH Logo" />
-					<span>
-						<strong>ATC Mentorship Hub</strong>
-						<small>Your Gateway to IFATC</small>
-					</span>
-				</a>
-				<nav aria-label="Footer navigation">
-					{footerLinks.map((link) => (
-						<a
-							key={link.label}
-							href={link.href}
-							target={link.external ? '_blank' : undefined}
-							rel={link.external ? 'noopener noreferrer' : undefined}
-						>
-							{link.label}
-						</a>
-					))}
-				</nav>
-			</div>
-			<div className="footer-divider" />
-			<div className="footer-bottom">
-				<p>© {new Date().getFullYear()} ATC Mentorship Hub. All rights reserved.</p>
-				<p>Not directly affiliated with the IFATC Recruitment Process.</p>
-			</div>
-		</footer>
-	)
-}
-
 export default function Home() {
 	return (
 		<div className="marketing-product">
-			<SiteHeader />
+			<SiteHeader showLogin />
+			<Suspense fallback={null}><HomeLoginModal /></Suspense>
 			<main>
 				<Hero />
 				<About />
@@ -291,7 +249,7 @@ export default function Home() {
 				<Eligibility />
 				<Cta />
 			</main>
-			<Footer />
+			<SiteFooter />
 		</div>
 	)
 }

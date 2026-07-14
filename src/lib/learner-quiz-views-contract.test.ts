@@ -40,18 +40,15 @@ test("quiz detail uses the centered site shell and content card", () => {
   assert.match(page, /className="quiz-detail-card__actions"/);
 });
 
-test("every learner login entry keeps both providers available", () => {
-  const controls = source("../app/exams/AuthControls.tsx");
+test("learner pages contain no login controls and protected starts use the home modal", () => {
   const home = source("../app/exams/(learner)/page.tsx");
   const catalogue = source("../app/exams/(learner)/quizzes/page.tsx");
   const detail = source("../app/exams/(learner)/quizzes/[quizId]/page.tsx");
   const start = source("../app/exams/(learner)/quizzes/[quizId]/StartQuizButton.tsx");
 
-  assert.match(controls, /provider=discord/);
-  assert.match(controls, /provider=ifc/);
-  for (const entry of [home, catalogue, detail, start]) {
-    assert.match(entry, /LoginProviderLinks/);
-  }
+  for (const entry of [home, catalogue, detail]) assert.doesNotMatch(entry, /LoginProviderLinks|Continue with Discord|Continue with Infinite Flight/);
+  assert.match(start, /homeLoginHref\("exams"/);
+  assert.doesNotMatch(start, /LoginProviderLinks|Continue with Discord|Continue with Infinite Flight/);
 });
 
 test("quiz start control uses a block wrapper that can contain login choices", () => {

@@ -23,7 +23,7 @@ const context = {
 
 test("Dashboard exposes consent as a public route", () => {
     const app = readFileSync(new URL("../../../app/consent/page.tsx", import.meta.url), "utf8");
-    assert.match(app, /SharedDashboardPage page="consent"/);
+    assert.match(app, /<SiteFrame><ConsentPageContent\/><\/SiteFrame>/);
 });
 
 test("consent view renders safe loading and invalid states", async () => {
@@ -31,13 +31,13 @@ test("consent view renders safe loading and invalid states", async () => {
     assert.match(render(React.createElement(ConsentPageView, {state: {kind: "loading"}})), /Loading policy agreement/);
     const invalid = render(React.createElement(ConsentPageView, {state: {kind: "invalid"}}));
     assert.match(invalid, /agreement request is invalid or has expired/i);
-    assert.match(invalid, /href="\/auth\?returnTo=\/account"[^>]*>Sign in to Dashboard<\/a>/);
-    assert.match(invalid, /href="\/exams"[^>]*>Sign in to Exams<\/a>/);
+    assert.match(invalid, /loginFor=dashboard/);
+    assert.match(invalid, /loginFor=exams/);
     assert.doesNotMatch(invalid, /stack|exception|challenge/i);
     const unavailable = render(React.createElement(ConsentPageView, {state: {kind: "unavailable"}}));
     assert.match(unavailable, /could not load the policy agreement/i);
-    assert.match(unavailable, /href="\/auth\?returnTo=\/account"[^>]*>Sign in to Dashboard<\/a>/);
-    assert.match(unavailable, /href="\/exams"[^>]*>Sign in to Exams<\/a>/);
+    assert.match(unavailable, /loginFor=dashboard/);
+    assert.match(unavailable, /loginFor=exams/);
     assert.doesNotMatch(unavailable, /failed with|dashboard-api/i);
 });
 

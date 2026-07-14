@@ -4,7 +4,6 @@ import { getQuizForLearner, listPublicQuizzes } from "@/src/lib/exams-repository
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
 import { StartQuizButton } from "./StartQuizButton";
-import { LoginProviderLinks } from "../../../AuthControls";
 
 interface QuizPageProps {
   params: Promise<{ quizId: string }>;
@@ -27,7 +26,7 @@ export default async function QuizDetailPage({ params }: QuizPageProps) {
           <p className="quiz-detail-card__description">{quiz.description}</p>
           <p className="quiz-detail-card__time">{quiz.timeLimitSeconds > 0 ? `Time limit: ${Math.ceil(quiz.timeLimitSeconds / 60)} minutes.` : "No time limit."}</p>
           <div className="quiz-detail-card__actions">
-            {identity ? <StartQuizButton quizId={quizId} /> : <LoginProviderLinks returnTo={`/exams/quizzes/${quizId}`} />}
+            <StartQuizButton quizId={quizId} />
             <Link className="quiz-detail-card__back" href="/exams/quizzes">Back to catalogue</Link>
           </div>
         </section>

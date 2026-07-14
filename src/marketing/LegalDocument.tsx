@@ -1,3 +1,5 @@
+import SiteFrame from "@/src/platform/SiteFrame";
+
 export type MarkdownBlock =
 	| { type: 'heading'; level: number; text: string }
 	| { type: 'paragraph'; lines: string[] }
@@ -123,14 +125,12 @@ function LegalDocumentBlock({ block }: { block: MarkdownBlock }) {
 
 export function LegalDocument({ blocks }: { blocks: MarkdownBlock[] }) {
 	return (
-		<div className="marketing-product">
-			<SiteHeader />
+		<SiteFrame>
 			<main className="legal-page">
 				{blocks.map((block, index) => (
 					<LegalDocumentBlock key={index} block={block} />
 				))}
 			</main>
-		</div>
+		</SiteFrame>
 	)
 }
-import { SiteHeader } from './SiteHeader'

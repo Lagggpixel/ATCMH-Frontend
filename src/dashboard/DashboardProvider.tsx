@@ -8,7 +8,7 @@ import type {AdminMentee} from "./types/AdminMentee";
 import type {AdminUser} from "./types/AdminUser";
 import type {AdminAssignment} from "./types/AdminAssignment";
 import type {DashboardAuthSession} from "./types/Account";
-import useAuth from "./components/discord/AuthContext";
+import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {ApiUtils, configureDashboardApiUrl} from "./utils/ApiUtils";
 import {resolveAdminUserForSession, type SessionBoundAdminUser} from "./utils/AdminSessionUtils";
 import {
@@ -47,7 +47,7 @@ export function useDashboard() {
 
 export default function DashboardProvider({dashboardApiUrl, children}: {dashboardApiUrl: string; children: ReactNode}) {
     configureDashboardApiUrl(dashboardApiUrl);
-    const auth = useAuth();
+    const auth = usePortalAuth();
     const token = auth.session?.csrfToken ?? null;
     const [loaded, setLoaded] = useState(false);
     const [users, setUsers] = useState<AtcmhUser[]>();
@@ -71,16 +71,13 @@ export default function DashboardProvider({dashboardApiUrl, children}: {dashboar
             try {
                 const publicUsers = await ApiUtils.getAtcmhUsers();
                 if (current) setUsers(publicUsers);
-                if (token) {
-                    const admin = await ApiUtils.getAdminUser(token);
-                    if (admin.status === "authorized") {
-                        if (current) setAuthorizedAdminUser({token, user: admin.user});
+                if (token && auth.adminUser) {
+                        if (current) setAuthorizedAdminUser({token, user: auth.adminUser});
                         const [nextSessions, nextNotes, nextMentees, nextAssignments] = await Promise.all([
                             ApiUtils.getSessions(token), ApiUtils.getUserNotes(token), ApiUtils.getMentees(token), ApiUtils.getAssignments(token),
                         ]);
                         if (current) { setSessions(nextSessions); setUserNotes(nextNotes); setMentees(nextMentees); setAssignments(nextAssignments); }
-                    } else if (current) setAuthorizedAdminUser(undefined);
-                }
+                } else if (current) setAuthorizedAdminUser(undefined);
             } catch (reason) {
                 if (current) setError(reason instanceof Error ? reason.message : String(reason));
             } finally {
@@ -88,7 +85,7 @@ export default function DashboardProvider({dashboardApiUrl, children}: {dashboar
             }
         })();
         return () => { current = false; };
-    }, [auth.loading, token]);
+    }, [auth.adminUser, auth.loading, token]);
 
     const value: DashboardContextValue = {
         auth, token, loaded, error, users, sessions, userNotes, mentees, adminUser, assignments,

@@ -1,6 +1,7 @@
 import type {Metadata} from "next";
 import DashboardRuntime from "@/src/dashboard/DashboardRuntime";
-import SharedDashboardPage from "@/src/dashboard/SharedDashboardPage";
+import Home from "@/src/dashboard/components/home/Home";
+import SiteFrame from "@/src/platform/SiteFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function LeaderboardPage() {
-    return <DashboardRuntime><SharedDashboardPage page="leaderboard"/></DashboardRuntime>;
+    return <SiteFrame><DashboardRuntime><Home/></DashboardRuntime></SiteFrame>;
 }

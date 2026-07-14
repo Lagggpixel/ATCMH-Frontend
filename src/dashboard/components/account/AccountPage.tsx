@@ -2,6 +2,7 @@ import {Link, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {DashboardAuthSession} from "../../types/Account.ts";
 import styles from "./AccountPage.module.css";
 import {accountPageState, accountStatusLabel} from "./AccountPageState.ts";
+import {homeLoginHref} from "@/src/platform/auth/login-routing";
 
 interface AccountPageProps {
     session: DashboardAuthSession | null;
@@ -17,7 +18,7 @@ export default function AccountPage({session, loading, error, canAccessAdmin = f
     const [params] = useSearchParams();
     const state = accountPageState(session, loading, error, params.get("authError"));
     if (state.kind === "loading") return <main className={styles.accountPage}><p>Restoring your account…</p></main>;
-    if (state.kind === "signed-out") return <main className={styles.accountPage}><section className={styles.card}><h1>Your ATCMH account</h1>{state.authMessage ? <p role="alert" className={styles.error}>{state.authMessage}</p> : null}{state.error ? <p role="alert" className={styles.error}>We could not restore your session: {state.error}</p> : null}<p>Sign in to view your linked identities and sessions.</p><Link className={styles.primary} to="/auth?returnTo=/account">Sign in</Link></section></main>;
+    if (state.kind === "signed-out") return <main className={styles.accountPage}><section className={styles.card}><h1>Your ATCMH account</h1>{state.authMessage ? <p role="alert" className={styles.error}>{state.authMessage}</p> : null}{state.error ? <p role="alert" className={styles.error}>We could not restore your session: {state.error}</p> : null}<p>Return home to sign in and view your linked identities and sessions.</p><Link className={styles.primary} to={homeLoginHref("dashboard", "/account")}>Return home</Link></section></main>;
     const activeSession = session!;
 
     const byProvider = new Map(activeSession.identities.map(identity => [identity.provider.toLowerCase(), identity]));

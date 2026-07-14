@@ -6,6 +6,7 @@ import { getAttemptReview } from "@/src/lib/attempt-result";
 import { AttemptReviewDetails } from "@/src/lib/attempt-review-details";
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
+import {homeLoginHref} from "@/src/platform/auth/login-routing";
 
 interface AttemptResultPageProps {
   params: Promise<{ attemptId: string }>;
@@ -15,7 +16,7 @@ export default async function AttemptResultPage({ params }: AttemptResultPagePro
   const { attemptId } = await params;
   const resultPath = `/exams/attempts/${encodeURIComponent(attemptId)}`;
   const identity = await getVerifiedLearnerIdentity();
-  if (!identity) redirect(`/exams/api/auth/discord/user/login?returnTo=${encodeURIComponent(resultPath)}`);
+  if (!identity) redirect(homeLoginHref("exams", resultPath));
   const access = await resolveLearnerAccess(identity.discordId);
   let attempt;
   try {

@@ -1,30 +1,30 @@
 .dashboard-product {
-    font-family: system-ui, 'Segoe UI', Avenir, Helvetica, Arial, sans-serif;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1.5;
     font-weight: 400;
     color-scheme: light dark;
     color: rgba(246, 248, 252, 0.92);
-    background-color: #101318;
+    background-color: #07101d;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 
-    --bg-color: #101318;
-    --surface-color: #181d24;
-    --surface-2-color: #202630;
-    --surface-3-color: #27303b;
+    --bg-color: #07101d;
+    --surface-color: #101b2d;
+    --surface-2-color: #15243a;
+    --surface-3-color: #1b2c45;
     --text-color: #f5f7fb;
-    --muted-text: #a7b0bd;
-    --accent-color: #7fa7f2;
-    --accent-strong-color: #9bbcff;
+    --muted-text: #a2a9b8;
+    --accent-color: #3b82f6;
+    --accent-strong-color: #22d3ee;
     --error-color: #f06a61;
     --success-color: #65d18c;
-    --border-color: #303947;
+    --border-color: rgba(148, 163, 184, 0.2);
     --row-bg: var(--surface-color);
     --row-alt-bg: var(--surface-2-color);
-    --input-bg: #131820;
-    --button-hover: #2d3950;
+    --input-bg: #0d1726;
+    --button-hover: #1d3351;
     --cancelled-bg: #322026;
     --active-bg: #203025;
     --panel-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
@@ -34,8 +34,8 @@
     --success-text: #a7efbd;
     --warning-bg: rgba(246, 197, 83, 0.16);
     --warning-text: #ffe08a;
-    --info-bg: rgba(127, 167, 242, 0.18);
-    --info-text: #c6d8ff;
+    --info-bg: rgba(59, 130, 246, 0.18);
+    --info-text: #bfdbfe;
 }
 
 .dashboard-product,
@@ -52,7 +52,7 @@
 }
 
 .dashboard-product {
-    min-height: 100vh;
+    min-height: calc(100vh - 5rem);
     overflow-x: hidden;
     width: 100%;
     background-color: var(--bg-color);

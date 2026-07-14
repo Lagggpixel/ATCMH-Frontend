@@ -19,15 +19,12 @@ test("learner site content preserves the live navigation and homepage copy", () 
   assert.equal(quizCatalogueTitle, "Quizzes");
 });
 
-test("learner header does not offer login to a verified session", () => {
+test("legacy learner auth labels remain stable for session summaries", () => {
   assert.equal(learnerAuthLabel(undefined), "Login");
   assert.equal(learnerAuthLabel("123456789012345678"), "Logged in");
 });
 
-test("home authentication UX handles central outcomes and hides provider choices when signed in", () => {
+test("Exam Center landing contains no inline authentication UI", () => {
   const source = readFileSync(new URL("../app/exams/(learner)/page.tsx", import.meta.url), "utf8");
-  assert.match(source, /authError === "cancelled"/);
-  assert.match(source, /authError === "provider_failure"/);
-  assert.match(source, /authError === "link_conflict"/);
-  assert.match(source, /!session \? <section className="content-card auth-choice"/);
+  assert.doesNotMatch(source, /LoginProviderLinks|auth-choice|Continue with Discord|Continue with Infinite Flight/);
 });

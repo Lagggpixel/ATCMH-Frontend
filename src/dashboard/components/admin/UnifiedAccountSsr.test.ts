@@ -21,71 +21,17 @@ const findElement = (node: unknown, predicate: (element: React.ReactElement) => 
     for (const child of children(node)) { const found = findElement(child, predicate); if (found) return found; }
 };
 
-test("actual provider chooser renders both central providers", async () => {
-    const {DiscordAuth} = await load<{DiscordAuth: React.ComponentType<{session: null}>}>("/src/dashboard/components/discord/DiscordAuth.tsx");
-    const html = inRouter(React.createElement(DiscordAuth, {session: null}), "/auth?returnTo=/account");
-    assert.match(html, /Continue with Discord/); assert.match(html, /Continue with Infinite Flight/);
-    assert.match(html, /provider=discord/); assert.match(html, /provider=ifc/);
-    assert.match(html, /Before access is granted/);
-    assert.match(html, /href="https:\/\/atcmh\.org\/terms"[^>]*>Terms of Service</);
-    assert.match(html, /href="https:\/\/atcmh\.org\/policy"[^>]*>Privacy Policy</);
-});
-
 test("actual account route renders signed-out and restored lowercase-status outcomes", async () => {
     const {default: AccountPage} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/account/AccountPage.tsx");
     const signedOut = inRouter(React.createElement(AccountPage, {session: null, loading: false, error: null, onLogout: async () => {}}), "/account");
-    assert.match(signedOut, />Sign in</);
+    assert.match(signedOut, /Return home to sign in/);
+    assert.match(signedOut, /loginFor=dashboard/);
     const restored = inRouter(React.createElement(AccountPage, {session: {accountId: "7", status: "active", application: "dashboard", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "x", impersonating: false, identities: []}, loading: false, error: null, onLogout: async () => {}}), "/account");
     assert.match(restored, /Account 7/); assert.match(restored, />Active</);
     const cancelled = inRouter(React.createElement(AccountPage, {session: null, loading: false, error: null, onLogout: async () => {}}), "/account?authError=cancelled");
     assert.match(cancelled, /Sign-in was cancelled/); assert.match(cancelled, /No account changes were made/);
     const providerFailure = inRouter(React.createElement(AccountPage, {session: null, loading: false, error: null, onLogout: async () => {}}), "/account?authError=provider_failure");
     assert.match(providerFailure, /could not verify your sign-in/); assert.match(providerFailure, /contact support/);
-});
-
-test("home header actions distinguish loading, signed-out, account, and staff states", async () => {
-    const {HomeHeaderActions} = await load<{HomeHeaderActions: React.ComponentType<any>}>("/src/dashboard/components/home/Home.tsx");
-    const session = {accountId: "7", status: "ACTIVE", application: "dashboard", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "x", impersonating: false, identities: [{provider: "discord", subject: "123", displayName: "Pilot"}]};
-    const staff = {id: "123", username: "Pilot", canManageAllAssignments: false, canViewAuditLogs: false, canViewManual: false, canManageAccounts: false, canReviewAltAccounts: false, canViewSensitiveAuditDetails: false, canImpersonate: false};
-    const onLogout = async () => {};
-
-    const loading = inRouter(React.createElement(HomeHeaderActions, {session: null, authLoading: true, onLogout}), "/home");
-    assert.match(loading, /Checking session/);
-    assert.doesNotMatch(loading, /href="\/auth|href="\/account|Admin Dashboard/);
-
-    const signedOut = inRouter(React.createElement(HomeHeaderActions, {session: null, authLoading: false, onLogout}), "/home");
-    assert.match(signedOut, /href="\/auth\?returnTo=\/leaderboard"/);
-    assert.match(signedOut, />Sign in</);
-    assert.doesNotMatch(signedOut, /Admin Dashboard/);
-
-    const nonStaff = inRouter(React.createElement(HomeHeaderActions, {session, authLoading: false, onLogout}), "/home");
-    assert.match(nonStaff, /href="\/account"/);
-    assert.match(nonStaff, /aria-expanded="false"/);
-    assert.match(nonStaff, /aria-controls="home-user-menu"/);
-    assert.match(nonStaff, /aria-label="Open user menu for Pilot"/);
-    assert.match(nonStaff, />Settings</);
-    assert.match(nonStaff, />Log out</);
-    assert.doesNotMatch(nonStaff, /Session expires/);
-    assert.doesNotMatch(nonStaff, /Admin Dashboard/);
-
-    const authorizedStaff = inRouter(React.createElement(HomeHeaderActions, {session, authLoading: false, adminUser: staff, onLogout}), "/home");
-    assert.match(authorizedStaff, /href="\/dashboard"/);
-    assert.match(authorizedStaff, /Admin Dashboard/);
-});
-
-test("home safely renders every policy-consent login outcome as an alert", async () => {
-    const {default: Home} = await load<{default: React.ComponentType<any>}>('/src/dashboard/components/home/Home.tsx');
-    const outcomes = new Map([
-        ['consent_declined', 'You did not agree to the required policies'],
-        ['invalid_consent', 'This policy agreement request is invalid'],
-        ['consent_expired', 'This policy agreement request has expired'],
-    ]);
-
-    for (const [code, message] of outcomes) {
-        const html = inRouter(React.createElement(Home, {session: null, authLoading: false}), `/home?authError=${code}`);
-        assert.match(html, /role="alert"/);
-        assert.match(html, new RegExp(message));
-    }
 });
 
 test("account page exposes staff navigation only after authorized staff resolution", async () => {

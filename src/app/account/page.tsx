@@ -1,8 +1,8 @@
-import DashboardRuntime from "@/src/dashboard/DashboardRuntime";
-import SharedDashboardPage from "@/src/dashboard/SharedDashboardPage";
+import SiteFrame from "@/src/platform/SiteFrame";
+import AccountRoute from "@/src/platform/auth/AccountRoute";
 
 export const dynamic = "force-dynamic";
 
 export default function AccountPage() {
-    return <DashboardRuntime><SharedDashboardPage page="account"/></DashboardRuntime>;
+    return <SiteFrame><AccountRoute/></SiteFrame>;
 }

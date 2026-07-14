@@ -1,8 +1,8 @@
-import DashboardRuntime from "@/src/dashboard/DashboardRuntime";
-import SharedDashboardPage from "@/src/dashboard/SharedDashboardPage";
+import ConsentPageContent from "@/src/dashboard/components/consent/ConsentPage";
+import SiteFrame from "@/src/platform/SiteFrame";
 
 export const dynamic = "force-dynamic";
 
 export default function ConsentPage() {
-    return <DashboardRuntime><SharedDashboardPage page="consent"/></DashboardRuntime>;
+    return <SiteFrame><ConsentPageContent/></SiteFrame>;
 }

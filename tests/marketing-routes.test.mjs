@@ -16,9 +16,9 @@ test("the unified app intentionally has no apply route", () => {
   assert.equal(existsSync(new URL("../src/app/apply", import.meta.url)), false);
 });
 
-test("the root navbar links to the public leaderboard and Dashboard sign-in entry", () => {
+test("the root navbar links to Leaderboard and permission-gates Dashboard", () => {
   const header = readFileSync(new URL("../src/marketing/SiteHeader.tsx", import.meta.url), "utf8");
-  assert.match(header, /\{ label: 'Leaderboard', href: '\/leaderboard' \}/);
-  assert.match(header, /\{ label: 'Dashboard', href: '\/auth\?returnTo=\/dashboard' \}/);
+  assert.match(header, /\{label: "Leaderboard", href: "\/leaderboard"\}/);
+  assert.match(header, /adminUser \? <Link className="nav-dashboard" href="\/dashboard">Dashboard<\/Link> : null/);
   assert.equal(existsSync(new URL("../src/app/leaderboard/page.tsx", import.meta.url)), true);
 });

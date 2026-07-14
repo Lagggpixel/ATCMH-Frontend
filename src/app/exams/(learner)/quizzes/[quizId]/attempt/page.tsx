@@ -6,6 +6,7 @@ import { toAttemptQuestions } from "./attempt-form-model";
 import { getVerifiedAttemptStart } from "@/src/lib/attempt-start-session";
 import { orderAttemptQuestions } from "@/src/lib/attempt-start-contract";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
+import {homeLoginHref} from "@/src/platform/auth/login-routing";
 
 interface AttemptPageProps {
   params: Promise<{ quizId: string }>;
@@ -15,7 +16,7 @@ export default async function QuizAttemptPage({ params }: AttemptPageProps) {
   const { quizId } = await params;
   const attemptPath = `/exams/quizzes/${encodeURIComponent(quizId)}/attempt`;
   const identity = await getVerifiedLearnerIdentity();
-  if (!identity) redirect(`/exams/api/auth/discord/user/login?returnTo=${encodeURIComponent(attemptPath)}`);
+  if (!identity) redirect(homeLoginHref("exams", attemptPath));
   const access = await resolveLearnerAccess(identity.discordId);
   const quiz = await getQuizForLearner(quizId, access).catch(() => null);
   if (!quiz) notFound();

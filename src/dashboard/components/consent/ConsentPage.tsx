@@ -1,8 +1,9 @@
+"use client";
+
 import {useEffect, useState} from "react";
 import {Link, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {PolicyConsentContext} from "../../types/PolicyConsent.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
-import {EXAMS_LOGIN_URL} from "../../utils/ExamsApiUtils.ts";
 import styles from "./ConsentPage.module.css";
 
 export type ConsentPageState =
@@ -32,8 +33,8 @@ const completionNotice = (authError: string | null, requestId: string | null): C
 };
 
 const RetryLogin = () => <div className={styles.recoveryActions}>
-    <Link className={styles.primaryLink} to="/auth?returnTo=/account">Sign in to Dashboard</Link>
-    <a className={styles.secondaryLink} href={EXAMS_LOGIN_URL}>Sign in to Exams</a>
+    <Link className={styles.primaryLink} to="/?loginFor=dashboard&amp;returnTo=%2Faccount">Return to Dashboard login</Link>
+    <Link className={styles.secondaryLink} to="/?loginFor=exams&amp;returnTo=%2Fexams">Return to Exams login</Link>
 </div>;
 
 export const ConsentPageView = ({state, notice}: ConsentPageViewProps) => {

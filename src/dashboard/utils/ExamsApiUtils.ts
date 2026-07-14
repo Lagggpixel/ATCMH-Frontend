@@ -4,7 +4,7 @@ import type {
     ExamCategory, ExamWebsiteContent, ManagedExamQuiz, NormalizedExamImport,
 } from "../types/Exam.ts";
 
-export const EXAMS_LOGIN_URL = "/exams";
+export const EXAMS_LOGIN_URL = "/?loginFor=exams&returnTo=%2Fexams";
 
 interface ExamsBrowserSession {accountId: string; discordId: string; expiresAt: string; csrfToken: string; impersonating: boolean}
 interface ExamsSessionResponse {session: ExamsBrowserSession | null}

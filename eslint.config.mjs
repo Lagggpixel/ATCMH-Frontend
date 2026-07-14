@@ -23,5 +23,5 @@ export default defineConfig([
     files: ["**/*.test.ts", "**/*.test.tsx", "**/attempt-navigation.ts"],
     rules: {"@typescript-eslint/no-explicit-any": "off"},
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", ".next-dev/**", "out/**", "build/**", "next-env.d.ts"]),
 ]);

@@ -3,7 +3,6 @@ import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-reposito
 import { getVerifiedLearnerDiscordSubject } from "@/src/lib/learner-session";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
 import { quizCatalogueTitle } from "@/src/lib/learner-site-content";
-import { LoginProviderLinks } from "../../AuthControls";
 
 /**
  * Catalogue data is attached after Discord session handoff is configured.  The
@@ -21,7 +20,6 @@ export default async function QuizCataloguePage() {
     <main className="learner-main">
       <section className="site-shell quizzes-page" aria-labelledby="page-title">
         <h1 id="page-title">{quizCatalogueTitle}</h1>
-        {!discordId ? <div className="content-card quiz-login-card"><p>Sign in with Discord or Infinite Flight to access quizzes unlocked for your linked account.</p><LoginProviderLinks /></div> : null}
         {quizzes.length === 0 && discordId ? <p className="empty">No quizzes are available right now.</p> : null}
         {quizzes.length > 0 ? (
           <ul className="quiz-card-grid">

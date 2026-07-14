@@ -49,10 +49,19 @@
 
 .homeContainer {
     background:
-        radial-gradient(circle at top left, rgba(127, 167, 242, 0.16), transparent 34rem),
-        linear-gradient(180deg, #101318 0%, #0d1015 100%);
-    min-height: 100dvh;
-    padding: 20px clamp(16px, 4vw, 56px) 48px;
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 34rem),
+        linear-gradient(180deg, #07101d 0%, #0d1726 100%);
+    min-height: 70dvh;
+    padding: 48px clamp(16px, 4vw, 56px) 72px;
+}
+
+.homeEyebrow {
+    margin: 0 0 10px;
+    color: #22d3ee;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
 .homeHeader {

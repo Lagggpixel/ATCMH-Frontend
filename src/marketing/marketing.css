@@ -66,6 +66,10 @@ img {
 	backdrop-filter: blur(18px);
 }
 
+.site-header.is-solid {
+	position: sticky;
+}
+
 .brand img {
 	width: auto;
 	height: 2.1rem;
@@ -78,6 +82,36 @@ img {
 	color: var(--muted);
 	font-size: 0.92rem;
 	font-weight: 600;
+}
+
+.nav-account-links {
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+}
+
+.nav-account-links button {
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	font: inherit;
+	cursor: pointer;
+}
+
+.nav-login,
+.nav-dashboard {
+	color: var(--foreground) !important;
+}
+
+.nav-auth-loading {
+	width: 4rem;
+	height: 0.8rem;
+	border-radius: 999px;
+	background: rgba(148, 163, 184, 0.15);
+}
+
+.mobile-navigation {
+	display: none;
 }
 
 .theme-glyph {
@@ -623,6 +657,120 @@ img {
 	background: rgba(15, 23, 42, 0.54);
 }
 
+.unified-product {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.unified-product-content {
+	flex: 1;
+}
+
+.login-modal-backdrop {
+	position: fixed;
+	z-index: 100;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	padding: 1.25rem;
+	background: rgba(2, 6, 23, 0.78);
+	backdrop-filter: blur(12px);
+}
+
+.login-modal {
+	position: relative;
+	width: min(100%, 31rem);
+	padding: clamp(1.6rem, 5vw, 2.5rem);
+	border: 1px solid var(--border);
+	border-radius: 1.25rem;
+	background: #0d1726;
+	box-shadow: var(--shadow);
+}
+
+.login-modal-close {
+	position: absolute;
+	top: 0.8rem;
+	right: 0.8rem;
+	width: 2.25rem;
+	height: 2.25rem;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--foreground);
+	font-size: 1.35rem;
+	cursor: pointer;
+}
+
+.login-modal-eyebrow {
+	margin: 0 0 0.6rem;
+	color: var(--accent);
+	font-size: 0.75rem;
+	font-weight: 800;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.login-modal h2 {
+	margin: 0;
+	font-size: clamp(1.7rem, 5vw, 2.3rem);
+	letter-spacing: -0.035em;
+}
+
+.login-modal-actions {
+	display: grid;
+	gap: 0.75rem;
+	margin-top: 1.8rem;
+}
+
+.login-provider {
+	display: flex;
+	min-height: 3.1rem;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.8rem;
+	font-weight: 800;
+}
+
+.login-provider-discord { background: #5865f2; color: white; }
+.login-provider-ifc { background: #1684c6; color: white; }
+.login-modal-policy { margin: 1.25rem 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.55; }
+.login-modal-policy a { color: var(--foreground); text-decoration: underline; }
+.login-modal-error { border: 1px solid rgba(248, 113, 113, 0.45); border-radius: 0.75rem; background: rgba(127, 29, 29, 0.22); padding: 0.8rem; color: #fecaca; }
+
+.exam-session-control {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	color: var(--muted);
+}
+
+.exam-session-control button {
+	border: 0;
+	background: transparent;
+	color: var(--foreground);
+	font: inherit;
+	cursor: pointer;
+}
+
+.platform-state {
+	display: grid;
+	place-items: center;
+	align-content: center;
+	gap: 0.8rem;
+	min-height: 65vh;
+	padding: 3rem 1.25rem;
+	text-align: center;
+}
+
+.platform-state h1,
+.platform-state p { margin: 0; }
+.platform-state > p:not(.platform-eyebrow) { color: var(--muted); }
+.platform-eyebrow { color: var(--accent); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.platform-button { margin-top: 0.8rem; border-radius: 0.8rem; background: var(--primary); padding: 0.8rem 1.1rem; color: white; font-weight: 800; }
+.platform-spinner { width: 2.5rem; height: 2.5rem; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: platform-spin 0.8s linear infinite; }
+@keyframes platform-spin { to { transform: rotate(360deg); } }
+
 .footer-top,
 .footer-bottom {
 	display: flex;
@@ -720,6 +868,45 @@ img {
 		display: none;
 	}
 
+	.mobile-navigation {
+		position: relative;
+		display: block;
+		order: 3;
+	}
+
+	.mobile-navigation summary {
+		list-style: none;
+		cursor: pointer;
+		font-weight: 750;
+	}
+
+	.mobile-navigation summary::-webkit-details-marker { display: none; }
+
+	.mobile-navigation nav {
+		position: absolute;
+		top: calc(100% + 1rem);
+		right: 0;
+		display: grid;
+		gap: 0.35rem;
+		width: min(20rem, calc(100vw - 2rem));
+		padding: 0.75rem;
+		border: 1px solid var(--border);
+		border-radius: 1rem;
+		background: rgba(7, 16, 29, 0.98);
+		box-shadow: var(--shadow);
+	}
+
+	.mobile-navigation nav > a,
+	.mobile-navigation nav > button,
+	.mobile-navigation .nav-account-links a,
+	.mobile-navigation .nav-account-links button,
+	.mobile-navigation .nav-dropdown summary {
+		padding: 0.65rem 0.75rem;
+	}
+
+	.mobile-navigation .nav-account-links { display: grid; gap: 0.2rem; }
+	.mobile-navigation .nav-dropdown-menu { position: static; transform: none; margin-top: 0.35rem; }
+
 	.about-grid,
 	.eligibility-grid,
 	.service-grid {
@@ -735,6 +922,8 @@ img {
 	.site-header {
 		gap: 1rem;
 	}
+
+	.nav-cta { display: none; }
 
 	.brand img {
 		height: 2rem;

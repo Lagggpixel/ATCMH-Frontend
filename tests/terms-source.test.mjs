@@ -32,9 +32,9 @@ test('legal pages use the shared navbar with a Discord contact link', () => {
 
 	assert.match(policyPage, /<LegalDocument/)
 	assert.match(termsPage, /<LegalDocument/)
-	assert.match(legalDocument, /<SiteHeader\s*\/>/)
-	assert.match(header, /label: 'Contact', href: discordUrl, external: true/)
-	assert.match(header, /href: '\/#about'/)
+	assert.match(legalDocument, /<SiteFrame>/)
+	assert.match(header, /href=\{discordUrl\}/)
+	assert.match(header, /href: "\/#about"/)
 })
 
 test('terms describe the current consent and central authentication model', () => {
