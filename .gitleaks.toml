@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Discord snowflakes are public identifiers, not credentials"
+targetRules = ["discord-client-id"]
+regexes = ['''\b[0-9]{17,20}\b''']
+
+[[allowlists]]
+description = "Next.js generated build metadata is not application configuration"
+targetRules = ["generic-api-key"]
+paths = [
+  '''(^|/)\.next/cache/\.(previewinfo|rscinfo)$''',
+  '''(^|/)\.next/(standalone/\.next/)?(server/)?(prerender-manifest|server-reference-manifest)\.json$''',
+  '''(^|/)usr/local/include/node/v8-internal\.h$''',
+]
