@@ -54,7 +54,7 @@ test("home header actions distinguish loading, signed-out, account, and staff st
     assert.doesNotMatch(loading, /href="\/auth|href="\/account|Admin Dashboard/);
 
     const signedOut = inRouter(React.createElement(HomeHeaderActions, {session: null, authLoading: false, onLogout}), "/home");
-    assert.match(signedOut, /href="\/auth\?returnTo=\/home"/);
+    assert.match(signedOut, /href="\/auth\?returnTo=\/leaderboard"/);
     assert.match(signedOut, />Sign in</);
     assert.doesNotMatch(signedOut, /Admin Dashboard/);
 

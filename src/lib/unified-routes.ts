@@ -6,7 +6,7 @@ export function examsPath(path = ""): string {
   return `${EXAMS_BASE_PATH}${path}`;
 }
 
-const exactPaths = new Set(["/", "/terms", "/policy", "/auth", "/account", "/consent", "/api/health"]);
+const exactPaths = new Set(["/", "/terms", "/policy", "/leaderboard", "/auth", "/account", "/consent", "/api/health"]);
 
 export function isCanonicalAppPath(path: string): boolean {
   return exactPaths.has(path) || path === "/dashboard" || path.startsWith("/dashboard/") || path === EXAMS_BASE_PATH || path.startsWith(`${EXAMS_BASE_PATH}/`);

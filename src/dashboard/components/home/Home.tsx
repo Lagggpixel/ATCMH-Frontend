@@ -70,7 +70,7 @@ export const HomeHeaderActions = ({session, authLoading, adminUser, onLogout}: H
     }
 
     if (!session) {
-        return <div className={styles.homeHeaderActions}><Link className={styles.homeAdminPanelButton} to="/auth?returnTo=/home">Sign in</Link></div>;
+        return <div className={styles.homeHeaderActions}><Link className={styles.homeAdminPanelButton} to="/auth?returnTo=/leaderboard">Sign in</Link></div>;
     }
 
     const label = sessionLabel(session);

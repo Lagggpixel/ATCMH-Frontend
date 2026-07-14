@@ -15,7 +15,9 @@ const navLinks: NavLink[] = [
 	{ label: 'About', href: '/#about' },
 	{ label: 'Services', href: '/#services' },
 	{ label: 'Eligibility', href: '/#eligibility' },
+	{ label: 'Leaderboard', href: '/leaderboard' },
 	{ label: 'Exam Center', href: '/exams' },
+	{ label: 'Dashboard', href: '/auth?returnTo=/dashboard' },
 	{ label: 'Contact', href: discordUrl, external: true },
 ]
 
