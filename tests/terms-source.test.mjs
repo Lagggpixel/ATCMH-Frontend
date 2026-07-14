@@ -8,7 +8,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 
 test('terms page renders the canonical RootSite terms document', () => {
 	const termsDocument = path.join(projectRoot, 'TERMS_OF_SERVICE.md')
-	const termsPage = readFileSync(path.join(projectRoot, 'app', 'terms', 'page.tsx'), 'utf8')
+	const termsPage = readFileSync(path.join(projectRoot, 'src', 'app', 'terms', 'page.tsx'), 'utf8')
 	const terms = readFileSync(termsDocument, 'utf8')
 
 	assert.equal(existsSync(termsDocument), true)
@@ -23,8 +23,8 @@ test('terms page renders the canonical RootSite terms document', () => {
 test('legal pages use the shared navbar with a Discord contact link', () => {
 	const siteHeader = path.join(projectRoot, 'src', 'marketing', 'SiteHeader.tsx')
 	const legalDocument = readFileSync(path.join(projectRoot, 'src', 'marketing', 'LegalDocument.tsx'), 'utf8')
-	const policyPage = readFileSync(path.join(projectRoot, 'app', 'policy', 'page.tsx'), 'utf8')
-	const termsPage = readFileSync(path.join(projectRoot, 'app', 'terms', 'page.tsx'), 'utf8')
+	const policyPage = readFileSync(path.join(projectRoot, 'src', 'app', 'policy', 'page.tsx'), 'utf8')
+	const termsPage = readFileSync(path.join(projectRoot, 'src', 'app', 'terms', 'page.tsx'), 'utf8')
 
 	assert.equal(existsSync(siteHeader), true)
 

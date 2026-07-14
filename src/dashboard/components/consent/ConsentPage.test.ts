@@ -22,7 +22,7 @@ const context = {
 };
 
 test("Dashboard exposes consent as a public route", () => {
-    const app = readFileSync(new URL("../../../../app/consent/page.tsx", import.meta.url), "utf8");
+    const app = readFileSync(new URL("../../../app/consent/page.tsx", import.meta.url), "utf8");
     assert.match(app, /SharedDashboardPage page="consent"/);
 });
 

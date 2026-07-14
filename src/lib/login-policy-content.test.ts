@@ -32,7 +32,7 @@ test("login disclosure uses the canonical policies and prospective consent wordi
   assert.equal(termsOfServiceUrl, "https://atcmh.org/terms");
   assert.equal(privacyPolicyUrl, "https://atcmh.org/policy");
 
-  const controls = source("../../app/exams/AuthControls.tsx");
+  const controls = source("../app/exams/AuthControls.tsx");
   assert.match(controls, /To continue, you’ll be asked to agree to the Terms of Service and acknowledge the Privacy Policy\./);
   assert.match(controls, /className="login-policy-disclosure"[^>]*>\s*To continue, you’ll be asked to agree to the <a/);
   assert.doesNotMatch(controls, /I agree to the Terms of Service and acknowledge the Privacy Policy\./);
@@ -41,7 +41,7 @@ test("login disclosure uses the canonical policies and prospective consent wordi
 });
 
 test("footer links to both canonical policies", () => {
-  const layout = source("../../app/exams/layout.tsx");
+  const layout = source("../app/exams/layout.tsx");
   assert.match(layout, /href=\{termsOfServiceUrl\}[^>]*>Terms of Service<\/a>/);
   assert.match(layout, /href=\{privacyPolicyUrl\}[^>]*>Privacy Policy<\/a>/);
 });

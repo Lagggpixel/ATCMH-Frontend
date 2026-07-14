@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const page = readFileSync(new URL("../../app/exams/(learner)/attempts/[attemptId]/page.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../app/exams/(learner)/attempts/[attemptId]/page.tsx", import.meta.url), "utf8");
 const review = readFileSync(new URL("./attempt-review-details.tsx", import.meta.url), "utf8");
-const css = readFileSync(new URL("../../app/exams/exams.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../app/exams/exams.css", import.meta.url), "utf8");
 
 test("result page has centered summary, canonical actions, and collapsed review", () => {
   assert.match(page, /attempt-result-page/);

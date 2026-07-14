@@ -17,7 +17,7 @@ function renderedSecurityHeaders(nodeEnv, dashboardApiUrl) {
 
 test("Next emits standalone output and browser security headers", () => {
   const config = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
-  const proxyUrl = new URL("../proxy.ts", import.meta.url);
+  const proxyUrl = new URL("../src/proxy.ts", import.meta.url);
   assert.equal(existsSync(proxyUrl), true, "runtime security proxy must exist");
   const proxy = readFileSync(proxyUrl, "utf8");
   const security = readFileSync(new URL("../src/lib/security-headers.ts", import.meta.url), "utf8");
@@ -66,4 +66,11 @@ test("environment examples and ignores contain no public secret channel", () => 
 test("Frontend contract tests do not read sibling repositories", () => {
   const contract = readFileSync(new URL("../src/lib/cross-service-auth-contract.test.ts", import.meta.url), "utf8");
   assert.doesNotMatch(contract, /Dashboard-Backend|\.\.\/\.\.\/\.\.\/Dashboard/);
+});
+
+test("the Next App Router tree lives under src", () => {
+  assert.equal(existsSync(new URL("../src/app/layout.tsx", import.meta.url)), true);
+  assert.equal(existsSync(new URL("../app/layout.tsx", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../src/proxy.ts", import.meta.url)), true);
+  assert.equal(existsSync(new URL("../proxy.ts", import.meta.url)), false);
 });

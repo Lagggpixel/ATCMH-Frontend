@@ -7,7 +7,7 @@ function source(relativePath: string): string {
 }
 
 test("signed-in catalogue resolves trusted learner access and uses role-neutral empty copy", () => {
-  const page = source("../../app/exams/(learner)/quizzes/page.tsx");
+  const page = source("../app/exams/(learner)/quizzes/page.tsx");
   assert.match(page, /resolveLearnerAccess\(discordId\)/);
   assert.match(page, /listEligibleQuizzes\(access\)/);
   assert.match(page, /No quizzes are available right now\./);
@@ -15,9 +15,9 @@ test("signed-in catalogue resolves trusted learner access and uses role-neutral 
 });
 
 for (const [name, relativePath] of [
-  ["detail", "../../app/exams/(learner)/quizzes/[quizId]/page.tsx"],
-  ["attempt render", "../../app/exams/(learner)/quizzes/[quizId]/attempt/page.tsx"],
-  ["start", "../../app/exams/api/quizzes/[quizId]/start/route.ts"],
+  ["detail", "../app/exams/(learner)/quizzes/[quizId]/page.tsx"],
+  ["attempt render", "../app/exams/(learner)/quizzes/[quizId]/attempt/page.tsx"],
+  ["start", "../app/exams/api/quizzes/[quizId]/start/route.ts"],
 ] as const) {
   test(`${name} resolves trusted learner access before canonical quiz authorization`, () => {
     const boundary = source(relativePath);

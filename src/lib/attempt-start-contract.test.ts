@@ -9,7 +9,7 @@ const quizId = "c2a07cd2-3e2e-482e-b2ee-9d5c6fec6bc4";
 const discordId = "123456789012345678";
 
 test("the start cookie is available to both the start route and attempt page", () => {
-  const source = readFileSync(new URL("../../app/exams/api/quizzes/[quizId]/start/route.ts", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../app/exams/api/quizzes/[quizId]/start/route.ts", import.meta.url), "utf8");
   assert.match(source, /examsCookieOptions/);
 });
 

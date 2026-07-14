@@ -36,7 +36,7 @@ test("Dashboard category PATCH matches the Frontend-owned Exams preflight contra
 });
 
 test("Exams callback handles the documented central-auth outcomes locally", () => {
-  const exams = readFileSync(new URL("../../app/exams/api/auth/callback/route.ts", import.meta.url), "utf8");
+  const exams = readFileSync(new URL("../app/exams/api/auth/callback/route.ts", import.meta.url), "utf8");
   for (const code of ["cancelled", "provider_failure", "consent_declined", "invalid_consent", "consent_expired"]) {
     assert.match(exams, new RegExp(`"${code}"`));
   }

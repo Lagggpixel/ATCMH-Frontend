@@ -25,7 +25,7 @@ test("learner header does not offer login to a verified session", () => {
 });
 
 test("home authentication UX handles central outcomes and hides provider choices when signed in", () => {
-  const source = readFileSync(new URL("../../app/exams/(learner)/page.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../app/exams/(learner)/page.tsx", import.meta.url), "utf8");
   assert.match(source, /authError === "cancelled"/);
   assert.match(source, /authError === "provider_failure"/);
   assert.match(source, /authError === "link_conflict"/);

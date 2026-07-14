@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { securityHeadersFor } from "./src/lib/security-headers";
+import { securityHeadersFor } from "./lib/security-headers";
 
 export function proxy() {
   const response = NextResponse.next();
