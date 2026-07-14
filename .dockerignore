@@ -2,6 +2,7 @@
 .gitignore
 .gitleaks.toml
 .next
+.next-dev
 node_modules
 out
 dist

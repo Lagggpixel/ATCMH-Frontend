@@ -15,6 +15,16 @@ function renderedSecurityHeaders(nodeEnv, dashboardApiUrl) {
   return JSON.parse(result.stdout.trim());
 }
 
+function renderedNextConfig(phase) {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
+    "const imported=await import('./next.config.ts'); const configFactory=imported.default?.default ?? imported.default; const config=typeof configFactory === 'function' ? await configFactory(process.env.NEXT_TEST_PHASE, {defaultConfig: {}}) : configFactory; console.log(JSON.stringify(config));"], {
+    cwd: root, encoding: "utf8", env: {...process.env, NEXT_TEST_PHASE: phase},
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout.trim());
+}
+
 test("Next emits standalone output and browser security headers", () => {
   const config = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
   const proxyUrl = new URL("../src/proxy.ts", import.meta.url);
@@ -27,6 +37,22 @@ test("Next emits standalone output and browser security headers", () => {
   }
 });
 
+test("Next isolates development artifacts from standalone production output", () => {
+  const development = renderedNextConfig("phase-development-server");
+  const production = renderedNextConfig("phase-production-build");
+  const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
+  const dockerignore = readFileSync(new URL("../.dockerignore", import.meta.url), "utf8");
+  const tsconfig = readFileSync(new URL("../tsconfig.json", import.meta.url), "utf8");
+
+  assert.equal(development.distDir, ".next-dev");
+  assert.equal(production.distDir, ".next");
+  assert.equal(production.output, "standalone");
+  assert.match(gitignore, /^\.next-dev\/$/m);
+  assert.match(dockerignore, /^\.next-dev$/m);
+  assert.match(tsconfig, /"\.next-dev\/types\/\*\*\/\*\.ts"/);
+  assert.match(tsconfig, /"\.next-dev\/dev\/types\/\*\*\/\*\.ts"/);
+});
+
 test("security headers use the configured Dashboard API and enable transport hardening only in production", () => {
   const config = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
   assert.doesNotMatch(config, /DASHBOARD_API_URL|Content-Security-Policy/);
@@ -34,12 +60,14 @@ test("security headers use the configured Dashboard API and enable transport har
   const development = renderedSecurityHeaders("development", "http://localhost:3001");
   const developmentCsp = development.find(({key}) => key === "Content-Security-Policy")?.value ?? "";
   assert.match(developmentCsp, /connect-src 'self' http:\/\/localhost:3001/);
+  assert.match(developmentCsp, /script-src[^;]*'unsafe-eval'/);
   assert.doesNotMatch(developmentCsp, /upgrade-insecure-requests/);
   assert.equal(development.some(({key}) => key === "Strict-Transport-Security"), false);
 
   const production = renderedSecurityHeaders("production", "https://dashboard-api.atcmh.org");
   const productionCsp = production.find(({key}) => key === "Content-Security-Policy")?.value ?? "";
   assert.match(productionCsp, /connect-src 'self' https:\/\/dashboard-api.atcmh.org/);
+  assert.doesNotMatch(productionCsp, /'unsafe-eval'/);
   assert.match(productionCsp, /upgrade-insecure-requests/);
   assert.equal(production.some(({key}) => key === "Strict-Transport-Security"), true);
 });

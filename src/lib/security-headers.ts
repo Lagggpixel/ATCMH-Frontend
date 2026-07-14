@@ -9,7 +9,7 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
     "frame-ancestors 'none'",
     `form-action 'self' ${dashboardApiUrl}`,
     "object-src 'none'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
