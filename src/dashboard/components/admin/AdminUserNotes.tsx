@@ -7,8 +7,6 @@ import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import type {UserNote} from "../../types/UserNote.ts";
 import {formatAdminUtcDate} from "../../utils/AdminDateUtils.ts";
-import AdminNav from "./AdminNav.tsx";
-import type {AdminUser} from "../../types/AdminUser.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import AdminToast from "./AdminToast.tsx";
 import {useTableSort} from "../../hooks/useTableSort.ts";
@@ -21,7 +19,6 @@ interface AdminUserNotesProps {
     error: string | undefined;
     userNotes: UserNote[] | undefined;
     users: AtcmhUser[] | undefined;
-    adminUser: AdminUser | undefined;
     token: string | null;
     onUserNoteChanged: (note: UserNote) => void;
 }
@@ -32,7 +29,6 @@ const AdminUserNotes = ({
                             error,
                             userNotes,
                             users,
-                            adminUser,
                             token,
                             onUserNoteChanged
                         }: AdminUserNotesProps) => {
@@ -195,11 +191,9 @@ const AdminUserNotes = ({
 
     return (
         <div className={styles.adminUserNotesContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <header className={styles.adminUserNotesHeader}>
-                <h1>User Notes List</h1>
+            <div className={styles.adminUserNotesHeader}>
                 <button type="button" onClick={() => setIsCreateOpen(true)}>Create Usernote</button>
-            </header>
+            </div>
 
             <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
 

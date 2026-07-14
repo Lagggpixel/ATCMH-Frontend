@@ -65,3 +65,19 @@ test("completion failure stays retryable and only displays a validated request I
     assert.match(html, /123e4567-e89b-42d3-a456-426614174000/);
     assert.match(html, /Agree and continue/);
 });
+
+test("consent policy links and secondary actions have explicit accessible affordances", async () => {
+    const ConsentPageView = await loadView();
+    const html = render(React.createElement(ConsentPageView, {state: {kind: "ready", context}}));
+    const css = readFileSync(new URL("./ConsentPage.module.css", import.meta.url), "utf8");
+
+    assert.match(html, /<a[^>]*>Terms of Service<\/a>/);
+    assert.match(html, /<a[^>]*>Privacy Policy<\/a>/);
+    assert.match(css, /\.agreement a\s*\{[^}]*text-decoration:\s*underline/s);
+    assert.match(css, /\.agreement a:hover\s*\{[^}]*text-decoration-thickness:/s);
+    assert.match(css, /\.agreement a:focus-visible\s*\{[^}]*outline:/s);
+    assert.match(css, /\.actions button:last-child\s*\{[^}]*border:\s*1px solid var\(--border-color\)/s);
+    assert.match(css, /\.secondaryLink\s*\{[^}]*border:\s*1px solid var\(--border-color\)/s);
+    assert.match(css, /\.actions button:last-child:hover[^\{]*\{[^}]*background:/s);
+    assert.match(css, /\.secondaryLink:hover[^\{]*\{[^}]*background:/s);
+});

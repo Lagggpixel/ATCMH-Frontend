@@ -6,23 +6,17 @@
     position: relative;
 }
 
-.adminSessionsContainer h1 {
-    margin: 0 0 18px;
-    color: var(--text-color);
-    font-size: clamp(1.8rem, 4vw, 2.55rem);
-    line-height: 1.05;
-}
-
 .adminSessionsControls {
     display: grid;
     grid-template-columns: repeat(4, minmax(180px, 1fr));
     gap: 12px;
     margin-bottom: 14px;
-    padding: 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: linear-gradient(180deg, var(--surface-color), var(--surface-2-color));
-    box-shadow: var(--panel-shadow);
+    padding: 0 0 14px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .adminSessionsFilterControl {

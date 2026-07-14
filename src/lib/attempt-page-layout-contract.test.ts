@@ -7,7 +7,7 @@ function source(relativePath: string): string {
 }
 
 test("attempt questions use unified cards with labelled radio groups", () => {
-  const form = source("../app/exams/(learner)/quizzes/[quizId]/attempt/AttemptForm.tsx");
+  const form = source("../app/exams/(attempt)/quizzes/[quizId]/attempt/AttemptForm.tsx");
 
   assert.match(form, /<section className="attempt-question"/);
   assert.match(form, /<h2 id=\{`question-\$\{question\.id\}-title`\}>/);
@@ -17,7 +17,7 @@ test("attempt questions use unified cards with labelled radio groups", () => {
 });
 
 test("timed attempts reserve a desktop rail for the fixed timer", () => {
-  const form = source("../app/exams/(learner)/quizzes/[quizId]/attempt/AttemptForm.tsx");
+  const form = source("../app/exams/(attempt)/quizzes/[quizId]/attempt/AttemptForm.tsx");
   const css = source("../app/exams/exams.css");
 
   assert.match(form, /attempt-form--timed/);
@@ -34,7 +34,7 @@ test("mobile attempts keep a compact top-right timer with matching clearance", (
 });
 
 test("attempt errors and action live in a distinct submission footer", () => {
-  const form = source("../app/exams/(learner)/quizzes/[quizId]/attempt/AttemptForm.tsx");
+  const form = source("../app/exams/(attempt)/quizzes/[quizId]/attempt/AttemptForm.tsx");
   const css = source("../app/exams/exams.css");
 
   assert.match(form, /<footer className="attempt-submit">[\s\S]*role="alert"[\s\S]*type="submit"[\s\S]*<\/footer>/);
@@ -42,7 +42,7 @@ test("attempt errors and action live in a distinct submission footer", () => {
 });
 
 test("active attempts protect navigation until a successful submission disarms them", () => {
-  const form = source("../app/exams/(learner)/quizzes/[quizId]/attempt/AttemptForm.tsx");
+  const form = source("../app/exams/(attempt)/quizzes/[quizId]/attempt/AttemptForm.tsx");
 
   assert.match(form, /useAttemptNavigationProtection/);
   assert.match(form, /answersRef/);

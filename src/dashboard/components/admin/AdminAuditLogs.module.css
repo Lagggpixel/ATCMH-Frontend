@@ -5,33 +5,18 @@
     min-height: calc(100dvh - 40px);
 }
 
-.auditHeader {
-    margin-bottom: 16px;
-}
-
-.auditHeader h1 {
-    margin: 0 0 6px;
-    color: var(--text-color);
-    font-size: clamp(1.8rem, 4vw, 2.55rem);
-    line-height: 1.05;
-}
-
-.auditHeader p {
-    margin: 0;
-    color: var(--muted-text);
-}
-
 .auditFilters {
     display: grid;
     grid-template-columns: repeat(8, minmax(120px, 1fr)) auto;
     gap: 12px;
     align-items: end;
     margin-bottom: 14px;
-    padding: 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--surface-color);
-    box-shadow: var(--panel-shadow);
+    padding: 0 0 14px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .auditFilters label {

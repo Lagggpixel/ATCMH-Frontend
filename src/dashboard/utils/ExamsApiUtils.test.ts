@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {ExamsApiUtils, ExamsAuthenticationRequiredError} from "./ExamsApiUtils.ts";
+import {ExamsApiUtils, ExamsAuthenticationRequiredError, ExamsSessionHandoffError} from "./ExamsApiUtils.ts";
 
 const sessionResponse = () => new Response(JSON.stringify({session: {accountId: "1", discordId: "123", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "exams-csrf", impersonating: false}}), {status: 200, headers: {"Content-Type": "application/json"}});
 test.beforeEach(() => ExamsApiUtils.clearSessionCache());
@@ -348,10 +348,121 @@ test("quiz unlock writes send an explicit unlocked state", async () => {
 
 test("mutations fail with a controlled auth error when the Exams session is absent", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => new Response(JSON.stringify({session: null}), {status: 200, headers: {"Content-Type": "application/json"}});
+    globalThis.fetch = async input => String(input).endsWith("/auth/handoffs/exams")
+        ? new Response(null, {status: 401})
+        : new Response(JSON.stringify({session: null}), {status: 200, headers: {"Content-Type": "application/json"}});
     try {
         await assert.rejects(() => ExamsApiUtils.createCategory("Tower", "unused"), ExamsAuthenticationRequiredError);
     } finally { globalThis.fetch = originalFetch; }
+});
+
+test("a Dashboard session mints an Exams session and retries the original management read", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    let managementReads = 0;
+    let sessionReads = 0;
+    globalThis.fetch = async (input, init) => {
+        const request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
+        requests.push(request);
+        if (request.url.endsWith("/exams/api/management/me")) {
+            managementReads += 1;
+            return managementReads === 1
+                ? new Response(null, {status: 401})
+                : new Response(JSON.stringify({discordId: "mentor-1", canManageAll: false, capabilities: ["manage-exams"]}), {status: 200, headers: {"Content-Type": "application/json"}});
+        }
+        if (request.url.endsWith("/exams/api/auth/session")) {
+            sessionReads += 1;
+            return new Response(JSON.stringify({session: sessionReads === 1 ? null : {accountId: "1", discordId: "mentor-1", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "exams-csrf", impersonating: false}}), {status: 200, headers: {"Content-Type": "application/json"}});
+        }
+        if (request.url.endsWith("/auth/handoffs/exams")) return new Response(JSON.stringify({handoff: "h".repeat(43)}), {status: 200, headers: {"Content-Type": "application/json"}});
+        if (request.url.includes("/exams/api/auth/callback?")) return new Response(null, {
+            status: 307,
+            headers: {location: "https://www.atcmh.org/dashboard/exams"},
+        });
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
+    try {
+        const actor = await ExamsApiUtils.getManagementMe("dashboard-csrf");
+        assert.equal(actor.discordId, "mentor-1");
+    } finally {
+        ExamsApiUtils.clearSessionCache();
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(requests[2].url, "https://dashboard-api.atcmh.org/auth/handoffs/exams");
+    assert.equal(requests[2].method, "POST");
+    assert.equal(requests[2].headers.get("X-CSRF-Token"), "dashboard-csrf");
+    assert.match(requests[3].url, /^https:\/\/www\.atcmh\.org\/exams\/api\/auth\/callback\?handoff=/);
+    assert.match(requests[3].url, /returnTo=%2Fdashboard%2Fexams/);
+    assert.equal(requests[3].redirect, "manual");
+    assert.equal(sessionReads, 2);
+    assert.equal(managementReads, 2);
+});
+
+test("a failed local callback redirect remains a handoff failure instead of a signed-out Exams session", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    globalThis.fetch = async (input, init) => {
+        const request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
+        requests.push(request);
+        if (request.url.endsWith("/exams/api/management/me")) return new Response(null, {status: 401});
+        if (request.url.endsWith("/exams/api/auth/session")) return Response.json({session: null});
+        if (request.url.endsWith("/auth/handoffs/exams")) return Response.json({handoff: "h".repeat(43)});
+        if (request.url.includes("/exams/api/auth/callback?")) return new Response(null, {
+            status: 307,
+            headers: {location: "https://www.atcmh.org/exams?authError=invalid_handoff"},
+        });
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
+    try {
+        await assert.rejects(() => ExamsApiUtils.getManagementMe("dashboard-csrf"), ExamsSessionHandoffError);
+    } finally {
+        ExamsApiUtils.clearSessionCache();
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(requests.filter(request => request.url.endsWith("/auth/handoffs/exams")).length, 1);
+    assert.equal(requests.find(request => request.url.includes("/exams/api/auth/callback?"))?.redirect, "manual");
+});
+
+test("parallel initial Exam Center reads share one Dashboard-to-Exams handoff", async () => {
+    const originalFetch = globalThis.fetch;
+    let managementReads = 0;
+    let sessionReads = 0;
+    let handoffRequests = 0;
+    let callbacks = 0;
+    let callbackComplete = false;
+    globalThis.fetch = async (input, init) => {
+        const request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
+        if (request.url.endsWith("/exams/api/management/me")) {
+            managementReads += 1;
+            return managementReads <= 2
+                ? new Response(null, {status: 401})
+                : new Response(JSON.stringify({discordId: "mentor-1", canManageAll: false, capabilities: ["manage-exams"]}), {status: 200, headers: {"Content-Type": "application/json"}});
+        }
+        if (request.url.endsWith("/exams/api/auth/session")) {
+            sessionReads += 1;
+            return new Response(JSON.stringify({session: callbackComplete ? {accountId: "1", discordId: "mentor-1", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "exams-csrf", impersonating: false} : null}), {status: 200, headers: {"Content-Type": "application/json"}});
+        }
+        if (request.url.endsWith("/auth/handoffs/exams")) {
+            handoffRequests += 1;
+            return new Response(JSON.stringify({handoff: "h".repeat(43)}), {status: 200, headers: {"Content-Type": "application/json"}});
+        }
+        if (request.url.includes("/exams/api/auth/callback?")) {
+            callbacks += 1;
+            callbackComplete = true;
+            return new Response(null, {status: 204});
+        }
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
+    try {
+        await Promise.all([ExamsApiUtils.getManagementMe("dashboard-csrf"), ExamsApiUtils.getManagementMe("dashboard-csrf")]);
+    } finally {
+        ExamsApiUtils.clearSessionCache();
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(handoffRequests, 1);
+    assert.equal(callbacks, 1);
+    assert.ok(sessionReads >= 2);
+    assert.equal(managementReads, 4);
 });
 
 test("a mutation clears, re-bootstraps, and retries once after auth loss", async () => {

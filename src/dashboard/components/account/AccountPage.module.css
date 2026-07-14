@@ -1,16 +1,15 @@
-.accountPage { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
-.card { width: min(760px, 100%); padding: clamp(24px, 5vw, 44px); border: 1px solid var(--border-color); border-radius: 18px; background: var(--surface-color); box-shadow: var(--panel-shadow); }
-.eyebrow { color: var(--accent-strong-color); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; font-weight: 700; }
+.accountPage { min-height: 100dvh; display: grid; place-items: center; padding: 24px; color: var(--foreground); }
+.card { width: min(760px, 100%); padding: clamp(24px, 5vw, 44px); border: 1px solid var(--border); border-radius: 18px; background: var(--card-solid); box-shadow: var(--shadow); }
+.eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; font-weight: 700; }
 .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 24px 0 32px; }
-.summary div, .identity { padding: 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-2-color); }
-.summary dt, .identity span { color: var(--muted-text); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+.summary div, .identity { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.summary dt, .identity span { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
 .summary dd { margin: 6px 0 0; font-weight: 700; }
 .identityGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .identity { display: grid; gap: 6px; }
-.identity small { color: var(--muted-text); overflow-wrap: anywhere; }
+.identity small { color: var(--muted); overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.actions button, .primary { border: 1px solid var(--accent-color); border-radius: 8px; padding: 10px 16px; background: var(--accent-color); color: #111; cursor: pointer; text-decoration: none; font: inherit; font-weight: 700; }
-.actions .danger { border-color: var(--error-color); background: transparent; color: var(--danger-text); }
-.subtleLink { display: inline-block; margin-top: 20px; color: var(--accent-strong-color); }
-.error { padding: 12px; border-radius: 8px; background: var(--danger-bg); color: var(--danger-text); }
+.actions button, .primary { border: 1px solid var(--primary-strong); border-radius: 8px; padding: 10px 16px; background: var(--primary-strong); color: #fff; cursor: pointer; text-decoration: none; font: inherit; font-weight: 700; }
+.actions .danger { border-color: #f87171; background: #7f1d1d; color: #fff; }
+.error { padding: 12px; border: 1px solid #f87171; border-radius: 8px; background: #7f1d1d; color: #fff; }
 @media (max-width: 600px) { .summary, .identityGrid { grid-template-columns: 1fr; } }

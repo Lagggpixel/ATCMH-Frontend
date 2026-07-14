@@ -1,6 +1,7 @@
 import { discordUrl, SiteHeader } from './SiteHeader'
 import SiteFooter from './SiteFooter'
 import HomeLoginModal from '@/src/platform/auth/HomeLoginModal'
+import Eligibility from '@/src/marketing/Eligibility'
 import { Suspense } from 'react'
 
 type Service = {
@@ -54,24 +55,6 @@ const services: Service[] = [
 		num: '03',
 		icon: '◉',
 	},
-]
-
-const requirements = [
-	'Trust Level 1 on IFC',
-	'At least 14 years of age',
-	'Grade 3 with Expert Server access',
-	'Minimum of 500 ATC operations',
-	'Current IFATC recruit',
-	'All-time stats do not exceed 50% Level 1 Violation to landing ratio',
-	'At least 60 days since last Level 2 or 3 Violation',
-	'Must be able to access Discord',
-]
-
-const notes = [
-	'Must have an active IFC account that is in good standing',
-	'Must not be listed on the IFVARB Blacklist or Watchlist',
-	'We are not directly affiliated with the IFATC Recruitment Process',
-	'Completion of our program does not guarantee IFATC acceptance',
 ]
 
 function Hero() {
@@ -177,40 +160,6 @@ function Services() {
 	)
 }
 
-function Eligibility() {
-	return (
-		<section id="eligibility" className="section eligibility-section">
-			<div className="section-heading">
-				<span>Requirements</span>
-				<h2>Eligibility</h2>
-				<p>Here&apos;s what you need to get started with ATCMH.</p>
-			</div>
-			<div className="eligibility-grid">
-				<div className="info-card">
-					<h3>Requirements</h3>
-					<ul className="check-list">
-						{requirements.map((requirement) => (
-							<li key={requirement}>{requirement}</li>
-						))}
-					</ul>
-				</div>
-				<div className="info-card gold-card">
-					<h3>Important Notes</h3>
-					<ul className="dot-list">
-						{notes.map((note) => (
-							<li key={note}>{note}</li>
-						))}
-					</ul>
-					<div className="notice">
-						Our mentorship is designed to give you the best preparation possible. Your success
-						ultimately depends on your dedication and performance.
-					</div>
-				</div>
-			</div>
-		</section>
-	)
-}
-
 function Cta() {
 	return (
 		<section className="cta-section">
@@ -240,7 +189,7 @@ function Cta() {
 export default function Home() {
 	return (
 		<div className="marketing-product">
-			<SiteHeader navigation="marketing" showLogin />
+			<SiteHeader showLogin />
 			<Suspense fallback={null}><HomeLoginModal /></Suspense>
 			<main>
 				<Hero />

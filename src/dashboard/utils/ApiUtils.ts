@@ -30,6 +30,20 @@ export type AdminUserAuthResult =
     | {status: "unauthenticated"}
     | {status: "forbidden"};
 
+export type EligibilityRequirementStatus = "pass" | "fail" | "manual";
+
+export interface EligibilityRequirement {
+    id: string;
+    label: string;
+    status: EligibilityRequirementStatus;
+    detail: string;
+}
+
+export interface EligibilityResponse {
+    status: "ready" | "not_linked" | "unavailable" | "already_ifatc";
+    requirements: EligibilityRequirement[];
+}
+
 export class ApiUtils {
 
     static get apiOrigin() { return dashboardApiUrl; }
@@ -40,6 +54,12 @@ export class ApiUtils {
         await ApiUtils.ensureOk(response);
         const session = await ApiUtils.parseJson<DashboardAuthSession & {status?: string}>(response) as DashboardAuthSession & {status?: string};
         return {...session, status: session.status ? session.status.toUpperCase() as DashboardAuthSession["status"] : undefined};
+    }
+
+    static async getEligibility(): Promise<EligibilityResponse> {
+        const response = await fetch(`${dashboardApiUrl}/account/eligibility`, {credentials: "include", cache: "no-store"});
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<EligibilityResponse>(response) as EligibilityResponse;
     }
 
     static async getConsentContext(): Promise<PolicyConsentContext | null> {

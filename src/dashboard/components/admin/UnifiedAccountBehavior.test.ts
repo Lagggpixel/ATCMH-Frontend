@@ -11,6 +11,7 @@ test("account and alt navigation outcomes follow server capabilities", () => {
     assert.equal(adminNavigationItems(user(), false).some(item => item.path === "/dashboard/accounts"), false);
     const privileged = adminNavigationItems(user({canManageAccounts: true, canReviewAltAccounts: true}), false).map(item => item.path);
     assert.ok(privileged.includes("/dashboard/accounts")); assert.ok(privileged.includes("/dashboard/alt-accounts"));
+    assert.ok(!privileged.includes("/account"));
 });
 
 test("impersonation outcome names the target account", () => assert.equal(impersonationBannerText("42"), "Impersonating account 42"));

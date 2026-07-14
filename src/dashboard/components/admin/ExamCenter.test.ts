@@ -14,6 +14,8 @@ import {
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "../../route-map.ts"), "utf8");
 const centerSource = readFileSync(join(currentDir, "ExamCenter.tsx"), "utf8");
+const examsApiSource = readFileSync(join(currentDir, "../../utils/ExamsApiUtils.ts"), "utf8");
+const dashboardRouteSource = readFileSync(join(currentDir, "../../DashboardRoute.tsx"), "utf8");
 const centerCss = readFileSync(join(currentDir, "ExamCenter.module.css"), "utf8");
 const unlockManagerSource = readFileSync(join(currentDir, "ExamUnlockManager.tsx"), "utf8");
 const catalogPath = join(currentDir, "ExamCatalog.tsx");
@@ -36,8 +38,18 @@ test("exam management uses dedicated catalog, editor, import, and website routes
     assert.match(appSource, /params: \{attemptId:/);
 });
 
-test("exam center passes the real admin context to the global navigation", () => {
-    assert.match(centerSource, /<AdminNav adminUser=\{adminUser\}\/>/);
+test("exam center receives the shared global Dashboard navigation once", () => {
+    assert.doesNotMatch(centerSource, /<AdminNav/);
+    assert.match(dashboardRouteSource, /<DashboardWorkspace adminUser=\{state\.loaded \? state\.adminUser : undefined\}/);
+});
+
+test("a Dashboard-to-Exams handoff failure remains retryable without sending staff to Exams sign-in", () => {
+    assert.match(examsApiSource, /export class ExamsSessionHandoffError extends Error/);
+    assert.match(examsApiSource, /export const isExamsSessionHandoffFailure = \(reason: unknown\): reason is ExamsSessionHandoffError/);
+    assert.match(centerSource, /isExamsSessionHandoffFailure\(reason\)/);
+    assert.match(centerSource, /Could not connect Dashboard to Exams/);
+    assert.match(centerSource, /examsAuthRequired && !examsHandoffFailed \? "Retry after signing in" : "Try again"/);
+    assert.match(centerSource, /examsAuthRequired && !examsHandoffFailed \? <a href=\{EXAMS_LOGIN_URL\}/);
 });
 
 test("exam center removes redundant identity and permission copy", () => {
@@ -187,8 +199,9 @@ test("create and import are quiet catalogue actions rather than persistent desti
     assert.match(centerSource, /className=\{styles\.createButton\}>Create\s+quiz/);
 });
 
-test("the active exam tab underline meets the navigation divider", () => {
-    assert.match(centerCss, /\.examNav \.activeNavLink::after\s*\{[\s\S]*?bottom: -5px;/);
+test("the active exam tab underline meets the integrated navigation divider", () => {
+    assert.match(centerCss, /\.examNav\s*\{[\s\S]*?border-bottom:/);
+    assert.match(centerCss, /\.examNav \.activeNavLink::after\s*\{[\s\S]*?bottom: -1px;/);
 });
 
 test("exam center view type includes the unlocks workspace", () => {

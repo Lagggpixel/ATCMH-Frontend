@@ -46,7 +46,7 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
     || /[\u0000-\u001f\u007f]/.test(value)) return "/exams";
   try {
     const parsed = new URL(value, PRIVATE_RETURN_ORIGIN);
-    return parsed.origin === PRIVATE_RETURN_ORIGIN && (parsed.pathname === "/exams" || parsed.pathname.startsWith("/exams/"))
+    return parsed.origin === PRIVATE_RETURN_ORIGIN && (parsed.pathname === "/exams" || parsed.pathname.startsWith("/exams/") || parsed.pathname === "/dashboard/exams" || parsed.pathname.startsWith("/dashboard/exams/"))
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`
       : "/exams";
   } catch { return "/exams"; }

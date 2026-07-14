@@ -21,8 +21,6 @@ import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import {useMemo} from "react";
 import styles from "./AdminStats.module.css"
-import AdminNav from "./AdminNav.tsx";
-import type {AdminUser} from "../../types/AdminUser.ts";
 
 interface AdminStatsProps {
     loaded: boolean;
@@ -30,7 +28,6 @@ interface AdminStatsProps {
     error: string | undefined;
     sessions: Session[] | undefined;
     users: AtcmhUser[] | undefined;
-    adminUser: AdminUser | undefined;
 }
 
 const AdminStats = ({
@@ -38,8 +35,7 @@ const AdminStats = ({
                         loggedIn,
                         error,
                         sessions,
-                        users,
-                        adminUser
+                        users
                     } : AdminStatsProps) => {
     const tooltipStyle = {
         backgroundColor: "var(--row-bg)",
@@ -208,9 +204,6 @@ const AdminStats = ({
 
     return (
         <div className={styles.adminStatsContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <h1>Stats</h1>
-
             <div className={styles.adminStatsSubContainer}>
                 <h2>Session Statistics</h2>
                 {stats?.totalSessions === 0 ? (

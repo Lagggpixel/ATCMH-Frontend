@@ -1,11 +1,15 @@
 import {useEffect, useState} from "react";
 import {Link, NavLink, useNavigate, useParams} from "@/src/dashboard/next-navigation";
 import type {ExamCategory, ExamManagementActor, ExamQuizSummary, ManagedExamQuiz} from "../../types/Exam.ts";
-import type {AdminUser} from "../../types/AdminUser.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
-import {EXAMS_AUTH_REQUIRED_EVENT, EXAMS_LOGIN_URL, ExamsApiUtils, isExamsAuthenticationRequired} from "../../utils/ExamsApiUtils.ts";
+import {
+    EXAMS_AUTH_REQUIRED_EVENT,
+    EXAMS_LOGIN_URL,
+    ExamsApiUtils,
+    isExamsAuthenticationRequired,
+    isExamsSessionHandoffFailure,
+} from "../../utils/ExamsApiUtils.ts";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import ExamCatalog from "./ExamCatalog.tsx";
 import ExamEditor from "./ExamEditor.tsx";
 import {
@@ -23,7 +27,6 @@ import styles from "./ExamCenter.module.css";
 
 export interface ExamCenterProps {
     token: string | null;
-    adminUser?: AdminUser;
     users: AtcmhUser[];
     view: ExamCenterView;
 }
@@ -42,12 +45,13 @@ interface ExamEditorRequest {
 
 const hasCapability = (actor: ExamManagementActor, capability: ExamManagementActor["capabilities"][number]) => actor.capabilities.includes(capability);
 
-const ExamCenter = ({token, adminUser, users, view}: ExamCenterProps) => {
+const ExamCenter = ({token, users, view}: ExamCenterProps) => {
     const navigate = useNavigate();
     const {examId} = useParams<{ examId: string }>();
     const [data, setData] = useState<ExamCenterData | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [examsAuthRequired, setExamsAuthRequired] = useState(false);
+    const [examsHandoffFailed, setExamsHandoffFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [editorRequest, setEditorRequest] = useState<ExamEditorRequest | null>(null);
     const canManageExams = data ? hasCapability(data.actor, "manage-exams") : false;
@@ -64,13 +68,18 @@ const ExamCenter = ({token, adminUser, users, view}: ExamCenterProps) => {
         setData(null);
         setError(null);
         setExamsAuthRequired(false);
+        setExamsHandoffFailed(false);
         void (async () => {
             try {
                 const [actor, quizzes] = await Promise.all([ExamsApiUtils.getManagementMe(token), ExamsApiUtils.listQuizzes(token)]);
                 const categories = actor.canManageAll ? await ExamsApiUtils.listCategories(token) : [];
                 if (active) setData({actor, quizzes, categories});
             } catch (reason) {
-                if (active) { setExamsAuthRequired(isExamsAuthenticationRequired(reason)); setError(reason instanceof Error ? reason.message : String(reason)); }
+                if (active) {
+                    setExamsAuthRequired(isExamsAuthenticationRequired(reason));
+                    setExamsHandoffFailed(isExamsSessionHandoffFailure(reason));
+                    setError(reason instanceof Error ? reason.message : String(reason));
+                }
             }
         })();
         return () => {
@@ -120,7 +129,6 @@ const ExamCenter = ({token, adminUser, users, view}: ExamCenterProps) => {
     const editorRequestIsCurrent = isCurrentExamQuiz(examId, editorRequest?.requestedId ?? null);
 
     return <main className={styles.examCenter}>
-        <AdminNav adminUser={adminUser}/>
         {data ? <nav className={styles.examNav} aria-label="Exam Center sections">
             {hasCapability(data.actor, "manage-exams") ? <NavLink end to="/dashboard/exams"
                                                                   className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Quizzes</NavLink> : null}
@@ -141,9 +149,9 @@ const ExamCenter = ({token, adminUser, users, view}: ExamCenterProps) => {
         </section> : null}
         {!data && !error ?
             <section className={styles.state} aria-live="polite"><p>Loading Exam Center…</p></section> : null}
-        {error ? <section className={styles.state} role="alert"><h2>{examsAuthRequired ? "Sign in to the Exams Center" : "Exam Center is unavailable"}</h2><p>{error}</p>
-            {examsAuthRequired ? <a href={EXAMS_LOGIN_URL} target="_blank" rel="noreferrer">Open Exams sign in</a> : null}
-            <button type="button" onClick={retryAfterExamsLogin}>{examsAuthRequired ? "Retry after signing in" : "Try again"}</button>
+        {error ? <section className={styles.state} role="alert"><h2>{examsHandoffFailed ? "Could not connect Dashboard to Exams" : examsAuthRequired ? "Sign in to the Exams Center" : "Exam Center is unavailable"}</h2><p>{error}</p>
+            {examsAuthRequired && !examsHandoffFailed ? <a href={EXAMS_LOGIN_URL} target="_blank" rel="noreferrer">Open Exams sign in</a> : null}
+            <button type="button" onClick={retryAfterExamsLogin}>{examsAuthRequired && !examsHandoffFailed ? "Retry after signing in" : "Try again"}</button>
             <p className={styles.nonBlockingNote}>Other Dashboard sections are still available.</p></section> : null}
         {data ? <>
             {!canAccessView ?

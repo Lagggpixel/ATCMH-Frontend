@@ -5,30 +5,12 @@
     padding: 20px;
 }
 
-.manualHeader {
-    align-items: end;
-    display: flex;
-    gap: 18px;
-    justify-content: space-between;
-    margin-bottom: 18px;
-}
-
-.manualHeader h1 {
-    font-size: clamp(1.85rem, 3vw, 2.5rem);
-    line-height: 1.1;
-    margin: 0 0 6px;
-}
-
-.manualHeader p {
-    color: var(--muted-text);
-    margin: 0;
-}
-
 .manualActions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
+    margin-bottom: 18px;
 }
 
 .manualActions a {

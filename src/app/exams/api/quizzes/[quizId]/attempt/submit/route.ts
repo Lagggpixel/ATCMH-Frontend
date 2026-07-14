@@ -1,4 +1,4 @@
-import { submitLearnerAttempt } from "@/src/app/exams/(learner)/quizzes/[quizId]/attempt/actions";
+import { submitLearnerAttempt } from "@/src/app/exams/(attempt)/quizzes/[quizId]/attempt/actions";
 import { authorizeLearnerMutation } from "@/src/lib/browser-session";
 
 const MAX_BODY_BYTES = 65_536;

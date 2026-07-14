@@ -7,8 +7,6 @@ import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
-import type {AdminUser} from "../../types/AdminUser.ts";
 import {useTableSort} from "../../hooks/useTableSort.ts";
 import {usePagination} from "../../hooks/usePagination.ts";
 import AdminPagination from "./AdminPagination.tsx";
@@ -19,7 +17,6 @@ interface AdminSessionStatsProps {
     error: string | undefined;
     sessions: Session[] | undefined;
     users: AtcmhUser[] | undefined;
-    adminUser: AdminUser | undefined;
 }
 
 const AdminSessions = ({
@@ -27,8 +24,7 @@ const AdminSessions = ({
                            loggedIn,
                        error,
                        sessions,
-                       users,
-                       adminUser
+                       users
                    }: AdminSessionStatsProps) => {
     const [filter, setFilter] = useState({
         mentor: "",
@@ -142,9 +138,6 @@ const AdminSessions = ({
 
     return (
         <div className={styles.adminSessionsContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <h1>Sessions List</h1>
-
             <div className={styles.adminSessionsControls}>
                 <div className={styles.adminSessionsFilterControl}>
                     <label htmlFor="mentor-filter">Filter by Mentor:</label>

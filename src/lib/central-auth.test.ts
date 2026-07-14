@@ -45,6 +45,12 @@ test("return destinations fail closed to local paths", () => {
   assert.equal(safeLocalReturnTo("/ok\\evil"), "/exams");
 });
 
+test("Dashboard-to-Exams handoffs may return only to the Exam Center workspace", () => {
+  assert.equal(safeLocalReturnTo("/dashboard/exams"), "/dashboard/exams");
+  assert.equal(safeLocalReturnTo("/dashboard/exams/attempts/attempt-1"), "/dashboard/exams/attempts/attempt-1");
+  assert.equal(safeLocalReturnTo("/dashboard/mentees"), "/exams");
+});
+
 test("legacy root impersonation handoffs are routed only to the local callback", () => {
   const path = handoffCallbackPath("h".repeat(43), "/exams/quizzes");
   assert.equal(path, `/exams/api/auth/callback?handoff=${"h".repeat(43)}&returnTo=%2Fexams%2Fquizzes`);

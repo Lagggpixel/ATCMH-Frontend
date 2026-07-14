@@ -16,11 +16,7 @@ const AdminNav = ({adminUser}: AdminNavProps) => {
 
     return (
         <header className={styles.adminHeader}>
-            <div className={styles.adminBrand} aria-label="ATCMH admin dashboard">
-                <img className={styles.adminBrandMark} src="/dashboard-icon.png" alt="ATCMH"/>
-                <span className={styles.adminBrandText}>Admin Dashboard</span>
-            </div>
-            <nav className={styles.adminNav} aria-label="Admin sections">
+            <nav className={styles.adminNav} aria-label="Dashboard sections">
                 {navItems.map(item => {
                     const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 

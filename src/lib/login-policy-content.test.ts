@@ -39,6 +39,14 @@ test("login disclosure uses the canonical policies and prospective consent wordi
   assert.match(controls, /privacyPolicyUrl/);
 });
 
+test("login modal renders actionable OAuth failures and only a validated support reference", () => {
+  const controls = source("../platform/auth/HomeLoginModal.tsx");
+  assert.match(controls, /invalid_login: "We could not complete that sign-in\. Please start again\. If this continues, contact support\."/);
+  assert.match(controls, /provider_failure: "The identity provider could not verify your sign-in\. Please try again\. If this continues, contact support\."/);
+  assert.match(controls, /const authRef = error \? safeAuthRef\(params\.get\("authRef"\)\) : undefined;/);
+  assert.match(controls, /Support reference: <code>\{authRef\}<\/code>/);
+});
+
 test("footer links to both canonical policies", () => {
   const layout = source("../marketing/SiteFooter.tsx");
   assert.match(layout, /href="\/terms">Terms of Service<\/Link>/);

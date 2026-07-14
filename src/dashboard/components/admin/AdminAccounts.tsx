@@ -4,7 +4,6 @@ import type {AccountDetail, AccountIdentity, AccountSummary, AdminMutationPrevie
 import type {AdminUser} from "../../types/AdminUser.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import {buildMutationRequest, createMutationUiState, mergeIdentityOptions, mutationUiReducer, type MutationDraft} from "../../utils/AccountMutationUtils.ts";
-import AdminNav from "./AdminNav.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import styles from "./AdminAccounts.module.css";
@@ -98,8 +97,7 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
     const mergeReady = draft.operation !== "MERGE" || (mergeTarget != null && !mergeTargetError && Boolean(draft.discordSubject) && Boolean(draft.ifcSubject));
     if (!loaded) return <AdminLoadingScreen/>;
     if (!adminUser?.canManageAccounts) return <AdminUnauthorizedScreen/>;
-    return <main className={styles.page}><AdminNav adminUser={adminUser}/>
-        <header className={styles.heading}><div><p className={styles.eyebrow}>Super administrator</p><h1>Accounts</h1><p>Review canonical Discord and Infinite Flight ownership. Every change is previewed, version-checked and reasoned.</p></div></header>
+    return <main className={styles.page}>
         <AccountRequestError error={error}/>
         <form className={styles.filters} onSubmit={event => {event.preventDefault(); void search();}}>
             <label>Account ID<input value={filters.accountId} onChange={e => setFilters({...filters, accountId: e.target.value})}/></label>

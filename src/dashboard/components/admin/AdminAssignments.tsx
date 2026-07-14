@@ -6,7 +6,6 @@ import {ApiUtils} from "../../utils/ApiUtils.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import AdminToast from "./AdminToast.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import styles from "./AdminAssignments.module.css";
@@ -295,20 +294,14 @@ const AdminAssignments = ({
 
     return (
         <div className={styles.adminAssignmentsContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <header className={styles.dashboardHeader}>
-                <div>
-                    <h1>Assignments</h1>
-                </div>
-                <div className={styles.headerActions}>
-                    <button type="button" className={styles.newButton} onClick={startNew}>
-                        New Assignment
-                    </button>
-                    <a className={styles.helpButton} href="/dashboard/guide/assignments" target="_blank" rel="noreferrer">
-                        Help
-                    </a>
-                </div>
-            </header>
+            <div className={styles.headerActions} aria-label="Assignment actions">
+                <button type="button" className={styles.newButton} onClick={startNew}>
+                    New Assignment
+                </button>
+                <a className={styles.helpButton} href="/dashboard/guide/assignments" target="_blank" rel="noreferrer">
+                    Help
+                </a>
+            </div>
 
             <div className={styles.assignmentsLayout}>
                 <aside className={styles.assignmentListPanel}>

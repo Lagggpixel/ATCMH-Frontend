@@ -15,6 +15,21 @@ import AdminManual from "./components/admin/AdminManual";
 import ExamCenter from "./components/admin/ExamCenter";
 import AdminAccounts from "./components/admin/AdminAccounts";
 import AdminAltAccounts from "./components/admin/AdminAltAccounts";
+import DashboardWorkspace from "./DashboardWorkspace";
+
+const screenLabels = {
+    sessions: "Sessions",
+    stats: "Statistics",
+    usernotes: "User notes",
+    mentees: "Mentees",
+    assignments: "Assignments",
+    "assignment-guide": "Assignments guide",
+    manual: "Mentor manual",
+    "audit-logs": "Audit logs",
+    accounts: "Accounts",
+    "alt-accounts": "Alt-account evidence",
+    exams: "Exam Center",
+} as const;
 
 export default function DashboardRoute() {
     const route = resolveDashboardRoute(usePathname());
@@ -34,7 +49,11 @@ export default function DashboardRoute() {
         case "audit-logs": content = <AdminAuditLogs {...common} users={state.users} token={state.token}/>; break;
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
-        case "exams": content = <ExamCenter token={state.token} adminUser={state.adminUser} users={state.users ?? []} view={route.view}/>; break;
+        case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
     }
-    return <DashboardNavigationProvider params={"params" in route ? route.params : undefined}>{content}</DashboardNavigationProvider>;
+    return <DashboardNavigationProvider params={"params" in route ? route.params : undefined}>
+        <DashboardWorkspace adminUser={state.loaded ? state.adminUser : undefined} label={screenLabels[route.screen]}>
+            {content}
+        </DashboardWorkspace>
+    </DashboardNavigationProvider>;
 }

@@ -5,11 +5,12 @@ import {useRouter, useSearchParams} from "next/navigation";
 import {ApiUtils} from "@/src/dashboard/utils/ApiUtils";
 import {loginPath} from "@/src/dashboard/utils/AuthSessionUtils";
 import {privacyPolicyUrl, termsOfServiceUrl} from "@/src/lib/login-policy-content";
-import {resolveHomeLoginRequest} from "./login-routing";
+import {resolveHomeLoginRequest, safeAuthError, safeAuthRef} from "./login-routing";
 
 const authErrorCopy: Record<string, string> = {
   cancelled: "Login was cancelled. No account changes were made.",
-  provider_failure: "The identity provider is unavailable. Please try again later.",
+  invalid_login: "We could not complete that sign-in. Please start again. If this continues, contact support.",
+  provider_failure: "The identity provider could not verify your sign-in. Please try again. If this continues, contact support.",
   link_conflict: "Your linked identities need review before login can continue.",
   invalid_handoff: "The one-time Exams login expired or was already used.",
   consent_declined: "You must accept the current policies before access can be granted.",
@@ -21,9 +22,10 @@ export default function HomeLoginModal() {
   const params = useSearchParams();
   const router = useRouter();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const open = params.has("loginFor") || params.has("authError");
   const request = resolveHomeLoginRequest(params);
-  const error = params.get("authError");
+  const error = safeAuthError(params.get("authError"));
+  const authRef = error ? safeAuthRef(params.get("authRef")) : undefined;
+  const open = params.has("loginFor") || Boolean(error);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +57,10 @@ export default function HomeLoginModal() {
       <button ref={closeRef} className="login-modal-close" type="button" aria-label="Close login" onClick={() => router.replace("/")}>×</button>
       <p className="login-modal-eyebrow">ATCMH account</p>
       <h2 id="login-modal-title">Sign in to {request.application === "exams" ? "Exam Center" : "ATCMH"}</h2>
-      {error ? <p className="login-modal-error" role="alert">{authErrorCopy[error] ?? "Login could not be completed. Please try again."}</p> : null}
+      {error ? <div className="login-modal-error" role="alert">
+        <p>{authErrorCopy[error] ?? "Login could not be completed. Please try again."}</p>
+        {authRef ? <p>Support reference: <code>{authRef}</code></p> : null}
+      </div> : null}
       <div className="login-modal-actions">
         <a className="login-provider login-provider-discord" href={providerHref("discord")}>Continue with Discord</a>
         <a className="login-provider login-provider-ifc" href={providerHref("ifc")}>Continue with Infinite Flight</a>

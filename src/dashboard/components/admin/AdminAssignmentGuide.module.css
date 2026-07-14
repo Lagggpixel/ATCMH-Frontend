@@ -10,31 +10,9 @@
     gap: 18px;
 }
 
-.guideHero {
-    align-items: end;
+.guideActions {
     display: flex;
-    gap: 18px;
-    justify-content: space-between;
-    padding: 26px 0 8px;
-}
-
-.guideHero h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.05;
-    margin: 0 0 10px;
-}
-
-.guideHero p {
-    color: var(--muted-text);
-    margin: 0;
-    max-width: 760px;
-}
-
-.guidePath {
-    color: var(--accent-strong-color) !important;
-    font-size: 0.82rem;
-    font-weight: 850;
-    margin-bottom: 8px !important;
+    justify-content: flex-end;
 }
 
 .primaryLink {
@@ -60,10 +38,11 @@
 .guidePanel,
 .guideCard,
 .examplePanel {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--panel-shadow);
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .guidePanel,

@@ -6,11 +6,14 @@ export interface HomeLoginRequest {
 }
 
 const supportedAuthErrors = new Set([
-  "cancelled", "provider_failure", "link_conflict", "invalid_handoff",
+  "cancelled", "invalid_login", "provider_failure", "link_conflict", "invalid_handoff",
   "consent_declined", "consent_expired", "invalid_consent",
 ]);
 
 export const safeAuthError = (value: string | null | undefined) => value && supportedAuthErrors.has(value) ? value : undefined;
+
+// References are opaque support correlation IDs, never server error details.
+export const safeAuthRef = (value: string | null | undefined) => value && /^[A-Za-z0-9_-]{8,128}$/.test(value) ? value : undefined;
 
 const hasUnsafeSyntax = (value: string) =>
   !value.startsWith("/") || value.startsWith("//") || value.includes("\\")
@@ -33,9 +36,13 @@ export function resolveHomeLoginRequest(params: URLSearchParams): HomeLoginReque
   return {application, returnTo: safeLoginReturnTo(application, params.get("returnTo"))};
 }
 
-export function homeLoginHref(application: LoginApplication, returnTo: string, authError?: string | null): string {
+export function homeLoginHref(application: LoginApplication, returnTo: string, authError?: string | null, authRef?: string | null): string {
   const query = new URLSearchParams({loginFor: application, returnTo: safeLoginReturnTo(application, returnTo)});
   const safeError = safeAuthError(authError);
-  if (safeError) query.set("authError", safeError);
+  if (safeError) {
+    query.set("authError", safeError);
+    const safeReference = safeAuthRef(authRef);
+    if (safeReference) query.set("authRef", safeReference);
+  }
   return `/?${query.toString()}`;
 }

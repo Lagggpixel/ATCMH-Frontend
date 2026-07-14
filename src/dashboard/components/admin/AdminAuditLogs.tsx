@@ -7,7 +7,6 @@ import {ApiUtils} from "../../utils/ApiUtils.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import AdminToast from "./AdminToast.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import styles from "./AdminAuditLogs.module.css";
@@ -180,11 +179,6 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
 
     return (
         <div className={styles.adminAuditLogsContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <header className={styles.auditHeader}>
-                <h1>Audit Logs</h1>
-            </header>
-
             <form className={styles.auditFilters} onSubmit={applyFilters}>
                 <label>
                     Source

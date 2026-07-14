@@ -34,14 +34,17 @@ test("actual account route renders signed-out and restored lowercase-status outc
     assert.match(providerFailure, /could not verify your sign-in/); assert.match(providerFailure, /contact support/);
 });
 
-test("account page exposes staff navigation only after authorized staff resolution", async () => {
+test("account page keeps staff dashboard navigation out of the personal account surface", async () => {
     const {default: AccountPage} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/account/AccountPage.tsx");
     const session = {accountId: "7", status: "ACTIVE", application: "dashboard", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "x", impersonating: false, identities: []};
-    const ordinary = inRouter(React.createElement(AccountPage, {session, loading: false, error: null, canAccessAdmin: false, onLogout: async () => {}}), "/account");
-    assert.doesNotMatch(ordinary, /Open staff dashboard/);
-    const staff = inRouter(React.createElement(AccountPage, {session, loading: false, error: null, canAccessAdmin: true, onLogout: async () => {}}), "/account");
-    assert.match(staff, /href="\/dashboard"/);
-    assert.match(staff, /Open staff dashboard/);
+    const html = inRouter(React.createElement(AccountPage, {session, loading: false, error: null, onLogout: async () => {}}), "/account");
+    assert.doesNotMatch(html, /Open staff dashboard|href="\/dashboard"/);
+});
+
+test("account logout controls use explicit high-contrast marketing colors", async () => {
+    const css = await (await import("node:fs/promises")).readFile(new URL("../account/AccountPage.module.css", import.meta.url), "utf8");
+    assert.match(css, /\.actions button, \.primary\s*\{[^}]*background:\s*var\(--primary-strong\)[^}]*color:\s*#fff/s);
+    assert.match(css, /\.actions \.danger\s*\{[^}]*background:\s*#7f1d1d[^}]*color:\s*#fff/s);
 });
 
 test("actual capability navigation includes privileged routes only for capable users", async () => {
@@ -50,6 +53,19 @@ test("actual capability navigation includes privileged routes only for capable u
     assert.doesNotMatch(inRouter(React.createElement(AdminNav,{adminUser:base}),"/dashboard"), />Accounts</);
     const privileged = inRouter(React.createElement(AdminNav,{adminUser:{...base,canManageAccounts:true,canReviewAltAccounts:true}}),"/dashboard");
     assert.match(privileged, />Accounts</); assert.match(privileged, /Alt Evidence/);
+});
+
+test("admin navigation uses compact integrated tabs", async () => {
+    const {default: AdminNav} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/admin/AdminNav.tsx");
+    const html = inRouter(React.createElement(AdminNav, {adminUser: {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false}}), "/dashboard");
+    const css = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.module.css", import.meta.url), "utf8");
+
+    assert.match(html, /<nav[^>]*aria-label="Dashboard sections"/);
+    assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
+    assert.doesNotMatch(css, /position:\s*sticky/);
+    assert.match(css, /\.adminHeader\s*\{[^}]*border-bottom:/s);
+    assert.match(css, /\.adminNavButtonActive::after\s*\{[^}]*bottom:\s*-1px/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav\s*\{[^}]*overflow-x:\s*auto/s);
 });
 
 test("actual confirmation and stale-error views wire commit and cancel callbacks", async () => {

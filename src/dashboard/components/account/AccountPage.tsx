@@ -8,13 +8,12 @@ interface AccountPageProps {
     session: DashboardAuthSession | null;
     loading: boolean;
     error?: string | null;
-    canAccessAdmin?: boolean;
     onLogout: (all?: boolean) => Promise<void>;
 }
 
 const identityName = (provider: string) => provider.toLowerCase() === "ifc" ? "Infinite Flight" : "Discord";
 
-export default function AccountPage({session, loading, error, canAccessAdmin = false, onLogout}: AccountPageProps) {
+export default function AccountPage({session, loading, error, onLogout}: AccountPageProps) {
     const [params] = useSearchParams();
     const state = accountPageState(session, loading, error, params.get("authError"));
     if (state.kind === "loading") return <main className={styles.accountPage}><p>Restoring your account…</p></main>;
@@ -37,7 +36,6 @@ export default function AccountPage({session, loading, error, canAccessAdmin = f
                 return <article className={styles.identity} key={provider}><span>{identityName(provider)}</span>{identity ? <><strong>{identity.displayName || identity.subject}</strong><small>{identity.subject}</small></> : <strong>Not linked</strong>}</article>;
             })}</div>
             <div className={styles.actions}><button type="button" onClick={() => void onLogout(false)}>Log out here</button><button type="button" className={styles.danger} onClick={() => void onLogout(true)}>Log out everywhere</button></div>
-            {canAccessAdmin ? <Link className={styles.subtleLink} to="/dashboard">Open staff dashboard</Link> : null}
         </section>
     </main>;
 }

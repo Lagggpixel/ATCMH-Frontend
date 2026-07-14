@@ -29,7 +29,6 @@ import {
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import AdminToast from "./AdminToast.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminPagination from "./AdminPagination.tsx";
@@ -346,12 +345,7 @@ const AdminMentees = ({
 
     return (
         <div className={styles.adminMenteesContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <header className={styles.dashboardHeader}>
-                <div>
-                    <h1>Mentees</h1>
-                </div>
-                <div className={styles.inlineStatsRow} aria-label="Mentee overview">
+            <div className={styles.inlineStatsRow} aria-label="Mentee overview">
                     <span className={styles.statSegment}>
                         <span className={styles.statValue}>{menteeSummary.waitlisted}</span>
                         <span className={styles.statLabel}>Waitlist</span>
@@ -364,8 +358,7 @@ const AdminMentees = ({
                         <span className={styles.statValue}>{menteeSummary.futureSessions}</span>
                         <span className={styles.statLabel}>Future sessions</span>
                     </span>
-                </div>
-            </header>
+            </div>
 
             <div className={styles.adminMenteesLayout}>
                 <aside className={styles.menteeListPanel}>

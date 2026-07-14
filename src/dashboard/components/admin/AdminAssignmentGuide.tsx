@@ -2,7 +2,6 @@ import type {AdminUser} from "../../types/AdminUser.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import styles from "./AdminAssignmentGuide.module.css";
 import {Link} from "../../next-navigation";
@@ -52,22 +51,12 @@ const AdminAssignmentGuide = ({loaded, loggedIn, error, adminUser}: AdminAssignm
 
     return (
         <div className={styles.assignmentGuideContainer}>
-            <AdminNav adminUser={adminUser}/>
-
             <main className={styles.assignmentGuideMain}>
-                <header className={styles.guideHero}>
-                    <div>
-                        <p className={styles.guidePath}>Hidden guide /dashboard/guide/assignments</p>
-                        <h1>Assignments Guide</h1>
-                        <p>
-                            A practical walkthrough for creating reusable assignment templates and turning session
-                            attendees into copy-paste-ready Discord assignments.
-                        </p>
-                    </div>
+                <div className={styles.guideActions}>
                     <Link className={styles.primaryLink} to="/dashboard/assignments">
                         Open Assignments
                     </Link>
-                </header>
+                </div>
 
                 <section className={styles.guidePanel} aria-labelledby="quick-start-heading">
                     <div className={styles.panelHeader}>

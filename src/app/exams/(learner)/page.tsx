@@ -5,6 +5,7 @@ import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-reposito
 import { getVerifiedLearnerDiscordSubject } from "@/src/lib/learner-session";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
 import QuizCatalogue from "./QuizCatalogue";
+import DashboardExamSessionBootstrap from "./DashboardExamSessionBootstrap";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function LearnerHomePage({ searchParams }: { searchParams: 
   return (
     <main className="learner-main">
       <div className="site-shell exam-home">
+        <DashboardExamSessionBootstrap />
         <section className="exam-intro" aria-labelledby="page-title">
           <div>
             <p className="exam-intro__eyebrow">ATCMH learning</p>

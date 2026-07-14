@@ -3,7 +3,6 @@ import {Link} from "@/src/dashboard/next-navigation";
 import type {AltAccountCandidate, AltSuppression} from "../../types/Account.ts";
 import type {AdminUser} from "../../types/AdminUser.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
-import AdminNav from "./AdminNav.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import {dialogKeyResult} from "../../utils/DialogKeyboard.ts";
@@ -58,8 +57,7 @@ export default function AdminAltAccounts({csrfToken, adminUser, loaded}: {csrfTo
     };
     if (!loaded) return <AdminLoadingScreen/>;
     if (!adminUser?.canReviewAltAccounts) return <AdminUnauthorizedScreen/>;
-    return <main className={styles.page}><AdminNav adminUser={adminUser}/>
-        <header><p className={styles.eyebrow}>Super administrator</p><h1>Alt-account evidence</h1><p>Shared network and historical ownership signals are review leads only. They do not establish intent or trigger enforcement.</p></header>
+    return <main className={styles.page}>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         {loading ? <p>Loading evidence…</p> : <section className={styles.candidates}>{candidates.length ? candidates.map((candidate, index) => <article key={`${candidate.evidenceType}-${candidate.ip ?? candidate.subject}-${index}`}>
             <div className={styles.candidateHeader}><span>{candidate.evidenceType === "SHARED_IP" ? "Exact shared login IP" : "Historical identity conflict"}</span><strong>{candidate.count} event{candidate.count === 1 ? "" : "s"}</strong></div>

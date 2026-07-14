@@ -1,11 +1,9 @@
 import {useEffect, useState} from "react";
 import type {AdminManual as AdminManualMetadata} from "../../types/AdminManual.ts";
-import type {AdminUser} from "../../types/AdminUser.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
-import AdminNav from "./AdminNav.tsx";
 import AdminToast from "./AdminToast.tsx";
 import styles from "./AdminManual.module.css";
 
@@ -13,11 +11,10 @@ interface AdminManualProps {
     loaded: boolean;
     loggedIn: boolean;
     error: string | undefined;
-    adminUser: AdminUser | undefined;
     token: string | null;
 }
 
-const AdminManual = ({loaded, loggedIn, error, adminUser, token}: AdminManualProps) => {
+const AdminManual = ({loaded, loggedIn, error, token}: AdminManualProps) => {
     const [manual, setManual] = useState<AdminManualMetadata | undefined>(undefined);
     const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
     const [manualError, setManualError] = useState<string | undefined>(undefined);
@@ -76,18 +73,12 @@ const AdminManual = ({loaded, loggedIn, error, adminUser, token}: AdminManualPro
 
     return (
         <div className={styles.adminManualContainer}>
-            <AdminNav adminUser={adminUser}/>
-            <header className={styles.manualHeader}>
-                <div>
-                    <h1>Mentor Manual</h1>
+            {pdfUrl && (
+                <div className={styles.manualActions} aria-label="Manual actions">
+                    <a href={pdfUrl} target="_blank" rel="noreferrer">Open PDF</a>
+                    <a href={pdfUrl} download={manual?.filename || "atcmh-manual.pdf"}>Download</a>
                 </div>
-                {pdfUrl && (
-                    <div className={styles.manualActions}>
-                        <a href={pdfUrl} target="_blank" rel="noreferrer">Open PDF</a>
-                        <a href={pdfUrl} download={manual?.filename || "atcmh-manual.pdf"}>Download</a>
-                    </div>
-                )}
-            </header>
+            )}
 
             <AdminToast message={manualError} onDismiss={() => setManualError(undefined)}/>
             {isLoadingManual && <div className={styles.manualLoading}>Loading manual...</div>}

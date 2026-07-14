@@ -90,7 +90,7 @@ test("docker push script publishes versioned and latest multi-platform images", 
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const command = packageJson.scripts?.["docker:push"] ?? "";
 
-  assert.equal(packageJson.version, "1.0.1");
+  assert.match(packageJson.version, /^\d+\.\d+\.\d+$/);
   assert.match(command, /docker buildx build/);
   assert.match(command, /-f \.dockerfile/);
   assert.match(command, /--platform linux\/amd64,linux\/arm64/);

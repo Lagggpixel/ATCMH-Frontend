@@ -84,22 +84,7 @@ img {
 	font-weight: 600;
 }
 
-.nav-account-links {
-	display: flex;
-	align-items: center;
-	gap: 0.85rem;
-}
-
-.nav-account-links button {
-	border: 0;
-	background: transparent;
-	color: var(--muted);
-	font: inherit;
-	cursor: pointer;
-}
-
-.nav-login,
-.nav-dashboard {
+.nav-login {
 	color: var(--foreground) !important;
 }
 
@@ -118,21 +103,13 @@ img {
 	justify-content: flex-end;
 }
 
-.nav-primary-auth .nav-account-links {
-	gap: 0.65rem;
-	padding: 0.4rem 0.45rem 0.4rem 0.75rem;
-	border: 1px solid rgba(148, 163, 184, 0.2);
-	border-radius: 0.9rem;
-	background: rgba(15, 23, 42, 0.62);
-	white-space: nowrap;
-}
-
-.nav-primary-auth .nav-account-links button {
-	padding: 0.45rem 0.65rem;
-	border-radius: 0.65rem;
-	background: rgba(148, 163, 184, 0.12);
-	color: var(--foreground);
-}
+.nav-user-menu { position: relative; }
+.nav-user-menu summary { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid rgba(148, 163, 184, 0.26); border-radius: 50%; background: rgba(15, 23, 42, 0.62); color: var(--foreground); cursor: pointer; list-style: none; }
+.nav-user-menu summary::-webkit-details-marker { display: none; }
+.nav-user-menu summary svg { width: 1.25rem; height: 1.25rem; fill: currentColor; }
+.nav-user-menu-content { position: absolute; top: calc(100% + 0.55rem); right: 0; display: grid; min-width: 10rem; padding: 0.4rem; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--card-solid); box-shadow: var(--shadow); }
+.nav-user-menu-content a, .nav-user-menu-content button { padding: 0.6rem 0.7rem; border: 0; border-radius: 0.5rem; background: transparent; color: var(--foreground); font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
+.nav-user-menu-content a:hover, .nav-user-menu-content button:hover, .nav-user-menu summary:hover { background: rgba(148, 163, 184, 0.14); }
 
 .mobile-navigation {
 	display: none;
@@ -603,6 +580,28 @@ img {
 	content: "✓";
 }
 
+.eligibility-message {
+	color: var(--muted);
+	line-height: 1.7;
+}
+
+.eligibility-message .primary-button {
+	margin-top: 0.5rem;
+}
+
+.eligibility-results li {
+	display: grid;
+	gap: 0.2rem;
+}
+
+.eligibility-results small {
+	color: var(--muted);
+}
+
+.eligibility-result-pass::before { color: #4ade80; }
+.eligibility-result-fail::before { color: #f87171; content: "×"; }
+.eligibility-result-manual::before { color: #facc15; content: "!"; }
+
 .dot-list li::before {
 	position: absolute;
 	top: 0.72rem;
@@ -940,13 +939,15 @@ img {
 
 	.mobile-navigation nav > a,
 	.mobile-navigation nav > button,
-	.mobile-navigation .nav-account-links a,
-	.mobile-navigation .nav-account-links button,
+	.mobile-navigation .nav-user-menu summary,
 	.mobile-navigation .nav-dropdown summary {
 		padding: 0.65rem 0.75rem;
 	}
 
-	.mobile-navigation .nav-account-links { display: grid; gap: 0.2rem; }
+	.mobile-navigation .nav-user-menu { width: 100%; }
+	.mobile-navigation .nav-user-menu summary { width: 100%; height: auto; display: block; border-radius: 0.5rem; }
+	.mobile-navigation .nav-user-menu summary svg { vertical-align: middle; }
+	.mobile-navigation .nav-user-menu-content { position: static; margin-top: 0.35rem; }
 	.mobile-navigation .nav-dropdown-menu { position: static; transform: none; margin-top: 0.35rem; }
 
 	.about-grid,

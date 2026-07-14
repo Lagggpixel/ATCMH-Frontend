@@ -11,5 +11,4 @@ export const adminNavigationItems = (adminUser: AdminUser | undefined, examCente
     ...(adminUser?.canViewAuditLogs ? [{path: "/dashboard/audit-logs", label: "Audit Logs"}] : []),
     ...(adminUser?.canManageAccounts ? [{path: "/dashboard/accounts", label: "Accounts"}] : []),
     ...(adminUser?.canReviewAltAccounts ? [{path: "/dashboard/alt-accounts", label: "Alt Evidence"}] : []),
-    {path: "/account", label: "My Account"},
 ];

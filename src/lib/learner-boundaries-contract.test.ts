@@ -18,7 +18,7 @@ test("signed-in catalogue resolves trusted learner access and uses role-neutral 
 
 for (const [name, relativePath] of [
   ["detail", "../app/exams/(learner)/quizzes/[quizId]/page.tsx"],
-  ["attempt render", "../app/exams/(learner)/quizzes/[quizId]/attempt/page.tsx"],
+  ["attempt render", "../app/exams/(attempt)/quizzes/[quizId]/attempt/page.tsx"],
   ["start", "../app/exams/api/quizzes/[quizId]/start/route.ts"],
 ] as const) {
   test(`${name} resolves trusted learner access before canonical quiz authorization`, () => {
