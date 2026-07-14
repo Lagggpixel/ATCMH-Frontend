@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const token = (await cookies()).get(examsSessionCookie)?.value;
-  const authorized = token && allowedMutationOrigins(true).has(request.headers.get("origin") ?? "")
+  const authorized = token && allowedMutationOrigins().has(request.headers.get("origin") ?? "")
     && csrfMatches(token, request.headers.get("X-CSRF-Token"));
   if (!authorized) return Response.json({ error: "Forbidden" }, { status: 403 });
   const revoked = await logoutCentralSession(token, false);

@@ -1,4 +1,5 @@
 import { csrfMatches, examsSessionCookie, introspectCentralSession, type CentralSession } from "./central-auth";
+import { parseFrontendPublicOrigin } from "./frontend-origin";
 
 export function cookieValue(header: string | null, name = examsSessionCookie): string | undefined {
   for (const part of (header ?? "").split(";")) {
@@ -8,14 +9,9 @@ export function cookieValue(header: string | null, name = examsSessionCookie): s
   return undefined;
 }
 
-export function allowedMutationOrigins(includeDashboard = false): Set<string> {
+export function allowedMutationOrigins(): Set<string> {
   const origins = new Set<string>();
-  try { origins.add(new URL(process.env.FRONTEND_PUBLIC_ORIGIN ?? "").origin); } catch { /* unconfigured */ }
-  if (includeDashboard) {
-    origins.add("https://dashboard.atcmh.org");
-    if (process.env.NODE_ENV !== "production") origins.add("http://localhost:5173");
-  }
-  if (process.env.NODE_ENV !== "production") origins.add("http://localhost:3000");
+  try { origins.add(parseFrontendPublicOrigin(process.env.FRONTEND_PUBLIC_ORIGIN ?? "").origin); } catch { /* fail closed */ }
   return origins;
 }
 

@@ -75,7 +75,7 @@ export async function requireManagementCapability(
   if (!session) return new Response("Unauthorized", { status: 401 });
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {
     const origin = request.headers.get("origin");
-    if (!origin || !allowedMutationOrigins(true).has(origin) || !csrfMatches(token, request.headers.get("X-CSRF-Token"))) {
+    if (!origin || !allowedMutationOrigins().has(origin) || !csrfMatches(token, request.headers.get("X-CSRF-Token"))) {
       return new Response("Forbidden", { status: 403 });
     }
   }

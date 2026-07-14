@@ -2,7 +2,7 @@ import { allowedMutationOrigins } from "./browser-session";
 
 function originFor(request: Request) {
   const origin = request.headers.get("origin");
-  return origin && allowedMutationOrigins(true).has(origin) ? origin : undefined;
+  return origin && allowedMutationOrigins().has(origin) ? origin : undefined;
 }
 
 export function withManagementCors(request: Request, response: Response): Response {

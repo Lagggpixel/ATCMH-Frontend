@@ -3,15 +3,31 @@ import test from "node:test";
 
 import { corsPreflight, withManagementCors } from "./management-cors";
 
-test("allows Dashboard's authorized cross-origin requests without wildcard CORS", () => {
+const originalOrigin = process.env.FRONTEND_PUBLIC_ORIGIN;
+test.beforeEach(() => { process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org"; });
+test.after(() => {
+  if (originalOrigin === undefined) delete process.env.FRONTEND_PUBLIC_ORIGIN;
+  else process.env.FRONTEND_PUBLIC_ORIGIN = originalOrigin;
+});
+
+test("allows only the configured unified origin without wildcard CORS", () => {
   const request = new Request("https://exams.atcmh.org/exams/api/management/me", {
-    headers: { origin: "https://dashboard.atcmh.org" },
+    headers: { origin: "https://atcmh.org" },
   });
   const response = withManagementCors(request, new Response("ok"));
-  assert.equal(response.headers.get("access-control-allow-origin"), "https://dashboard.atcmh.org");
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://atcmh.org");
   assert.equal(response.headers.get("access-control-allow-headers"), "Content-Type, X-CSRF-Token");
   assert.equal(response.headers.get("access-control-allow-credentials"), "true");
   assert.notEqual(response.headers.get("access-control-allow-origin"), "*");
+});
+
+test("rejects legacy Dashboard and Exams origins even outside production", () => {
+  for (const origin of ["https://dashboard.atcmh.org", "https://exams.atcmh.org", "http://localhost:5173"]) {
+    const request = new Request("https://atcmh.org/exams/api/management/me", {
+      method: "OPTIONS", headers: { origin },
+    });
+    assert.equal(corsPreflight(request).status, 403, origin);
+  }
 });
 
 test("rejects untrusted CORS preflight origins", () => {
@@ -21,22 +37,22 @@ test("rejects untrusted CORS preflight origins", () => {
   assert.equal(corsPreflight(request).status, 403);
 });
 
-test("accepts Dashboard write preflights including DELETE and rejects unsupported methods", () => {
+test("accepts unified-origin write preflights including DELETE and rejects unsupported methods", () => {
   const putRequest = new Request("https://exams.atcmh.org/exams/api/management/website", {
     method: "OPTIONS",
-    headers: { origin: "https://dashboard.atcmh.org", "access-control-request-method": "PUT" },
+    headers: { origin: "https://atcmh.org", "access-control-request-method": "PUT" },
   });
   const deleteRequest = new Request("https://exams.atcmh.org/exams/api/management/exams/attempts/attempt-id", {
     method: "OPTIONS",
-    headers: { origin: "https://dashboard.atcmh.org", "access-control-request-method": "DELETE" },
+    headers: { origin: "https://atcmh.org", "access-control-request-method": "DELETE" },
   });
   const unsupportedRequest = new Request("https://exams.atcmh.org/exams/api/management/website", {
     method: "OPTIONS",
-    headers: { origin: "https://dashboard.atcmh.org", "access-control-request-method": "TRACE" },
+    headers: { origin: "https://atcmh.org", "access-control-request-method": "TRACE" },
   });
   const patchRequest = new Request("https://exams.atcmh.org/exams/api/management/exams/quizzes/quiz-id/category", {
     method: "OPTIONS",
-    headers: { origin: "https://dashboard.atcmh.org", "access-control-request-method": "PATCH" },
+    headers: { origin: "https://atcmh.org", "access-control-request-method": "PATCH" },
   });
 
   const response = corsPreflight(putRequest);

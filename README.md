@@ -1,61 +1,92 @@
-# ATCMH Exams
+# ATCMH Frontend
 
-The ATCMH Exams service owns [https://exams.atcmh.org/](https://exams.atcmh.org/).
+The unified ATCMH frontend is a Next.js 16 App Router application containing
+the public website, Dashboard, and Exams. It replaces the separate RootSite,
+Dashboard, and Exams frontend deployments while continuing to use
+Dashboard-Backend for central authentication and Dashboard APIs.
 
 ## Local development
 
+Requires Node.js 24 and npm. Copy the example environment and fill in any
+credentials needed for the flows you are exercising:
+
 ```bash
-npm install
+cp .env.example .env.local
+npm ci
 npm run dev
 ```
 
-Run the quality and production-build checks with:
+The development defaults are `http://localhost:3000` for the frontend and
+`http://localhost:3001` for Dashboard-Backend. Validate a change with:
 
 ```bash
+npm test
 npm run lint
 npm run build
 ```
 
-The health endpoint is available at `GET /api/health` and returns:
+Vite remains a development-only dependency because two Node component tests
+use its middleware-mode SSR loader to transform migrated Dashboard TSX and
+resolve the `@` alias. The application itself is built and served by Next.js.
 
-```json
-{ "status": "ok" }
-```
+## Routes
 
-## Central authentication
+- Marketing and legal: `/`, `/terms`, `/policy`
+- Shared identity: `/auth`, `/account`, `/consent`
+- Dashboard: `/dashboard` and its staff/account routes
+- Exams UI: `/exams`, including quizzes and attempts
+- Exams API: `/exams/api/auth/*`, `/exams/api/management/*`, and
+  `/exams/api/quizzes/*`
+- Healthcheck: `GET /api/health`
 
-Discord and Infinite Flight login are owned by Dashboard-Backend. Configure
-`DASHBOARD_API_URL`, a dedicated `EXAMS_AUTH_KEY`, `EXAMS_CSRF_SECRET` (at
-least 32 characters), and the public `APP_BASE_URL`. Exams exchanges a one-use
-handoff for an opaque 30-day session and introspects it before every protected
-learner or management operation. The browser never receives provider tokens.
+There is intentionally no `/apply` route. Dashboard calls Exams through the
+same-origin `/exams/api` routes.
 
-`EXAMS_AUTH_KEY` must be different from `EXAMS_AUDIT_INGEST_KEY`. The audit
-client uses only `EXAMS_AUDIT_INGEST_URL` and `EXAMS_AUDIT_INGEST_KEY`.
+## Runtime configuration
 
-## Management import safety
+Use `.env.example` as the deployment inventory. The two public runtime values
+are:
 
-Learner reads and management writes use the `MYSQL_HOST`, `MYSQL_PORT`,
-`MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` variables.
-`MYSQL_DATABASE` must be `atcmh_lms`. Grant this account only the required
-`SELECT`, `INSERT`, and `UPDATE` access to the existing quiz tables and import
-audit tables; do not grant schema changes or general application access.
-Before enabling management imports, apply the additive
-`sql/2026-07-10-exam-import-audit.sql` migration through the normal deployment
-process.
+- `FRONTEND_PUBLIC_ORIGIN`: the canonical origin serving this application
+- `DASHBOARD_API_URL`: the Dashboard-Backend origin
 
-Imports are disabled unless `EXAMS_MANAGEMENT_WRITES_ENABLED=true`. Enabling
-them also requires a random `IMPORT_IDEMPOTENCY_SECRET` of at least 32
-characters. A preview creates a server-stored, actor- and payload-bound nonce
-that expires after `EXAMS_IMPORT_PREVIEW_TTL_SECONDS` (default 900 seconds) and
-is consumed in the same transaction as the import. A preview can never be
-forged, replayed, or committed by a different Discord identity.
+`DASHBOARD_AUTH_URL` remains in `.env.example` only as a compatibility alias
+for shared deployment inventories. This application does not read it;
+`DASHBOARD_API_URL` is authoritative and both should point to the same backend
+during cutover. `EXAMS_AUDIT_INGEST_URL` also points to Dashboard-Backend, but
+is used only for server-side audit delivery.
 
-## Docker
+Both are required in production and are validated fail-closed. They are safe
+to pass to the Dashboard browser bundle through server-rendered configuration;
+all other values are server-only credentials or feature settings. Do not put
+secrets in `NEXT_PUBLIC_*` variables or Docker build arguments. Other variables
+from the retired standalone frontends are not supported.
 
-Build and run the production image locally:
+Exams authentication requires `EXAMS_AUTH_KEY`, `EXAMS_CSRF_SECRET`, and
+`EXAMS_LEARNER_SESSION_SECRET`. Discord authorization, MySQL access, import
+controls, and audit delivery use the corresponding groups in `.env.example`.
+Management writes stay disabled unless
+`EXAMS_MANAGEMENT_WRITES_ENABLED=true`; enabling them also requires a strong
+`IMPORT_IDEMPOTENCY_SECRET` and the import-audit migration to be applied.
+
+## Deployment
+
+Build the standalone, non-root production image with:
 
 ```bash
-docker build -f .dockerfile -t atcmh-exams:local .
-docker run --rm -p 3000:3000 atcmh-exams:local
+docker build -f .dockerfile -t atcmh-frontend:local .
+docker run --rm --env-file .env.production -p 3000:3000 atcmh-frontend:local
 ```
+
+Supply runtime variables to the container rather than embedding them in the
+image. The container healthcheck probes `/api/health` on port 3000.
+
+For cutover:
+
+1. Configure the production environment and required database migration.
+2. Deploy the unified image and verify health, public pages, central login,
+   Dashboard authorization, and an Exams session on the canonical origin.
+3. Point public traffic at the unified service and update external redirects
+   or bookmarks from legacy roots to `/dashboard` and `/exams` as needed.
+4. Retire the legacy frontend deployments only after authenticated smoke tests
+   pass; Dashboard-Backend remains a separate service.

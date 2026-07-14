@@ -19,7 +19,7 @@ function authorize(roles: string[]) {
   process.env.DASHBOARD_API_URL = "https://dashboard-api.atcmh.org";
   process.env.EXAMS_AUTH_KEY = "auth-key";
   process.env.EXAMS_CSRF_SECRET = "x".repeat(32);
-  process.env.FRONTEND_PUBLIC_ORIGIN = "https://exams.atcmh.org";
+  process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org";
   globalThis.fetch = async (input) => String(input).includes("/internal/auth/sessions/introspect")
     ? Response.json({ active: true, accountId: "1", discordId: "123456789012345", expiresAt: "2099-01-01T00:00:00Z", impersonating: false })
     : Response.json({ roles });
@@ -28,7 +28,7 @@ function authorize(roles: string[]) {
 function request(method: "GET" | "DELETE") {
   return new Request(`https://exams.atcmh.org/exams/api/management/exams/attempts/${attemptId}`, {
     method,
-    headers: { cookie: `atcmh_exams_session=${token}`, origin: "https://dashboard.atcmh.org", "X-CSRF-Token": csrfTokenFor(token) },
+    headers: { cookie: `atcmh_exams_session=${token}`, origin: "https://atcmh.org", "X-CSRF-Token": csrfTokenFor(token) },
   });
 }
 
@@ -107,5 +107,5 @@ test("attempt deletion permits administrators and returns no content", async () 
   const response = await DELETE(request("DELETE"), context());
 
   assert.equal(response.status, 204);
-  assert.equal(response.headers.get("access-control-allow-origin"), "https://dashboard.atcmh.org");
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://atcmh.org");
 });

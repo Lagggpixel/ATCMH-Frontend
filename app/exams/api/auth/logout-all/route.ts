@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const token = (await cookies()).get(examsSessionCookie)?.value;
-  if (!token || !allowedMutationOrigins(true).has(request.headers.get("origin") ?? "")
+  if (!token || !allowedMutationOrigins().has(request.headers.get("origin") ?? "")
     || !csrfMatches(token, request.headers.get("X-CSRF-Token"))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
