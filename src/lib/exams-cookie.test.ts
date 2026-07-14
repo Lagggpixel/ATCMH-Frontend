@@ -4,7 +4,7 @@ import test from "node:test";
 import { examsCookieOptions } from "./exams-cookie";
 
 test("production Exams cookies are scoped and hardened", () => {
-  assert.deepEqual(examsCookieOptions("https://atcmh.org"), {
+  assert.deepEqual(examsCookieOptions("https://www.atcmh.org"), {
     httpOnly: true,
     sameSite: "lax",
     secure: true,

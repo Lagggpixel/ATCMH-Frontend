@@ -11,8 +11,8 @@ type Listener = (event: unknown) => void;
 const createEnvironment = (confirmResult = true) => {
     const listeners = new Map<string, Set<Listener>>();
     const location = {
-        href: "https://atcmh.org/dashboard/exams/new",
-        origin: "https://atcmh.org",
+        href: "https://www.atcmh.org/dashboard/exams/new",
+        origin: "https://www.atcmh.org",
         assigned: [] as string[],
         assign(url: string) {
             this.assigned.push(url);
@@ -128,7 +128,7 @@ test("dirty protection captures same-origin links and removes every listener whe
             this.defaultPrevented = true;
         },
         target: {
-            closest: () => ({href: "https://atcmh.org/dashboard/exams"}),
+            closest: () => ({href: "https://www.atcmh.org/dashboard/exams"}),
         },
     };
 
@@ -136,7 +136,7 @@ test("dirty protection captures same-origin links and removes every listener whe
     environment.document.emit("click", click);
 
     assert.equal(click.defaultPrevented, true);
-    assert.deepEqual(environment.location.assigned, ["https://atcmh.org/dashboard/exams"]);
+    assert.deepEqual(environment.location.assigned, ["https://www.atcmh.org/dashboard/exams"]);
     for (const type of ["beforeunload", "popstate", "click"]) assert.equal(environment.target.count(type), 0);
     assert.equal(EXAM_UNSAVED_CHANGES_MESSAGE, "You have unsaved Exam Center changes. Leave and discard them?");
 });

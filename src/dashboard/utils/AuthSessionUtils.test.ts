@@ -23,10 +23,10 @@ test("return destinations stay on the dashboard", () => {
 });
 
 test("Exams impersonation uses the one-use callback contract", () => {
-    assert.equal(examsImpersonationHandoffUrl("https://atcmh.org", "one use/+"), "https://atcmh.org/exams/api/auth/callback?handoff=one+use%2F%2B&returnTo=%2Fexams");
+    assert.equal(examsImpersonationHandoffUrl("https://www.atcmh.org", "one use/+"), "https://www.atcmh.org/exams/api/auth/callback?handoff=one+use%2F%2B&returnTo=%2Fexams");
 });
 
 test("login disclosure uses the canonical ATCMH legal documents", () => {
-    assert.equal(TERMS_OF_SERVICE_URL, "https://atcmh.org/terms");
-    assert.equal(PRIVACY_POLICY_URL, "https://atcmh.org/policy");
+    assert.equal(TERMS_OF_SERVICE_URL, "https://www.atcmh.org/terms");
+    assert.equal(PRIVACY_POLICY_URL, "https://www.atcmh.org/policy");
 });

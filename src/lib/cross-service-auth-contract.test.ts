@@ -6,7 +6,7 @@ import { centralLoginUrl } from "./central-auth";
 
 const env = {
   DASHBOARD_API_URL: "https://dashboard-api.atcmh.org", EXAMS_AUTH_KEY: "auth-key",
-  EXAMS_CSRF_SECRET: "x".repeat(32), FRONTEND_PUBLIC_ORIGIN: "https://atcmh.org",
+  EXAMS_CSRF_SECRET: "x".repeat(32), FRONTEND_PUBLIC_ORIGIN: "https://www.atcmh.org",
 };
 
 test("Exams login emits the encoded return path required by central auth", () => {

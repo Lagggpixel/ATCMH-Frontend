@@ -20,8 +20,9 @@ test('terms page renders the canonical RootSite terms document', () => {
 	assert.doesNotMatch(terms, /replace with official contact method/)
 })
 
-test('legal pages use the shared navbar with a Discord contact link', () => {
+test('legal pages use the shared shell while Discord and legal links remain in the footer', () => {
 	const siteHeader = path.join(projectRoot, 'src', 'marketing', 'SiteHeader.tsx')
+	const siteFooter = path.join(projectRoot, 'src', 'marketing', 'SiteFooter.tsx')
 	const legalDocument = readFileSync(path.join(projectRoot, 'src', 'marketing', 'LegalDocument.tsx'), 'utf8')
 	const policyPage = readFileSync(path.join(projectRoot, 'src', 'app', 'policy', 'page.tsx'), 'utf8')
 	const termsPage = readFileSync(path.join(projectRoot, 'src', 'app', 'terms', 'page.tsx'), 'utf8')
@@ -29,12 +30,17 @@ test('legal pages use the shared navbar with a Discord contact link', () => {
 	assert.equal(existsSync(siteHeader), true)
 
 	const header = readFileSync(siteHeader, 'utf8')
+	const footer = readFileSync(siteFooter, 'utf8')
 
 	assert.match(policyPage, /<LegalDocument/)
 	assert.match(termsPage, /<LegalDocument/)
 	assert.match(legalDocument, /<SiteFrame>/)
-	assert.match(header, /href=\{discordUrl\}/)
 	assert.match(header, /href: "\/#about"/)
+	assert.doesNotMatch(header, /href=\{discordUrl\}/)
+	assert.doesNotMatch(header, /label: "(?:Contact|Legal)"/)
+	assert.match(footer, /href=\{discordUrl\}/)
+	assert.match(footer, /href="\/terms"/)
+	assert.match(footer, /href="\/policy"/)
 })
 
 test('terms describe the current consent and central authentication model', () => {

@@ -4,10 +4,10 @@ import test from "node:test";
 import { submitKeepaliveAttempt } from "./route";
 
 const quizId = "c2a07cd2-3e2e-482e-b2ee-9d5c6fec6bc4";
-const trustedOrigin = "https://exams.atcmh.org";
+const trustedOrigin = "https://www.atcmh.org";
 
-function request(body: string, contentType = "application/json", origin = "https://exams.atcmh.org") {
-  return new Request(`https://exams.atcmh.org/exams/api/quizzes/${quizId}/attempt/submit`, {
+function request(body: string, contentType = "application/json", origin = "https://www.atcmh.org") {
+  return new Request(`https://www.atcmh.org/exams/api/quizzes/${quizId}/attempt/submit`, {
     method: "POST",
     headers: { Origin: origin, "Content-Type": contentType },
     body,

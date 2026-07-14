@@ -17,8 +17,8 @@ const context = {
     application: "exams" as const,
     expiresAt: "2026-07-14T12:10:00Z",
     csrfToken: "csrf-value",
-    terms: {version: "2026-07-14", url: "https://atcmh.org/terms"},
-    privacy: {version: "2026-07-14", url: "https://atcmh.org/policy"},
+    terms: {version: "2026-07-14", url: "https://www.atcmh.org/terms"},
+    privacy: {version: "2026-07-14.1", url: "https://www.atcmh.org/policy"},
 };
 
 test("Dashboard exposes consent as a public route", () => {
@@ -50,8 +50,8 @@ test("ready consent view renders the exact native form contract without a challe
     assert.match(html, /<input (?=[^>]*type="checkbox")(?=[^>]*name="agreement")(?=[^>]*value="agreed")(?=[^>]*required="")[^>]*\/>/);
     assert.doesNotMatch(html, /checked=""/);
     assert.match(html, /I agree to the <a[^>]*>Terms of Service<\/a> and acknowledge the <a[^>]*>Privacy Policy<\/a>\./);
-    assert.match(html, /href="https:\/\/atcmh\.org\/terms"/);
-    assert.match(html, /href="https:\/\/atcmh\.org\/policy"/);
+    assert.match(html, /href="https:\/\/www\.atcmh\.org\/terms"/);
+    assert.match(html, /href="https:\/\/www\.atcmh\.org\/policy"/);
     assert.match(html, /<button (?=[^>]*type="submit")(?=[^>]*name="action")(?=[^>]*value="accept")[^>]*>Agree and continue<\/button>/);
     assert.match(html, /<button (?=[^>]*type="submit")(?=[^>]*name="action")(?=[^>]*value="decline")(?=[^>]*formNoValidate="")[^>]*>Decline<\/button>/);
     assert.doesNotMatch(html, /name="challenge"|consentChallenge|__Host-atcmh_consent/);

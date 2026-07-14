@@ -9,7 +9,7 @@ test("RootSite marketing and legal content is owned by App Router routes", () =>
   const terms = readFileSync(new URL("../src/app/terms/page.tsx", import.meta.url), "utf8");
   const policy = readFileSync(new URL("../src/app/policy/page.tsx", import.meta.url), "utf8");
   assert.match(terms, /TERMS_OF_SERVICE\.md/);
-  assert.match(policy, /privacy\.md/);
+  assert.match(policy, /PRIVACY\.md/);
 });
 
 test("the unified app intentionally has no apply route", () => {

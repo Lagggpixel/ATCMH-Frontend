@@ -15,10 +15,10 @@ if (process.env.ROUTE_CASE_RUN !== "1") {
     } });
     mock.module("@/src/lib/dashboard-audit-client", { exports: { emitDashboardAuditEvent: async () => true } });
     const { POST } = await import("./[quizId]/start/route");
-    const denied = await POST(new Request(`https://exams.atcmh.org/exams/api/quizzes/${quizId}/start`, { method: "POST" }), { params: Promise.resolve({ quizId }) });
+    const denied = await POST(new Request(`https://www.atcmh.org/exams/api/quizzes/${quizId}/start`, { method: "POST" }), { params: Promise.resolve({ quizId }) });
     assert.equal(denied.status, 403);
     process.env.EXAMS_LEARNER_SESSION_SECRET = "x".repeat(32);
-    const response = await POST(new Request(`https://exams.atcmh.org/exams/api/quizzes/${quizId}/start`, { method: "POST", headers: { "X-CSRF-Token": "valid" } }), { params: Promise.resolve({ quizId }) });
+    const response = await POST(new Request(`https://www.atcmh.org/exams/api/quizzes/${quizId}/start`, { method: "POST", headers: { "X-CSRF-Token": "valid" } }), { params: Promise.resolve({ quizId }) });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { redirectTo: `/exams/quizzes/${quizId}/attempt` });
     const cookie = response.headers.get("set-cookie") ?? "";

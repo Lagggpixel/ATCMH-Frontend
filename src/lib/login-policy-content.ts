@@ -1,5 +1,5 @@
-export const termsOfServiceUrl = "https://atcmh.org/terms";
-export const privacyPolicyUrl = "https://atcmh.org/policy";
+export const termsOfServiceUrl = "https://www.atcmh.org/terms";
+export const privacyPolicyUrl = "https://www.atcmh.org/policy";
 
 export interface LoginConsentMessage {
   title: string;

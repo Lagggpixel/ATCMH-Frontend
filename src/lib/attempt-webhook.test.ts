@@ -15,7 +15,7 @@ const input: AttemptWebhookInput = {
   attemptCode: "ATCMH-ATTEMPT-1",
   attemptId: "attempt-1",
   submittedAt: new Date("2026-07-11T08:30:00.000Z"),
-  attemptUrl: new URL("https://exams.atcmh.org/exams/attempts/attempt-1"),
+  attemptUrl: new URL("https://www.atcmh.org/exams/attempts/attempt-1"),
 };
 
 test("requires the canonical attempt URL and exposes no base URL fallback", () => {
@@ -68,7 +68,7 @@ test("builds the Discord attempt embed and permits only the verified learner men
       { name: "Result", value: "8/10 (80%)", inline: true },
       { name: "Submission", value: "Submitted manually", inline: true },
       { name: "Attempt Code", value: "ATCMH-ATTEMPT-1", inline: true },
-      { name: "View Attempt", value: "[Open Attempt](https://exams.atcmh.org/exams/attempts/attempt-1)" },
+      { name: "View Attempt", value: "[Open Attempt](https://www.atcmh.org/exams/attempts/attempt-1)" },
     ],
     timestamp: "2026-07-11T08:30:00.000Z",
   });

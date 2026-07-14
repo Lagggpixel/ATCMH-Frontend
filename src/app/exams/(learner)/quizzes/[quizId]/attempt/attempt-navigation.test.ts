@@ -8,7 +8,7 @@ const LEAVING_MESSAGE = "Leaving will submit your current answers. Stay on this 
 class FakeWindow {
   readonly listeners = new Map<string, Set<(event: any) => void>>();
   readonly location = {
-    href: "https://exams.atcmh.org/exams/quizzes/quiz-1/attempt",
+    href: "https://www.atcmh.org/exams/quizzes/quiz-1/attempt",
     assign: (href: string) => { this.assigned.push(href); },
   };
   readonly history = {
@@ -81,7 +81,7 @@ test("cancelling a same-origin link leaves the attempt active without submitting
     onConfirmedNavigation: async () => { submissions += 1; return true; },
   });
   protection.install();
-  const event = click({ href: "https://exams.atcmh.org/exams/quizzes" });
+  const event = click({ href: "https://www.atcmh.org/exams/quizzes" });
 
   window.dispatch("click", event);
   await Promise.resolve();
@@ -105,9 +105,9 @@ test("confirmed same-origin links submit once and only navigate after success", 
     },
   });
   protection.install();
-  const event = click({ href: "https://exams.atcmh.org/exams/quizzes" });
+  const event = click({ href: "https://www.atcmh.org/exams/quizzes" });
   window.dispatch("click", event);
-  window.dispatch("click", click({ href: "https://exams.atcmh.org/exams/quizzes" }));
+  window.dispatch("click", click({ href: "https://www.atcmh.org/exams/quizzes" }));
 
   assert.equal(submissions, 1);
   assert.deepEqual(window.assigned, []);
@@ -115,7 +115,7 @@ test("confirmed same-origin links submit once and only navigate after success", 
   await Promise.resolve();
   await Promise.resolve();
 
-  assert.deepEqual(window.assigned, ["https://exams.atcmh.org/exams/quizzes"]);
+  assert.deepEqual(window.assigned, ["https://www.atcmh.org/exams/quizzes"]);
 });
 
 test("pagehide sends the most recently selected answers", () => {
@@ -173,7 +173,7 @@ test("modified and external links are left to the browser", () => {
   });
   protection.install();
   const external = click({ href: "https://example.com/" });
-  const modified = click({ href: "https://exams.atcmh.org/exams/quizzes" }, { metaKey: true });
+  const modified = click({ href: "https://www.atcmh.org/exams/quizzes" }, { metaKey: true });
 
   window.dispatch("click", external);
   window.dispatch("click", modified);

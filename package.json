@@ -1,13 +1,14 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --import tsx --test"
+    "test": "node --import tsx --test",
+    "docker:push": "docker buildx build -f .dockerfile --platform linux/amd64,linux/arm64 -t registry.lagggpixel.com/atcmh-frontend:$npm_package_version -t registry.lagggpixel.com/atcmh-frontend:latest . --push"
   },
   "dependencies": {
     "mysql2": "^3.16.0",

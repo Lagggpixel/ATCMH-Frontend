@@ -5,6 +5,8 @@ import "@/src/marketing/marketing.css";
 import PortalAuthProvider from "@/src/platform/auth/PortalAuthProvider";
 import {publicRuntimeConfig} from "@/src/lib/runtime-config";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
     title: {default: "ATC Mentorship Hub", template: "%s | ATCMH"},
     description: "ATC Mentorship Hub",

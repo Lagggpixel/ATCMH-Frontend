@@ -10,8 +10,8 @@ const withFetch = async (run: (requests: Request[]) => Promise<void>) => {
     const originalFetch = globalThis.fetch;
     const requests: Request[] = [];
     globalThis.fetch = async (input, init) => {
-        if (String(input).endsWith("/api/auth/session")) { requests.push(new Request(new URL(String(input), "https://atcmh.org"), init)); return sessionResponse(); }
-        requests.push(new Request(new URL(String(input), "https://atcmh.org"), init));
+        if (String(input).endsWith("/api/auth/session")) { requests.push(new Request(new URL(String(input), "https://www.atcmh.org"), init)); return sessionResponse(); }
+        requests.push(new Request(new URL(String(input), "https://www.atcmh.org"), init));
         return new Response(JSON.stringify({
             actor: {discordId: "mentor-1", canManageAll: false, capabilities: ["manage-exams"]},
             quizzes: [],
@@ -33,8 +33,8 @@ test("management reads use the Exams host session without exposing a provider to
         const quizzes = await ExamsApiUtils.listQuizzes("discord-token");
 
         assert.equal(requests.length, 2);
-        assert.equal(requests[0].url, "https://atcmh.org/exams/api/management/me");
-        assert.equal(requests[1].url, "https://atcmh.org/exams/api/management/quizzes");
+        assert.equal(requests[0].url, "https://www.atcmh.org/exams/api/management/me");
+        assert.equal(requests[1].url, "https://www.atcmh.org/exams/api/management/quizzes");
         assert.equal(requests[0].headers.get("Authorization"), null);
         assert.equal(requests[0].credentials, "include");
         assert.equal(requests[1].headers.get("Authorization"), null);
@@ -48,12 +48,12 @@ test("category management uses protected category and focused move endpoints", a
         await ExamsApiUtils.listCategories("admin-token");
         await ExamsApiUtils.createCategory("Mock Exams", "admin-token");
         await ExamsApiUtils.moveQuizCategory("quiz-id", "category-id", "admin-token");
-        assert.equal(requests[0].url, "https://atcmh.org/exams/api/management/categories");
-        assert.equal(requests[1].url, "https://atcmh.org/exams/api/auth/session");
+        assert.equal(requests[0].url, "https://www.atcmh.org/exams/api/management/categories");
+        assert.equal(requests[1].url, "https://www.atcmh.org/exams/api/auth/session");
         assert.equal(requests[2].method, "POST");
         assert.deepEqual(await requests[2].json(), {name: "Mock Exams"});
         assert.equal(requests[2].headers.get("X-CSRF-Token"), "exams-csrf");
-        assert.equal(requests[3].url, "https://atcmh.org/exams/api/management/quizzes/quiz-id/category");
+        assert.equal(requests[3].url, "https://www.atcmh.org/exams/api/management/quizzes/quiz-id/category");
         assert.equal(requests[3].method, "PATCH");
         assert.deepEqual(await requests[3].json(), {categoryId: "category-id"});
         assert.equal(requests[3].headers.get("Authorization"), null);
@@ -66,7 +66,7 @@ test("attempt management reads and deletion use the protected paginated endpoint
     const originalFetch = globalThis.fetch;
     const requests: Request[] = [];
     globalThis.fetch = async (input, init) => {
-        const request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        const request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         requests.push(request);
         if (request.url.endsWith("/api/auth/session")) return sessionResponse();
         if (request.method === "DELETE") return new Response(null, {status: 204});
@@ -122,14 +122,14 @@ test("attempt management reads and deletion use the protected paginated endpoint
     }
 
     const [request, detailRequest, sessionRequest, deleteRequest] = requests;
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/attempts?page=1&pageSize=25&query=Tower+pilot");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/attempts?page=1&pageSize=25&query=Tower+pilot");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.credentials, "include");
-    assert.equal(detailRequest.url, "https://atcmh.org/exams/api/management/attempts/attempt-id");
+    assert.equal(detailRequest.url, "https://www.atcmh.org/exams/api/management/attempts/attempt-id");
     assert.equal(detailRequest.headers.get("Authorization"), null);
-    assert.equal(sessionRequest.url, "https://atcmh.org/exams/api/auth/session");
+    assert.equal(sessionRequest.url, "https://www.atcmh.org/exams/api/auth/session");
     assert.equal(deleteRequest.method, "DELETE");
-    assert.equal(deleteRequest.url, "https://atcmh.org/exams/api/management/attempts/attempt-id");
+    assert.equal(deleteRequest.url, "https://www.atcmh.org/exams/api/management/attempts/attempt-id");
     assert.equal(deleteRequest.headers.get("Authorization"), null);
     assert.equal(deleteRequest.headers.get("X-CSRF-Token"), "exams-csrf");
     assert.equal(deleteRequest.credentials, "include");
@@ -157,7 +157,7 @@ test("quiz saves use the protected management create endpoint", async () => {
     let request: Request | undefined;
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
-        request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         return new Response(JSON.stringify({quiz: {id: 18, title: "Tower basics"}}), {
             status: 201,
             headers: {"Content-Type": "application/json"},
@@ -182,7 +182,7 @@ test("quiz saves use the protected management create endpoint", async () => {
     }
 
     assert.ok(request);
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/quizzes");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/quizzes");
     assert.equal(request.method, "POST");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), "exams-csrf");
@@ -212,7 +212,7 @@ test("import preview uploads the selected file with the Exams host session", asy
     let request: Request | undefined;
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
-        request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         return new Response(JSON.stringify({
             valid: true,
             errors: [],
@@ -230,7 +230,7 @@ test("import preview uploads the selected file with the Exams host session", asy
     }
 
     assert.ok(request);
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/imports/preview");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/imports/preview");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), "exams-csrf");
     assert.equal(request.credentials, "include");
@@ -244,7 +244,7 @@ test("import commit sends only a server-previewed payload and idempotency key", 
     let request: Request | undefined;
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
-        request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         return new Response(JSON.stringify({valid: true, errors: [], result: {quizId: "quiz-1"}}), {
             status: 201,
             headers: {"Content-Type": "application/json"},
@@ -259,7 +259,7 @@ test("import commit sends only a server-previewed payload and idempotency key", 
     }
 
     assert.ok(request);
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/imports/commit");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/imports/commit");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), "exams-csrf");
     assert.equal(request.credentials, "include");
@@ -306,7 +306,7 @@ test("quiz unlock reads use the selected quiz management endpoint", async () => 
     let request: Request | undefined;
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
-        request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         return new Response(JSON.stringify({unlocks: [{discordId: "123456789012345", userName: "Pilot", unlockedBy: "mentor", unlockedAt: "2026-07-11T00:00:00Z"}]}), {status: 200, headers: {"Content-Type": "application/json"}});
     };
     try {
@@ -316,7 +316,7 @@ test("quiz unlock reads use the selected quiz management endpoint", async () => 
         globalThis.fetch = originalFetch;
     }
     assert.ok(request);
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/quizzes/quiz-id/unlocks");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/quizzes/quiz-id/unlocks");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), null);
     assert.equal(request.credentials, "include");
@@ -327,7 +327,7 @@ test("quiz unlock writes send an explicit unlocked state", async () => {
     let request: Request | undefined;
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
-        request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         return new Response(JSON.stringify({unlock: {quizId: "quiz-id", discordId: "123456789012345", userName: "Pilot", unlocked: true}}), {status: 200, headers: {"Content-Type": "application/json"}});
     };
     let result;
@@ -337,7 +337,7 @@ test("quiz unlock writes send an explicit unlocked state", async () => {
         globalThis.fetch = originalFetch;
     }
     assert.ok(request);
-    assert.equal(request.url, "https://atcmh.org/exams/api/management/quizzes/quiz-id/unlocks");
+    assert.equal(request.url, "https://www.atcmh.org/exams/api/management/quizzes/quiz-id/unlocks");
     assert.equal(request.method, "PUT");
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), "exams-csrf");
@@ -365,7 +365,7 @@ test("a mutation clears, re-bootstraps, and retries once after auth loss", async
             return new Response(JSON.stringify({session: {accountId: "1", discordId: "123", expiresAt: "2026-07-14T00:00:00Z", csrfToken: sessionLoads === 1 ? "old-csrf" : "new-csrf", impersonating: false}}), {status: 200, headers: {"Content-Type": "application/json"}});
         }
         mutationCalls += 1;
-        const request = new Request(new URL(String(input), "https://atcmh.org"), init);
+        const request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
         csrfHeaders.push(request.headers.get("X-CSRF-Token"));
         if (mutationCalls === 1) return new Response(null, {status: 401});
         return new Response(JSON.stringify({category: {id: "tower", name: "Tower"}}), {status: 200, headers: {"Content-Type": "application/json"}});

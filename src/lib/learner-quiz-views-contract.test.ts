@@ -10,22 +10,26 @@ function source(relativePath: string): string {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
-test("catalogue renders accessible linked cards with category and description", () => {
-  const page = source("../app/exams/(learner)/quizzes/page.tsx");
+test("catalogue renders accessible linked rows with category and description", () => {
+  const catalogue = source("../app/exams/(learner)/QuizCatalogue.tsx");
 
-  assert.match(page, /className="quiz-card-grid"/);
-  assert.match(page, /className="quiz-card"/);
-  assert.match(page, /<Link className="quiz-card__link" href=\{`\/exams\/quizzes\/\$\{quiz\.id\}`\}>/);
-  assert.match(page, /className="quiz-card__category"[^>]*>\{quiz\.category\}/);
-  assert.match(page, /className="quiz-card__description"[^>]*>\{quiz\.description\}/);
+  assert.match(catalogue, /className="exam-quiz-list"/);
+  assert.match(catalogue, /className="exam-quiz-row"/);
+  assert.match(catalogue, /<Link className="exam-quiz-row__action" href=\{`\/exams\/quizzes\/\$\{quiz\.id\}`\}>View quiz<\/Link>/);
+  assert.match(catalogue, /className="exam-quiz-row__category">\{quiz\.category\}/);
+  assert.match(catalogue, /<h3>\{quiz\.title\}<\/h3>/);
+  assert.match(catalogue, /<p>\{quiz\.description\}<\/p>/);
+  assert.match(catalogue, /type="search"/);
+  assert.match(catalogue, /<select value=\{category\}/);
 });
 
 test("catalogue visibility metadata is restricted to trusted staff access", () => {
-  const page = source("../app/exams/(learner)/quizzes/page.tsx");
+  const page = source("../app/exams/(learner)/page.tsx");
+  const catalogue = source("../app/exams/(learner)/QuizCatalogue.tsx");
 
-  assert.match(page, /const showVisibility = access\?\.canAccessPrivateQuizzes === true/);
-  assert.match(page, /\{showVisibility \? \(/);
-  assert.match(page, /quiz\.isPrivate \? "Private" : "Public"/);
+  assert.match(page, /showVisibility: access\?\.canAccessPrivateQuizzes === true/);
+  assert.match(catalogue, /\{showVisibility \? <span>/);
+  assert.match(catalogue, /quiz\.isPrivate \? "Private" : "Public"/);
   assert.doesNotMatch(page, /searchParams.*(?:role|staff|admin)/i);
 });
 
@@ -42,7 +46,7 @@ test("quiz detail uses the centered site shell and content card", () => {
 
 test("learner pages contain no login controls and protected starts use the home modal", () => {
   const home = source("../app/exams/(learner)/page.tsx");
-  const catalogue = source("../app/exams/(learner)/quizzes/page.tsx");
+  const catalogue = source("../app/exams/(learner)/QuizCatalogue.tsx");
   const detail = source("../app/exams/(learner)/quizzes/[quizId]/page.tsx");
   const start = source("../app/exams/(learner)/quizzes/[quizId]/StartQuizButton.tsx");
 
@@ -58,12 +62,12 @@ test("quiz start control uses a block wrapper that can contain login choices", (
   assert.doesNotMatch(markup, /^<span>/);
 });
 
-test("quiz card and detail styles include responsive and keyboard focus contracts", () => {
+test("quiz row and detail styles include responsive and keyboard focus contracts", () => {
   const css = source("../app/exams/exams.css");
 
-  assert.match(css, /\.quiz-card-grid\s*\{[^}]*grid-template-columns:/s);
-  assert.match(css, /\.quiz-card__link:focus-visible\s*\{[^}]*outline:/s);
+  assert.match(css, /\.exam-quiz-row\s*\{[^}]*grid-template-columns:/s);
+  assert.match(css, /\.exam-quiz-row__action:focus-visible\s*\{[^}]*outline:/s);
   assert.match(css, /\.quiz-detail-card\s*\{[^}]*text-align:\s*center/s);
-  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.quiz-card-grid\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.exam-quiz-row\s*\{[^}]*grid-template-columns:\s*1fr auto/s);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.quiz-detail-card__actions\s*\{[^}]*align-items:\s*stretch/s);
 });

@@ -8,7 +8,7 @@ const token = "z".repeat(43);
 const originalFetch = globalThis.fetch;
 
 test.beforeEach(() => {
-  process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org";
+  process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org";
   process.env.DASHBOARD_API_URL = "https://dashboard-api.atcmh.org";
   process.env.EXAMS_AUTH_KEY = "auth-key";
   process.env.EXAMS_CSRF_SECRET = "x".repeat(32);
@@ -22,13 +22,13 @@ test("cookie parser finds only the host session cookie", () => {
 });
 
 test("mutation origins contain only the exact configured unified origin", () => {
-  assert.deepEqual([...allowedMutationOrigins()], ["https://atcmh.org"]);
+  assert.deepEqual([...allowedMutationOrigins()], ["https://www.atcmh.org"]);
 });
 
 test("mutation origins fail closed for malformed or insecure configured URLs", () => {
   for (const configured of [
-    "https://atcmh.org/path",
-    "https://atcmh.org?query=yes",
+    "https://www.atcmh.org/path",
+    "https://www.atcmh.org?query=yes",
     "https://user@atcmh.org",
     "http://atcmh.org",
   ]) {
@@ -40,11 +40,11 @@ test("mutation origins fail closed for malformed or insecure configured URLs", (
 test("learner mutations require exact unified origin, per-session CSRF, and active introspection", async () => {
   const cookie = `atcmh_exams_session=${token}`;
   const csrf = csrfTokenFor(token);
-  assert.equal((await authorizeLearnerMutation("https://atcmh.org", cookie, csrf))?.session.discordId, "123456789012345678");
+  assert.equal((await authorizeLearnerMutation("https://www.atcmh.org", cookie, csrf))?.session.discordId, "123456789012345678");
   assert.equal(await authorizeLearnerMutation("https://evil.example", cookie, csrf), undefined);
-  assert.equal(await authorizeLearnerMutation("https://atcmh.org", cookie, "wrong"), undefined);
-  process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org/";
-  assert.ok(await authorizeLearnerMutation("https://atcmh.org", cookie, csrf));
+  assert.equal(await authorizeLearnerMutation("https://www.atcmh.org", cookie, "wrong"), undefined);
+  process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org/";
+  assert.ok(await authorizeLearnerMutation("https://www.atcmh.org", cookie, csrf));
   globalThis.fetch = async () => new Response("revoked", { status: 401 });
-  assert.equal(await authorizeLearnerMutation("https://atcmh.org", cookie, csrf), undefined);
+  assert.equal(await authorizeLearnerMutation("https://www.atcmh.org", cookie, csrf), undefined);
 });

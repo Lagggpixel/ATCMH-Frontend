@@ -15,7 +15,7 @@ const env = {
   DASHBOARD_API_URL: "https://dashboard-api.atcmh.org",
   EXAMS_AUTH_KEY: "auth-secret",
   EXAMS_CSRF_SECRET: "x".repeat(32),
-  FRONTEND_PUBLIC_ORIGIN: "https://atcmh.org",
+  FRONTEND_PUBLIC_ORIGIN: "https://www.atcmh.org",
 };
 const opaque = "o".repeat(43);
 
@@ -29,8 +29,8 @@ test("central login URL keeps both providers and an AuthReturnPolicy-safe relati
     const outerReturnTo = url.searchParams.get("returnTo")!;
     assert.ok(outerReturnTo.startsWith("/exams/api/auth/callback?"));
     assert.ok(!outerReturnTo.startsWith("//"));
-    const callback = new URL(outerReturnTo, "https://atcmh.org");
-    assert.equal(callback.origin, "https://atcmh.org");
+    const callback = new URL(outerReturnTo, "https://www.atcmh.org");
+    assert.equal(callback.origin, "https://www.atcmh.org");
     assert.equal(callback.pathname, "/exams/api/auth/callback");
     assert.equal(callback.searchParams.get("returnTo"), "/exams/quizzes?view=mine");
   }
@@ -38,6 +38,8 @@ test("central login URL keeps both providers and an AuthReturnPolicy-safe relati
 
 test("return destinations fail closed to local paths", () => {
   assert.equal(safeLocalReturnTo("/exams/quizzes?mine=1"), "/exams/quizzes?mine=1");
+  assert.equal(safeLocalReturnTo("https://atcmh.org/exams/quizzes"), "/exams");
+  assert.equal(safeLocalReturnTo("https://www.atcmh.org/exams/quizzes"), "/exams");
   assert.equal(safeLocalReturnTo("https://evil.example"), "/exams");
   assert.equal(safeLocalReturnTo("//evil.example"), "/exams");
   assert.equal(safeLocalReturnTo("/ok\\evil"), "/exams");

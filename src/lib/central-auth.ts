@@ -22,6 +22,7 @@ export interface CentralSession {
 
 export interface IssuedCentralSession { token: string; expiresAt: string }
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+const PRIVATE_RETURN_ORIGIN = "https://relative.invalid";
 
 function config(env: CentralAuthEnvironment = process.env as CentralAuthEnvironment) {
   const base = env.DASHBOARD_API_URL?.trim();
@@ -44,8 +45,8 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")
     || /[\u0000-\u001f\u007f]/.test(value)) return "/exams";
   try {
-    const parsed = new URL(value, "https://atcmh.org");
-    return parsed.origin === "https://atcmh.org" && (parsed.pathname === "/exams" || parsed.pathname.startsWith("/exams/"))
+    const parsed = new URL(value, PRIVATE_RETURN_ORIGIN);
+    return parsed.origin === PRIVATE_RETURN_ORIGIN && (parsed.pathname === "/exams" || parsed.pathname.startsWith("/exams/"))
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`
       : "/exams";
   } catch { return "/exams"; }
@@ -53,7 +54,7 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
 
 export function handoffCallbackPath(handoff: string | null | undefined, returnTo: string | null | undefined = "/exams"): string | undefined {
   if (!handoff || !/^[A-Za-z0-9_-]{20,256}$/.test(handoff)) return undefined;
-  const callback = new URL("/exams/api/auth/callback", "https://atcmh.org");
+  const callback = new URL("/exams/api/auth/callback", PRIVATE_RETURN_ORIGIN);
   callback.searchParams.set("handoff", handoff);
   callback.searchParams.set("returnTo", safeLocalReturnTo(returnTo));
   return `${callback.pathname}${callback.search}`;
@@ -65,7 +66,7 @@ export function centralLoginUrl(
   env: CentralAuthEnvironment = process.env as CentralAuthEnvironment,
 ): URL {
   const { backend } = config(env);
-  const callback = new URL("/exams/api/auth/callback", "https://relative.invalid");
+  const callback = new URL("/exams/api/auth/callback", PRIVATE_RETURN_ORIGIN);
   callback.searchParams.set("returnTo", safeLocalReturnTo(returnTo));
   const login = new URL("/auth/login", backend);
   login.searchParams.set("provider", provider);

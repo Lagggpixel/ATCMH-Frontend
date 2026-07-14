@@ -9,7 +9,7 @@ function renderedSecurityHeaders(nodeEnv, dashboardApiUrl) {
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
     "const {securityHeadersFor}=await import('./src/lib/security-headers.ts'); console.log(JSON.stringify(securityHeadersFor(process.env, process.env.NODE_ENV)));"], {
     cwd: root, encoding: "utf8", env: {...process.env, NODE_ENV: nodeEnv, DASHBOARD_API_URL: dashboardApiUrl,
-      FRONTEND_PUBLIC_ORIGIN: nodeEnv === "production" ? "https://atcmh.org" : "http://localhost:3000"},
+      FRONTEND_PUBLIC_ORIGIN: nodeEnv === "production" ? "https://www.atcmh.org" : "http://localhost:3000"},
   });
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout.trim());
@@ -35,6 +35,13 @@ test("Next emits standalone output and browser security headers", () => {
   for (const header of ["Content-Security-Policy", "Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"]) {
     assert.match(`${proxy}\n${security}`, new RegExp(header));
   }
+});
+
+test("the root layout resolves public configuration at request time", () => {
+  const layout = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
+
+  assert.match(layout, /export const dynamic = "force-dynamic"/);
+  assert.match(layout, /const \{dashboardApiUrl\} = publicRuntimeConfig\(\)/);
 });
 
 test("Next isolates development artifacts from standalone production output", () => {
@@ -77,6 +84,19 @@ test("container runs standalone Next as non-root and healthchecks the global rou
   assert.match(dockerfile, /USER nextjs/);
   assert.match(dockerfile, /\/api\/health/);
   assert.doesNotMatch(dockerfile, /ARG\s+.*(?:SECRET|TOKEN|KEY|PASSWORD)/i);
+});
+
+test("docker push script publishes versioned and latest multi-platform images", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const command = packageJson.scripts?.["docker:push"] ?? "";
+
+  assert.equal(packageJson.version, "1.0.1");
+  assert.match(command, /docker buildx build/);
+  assert.match(command, /-f \.dockerfile/);
+  assert.match(command, /--platform linux\/amd64,linux\/arm64/);
+  assert.match(command, /registry\.lagggpixel\.com\/atcmh-frontend:\$npm_package_version/);
+  assert.match(command, /registry\.lagggpixel\.com\/atcmh-frontend:latest/);
+  assert.match(command, /\. --push$/);
 });
 
 test("environment examples and ignores contain no public secret channel", () => {

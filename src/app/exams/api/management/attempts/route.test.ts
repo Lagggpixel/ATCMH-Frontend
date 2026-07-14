@@ -15,15 +15,15 @@ function authorizeReviewer() {
   process.env.DASHBOARD_API_URL = "https://dashboard-api.atcmh.org";
   process.env.EXAMS_AUTH_KEY = "auth-key";
   process.env.EXAMS_CSRF_SECRET = "x".repeat(32);
-  process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org";
+  process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org";
   globalThis.fetch = async (input) => String(input).includes("/internal/auth/sessions/introspect")
     ? Response.json({ active: true, accountId: "1", discordId: "123456789012345", expiresAt: "2099-01-01T00:00:00Z", impersonating: false })
     : Response.json({ roles: ["mentor-role"] });
 }
 
 function request(path = "") {
-  return new Request(`https://exams.atcmh.org/exams/api/management/exams/attempts${path}`, {
-    headers: { cookie: `atcmh_exams_session=${token}`, origin: "https://atcmh.org", "X-CSRF-Token": csrfTokenFor(token) },
+  return new Request(`https://www.atcmh.org/exams/api/management/exams/attempts${path}`, {
+    headers: { cookie: `atcmh_exams_session=${token}`, origin: "https://www.atcmh.org", "X-CSRF-Token": csrfTokenFor(token) },
   });
 }
 
@@ -51,7 +51,7 @@ test("attempt list permits reviewers and returns the paginated management DTO", 
   const response = await GET(request("?page=3&pageSize=25&query=learner"));
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("access-control-allow-origin"), "https://atcmh.org");
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://www.atcmh.org");
   assert.deepEqual(await response.json(), {
     attempts: [{
       id: "attempt-1", code: "a".repeat(32), quizId: "quiz-1", quizTitle: "Tower fundamentals",

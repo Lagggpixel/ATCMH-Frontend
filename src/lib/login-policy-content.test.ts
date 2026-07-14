@@ -29,8 +29,8 @@ test("consent outcomes use safe learner-facing messages", () => {
 });
 
 test("login disclosure uses the canonical policies and prospective consent wording", () => {
-  assert.equal(termsOfServiceUrl, "https://atcmh.org/terms");
-  assert.equal(privacyPolicyUrl, "https://atcmh.org/policy");
+  assert.equal(termsOfServiceUrl, "https://www.atcmh.org/terms");
+  assert.equal(privacyPolicyUrl, "https://www.atcmh.org/policy");
 
   const controls = source("../platform/auth/HomeLoginModal.tsx");
   assert.match(controls, /Before access is granted, you will need to agree to the/);

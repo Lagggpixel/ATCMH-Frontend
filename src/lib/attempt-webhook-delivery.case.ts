@@ -7,7 +7,7 @@ const input: AttemptWebhookInput = {
   quizTitle: "Tower Basics", discordId: "123456789012345678", score: 8, total: 10, percentage: 80,
   submissionReason: "manual", attemptCode: "ATCMH-ATTEMPT-1", attemptId: "attempt-1",
   submittedAt: new Date("2026-07-11T08:30:00.000Z"),
-  attemptUrl: new URL("https://exams.atcmh.org/attempts/attempt-1"),
+  attemptUrl: new URL("https://www.atcmh.org/attempts/attempt-1"),
 };
 
 async function withWebhookUrl(url: string | undefined, run: () => Promise<void>): Promise<void> {

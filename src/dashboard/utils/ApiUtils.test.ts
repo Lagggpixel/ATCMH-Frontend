@@ -126,8 +126,8 @@ test("consent context uses the backend-owned HttpOnly challenge cookie", async (
             application: "exams",
             expiresAt: "2026-07-14T12:10:00Z",
             csrfToken: "csrf-value",
-            terms: {version: "2026-07-14", url: "https://atcmh.org/terms"},
-            privacy: {version: "2026-07-14", url: "https://atcmh.org/policy"},
+            terms: {version: "2026-07-14", url: "https://www.atcmh.org/terms"},
+            privacy: {version: "2026-07-14.1", url: "https://www.atcmh.org/policy"},
         });
     };
 

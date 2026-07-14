@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url'
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 test('privacy policy describes current login, audit, and linked-account processing', () => {
-	const privacy = readFileSync(path.join(projectRoot, 'privacy.md'), 'utf8')
+	const privacy = readFileSync(path.join(projectRoot, 'PRIVACY.md'), 'utf8')
 
 	assert.match(privacy, /Last updated: July 14, 2026/)
+	assert.match(privacy, /^Website: https:\/\/www\.atcmh\.org\/$/m)
+	assert.doesNotMatch(privacy, /^Website:.*https:\/\/(?:dashboard|exams)\.atcmh\.org/m)
 	assert.match(privacy, /Dashboard and Exams Center/i)
 	assert.match(privacy, /central[^.]*opaque session/i)
 	assert.match(privacy, /login IP address/i)

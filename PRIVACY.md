@@ -2,7 +2,7 @@ Privacy Policy for ATC Mentorship Hub
 
 Effective date: July 10, 2026
 Last updated: July 14, 2026
-Website: https://atcmh.org/, https://dashboard.atcmh.org/ and https://exams.atcmh.org/
+Website: https://www.atcmh.org/
 Discord bot: ATCMH Bot
 Operator: ATC Mentorship Hub, operated by Wanbin Cao
 Technical administrator: Wanbin Cao

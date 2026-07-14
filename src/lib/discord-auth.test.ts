@@ -8,8 +8,8 @@ const originalFetch = globalThis.fetch;
 const token = "t".repeat(43);
 const mentorId = "123456789012345678";
 
-function request(method = "GET", authenticated = true, csrf?: string, origin = "https://atcmh.org") {
-  return new Request("https://exams.atcmh.org/exams/api/management/exams/quizzes", {
+function request(method = "GET", authenticated = true, csrf?: string, origin = "https://www.atcmh.org") {
+  return new Request("https://www.atcmh.org/exams/api/management/exams/quizzes", {
     method,
     headers: {
       ...(authenticated ? { cookie: `atcmh_exams_session=${token}` } : {}),
@@ -26,7 +26,7 @@ function configure() {
   process.env.DASHBOARD_API_URL = "https://dashboard-api.atcmh.org";
   process.env.EXAMS_AUTH_KEY = "auth-key";
   process.env.EXAMS_CSRF_SECRET = "x".repeat(32);
-  process.env.FRONTEND_PUBLIC_ORIGIN = "https://atcmh.org";
+  process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org";
   process.env.DISCORD_GUILD_ID = "guild";
   process.env.DISCORD_BOT_TOKEN = "bot-token";
   process.env.DISCORD_MENTOR_ROLE_IDS = "mentor-role,moderator-role";

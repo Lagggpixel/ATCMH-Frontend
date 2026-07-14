@@ -7,11 +7,13 @@ function source(relativePath: string): string {
 }
 
 test("signed-in catalogue resolves trusted learner access and uses role-neutral empty copy", () => {
-  const page = source("../app/exams/(learner)/quizzes/page.tsx");
+  const page = source("../app/exams/(learner)/page.tsx");
+  const catalogue = source("../app/exams/(learner)/QuizCatalogue.tsx");
   assert.match(page, /resolveLearnerAccess\(discordId\)/);
   assert.match(page, /listEligibleQuizzes\(access\)/);
-  assert.match(page, /No quizzes are available right now\./);
-  assert.doesNotMatch(page, /No public quizzes are available right now\./);
+  assert.doesNotMatch(page, /searchParams.*(?:role|staff|admin)/i);
+  assert.match(catalogue, /No quizzes are available right now\./);
+  assert.doesNotMatch(catalogue, /No public quizzes are available right now\./);
 });
 
 for (const [name, relativePath] of [

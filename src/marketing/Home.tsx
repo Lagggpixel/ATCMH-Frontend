@@ -240,7 +240,7 @@ function Cta() {
 export default function Home() {
 	return (
 		<div className="marketing-product">
-			<SiteHeader showLogin />
+			<SiteHeader navigation="marketing" showLogin />
 			<Suspense fallback={null}><HomeLoginModal /></Suspense>
 			<main>
 				<Hero />
