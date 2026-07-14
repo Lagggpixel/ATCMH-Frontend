@@ -1,5 +1,6 @@
 .git
 .gitignore
+.gitleaks.toml
 .next
 node_modules
 out
@@ -9,6 +10,11 @@ coverage
 .env*
 !.env.example
 .superpowers
+docs
+scripts
+tests
+**/*.test.*
+**/*.case.ts
 *.log
 *.dump
 *.sql.gz
