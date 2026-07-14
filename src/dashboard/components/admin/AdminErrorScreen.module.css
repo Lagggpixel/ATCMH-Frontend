@@ -1,0 +1,29 @@
+.adminErrorContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    padding: 20px;
+}
+
+.adminErrorContainer h2 {
+    color: var(--error-color);
+    margin-bottom: 10px;
+}
+
+.adminErrorContainer button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.adminErrorContainer button:hover {
+    background-color: var(--button-hover);
+}

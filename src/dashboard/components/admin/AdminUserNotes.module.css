@@ -1,0 +1,426 @@
+.adminUserNotesContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: calc(100dvh - 40px);
+    position: relative;
+}
+
+.adminUserNotesHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.adminUserNotesHeader h1 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: clamp(1.8rem, 4vw, 2.55rem);
+    line-height: 1.05;
+}
+
+.adminUserNotesHeader button,
+.adminUserNotesModalActions button,
+.adminUserNotesActions button {
+    min-height: 38px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent-color);
+    color: #07111f;
+    padding: 8px 12px;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.adminUserNotesHeader button:disabled,
+.adminUserNotesModalActions button:disabled,
+.adminUserNotesActions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.adminUserNotesModalBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, 0.56);
+}
+
+.adminUserNotesModal {
+    width: min(560px, 100%);
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-color);
+    box-shadow: var(--panel-shadow);
+}
+
+.adminUserNotesModal header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.adminUserNotesModal h2 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.adminUserNotesModal header button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--surface-3-color);
+    color: var(--text-color);
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.adminUserNotesModal label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted-text);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.adminUserNotesModal input,
+.adminUserNotesModal textarea,
+.adminUserNoteCellNote textarea {
+    width: 100%;
+    min-width: 0;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 9px 11px;
+    border-radius: 6px;
+    font: inherit;
+}
+
+.adminUserNotesModal textarea,
+.adminUserNoteCellNote textarea {
+    resize: vertical;
+}
+
+.adminUserNotesModalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.adminUserNotesModalActions button:first-child {
+    background: var(--surface-3-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.adminUserNotesActionError {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--danger-text) 35%, var(--border-color));
+    border-radius: 8px;
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    font-weight: 700;
+}
+
+.adminUserNotesControls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--surface-color), var(--surface-2-color));
+    box-shadow: var(--panel-shadow);
+}
+
+.adminUserNotesFilterControl {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.adminUserNotesFilterControl label {
+    color: var(--muted-text);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.adminUserNotesFilterControl input,
+.adminUserNotesFilterControl select {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 9px 11px;
+    border-radius: 6px;
+    font: inherit;
+}
+
+.adminUserNotesFilterControl input:focus,
+.adminUserNotesFilterControl select:focus {
+    outline: 2px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+    border-color: var(--accent-color);
+}
+
+.adminUserNotesNotesCount {
+    margin: 0 0 12px;
+    color: var(--muted-text);
+    font-size: 0.9rem;
+    text-align: right;
+}
+
+.adminUserNotesTable {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--surface-color);
+    box-shadow: var(--panel-shadow);
+}
+
+.adminUserNotesDataTable {
+    border-collapse: collapse;
+    min-width: 1120px;
+    width: 100%;
+}
+
+.adminUserNotesDataTable th[role="button"] {
+    cursor: pointer;
+    user-select: none;
+}
+
+.adminUserNotesDataTable th[role="button"]:hover {
+    color: var(--text-color);
+}
+
+.adminUserNotesDataTable th .sortIndicator {
+    margin-inline-start: 4px;
+    font-size: 0.7rem;
+    opacity: 0.4;
+}
+
+.adminUserNotesDataTable th .sortIndicator.active {
+    opacity: 1;
+}
+
+.adminUserNotesDataTable th {
+    background-color: var(--surface-3-color);
+    color: var(--muted-text);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    padding: 13px 14px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.adminUserNotesDataTable td {
+    background-color: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    padding: 13px 14px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.adminUserNotesTimeCell {
+    width: 136px;
+    min-width: 136px;
+}
+
+.adminUserNotesTimeCell time {
+    display: inline-grid;
+    gap: 2px;
+    white-space: nowrap;
+    line-height: 1.25;
+}
+
+.adminUserNotesDataTable tbody tr:nth-child(even) td {
+    background-color: var(--surface-2-color);
+}
+
+.adminUserNotesDataTable tbody tr.inactive td {
+    background-color: var(--danger-bg);
+}
+
+.adminUserNoteCellNote {
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 40px;
+}
+
+.adminUserNotesActions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 116px;
+}
+
+.adminUserNotesActionCell {
+    min-width: 148px;
+}
+
+.adminUserNotesActions .secondaryButton {
+    background: var(--surface-3-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.adminUserNotesActions .dangerButton {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border: 1px solid color-mix(in srgb, var(--danger-text) 35%, var(--border-color));
+}
+
+.adminCancelledBadge,
+.adminActiveBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.adminCancelledBadge {
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.adminActiveBadge {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+}
+
+.adminUserNotesNoResults {
+    padding: 24px;
+    text-align: center;
+    background-color: var(--surface-color);
+    color: var(--muted-text);
+}
+
+.discordLink {
+    display: inline-block;
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+@media (max-width: 900px) {
+    .adminUserNotesControls {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .adminUserNotesContainer {
+        padding: 12px;
+    }
+
+    .adminUserNotesHeader {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .adminUserNotesHeader h1 {
+        margin-bottom: 0;
+    }
+
+    .adminUserNotesHeader button {
+        width: 100%;
+    }
+
+    .adminUserNotesNotesCount {
+        text-align: left;
+    }
+
+    .adminUserNotesTable {
+        border: 0;
+        border-radius: 0;
+        overflow: visible;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .adminUserNotesDataTable,
+    .adminUserNotesDataTable tbody,
+    .adminUserNotesDataTable tr,
+    .adminUserNotesDataTable td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .adminUserNotesDataTable thead {
+        display: none;
+    }
+
+    .adminUserNotesDataTable tr {
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: var(--surface-color);
+        box-shadow: var(--panel-shadow);
+    }
+
+    .adminUserNotesDataTable td {
+        display: grid;
+        grid-template-columns: minmax(82px, 30%) minmax(0, 1fr);
+        gap: 12px;
+        border-top: 1px solid var(--border-color);
+        padding: 11px 12px;
+        background-color: var(--surface-color);
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    .adminUserNotesDataTable td:first-child {
+        border-top: 0;
+    }
+
+    .adminUserNotesDataTable td::before {
+        content: attr(data-label);
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .adminUserNoteCellNote {
+        text-align: left;
+    }
+
+    .adminUserNotesTimeCell {
+        width: auto;
+        min-width: 0;
+    }
+
+    .adminUserNotesTimeCell time {
+        justify-items: end;
+    }
+
+    .adminUserNotesActions {
+        grid-template-columns: 1fr;
+    }
+
+    .adminUserNotesActionCell {
+        min-width: 0;
+    }
+}

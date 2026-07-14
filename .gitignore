@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.log
+*.dump
+*.sql.gz
+*transcript*
+.DS_Store
+.idea/
+.superpowers/
+.env*
+!.env.example

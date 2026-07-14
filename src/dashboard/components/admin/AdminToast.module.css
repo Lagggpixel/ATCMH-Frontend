@@ -1,0 +1,55 @@
+.toast {
+    position: fixed;
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: start;
+    width: min(440px, calc(100svw - 32px));
+    max-height: min(45svh, 280px);
+    overflow: auto;
+    padding: 12px 12px 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--danger-text) 45%, var(--border-color));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--danger-bg) 88%, var(--surface-color));
+    color: var(--danger-text);
+    box-shadow: var(--panel-shadow);
+    font-weight: 750;
+}
+
+.toast span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+}
+
+.toast button {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    border: 1px solid color-mix(in srgb, var(--danger-text) 42%, var(--border-color));
+    border-radius: 6px;
+    background: transparent;
+    color: var(--danger-text);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.toast button:hover {
+    background: color-mix(in srgb, var(--danger-text) 12%, transparent);
+}
+
+@media (max-width: 560px) {
+    .toast {
+        top: calc(12px + env(safe-area-inset-top, 0px));
+        right: 12px;
+        bottom: auto;
+        left: 12px;
+        width: auto;
+        max-height: min(42svh, 240px);
+    }
+}

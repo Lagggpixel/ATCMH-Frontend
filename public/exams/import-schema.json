@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ATCMH quiz import",
+  "type": "object",
+  "required": ["title", "category", "feedbackMode", "timeLimitSeconds", "questions"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": "string" },
+    "category": { "type": "string", "minLength": 1 },
+    "feedbackMode": { "enum": ["after_submission", "after_each_question", "none"] },
+    "timeLimitSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "isPrivate": { "type": "boolean" },
+    "randomizeQuestions": { "type": "boolean" },
+    "questions": { "type": "array", "minItems": 1 }
+  },
+  "additionalProperties": false
+}

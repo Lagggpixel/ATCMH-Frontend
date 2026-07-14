@@ -1,0 +1,146 @@
+.adminManualContainer {
+    margin: 0 auto;
+    max-width: 1400px;
+    min-height: calc(100dvh - 40px);
+    padding: 20px;
+}
+
+.manualHeader {
+    align-items: end;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.manualHeader h1 {
+    font-size: clamp(1.85rem, 3vw, 2.5rem);
+    line-height: 1.1;
+    margin: 0 0 6px;
+}
+
+.manualHeader p {
+    color: var(--muted-text);
+    margin: 0;
+}
+
+.manualActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.manualActions a {
+    align-items: center;
+    background: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 7px;
+    color: #111;
+    display: inline-flex;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    text-decoration: none;
+}
+
+.manualActions a:last-child {
+    background: transparent;
+    color: var(--accent-strong-color);
+}
+
+.manualError,
+.manualLoading,
+.manualEmpty,
+.manualViewerPanel {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--panel-shadow);
+}
+
+.manualError,
+.manualLoading,
+.manualEmpty {
+    padding: 18px;
+}
+
+.manualError {
+    border-color: color-mix(in srgb, var(--error-color) 65%, var(--border-color));
+    color: var(--danger-text);
+}
+
+.manualLoading {
+    color: var(--muted-text);
+}
+
+.manualEmpty {
+    display: grid;
+    gap: 8px;
+}
+
+.manualEmpty h2,
+.manualFallback h2 {
+    font-size: 1.05rem;
+    margin: 0;
+}
+
+.manualEmpty p,
+.manualFallback p {
+    color: var(--muted-text);
+    margin: 0;
+}
+
+.manualEmpty code {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-color);
+    padding: 2px 5px;
+}
+
+.hashText {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.82rem;
+}
+
+.manualViewerPanel {
+    min-height: 72dvh;
+    overflow: hidden;
+}
+
+.manualViewer {
+    border: 0;
+    display: block;
+    height: 72dvh;
+    width: 100%;
+}
+
+.manualFallback {
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+}
+
+@media (max-width: 640px) {
+    .adminManualContainer {
+        padding: 16px 14px 32px;
+    }
+
+    .manualHeader {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .manualActions,
+    .manualActions a {
+        width: 100%;
+    }
+
+    .manualViewerPanel,
+    .manualViewer {
+        min-height: 58dvh;
+        height: 58dvh;
+    }
+}

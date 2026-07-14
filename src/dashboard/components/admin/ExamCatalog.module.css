@@ -1,0 +1,232 @@
+.catalog {
+    min-width: 0;
+}
+
+.toolbar {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(160px, auto) minmax(150px, auto);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.toolbar input,
+.toolbar select {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    padding: 8px 11px;
+    font: inherit;
+}
+
+.categoryActions { display: flex; gap: 10px; margin: 0 0 12px; }
+.categoryActions input, .categoryActions button, .quizRow select { min-height: 38px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--input-bg); color: var(--text-color); font: inherit; padding: 7px 10px; }
+.categoryActions button { cursor: pointer; }
+.categoryError { color: var(--error-color); margin: 0 0 12px; }
+
+.toolbar input::placeholder {
+    color: var(--muted-text);
+}
+
+.searchField {
+    min-width: 0;
+}
+
+.visuallyHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.resultCount {
+    margin: 0 0 14px;
+    color: var(--muted-text);
+    font-size: .88rem;
+}
+
+.folders {
+    display: grid;
+    gap: 4px;
+}
+
+.folder {
+    min-width: 0;
+}
+
+.folderHeader {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-color);
+    padding: 9px 10px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 750;
+    text-align: left;
+}
+
+.folderHeader:hover,
+.folderHeader:focus-visible {
+    background: var(--surface-color);
+}
+
+.chevron {
+    color: var(--muted-text);
+    font-size: 1.25rem;
+    line-height: 1;
+    text-align: center;
+}
+
+.folderCount {
+    color: var(--muted-text);
+    font-size: .8rem;
+    font-weight: 650;
+}
+
+.quizList {
+    margin-left: 38px;
+}
+
+.quizRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(100px, auto) auto;
+    gap: 16px;
+    align-items: center;
+    min-width: 0;
+    border-top: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 10px;
+}
+
+.quizRow:hover {
+    background: var(--surface-color);
+}
+
+.examDetails,
+.examDetails strong,
+.examDetails > span {
+    display: block;
+    min-width: 0;
+}
+
+.examDetails > span {
+    margin-top: 4px;
+    color: var(--muted-text);
+    font-size: .84rem;
+    line-height: 1.4;
+}
+
+.privateBadge,
+.publicBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: .78rem;
+    font-weight: 750;
+}
+
+.privateBadge {
+    background: var(--info-bg);
+    color: var(--info-text);
+}
+
+.publicBadge {
+    background: var(--success-bg);
+    color: var(--success-text);
+}
+
+.updated {
+    color: var(--muted-text);
+    font-size: .84rem;
+}
+
+.editButton {
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--accent-strong-color);
+    padding: 7px 11px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.editButton:hover,
+.editButton:focus-visible {
+    border-color: var(--accent-color);
+}
+
+.emptyState {
+    margin: 0;
+    padding: 28px 0;
+    color: var(--muted-text);
+    text-align: center;
+}
+
+@media (max-width: 760px) {
+    .toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .searchField {
+        grid-column: 1 / -1;
+    }
+
+    .quizRow {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    .updated {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .quizList {
+        margin-left: 20px;
+    }
+
+    .quizRow {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+    }
+
+    .visibility {
+        display: none;
+    }
+}
+
+@media (max-width: 440px) {
+    .toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .searchField {
+        grid-column: auto;
+    }
+
+    .folderHeader {
+        grid-template-columns: 20px minmax(0, 1fr);
+    }
+
+    .folderCount {
+        grid-column: 2;
+    }
+}

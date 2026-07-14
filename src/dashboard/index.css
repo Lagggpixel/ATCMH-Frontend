@@ -1,0 +1,60 @@
+.dashboard-product {
+    font-family: system-ui, 'Segoe UI', Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color-scheme: light dark;
+    color: rgba(246, 248, 252, 0.92);
+    background-color: #101318;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    --bg-color: #101318;
+    --surface-color: #181d24;
+    --surface-2-color: #202630;
+    --surface-3-color: #27303b;
+    --text-color: #f5f7fb;
+    --muted-text: #a7b0bd;
+    --accent-color: #7fa7f2;
+    --accent-strong-color: #9bbcff;
+    --error-color: #f06a61;
+    --success-color: #65d18c;
+    --border-color: #303947;
+    --row-bg: var(--surface-color);
+    --row-alt-bg: var(--surface-2-color);
+    --input-bg: #131820;
+    --button-hover: #2d3950;
+    --cancelled-bg: #322026;
+    --active-bg: #203025;
+    --panel-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+    --danger-bg: rgba(240, 106, 97, 0.16);
+    --danger-text: #ffb3ad;
+    --success-bg: rgba(101, 209, 140, 0.16);
+    --success-text: #a7efbd;
+    --warning-bg: rgba(246, 197, 83, 0.16);
+    --warning-text: #ffe08a;
+    --info-bg: rgba(127, 167, 242, 0.18);
+    --info-text: #c6d8ff;
+}
+
+.dashboard-product,
+.dashboard-product * {
+    box-sizing: border-box;
+}
+
+.dashboard-product button:focus-visible,
+.dashboard-product a:focus-visible,
+.dashboard-product input:focus-visible,
+.dashboard-product select:focus-visible {
+    outline: 3px solid #9bbcff;
+    outline-offset: 3px;
+}
+
+.dashboard-product {
+    min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}

@@ -1,0 +1,157 @@
+.examCenter {
+    width: min(100%, 1180px);
+    min-height: calc(100dvh - 40px);
+    margin: 0 auto;
+    padding: 20px;
+    overflow-x: clip;
+}
+
+.examNav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    min-height: 44px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.examNav::-webkit-scrollbar {
+    display: none;
+}
+
+.examNav a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 44px;
+    margin: 4px 0;
+    border-radius: 9px;
+    color: var(--muted-text);
+    text-decoration: none;
+    font-size: .92rem;
+    font-weight: 700;
+    padding: 0 8px;
+}
+
+.examNav a:hover {
+    background: var(--surface-color);
+    color: var(--text-color);
+}
+
+.examNav .activeNavLink {
+    color: var(--text-color);
+}
+
+.examNav .activeNavLink::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -5px;
+    left: 0;
+    height: 2px;
+    background: var(--accent-color);
+}
+
+.headingActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin: 0 0 18px;
+}
+
+.createButton,
+.secondaryAction {
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    padding: 8px 14px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    box-shadow: none;
+}
+
+.createButton {
+    color: var(--accent-color);
+}
+
+.createButton:hover {
+    background: var(--info-bg);
+}
+
+.secondaryAction {
+    color: var(--muted-text);
+}
+
+.secondaryAction:hover {
+    background: var(--surface-color);
+    color: var(--text-color);
+}
+
+.createButton:focus-visible,
+.secondaryAction:focus-visible,
+.examNav a:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+.state button {
+    min-height: 40px;
+    border: 1px solid var(--accent-color);
+    border-radius: 9px;
+    background: var(--accent-color);
+    color: #111;
+    padding: 8px 14px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+}
+
+.state {
+    margin-top: 18px;
+    border-top: 1px solid var(--border-color);
+    padding: 22px 0;
+}
+
+.state h2 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 1.2rem;
+}
+
+.state p {
+    color: var(--muted-text);
+}
+
+.nonBlockingNote {
+    margin: 14px 0 0;
+}
+
+.backLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    color: var(--accent-strong-color);
+    font-weight: 750;
+}
+
+@media (max-width: 760px) {
+    .examCenter {
+        min-height: calc(100dvh - 24px);
+        padding: 12px;
+    }
+
+    .examNav {
+        gap: 20px;
+        margin-bottom: 22px;
+    }
+
+    .headingActions {
+        margin-bottom: 14px;
+    }
+}

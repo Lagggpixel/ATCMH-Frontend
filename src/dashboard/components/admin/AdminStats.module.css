@@ -1,0 +1,173 @@
+.adminStatsContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: calc(100dvh - 40px);
+    position: relative;
+}
+
+.adminStatsContainer h1 {
+    margin: 0 0 18px;
+    color: var(--text-color);
+    font-size: clamp(1.8rem, 4vw, 2.55rem);
+    line-height: 1.05;
+}
+
+.adminStatsSubContainer {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--surface-color), var(--surface-2-color));
+    box-shadow: var(--panel-shadow);
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.adminStatsSubContainer h2 {
+    color: var(--text-color);
+    margin: 0 0 16px;
+    font-size: 1.2rem;
+}
+
+.adminStatsGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 18px;
+}
+
+.adminStatCard {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--surface-color);
+    padding: 14px;
+}
+
+.adminStatCard h3 {
+    margin: 0 0 14px;
+    color: var(--text-color);
+    font-size: 1rem;
+}
+
+.adminStatsChartContainer {
+    height: 400px;
+    width: 100%;
+}
+
+.adminStatsTable {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    overflow-x: auto;
+    width: 100%;
+    background-color: var(--surface-color);
+}
+
+.adminStatsDataTable {
+    border-collapse: collapse;
+    min-width: 520px;
+    width: 100%;
+}
+
+.adminStatsDataTable th {
+    background-color: var(--surface-3-color);
+    color: var(--muted-text);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    padding: 12px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.adminStatsDataTable td {
+    background-color: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    padding: 10px 12px;
+    text-align: left;
+}
+
+.adminStatsDataTable tbody tr:nth-child(even) td {
+    background-color: var(--surface-2-color);
+}
+
+.adminStatsEmptyState {
+    color: var(--muted-text);
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .adminStatsContainer {
+        padding: 12px;
+    }
+
+    .adminStatsSubContainer {
+        padding: 14px;
+    }
+
+    .adminStatsChartContainer {
+        height: 300px;
+    }
+
+    .adminStatsContainer :global(.recharts-pie-label-text) {
+        display: none;
+    }
+
+    .adminStatsContainer :global(.recharts-default-legend) {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 8px;
+        font-size: 0.76rem;
+        line-height: 1.2;
+    }
+
+    .adminStatsTable {
+        border: 0;
+        border-radius: 0;
+        overflow: visible;
+        background: transparent;
+    }
+
+    .adminStatsDataTable,
+    .adminStatsDataTable tbody,
+    .adminStatsDataTable tr,
+    .adminStatsDataTable td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .adminStatsDataTable thead {
+        display: none;
+    }
+
+    .adminStatsDataTable tr {
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: var(--surface-color);
+    }
+
+    .adminStatsDataTable td {
+        display: grid;
+        grid-template-columns: minmax(92px, 35%) minmax(0, 1fr);
+        gap: 10px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border-color);
+        background-color: transparent;
+        overflow-wrap: anywhere;
+    }
+
+    .adminStatsDataTable td:first-child {
+        border-top: 0;
+    }
+
+    .adminStatsDataTable td::before {
+        content: attr(data-label);
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+}

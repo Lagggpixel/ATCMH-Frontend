@@ -1,0 +1,621 @@
+.homeLoadingContainer,
+.homeErrorContainer,
+.homeEmptyContainer {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: calc(100dvh - 84px);
+    padding: 24px;
+    text-align: center;
+}
+
+.homeLoadingSpinner {
+    animation: spin 1s linear infinite;
+    border: 4px solid var(--border-color);
+    border-radius: 50%;
+    border-top-color: var(--accent-color);
+    height: 44px;
+    margin-bottom: 18px;
+    width: 44px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.homeErrorContainer h2 {
+    color: var(--error-color);
+    margin: 0 0 8px;
+}
+
+.homeErrorContainer button {
+    background: var(--accent-color);
+    border: 0;
+    border-radius: 8px;
+    color: #0f1420;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 800;
+    margin-top: 20px;
+    padding: 10px 18px;
+}
+
+.homeContainer {
+    background:
+        radial-gradient(circle at top left, rgba(127, 167, 242, 0.16), transparent 34rem),
+        linear-gradient(180deg, #101318 0%, #0d1015 100%);
+    min-height: 100dvh;
+    padding: 20px clamp(16px, 4vw, 56px) 48px;
+}
+
+.homeHeader {
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    margin: 0 auto;
+    max-width: 1180px;
+    padding: 0 0 18px;
+}
+
+.homeAuthAlert {
+    background: rgba(244, 98, 98, 0.12);
+    border: 1px solid rgba(244, 98, 98, 0.45);
+    border-radius: 8px;
+    color: var(--text-color);
+    margin: 16px auto 0;
+    max-width: 1180px;
+    padding: 12px 14px;
+}
+
+.homeBrand {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    min-width: 0;
+}
+
+.homeLogo {
+    background: #7fa7f2;
+    border-radius: 10px;
+    height: 44px;
+    object-fit: cover;
+    width: 44px;
+}
+
+.homeBrandName,
+.homeBrandMeta {
+    display: block;
+}
+
+.homeBrandName {
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.1;
+}
+
+.homeBrandMeta {
+    color: var(--muted-text);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 3px;
+}
+
+.homeHeaderActions {
+    align-items: center;
+    display: flex;
+    gap: 14px;
+    position: relative;
+}
+
+.homeSessionLoading {
+    color: var(--muted-text);
+    font-size: 0.86rem;
+    font-weight: 750;
+}
+
+.homeUserMenuTrigger {
+    align-items: center;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    color: var(--text-color);
+    cursor: pointer;
+    display: inline-flex;
+    gap: 7px;
+    min-height: 44px;
+    padding: 4px 8px 4px 4px;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.homeUserMenuTrigger:hover,
+.homeUserMenuTrigger[aria-expanded="true"] {
+    background: var(--surface-2-color);
+    border-color: var(--accent-color);
+}
+
+.homeUserMenuTrigger:hover {
+    transform: translateY(-1px);
+}
+
+.homeUserMenuTrigger:focus-visible,
+.homeUserMenu a:focus-visible,
+.homeUserMenu button:focus-visible {
+    outline: 3px solid rgba(127, 167, 242, 0.7);
+    outline-offset: 2px;
+}
+
+.homeUserAvatar {
+    align-items: center;
+    background: var(--accent-color);
+    border-radius: 50%;
+    color: #0f1420;
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 900;
+    height: 34px;
+    justify-content: center;
+    line-height: 1;
+    width: 34px;
+}
+
+.homeUserAvatar svg {
+    fill: currentColor;
+    height: 19px;
+    width: 19px;
+}
+
+.homeUserMenuChevron {
+    display: inline-flex;
+}
+
+.homeUserMenuChevron svg {
+    fill: currentColor;
+    height: 18px;
+    transition: transform 0.18s ease;
+    width: 18px;
+}
+
+.homeUserMenuTrigger[aria-expanded="true"] .homeUserMenuChevron svg {
+    transform: rotate(180deg);
+}
+
+.homeUserMenu {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: var(--panel-shadow);
+    display: grid;
+    gap: 3px;
+    min-width: 190px;
+    padding: 6px;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    z-index: 10;
+}
+
+.homeUserMenu[hidden] {
+    display: none;
+}
+
+.homeUserMenu a,
+.homeUserMenu button {
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 750;
+    padding: 10px 11px;
+    text-align: left;
+    text-decoration: none;
+}
+
+.homeUserMenu a:hover,
+.homeUserMenu button:hover {
+    background: var(--surface-2-color);
+}
+
+.homeUserMenu button {
+    border-top: 1px solid var(--border-color);
+    border-radius: 0 0 7px 7px;
+    color: var(--danger-text);
+    margin-top: 3px;
+    padding-top: 12px;
+}
+
+.homeTermsLink {
+    color: var(--muted-text);
+    font-size: 0.86rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: color 0.18s ease;
+    white-space: nowrap;
+}
+
+.homeTermsLink:hover {
+    color: var(--text-color);
+}
+
+.homeAdminPanelButton {
+    background: var(--accent-color);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #0f1420;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 850;
+    padding: 10px 16px;
+    text-decoration: none;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    white-space: nowrap;
+}
+
+.homeAdminPanelButton:hover {
+    background: var(--accent-strong-color);
+    transform: translateY(-1px);
+}
+
+.homeMain {
+    margin: 0 auto;
+    max-width: 1180px;
+}
+
+.homeHero {
+    align-items: end;
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+    padding: clamp(18px, 3.5vw, 38px) 0 28px;
+}
+
+.homeHeroCopy h1 {
+    color: var(--text-color);
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    letter-spacing: 0;
+    line-height: 0.95;
+    margin: 0;
+}
+
+.homeStats {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.homeStatCard {
+    border-radius: 8px;
+    min-width: 0;
+    padding: 15px;
+}
+
+.homeStatCard span {
+    color: var(--muted-text);
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.homeStatCard strong {
+    color: var(--text-color);
+    display: block;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    line-height: 1;
+}
+
+.homePanel {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--panel-shadow);
+    overflow: hidden;
+}
+
+.homePanelHeader {
+    align-items: end;
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+.homePanelHeader h2 {
+    color: var(--text-color);
+    font-size: 1.05rem;
+    margin: 0;
+}
+
+.homePanelHeader p {
+    color: var(--muted-text);
+    font-size: 0.86rem;
+    font-weight: 700;
+    margin: 4px 0 0;
+}
+
+.homeControls {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.homeFilterControl {
+    display: grid;
+    gap: 6px;
+    min-width: min(260px, 100%);
+}
+
+.homeFilterControl label,
+.homeSortControls span {
+    color: var(--muted-text);
+    font-size: 0.78rem;
+    font-weight: 850;
+}
+
+.homeFilterControl input {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-color);
+    font: inherit;
+    min-height: 42px;
+    padding: 9px 12px;
+    width: 100%;
+}
+
+.homeFilterControl input::placeholder {
+    color: #778190;
+}
+
+.homeSortControls {
+    align-items: center;
+    background: #111720;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    gap: 6px;
+    min-height: 42px;
+    padding: 4px;
+}
+
+.homeSortControls span {
+    padding: 0 8px;
+}
+
+.homeSortButton {
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--muted-text);
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 850;
+    min-height: 32px;
+    padding: 7px 11px;
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.homeSortButtonActive {
+    background: var(--accent-color);
+    color: #0f1420;
+}
+
+.homeSortButton:hover {
+    background: var(--button-hover);
+    color: var(--text-color);
+}
+
+.homeSortButtonActive:hover {
+    background: var(--accent-strong-color);
+    color: #0f1420;
+}
+
+.homeUsersTable {
+    overflow-x: auto;
+}
+
+.homeUsersDataTable {
+    border-collapse: collapse;
+    min-width: 680px;
+    width: 100%;
+}
+
+.homeUsersDataTable th {
+    background: var(--surface-2-color);
+    color: var(--muted-text);
+    font-size: 0.76rem;
+    font-weight: 850;
+    padding: 13px 20px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.homeUsersDataTable th:not(:nth-child(2)),
+.homeUsersDataTable td:not(:nth-child(2)) {
+    text-align: right;
+    width: 160px;
+}
+
+.homeUsersDataTable th:first-child,
+.homeUsersDataTable td:first-child {
+    color: var(--muted-text);
+    text-align: left;
+    width: 92px;
+}
+
+.homeUsersDataTable td {
+    background: rgba(24, 29, 36, 0.96);
+    border-top: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    font-weight: 750;
+    padding: 15px 20px;
+    vertical-align: middle;
+}
+
+.homeUsersDataTable tbody tr:hover td {
+    background: var(--surface-2-color);
+}
+
+.homeUsernameCell {
+    color: #dce7ff;
+    font-weight: 850;
+}
+
+.homeNoResults {
+    color: var(--muted-text);
+    padding: 28px 20px;
+    text-align: center;
+}
+
+@media (max-width: 860px) {
+    .homeHero {
+        align-items: stretch;
+        grid-template-columns: 1fr;
+    }
+
+    .homeStats {
+        max-width: 560px;
+    }
+
+    .homePanelHeader {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .homeControls {
+        justify-content: stretch;
+    }
+}
+
+@media (max-width: 640px) {
+    .homeContainer {
+        padding: 16px 14px 32px;
+    }
+
+    .homeHeader {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .homeHeaderActions { align-self: flex-end; }
+
+    .homeTermsLink {
+        text-align: center;
+    }
+
+    .homeAdminPanelButton {
+        width: 100%;
+    }
+
+    .homeHero {
+        padding-top: 30px;
+    }
+
+    .homeStats {
+        grid-template-columns: 1fr;
+    }
+
+    .homePanelHeader {
+        padding: 16px;
+    }
+
+    .homeControls,
+    .homeSortControls {
+        width: 100%;
+    }
+
+    .homeSortControls {
+        align-items: stretch;
+    }
+
+    .homeSortButton {
+        flex: 1;
+    }
+
+    .homeUsersTable {
+        overflow-x: visible;
+    }
+
+    .homeUsersDataTable,
+    .homeUsersDataTable thead,
+    .homeUsersDataTable tbody,
+    .homeUsersDataTable tr,
+    .homeUsersDataTable th,
+    .homeUsersDataTable td {
+        display: block;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .homeUsersDataTable thead {
+        display: none;
+    }
+
+    .homeUsersDataTable tbody {
+        display: grid;
+        gap: 10px;
+        padding: 0 12px 12px;
+    }
+
+    .homeUsersDataTable tr {
+        background: var(--surface-2-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .homeUsersDataTable td,
+    .homeUsersDataTable th:first-child,
+    .homeUsersDataTable td:first-child,
+    .homeUsersDataTable td:not(:nth-child(2)) {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 12px;
+        text-align: right;
+        width: 100%;
+    }
+
+    .homeUsersDataTable td::before {
+        color: var(--muted-text);
+        content: attr(data-label);
+        font-size: 0.76rem;
+        font-weight: 850;
+        padding-right: 16px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .homeUsersDataTable .homeUsernameCell {
+        color: #dce7ff;
+        font-size: 1rem;
+    }
+
+    .homeNoResults {
+        justify-content: center;
+        text-align: center;
+    }
+
+    .homeNoResults::before {
+        content: none;
+    }
+}

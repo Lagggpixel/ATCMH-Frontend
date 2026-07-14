@@ -1,0 +1,21 @@
+.manager { padding: 20px; }
+.heading h2, .section h3 { color: var(--text-color); margin: 0; }
+.eyebrow { color: var(--accent-color); font-size: .8rem; font-weight: 800; letter-spacing: .08em; margin: 0 0 6px; text-transform: uppercase; }
+.description, .manager > p { color: var(--muted-text); margin: 12px 0 18px; }
+.manager fieldset { border: 0; margin: 0; min-width: 0; padding: 0; }
+.section { border-top: 1px solid var(--border-color); display: grid; gap: 10px; margin-top: 20px; padding-top: 18px; }
+.section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.sectionHeading { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+.manager label { color: var(--text-color); display: grid; font-size: .9rem; font-weight: 750; gap: 6px; }
+.manager input, .manager textarea { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 7px; color: var(--text-color); font: inherit; padding: 9px 10px; }
+.manager textarea { resize: vertical; }
+.card { background: var(--surface-2-color); border: 1px solid var(--border-color); border-radius: 8px; display: grid; gap: 10px; padding: 13px; }
+.check { align-items: center; display: flex; font-weight: 650; }
+.check input { accent-color: var(--accent-color); padding: 0; }
+.sectionHeading button, .saveButton, .removeButton { border: 1px solid var(--border-color); border-radius: 7px; cursor: pointer; font: inherit; padding: 8px 11px; }
+.sectionHeading button, .saveButton { background: var(--accent-color); border-color: var(--accent-color); color: #111; font-weight: 800; }
+.removeButton { background: transparent; color: #ff9292; justify-self: start; }
+.error { background: var(--danger-bg); border: 1px solid var(--error-color); border-radius: 8px; color: var(--danger-text) !important; padding: 12px; }
+.success { color: var(--success-text) !important; font-weight: 750; }
+.saveButton { margin-top: 18px; }
+@media (max-width: 700px) { .manager { padding: 15px; } .sectionHeading { align-items: stretch; flex-direction: column; } }

@@ -1,0 +1,148 @@
+.paginationBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--surface-color);
+    box-shadow: var(--panel-shadow);
+}
+
+.paginationBarInline {
+    justify-content: center;
+    gap: 10px 14px;
+    padding: 8px 0;
+    margin-top: 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.paginationBarInline .paginationInfo {
+    flex-basis: 100%;
+    justify-content: center;
+}
+
+.paginationBarInline .paginationButton {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.paginationBarInline .paginationButton:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--accent-color) 12%, transparent);
+}
+
+.paginationBarInline .paginationButtonActive,
+.paginationBarInline .paginationButtonActive:hover {
+    background-color: var(--accent-color);
+}
+
+.paginationInfo {
+    display: flex;
+    gap: 14px;
+    color: var(--muted-text);
+    font-size: 0.84rem;
+}
+
+.paginationControls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.paginationButton {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--surface-3-color);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.paginationButton:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--accent-color) 14%, var(--surface-3-color));
+    border-color: var(--accent-color);
+}
+
+.paginationButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.paginationButtonPage {
+    min-width: 34px;
+}
+
+.paginationButtonActive {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #111;
+    font-weight: 800;
+}
+
+.paginationButtonActive:hover {
+    background-color: var(--accent-strong-color);
+    border-color: var(--accent-strong-color);
+    color: #111;
+}
+
+.paginationEllipsis {
+    color: var(--muted-text);
+    padding: 0 4px;
+    font-size: 0.9rem;
+    user-select: none;
+}
+
+.paginationPageSize {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.84rem;
+    color: var(--muted-text);
+}
+
+.paginationPageSize label {
+    white-space: nowrap;
+}
+
+.paginationPageSize select {
+    min-height: 32px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--surface-3-color);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.84rem;
+    cursor: pointer;
+}
+
+@media (max-width: 700px) {
+    .paginationBar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .paginationInfo {
+        justify-content: center;
+    }
+
+    .paginationControls {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .paginationPageSize {
+        justify-content: center;
+    }
+}
