@@ -13,8 +13,11 @@
 .version { font-size: .8rem; margin: -6px 0 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions button, .primaryLink, .secondaryLink { background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 8px; color: #111; cursor: pointer; font: inherit; font-weight: 700; padding: 10px 16px; text-decoration: none; }
-.actions button:last-child { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); }
-.actions button:last-child:hover, .actions button:last-child:focus-visible { background: var(--surface-3-color); border-color: var(--accent-strong-color); color: var(--text-color); }
+.actions .acceptButton { background: #2563eb; border-color: #1d4ed8; color: #fff; }
+.actions .acceptButton:hover { background: #1d4ed8; border-color: #1e40af; color: #fff; }
+.actions .acceptButton:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.actions .declineButton { background: transparent; border-color: var(--border-color); color: var(--text-color); }
+.actions .declineButton:hover, .actions .declineButton:focus-visible { background: var(--surface-3-color); border-color: var(--accent-strong-color); color: var(--text-color); }
 .recoveryActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .secondaryLink { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); }
 .secondaryLink:hover, .secondaryLink:focus-visible { background: var(--surface-3-color); border-color: var(--accent-strong-color); color: var(--text-color); }

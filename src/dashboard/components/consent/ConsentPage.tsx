@@ -64,8 +64,8 @@ export const ConsentPageView = ({state, notice}: ConsentPageViewProps) => {
                 </label>
                 <p className={styles.version}>Terms {context.terms.version} · Privacy {context.privacy.version}</p>
                 <div className={styles.actions}>
-                    <button type="submit" name="action" value="accept">Agree and continue</button>
-                    <button type="submit" name="action" value="decline" formNoValidate>Decline</button>
+                    <button className={styles.acceptButton} type="submit" name="action" value="accept">Agree and continue</button>
+                    <button className={styles.declineButton} type="submit" name="action" value="decline" formNoValidate>Decline</button>
                 </div>
             </form>
         </section>
