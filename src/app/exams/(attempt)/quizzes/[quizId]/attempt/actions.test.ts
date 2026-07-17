@@ -46,20 +46,11 @@ function dependencies(overrides: Partial<LearnerSubmissionDependencies> = {}): L
     validateSubmittedAnswers: (_questions, answers) => ({ ...answers }),
     withWriteTransaction: async (fn) => fn({ execute: async () => [] }),
     submitAttempt: async () => ({ score: 1, total: 1, percentage: 100, submissionReason: "manual", questionSnapshot: [], answerRows: [] }),
-    sendAttemptWebhook: async () => undefined,
     now: () => new Date("2026-07-11T08:30:00.000Z"),
-    appUrl: (path) => new URL(path, "https://example.test"),
     logSubmissionFailure: () => undefined,
     ...overrides,
   };
 }
-
-const missingCanonicalAppUrl: LearnerSubmissionDependencies = {
-  ...dependencies(),
-  // @ts-expect-error canonical appUrl construction is a mandatory action dependency.
-  appUrl: undefined,
-};
-void missingCanonicalAppUrl;
 
 test("submission resolves trusted staff access and passes it to canonical quiz authorization", async () => {
   const events: string[] = [];
@@ -111,16 +102,21 @@ test("the server rejects manual submission after the signed deadline", async () 
 
 test("the server persists an expired timeout and derives its reason", async () => {
   let reason: string | undefined;
+  let auditEvent: Parameters<NonNullable<LearnerSubmissionDependencies["sendAttemptAuditEvent"]>>[0] | undefined;
   const result = await executeLearnerSubmission(dependencies({
     now: () => new Date(1_783_759_201_000),
     submitAttempt: async (_connection, submitted) => {
       reason = submitted.submissionReason;
       return { score: 1, total: 1, percentage: 100, submissionReason: "timeout", questionSnapshot: [], answerRows: [] };
     },
+    sendAttemptAuditEvent: async (event) => { auditEvent = event; },
   }), { ...input, submissionReason: "timeout" });
 
   assert.ok("attemptId" in result);
   assert.equal(reason, "timeout");
+  assert.equal(auditEvent?.action, "exam.attempt.timed_out");
+  assert.equal(auditEvent?.details?.quizTitle, quiz.title);
+  assert.equal(auditEvent?.details?.attemptCode, attemptId.replace(/-/g, ""));
 });
 
 test("the server rejects a forged early timeout request", async () => {
@@ -169,7 +165,7 @@ test("invalid submitted answers reject without opening a write transaction", asy
   assert.equal(wrote, false);
 });
 
-test("an invalid submission reason rejects before any transaction, write, or webhook", async () => {
+test("an invalid submission reason rejects before any transaction, write, or audit delivery", async () => {
   const events: string[] = [];
   const invalidInput = { ...input, submissionReason: "scheduled" } as unknown as LearnerSubmissionInput;
   const result = await executeLearnerSubmission(dependencies({
@@ -181,8 +177,8 @@ test("an invalid submission reason rejects before any transaction, write, or web
       events.push("attempt-written");
       return { score: 1, total: 1, percentage: 100, submissionReason: "manual", questionSnapshot: [], answerRows: [] };
     },
-    sendAttemptWebhook: async () => {
-      events.push("webhook-sent");
+    sendAttemptAuditEvent: async () => {
+      events.push("audit-sent");
     },
   }), invalidInput);
 
@@ -190,9 +186,8 @@ test("an invalid submission reason rejects before any transaction, write, or web
   assert.deepEqual(events, []);
 });
 
-test("a valid request submits inside the transaction and notifies after commit", async () => {
+test("a valid request submits inside the transaction and emits its audit after commit", async () => {
   const events: string[] = [];
-  const appUrlPaths: string[] = [];
   let submittedInput: Parameters<LearnerSubmissionDependencies["submitAttempt"]>[1] | undefined;
   let nowCalls = 0;
   const result = await executeLearnerSubmission(dependencies({
@@ -207,14 +202,11 @@ test("a valid request submits inside the transaction and notifies after commit",
       submittedInput = submitted;
       return { score: 1, total: 1, percentage: 100, submissionReason: "manual", questionSnapshot: [], answerRows: [] };
     },
-    sendAttemptWebhook: async (webhook) => {
-      events.push("webhook-sent");
-      assert.equal(webhook.attemptUrl.toString(), `https://example.test/exams/attempts/${attemptId.replace(/-/g, "")}`);
-      assert.equal(webhook.submittedAt.toISOString(), "2026-07-11T08:30:00.000Z");
-    },
-    appUrl: (path) => {
-      appUrlPaths.push(path);
-      return new URL(path, "https://example.test");
+    sendAttemptAuditEvent: async (event) => {
+      events.push("audit-sent");
+      assert.equal(event.details?.quizTitle, quiz.title);
+      assert.equal(event.details?.attemptCode, attemptId.replace(/-/g, ""));
+      assert.equal(event.details?.submittedAt, "2026-07-11T08:30:00.000Z");
     },
     now: () => {
       nowCalls += 1;
@@ -223,8 +215,7 @@ test("a valid request submits inside the transaction and notifies after commit",
   }), input);
 
   assert.deepEqual(result, { attemptId });
-  assert.deepEqual(events, ["transaction-start", "attempt-written", "transaction-committed", "webhook-sent"]);
-  assert.deepEqual(appUrlPaths, [`/exams/attempts/${attemptId.replace(/-/g, "")}`]);
+  assert.deepEqual(events, ["transaction-start", "attempt-written", "transaction-committed", "audit-sent"]);
   assert.equal(submittedInput?.attemptCode, attemptId.replace(/-/g, ""));
   assert.equal(submittedInput?.feedbackMode, "after_submission");
   assert.equal(submittedInput?.submittedAt.toISOString(), "2026-07-11T08:30:00.000Z");
@@ -247,6 +238,8 @@ test("a committed attempt emits the matching manual audit event without answers"
     summary: "Learner submitted a quiz attempt.",
     details: {
       quizId: quiz.id,
+      quizTitle: quiz.title,
+      attemptCode: attemptId.replace(/-/g, ""),
       learnerDiscordId: "123456789012345678",
       score: 1,
       total: 1,
@@ -316,15 +309,15 @@ test("a caught write failure logs only its stage and safe database classificatio
   assert.equal(JSON.stringify(logs).includes("answers"), false);
 });
 
-test("a duplicate submission returns the matching committed attempt without a webhook", async () => {
+test("a duplicate submission returns the matching committed attempt without another audit event", async () => {
   const start = await dependencies().getVerifiedAttemptStart("123456789012345678", quiz.id);
   assert.ok(start);
   const duplicateAttemptId = attemptIdForStart(start);
-  let webhookSent = false;
+  let auditSent = false;
   let lookupReference: string | undefined;
   const result = await executeLearnerSubmission(Object.assign(dependencies({
     submitAttempt: async () => { throw Object.assign(new Error("duplicate attempt"), { code: "ER_DUP_ENTRY" }); },
-    sendAttemptWebhook: async () => { webhookSent = true; },
+    sendAttemptAuditEvent: async () => { auditSent = true; },
   }), {
     getAttemptByReference: async (reference: string) => {
       lookupReference = reference;
@@ -343,7 +336,7 @@ test("a duplicate submission returns the matching committed attempt without a we
 
   assert.deepEqual(result, { attemptId: duplicateAttemptId });
   assert.equal(lookupReference, duplicateAttemptId);
-  assert.equal(webhookSent, false);
+  assert.equal(auditSent, false);
 });
 
 test("a duplicate submission rejects an attempt owned by a different learner", async () => {
@@ -411,9 +404,9 @@ test("browser-supplied identity fields are ignored in favor of the verified sess
   assert.equal("studentDiscordId" in input, false);
 });
 
-test("webhook rejection does not fail a committed attempt", async () => {
+test("audit delivery rejection does not fail a committed attempt", async () => {
   const result = await executeLearnerSubmission(dependencies({
-    sendAttemptWebhook: async () => { throw new Error("delivery failed"); },
+    sendAttemptAuditEvent: async () => { throw new Error("delivery failed"); },
   }), input);
 
   assert.deepEqual(result, { attemptId });

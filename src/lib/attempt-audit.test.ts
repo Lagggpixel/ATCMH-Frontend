@@ -35,14 +35,17 @@ test("impersonated learner audit attributes the real actor and names the target"
   assert.equal(event.details?.realActorAccountId, "7");
 });
 
-test("separates manual and timeout completion events with only result metadata", () => {
-  const manual = attemptCompletedAuditEvent({ ...ids, submittedAt: new Date("2026-07-12T12:10:00.000Z"), score: 8, total: 10, percentage: 80, submissionReason: "manual" });
-  const timeout = attemptCompletedAuditEvent({ ...ids, submittedAt: new Date("2026-07-12T12:10:00.000Z"), score: 7, total: 10, percentage: 70, submissionReason: "timeout" });
+test("separates manual and timeout completion events with trusted notification metadata", () => {
+  const notification = { attemptCode: ids.attemptId.replaceAll("-", ""), quizTitle: "Tower Basics" };
+  const manual = attemptCompletedAuditEvent({ ...ids, ...notification, submittedAt: new Date("2026-07-12T12:10:00.000Z"), score: 8, total: 10, percentage: 80, submissionReason: "manual" });
+  const timeout = attemptCompletedAuditEvent({ ...ids, ...notification, submittedAt: new Date("2026-07-12T12:10:00.000Z"), score: 7, total: 10, percentage: 70, submissionReason: "timeout" });
 
   assert.equal(manual.action, "exam.attempt.submitted");
   assert.equal(timeout.action, "exam.attempt.timed_out");
   assert.deepEqual(manual.details, {
     quizId: ids.quizId,
+    quizTitle: "Tower Basics",
+    attemptCode: ids.attemptId.replaceAll("-", ""),
     learnerDiscordId: ids.learnerDiscordId,
     score: 8,
     total: 10,

@@ -25,7 +25,7 @@ DASHBOARD_AUTH_URL=https://dashboard-api.atcmh.org
 EXAMS_AUDIT_INGEST_URL=https://dashboard-api.atcmh.org
 ```
 
-Supply the MySQL, Exams session, Discord role, import, webhook, and audit values through the runtime environment. Keep these rules:
+Supply the MySQL, Exams session, Discord role, import, and audit values through the runtime environment. Keep these rules:
 
 - Add `INFINITE_FLIGHT_API_KEY` to the Portainer stack environment; the backend will not deploy when it is blank.
 - Set `MYSQL_PORT=3306` unless the selected MySQL service explicitly uses another port.

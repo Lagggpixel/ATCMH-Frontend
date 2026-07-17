@@ -1,7 +1,6 @@
 "use server";
 
 import type { FeedbackMode, SnapshotQuestion, StoredAttempt, WritableAttemptConnection } from "@/src/lib/attempt-service";
-import type { AttemptWebhookInput } from "@/src/lib/attempt-webhook-payload";
 import type { Quiz } from "@/src/lib/exams-repository";
 import type { LearnerIdentity } from "@/src/lib/learner-identity";
 import type { AttemptStart } from "@/src/lib/attempt-start-contract";
@@ -47,10 +46,8 @@ export interface LearnerSubmissionDependencies {
     submissionReason: "manual" | "timeout";
     feedbackMode: FeedbackMode;
   }): Promise<AttemptResult>;
-  sendAttemptWebhook(input: AttemptWebhookInput): Promise<void>;
   sendAttemptAuditEvent?(event: DashboardAuditEvent): Promise<unknown>;
   now(): Date;
-  appUrl(path: string): URL;
   logSubmissionFailure(stage: string, classification: { errorClass: string; errorCode?: string }): void;
 }
 
@@ -147,26 +144,11 @@ export async function executeLearnerSubmission(
   }
 
   try {
-    await dependencies.sendAttemptWebhook({
-      quizTitle: committedAttempt.quiz.title,
-      discordId: committedAttempt.identity.discordId,
-      score: committedAttempt.result.score,
-      total: committedAttempt.result.total,
-      percentage: committedAttempt.result.percentage,
-      submissionReason: committedAttempt.submissionReason,
-      attemptCode: committedAttempt.attemptCode,
-      attemptId: committedAttempt.attemptId,
-      submittedAt: committedAttempt.submittedAt,
-      attemptUrl: dependencies.appUrl(`/exams/attempts/${encodeURIComponent(committedAttempt.attemptCode)}`),
-    });
-  } catch {
-    // Notification delivery is best effort and must not invalidate a committed attempt.
-  }
-
-  try {
     await dependencies.sendAttemptAuditEvent?.(attemptCompletedAuditEvent({
       attemptId: committedAttempt.attemptId,
+      attemptCode: committedAttempt.attemptCode,
       quizId: committedAttempt.quiz.id,
+      quizTitle: committedAttempt.quiz.title,
       learnerDiscordId: committedAttempt.identity.discordId,
       learnerAccountId: committedAttempt.identity.accountId,
       actorDiscordId: committedAttempt.identity.realActorDiscordId,
@@ -196,16 +178,14 @@ export async function submitLearnerAttempt(
   if (!await browserSession.authorizeLearnerMutation(requestHeaders.get("origin"), cookieHeader, input.csrfToken)) {
     return { error: SUBMISSION_ERROR };
   }
-  const [session, attemptStartSession, access, repository, attemptService, database, webhook, audit, urls] = await Promise.all([
+  const [session, attemptStartSession, access, repository, attemptService, database, audit] = await Promise.all([
     import("@/src/lib/learner-session"),
     import("@/src/lib/attempt-start-session"),
     import("@/src/lib/learner-access"),
     import("@/src/lib/exams-repository"),
     import("@/src/lib/attempt-service"),
     import("@/src/lib/db"),
-    import("@/src/lib/attempt-webhook"),
     import("@/src/lib/dashboard-audit-client"),
-    import("@/src/lib/app-url"),
   ]);
 
   const result = await executeLearnerSubmission({
@@ -217,10 +197,8 @@ export async function submitLearnerAttempt(
     validateSubmittedAnswers: attemptService.validateSubmittedAnswers,
     withWriteTransaction: database.withWriteTransaction,
     submitAttempt: attemptService.submitAttempt,
-    sendAttemptWebhook: webhook.sendAttemptWebhook,
     sendAttemptAuditEvent: audit.emitDashboardAuditEvent,
     now: () => new Date(),
-    appUrl: urls.appUrl,
     logSubmissionFailure: (stage, classification) => {
       console.error("Quiz submission failed", { stage, ...classification });
     },

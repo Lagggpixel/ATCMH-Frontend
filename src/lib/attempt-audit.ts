@@ -35,6 +35,8 @@ export function attemptStartedAuditEvent(input: AttemptAuditIdentity & { started
 }
 
 export function attemptCompletedAuditEvent(input: AttemptAuditIdentity & {
+  attemptCode: string;
+  quizTitle: string;
   submittedAt: Date;
   score: number;
   total: number;
@@ -49,6 +51,8 @@ export function attemptCompletedAuditEvent(input: AttemptAuditIdentity & {
     summary: input.submissionReason === "timeout" ? "Learner quiz attempt timed out." : "Learner submitted a quiz attempt.",
     details: {
       quizId: input.quizId,
+      quizTitle: input.quizTitle,
+      attemptCode: input.attemptCode,
       learnerDiscordId: input.learnerDiscordId,
       ...identityDetails(input),
       score: input.score,
