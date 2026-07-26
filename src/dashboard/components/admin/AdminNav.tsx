@@ -1,3 +1,4 @@
+import {useEffect, useRef} from "react";
 import {useLocation, useNavigate} from "@/src/dashboard/next-navigation";
 import styles from "./AdminNav.module.css";
 import type {AdminUser} from "../../types/AdminUser.ts";
@@ -13,6 +14,11 @@ const AdminNav = ({adminUser}: AdminNavProps) => {
     const location = useLocation();
     const navigate = useNavigate();
     const navItems = adminNavigationItems(adminUser, EXAM_CENTER_ENABLED);
+    const activeButton = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        activeButton.current?.scrollIntoView({block: "nearest", inline: "center"});
+    }, [location.pathname]);
 
     return (
         <header className={styles.adminHeader}>
@@ -23,6 +29,7 @@ const AdminNav = ({adminUser}: AdminNavProps) => {
                     return (
                         <button
                             key={item.path}
+                            ref={isActive ? activeButton : undefined}
                             type="button"
                             className={`${styles.adminNavButton} ${isActive ? styles.adminNavButtonActive : ""}`}
                             aria-current={isActive ? "page" : undefined}

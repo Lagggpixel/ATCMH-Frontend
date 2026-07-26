@@ -1,15 +1,25 @@
 .adminHeader {
-    width: 100%;
-    margin: 0 0 20px;
+    display: flex;
+    justify-content: center;
+    width: min(100%, 1400px);
+    margin: 0 auto 20px;
+    padding: 0 20px;
+    box-sizing: border-box;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
 }
 
 .adminNav {
     display: flex;
     align-items: center;
-    gap: 4px;
-    min-height: 42px;
+    justify-content: center;
+    gap: 6px;
+    width: max-content;
+    max-width: 100%;
+    min-height: 48px;
+    margin-inline: auto;
+    box-sizing: border-box;
     overflow-x: auto;
+    scroll-padding-inline: 16px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
 }
@@ -19,15 +29,18 @@
 .adminNavButton {
     position: relative;
     flex: 0 0 auto;
-    min-height: 38px;
+    align-self: stretch;
+    min-height: 42px;
     background-color: transparent;
     color: var(--muted-text);
     border: 0;
-    padding: 7px 10px;
+    border-radius: 8px 8px 0 0;
+    padding: 9px 11px;
     cursor: pointer;
     font: inherit;
     font-size: .9rem;
     font-weight: 700;
+    white-space: nowrap;
     transition: color .2s, background-color .2s;
 }
 
@@ -37,6 +50,7 @@
 }
 
 .adminNavButtonActive {
+    background: color-mix(in srgb, var(--accent-color) 9%, transparent);
     color: var(--text-color);
 }
 
@@ -55,20 +69,31 @@
     outline-offset: -2px;
 }
 
+@media (max-width: 1280px) {
+    .adminNav {
+        justify-content: flex-start;
+    }
+}
+
 @media (max-width: 760px) {
     .adminHeader {
+        padding: 0 12px;
         margin-bottom: 16px;
     }
 
     .adminNav {
+        width: 100%;
+        margin-inline: 0;
         overflow-x: auto;
-        padding-right: 12px;
-        mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent);
+        scroll-snap-type: x proximity;
+        scroll-padding-inline: 12px;
+        mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 18px), transparent);
     }
 
     .adminNavButton {
-        min-height: 34px;
+        min-height: 42px;
         padding: 6px 9px;
         font-size: 0.88rem;
+        scroll-snap-align: center;
     }
 }

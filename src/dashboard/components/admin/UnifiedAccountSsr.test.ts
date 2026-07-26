@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createServer, type ViteDevServer} from "vite";
@@ -64,8 +63,17 @@ test("admin navigation uses compact integrated tabs", async () => {
     assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
     assert.doesNotMatch(css, /position:\s*sticky/);
     assert.match(css, /\.adminHeader\s*\{[^}]*border-bottom:/s);
+    assert.match(css, /\.adminHeader\s*\{[^}]*justify-content:\s*center/s);
+    assert.match(css, /\.adminHeader\s*\{[^}]*width:\s*min\(100%, 1400px\)/s);
+    assert.match(css, /\.adminNav\s*\{[^}]*justify-content:\s*center/s);
+    assert.match(css, /\.adminNav\s*\{[^}]*width:\s*max-content/s);
+    assert.match(css, /\.adminNav\s*\{[^}]*margin-inline:\s*auto/s);
     assert.match(css, /\.adminNavButtonActive::after\s*\{[^}]*bottom:\s*-1px/s);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav\s*\{[^}]*overflow-x:\s*auto/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav\s*\{[^}]*scroll-snap-type:\s*x proximity/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavButton\s*\{[^}]*min-height:\s*42px/s);
+    const source = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.tsx", import.meta.url), "utf8");
+    assert.match(source, /scrollIntoView\(\{block:\s*"nearest",\s*inline:\s*"center"\}\)/);
 });
 
 test("actual confirmation and stale-error views wire commit and cancel callbacks", async () => {

@@ -1,4 +1,6 @@
 .workspace {
+    width: 100%;
+    min-width: 0;
     min-height: calc(100dvh - 40px);
 }
 
