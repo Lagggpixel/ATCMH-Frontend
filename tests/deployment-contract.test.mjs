@@ -79,6 +79,26 @@ test("security headers use the configured Dashboard API and enable transport har
   assert.equal(production.some(({key}) => key === "Strict-Transport-Security"), true);
 });
 
+test("production CSP permits only blob-backed object and frame sources for the manual PDF preview", () => {
+  const manual = readFileSync(new URL("../src/dashboard/components/admin/AdminManual.tsx", import.meta.url), "utf8");
+  assert.match(manual, /<object[^>]*\bdata=\{pdfUrl\}[^>]*\btype="application\/pdf"/);
+
+  const production = renderedSecurityHeaders("production", "https://dashboard-api.atcmh.org");
+  const productionCsp = production.find(({key}) => key === "Content-Security-Policy")?.value ?? "";
+  const directives = productionCsp.split(";").map((directive) => directive.trim());
+
+  for (const directiveName of ["object-src", "frame-src"]) {
+    const directive = directives.find((candidate) => candidate.startsWith(`${directiveName} `));
+    assert.ok(directive, `production CSP must define ${directiveName} for the manual PDF viewer`);
+
+    const sources = directive.split(/\s+/).slice(1);
+    assert.deepEqual(sources, ["blob:"], `${directiveName} must permit blob URLs and no broader source`);
+    assert.equal(sources.includes("data:"), false);
+    assert.equal(sources.includes("https:"), false);
+    assert.equal(sources.includes("*"), false);
+  }
+});
+
 test("container runs standalone Next as non-root and healthchecks the global route", () => {
   const dockerfile = readFileSync(new URL("../.dockerfile", import.meta.url), "utf8");
   assert.match(dockerfile, /USER nextjs/);
