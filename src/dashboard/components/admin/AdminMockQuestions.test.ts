@@ -19,3 +19,9 @@ test("mock question editor gates itself on the dedicated capability", () => {
     assert.match(source, /canManageMockQuestions/);
     assert.match(source, /Mentors, Moderators, and Super Admins/);
 });
+
+test("mock question editor sends all configured questions and delegates readiness to the count policy", () => {
+    assert.match(source, /Discord sends every configured question in this order\./);
+    assert.match(source, /mockQuestionReadiness\(ordered\.length\)/);
+    assert.doesNotMatch(source, /first three|exactly three|\/3 questions configured/);
+});

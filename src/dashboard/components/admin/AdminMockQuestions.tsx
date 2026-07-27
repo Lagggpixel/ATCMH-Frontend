@@ -10,6 +10,7 @@ import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import AdminToast from "./AdminToast.tsx";
+import {mockQuestionReadiness} from "./MockQuestionReadiness.ts";
 import styles from "./AdminMockQuestions.module.css";
 
 interface Props {
@@ -44,6 +45,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     }, [adminUser?.canManageMockQuestions, loaded, loggedIn, token]);
 
     const ordered = useMemo(() => [...(templates ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id), [templates]);
+    const readiness = mockQuestionReadiness(ordered.length);
     const select = (template: MockQuestionTemplate) => {
         setSelectedId(template.id);
         setForm({
@@ -136,11 +138,11 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     return <div className={styles.container}>
         <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
         <header className={styles.pageHeader}>
-            <div><h1>Mock questions</h1><p>Discord uses the first three active templates in this order.</p></div>
+            <div><h1>Mock questions</h1><p>Discord sends every configured question in this order.</p></div>
             <button type="button" onClick={createNew}>New question</button>
         </header>
-        <div className={ordered.length === 3 ? styles.ready : styles.warning} role="status">
-            {ordered.length === 3 ? "Ready: three questions are configured." : `${ordered.length}/3 questions configured. Discord sending stays disabled until there are exactly three.`}
+        <div className={readiness.ready ? styles.ready : styles.warning} role="status">
+            {readiness.message}
         </div>
         <div className={styles.layout}>
             <aside className={styles.listPanel} aria-label="Mock question templates">
