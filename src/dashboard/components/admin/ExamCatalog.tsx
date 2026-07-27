@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 import type {ExamCategory, ExamQuizSummary} from "../../types/Exam.ts";
 import {
     filterExamQuizzes,
@@ -30,13 +30,7 @@ const ExamCatalog = ({quizzes, onEdit, categories: managedCategories = [], onCre
         [category, query, quizzes, visibility],
     );
     const folders = useMemo(() => groupExamQuizzes(filteredQuizzes), [filteredQuizzes]);
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-        () => new Set(folders[0] ? [folders[0].name] : []),
-    );
-
-    useEffect(() => {
-        setExpandedFolders(new Set(folders[0] ? [folders[0].name] : []));
-    }, [folders]);
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set());
 
     const toggleFolder = (name: string) => setExpandedFolders(current => {
         const next = new Set(current);
@@ -93,8 +87,10 @@ const ExamCatalog = ({quizzes, onEdit, categories: managedCategories = [], onCre
                                 {quiz.isPrivate ? "Private" : "Public"}
                             </span>
                             <span className={styles.updated}>{formatExamUpdatedAt(quiz.updatedAt)}</span>
-                            {onEdit ? <button className={styles.editButton} type="button" onClick={() => onEdit(quiz)}>Edit</button> : null}
-                            {onMoveQuizCategory ? <select aria-label={`Move ${quiz.title} to folder`} defaultValue="" disabled={pending === quiz.id} onChange={event => { if (!event.target.value) return; setPending(quiz.id); setCategoryError(null); void onMoveQuizCategory(quiz, event.target.value).catch(reason => setCategoryError(reason instanceof Error ? reason.message : String(reason))).finally(() => setPending(null)); }}><option value="">Move to folder</option>{managedCategories.filter(item => item.name !== quiz.category).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : null}
+                            {onEdit || onMoveQuizCategory ? <span className={styles.quizActions}>
+                                {onEdit ? <button className={styles.editButton} type="button" onClick={() => onEdit(quiz)}>Edit</button> : null}
+                                {onMoveQuizCategory ? <select className={styles.moveSelect} aria-label={`Move ${quiz.title} to another folder`} title="Move to another folder" defaultValue="" disabled={pending === quiz.id} onChange={event => { if (!event.target.value) return; setPending(quiz.id); setCategoryError(null); void onMoveQuizCategory(quiz, event.target.value).catch(reason => setCategoryError(reason instanceof Error ? reason.message : String(reason))).finally(() => setPending(null)); }}><option value="">Move</option>{managedCategories.filter(item => item.name !== quiz.category).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : null}
+                            </span> : null}
                         </div>)}
                     </div> : null}
                 </section>;

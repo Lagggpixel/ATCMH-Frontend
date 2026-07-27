@@ -22,7 +22,7 @@
 }
 
 .categoryActions { display: flex; gap: 10px; margin: 0 0 12px; }
-.categoryActions input, .categoryActions button, .quizRow select { min-height: 38px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--input-bg); color: var(--text-color); font: inherit; padding: 7px 10px; }
+.categoryActions input, .categoryActions button { min-height: 38px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--input-bg); color: var(--text-color); font: inherit; padding: 7px 10px; }
 .categoryActions button { cursor: pointer; }
 .categoryError { color: var(--error-color); margin: 0 0 12px; }
 
@@ -156,6 +156,12 @@
     font-size: .84rem;
 }
 
+.quizActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .editButton {
     min-height: 38px;
     border: 1px solid transparent;
@@ -169,8 +175,28 @@
 }
 
 .editButton:hover,
-.editButton:focus-visible {
+.editButton:focus-visible,
+.moveSelect:hover,
+.moveSelect:focus-visible {
     border-color: var(--accent-color);
+}
+
+.moveSelect {
+    width: 78px;
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--accent-strong-color);
+    padding: 7px 8px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.moveSelect:disabled {
+    cursor: wait;
+    opacity: .65;
 }
 
 .emptyState {
