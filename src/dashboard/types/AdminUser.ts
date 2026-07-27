@@ -9,4 +9,5 @@ export interface AdminUser {
     canViewSensitiveAuditDetails: boolean;
     canImpersonate: boolean;
     canManageMockQuestions?: boolean;
+    canManageApplicationQuestions?: boolean;
 }

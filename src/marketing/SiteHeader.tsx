@@ -13,6 +13,7 @@ const marketingNavLinks = [
   {label: "About", href: "/#about"},
   {label: "Services", href: "/#services"},
   {label: "Eligibility", href: "/#eligibility"},
+  {label: "Apply", href: "/apply"},
   {label: "Leaderboard", href: "/leaderboard"},
   {label: "Exam Center", href: "/exams"},
 ];

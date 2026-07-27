@@ -1,4 +1,4 @@
-import { discordUrl, SiteHeader } from './SiteHeader'
+import { SiteHeader } from './SiteHeader'
 import SiteFooter from './SiteFooter'
 import HomeLoginModal from '@/src/platform/auth/HomeLoginModal'
 import Eligibility from '@/src/marketing/Eligibility'
@@ -68,8 +68,8 @@ function Hero() {
 				</h1>
 				<p>Professional mentorship for aspiring Infinite Flight Air Traffic Controllers.</p>
 				<div className="hero-actions">
-					<a className="primary-button" href={discordUrl} target="_blank" rel="noopener noreferrer">
-						Get Started →
+					<a className="primary-button" href="/apply">
+						Apply on the website →
 					</a>
 				</div>
 				<div className="hero-stats" aria-label="ATCMH statistics">
@@ -152,8 +152,8 @@ function Services() {
 				))}
 			</div>
 			<div className="centered-action">
-				<a className="primary-button" href={discordUrl} target="_blank" rel="noopener noreferrer">
-					Join Discord to Get Started ↗
+				<a className="primary-button" href="/apply">
+					Start an application →
 				</a>
 			</div>
 		</section>
@@ -174,11 +174,11 @@ function Cta() {
 						IFATC Journey?
 					</h2>
 					<p>
-						Join our Discord community and take the first step towards controlling the Expert
-						Server skies.
+						Apply online for mentorship, written exam help, or a mock practical. Discord remains
+						available for community support and the legacy application path.
 					</p>
-					<a href={discordUrl} target="_blank" rel="noopener noreferrer">
-						Join Our Discord →
+					<a href="/apply">
+						Apply on the website →
 					</a>
 				</div>
 			</div>

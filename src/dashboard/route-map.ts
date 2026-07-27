@@ -3,7 +3,7 @@ export type DashboardExamView = "catalog" | "create" | "edit" | "import" | "unlo
 export type DashboardRoute =
     | {screen: "redirect"; destination: string}
     | {screen: "mentees"; params?: {menteeRecordId: string}}
-    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "manual" | "mock-questions" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts"}
+    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "manual" | "mock-questions" | "application-questions" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts"}
     | {screen: "exams"; view: DashboardExamView; params?: {examId?: string; attemptId?: string}}
     | {screen: "not-found"};
 
@@ -15,6 +15,7 @@ export function resolveDashboardRoute(pathname: string): DashboardRoute {
         ["assignments", "assignments"], ["sessions", "sessions"], ["usernotes", "usernotes"], ["stats", "stats"],
         ["manual", "manual"], ["audit-logs", "audit-logs"], ["accounts", "accounts"], ["alt-accounts", "alt-accounts"],
         ["mock-questions", "mock-questions"],
+        ["application-questions", "application-questions"],
     ]);
     if (parts[0] === "guide" && parts[1] === "assignments" && parts.length === 2) return {screen: "assignment-guide"};
     const screen = direct.get(parts[0] ?? "");

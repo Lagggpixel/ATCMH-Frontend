@@ -19,6 +19,13 @@ import type {
     DashboardAuthSession,
 } from "../types/Account.ts";
 import type {PolicyConsentContext} from "../types/PolicyConsent.ts";
+import type {
+    ApplicationQuestion,
+    ApplicationQuestionUpdate,
+    ApplicationType,
+    DiscordRestartResult,
+    WebsiteApplicationState,
+} from "../types/ApplicationQuestion.ts";
 
 let dashboardApiUrl = "https://dashboard-api.atcmh.org";
 
@@ -61,6 +68,87 @@ export class ApiUtils {
         const response = await fetch(`${dashboardApiUrl}/account/eligibility`, {credentials: "include", cache: "no-store"});
         await ApiUtils.ensureOk(response);
         return await ApiUtils.parseJson<EligibilityResponse>(response) as EligibilityResponse;
+    }
+
+    static async getApplicationQuestions(): Promise<ApplicationQuestion[]> {
+        const response = await fetch(`${dashboardApiUrl}/applications/questions`, {
+            credentials: "include",
+            cache: "no-store",
+        });
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<ApplicationQuestion[]>(response) ?? [];
+    }
+
+    static async getCurrentApplication(applicationType: ApplicationType): Promise<WebsiteApplicationState> {
+        const query = new URLSearchParams({type: applicationType});
+        const response = await fetch(`${dashboardApiUrl}/applications/current?${query}`, {
+            credentials: "include",
+            cache: "no-store",
+        });
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.applicationState(await ApiUtils.parseJson(response));
+    }
+
+    static async saveCurrentApplication(
+        csrfToken: string,
+        applicationType: ApplicationType,
+        answers: Record<string, string>,
+    ): Promise<WebsiteApplicationState> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/applications/current`, csrfToken, {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({applicationType, answers}),
+        });
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.applicationState(await ApiUtils.parseJson(response));
+    }
+
+    static async submitCurrentApplication(
+        csrfToken: string,
+        applicationType: ApplicationType,
+        answers: Record<string, string>,
+    ): Promise<WebsiteApplicationState> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/applications/current/submit`, csrfToken, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({applicationType, answers}),
+        });
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.applicationState(await ApiUtils.parseJson(response));
+    }
+
+    static async restartApplicationInDiscord(
+        csrfToken: string,
+        current: Pick<WebsiteApplicationState, "applicationType" | "applicationId" | "version">,
+    ): Promise<DiscordRestartResult> {
+        const body: Record<string, string | number> = {applicationType: current.applicationType};
+        if (current.applicationId != null) body.expectedApplicationId = current.applicationId;
+        if (current.version != null) body.expectedVersion = current.version;
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/applications/current/restart-discord`, csrfToken, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+        });
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<DiscordRestartResult>(response) as DiscordRestartResult;
+    }
+
+    static async getManagedApplicationQuestions(csrfToken: string): Promise<ApplicationQuestion[]> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/application-questions`, csrfToken);
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<ApplicationQuestion[]>(response) ?? [];
+    }
+
+    static async updateApplicationQuestion(
+        csrfToken: string,
+        key: string,
+        update: ApplicationQuestionUpdate,
+    ): Promise<ApplicationQuestion> {
+        return await ApiUtils.centralAdminJson<ApplicationQuestion>(
+            `${dashboardApiUrl}/admin/application-questions/${encodeURIComponent(key)}`,
+            csrfToken,
+            {method: "PUT", body: JSON.stringify(update)},
+        );
     }
 
     static async getConsentContext(): Promise<PolicyConsentContext | null> {
@@ -473,6 +561,19 @@ export class ApiUtils {
         } catch {
             return "";
         }
+    }
+
+    private static applicationState(payload: unknown): WebsiteApplicationState {
+        if (!payload || typeof payload !== "object") throw new Error("Application response was empty.");
+        const value = "application" in payload && payload.application && typeof payload.application === "object"
+            ? payload.application : payload;
+        const state = value as WebsiteApplicationState & {answers?: Record<string, unknown>};
+        const answers = Object.fromEntries(Object.entries(state.answers ?? {}).flatMap(([key, answer]) => {
+            if (typeof answer === "boolean") return [[key, answer ? "yes" : "no"]];
+            if (typeof answer === "string" || typeof answer === "number") return [[key, String(answer)]];
+            return [];
+        }));
+        return {...state, answers};
     }
 
     private static getErrorMessage(err: unknown) {

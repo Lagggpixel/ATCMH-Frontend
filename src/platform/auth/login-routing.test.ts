@@ -19,6 +19,10 @@ test("contextual login accepts only paths owned by its application", () => {
     loginFor: "exams",
     returnTo: "/exams/quizzes/quiz-1",
   })), {application: "exams", returnTo: "/exams/quizzes/quiz-1"});
+  assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({
+    loginFor: "dashboard",
+    returnTo: "/apply?type=mentor&source=discord",
+  })), {application: "dashboard", returnTo: "/apply?type=mentor&source=discord"});
 });
 
 test("contextual login rejects cross-application and malicious destinations", () => {

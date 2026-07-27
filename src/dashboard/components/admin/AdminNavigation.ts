@@ -8,6 +8,7 @@ const baseItems = [
 export const adminNavigationItems = (adminUser: AdminUser | undefined, examCenterEnabled: boolean) => [
     ...baseItems,
     ...(adminUser?.canManageMockQuestions ? [{path: "/dashboard/mock-questions", label: "Mock Questions"}] : []),
+    ...(adminUser?.canManageApplicationQuestions ? [{path: "/dashboard/application-questions", label: "Application Questions"}] : []),
     ...(examCenterEnabled ? [{path: "/dashboard/exams", label: "Exam Center"}] : []),
     ...(adminUser?.canViewAuditLogs ? [{path: "/dashboard/audit-logs", label: "Audit Logs"}] : []),
     ...(adminUser?.canManageAccounts ? [{path: "/dashboard/accounts", label: "Accounts"}] : []),
