@@ -14,6 +14,11 @@ test("account and alt navigation outcomes follow server capabilities", () => {
     assert.ok(!privileged.includes("/account"));
 });
 
+test("mock question navigation follows its dedicated server capability", () => {
+    assert.equal(adminNavigationItems(user(), false).some(item => item.path === "/dashboard/mock-questions"), false);
+    assert.equal(adminNavigationItems(user({canManageMockQuestions: true}), false).some(item => item.path === "/dashboard/mock-questions"), true);
+});
+
 test("impersonation outcome names the target account", () => assert.equal(impersonationBannerText("42"), "Impersonating account 42"));
 
 test("personal account outcomes distinguish restoration, conflicts, and linked identities", () => {

@@ -15,6 +15,7 @@ import AdminManual from "./components/admin/AdminManual";
 import ExamCenter from "./components/admin/ExamCenter";
 import AdminAccounts from "./components/admin/AdminAccounts";
 import AdminAltAccounts from "./components/admin/AdminAltAccounts";
+import AdminMockQuestions from "./components/admin/AdminMockQuestions";
 import DashboardWorkspace from "./DashboardWorkspace";
 
 const screenLabels = {
@@ -25,6 +26,7 @@ const screenLabels = {
     assignments: "Assignments",
     "assignment-guide": "Assignments guide",
     manual: "Mentor manual",
+    "mock-questions": "Mock questions",
     "audit-logs": "Audit logs",
     accounts: "Accounts",
     "alt-accounts": "Alt-account evidence",
@@ -46,6 +48,7 @@ export default function DashboardRoute() {
         case "assignments": content = <AdminAssignments {...common} users={state.users} assignments={state.assignments} token={state.token} onAssignmentChanged={state.onAssignmentChanged} onAssignmentDeleted={state.onAssignmentDeleted}/>; break;
         case "assignment-guide": content = <AdminAssignmentGuide {...common}/>; break;
         case "manual": content = <AdminManual {...common} token={state.token}/>; break;
+        case "mock-questions": content = <AdminMockQuestions {...common} token={state.token}/>; break;
         case "audit-logs": content = <AdminAuditLogs {...common} users={state.users} token={state.token}/>; break;
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;

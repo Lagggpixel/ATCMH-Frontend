@@ -1,0 +1,30 @@
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; min-height: calc(100dvh - 40px); }
+.pageHeader, .editorHeader, .attachmentHeader, .actions, .rowActions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pageHeader h1, .editorHeader h2, .attachmentHeader h3 { margin: 0; }
+.pageHeader p, .attachmentHeader p { margin: 4px 0 0; color: var(--muted-text); }
+.pageHeader button, .actions button, .rowActions button, .fileButton { min-height: 38px; padding: 0 14px; border: 1px solid var(--accent-color); border-radius: 6px; background: var(--accent-color); color: #111; font: inherit; font-weight: 750; cursor: pointer; }
+.ready, .warning { margin: 16px 0; padding: 11px 13px; border-left: 3px solid; background: var(--surface-2-color); }
+.ready { border-color: #42b883; }
+.warning { border-color: #e5a442; }
+.layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.listPanel { position: sticky; top: 20px; display: grid; gap: 8px; padding: 16px; border-top: 1px solid var(--border-color); }
+.listItem, .activeItem { display: grid; gap: 5px; width: 100%; padding: 11px 12px; text-align: left; border: 1px solid var(--border-color); border-radius: 7px; background: var(--surface-2-color); color: var(--text-color); cursor: pointer; font: inherit; }
+.activeItem { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 16%, var(--surface-2-color)); }
+.listItem strong, .activeItem strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.listItem span, .activeItem span, .attachmentRow span { color: var(--muted-text); font-size: .84rem; }
+.editorPanel { min-width: 0; padding: 20px; border-top: 1px solid var(--border-color); }
+.form { display: grid; gap: 16px; }
+.form label > span { display: block; margin-bottom: 6px; color: var(--muted-text); font-size: .84rem; font-weight: 650; }
+.form textarea, .form input { width: 100%; box-sizing: border-box; padding: 10px 11px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-color); font: inherit; }
+.form textarea { resize: vertical; }
+.form small, .snapshotNote, .empty { color: var(--muted-text); }
+.orderField { max-width: 140px; }
+.attachments { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-2-color); }
+.fileButton { display: inline-flex; align-items: center; }
+.fileButton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.attachmentRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border-top: 1px solid var(--border-color); }
+.attachmentRow > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.deleteButton { border-color: #b84d55 !important; background: transparent !important; color: #ff8e96 !important; }
+.actions { justify-content: flex-end; }
+.actions button:disabled, .fileButton:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+@media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .listPanel { position: static; } .pageHeader, .attachmentHeader { align-items: flex-start; flex-direction: column; } }

@@ -150,3 +150,25 @@ test("missing or expired consent context is a safe empty result", async () => {
         assert.equal(await ApiUtils.getConsentContext(), null);
     });
 });
+
+test("mock question reads use cookies and writes include CSRF", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    globalThis.fetch = async (input, init) => {
+        requests.push(new Request(input, init));
+        return Response.json(requests.length === 1 ? [] : {
+            id: 1, questionText: "Question", sortOrder: 1, modelAnswer: null, active: true, attachments: [],
+        }, {status: requests.length === 1 ? 200 : 201});
+    };
+    try {
+        await ApiUtils.getMockQuestionTemplates("csrf-token");
+        await ApiUtils.createMockQuestionTemplate("csrf-token", {questionText: "Question", sortOrder: 1, modelAnswer: null, attachments: []});
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(requests[0].credentials, "include");
+    assert.equal(requests[0].headers.get("X-CSRF-Token"), null);
+    assert.equal(requests[1].method, "POST");
+    assert.equal(requests[1].headers.get("X-CSRF-Token"), "csrf-token");
+    assert.equal(requests[1].headers.get("Content-Type"), "application/json");
+});

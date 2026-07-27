@@ -1,3 +1,4 @@
+import type {MockQuestionTemplate, MockQuestionTemplatePayload} from "../types/MockQuestionTemplate.ts";
 import type {AtcmhUser} from "../types/AtcmhUser.ts";
 import type {Session} from "../types/Session.ts";
 import type {UserNote} from "../types/UserNote.ts";
@@ -245,6 +246,39 @@ export class ApiUtils {
             throw new Error("You are not authorized to view the manual PDF.");
         }
 
+        await ApiUtils.ensureOk(response);
+        return response.blob();
+    }
+
+    static async getMockQuestionTemplates(token: string | null): Promise<MockQuestionTemplate[] | undefined> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/mock-question-templates`, token);
+        if (ApiUtils.isUnauthorized(response)) return undefined;
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.parseJson<MockQuestionTemplate[]>(response);
+    }
+
+    static async createMockQuestionTemplate(token: string | null, payload: MockQuestionTemplatePayload): Promise<MockQuestionTemplate | undefined> {
+        return ApiUtils.adminJson<MockQuestionTemplate>(`${dashboardApiUrl}/admin/mock-question-templates`, token, {
+            method: "POST", body: JSON.stringify(payload),
+        });
+    }
+
+    static async updateMockQuestionTemplate(token: string | null, id: number, payload: MockQuestionTemplatePayload): Promise<MockQuestionTemplate | undefined> {
+        return ApiUtils.adminJson<MockQuestionTemplate>(`${dashboardApiUrl}/admin/mock-question-templates/${id}`, token, {
+            method: "PUT", body: JSON.stringify(payload),
+        });
+    }
+
+    static async deleteMockQuestionTemplate(token: string | null, id: number): Promise<boolean> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/mock-question-templates/${id}`, token, {method: "DELETE"});
+        if (ApiUtils.isUnauthorized(response)) return false;
+        await ApiUtils.ensureOk(response);
+        return true;
+    }
+
+    static async getMockQuestionAttachment(token: string | null, templateId: number, attachmentId: number): Promise<Blob | undefined> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/mock-question-templates/${templateId}/attachments/${attachmentId}`, token);
+        if (ApiUtils.isUnauthorized(response)) return undefined;
         await ApiUtils.ensureOk(response);
         return response.blob();
     }
