@@ -86,19 +86,17 @@ const AdminUserNotes = ({
         return filteredUserNotes;
     }, [filter, userNotes, users, usersById]);
 
-    const getUserName = (id: string) => {
-        const user = usersById.get(id);
-        return user ? user.username : `User (${id})`;
-    };
-
-    const noteRecords = useMemo(() => displayedUserNotes.map(note => ({
-        time: note.time,
-        staff: getUserName(note.staff),
-        user: getUserName(note.user),
-        note: note.note,
-        active: note.active,
-        id: note.id,
-    })), [displayedUserNotes, getUserName]);
+    const noteRecords = useMemo(() => {
+        const getUserName = (id: string) => usersById.get(id)?.username ?? `User (${id})`;
+        return displayedUserNotes.map(note => ({
+            time: note.time,
+            staff: getUserName(note.staff),
+            user: getUserName(note.user),
+            note: note.note,
+            active: note.active,
+            id: note.id,
+        }));
+    }, [displayedUserNotes, usersById]);
 
     const {sortState, sortedData, handleSort} = useTableSort(
         "time",
@@ -191,10 +189,6 @@ const AdminUserNotes = ({
 
     return (
         <div className={styles.adminUserNotesContainer}>
-            <div className={styles.adminUserNotesHeader}>
-                <button type="button" onClick={() => setIsCreateOpen(true)}>Create Usernote</button>
-            </div>
-
             <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
 
             {isCreateOpen && (
@@ -270,28 +264,34 @@ const AdminUserNotes = ({
                         <option value="false">Active Only</option>
                     </select>
                 </div>
+
+                <div className={styles.adminUserNotesActionControl}>
+                    <button className={styles.adminUserNotesCreateButton} type="button" onClick={() => setIsCreateOpen(true)}>
+                        Create Usernote
+                    </button>
+                </div>
             </div>
             <div className={styles.adminUserNotesNotesCount}>
                 Showing {displayedUserNotes.length} user note{displayedUserNotes.length !== 1 ? 's' : ''}
             </div>
-            <div className={styles.adminUserNotesTable}>
+            <div className={styles.adminUserNotesTable} role="region" aria-label="User notes" tabIndex={0}>
                 <table className={styles.adminUserNotesDataTable}>
                     <thead>
                     <tr>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("time")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("time");}}} aria-sort={sortState.column==="time" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="time" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button className={styles.sortButton} type="button" onClick={() => handleSort("time")}>Time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span></button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("staff")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("staff");}}} aria-sort={sortState.column==="staff" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Staff <span className={`${styles.sortIndicator} ${sortState.column==="staff" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="staff" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="staff" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button className={styles.sortButton} type="button" onClick={() => handleSort("staff")}>Staff <span className={`${styles.sortIndicator} ${sortState.column==="staff" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="staff" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span></button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("user")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("user");}}} aria-sort={sortState.column==="user" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            User <span className={`${styles.sortIndicator} ${sortState.column==="user" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="user" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="user" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button className={styles.sortButton} type="button" onClick={() => handleSort("user")}>User <span className={`${styles.sortIndicator} ${sortState.column==="user" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="user" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span></button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("note")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("note");}}} aria-sort={sortState.column==="note" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Note <span className={`${styles.sortIndicator} ${sortState.column==="note" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="note" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="note" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button className={styles.sortButton} type="button" onClick={() => handleSort("note")}>Note <span className={`${styles.sortIndicator} ${sortState.column==="note" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="note" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span></button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("active")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("active");}}} aria-sort={sortState.column==="active" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Status <span className={`${styles.sortIndicator} ${sortState.column==="active" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="active" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="active" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button className={styles.sortButton} type="button" onClick={() => handleSort("active")}>Status <span className={`${styles.sortIndicator} ${sortState.column==="active" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="active" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span></button>
                         </th>
                         <th scope="col">Actions</th>
                     </tr>
@@ -368,6 +368,7 @@ const AdminUserNotes = ({
                 {...pagination}
                 totalItems={sortedData.length}
                 onItemsPerPageChange={handlePageSizeChange}
+                variant="inline"
             />
         </div>
     );
