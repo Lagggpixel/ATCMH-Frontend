@@ -33,6 +33,7 @@ export interface WebsiteApplicationState {
     applicationType: ApplicationType;
     status: WebsiteApplicationStatus;
     answers: Record<string, string>;
+    superAdminBypassActive: boolean;
     applicationId?: string | number | null;
     version?: number | null;
     links?: {

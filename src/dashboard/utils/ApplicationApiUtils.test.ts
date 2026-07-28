@@ -48,6 +48,17 @@ test("application state normalizes backend boolean and numeric answers for form 
     }
 });
 
+test("application state preserves the server-authorized Super Admin bypass marker", async () => {
+    configureDashboardApiUrl("https://dashboard-api.test");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => Response.json({...state, superAdminBypassActive: true});
+    try {
+        assert.equal((await ApiUtils.getCurrentApplication("mentor")).superAdminBypassActive, true);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test("Discord restart sends the expected draft identity and version for atomic invalidation", async () => {
     configureDashboardApiUrl("https://dashboard-api.test");
     const originalFetch = globalThis.fetch;

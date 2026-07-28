@@ -22,6 +22,9 @@
 .applicationHeader h1 { font-size: clamp(2rem, 5vw, 3.25rem); }
 .applicationHeader p:not(.eyebrow) { margin-bottom: 0; color: var(--muted); }
 .applicationHeader > a { flex: none; color: #bfdbfe; font-weight: 750; }
+.bypassNotice { width: 100%; box-sizing: border-box; margin: 0 0 1rem; padding: 1rem 1.1rem; border: 2px solid #f59e0b; border-radius: .85rem; background: rgba(120,53,15,.32); color: #fef3c7; box-shadow: 0 0 0 1px rgba(251,191,36,.15); }
+.bypassNotice strong { display: block; color: #fde68a; font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; }
+.bypassNotice p { margin: .45rem 0 0; color: #fef3c7; line-height: 1.55; }
 .progress { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: .75rem; color: var(--muted); font-size: .84rem; }
 .form { display: grid; gap: 1rem; }
 .question { min-width: 0; margin: 0; padding: clamp(1.1rem, 3vw, 1.6rem); border: 1px solid var(--border); border-radius: 1rem; background: rgba(15,23,42,.72); }
