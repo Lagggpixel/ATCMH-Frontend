@@ -23,6 +23,7 @@ FRONTEND_PUBLIC_ORIGIN=https://www.atcmh.org
 DASHBOARD_API_URL=https://dashboard-api.atcmh.org
 DASHBOARD_AUTH_URL=https://dashboard-api.atcmh.org
 EXAMS_AUDIT_INGEST_URL=https://dashboard-api.atcmh.org
+APPLICATION_IFC_RESULT_SECRET=<shared server-only value, at least 32 random bytes>
 ```
 
 Supply the MySQL, Exams session, Discord role, import, and audit values through the runtime environment. Keep these rules:
@@ -33,6 +34,7 @@ Supply the MySQL, Exams session, Discord role, import, and audit values through 
 - Use a least-privilege MySQL account for the Exams tables.
 - `EXAMS_AUTH_KEY` must match Dashboard-Backend's handoff key.
 - `EXAMS_AUDIT_INGEST_KEY` must match Dashboard-Backend's audit-ingest key and must differ from `EXAMS_AUTH_KEY`.
+- `APPLICATION_IFC_RESULT_SECRET` must be the same independent server-only value in Frontend and Dashboard-Backend. It signs short-lived `/link-results` outcomes and must never use a `NEXT_PUBLIC_*` name.
 - Keep `EXAMS_MANAGEMENT_WRITES_ENABLED=false` until database migrations and staff write checks are complete.
 - Use strong independent values for `EXAMS_CSRF_SECRET`, `EXAMS_LEARNER_SESSION_SECRET`, and `IMPORT_IDEMPOTENCY_SECRET`.
 

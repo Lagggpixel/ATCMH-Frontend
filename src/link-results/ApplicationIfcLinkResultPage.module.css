@@ -1,0 +1,20 @@
+.page { display: grid; place-items: center; width: min(100% - 2rem, 66rem); min-height: min(68vh, 46rem); margin: 0 auto; padding: clamp(3rem, 8vw, 6rem) 0; color: var(--foreground); }
+.card { display: grid; justify-items: center; width: min(100%, 39rem); box-sizing: border-box; padding: clamp(1.6rem, 5vw, 3rem); border: 1px solid var(--border); border-radius: 1.2rem; background: var(--card); box-shadow: var(--shadow); text-align: center; }
+.success { border-color: rgba(52, 211, 153, .42); }
+.warning { border-color: rgba(251, 191, 36, .42); }
+.error { border-color: rgba(248, 113, 113, .4); }
+.badge { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; margin-bottom: 1rem; border: 1px solid currentColor; border-radius: 50%; color: var(--accent); font-size: 1.45rem; font-weight: 900; }
+.warning .badge { color: #fbbf24; }
+.error .badge { color: #f87171; }
+.eyebrow { margin: 0 0 .6rem; color: var(--accent); font-size: .76rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.card h1 { max-width: 32rem; margin: 0; font-size: clamp(1.9rem, 5vw, 2.8rem); line-height: 1.08; letter-spacing: -.04em; }
+.detail { max-width: 34rem; margin: 1rem 0 0; color: var(--muted); line-height: 1.65; }
+.reference { display: grid; gap: .35rem; width: 100%; margin: 1.35rem 0 0; padding: .8rem; border: 1px solid rgba(148, 163, 184, .22); border-radius: .75rem; background: rgba(9, 19, 34, .72); }
+.reference span { color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.reference code { overflow-wrap: anywhere; color: var(--foreground); }
+.actions { display: flex; justify-content: center; gap: .75rem; width: 100%; margin-top: 1.5rem; }
+.primary, .secondary { min-height: 2.9rem; box-sizing: border-box; padding: .78rem 1rem; border-radius: .75rem; font-weight: 800; }
+.primary { border: 1px solid var(--primary); background: var(--primary); color: white; }
+.secondary { border: 1px solid var(--border); color: var(--foreground); }
+.primary:focus-visible, .secondary:focus-visible { outline: 3px solid #9bbcff; outline-offset: 3px; }
+@media (max-width: 520px) { .page { width: min(100% - 1rem, 66rem); padding-top: 2.25rem; } .actions { align-items: stretch; flex-direction: column; } }
