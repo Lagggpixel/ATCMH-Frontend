@@ -15,6 +15,7 @@ import type {
     AdminMutationRequest,
     AdminMutationResult,
     AltAccountCandidate,
+    AltEvidenceScan,
     AltSuppression,
     DashboardAuthSession,
 } from "../types/Account.ts";
@@ -195,10 +196,23 @@ export class ApiUtils {
         }) as AdminMutationResult;
     }
 
-    static async getAltAccounts(csrfToken: string): Promise<{candidates: AltAccountCandidate[]; suppressions: AltSuppression[]}> {
-        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/alt-accounts`, csrfToken);
+    static async getAltAccounts(csrfToken: string, accountId?: string): Promise<{candidates: AltAccountCandidate[]; suppressions: AltSuppression[]; selectedAccountId: string}> {
+        const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/alt-accounts${query}`, csrfToken);
         await ApiUtils.ensureOk(response);
-        return await ApiUtils.parseJson(response) as {candidates: AltAccountCandidate[]; suppressions: AltSuppression[]};
+        return await ApiUtils.parseJson(response) as {candidates: AltAccountCandidate[]; suppressions: AltSuppression[]; selectedAccountId: string};
+    }
+
+    static async startAltEvidenceRescan(csrfToken: string, accountId: string): Promise<AltEvidenceScan> {
+        return await ApiUtils.centralAdminJson<AltEvidenceScan>(`${dashboardApiUrl}/admin/alt-accounts/rescans`, csrfToken, {
+            method: "POST", body: JSON.stringify({accountId}),
+        }) as AltEvidenceScan;
+    }
+
+    static async getAltEvidenceRescan(csrfToken: string, scanId: string): Promise<AltEvidenceScan> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/alt-accounts/rescans/${encodeURIComponent(scanId)}`, csrfToken);
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson(response) as AltEvidenceScan;
     }
 
     static async suppressAltSignal(csrfToken: string, kind: "detach" | "vpn", body: {accountId?: string; ip: string; reason: string}): Promise<void> {

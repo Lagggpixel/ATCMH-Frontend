@@ -68,14 +68,45 @@ export interface AdminMutationResult {
 }
 
 export interface AltAccountCandidate {
-    evidenceType: "SHARED_IP" | "OWNERSHIP_CONFLICT";
+    evidenceType: "SAME_IP" | "VPN_INDICATOR" | "NETWORK_SIMILARITY" | "OWNERSHIP_CONFLICT";
     accounts: string[];
     ip?: string;
+    network?: string;
     provider?: string;
     subject?: string;
+    indicatorSource?: "MANUAL" | "PROVIDER";
+    signals?: ("VPN" | "PROXY" | "TOR" | "HOSTING")[];
+    networkProvider?: string | null;
+    checkedAt?: string | null;
+    rationale: string;
+    addresses?: AltEvidenceAddress[];
     firstSeen: string;
     lastSeen: string;
     count: number;
+}
+
+export interface AltEvidenceAddress {
+    ip: string;
+    network: string;
+    accounts: string[];
+    networkProvider?: string | null;
+    providerSignals?: string[];
+    firstSeen: string;
+    lastSeen: string;
+    count: number;
+}
+
+export interface AltEvidenceScan {
+    id: string;
+    accountId: string;
+    state: "RUNNING" | "COMPLETED" | "FAILED";
+    total: number;
+    completed: number;
+    failed: number;
+    truncated: boolean;
+    startedAt: string;
+    finishedAt?: string | null;
+    failureCode?: string | null;
 }
 
 export interface AltSuppression {
