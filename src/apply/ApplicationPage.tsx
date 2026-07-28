@@ -10,11 +10,13 @@ import {discordUrl} from "@/src/marketing/SiteHeader";
 import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {
     applicationTypes,
+    initializeApplicationAnswers,
     parseApplicationType,
     pruneApplicationAnswers,
     validateApplicationAnswers,
     visibleApplicationQuestions,
 } from "./application-form-state";
+import {parseWeeklyAvailability, serializeWeeklyAvailability} from "./weekly-availability";
 import styles from "./ApplicationPage.module.css";
 
 const statusCopy: Partial<Record<WebsiteApplicationState["status"], {title: string; detail: string}>> = {
@@ -50,7 +52,9 @@ export default function ApplicationPage() {
                 setRequestError(undefined);
                 if (nextQuestions) setQuestions(nextQuestions);
                 setApplication(nextApplication);
-                setAnswers(nextApplication.answers ?? {});
+                setAnswers(nextQuestions
+                    ? initializeApplicationAnswers(nextQuestions, nextApplication.answers ?? {})
+                    : nextApplication.answers ?? {});
             })
             .catch(reason => { if (current) setRequestError(reason instanceof Error ? reason.message : String(reason)); });
         return () => { current = false; };
@@ -171,9 +175,11 @@ function QuestionField({question, index, value, error, onChange}: {question: App
     const className = question.dependsOnKey ? `${styles.question} ${styles.conditionalQuestion}` : styles.question;
     return <fieldset className={className} aria-describedby={`${id}-help ${id}-error`}>
         <legend><span>{String(index + 1).padStart(2, "0")}</span>{question.prompt}</legend>
-        {question.helpText ? <p id={`${id}-help`} className={styles.help}>{question.helpText}</p> : null}
+        {question.inputType === "WEEKLY_AVAILABILITY"
+            ? <p id={`${id}-help`} className={styles.help}>Times are in UTC. Turn on the days you are available, then choose a start and end time.</p>
+            : question.helpText ? <p id={`${id}-help`} className={styles.help}>{question.helpText}</p> : null}
         {question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
-            : question.inputType === "WEEKLY_AVAILABILITY" ? <textarea id={id} rows={9} value={value} onChange={event => onChange(event.target.value)} placeholder={"Monday: 0000-0000 UTC\nTuesday: Not available\n…"}/>
+            : question.inputType === "WEEKLY_AVAILABILITY" ? <WeeklyAvailabilityEditor id={id} value={value} onChange={onChange}/>
                 : (
                     <input
                         id={id}
@@ -185,6 +191,35 @@ function QuestionField({question, index, value, error, onChange}: {question: App
                 )}
         {error ? <p id={`${id}-error`} className={styles.fieldError} role="alert">{error}</p> : null}
     </fieldset>;
+}
+
+function WeeklyAvailabilityEditor({id, value, onChange}: {id: string; value: string; onChange: (value: string) => void}) {
+    const entries = parseWeeklyAvailability(value);
+    const updateEntry = (index: number, update: Partial<(typeof entries)[number]>) => {
+        const next = entries.map((entry, entryIndex) => entryIndex === index ? {...entry, ...update} : entry);
+        onChange(serializeWeeklyAvailability(next));
+    };
+
+    return <div id={id} className={styles.availabilityEditor} tabIndex={-1}>
+        {entries.map((entry, index) => {
+            const slug = entry.day.toLowerCase();
+            const availableId = `${id}-${slug}-available`;
+            const dayLabelId = `${id}-${slug}-label`;
+            const startId = `${id}-${slug}-start`;
+            const endId = `${id}-${slug}-end`;
+            return <div key={entry.day} className={styles.availabilityDay} role="group" aria-labelledby={dayLabelId}>
+                <strong id={dayLabelId}>{entry.day}</strong>
+                <label className={styles.availabilityToggle} htmlFor={availableId}>
+                    <input id={availableId} type="checkbox" checked={entry.available} onChange={event => updateEntry(index, {available: event.target.checked})}/>
+                    <span>{entry.available ? "Available" : "Not available"}</span>
+                </label>
+                {entry.available ? <div className={styles.availabilityTimes}>
+                    <label htmlFor={startId}>From <input id={startId} type="time" step={60} value={entry.start} onChange={event => updateEntry(index, {start: event.target.value || "09:00"})}/></label>
+                    <label htmlFor={endId}>To <input id={endId} type="time" step={60} value={entry.end} onChange={event => updateEntry(index, {end: event.target.value || "17:00"})}/></label>
+                </div> : null}
+            </div>;
+        })}
+    </div>;
 }
 
 function RestartConfirmation({busy, onCancel, onConfirm}: {busy: boolean; onCancel: () => void; onConfirm: () => void}) {

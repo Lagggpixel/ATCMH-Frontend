@@ -1,4 +1,5 @@
 import type {ApplicationQuestion, ApplicationType} from "@/src/dashboard/types/ApplicationQuestion";
+import {defaultWeeklyAvailabilityAnswer, isCanonicalWeeklyAvailability} from "./weekly-availability";
 
 export const applicationTypes: Array<{value: ApplicationType; label: string; description: string}> = [
     {value: "mentor", label: "Full mentorship", description: "Structured written and practical preparation with a dedicated mentor."},
@@ -48,6 +49,19 @@ export function pruneApplicationAnswers(
         .map(question => [question.key, answers[question.key].trim()]));
 }
 
+export function initializeApplicationAnswers(
+    questions: ApplicationQuestion[],
+    answers: Record<string, string>,
+): Record<string, string> {
+    const initialized = {...answers};
+    for (const question of questions) {
+        if (question.active && question.inputType === "WEEKLY_AVAILABILITY" && !initialized[question.key]?.trim()) {
+            initialized[question.key] = defaultWeeklyAvailabilityAnswer();
+        }
+    }
+    return initialized;
+}
+
 export function validateApplicationAnswers(
     questions: ApplicationQuestion[],
     answers: Record<string, string>,
@@ -60,6 +74,8 @@ export function validateApplicationAnswers(
             errors[question.key] = "Enter a whole number greater than zero.";
         } else if (question.inputType === "YES_NO" && !["yes", "no"].includes(value.toLowerCase())) {
             errors[question.key] = "Choose yes or no.";
+        } else if (question.inputType === "WEEKLY_AVAILABILITY" && !isCanonicalWeeklyAvailability(value)) {
+            errors[question.key] = "Choose valid start and end times for each available day.";
         }
     }
     return errors;

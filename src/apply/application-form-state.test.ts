@@ -4,6 +4,7 @@ import type {ApplicationQuestion} from "@/src/dashboard/types/ApplicationQuestio
 import {
     parseApplicationType,
     pruneApplicationAnswers,
+    initializeApplicationAnswers,
     validateApplicationAnswers,
     visibleApplicationQuestions,
 } from "./application-form-state";
@@ -58,6 +59,31 @@ test("submission validation covers every currently visible required answer", () 
     });
     const numeric = [question("attemptCount", 1, {inputType: "POSITIVE_INTEGER"})];
     assert.equal(validateApplicationAnswers(numeric, {attemptCount: "0"}).attemptCount, "Enter a whole number greater than zero.");
+});
+
+test("weekly availability starts with the backend-compatible seven-day default", () => {
+    const availability = question("availability", 1, {inputType: "WEEKLY_AVAILABILITY"});
+    const initialized = initializeApplicationAnswers([availability], {});
+
+    assert.equal(initialized.availability, [
+        "Monday: Not available",
+        "Tuesday: Not available",
+        "Wednesday: Not available",
+        "Thursday: Not available",
+        "Friday: Not available",
+        "Saturday: Not available",
+        "Sunday: Not available",
+    ].join("\n"));
+    assert.equal(validateApplicationAnswers([availability], initialized).availability, undefined);
+});
+
+test("weekly availability initialization preserves a saved draft", () => {
+    const availability = question("availability", 1, {inputType: "WEEKLY_AVAILABILITY"});
+    const saved = "Monday: 0900-1700\nTuesday: Not available\nWednesday: Not available\nThursday: Not available\nFriday: Not available\nSaturday: Not available\nSunday: Not available";
+
+    assert.equal(initializeApplicationAnswers([availability], {availability: saved}).availability, saved);
+    assert.equal(validateApplicationAnswers([availability], {availability: "Monday: whenever"}).availability,
+        "Choose valid start and end times for each available day.");
 });
 
 test("practical attempt count appears only after an attempted but failed practical", () => {

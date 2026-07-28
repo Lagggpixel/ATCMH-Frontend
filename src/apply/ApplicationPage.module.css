@@ -33,6 +33,15 @@
 .help { margin: .4rem 0 0; color: var(--muted); line-height: 1.5; }
 .question > input, .question > textarea { width: 100%; margin-top: 1rem; padding: .8rem .9rem; border: 1px solid rgba(148,163,184,.32); border-radius: .7rem; background: #091322; color: var(--foreground); font: inherit; }
 .question > textarea { resize: vertical; line-height: 1.5; }
+.availabilityEditor { display: grid; gap: .55rem; margin-top: 1rem; outline: none; }
+.availabilityEditor:focus-visible { border-radius: .75rem; outline: 3px solid #9bbcff; outline-offset: 3px; }
+.availabilityDay { display: grid; grid-template-columns: minmax(7.5rem, .7fr) minmax(9rem, .85fr) minmax(18rem, 1.5fr); align-items: center; gap: .75rem; padding: .7rem .8rem; border: 1px solid rgba(148,163,184,.22); border-radius: .7rem; background: rgba(9,19,34,.72); }
+.availabilityDay > strong { font-size: .9rem; }
+.availabilityToggle { display: flex; align-items: center; gap: .5rem; color: var(--muted); cursor: pointer; font-size: .86rem; }
+.availabilityToggle input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--accent); }
+.availabilityTimes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.availabilityTimes label { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .78rem; }
+.availabilityTimes input { min-width: 0; width: 100%; box-sizing: border-box; padding: .5rem .55rem; border: 1px solid rgba(148,163,184,.32); border-radius: .55rem; background: #091322; color: var(--foreground); color-scheme: dark; font: inherit; }
 .choiceRow { display: grid; grid-template-columns: repeat(2, minmax(0, 12rem)); gap: .75rem; margin-top: 1rem; }
 .choiceRow label { cursor: pointer; }
 .choiceRow input { position: absolute; opacity: 0; }
@@ -63,5 +72,5 @@
 @keyframes revealQuestion { from { opacity: 0; transform: translateY(-.35rem); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .conditionalQuestion { animation: none; } }
-@media (max-width: 760px) { .typeGrid { grid-template-columns: 1fr; } .typeCard { min-height: 12rem; } .applicationHeader, .formActions, .discordAlternative { align-items: stretch; flex-direction: column; } .applicationHeader > a { align-self: flex-start; } .formActions > div { justify-content: space-between; } .primaryButton { width: 100%; } }
-@media (max-width: 480px) { .page { width: min(100% - 1rem, 66rem); padding-top: 2.5rem; } .choiceRow { grid-template-columns: 1fr 1fr; } .confirmation > div { flex-direction: column; } }
+@media (max-width: 760px) { .typeGrid { grid-template-columns: 1fr; } .typeCard { min-height: 12rem; } .applicationHeader, .formActions, .discordAlternative { align-items: stretch; flex-direction: column; } .applicationHeader > a { align-self: flex-start; } .availabilityDay { grid-template-columns: 1fr auto; } .availabilityTimes { grid-column: 1 / -1; } .formActions > div { justify-content: space-between; } .primaryButton { width: 100%; } }
+@media (max-width: 480px) { .page { width: min(100% - 1rem, 66rem); padding-top: 2.5rem; } .choiceRow { grid-template-columns: 1fr 1fr; } .availabilityTimes { grid-template-columns: 1fr; } .confirmation > div { flex-direction: column; } }
