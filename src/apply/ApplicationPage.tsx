@@ -168,7 +168,8 @@ function SuperAdminBypassNotice() {
 
 function QuestionField({question, index, value, error, onChange}: {question: ApplicationQuestion; index: number; value: string; error?: string; onChange: (value: string) => void}) {
     const id = `application-${question.key}`;
-    return <fieldset className={styles.question} aria-describedby={`${id}-help ${id}-error`}>
+    const className = question.dependsOnKey ? `${styles.question} ${styles.conditionalQuestion}` : styles.question;
+    return <fieldset className={className} aria-describedby={`${id}-help ${id}-error`}>
         <legend><span>{String(index + 1).padStart(2, "0")}</span>{question.prompt}</legend>
         {question.helpText ? <p id={`${id}-help`} className={styles.help}>{question.helpText}</p> : null}
         {question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
