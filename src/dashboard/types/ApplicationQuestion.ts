@@ -24,6 +24,7 @@ export type WebsiteApplicationStatus =
     | "IFC_REQUIRED"
     | "READY"
     | "DRAFT"
+    | "DIFFERENT_APPLICATION_IN_PROGRESS"
     | "ACTIVE_MENTORSHIP"
     | "SUBMITTING"
     | "SUBMITTED"

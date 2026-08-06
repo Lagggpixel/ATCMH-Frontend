@@ -13,8 +13,11 @@
 .stateCard { display: grid; justify-items: center; width: min(100%, 39rem); margin: 4rem auto; padding: clamp(1.5rem, 5vw, 3rem); border: 1px solid var(--border); border-radius: 1.2rem; background: var(--card); box-shadow: var(--shadow); text-align: center; }
 .stateCard h1 { font-size: clamp(1.8rem, 5vw, 2.7rem); }
 .stateCard > p:not(.eyebrow, .error) { color: var(--muted); line-height: 1.65; }
-.primary, .primaryButton, .secondary, .textButton, .danger, .discordAlternative button { border-radius: .75rem; padding: .8rem 1rem; font: inherit; font-weight: 800; cursor: pointer; }
+.primary, .providerSecondary, .primaryButton, .secondary, .textButton, .danger, .discordAlternative button { border-radius: .75rem; padding: .8rem 1rem; font: inherit; font-weight: 800; cursor: pointer; }
 .primary { margin-top: 1rem; background: var(--primary); color: white; }
+.providerActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; width: min(100%, 32rem); margin-top: 1rem; }
+.providerActions .primary { margin-top: 0; }
+.providerSecondary { border: 1px solid var(--border); background: transparent; color: var(--foreground); }
 .backLink, .textButton { margin-top: 1rem; color: var(--muted); text-decoration: underline; }
 .textButton { border: 0; background: transparent; }
 .applicationHeader { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 1.5rem; }
@@ -73,4 +76,4 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .conditionalQuestion { animation: none; } }
 @media (max-width: 760px) { .typeGrid { grid-template-columns: 1fr; } .typeCard { min-height: 12rem; } .applicationHeader, .formActions, .discordAlternative { align-items: stretch; flex-direction: column; } .applicationHeader > a { align-self: flex-start; } .availabilityDay { grid-template-columns: 1fr auto; } .availabilityTimes { grid-column: 1 / -1; } .formActions > div { justify-content: space-between; } .primaryButton { width: 100%; } }
-@media (max-width: 480px) { .page { width: min(100% - 1rem, 66rem); padding-top: 2.5rem; } .choiceRow { grid-template-columns: 1fr 1fr; } .availabilityTimes { grid-template-columns: 1fr; } .confirmation > div { flex-direction: column; } }
+@media (max-width: 480px) { .page { width: min(100% - 1rem, 66rem); padding-top: 2.5rem; } .providerActions { grid-template-columns: 1fr; } .choiceRow { grid-template-columns: 1fr 1fr; } .availabilityTimes { grid-template-columns: 1fr; } .confirmation > div { flex-direction: column; } }
