@@ -20,6 +20,7 @@ import {parseWeeklyAvailability, serializeWeeklyAvailability} from "./weekly-ava
 import styles from "./ApplicationPage.module.css";
 
 const statusCopy: Partial<Record<WebsiteApplicationState["status"], {title: string; detail: string}>> = {
+    DIFFERENT_APPLICATION_IN_PROGRESS: {title: "Another application is already in progress", detail: "You cannot start a second application until the current one is completed or reviewed. Continue in Discord, or contact a Moderator if the application shown here is no longer current."},
     ACTIVE_MENTORSHIP: {title: "You already have an active mentorship", detail: "A second application cannot be started while your current mentorship is active. Contact a Moderator in Discord if your circumstances have changed."},
     SUBMITTING: {title: "Your application is being submitted", detail: "Please do not start another application. Refresh shortly to see its final status."},
     SUBMITTED: {title: "Application submitted", detail: "Your answers have been received. Continue in Discord, where the team will contact you about the next step."},
@@ -32,6 +33,7 @@ export default function ApplicationPage() {
     const source = params.get("source") === "discord" ? "discord" : "website";
     const returnTo = applicationType ? `/apply?${new URLSearchParams({type: applicationType, ...(source === "discord" ? {source} : {})})}` : "/apply";
     const {session, loading: authLoading, error: authError} = usePortalAuth();
+    const hasDiscord = session?.identities.some(identity => identity.active !== false && identity.provider.toLowerCase() === "discord") ?? false;
     const hasIfc = session?.identities.some(identity => identity.active !== false && identity.provider.toLowerCase() === "ifc") ?? false;
     const [questions, setQuestions] = useState<ApplicationQuestion[]>();
     const [application, setApplication] = useState<WebsiteApplicationState>();
@@ -43,10 +45,9 @@ export default function ApplicationPage() {
     const [saved, setSaved] = useState(false);
 
     useEffect(() => {
-        if (!session || !applicationType) return;
+        if (!session || !applicationType || !hasDiscord || !hasIfc) return;
         let current = true;
-        const questionRequest = hasIfc ? ApiUtils.getApplicationQuestions() : Promise.resolve(undefined);
-        void Promise.all([questionRequest, ApiUtils.getCurrentApplication(applicationType)])
+        void Promise.all([ApiUtils.getApplicationQuestions(), ApiUtils.getCurrentApplication(applicationType)])
             .then(([nextQuestions, nextApplication]) => {
                 if (!current) return;
                 setRequestError(undefined);
@@ -58,7 +59,7 @@ export default function ApplicationPage() {
             })
             .catch(reason => { if (current) setRequestError(reason instanceof Error ? reason.message : String(reason)); });
         return () => { current = false; };
-    }, [applicationType, hasIfc, session]);
+    }, [applicationType, hasDiscord, hasIfc, session]);
 
     const visibleQuestions = useMemo(
         () => questions ? visibleApplicationQuestions(questions, answers) : [],
@@ -125,23 +126,30 @@ export default function ApplicationPage() {
     if (authError) return <State title="We could not restore your account" detail="Try again shortly or sign in again from the home page." error={authError}/>;
     if (!session) return <main className={styles.page}><section className={styles.stateCard}>
         <p className={styles.eyebrow}>{selectedType.label}</p><h1>Sign in to start your application</h1>
-        <p>{source === "discord" ? "You came from Discord. Sign in with the same Discord account so we can safely continue on the website." : "Sign in with Discord to connect this application to the account our team will contact."}</p>
-        <a className={styles.primary} href={loginPath(ApiUtils.apiOrigin, "discord", returnTo)}>Continue with Discord</a>
+        <p>{source === "discord" ? "You came from Discord. Continue with either account already linked to ATCMH; we will ask for the other one only if it is still needed." : "Continue with either Discord or Infinite Flight. If your account still needs the other identity, secure sign-in will guide you through it."}</p>
+        <div className={styles.providerActions} role="group" aria-label="Choose a sign-in provider">
+            <a className={styles.primary} href={loginPath(ApiUtils.apiOrigin, "discord", returnTo)}>Continue with Discord</a>
+            <a className={styles.providerSecondary} href={loginPath(ApiUtils.apiOrigin, "ifc", returnTo)}>Continue with Infinite Flight</a>
+        </div>
         <Link className={styles.backLink} href="/apply">Choose a different application</Link>
     </section></main>;
 
-    if (!hasIfc || application?.status === "IFC_REQUIRED") return <main className={styles.page}><section className={styles.stateCard}>
-        <p className={styles.eyebrow}>{selectedType.label}</p><h1>Link your Infinite Flight account</h1>
-        <p>Your IFC identity is required to verify eligibility and attach the correct pilot profile. After linking, you will return to this website application.</p>
-        {requestError ? <p className={styles.error} role="alert">{requestError}</p> : null}
-        <a className={styles.primary} href={loginPath(ApiUtils.apiOrigin, "ifc", returnTo)}>Link Infinite Flight account</a>
-        <button className={styles.textButton} type="button" onClick={() => setConfirmRestart(true)}>Restart this application in Discord instead</button>
-        {confirmRestart ? <RestartConfirmation busy={busy === "restart"} onCancel={() => setConfirmRestart(false)} onConfirm={() => void restartInDiscord()}/> : null}
-    </section></main>;
+    if (!hasDiscord || !hasIfc) {
+        const setupProvider = hasDiscord ? "discord" : hasIfc ? "ifc" : "discord";
+        const linkedProvider = hasDiscord ? "Discord" : hasIfc ? "Infinite Flight" : "your linked account";
+        return <main className={styles.page}><section className={styles.stateCard}>
+            <p className={styles.eyebrow}>{selectedType.label}</p><h1>Finish setting up your ATCMH account</h1>
+            <p>This session does not include both required identities. Restart secure sign-in with {linkedProvider}; it will ask for the missing provider without creating a separate application link flow.</p>
+            <a className={styles.primary} href={loginPath(ApiUtils.apiOrigin, setupProvider, returnTo)}>Continue account setup</a>
+        </section></main>;
+    }
 
     if (application && statusCopy[application.status]) {
         const copy = statusCopy[application.status]!;
-        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{copy.title}</h1><p>{copy.detail}</p>{application.superAdminBypassActive === true ? <SuperAdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
+        const activeType = applicationTypes.find(option => option.value === application.applicationType);
+        const title = application.status === "DIFFERENT_APPLICATION_IN_PROGRESS" && activeType
+            ? `${activeType.label} application already in progress` : copy.title;
+        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{title}</h1><p>{copy.detail}</p>{application.superAdminBypassActive === true ? <SuperAdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
     }
     if (requestError && (!questions || !application)) return <State title="Application unavailable" detail="We could not load your application." error={requestError}/>;
     if (!questions || !application) return <State title="Loading your application" detail="Checking eligibility and restoring any saved answers." loading/>;
