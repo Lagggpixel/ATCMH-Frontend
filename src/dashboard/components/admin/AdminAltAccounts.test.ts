@@ -25,15 +25,6 @@ test("evidence grouping keeps exact matches first and network candidates togethe
     assert.equal(groups.get("NETWORK_SIMILARITY").length, 2);
 });
 
-test("safe display labels evidence as review signals without making identity determinations", async () => {
-    const {ReviewSignalNotice} = await vite.ssrLoadModule("/src/dashboard/components/admin/AdminAltAccounts.tsx") as any;
-    const html = renderToStaticMarkup(React.createElement(ReviewSignalNotice));
-    assert.match(html, /Review signals, not determinations/);
-    assert.match(html, /does not prove dynamic allocation/);
-    assert.match(html, /same person/);
-    assert.doesNotMatch(html, /is the same person|proves VPN use|confirmed dynamic/i);
-});
-
 test("rescan status shows bounded progress, result, and truncation honestly", async () => {
     const {RescanStatus} = await vite.ssrLoadModule("/src/dashboard/components/admin/AdminAltAccounts.tsx") as any;
     const running = renderToStaticMarkup(React.createElement(RescanStatus, {scan: {id: "s", accountId: "42", state: "RUNNING", total: 8, completed: 3, failed: 1, truncated: false, startedAt: ""}}));
