@@ -174,7 +174,6 @@ export default function ApplicationPage() {
 function SuperAdminBypassNotice() {
     return <aside className={styles.bypassNotice} role="status" aria-label="Super Admin eligibility bypass active">
         <strong>Super Admin bypass active</strong>
-        <p>The existing-role/IFATC eligibility restriction was overridden solely to test this application flow. Every other eligibility and safety check still applies. This application is marked for moderation audit.</p>
     </aside>;
 }
 
