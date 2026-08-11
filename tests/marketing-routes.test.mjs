@@ -12,6 +12,13 @@ test("RootSite marketing and legal content is owned by App Router routes", () =>
   assert.match(policy, /PRIVACY\.md/);
 });
 
+test("homepage embeds use the ATCMH logo instead of an externally hosted brand image", () => {
+  const homepage = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
+  assert.match(homepage, /https:\/\/atcmh\.org\/dashboard-icon\.png/);
+  assert.match(homepage, /alt: "ATC Mentorship Hub logo"/);
+  assert.doesNotMatch(homepage, /postimg\.cc/);
+});
+
 test("the unified app exposes the canonical website application route", () => {
   assert.equal(existsSync(new URL("../src/app/apply/page.tsx", import.meta.url)), true);
   const application = readFileSync(new URL("../src/apply/ApplicationPage.tsx", import.meta.url), "utf8");
