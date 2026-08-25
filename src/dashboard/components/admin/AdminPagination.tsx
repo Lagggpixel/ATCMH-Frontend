@@ -70,6 +70,7 @@ export default function AdminPagination({
                             key={i}
                             type="button"
                             className={`${styles.paginationButton} ${styles.paginationButtonPage} ${i === page ? styles.paginationButtonActive : ""}`}
+                            aria-current={i === page ? "page" : undefined}
                             onClick={() => goToPage(i)}
                         >
                             {i + 1}
@@ -130,6 +131,7 @@ function PaginationPageButtons({page, totalPages, goToPage}: {page: number; tota
                 key={n}
                 type="button"
                 className={`${styles.paginationButton} ${styles.paginationButtonPage} ${n === page ? styles.paginationButtonActive : ""}`}
+                aria-current={n === page ? "page" : undefined}
                 onClick={() => goToPage(n)}
             >
                 {n + 1}
