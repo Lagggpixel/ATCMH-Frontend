@@ -67,6 +67,11 @@ test("exam navigation stays scrollable without showing a scrollbar", () => {
     assert.match(centerCss, /\.examNav::-webkit-scrollbar\s*\{[\s\S]*?display: none;/);
 });
 
+test("courses live in the Assessment dashboard dropdown instead of the Exam Center tabs", () => {
+    assert.doesNotMatch(centerSource, /<NavLink[^>]*\/dashboard\/exams\/courses/);
+    assert.match(readFileSync(join(currentDir, "AdminNavigation.ts"), "utf8"), /label: "Courses"[\s\S]*?\/dashboard\/exams\/courses/);
+});
+
 test("the catalog does not render import or website forms inline", () => {
     assert.doesNotMatch(centerSource, /view === "catalog"[\s\S]{0,500}<ExamImportCenter/);
     assert.doesNotMatch(centerSource, /view === "catalog"[\s\S]{0,500}<ExamWebsiteManager/);
@@ -175,7 +180,7 @@ test("attempt review uses the immutable stored review and provides a back route"
 
 test("exam navigation and empty unlock copy use the approved wording", () => {
     assert.match(centerSource, />Quizzes<\/NavLink>/);
-    assert.match(centerSource, />Courses<\/NavLink>/);
+    assert.doesNotMatch(centerSource, /<NavLink[^>]*\/dashboard\/exams\/courses/);
     assert.match(unlockManagerSource, /Public quizzes do not require learner unlocks\./);
 });
 

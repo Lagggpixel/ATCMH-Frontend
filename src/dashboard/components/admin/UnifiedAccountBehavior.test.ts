@@ -24,9 +24,11 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
     assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Administration"]);
     assert.deepEqual(groups.map(group => group.items.map(item => item.label)), [
         ["Mentees", "Assignments", "Sessions", "User Notes", "Mentor Manual"],
-        ["Mock Questions", "Application Questions", "Exam Center"],
+        ["Mock Questions", "Application Questions", "Exam Center", "Course Center"],
         ["Statistics", "Accounts", "Alternative Evidence", "Audit Logs"],
     ]);
+    assert.deepEqual(groups[1].sections.map(section => section.label), ["Exams", "Courses"]);
+    assert.deepEqual(groups[1].sections[1].items, [{path: "/dashboard/exams/courses", label: "Course Center"}]);
     assert.deepEqual(adminNavigationItems(user(), false).map(item => item.path), [
         "/dashboard/mentees", "/dashboard/assignments", "/dashboard/sessions", "/dashboard/usernotes", "/dashboard/manual", "/dashboard/stats",
     ]);

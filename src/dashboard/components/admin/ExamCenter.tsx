@@ -137,8 +137,6 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
                                                                      className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Unlocks</NavLink> : null}
             {hasCapability(data.actor, "review-attempts") ? <NavLink to="/dashboard/exams/attempts"
                                                                       className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Attempts</NavLink> : null}
-            {hasCapability(data.actor, "manage-courses") ? <NavLink to="/dashboard/exams/courses"
-                                                                      className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Courses</NavLink> : null}
             {canManageExamWebsite(data.actor) ? <NavLink to="/dashboard/exams/website"
                                                          className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Website
                 content</NavLink> : null}

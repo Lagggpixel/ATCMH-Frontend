@@ -54,26 +54,23 @@ test("actual capability navigation includes privileged routes only for capable u
     assert.match(privileged, />Accounts</); assert.match(privileged, /Alternative Evidence/);
 });
 
-test("admin navigation uses compact integrated tabs", async () => {
+test("admin navigation uses category dropdowns with active course placement", async () => {
     const {default: AdminNav} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/admin/AdminNav.tsx");
     const html = inRouter(React.createElement(AdminNav, {adminUser: {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false}}), "/dashboard");
     const css = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.module.css", import.meta.url), "utf8");
 
     assert.match(html, /<nav[^>]*aria-label="Dashboard sections"/);
+    assert.match(html, /<details[^>]*adminNavDropdown/);
+    assert.match(html, /<summary[^>]*>Assessment<\/summary>/);
+    assert.match(html, /Course Center/);
     assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
     assert.doesNotMatch(css, /position:\s*sticky/);
+    assert.match(css, /\.adminHeader\s*\{[^}]*position:\s*relative/);
     assert.match(css, /\.adminHeader\s*\{[^}]*border-bottom:/s);
-    assert.match(css, /\.adminHeader\s*\{[^}]*justify-content:\s*center/s);
-    assert.match(css, /\.adminHeader\s*\{[^}]*width:\s*min\(100%, 1400px\)/s);
-    assert.match(css, /\.adminNav\s*\{[^}]*justify-content:\s*center/s);
-    assert.match(css, /\.adminNav\s*\{[^}]*width:\s*max-content/s);
-    assert.match(css, /\.adminNav\s*\{[^}]*margin-inline:\s*auto/s);
-    assert.match(css, /\.adminNavButtonActive::after\s*\{[^}]*bottom:\s*-1px/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav\s*\{[^}]*overflow-x:\s*auto/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav\s*\{[^}]*scroll-snap-type:\s*x proximity/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavButton\s*\{[^}]*min-height:\s*42px/s);
-    const source = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.tsx", import.meta.url), "utf8");
-    assert.match(source, /scrollIntoView\(\{block:\s*"nearest",\s*inline:\s*"center"\}\)/);
+    assert.match(css, /\.adminNavDropdownSummary\s*\{[^}]*cursor:\s*pointer/s);
+    assert.match(css, /\.adminNavDropdownMenu\s*\{[^}]*position:\s*absolute/s);
+    assert.match(css, /\.adminNavDropdownSection \+ \.adminNavDropdownSection\s*\{[^}]*border-top:/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
 });
 
 test("actual confirmation and stale-error views wire commit and cancel callbacks", async () => {

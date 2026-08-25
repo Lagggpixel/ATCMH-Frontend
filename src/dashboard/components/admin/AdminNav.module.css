@@ -1,4 +1,6 @@
 .adminHeader {
+    position: relative;
+    z-index: 20;
     display: flex;
     justify-content: center;
     width: min(100%, 1400px);
@@ -10,34 +12,87 @@
 
 .adminNav {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 18px;
+    gap: 8px;
     width: max-content;
     max-width: 100%;
-    min-height: 66px;
+    min-height: 62px;
     margin-inline: auto;
     box-sizing: border-box;
-    overflow-x: auto;
-    scroll-padding-inline: 16px;
-    -webkit-overflow-scrolling: touch;
 }
 
-.adminNavGroup {
-    display: grid;
+.adminNavDropdown {
+    position: relative;
     flex: 0 0 auto;
-    gap: 2px;
-    align-self: stretch;
-    padding: 7px 0 5px;
 }
 
-.adminNavGroup + .adminNavGroup {
-    padding-left: 18px;
-    border-left: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+.adminNavDropdownSummary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 42px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 9px 13px;
+    color: var(--muted-text);
+    cursor: pointer;
+    font: inherit;
+    font-size: .9rem;
+    font-weight: 800;
+    list-style: none;
+    transition: color .2s, background-color .2s, border-color .2s;
 }
 
-.adminNavGroupLabel {
-    padding: 0 4px;
+.adminNavDropdownSummary::-webkit-details-marker {
+    display: none;
+}
+
+.adminNavDropdownSummary::after {
+    color: currentColor;
+    content: "⌄";
+    font-size: .78rem;
+    transform: translateY(-1px);
+}
+
+.adminNavDropdown[open] > .adminNavDropdownSummary,
+.adminNavDropdownSummary:hover,
+.adminNavDropdownActive > .adminNavDropdownSummary {
+    background: var(--surface-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.adminNavDropdownMenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    display: grid;
+    gap: 12px;
+    width: max-content;
+    min-width: 15rem;
+    max-width: min(22rem, calc(100vw - 24px));
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--surface-color);
+    box-shadow: var(--panel-shadow);
+    transform: translateX(-50%);
+}
+
+.adminNavDropdownSection {
+    display: grid;
+    gap: 5px;
+}
+
+.adminNavDropdownSection + .adminNavDropdownSection {
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+.adminNavDropdownSectionLabel {
+    padding: 2px 9px 3px;
     color: var(--muted-text);
     font-size: .68rem;
     font-weight: 800;
@@ -46,51 +101,34 @@
     text-transform: uppercase;
 }
 
-.adminNavGroupItems {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
+.adminNavDropdownSectionItems {
+    display: grid;
+    gap: 2px;
 }
 
-.adminNavButton {
-    position: relative;
-    flex: 0 0 auto;
-    align-self: stretch;
-    min-height: 42px;
-    background-color: transparent;
+.adminNavDropdownItem {
+    display: block;
+    border-radius: 8px;
+    padding: 9px;
     color: var(--muted-text);
-    border: 0;
-    border-radius: 8px 8px 0 0;
-    padding: 9px 11px;
-    cursor: pointer;
-    font: inherit;
     font-size: .9rem;
     font-weight: 700;
+    text-decoration: none;
     white-space: nowrap;
-    transition: color .2s, background-color .2s;
 }
 
-.adminNavButton:hover {
-    background-color: var(--surface-color);
+.adminNavDropdownItem:hover,
+.adminNavDropdownItemActive {
+    background: var(--button-hover);
     color: var(--text-color);
 }
 
-.adminNavButtonActive {
-    background: color-mix(in srgb, var(--accent-color) 9%, transparent);
-    color: var(--text-color);
+.adminNavDropdownItemActive {
+    box-shadow: inset 2px 0 var(--accent-color);
 }
 
-.adminNavButtonActive::after {
-    position: absolute;
-    right: 10px;
-    bottom: -1px;
-    left: 10px;
-    height: 2px;
-    background: var(--accent-color);
-    content: "";
-}
-
-.adminNavButton:focus-visible {
+.adminNavDropdownSummary:focus-visible,
+.adminNavDropdownItem:focus-visible {
     outline: 2px solid var(--accent-color);
     outline-offset: -2px;
 }
@@ -110,20 +148,26 @@
     .adminNav {
         width: 100%;
         margin-inline: 0;
-        overflow-x: auto;
-        scroll-snap-type: x proximity;
-        scroll-padding-inline: 12px;
-        mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 18px), transparent);
+        justify-content: stretch;
     }
 
-    .adminNavGroup {
-        padding-block: 6px 4px;
+    .adminNavDropdown {
+        flex: 1 1 0;
+        min-width: 0;
     }
 
-    .adminNavButton {
+    .adminNavDropdownSummary {
+        justify-content: center;
         min-height: 42px;
         padding: 6px 9px;
         font-size: 0.88rem;
-        scroll-snap-align: center;
+    }
+
+    .adminNavDropdownMenu {
+        position: static;
+        width: 100%;
+        max-width: none;
+        margin-top: 5px;
+        transform: none;
     }
 }
