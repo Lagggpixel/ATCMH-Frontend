@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { homeLoginHref } from "@/src/platform/auth/login-routing";
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
-import { listPublishedCourses } from "@/src/lib/course-repository";
+import { listPublishedCourses } from "@/src/lib/course-api-client";
 import DashboardExamSessionBootstrap from "../DashboardExamSessionBootstrap";
 import styles from "./CourseReader.module.css";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CourseCataloguePage() {
   const identity = await getVerifiedLearnerIdentity();
-  const courses = identity ? await listPublishedCourses(identity.discordId).catch(() => []) : [];
+  const courses = identity ? await listPublishedCourses().catch(() => []) : [];
   return <main className="learner-main">
     <div className={styles.coursePage}>
       <DashboardExamSessionBootstrap />

@@ -9,6 +9,7 @@ The Frontend is one standalone Next.js service for `www.atcmh.org`. Dashboard-Ba
 - Dashboard: `/dashboard` and descendants
 - Leaderboard: `/leaderboard`
 - Exam Center: `/exams` and descendants
+- Course learning UI: `/exams/courses` and descendants; its data and mutations are served by Dashboard-Backend at `/courses` and `/admin/courses`
 - Exams handlers: `/exams/api/auth/*`, `/exams/api/management/*`, `/exams/api/quizzes/*`
 - Health: `/api/health`
 
@@ -35,8 +36,10 @@ Supply the MySQL, Exams session, Discord role, import, and audit values through 
 - `EXAMS_AUTH_KEY` must match Dashboard-Backend's handoff key.
 - `EXAMS_AUDIT_INGEST_KEY` must match Dashboard-Backend's audit-ingest key and must differ from `EXAMS_AUTH_KEY`.
 - `APPLICATION_IFC_RESULT_SECRET` must be the same independent server-only value in Frontend and Dashboard-Backend. It signs short-lived `/link-results` outcomes and must never use a `NEXT_PUBLIC_*` name.
+- `EXAMS_CSRF_SECRET` must be the same server-only value in Frontend and Dashboard-Backend; the backend validates the HMAC token returned by the Exams session route for course completion and management writes.
+- Apply Dashboard-Backend's `sql/2026-08-25-courses.sql` to `MYSQL_LMS_DATABASE` before using Course Center or learner courses. The backend may also use `MYSQL_LMS_URL` when the LMS schema is not derived from `MYSQL_URL`.
 - Keep `EXAMS_MANAGEMENT_WRITES_ENABLED=false` until database migrations and staff write checks are complete.
-- Use strong independent values for `EXAMS_CSRF_SECRET`, `EXAMS_LEARNER_SESSION_SECRET`, and `IMPORT_IDEMPOTENCY_SECRET`.
+- Use strong independent values for `EXAMS_LEARNER_SESSION_SECRET` and `IMPORT_IDEMPOTENCY_SECRET`.
 
 Dashboard-Backend must use:
 
