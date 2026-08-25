@@ -1,5 +1,5 @@
-import {type FormEvent, useEffect, useMemo, useState} from "react";
-import {useNavigate, useParams} from "@/src/dashboard/next-navigation";
+import {type ChangeEvent, type FormEvent, useEffect, useMemo, useState} from "react";
+import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee, MenteeState} from "../../types/AdminMentee.ts";
 import type {AdminUser} from "../../types/AdminUser.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
@@ -57,6 +57,27 @@ const stateLabels: Record<AdminMentee["state"], string> = {
     terminated: "Terminated",
 };
 
+type MentorFilter = "all" | "mine" | "waitlist";
+type MenteeStateAction = "pickup" | "pass";
+const MENTOR_FILTER_PARAM = "mentorFilter";
+
+const normalizeMentorFilter = (value: string | null): MentorFilter => {
+    return value === "mine" || value === "waitlist" ? value : "all";
+};
+
+const stateActionCopy: Record<MenteeStateAction, { title: string; description: string; confirmLabel: string }> = {
+    pickup: {
+        title: "Pick up this mentee?",
+        description: "This assigns the mentee to you and moves them out of the waitlist. Continue?",
+        confirmLabel: "Confirm pickup",
+    },
+    pass: {
+        title: "Pass this mentee?",
+        description: "This marks the mentee as passed and ends the active mentorship. Continue?",
+        confirmLabel: "Confirm pass",
+    },
+};
+
 const AdminMentees = ({
                           loaded,
                           loggedIn,
@@ -73,12 +94,14 @@ const AdminMentees = ({
                           onSessionAssignmentSaved
                       }: AdminMenteesProps) => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
     const {menteeRecordId} = useParams();
     const [filter, setFilter] = useState("");
-    const [mentorFilter, setMentorFilter] = useState("all");
     const [actionError, setActionError] = useState<string | undefined>();
     const [busyAction, setBusyAction] = useState<string | undefined>();
     const [showTerminateModal, setShowTerminateModal] = useState(false);
+    const [pendingStateAction, setPendingStateAction] = useState<MenteeStateAction>();
     const [terminateReason, setTerminateReason] = useState("");
     const [sessionForm, setSessionForm] = useState({mentorId: "", airport: "", pilots: "1", time: ""});
     const [attendeeInputs, setAttendeeInputs] = useState<Record<string, string>>({});
@@ -87,11 +110,13 @@ const AdminMentees = ({
         existingAssignment?: SessionAssignment
     } | undefined>();
 
+    const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
+    const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
 
     const selectedMentee = useMemo(() => {
-        if (!mentees) return mentees?.[0];
-        return mentees.find(mentee => String(mentee.id) === menteeRecordId) ?? mentees[0];
+        if (!mentees || !menteeRecordId) return undefined;
+        return mentees.find(mentee => String(mentee.id) === menteeRecordId);
     }, [menteeRecordId, mentees]);
 
     const displayedMentees = useMemo(() => {
@@ -126,6 +151,39 @@ const AdminMentees = ({
 
     const menteePagination = usePagination(displayedMentees, 50);
 
+    const menteeRoute = (id?: number) => {
+        const path = id == null ? "/dashboard/mentees" : `/dashboard/mentees/${id}`;
+        const query = searchParams.toString();
+        return query ? `${path}?${query}` : path;
+    };
+
+    const handleMenteeSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+        setFilter(event.target.value);
+        menteePagination.reset();
+    };
+
+    const handleMentorFilterChange = (value: string) => {
+        const nextFilter = normalizeMentorFilter(value);
+        const nextParams = new URLSearchParams(searchParams.toString());
+        if (nextFilter === "all") {
+            nextParams.delete(MENTOR_FILTER_PARAM);
+        } else {
+            nextParams.set(MENTOR_FILTER_PARAM, nextFilter);
+        }
+        menteePagination.reset();
+        const query = nextParams.toString();
+        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
+    };
+
+    const clearMenteeFilters = () => {
+        setFilter("");
+        menteePagination.reset();
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.delete(MENTOR_FILTER_PARAM);
+        const query = nextParams.toString();
+        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
+    };
+
     const selectedSessions = useMemo(() => {
         const sessions = selectedMentee?.sessions ?? [];
         const now = Date.now();
@@ -154,16 +212,6 @@ const AdminMentees = ({
     const selectedActionPolicy = selectedMentee
         ? getMenteeActionPolicy({state: selectedMentee.state, hasMentor: selectedMenteeHasMentor})
         : undefined;
-    const menteeSummary = useMemo(() => {
-        const waitlisted = mentees?.filter(mentee => mentee.state === "waitlisted").length ?? 0;
-        const activeMentorships = mentees?.filter(mentee => mentee.state === "picked_up").length ?? 0;
-        const futureSessions = mentees?.reduce((total, mentee) => {
-            return total + mentee.sessions.filter(session => !session.cancelled && new Date(session.time).getTime() >= Date.now()).length;
-        }, 0) ?? 0;
-
-        return {waitlisted, activeMentorships, futureSessions};
-    }, [mentees]);
-
     const getUserName = (id?: string) => {
         if (!id) return "Not set";
         const user = usersById.get(id);
@@ -185,14 +233,14 @@ const AdminMentees = ({
         }
     };
 
-    const doPickup = () => {
+    const requestPickup = () => {
         if (!selectedMentee) return;
         if (!selectedActionPolicy?.canPickup) return;
         if (selectedMenteeHasMentor) {
             setActionError("This mentee already has a mentor.");
             return;
         }
-        void runAction("pickup", () => ApiUtils.pickupMentee(token, selectedMentee.id), onMenteeChanged);
+        setPendingStateAction("pickup");
     };
 
     const handleTerminateClick = () => {
@@ -209,20 +257,28 @@ const AdminMentees = ({
         setShowTerminateModal(false);
     };
 
-    const handlePass = async () => {
+    const requestPass = () => {
         if (!selectedMentee || !selectedActionPolicy?.canPass) return;
-        if (!window.confirm("Mark this mentee as passed?")) return;
-        setBusyAction("pass");
-        try {
-            const updated = await ApiUtils.passMentee(token, selectedMentee.id);
-            if (updated) {
-                onMenteeChanged(updated);
-            }
-        } catch (err) {
-            setActionError(err instanceof Error ? err.message : String(err));
-        } finally {
-            setBusyAction(undefined);
+        setPendingStateAction("pass");
+    };
+
+    const handleStateActionConfirm = () => {
+        if (!selectedMentee || !pendingStateAction) return;
+        const action = pendingStateAction;
+        const allowed = action === "pickup" ? selectedActionPolicy?.canPickup : selectedActionPolicy?.canPass;
+        if (!allowed) {
+            setPendingStateAction(undefined);
+            return;
         }
+
+        setPendingStateAction(undefined);
+        void runAction(
+            action,
+            () => action === "pickup"
+                ? ApiUtils.pickupMentee(token, selectedMentee.id)
+                : ApiUtils.passMentee(token, selectedMentee.id),
+            onMenteeChanged,
+        );
     };
 
     const handleSchedule = (event: FormEvent) => {
@@ -345,23 +401,8 @@ const AdminMentees = ({
 
     return (
         <div className={styles.adminMenteesContainer}>
-            <div className={styles.inlineStatsRow} aria-label="Mentee overview">
-                    <span className={styles.statSegment}>
-                        <span className={styles.statValue}>{menteeSummary.waitlisted}</span>
-                        <span className={styles.statLabel}>Waitlist</span>
-                    </span>
-                    <span className={styles.statSegment}>
-                        <span className={styles.statValue}>{menteeSummary.activeMentorships}</span>
-                        <span className={styles.statLabel}>Active</span>
-                    </span>
-                    <span className={styles.statSegment}>
-                        <span className={styles.statValue}>{menteeSummary.futureSessions}</span>
-                        <span className={styles.statLabel}>Future sessions</span>
-                    </span>
-            </div>
-
             <div className={styles.adminMenteesLayout}>
-                <aside className={styles.menteeListPanel}>
+                <aside className={`${styles.menteeListPanel} ${selectedMentee ? styles.menteeListPanelWithSelection : ""}`}>
                     <div className={styles.panelHeader}>
                         <h2>Mentees</h2>
                         <span>{menteePagination.paginatedItems.length}/{mentees.length}</span>
@@ -370,7 +411,7 @@ const AdminMentees = ({
                     <input
                         id="mentee-search"
                         value={filter}
-                        onChange={event => setFilter(event.target.value)}
+                        onChange={handleMenteeSearchChange}
                         placeholder="Name, Discord ID, IFC, recruiter..."
                     />
                     <label className={styles.searchLabel} htmlFor="mentor-filter">Mentor filter</label>
@@ -378,7 +419,7 @@ const AdminMentees = ({
                         id="mentor-filter"
                         className={styles.mentorFilterSelect}
                         value={mentorFilter}
-                        onChange={event => setMentorFilter(event.target.value)}
+                        onChange={event => handleMentorFilterChange(event.target.value)}
                     >
                         <option value="all">All mentees</option>
                         <option value="mine" disabled={!adminUser}>My mentees</option>
@@ -386,23 +427,30 @@ const AdminMentees = ({
                     </select>
 
                     <div className={styles.menteeList} aria-label="Mentees">
-                        {menteePagination.paginatedItems.map(mentee => (
-                            <button
-                                key={mentee.id}
-                                type="button"
-                                className={`${styles.menteeListItem} ${selectedMentee?.id === mentee.id ? styles.menteeListItemActive : ""}`}
-                                onClick={() => navigate(`/dashboard/mentees/${mentee.id}`)}
-                            >
-                                <span>{getUserName(mentee.mentee)}</span>
-                                <small>
-                                    <span className={`${styles.menteeStateText} ${styles[`${mentee.state}Text`]}`}>
-                                        {stateLabels[mentee.state]}
-                                    </span>
-                                    {" - "}
-                                    {formatAdminUtcDate(mentee.waitlistTime)}
-                                </small>
-                            </button>
-                        ))}
+                        {menteePagination.paginatedItems.length > 0 ? menteePagination.paginatedItems.map(mentee => (
+                                <button
+                                    key={mentee.id}
+                                    type="button"
+                                    className={`${styles.menteeListItem} ${selectedMentee?.id === mentee.id ? styles.menteeListItemActive : ""}`}
+                                    onClick={() => navigate(menteeRoute(mentee.id))}
+                                >
+                                    <span>{getUserName(mentee.mentee)}</span>
+                                    <small>
+                                        <span className={`${styles.menteeStateText} ${styles[`${mentee.state}Text`]}`}>
+                                            {stateLabels[mentee.state]}
+                                        </span>
+                                        {" - "}
+                                        {formatAdminUtcDate(mentee.waitlistTime)}
+                                    </small>
+                                </button>
+                            )) : (
+                                <div className={styles.emptyState}>
+                                    <p>No mentees match these filters.</p>
+                                    <button type="button" className={styles.clearFiltersButton} aria-label="Clear mentee search" onClick={clearMenteeFilters}>
+                                        Clear filters
+                                    </button>
+                                </div>
+                            )}
                     </div>
                     <AdminPagination
                         {...menteePagination}
@@ -413,30 +461,37 @@ const AdminMentees = ({
                 </aside>
 
                 <main
-                    className={styles.menteeDetailPanel}
+                    className={`${styles.menteeDetailPanel} ${selectedMentee ? "" : styles.menteeDetailPanelWithoutSelection}`}
                     style={{["--strip-color" as string]: stateStripColor[selectedMentee?.state || 'waitlisted']}}
                 >
                     {selectedMentee ? (
                         <>
                             <header className={styles.detailHeader}>
                                 <div>
+                                    <button type="button" className={styles.backToMentees} onClick={() => navigate(menteeRoute())}>
+                                        Back to mentees
+                                    </button>
                                     <h2>{getUserName(selectedMentee.mentee)}</h2>
+                                    <span className={`${styles.menteeStateBadge} ${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>
+                                        {stateLabels[selectedMentee.state]}
+                                    </span>
                                 </div>
                                 <div className={styles.eyebrowActions}>
                                     <div className={styles.stateActionButtonRow}>
                                         {selectedActionPolicy?.canPickup ? (
-                                            <button type="button" onClick={doPickup} disabled={busyAction === "pickup"}>
+                                            <button type="button" onClick={requestPickup} disabled={busyAction === "pickup"}>
                                                 Pickup
                                             </button>
                                         ) : null}
                                         {selectedActionPolicy?.canTerminate ? (
                                             <button type="button" onClick={handleTerminateClick}
+                                                    className={styles.dangerStateAction}
                                                     disabled={busyAction === "terminate"}>
                                                 Terminate
                                             </button>
                                         ) : null}
                                         {selectedActionPolicy?.canPass ? (
-                                            <button type="button" onClick={handlePass} disabled={busyAction === "pass"}>
+                                            <button type="button" onClick={requestPass} disabled={busyAction === "pass"}>
                                                 Pass
                                             </button>
                                         ) : null}
@@ -446,19 +501,22 @@ const AdminMentees = ({
 
                             <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
 
-                            <section className={styles.detailGrid} aria-label="Mentee details">
-                                <DetailItem label="Waitlist time"
-                                            value={formatAdminUtcDate(selectedMentee.waitlistTime)}/>
-                                <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
-                                <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
-                                <DetailItem label="Termination time"
-                                            value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
-                                <DetailItem label="Mentor" value={getUserName(getAssignedMentorId(selectedMentee))}/>
-                                <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
-                                <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
-                                {selectedMentee.terminationReason ? (
-                                    <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/>
-                                ) : null}
+                            <section className={styles.profileSection} aria-label="Profile & timeline">
+                                <h3>Profile &amp; timeline</h3>
+                                <div className={styles.detailGrid}>
+                                    <DetailItem label="Waitlist time"
+                                                value={formatAdminUtcDate(selectedMentee.waitlistTime)}/>
+                                    <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
+                                    <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
+                                    <DetailItem label="Termination time"
+                                                value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
+                                    <DetailItem label="Mentor" value={getUserName(getAssignedMentorId(selectedMentee))}/>
+                                    <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
+                                    <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
+                                    {selectedMentee.terminationReason ? (
+                                        <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/>
+                                    ) : null}
+                                </div>
                             </section>
 
                             <section className={styles.actionsGrid} aria-label="Mentee actions">
@@ -594,9 +652,17 @@ const AdminMentees = ({
                             />
                         </>
                     ) : (
-                        <div className={styles.emptyState}>No mentees are available.</div>
+                        <div className={styles.emptyState}>Select a mentee to view their profile.</div>
                     )}
                 </main>
+
+                {pendingStateAction ? (
+                    <MenteeActionConfirmation
+                        action={pendingStateAction}
+                        onCancel={() => setPendingStateAction(undefined)}
+                        onConfirm={handleStateActionConfirm}
+                    />
+                ) : null}
 
                 {showTerminateModal && (
                     <div className={styles.modalBackdrop} onClick={() => setShowTerminateModal(false)} onKeyDown={e => {
@@ -636,6 +702,45 @@ const AdminMentees = ({
                     existingAssignment={assignmentSession.existingAssignment}
                 />
             ) : null}
+        </div>
+    );
+};
+
+const MenteeActionConfirmation = ({
+                                    action,
+                                    onCancel,
+                                    onConfirm,
+                                }: {
+    action: MenteeStateAction;
+    onCancel: () => void;
+    onConfirm: () => void;
+}) => {
+    const copy = stateActionCopy[action];
+    return (
+        <div className={styles.modalBackdrop} role="presentation" onClick={onCancel} onKeyDown={event => {
+            if (event.key === "Escape") onCancel();
+        }}>
+            <div
+                className={styles.confirmationModal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="mentee-action-confirmation-title"
+                aria-describedby="mentee-action-confirmation-description"
+                onClick={event => event.stopPropagation()}
+            >
+                <h3 id="mentee-action-confirmation-title">{copy.title}</h3>
+                <p id="mentee-action-confirmation-description">{copy.description}</p>
+                <div className={styles.modalActions}>
+                    <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
+                    <button
+                        type="button"
+                        className={action === "pass" ? styles.dangerButton : undefined}
+                        onClick={onConfirm}
+                    >
+                        {copy.confirmLabel}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

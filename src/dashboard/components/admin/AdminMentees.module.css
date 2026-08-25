@@ -5,45 +5,9 @@
     min-height: calc(100dvh - 40px);
 }
 
-/* --- Inline stats row (replaces summaryGrid/summaryItem boxes) --- */
-.inlineStatsRow {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-    font-size: 0.94rem;
-    color: var(--muted-text);
-    justify-content: flex-end;
-    margin: 0 0 18px;
-}
-
-.inlineStatsRow .statSegment {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
-.inlineStatsRow .statSegment:not(:last-child)::after {
-    content: "\00b7";
-    margin: 0 8px;
-    color: var(--border-color);
-    font-weight: 700;
-}
-
-.inlineStatsRow .statValue {
-    color: var(--accent-color);
-    font-weight: 800;
-    font-size: 1.05rem;
-}
-
-.inlineStatsRow .statLabel {
-    color: var(--muted-text);
-    font-weight: 600;
-}
-
 .adminMenteesLayout {
     display: grid;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
     gap: 18px;
     align-items: start;
 }
@@ -51,10 +15,12 @@
 /* --- Mentee list panel: no outer box --- */
 .menteeListPanel {
     position: sticky;
-    top: 88px;
+    top: 73px;
+    height: calc(100dvh - 73px);
+    min-height: 0;
     padding: 16px;
     background: transparent;
-    border: none;
+    border-right: 1px solid var(--border-color);
     box-shadow: none;
     border-radius: 0;
 }
@@ -133,6 +99,27 @@
     max-height: calc(100dvh - 310px);
     overflow: auto;
     padding-right: 2px;
+    scrollbar-color: var(--accent-color) var(--surface-2-color);
+    scrollbar-width: thin;
+}
+
+.menteeList::-webkit-scrollbar {
+    width: 10px;
+}
+
+.menteeList::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: var(--surface-2-color);
+}
+
+.menteeList::-webkit-scrollbar-thumb {
+    border: 2px solid var(--surface-2-color);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-color) 78%, var(--surface-3-color));
+}
+
+.menteeList::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-strong-color);
 }
 
 /* --- Mentee list items: hover-only borders --- */
@@ -170,6 +157,24 @@
     overflow-wrap: anywhere;
 }
 
+.clearFiltersButton {
+    min-height: 32px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent-strong-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 750;
+}
+
+.clearFiltersButton:hover {
+    border-color: var(--accent-color);
+    background: var(--surface-3-color);
+}
+
 .menteeStateText {
     font-weight: 800;
 }
@@ -197,6 +202,25 @@
     gap: 16px;
     margin-bottom: 18px;
     flex-wrap: wrap;
+}
+
+.backToMentees {
+    display: none;
+    min-height: 32px;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent-strong-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 750;
+}
+
+.backToMentees:hover {
+    background: var(--surface-3-color);
 }
 
 .eyebrowActions {
@@ -233,6 +257,18 @@
     border-color: var(--accent-strong-color);
 }
 
+.stateActionButtonRow .dangerStateAction {
+    border-color: var(--error-color);
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.stateActionButtonRow .dangerStateAction:hover {
+    border-color: var(--error-color);
+    background-color: color-mix(in srgb, var(--error-color) 30%, var(--surface-color));
+    color: var(--text-color);
+}
+
 .stateActionButtonRow button:disabled {
     opacity: 0.55;
     cursor: not-allowed;
@@ -262,6 +298,30 @@
     white-space: nowrap;
 }
 
+.menteeStateBadge {
+    margin-top: 6px;
+}
+
+.waitlistedBadge {
+    background-color: var(--warning-bg);
+    color: var(--warning-text);
+}
+
+.picked_upBadge {
+    background-color: var(--info-bg);
+    color: var(--info-text);
+}
+
+.passedBadge {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+}
+
+.terminatedBadge {
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
 .actionError {
     margin-bottom: 16px;
     padding: 10px 12px;
@@ -277,6 +337,16 @@
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 0;
     margin-bottom: 18px;
+}
+
+.profileSection {
+    margin-bottom: 18px;
+}
+
+.profileSection h3 {
+    margin: 0 0 4px;
+    color: var(--text-color);
+    font-size: 1rem;
 }
 
 .detailItem {
@@ -992,6 +1062,10 @@
     text-align: center;
 }
 
+.emptyState p {
+    margin: 0 0 10px;
+}
+
 .modalBackdrop {
     position: fixed;
     inset: 0;
@@ -1001,7 +1075,8 @@
     z-index: 1000;
 }
 
-.terminateModal {
+.terminateModal,
+.confirmationModal {
     background: var(--surface-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -1009,8 +1084,15 @@
     width: min(400px, 90vw);
 }
 
-.terminateModal h3 {
+.terminateModal h3,
+.confirmationModal h3 {
     margin: 0 0 16px;
+}
+
+.confirmationModal p {
+    margin: 0 0 20px;
+    color: var(--muted-text);
+    line-height: 1.5;
 }
 
 .terminateModal textarea {
@@ -1032,6 +1114,44 @@
     justify-content: flex-end;
 }
 
+.modalActions button {
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 1px solid var(--accent-color);
+    border-radius: 6px;
+    background: var(--accent-color);
+    color: #111;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 750;
+}
+
+.modalActions button:hover {
+    border-color: var(--accent-strong-color);
+    background: var(--accent-strong-color);
+}
+
+.modalActions .secondaryButton {
+    border-color: var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+}
+
+.modalActions .secondaryButton:hover {
+    background: var(--surface-3-color);
+}
+
+.modalActions .dangerButton {
+    border-color: var(--error-color);
+    background: var(--error-color);
+    color: #fff;
+}
+
+.modalActions .dangerButton:hover {
+    border-color: var(--danger-text);
+    background: color-mix(in srgb, var(--error-color) 78%, #000);
+}
+
 @media (max-width: 1100px) {
     .dashboardHeader,
     .adminMenteesLayout,
@@ -1041,6 +1161,7 @@
 
     .menteeListPanel {
         position: static;
+        height: auto;
     }
 
     .menteeList {
@@ -1171,6 +1292,19 @@
     .menteeListPanel,
     .menteeDetailPanel {
         padding: 14px;
+    }
+
+    .menteeListPanelWithSelection {
+        display: none;
+    }
+
+    .menteeDetailPanelWithoutSelection {
+        display: none;
+    }
+
+    .backToMentees {
+        display: inline-flex;
+        align-items: center;
     }
 
     .detailHeader {
