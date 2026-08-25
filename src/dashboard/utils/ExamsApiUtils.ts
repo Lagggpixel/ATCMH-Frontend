@@ -141,17 +141,33 @@ export class ExamsApiUtils {
     static async listQuizUnlocks(quizId: string, _token: string): Promise<ExamQuizUnlock[]> { return (await ExamsApiUtils.getJson<{unlocks: ExamQuizUnlock[]}>(`/exams/api/management/quizzes/${encodeURIComponent(quizId)}/unlocks`, _token)).unlocks; }
     static async updateQuizUnlock(quizId: string, update: ExamQuizUnlockUpdate, _token: string): Promise<ExamQuizUnlockUpdateResult> { return (await ExamsApiUtils.fetchJson<{unlock: ExamQuizUnlockUpdateResult}>(`/exams/api/management/quizzes/${encodeURIComponent(quizId)}/unlocks`,_token,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(update)})).unlock; }
     static async saveQuiz(quiz: ManagedExamQuiz, token: string): Promise<ExamQuizSaveResult> {const path=quiz.id?`/exams/api/management/quizzes/${quiz.id}`:"/exams/api/management/quizzes";const response=await ExamsApiUtils.request(path,token,{method:quiz.id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(quiz)});if(response.status===422)return response.json();if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json(); }
-    static async listCourses(token: string): Promise<ManagedCourseSummary[]> { return (await ExamsApiUtils.getJson<{courses: ManagedCourseSummary[]}>('/exams/api/management/courses', token)).courses; }
-    static async getCourse(id: string, token: string): Promise<ManagedCourse> { return (await ExamsApiUtils.getJson<{course: ManagedCourse}>(`/exams/api/management/courses/${encodeURIComponent(id)}`, token)).course; }
-    static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.getJson<{statistics: CourseStatistics}>(`/exams/api/management/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }
-    static async saveCourse(course: ManagedCourseDraft, token: string): Promise<ManagedCourse> { const path = course.id ? `/exams/api/management/courses/${encodeURIComponent(course.id)}` : "/exams/api/management/courses"; const response = await ExamsApiUtils.request(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(course)}); if (!response.ok) await ExamsApiUtils.throwResponseError(response); return (await response.json() as {course: ManagedCourse}).course; }
-    static async uploadCourseMedia(courseId: string, file: File, token: string): Promise<CourseMediaUpload> { const form = new FormData(); form.set("file", file); const response = await ExamsApiUtils.request(`/exams/api/management/courses/${encodeURIComponent(courseId)}/media`, token, {method: "POST", body: form}); if (!response.ok) await ExamsApiUtils.throwResponseError(response); return (await response.json() as {media: CourseMediaUpload}).media; }
+    static async listCourses(token: string): Promise<ManagedCourseSummary[]> { return (await ExamsApiUtils.backendJson<{courses: ManagedCourseSummary[]}>('/admin/courses', token)).courses; }
+    static async getCourse(id: string, token: string): Promise<ManagedCourse> { return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(`/admin/courses/${encodeURIComponent(id)}`, token)).course; }
+    static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.backendJson<{statistics: CourseStatistics}>(`/admin/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }
+    static async saveCourse(course: ManagedCourseDraft, token: string): Promise<ManagedCourse> { const path = course.id ? `/admin/courses/${encodeURIComponent(course.id)}` : "/admin/courses"; return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(course)})).course; }
+    static async uploadCourseMedia(courseId: string, file: File, token: string): Promise<CourseMediaUpload> { const path = `/admin/courses/${encodeURIComponent(courseId)}/media?filename=${encodeURIComponent(file.name)}`; return (await ExamsApiUtils.backendJson<{media: CourseMediaUpload}>(path, token, {method: "POST", headers: {"Content-Type": file.type}, body: file})).media; }
     static async getWebsiteContent(_token: string): Promise<ExamWebsiteContent> { return (await ExamsApiUtils.getJson<{content: ExamWebsiteContent}>("/exams/api/management/website",_token)).content; }
     static async saveWebsiteContent(content: ExamWebsiteContent, token: string): Promise<ExamWebsiteContent> {const response=await ExamsApiUtils.request("/exams/api/management/website",token,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(content)});if(!response.ok)await ExamsApiUtils.throwResponseError(response);return (await response.json() as {content?:ExamWebsiteContent}).content??content; }
     static async previewImport(file: File, token: string): Promise<ExamImportPreview> {const form=new FormData();form.set("file",file);const response=await ExamsApiUtils.request("/exams/api/management/imports/preview",token,{method:"POST",body:form});if(response.status===422)return response.json();if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json(); }
     static async commitImport(normalizedImport: NormalizedExamImport,idempotencyKey:string,token:string):Promise<ExamImportCommitResult>{const response=await ExamsApiUtils.request("/exams/api/management/imports/commit",token,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({normalizedImport,idempotencyKey})});if(response.status===422)return response.json();if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json();}
     static async getImportTemplate(format:"json"|"csv",token:string):Promise<Blob>{const response=await ExamsApiUtils.request(`/exams/api/management/templates/${format}`,token);if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.blob();}
     private static async getJson<T>(path:string,token:string):Promise<T>{return ExamsApiUtils.fetchJson(path,token);}
+    private static async backendRequest(path: string, token: string, options: RequestInit = {}) {
+        const method = (options.method ?? "GET").toUpperCase();
+        return fetch(`${ApiUtils.apiOrigin}${path}`, {
+            ...options,
+            credentials: "include",
+            headers: {
+                ...options.headers,
+                ...(method !== "GET" && method !== "HEAD" ? {"X-CSRF-Token": token} : {}),
+            },
+        });
+    }
+    private static async backendJson<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
+        const response = await ExamsApiUtils.backendRequest(path, token, options);
+        if (!response.ok) await ExamsApiUtils.throwResponseError(response);
+        return response.json() as Promise<T>;
+    }
     private static async fetchJson<T>(path:string,token:string,options:RequestInit={}):Promise<T>{const response=await ExamsApiUtils.request(path,token,options);if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json();}
     private static async throwResponseError(response:Response):Promise<never>{const details=await response.text().catch(()=>"");throw new Error(`Exams API failed with ${response.status} ${response.statusText}${details?`: ${details}`:""}`);}
 }

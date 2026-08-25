@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { QuizSummary } from "@/src/lib/exams-repository";
 import type { CourseMarkdownBlock } from "@/src/lib/course-markdown";
-import type { CourseQuizProgress } from "@/src/lib/course-repository";
+import type { CourseQuizProgress } from "@/src/dashboard/types/Course";
+import { ApiUtils } from "@/src/dashboard/utils/ApiUtils";
 import styles from "./CourseReader.module.css";
 
 function safeHref(value: string) {
@@ -45,7 +46,7 @@ export default function CourseMarkdown({ courseId, blocks, quizzes, quizProgress
       }
       if (block.type === "list") return <ul key={index}>{block.items.map((item) => <li key={item}>{renderInline(item)}</li>)}</ul>;
       if (block.type === "media") {
-        const src = `/exams/api/courses/media/${encodeURIComponent(block.mediaId)}`;
+        const src = `${ApiUtils.apiOrigin}/courses/media/${encodeURIComponent(block.mediaId)}`;
         if (block.kind === "image") {
           // eslint-disable-next-line @next/next/no-img-element
           const image = <img src={src} alt="Course attachment" loading="lazy"/>;

@@ -9,6 +9,15 @@ export interface ManagedCourseSummary {
 }
 
 export interface ManagedCourseSection {
+    id: string;
+    courseId: string;
+    title: string;
+    markdown: string;
+    sortOrder: number;
+    updatedAt?: string;
+}
+
+export interface ManagedCourseDraftSection {
     id?: string;
     courseId?: string;
     title: string;
@@ -23,12 +32,50 @@ export interface ManagedCourseDraft {
     title: string;
     description: string;
     isPublished: boolean;
-    sections: ManagedCourseSection[];
+    sections: ManagedCourseDraftSection[];
 }
 
 export interface ManagedCourse extends ManagedCourseSummary {
     id: string;
     sections: ManagedCourseSection[];
+    quizzes?: CourseQuizSummary[];
+}
+
+export interface CourseQuizSummary {
+    id: string;
+    title: string;
+    description: string;
+    categoryId: string;
+    category: string;
+    feedbackMode: string;
+    timeLimitSeconds: number;
+    randomizeQuestions: boolean;
+    isPrivate: boolean;
+}
+
+export interface CourseQuizProgress {
+    quizId: string;
+    attemptCount: number;
+    bestPercentage: number;
+    lastAttemptAt: string | null;
+}
+
+export interface CourseEnrollment {
+    courseId: string;
+    userId: string;
+    status: CourseEnrollmentStatus;
+    startedAt: string;
+    lastAccessedAt: string;
+    completedAt: string | null;
+    lastSectionId: string | null;
+}
+
+export interface LearnerCourse extends ManagedCourse {
+    completedSectionIds: string[];
+    takenQuizIds: string[];
+    quizProgress: CourseQuizProgress[];
+    enrollment: CourseEnrollment | null;
+    quizzes: CourseQuizSummary[];
 }
 
 export interface CourseMediaUpload {

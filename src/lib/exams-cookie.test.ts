@@ -8,7 +8,8 @@ test("production Exams cookies are scoped and hardened", () => {
     httpOnly: true,
     sameSite: "lax",
     secure: true,
-    path: "/exams",
+    path: "/",
+    domain: "atcmh.org",
   });
 });
 

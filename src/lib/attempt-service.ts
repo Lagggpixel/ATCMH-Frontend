@@ -153,8 +153,6 @@ export async function submitAttempt(connection: WritableAttemptConnection, input
   attemptId: string;
   attemptCode: string;
   quizId: string;
-  /** Set only by a signed course-originated attempt start. */
-  courseId?: string;
   /** Obtained from the verified Discord session, never from the browser form. */
   studentDiscordId: string;
   /** Trusted server submission time. */
@@ -190,13 +188,6 @@ export async function submitAttempt(connection: WritableAttemptConnection, input
       `INSERT INTO attempt_answers (attempt_id, question_id, selected_option_id, correct)
        VALUES (?, ?, ?, ?)`,
       [input.attemptId, answer.questionId, answer.selectedOptionId, answer.isCorrect],
-    );
-  }
-  if (input.courseId) {
-    await connection.execute(
-      `INSERT INTO course_quiz_attempts (id, course_id, quiz_id, attempt_id, user_id, percentage, submitted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [input.attemptId, input.courseId, input.quizId, input.attemptId, input.studentDiscordId, result.percentage, submittedAt],
     );
   }
   return result;
