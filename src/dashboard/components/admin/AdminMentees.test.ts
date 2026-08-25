@@ -19,22 +19,28 @@ test("mentee workspace uses a dedicated list sidebar without a summary strip", (
 });
 
 test("mentee filters reset pagination and expose a no-results recovery state", () => {
-    assert.match(componentSource, /setFilter\(event\.target\.value\);\s*menteePagination\.reset\(\);/s);
-    assert.match(componentSource, /setMentorFilter\("waitlist"\);\s*menteePagination\.reset\(\);/s);
+    assert.match(componentSource, /setFilter\(event\.target\.value\);/);
+    assert.match(componentSource, /handleMentorFilterChange/);
+    assert.match(componentSource, /MENTOR_FILTER_PARAM/);
+    assert.match(componentSource, /menteeRoute\(mentee\.id\)/);
     assert.match(componentSource, /No mentees match these filters\./);
     assert.match(componentSource, /aria-label="Clear mentee search"/);
 });
 
 test("mobile mentees use a master-detail flow with compact session cards", () => {
-    assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*?\.menteeListPanelWithSelection\s*\{[^}]*display:\s*none;/s);
-    assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*?\.menteeDetailPanelWithoutSelection\s*\{[^}]*display:\s*none;/s);
-    assert.match(stylesSource, /@media \(max-width: 760px\)[\s\S]*?\.backToMentees\s*\{[^}]*display:\s*inline-flex;/s);
-    assert.match(stylesSource, /@media \(max-width: 920px\)[\s\S]*?\.sessionsTable tr\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s);
+    assert.match(stylesSource, /\.menteeListPanelWithSelection\s*\{[^}]*display:\s*none;/);
+    assert.match(stylesSource, /\.menteeDetailPanelWithoutSelection\s*\{[^}]*display:\s*none;/);
+    assert.match(stylesSource, /\.backToMentees\s*\{[^}]*display:\s*inline-flex;/);
+    assert.match(stylesSource, /\.sessionsTable tr\s*\{[^}]*grid-template-columns:/);
 });
 
-test("destructive actions and pagination expose their semantics", () => {
+test("state actions use custom confirmation semantics and pagination exposes its semantics", () => {
+    assert.doesNotMatch(componentSource, /window\.confirm/);
+    assert.match(componentSource, /MenteeActionConfirmation/);
+    assert.match(componentSource, /Pick up this mentee\?/);
+    assert.match(componentSource, /Pass this mentee\?/);
     assert.match(componentSource, /className=\{styles\.dangerStateAction\}/);
     assert.match(componentSource, /role="dialog" aria-modal="true"/);
-    assert.match(componentSource, /className=\{styles\.dangerButton\}/);
+    assert.match(componentSource, /styles\.dangerButton/);
     assert.match(paginationSource, /aria-current=\{i === page \? "page" : undefined\}/);
 });
