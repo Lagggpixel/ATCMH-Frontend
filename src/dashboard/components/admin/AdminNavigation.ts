@@ -31,20 +31,16 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
             {path: "/dashboard/manual", label: "Mentor Manual"},
         ],
     }]),
-    navigationGroup("Assessment", [
-        {
-            label: "Exams",
-            items: [
-                ...(adminUser?.canManageMockQuestions ? [{path: "/dashboard/mock-questions", label: "Mock Questions"}] : []),
-                ...(adminUser?.canManageApplicationQuestions ? [{path: "/dashboard/application-questions", label: "Application Questions"}] : []),
-                ...(examCenterEnabled ? [{path: "/dashboard/exams", label: "Exam Center"}] : []),
-            ],
-        },
-        ...(examCenterEnabled ? [{
-            label: "Courses",
-            items: [{path: "/dashboard/exams/courses", label: "Course Center"}],
-        }] : []),
-    ]),
+    navigationGroup("Assessment", [{
+        items: [
+            ...(adminUser?.canManageMockQuestions ? [{path: "/dashboard/mock-questions", label: "Mock Questions"}] : []),
+            ...(adminUser?.canManageApplicationQuestions ? [{path: "/dashboard/application-questions", label: "Application Questions"}] : []),
+            ...(examCenterEnabled ? [
+                {path: "/dashboard/exams", label: "Exam Center"},
+                {path: "/dashboard/exams/courses", label: "Course Center"},
+            ] : []),
+        ],
+    }]),
     navigationGroup("Administration", [{
         items: [
             {path: "/dashboard/stats", label: "Statistics"},

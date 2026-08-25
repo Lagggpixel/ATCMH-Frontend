@@ -40,7 +40,7 @@ test("exam management uses dedicated catalog, editor, import, and website routes
 
 test("exam center receives the shared global Dashboard navigation once", () => {
     assert.doesNotMatch(centerSource, /<AdminNav/);
-    assert.match(dashboardRouteSource, /<DashboardWorkspace adminUser=\{state\.loaded \? state\.adminUser : undefined\}/);
+    assert.match(dashboardRouteSource, /<DashboardWorkspace label=\{screenLabels\[route\.screen\]\}/);
 });
 
 test("a Dashboard-to-Exams handoff failure remains retryable without sending staff to Exams sign-in", () => {
@@ -67,9 +67,21 @@ test("exam navigation stays scrollable without showing a scrollbar", () => {
     assert.match(centerCss, /\.examNav::-webkit-scrollbar\s*\{[\s\S]*?display: none;/);
 });
 
-test("courses live in the Assessment dashboard dropdown instead of the Exam Center tabs", () => {
+test("course workspaces do not render the Exam Center sub-navigation", () => {
+    assert.match(centerSource, /const isCourseView = \(view: ExamCenterView\) => view === "courses"/);
+    assert.match(centerSource, /view === "course-create"/);
+    assert.match(centerSource, /view === "course-edit"/);
+    assert.match(centerSource, /view === "course-preview"/);
+    assert.match(centerSource, /view === "course-stats"/);
+    assert.match(centerSource, /data && !isCourseView\(view\) \? <nav className=\{styles\.examNav\}/);
+});
+
+test("courses live in the flat Assessment dashboard dropdown instead of the Exam Center tabs", () => {
     assert.doesNotMatch(centerSource, /<NavLink[^>]*\/dashboard\/exams\/courses/);
-    assert.match(readFileSync(join(currentDir, "AdminNavigation.ts"), "utf8"), /label: "Courses"[\s\S]*?\/dashboard\/exams\/courses/);
+    const adminNavigationSource = readFileSync(join(currentDir, "AdminNavigation.ts"), "utf8");
+    assert.doesNotMatch(adminNavigationSource, /label: "Exams"/);
+    assert.doesNotMatch(adminNavigationSource, /label: "Courses"/);
+    assert.match(adminNavigationSource, /path: "\/dashboard\/exams\/courses", label: "Course Center"/);
 });
 
 test("the catalog does not render import or website forms inline", () => {

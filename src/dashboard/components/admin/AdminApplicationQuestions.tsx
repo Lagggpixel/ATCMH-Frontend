@@ -103,9 +103,6 @@ export default function AdminApplicationQuestions({loaded, loggedIn, error, admi
             <div><h1>Application questions</h1><p>This ordered set is shared by website and Discord applications.</p></div>
             <span>{ordered.filter(question => question.active).length} active</span>
         </header>
-        <div className={styles.notice} role="note">
-            Question keys, response types, and conditional rules are fixed so existing applications remain compatible. Changes update future prompts; submitted answers keep their original meaning.
-        </div>
         <div className={styles.layout}>
             <aside className={styles.listPanel} aria-label="Application questions">
                 {ordered.map((question, index) => <button key={question.key} type="button"

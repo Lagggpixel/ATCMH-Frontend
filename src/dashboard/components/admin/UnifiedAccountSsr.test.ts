@@ -54,14 +54,16 @@ test("actual capability navigation includes privileged routes only for capable u
     assert.match(privileged, />Accounts</); assert.match(privileged, /Alternative Evidence/);
 });
 
-test("admin navigation uses category dropdowns with active course placement", async () => {
+test("admin navigation uses category dropdowns with flat assessment placement", async () => {
     const {default: AdminNav} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/admin/AdminNav.tsx");
     const html = inRouter(React.createElement(AdminNav, {adminUser: {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false}}), "/dashboard");
+    const source = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.tsx", import.meta.url), "utf8");
     const css = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.module.css", import.meta.url), "utf8");
 
     assert.match(html, /<nav[^>]*aria-label="Dashboard sections"/);
     assert.match(html, /<details[^>]*adminNavDropdown/);
     assert.match(html, /<summary[^>]*>Assessment<\/summary>/);
+    assert.doesNotMatch(html, />Exams<\/span>|>Courses<\/span>/);
     assert.match(html, /Course Center/);
     assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
     assert.doesNotMatch(css, /position:\s*sticky/);
@@ -70,6 +72,10 @@ test("admin navigation uses category dropdowns with active course placement", as
     assert.match(css, /\.adminNavDropdownSummary\s*\{[^}]*cursor:\s*pointer/s);
     assert.match(css, /\.adminNavDropdownMenu\s*\{[^}]*position:\s*absolute/s);
     assert.match(css, /\.adminNavDropdownSection \+ \.adminNavDropdownSection\s*\{[^}]*border-top:/s);
+    assert.match(source, /onMouseEnter=\{openNavDropdownOnHover\}/);
+    assert.match(source, /onMouseLeave=\{closeNavDropdownOnLeave\}/);
+    assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
+    assert.match(css, /\.adminNavDropdown:hover > \.adminNavDropdownMenu/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
 });
 

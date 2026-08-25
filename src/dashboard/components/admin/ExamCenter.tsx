@@ -46,6 +46,12 @@ interface ExamEditorRequest {
 
 const hasCapability = (actor: ExamManagementActor, capability: ExamManagementActor["capabilities"][number]) => actor.capabilities.includes(capability);
 
+const isCourseView = (view: ExamCenterView) => view === "courses"
+    || view === "course-create"
+    || view === "course-edit"
+    || view === "course-preview"
+    || view === "course-stats";
+
 const ExamCenter = ({token, users, view}: ExamCenterProps) => {
     const navigate = useNavigate();
     const {examId, courseId} = useParams<{ examId: string; courseId: string }>();
@@ -130,7 +136,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
     const editorRequestIsCurrent = isCurrentExamQuiz(examId, editorRequest?.requestedId ?? null);
 
     return <main className={styles.examCenter}>
-        {data ? <nav className={styles.examNav} aria-label="Exam Center sections">
+        {data && !isCourseView(view) ? <nav className={styles.examNav} aria-label="Exam Center sections">
             {hasCapability(data.actor, "manage-exams") ? <NavLink end to="/dashboard/exams"
                                                                   className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Quizzes</NavLink> : null}
             {hasCapability(data.actor, "unlock-learners") ? <NavLink to="/dashboard/exams/unlocks"

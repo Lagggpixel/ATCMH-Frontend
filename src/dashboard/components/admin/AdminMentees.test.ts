@@ -19,6 +19,12 @@ test("mentee index separates cards/table views from the profile route", () => {
     assert.match(componentSource, /className=\{styles\.menteesCardGrid\}/);
     assert.match(componentSource, /className=\{styles\.menteesTable\}/);
     assert.match(componentSource, /className=\{styles\.profilePage\}/);
+    assert.match(componentSource, /className=\{styles\.filterFieldMeta\}/);
+    assert.match(componentSource, /pagination\.totalItems} matching/);
+    assert.match(componentSource, /const getMentorDisplayName/);
+    assert.match(componentSource, /return mentorId \? getUserName\(mentorId\) : "None"/);
+    assert.doesNotMatch(componentSource, /menteesPageHeader|menteesPageCount|menteesListMeta/);
+    assert.doesNotMatch(componentSource, /Browse the mentorship queue, check ownership/);
     assert.doesNotMatch(componentSource, /Select a mentee to view their profile\./);
     assert.match(stylesSource, /\.menteesCardGrid\s*\{/);
     assert.match(stylesSource, /\.menteesTableWrap\s*\{/);

@@ -23,6 +23,79 @@
     box-sizing: border-box;
 }
 
+.adminNavEmbedded {
+    flex-wrap: nowrap;
+    min-height: 2.75rem;
+    gap: 1.5rem;
+    width: max-content;
+    max-width: 100%;
+    margin-inline: 0;
+}
+
+.adminNavEmbedded .adminNavDropdownSummary {
+    min-height: auto;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: var(--muted-text);
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.adminNavEmbedded .adminNavDropdownSummary::after {
+    font-size: 0.74rem;
+}
+
+.adminNavEmbedded .adminNavDropdown[open] > .adminNavDropdownSummary,
+.adminNavEmbedded .adminNavDropdownSummary:hover {
+    border-color: transparent;
+    background: transparent;
+    color: var(--primary);
+}
+
+.adminNavEmbedded .adminNavDropdownActive > .adminNavDropdownSummary {
+    color: var(--text-color);
+}
+
+.adminNavEmbedded .adminNavDropdownActive > .adminNavDropdownSummary::before {
+    position: absolute;
+    right: 0;
+    bottom: -1.05rem;
+    left: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--accent);
+    content: "";
+}
+
+.adminNavEmbedded .adminNavDropdownMenu {
+    top: calc(100% + 0.85rem);
+    border-color: var(--border);
+    border-radius: 0.9rem;
+    background: rgba(10, 18, 31, 0.96);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.adminNavEmbedded .adminNavDropdownSection + .adminNavDropdownSection {
+    border-top-color: var(--border);
+}
+
+.adminNavEmbedded .adminNavDropdownSectionLabel,
+.adminNavEmbedded .adminNavDropdownItem {
+    color: var(--muted);
+}
+
+.adminNavEmbedded .adminNavDropdownItem:hover,
+.adminNavEmbedded .adminNavDropdownItemActive {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--foreground);
+}
+
+.adminNavEmbedded .adminNavDropdownItemActive {
+    box-shadow: inset 2px 0 var(--accent);
+}
+
 .adminNavDropdown {
     position: relative;
     flex: 0 0 auto;
@@ -57,8 +130,7 @@
 }
 
 .adminNavDropdown[open] > .adminNavDropdownSummary,
-.adminNavDropdownSummary:hover,
-.adminNavDropdownActive > .adminNavDropdownSummary {
+.adminNavDropdownSummary:hover {
     background: var(--surface-color);
     border-color: var(--border-color);
     color: var(--text-color);
@@ -127,6 +199,22 @@
     box-shadow: inset 2px 0 var(--accent-color);
 }
 
+@media (hover: hover) and (pointer: fine) {
+    .adminNavDropdown:hover > .adminNavDropdownMenu {
+        display: grid;
+    }
+
+    .adminNavDropdown::after {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        width: min(22rem, calc(100vw - 24px));
+        height: 8px;
+        content: "";
+        transform: translateX(-50%);
+    }
+}
+
 .adminNavDropdownSummary:focus-visible,
 .adminNavDropdownItem:focus-visible {
     outline: 2px solid var(--accent-color);
@@ -163,11 +251,45 @@
         font-size: 0.88rem;
     }
 
+    .adminNavDropdownActive > .adminNavDropdownSummary {
+        background: var(--surface-color);
+        border-color: var(--border-color);
+        color: var(--text-color);
+    }
+
     .adminNavDropdownMenu {
         position: static;
         width: 100%;
         max-width: none;
         margin-top: 5px;
         transform: none;
+    }
+
+    .adminNavEmbedded {
+        width: 100%;
+        gap: 0.45rem;
+    }
+
+    .adminNavEmbedded .adminNavDropdown {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .adminNavEmbedded .adminNavDropdownSummary {
+        justify-content: center;
+        min-height: 42px;
+        padding: 6px 9px;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        font-size: 0.88rem;
+    }
+
+    .adminNavEmbedded .adminNavDropdownActive > .adminNavDropdownSummary::before {
+        display: none;
+    }
+
+    .adminNavEmbedded .adminNavDropdownActive > .adminNavDropdownSummary {
+        border-color: var(--border);
+        background: rgba(148, 163, 184, 0.1);
     }
 }

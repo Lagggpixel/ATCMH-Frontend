@@ -3,7 +3,6 @@
 .pageHeader h1, .editorHeader h2 { margin: 0; }
 .pageHeader p { margin: 5px 0 0; color: var(--muted-text); }
 .pageHeader > span, .type { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 999px; color: var(--muted-text); font-size: .82rem; font-weight: 750; }
-.notice { margin: 16px 0 20px; padding: 12px 14px; border-left: 3px solid var(--accent-color); background: var(--surface-2-color); color: var(--muted-text); }
 .layout { display: grid; grid-template-columns: minmax(300px, 390px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .listPanel { position: sticky; top: 20px; display: grid; gap: 8px; max-height: calc(100dvh - 180px); overflow-y: auto; }
 .listItem, .activeItem { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--surface-2-color); color: var(--text-color); text-align: left; cursor: pointer; font: inherit; }

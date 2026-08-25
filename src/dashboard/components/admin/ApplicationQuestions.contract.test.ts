@@ -16,7 +16,7 @@ test("application question management has its own moderator capability and route
 test("the editor exposes content and ordering without allowing question semantics to drift", () => {
     const editor = source("./AdminApplicationQuestions.tsx");
     assert.match(editor, /Only Moderators and Super Admins/);
-    assert.match(editor, /Question keys, response types, and conditional rules are fixed/);
+    assert.doesNotMatch(editor, /Question keys, response types, and conditional rules are fixed/);
     assert.match(editor, /prompt: question\.prompt/);
     assert.match(editor, /helpText: question\.helpText/);
     assert.match(editor, /sortOrder: question\.sortOrder/);
