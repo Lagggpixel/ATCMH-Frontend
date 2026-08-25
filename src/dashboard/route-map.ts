@@ -1,10 +1,10 @@
-export type DashboardExamView = "catalog" | "create" | "edit" | "import" | "unlocks" | "attempts" | "attempt-review" | "website";
+export type DashboardExamView = "catalog" | "create" | "edit" | "import" | "unlocks" | "attempts" | "attempt-review" | "website" | "courses" | "course-create" | "course-edit" | "course-preview" | "course-stats";
 
 export type DashboardRoute =
     | {screen: "redirect"; destination: string}
     | {screen: "mentees"; params?: {menteeRecordId: string}}
     | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "manual" | "mock-questions" | "application-questions" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts"}
-    | {screen: "exams"; view: DashboardExamView; params?: {examId?: string; attemptId?: string}}
+    | {screen: "exams"; view: DashboardExamView; params?: {examId?: string; courseId?: string; attemptId?: string}}
     | {screen: "not-found"};
 
 export function resolveDashboardRoute(pathname: string): DashboardRoute {
@@ -26,6 +26,11 @@ export function resolveDashboardRoute(pathname: string): DashboardRoute {
     if (parts[1] === "import" && parts.length === 2) return {screen: "exams", view: "import"};
     if (parts[1] === "unlocks" && parts.length === 2) return {screen: "exams", view: "unlocks"};
     if (parts[1] === "website" && parts.length === 2) return {screen: "exams", view: "website"};
+    if (parts[1] === "courses" && parts.length === 2) return {screen: "exams", view: "courses"};
+    if (parts[1] === "courses" && parts[2] === "new" && parts.length === 3) return {screen: "exams", view: "course-create"};
+    if (parts[1] === "courses" && parts[2] && parts[3] === "edit" && parts.length === 4) return {screen: "exams", view: "course-edit", params: {courseId: parts[2]}};
+    if (parts[1] === "courses" && parts[2] && parts[3] === "preview" && parts.length === 4) return {screen: "exams", view: "course-preview", params: {courseId: parts[2]}};
+    if (parts[1] === "courses" && parts[2] && parts[3] === "stats" && parts.length === 4) return {screen: "exams", view: "course-stats", params: {courseId: parts[2]}};
     if (parts[1] === "attempts" && parts.length === 2) return {screen: "exams", view: "attempts"};
     if (parts[1] === "attempts" && parts[2] && parts.length === 3) return {screen: "exams", view: "attempt-review", params: {attemptId: parts[2]}};
     if (parts[1] && parts[2] === "edit" && parts.length === 3) return {screen: "exams", view: "edit", params: {examId: parts[1]}};

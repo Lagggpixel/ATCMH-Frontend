@@ -7,14 +7,16 @@ import { StartQuizButton } from "./StartQuizButton";
 
 interface QuizPageProps {
   params: Promise<{ quizId: string }>;
+  searchParams?: Promise<{ courseId?: string }>;
 }
 
-export default async function QuizDetailPage({ params }: QuizPageProps) {
+export default async function QuizDetailPage({ params, searchParams }: QuizPageProps) {
   const { quizId } = await params;
+  const courseId = (await searchParams)?.courseId;
   const identity = await getVerifiedLearnerIdentity();
   const access = identity ? await resolveLearnerAccess(identity.discordId) : undefined;
   const quiz = access
-    ? await getQuizForLearner(quizId, access).catch(() => null)
+    ? await (courseId ? getQuizForLearner(quizId, {...access, courseId}) : getQuizForLearner(quizId, access)).catch(() => null)
     : (await listPublicQuizzes()).find((candidate) => candidate.id === quizId) ?? null;
   if (!quiz) notFound();
   return (
@@ -26,7 +28,7 @@ export default async function QuizDetailPage({ params }: QuizPageProps) {
           <p className="quiz-detail-card__description">{quiz.description}</p>
           <p className="quiz-detail-card__time">{quiz.timeLimitSeconds > 0 ? `Time limit: ${Math.ceil(quiz.timeLimitSeconds / 60)} minutes.` : "No time limit."}</p>
           <div className="quiz-detail-card__actions">
-            <StartQuizButton quizId={quizId} />
+            <StartQuizButton quizId={quizId} courseId={courseId} />
             <Link className="quiz-detail-card__back" href="/exams/quizzes">Back to catalogue</Link>
           </div>
         </section>

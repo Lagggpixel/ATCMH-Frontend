@@ -1,5 +1,6 @@
 export type ExamManagementCapability =
     | "manage-exams"
+    | "manage-courses"
     | "import-exams"
     | "unlock-learners"
     | "review-attempts"

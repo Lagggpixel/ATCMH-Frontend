@@ -61,6 +61,20 @@ function toSummary(row: QuizRow): QuizSummary {
 
 const quizColumns = "q.id, q.title, q.description, q.category_id, c.name AS category_name, q.feedback_mode, q.time_limit_seconds, q.randomize_questions, q.is_private";
 
+async function isPublishedCourseQuiz(courseId: string, quizId: string) {
+  if (!isQuizId(courseId)) return false;
+  const [course] = await readOnlyQuery<Array<RowDataPacket & { id: string }>>(
+    "SELECT id FROM courses WHERE id = ? AND is_published = TRUE LIMIT 1",
+    [courseId],
+  );
+  if (!course) return false;
+  const [link] = await readOnlyQuery<Array<RowDataPacket & { quiz_id: string }>>(
+    "SELECT quiz_id FROM course_quiz_links WHERE course_id = ? AND quiz_id = ? LIMIT 1",
+    [courseId, quizId],
+  );
+  return Boolean(link);
+}
+
 /** Unauthenticated catalogue data; private quizzes are intentionally excluded. */
 export async function listPublicQuizzes(): Promise<QuizSummary[]> {
   const rows = await readOnlyQuery<QuizRow[]>(
@@ -75,6 +89,17 @@ export async function listPublicQuizzes(): Promise<QuizSummary[]> {
  */
 export async function listManagedQuizzes(): Promise<QuizSummary[]> {
   const rows = await readOnlyQuery<QuizRow[]>(`SELECT ${quizColumns} FROM quizzes q JOIN categories c ON c.id = q.category_id ORDER BY q.title ASC`);
+  return rows.map(toSummary);
+}
+
+export async function getQuizSummariesByIds(ids: readonly string[]): Promise<QuizSummary[]> {
+  const validIds = [...new Set(ids.filter(isQuizId))];
+  if (validIds.length === 0) return [];
+  const placeholders = validIds.map(() => "?").join(", ");
+  const rows = await readOnlyQuery<QuizRow[]>(
+    `SELECT ${quizColumns} FROM quizzes q JOIN categories c ON c.id = q.category_id WHERE q.id IN (${placeholders}) ORDER BY q.title ASC`,
+    validIds,
+  );
   return rows.map(toSummary);
 }
 
@@ -152,6 +177,7 @@ export async function getQuizForLearner(id: string, context: LearnerAccessContex
   );
   if (!gate) return null;
   if (!gate.is_private) return getQuiz(id);
+  if (context.courseId && await isPublishedCourseQuiz(context.courseId, id)) return getQuiz(id);
   const [unlock] = await readOnlyQuery<RowDataPacket[]>(
     "SELECT 1 FROM quiz_unlocks WHERE quiz_id = ? AND user_id = ? LIMIT 1", [id, context.discordId],
   );

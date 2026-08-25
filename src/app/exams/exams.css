@@ -30,7 +30,9 @@ a { color: inherit; }
 .exam-intro > div { display: grid; max-width: 650px; min-height: 160px; align-content: center; padding: 22px 0; }
 .exam-intro__eyebrow, .exam-catalogue__eyebrow { margin: 0 0 10px; color: #67e8f9; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .exam-intro h1 { margin: 0; font-size: clamp(34px, 5vw, 50px); font-weight: 600; letter-spacing: -.035em; }
-.exam-intro p:last-child { max-width: 590px; margin: 14px 0 0; color: #c4cad8; font-size: 16px; line-height: 1.55; }
+.exam-intro > div > p:not(.exam-intro__eyebrow) { max-width: 590px; margin: 14px 0 0; color: #c4cad8; font-size: 16px; line-height: 1.55; }
+.exam-course-link { display: inline-flex; margin-top: 14px; color: #8fdcf5; font-size: 14px; font-weight: 750; text-decoration: none; }
+.exam-course-link:hover { color: #fff; }
 
 .exam-catalogue { overflow: hidden; border: 1px solid #30384d; border-radius: 12px; background: rgb(7 13 31 / 76%); box-shadow: 0 18px 44px rgb(0 0 0 / 14%); }
 .exam-catalogue__toolbar { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding: 26px 30px 22px; }

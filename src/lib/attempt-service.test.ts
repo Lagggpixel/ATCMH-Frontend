@@ -107,6 +107,28 @@ test("submission preserves the legacy non-null answer layout by omitting unanswe
   assert.equal(statements.length, 1);
 });
 
+test("course-originated submissions are associated with the course for reporting", async () => {
+  const statements: Array<{ sql: string; values: readonly unknown[] }> = [];
+  await submitAttempt({
+    async execute(sql, values = []) { statements.push({ sql, values }); return []; },
+  }, {
+    attemptId: "attempt-course-1",
+    attemptCode: "ATCMH-ATTEMPT-COURSE-1",
+    quizId: "quiz-course-1",
+    courseId: "course-1",
+    studentDiscordId: "123456789012345",
+    submittedAt: new Date("2026-07-11T08:30:00.000Z"),
+    answers: {},
+    submissionReason: "manual",
+    feedbackMode: "after_submission",
+    questions: [{ id: "q1", prompt: "First", correctOptionId: "a1", options: [{ id: "a1", text: "Correct" }] }],
+  });
+
+  assert.equal(statements.length, 2);
+  assert.match(statements[1].sql, /INSERT INTO course_quiz_attempts/);
+  assert.deepEqual(statements[1].values, ["attempt-course-1", "course-1", "quiz-course-1", "attempt-course-1", "123456789012345", 0, "2026-07-11T08:30:00.000Z"]);
+});
+
 type SubmitAttemptInput = Parameters<typeof submitAttempt>[1];
 // @ts-expect-error submitAttempt only accepts trusted server-created Date values.
 const invalidSubmittedAt: SubmitAttemptInput["submittedAt"] = "2026-07-11T08:30:00.000Z";

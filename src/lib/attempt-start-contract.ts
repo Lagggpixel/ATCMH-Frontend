@@ -13,6 +13,7 @@ export function attemptStartCookieName(quizId: string): string {
 export interface AttemptStart {
   discordId: string;
   quizId: string;
+  courseId?: string;
   nonce: string;
   startedAt: number;
   deadline: number | null;
@@ -34,13 +35,15 @@ const signature = (secret: string, payload: string) => createHmac("sha256", secr
 
 export function createAttemptStart(
   secret: string,
-  input: { discordId: string; quizId: string; timeLimitSeconds: number },
+  input: { discordId: string; quizId: string; courseId?: string; timeLimitSeconds: number },
   nowSeconds = Math.floor(Date.now() / 1_000),
   createNonce = () => randomBytes(24).toString("base64url"),
 ): AttemptStart & { token: string } {
+  if (input.courseId !== undefined && !quizUuid.test(input.courseId)) throw new Error("Course ID must be a valid UUID");
   const contract: AttemptStart = {
     discordId: input.discordId,
     quizId: input.quizId,
+    ...(input.courseId && quizUuid.test(input.courseId) ? { courseId: input.courseId } : {}),
     nonce: createNonce(),
     startedAt: nowSeconds,
     deadline: input.timeLimitSeconds > 0 ? nowSeconds + input.timeLimitSeconds : null,
@@ -65,6 +68,7 @@ export function readAttemptStart(
   try {
     const value = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Partial<AttemptStart>;
     if (value.discordId !== discordId || value.quizId !== quizId) return undefined;
+    if (value.courseId !== undefined && (typeof value.courseId !== "string" || !quizUuid.test(value.courseId))) return undefined;
     if (typeof value.nonce !== "string" || value.nonce.length < 1 || !Number.isInteger(value.startedAt)) return undefined;
     if (value.deadline !== null && !Number.isInteger(value.deadline)) return undefined;
     return value as AttemptStart;

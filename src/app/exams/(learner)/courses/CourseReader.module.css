@@ -1,0 +1,70 @@
+.coursePage { width: min(100% - 3rem, 1180px); margin: 0 auto; padding: 38px 0 62px; }
+.courseHeader { display: grid; gap: 12px; max-width: 780px; margin-bottom: 28px; }
+.eyebrow, .quizEyebrow { margin: 0; color: #67e8f9; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.courseHeader h1 { margin: 0; font-size: clamp(32px, 5vw, 52px); font-weight: 650; letter-spacing: -.04em; }
+.courseDescription { margin: 0; color: #c4cad8; font-size: 17px; line-height: 1.6; }
+.courseMeta { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 0; color: #9da9bd; font-size: 13px; }
+.backLink { color: #b8d8ff; font-size: 14px; text-decoration: none; }
+.backLink:hover { color: #fff; }
+.progress { display: grid; gap: 8px; margin: 20px 0 30px; }
+.progressLabel { display: flex; justify-content: space-between; gap: 16px; color: #c6cedd; font-size: 13px; font-weight: 700; }
+.progressTrack { height: 7px; overflow: hidden; border-radius: 999px; background: #202b42; }
+.progressTrack span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #67e8f9); }
+.sectionList { display: grid; gap: 16px; }
+.section { overflow: hidden; border: 1px solid #30384d; border-radius: 12px; background: rgb(12 16 39 / 88%); box-shadow: 0 16px 36px rgb(0 0 0 / 12%); }
+.sectionHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid #30384d; padding: 22px 26px 18px; }
+.sectionHeader h2 { margin: 0; font-size: 22px; font-weight: 650; }
+.sectionNumber { display: block; margin-bottom: 7px; color: #67e8f9; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.status { flex: 0 0 auto; border-radius: 999px; background: rgb(34 197 94 / 17%); padding: 6px 10px; color: #9be7b5; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.locked { background: rgb(20 25 43 / 72%); }
+.locked .sectionHeader { border-bottom: 0; }
+.lockedCopy { margin: 0; color: #8f98ad; font-size: 14px; }
+.sectionBody { padding: 24px 26px 26px; }
+.markdown { color: #d9deea; font-size: 16px; line-height: 1.7; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown h2, .markdown h3, .markdown h4 { color: #f4f5fb; line-height: 1.25; letter-spacing: -.02em; }
+.markdown h2 { font-size: 28px; }
+.markdown h3 { font-size: 22px; }
+.markdown h4 { font-size: 18px; }
+.markdown p { margin: 16px 0; }
+.markdown ul { margin: 16px 0; padding-left: 25px; }
+.markdown li + li { margin-top: 7px; }
+.markdown strong { color: #fff; }
+.markdown code { border-radius: 5px; background: #18243a; padding: 2px 5px; color: #bae6fd; font-size: .9em; }
+.markdown a { color: #8fdcf5; }
+.media { margin: 22px 0; text-align: center; }
+.media img, .media video { display: block; max-width: 100%; max-height: 560px; margin: 0 auto; border-radius: 9px; border: 1px solid #30384d; background: #050a15; }
+.media video { width: min(100%, 820px); }
+.quizCard { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin: 24px 0; border: 1px solid #315384; border-radius: 10px; background: linear-gradient(120deg, rgb(37 99 235 / 17%), rgb(12 16 39 / 72%)); padding: 19px 20px; }
+.quizCard h3 { margin: 6px 0 5px; color: #f4f5fb; font-size: 19px; }
+.quizCard p:not(.quizEyebrow) { margin: 0; color: #b6c1d4; font-size: 14px; line-height: 1.45; }
+.quizComplete { display: inline-flex; margin-top: 10px; border-radius: 999px; background: rgb(34 197 94 / 18%); padding: 4px 8px; color: #a5e6b9; font-size: 11px; font-weight: 800; }
+.quizIncomplete { display: inline-flex; margin-top: 10px; border-radius: 999px; background: rgb(245 158 11 / 18%); padding: 4px 8px; color: #f4d28c; font-size: 11px; font-weight: 800; }
+.quizAction, .completeButton { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: 42px; border: 1px solid #2563eb; border-radius: 8px; padding: 9px 15px; color: #fff; font-size: 14px; font-weight: 800; text-decoration: none; }
+.quizAction { background: #2563eb; }
+.quizAction:hover, .completeButton:hover:not(:disabled) { background: #1d4ed8; }
+.completion { display: grid; justify-items: end; gap: 10px; margin-top: 28px; border-top: 1px solid #30384d; padding-top: 18px; }
+.completionHint { width: 100%; margin: 0; color: #d5bd88; font-size: 13px; }
+.completeButton { background: transparent; color: #9edcff; cursor: pointer; }
+.completeButton:disabled { cursor: not-allowed; opacity: .5; }
+.error { width: 100%; margin: 0; border: 1px solid #bd5264; border-radius: 8px; background: rgb(93 24 39 / 35%); padding: 10px 12px; color: #ffd6dc; font-size: 13px; }
+.courseCatalogue { display: grid; gap: 14px; }
+.courseCard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 22px; border: 1px solid #30384d; border-radius: 11px; background: rgb(12 16 39 / 88%); padding: 22px 24px; text-decoration: none; }
+.courseCard:hover { border-color: #3b82f6; background: rgb(20 31 59 / 92%); }
+.courseCard h2 { margin: 0 0 7px; color: #f4f5fb; font-size: 21px; }
+.courseCard p { margin: 0; color: #b5bdcf; line-height: 1.5; }
+.courseCardMeta { color: #9ca9bc; font-size: 13px; white-space: nowrap; }
+.privateGate { width: min(100%, 650px); margin: 80px auto; border: 1px solid #30384d; border-radius: 12px; background: rgb(12 16 39 / 88%); padding: 38px; text-align: center; }
+.privateGate h1 { margin: 0; color: #f4f5fb; font-size: 30px; }
+.privateGate p { margin: 14px 0 22px; color: #b5bdcf; line-height: 1.55; }
+.privateGate a { display: inline-flex; min-height: 42px; align-items: center; border-radius: 8px; background: #2563eb; padding: 9px 15px; color: #fff; font-weight: 800; text-decoration: none; }
+@media (max-width: 700px) {
+  .coursePage { width: min(100% - 32px, 1180px); padding: 24px 0 42px; }
+  .sectionHeader { padding: 18px 18px 15px; }
+  .sectionBody { padding: 19px 18px 21px; }
+  .quizCard, .courseCard { grid-template-columns: 1fr; align-items: stretch; }
+  .quizAction, .courseCardMeta, .completeButton { width: 100%; }
+  .completion { justify-items: stretch; }
+  .privateGate { margin: 45px auto; padding: 28px 20px; }
+}

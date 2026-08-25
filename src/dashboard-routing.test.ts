@@ -10,5 +10,6 @@ test("canonical Dashboard paths resolve to preserved screens", () => {
   assert.deepEqual(resolveDashboardRoute("/dashboard/mock-questions"), { screen: "mock-questions" });
   assert.deepEqual(resolveDashboardRoute("/dashboard/exams/quiz-id/edit"), { screen: "exams", view: "edit", params: { examId: "quiz-id" } });
   assert.deepEqual(resolveDashboardRoute("/dashboard/exams/attempts/attempt-id"), { screen: "exams", view: "attempt-review", params: { attemptId: "attempt-id" } });
+  assert.deepEqual(resolveDashboardRoute("/dashboard/exams/courses/course-id/preview"), { screen: "exams", view: "course-preview", params: { courseId: "course-id" } });
   assert.deepEqual(resolveDashboardRoute("/dashboard/unknown"), { screen: "not-found" });
 });

@@ -17,10 +17,12 @@ export default async function QuizAttemptPage({ params }: AttemptPageProps) {
   const attemptPath = `/exams/quizzes/${encodeURIComponent(quizId)}/attempt`;
   const identity = await getVerifiedLearnerIdentity();
   if (!identity) redirect(homeLoginHref("exams", attemptPath));
+  const attemptStart = await getVerifiedAttemptStart(identity.discordId, quizId);
   const access = await resolveLearnerAccess(identity.discordId);
-  const quiz = await getQuizForLearner(quizId, access).catch(() => null);
+  const quiz = await (attemptStart?.courseId
+    ? getQuizForLearner(quizId, {...access, courseId: attemptStart.courseId})
+    : getQuizForLearner(quizId, access)).catch(() => null);
   if (!quiz) notFound();
-  const attemptStart = await getVerifiedAttemptStart(identity.discordId, quiz.id);
   if (!attemptStart) redirect(`/exams/quizzes/${encodeURIComponent(quiz.id)}`);
   const questions = orderAttemptQuestions(quiz.questions, quiz.randomizeQuestions, attemptStart.nonce);
   return (

@@ -3,6 +3,8 @@ import { classifyDiscordStaff, parseDiscordIdList } from "./discord-auth";
 export interface LearnerAccessContext {
   discordId: string;
   canAccessPrivateQuizzes: boolean;
+  /** Set only when the learner opened the quiz from a verified published course. */
+  courseId?: string;
 }
 
 const discordSnowflake = /^\d{17,20}$/;

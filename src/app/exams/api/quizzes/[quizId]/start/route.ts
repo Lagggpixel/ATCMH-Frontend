@@ -9,6 +9,7 @@ import { resolveLearnerAccess } from "@/src/lib/learner-access";
 import { authorizeLearnerMutation } from "@/src/lib/browser-session";
 import { examsCookieOptions } from "@/src/lib/exams-cookie";
 import { getAppBaseUrl } from "@/src/lib/app-url";
+import { isCourseId } from "@/src/lib/course-repository";
 
 export const runtime = "nodejs";
 
@@ -20,8 +21,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
   const identity = await getVerifiedLearnerIdentity();
   if (!identity) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const requestedCourseIdValue = new URL(request.url).searchParams.get("courseId");
+  const requestedCourseId = requestedCourseIdValue && isCourseId(requestedCourseIdValue) ? requestedCourseIdValue : undefined;
   const access = await resolveLearnerAccess(identity.discordId);
-  const quiz = await getQuizForLearner(quizId, access).catch(() => null);
+  const quiz = await (requestedCourseId
+    ? getQuizForLearner(quizId, {...access, courseId: requestedCourseId})
+    : getQuizForLearner(quizId, access)).catch(() => null);
   if (!quiz) return new Response("Quiz not found", { status: 404 });
   const secret = process.env.EXAMS_LEARNER_SESSION_SECRET;
   if (!secret || secret.length < 32) return new Response("Exam sessions are not configured", { status: 503 });
@@ -30,9 +35,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
   const requestCookies = request.headers.get("cookie") ?? "";
   const existingToken = requestCookies.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
   const existing = readAttemptStart(secret, existingToken, identity.discordId, quiz.id);
+  // A quiz can be linked from more than one course. Keep an attempt start
+  // tied to the course that authorized it instead of reusing a token from a
+  // different course context (or from the standalone quiz page).
+  const usableExisting = existing?.courseId === requestedCourseId ? existing : undefined;
   const response = NextResponse.json({ redirectTo: `/exams/quizzes/${encodeURIComponent(quiz.id)}/attempt` });
-  if (!existing) {
-    const start = createAttemptStart(secret, { discordId: identity.discordId, quizId: quiz.id, timeLimitSeconds: quiz.timeLimitSeconds });
+  if (!usableExisting) {
+    const start = createAttemptStart(secret, { discordId: identity.discordId, quizId: quiz.id, courseId: requestedCourseId, timeLimitSeconds: quiz.timeLimitSeconds });
     response.cookies.set(cookieName, start.token, {
       ...examsCookieOptions(getAppBaseUrl().origin),
       maxAge: Math.max(8 * 60 * 60, quiz.timeLimitSeconds + 60 * 60),
