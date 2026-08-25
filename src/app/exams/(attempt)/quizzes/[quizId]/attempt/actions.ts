@@ -39,6 +39,7 @@ export interface LearnerSubmissionDependencies {
     attemptId: string;
     attemptCode: string;
     quizId: string;
+    courseId?: string;
     studentDiscordId: string;
     submittedAt: Date;
     answers: Record<string, string | undefined>;
@@ -88,13 +89,14 @@ export async function executeLearnerSubmission(
     if (!identity) return { error: SUBMISSION_ERROR };
 
     failureStage = "authorize_quiz";
+    const attemptStart = await dependencies.getVerifiedAttemptStart(identity.discordId, input.quizId);
     const access = await dependencies.resolveLearnerAccess(identity.discordId);
-    const quiz = await dependencies.getQuizForLearner(input.quizId, access);
-    if (!quiz) return { error: SUBMISSION_ERROR };
+    const quiz = attemptStart?.courseId
+      ? await dependencies.getQuizForLearner(input.quizId, {...access, courseId: attemptStart.courseId})
+      : await dependencies.getQuizForLearner(input.quizId, access);
+    if (!quiz || !attemptStart) return { error: SUBMISSION_ERROR };
     const feedbackMode = normalizeFeedbackMode(quiz.feedbackMode);
     if (!feedbackMode) return { error: SUBMISSION_ERROR };
-    const attemptStart = await dependencies.getVerifiedAttemptStart(identity.discordId, quiz.id);
-    if (!attemptStart) return { error: SUBMISSION_ERROR };
 
     const submittedAt = dependencies.now();
     const expired = attemptStart.deadline !== null
@@ -117,6 +119,7 @@ export async function executeLearnerSubmission(
         attemptId,
         attemptCode,
         quizId: quiz.id,
+        courseId: attemptStart.courseId,
         studentDiscordId: identity.discordId,
         submittedAt,
         answers,

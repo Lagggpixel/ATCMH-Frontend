@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { handoffCallbackPath } from "@/src/lib/central-auth";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-repository";
@@ -32,6 +33,7 @@ export default async function LearnerHomePage({ searchParams }: { searchParams: 
             <p className="exam-intro__eyebrow">ATCMH learning</p>
             <h1 id="page-title">Exam Center</h1>
             <p>Open an available quiz and build the knowledge you need to become a confident Infinite Flight air traffic controller.</p>
+            <Link className="exam-course-link" href="/exams/courses">Browse private courses →</Link>
           </div>
         </section>
         <QuizCatalogue {...catalogue} />

@@ -64,6 +64,15 @@ test("signed attempt start preserves its server deadline after expiry for timeou
   assert.equal(read?.deadline, 1_060);
 });
 
+test("signed attempt starts preserve the verified course context", () => {
+  const courseId = "223e4567-e89b-42d3-a456-426614174000";
+  const start = createAttemptStart(secret, { discordId, quizId, courseId, timeLimitSeconds: 600 }, 1_000, () => "course-nonce");
+  const read = readAttemptStart(secret, start.token, discordId, quizId);
+
+  assert.equal(read?.courseId, courseId);
+  assert.throws(() => createAttemptStart(secret, { discordId, quizId, courseId: "not-a-course", timeLimitSeconds: 600 }), /Course ID must be a valid UUID/);
+});
+
 const questions = [
   { id: "q1", prompt: "One", correctOptionId: "a1", sortOrder: 1, randomizeOptions: true, options: [
     { id: "a1", text: "A", sortOrder: 1 }, { id: "a2", text: "B", sortOrder: 2 }, { id: "a3", text: "C", sortOrder: 3 },

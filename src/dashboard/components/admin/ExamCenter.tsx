@@ -23,6 +23,7 @@ import ExamUnlockManager from "./ExamUnlockManager.tsx";
 import ExamWebsiteManager from "./ExamWebsiteManager.tsx";
 import ExamAttemptManager from "./ExamAttemptManager.tsx";
 import ExamAttemptReview from "./ExamAttemptReview.tsx";
+import CourseCenter from "./CourseCenter.tsx";
 import styles from "./ExamCenter.module.css";
 
 export interface ExamCenterProps {
@@ -47,7 +48,7 @@ const hasCapability = (actor: ExamManagementActor, capability: ExamManagementAct
 
 const ExamCenter = ({token, users, view}: ExamCenterProps) => {
     const navigate = useNavigate();
-    const {examId} = useParams<{ examId: string }>();
+    const {examId, courseId} = useParams<{ examId: string; courseId: string }>();
     const [data, setData] = useState<ExamCenterData | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [examsAuthRequired, setExamsAuthRequired] = useState(false);
@@ -136,6 +137,8 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
                                                                      className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Unlocks</NavLink> : null}
             {hasCapability(data.actor, "review-attempts") ? <NavLink to="/dashboard/exams/attempts"
                                                                       className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Attempts</NavLink> : null}
+            {hasCapability(data.actor, "manage-courses") ? <NavLink to="/dashboard/exams/courses"
+                                                                      className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Courses</NavLink> : null}
             {canManageExamWebsite(data.actor) ? <NavLink to="/dashboard/exams/website"
                                                          className={({isActive}) => isActive ? styles.activeNavLink : undefined}>Website
                 content</NavLink> : null}
@@ -172,6 +175,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
                 <ExamUnlockManager quizzes={data.quizzes} users={users} token={token}/> : null}
             {canAccessView && view === "attempts" ? <ExamAttemptManager token={token} users={users}/> : null}
             {canAccessView && view === "attempt-review" ? <ExamAttemptReview actor={data.actor} token={token} users={users}/> : null}
+            {canAccessView && (view === "courses" || view === "course-create" || view === "course-edit" || view === "course-preview" || view === "course-stats") ? <CourseCenter actor={data.actor} quizzes={data.quizzes} users={users} token={token} view={view} courseId={courseId}/> : null}
             {canAccessView && view === "website" ? <ExamWebsiteManager token={token}/> : null}
             {canAccessView && view === "catalog" ? <>
                 <ExamCatalog quizzes={data.quizzes} onEdit={canManageExams ? editQuiz : undefined} categories={data.categories} onCreateCategory={data.actor.canManageAll ? createCategory : undefined} onMoveQuizCategory={data.actor.canManageAll ? moveQuizCategory : undefined}/>
