@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2";
 import { queryReadOnly } from "./db";
 import type { StoredAttempt } from "./attempt-service";
 import type { LearnerAccessContext } from "./learner-access";
+import { isPublishedCourseQuiz } from "./course-api-client";
 
 export interface QuizSummary {
   id: string;
@@ -60,20 +61,6 @@ function toSummary(row: QuizRow): QuizSummary {
 }
 
 const quizColumns = "q.id, q.title, q.description, q.category_id, c.name AS category_name, q.feedback_mode, q.time_limit_seconds, q.randomize_questions, q.is_private";
-
-async function isPublishedCourseQuiz(courseId: string, quizId: string) {
-  if (!isQuizId(courseId)) return false;
-  const [course] = await readOnlyQuery<Array<RowDataPacket & { id: string }>>(
-    "SELECT id FROM courses WHERE id = ? AND is_published = TRUE LIMIT 1",
-    [courseId],
-  );
-  if (!course) return false;
-  const [link] = await readOnlyQuery<Array<RowDataPacket & { quiz_id: string }>>(
-    "SELECT quiz_id FROM course_quiz_links WHERE course_id = ? AND quiz_id = ? LIMIT 1",
-    [courseId, quizId],
-  );
-  return Boolean(link);
-}
 
 /** Unauthenticated catalogue data; private quizzes are intentionally excluded. */
 export async function listPublicQuizzes(): Promise<QuizSummary[]> {

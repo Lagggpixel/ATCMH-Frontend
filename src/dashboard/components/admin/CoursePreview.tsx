@@ -2,6 +2,7 @@ import type {ReactNode} from "react";
 import type {ExamQuizSummary} from "../../types/Exam.ts";
 import type {ManagedCourse} from "../../types/Course.ts";
 import {parseCourseMarkdown, type CourseMarkdownBlock} from "@/src/lib/course-markdown";
+import {ApiUtils} from "@/src/dashboard/utils/ApiUtils";
 import styles from "./CourseCenter.module.css";
 
 function safeHref(value: string) {
@@ -30,7 +31,7 @@ function renderInline(text: string): ReactNode[] {
 }
 
 function mediaSource(courseId: string, mediaId: string) {
-    return `/exams/api/management/courses/${encodeURIComponent(courseId)}/media/${encodeURIComponent(mediaId)}`;
+    return `${ApiUtils.apiOrigin}/admin/courses/${encodeURIComponent(courseId)}/media/${encodeURIComponent(mediaId)}`;
 }
 
 function PreviewMarkdown({courseId, blocks, quizzes}: {courseId: string; blocks: CourseMarkdownBlock[]; quizzes: Map<string, ExamQuizSummary>}) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { appUrl } from "@/src/lib/app-url";
 import { examsSessionCookie, examsSessionMaxAge, exchangeCentralHandoff, safeLocalReturnTo } from "@/src/lib/central-auth";
-import { examsCookieOptions } from "@/src/lib/exams-cookie";
+import { examsCookieOptions, legacyExamsCookieOptions } from "@/src/lib/exams-cookie";
 
 export const runtime = "nodejs";
 const allowedAuthErrors = new Set([
@@ -27,6 +27,12 @@ export async function GET(request: Request) {
     const remaining = Math.max(0, Math.floor((Date.parse(issued.expiresAt) - Date.now()) / 1000));
     if (remaining <= 0) throw new Error("Expired session");
     const response = NextResponse.redirect(appUrl(returnTo));
+    // Remove the pre-backend host-only cookie so both copies of the session
+    // name cannot be selected differently by the browser during the rollout.
+    response.cookies.set(examsSessionCookie, "", {
+      ...legacyExamsCookieOptions(appUrl("/").origin),
+      maxAge: 0,
+    });
     response.cookies.set(examsSessionCookie, issued.token, {
       ...examsCookieOptions(appUrl("/").origin),
       maxAge: Math.min(examsSessionMaxAge, remaining),

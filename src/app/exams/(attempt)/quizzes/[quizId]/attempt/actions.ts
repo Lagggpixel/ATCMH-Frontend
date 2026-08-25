@@ -39,7 +39,6 @@ export interface LearnerSubmissionDependencies {
     attemptId: string;
     attemptCode: string;
     quizId: string;
-    courseId?: string;
     studentDiscordId: string;
     submittedAt: Date;
     answers: Record<string, string | undefined>;
@@ -119,7 +118,6 @@ export async function executeLearnerSubmission(
         attemptId,
         attemptCode,
         quizId: quiz.id,
-        courseId: attemptStart.courseId,
         studentDiscordId: identity.discordId,
         submittedAt,
         answers,

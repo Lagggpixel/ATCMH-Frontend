@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiUtils } from "@/src/dashboard/utils/ApiUtils";
 import styles from "./CourseReader.module.css";
 
 interface CourseSectionCompletionButtonProps {
@@ -24,7 +25,7 @@ export default function CourseSectionCompletionButton({ courseId, sectionId, dis
       const sessionBody = await sessionResponse.json() as { session?: { csrfToken?: string } | null };
       const csrfToken = sessionBody.session?.csrfToken;
       if (!csrfToken) throw new Error("Your Exams session has expired. Please sign in again.");
-      const response = await fetch(`/exams/api/courses/${encodeURIComponent(courseId)}/sections/${encodeURIComponent(sectionId)}/complete`, {
+      const response = await fetch(`${ApiUtils.apiOrigin}/courses/${encodeURIComponent(courseId)}/sections/${encodeURIComponent(sectionId)}/complete`, {
         method: "POST",
         credentials: "include",
         headers: { "X-CSRF-Token": csrfToken },

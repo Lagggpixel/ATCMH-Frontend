@@ -7,9 +7,9 @@ import { getQuizForLearner } from "@/src/lib/exams-repository";
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
 import { resolveLearnerAccess } from "@/src/lib/learner-access";
 import { authorizeLearnerMutation } from "@/src/lib/browser-session";
-import { examsCookieOptions } from "@/src/lib/exams-cookie";
+import { attemptCookieOptions } from "@/src/lib/exams-cookie";
 import { getAppBaseUrl } from "@/src/lib/app-url";
-import { isCourseId } from "@/src/lib/course-repository";
+import { isCourseId } from "@/src/lib/course-api-client";
 
 export const runtime = "nodejs";
 
@@ -43,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
   if (!usableExisting) {
     const start = createAttemptStart(secret, { discordId: identity.discordId, quizId: quiz.id, courseId: requestedCourseId, timeLimitSeconds: quiz.timeLimitSeconds });
     response.cookies.set(cookieName, start.token, {
-      ...examsCookieOptions(getAppBaseUrl().origin),
+      ...attemptCookieOptions(getAppBaseUrl().origin),
       maxAge: Math.max(8 * 60 * 60, quiz.timeLimitSeconds + 60 * 60),
     });
     try {
