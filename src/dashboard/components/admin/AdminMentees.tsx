@@ -1,13 +1,13 @@
 import {type ChangeEvent, type FormEvent, useEffect, useMemo, useState} from "react";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
-import type {AdminMentee, MenteeState} from "../../types/AdminMentee.ts";
+import type {AdminMentee} from "../../types/AdminMentee.ts";
 import type {AdminUser} from "../../types/AdminUser.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {Session} from "../../types/Session.ts";
 import type {UserNote} from "../../types/UserNote.ts";
 import type {AdminAssignment, AssignmentSlotAssignments} from "../../types/AdminAssignment.ts";
 import type {SessionAssignment} from "../../types/SessionAssignment.ts";
-import {usePagination} from "../../hooks/usePagination.ts";
+import {usePagination, type PaginationResult} from "../../hooks/usePagination.ts";
 import {
     formatAdminUtcDate,
     formatIfcDisplay,
@@ -58,8 +58,16 @@ const stateLabels: Record<AdminMentee["state"], string> = {
 };
 
 type MentorFilter = "all" | "mine" | "waitlist";
+type MenteeView = "cards" | "table";
 type MenteeStateAction = "pickup" | "pass";
 const MENTOR_FILTER_PARAM = "mentorFilter";
+const MENTEE_SEARCH_PARAM = "search";
+const MENTEE_VIEW_PARAM = "view";
+
+type MenteeActionPolicy = ReturnType<typeof getMenteeActionPolicy>;
+type SessionFormState = {mentorId: string; airport: string; pilots: string; time: string};
+
+const normalizeMenteeView = (value: string | null): MenteeView => value === "table" ? "table" : "cards";
 
 const normalizeMentorFilter = (value: string | null): MentorFilter => {
     return value === "mine" || value === "waitlist" ? value : "all";
@@ -97,19 +105,20 @@ const AdminMentees = ({
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const {menteeRecordId} = useParams();
-    const [filter, setFilter] = useState("");
     const [actionError, setActionError] = useState<string | undefined>();
     const [busyAction, setBusyAction] = useState<string | undefined>();
     const [showTerminateModal, setShowTerminateModal] = useState(false);
     const [pendingStateAction, setPendingStateAction] = useState<MenteeStateAction>();
     const [terminateReason, setTerminateReason] = useState("");
-    const [sessionForm, setSessionForm] = useState({mentorId: "", airport: "", pilots: "1", time: ""});
+    const [sessionForm, setSessionForm] = useState<SessionFormState>({mentorId: "", airport: "", pilots: "1", time: ""});
     const [attendeeInputs, setAttendeeInputs] = useState<Record<string, string>>({});
     const [assignmentSession, setAssignmentSession] = useState<{
         session: Session;
         existingAssignment?: SessionAssignment
     } | undefined>();
 
+    const filter = searchParams.get(MENTEE_SEARCH_PARAM) ?? "";
+    const view = normalizeMenteeView(searchParams.get(MENTEE_VIEW_PARAM));
     const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
@@ -157,32 +166,38 @@ const AdminMentees = ({
         return query ? `${path}?${query}` : path;
     };
 
+    const updateListQuery = (updates: {search?: string; mentorFilter?: MentorFilter; view?: MenteeView}) => {
+        const nextParams = new URLSearchParams(searchParams.toString());
+        if (updates.search !== undefined) {
+            if (updates.search.trim()) nextParams.set(MENTEE_SEARCH_PARAM, updates.search);
+            else nextParams.delete(MENTEE_SEARCH_PARAM);
+        }
+        if (updates.mentorFilter !== undefined) {
+            if (updates.mentorFilter === "all") nextParams.delete(MENTOR_FILTER_PARAM);
+            else nextParams.set(MENTOR_FILTER_PARAM, updates.mentorFilter);
+        }
+        if (updates.view !== undefined) nextParams.set(MENTEE_VIEW_PARAM, updates.view);
+        const query = nextParams.toString();
+        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
+    };
+
     const handleMenteeSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
-        setFilter(event.target.value);
         menteePagination.reset();
+        updateListQuery({search: event.target.value});
     };
 
     const handleMentorFilterChange = (value: string) => {
         const nextFilter = normalizeMentorFilter(value);
-        const nextParams = new URLSearchParams(searchParams.toString());
-        if (nextFilter === "all") {
-            nextParams.delete(MENTOR_FILTER_PARAM);
-        } else {
-            nextParams.set(MENTOR_FILTER_PARAM, nextFilter);
-        }
         menteePagination.reset();
-        const query = nextParams.toString();
-        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
+        updateListQuery({mentorFilter: nextFilter});
     };
 
     const clearMenteeFilters = () => {
-        setFilter("");
         menteePagination.reset();
-        const nextParams = new URLSearchParams(searchParams.toString());
-        nextParams.delete(MENTOR_FILTER_PARAM);
-        const query = nextParams.toString();
-        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
+        updateListQuery({search: "", mentorFilter: "all"});
     };
+
+    const handleViewChange = (nextView: MenteeView) => updateListQuery({view: nextView});
 
     const selectedSessions = useMemo(() => {
         const sessions = selectedMentee?.sessions ?? [];
@@ -376,13 +391,6 @@ const AdminMentees = ({
         }
     };
 
-    const stateStripColor: Record<MenteeState, string> = {
-        waitlisted: "var(--warning-bg)",
-        picked_up: "var(--info-bg)",
-        terminated: "var(--danger-bg)",
-        passed: "var(--success-bg)",
-    };
-
     if (!loggedIn) {
         return <AdminLoginScreen/>;
     }
@@ -401,293 +409,81 @@ const AdminMentees = ({
 
     return (
         <div className={styles.adminMenteesContainer}>
-            <div className={styles.adminMenteesLayout}>
-                <aside className={`${styles.menteeListPanel} ${selectedMentee ? styles.menteeListPanelWithSelection : ""}`}>
-                    <div className={styles.panelHeader}>
-                        <h2>Mentees</h2>
-                        <span>{menteePagination.paginatedItems.length}/{mentees.length}</span>
+            {menteeRecordId ? (
+                <MenteeProfilePage
+                    selectedMentee={selectedMentee}
+                    getUserName={getUserName}
+                    onBack={() => navigate(menteeRoute())}
+                    actionError={actionError}
+                    onDismissActionError={() => setActionError(undefined)}
+                    selectedActionPolicy={selectedActionPolicy}
+                    busyAction={busyAction}
+                    onPickup={requestPickup}
+                    onTerminate={handleTerminateClick}
+                    onPass={requestPass}
+                    selectedSessions={selectedSessions}
+                    attendedSessions={attendedSessions}
+                    selectedMenteeNotes={selectedMenteeNotes}
+                    sessionForm={sessionForm}
+                    onSessionFormChange={changes => setSessionForm(prev => ({...prev, ...changes}))}
+                    sessionTimeSuggestions={sessionTimeSuggestions}
+                    onSchedule={handleSchedule}
+                    attendeeInputs={attendeeInputs}
+                    assignments={assignments}
+                    onAttendeeInputChange={(sessionId, value) => setAttendeeInputs(prev => ({...prev, [sessionId]: value}))}
+                    onUpdateSession={handleUpdateSession}
+                    onAddAttendee={handleAddAttendee}
+                    onRemoveAttendee={handleRemoveAttendee}
+                    onCancelSession={handleCancelSession}
+                    onOpenAssignmentGenerator={(session, existingAssignment) => setAssignmentSession({session, existingAssignment})}
+                />
+            ) : (
+                <MenteeListPage
+                    pagination={menteePagination}
+                    filter={filter}
+                    mentorFilter={mentorFilter}
+                    view={view}
+                    adminUser={adminUser}
+                    getUserName={getUserName}
+                    onSearchChange={handleMenteeSearchChange}
+                    onMentorFilterChange={handleMentorFilterChange}
+                    onViewChange={handleViewChange}
+                    onClearFilters={clearMenteeFilters}
+                    onOpenMentee={id => navigate(menteeRoute(id))}
+                />
+            )}
+
+            {pendingStateAction ? (
+                <MenteeActionConfirmation
+                    action={pendingStateAction}
+                    onCancel={() => setPendingStateAction(undefined)}
+                    onConfirm={handleStateActionConfirm}
+                />
+            ) : null}
+
+            {showTerminateModal && (
+                <div className={styles.modalBackdrop} onClick={() => setShowTerminateModal(false)} onKeyDown={e => {
+                    if (e.key === "Escape") setShowTerminateModal(false);
+                }}>
+                    <div className={styles.terminateModal} onClick={e => e.stopPropagation()}>
+                        <h3>Terminate Mentee</h3>
+                        <form onSubmit={handleTerminateConfirm}>
+                            <textarea
+                                value={terminateReason}
+                                onChange={e => setTerminateReason(e.target.value)}
+                                placeholder="Reason for termination"
+                                required
+                                autoFocus
+                            />
+                            <div className={styles.modalActions}>
+                                <button type="button" onClick={() => setShowTerminateModal(false)}>Cancel</button>
+                                <button type="submit" disabled={busyAction === "terminate"}>Confirm Terminate</button>
+                            </div>
+                        </form>
                     </div>
-                    <label className={styles.searchLabel} htmlFor="mentee-search">Search mentees</label>
-                    <input
-                        id="mentee-search"
-                        value={filter}
-                        onChange={handleMenteeSearchChange}
-                        placeholder="Name, Discord ID, IFC, recruiter..."
-                    />
-                    <label className={styles.searchLabel} htmlFor="mentor-filter">Mentor filter</label>
-                    <select
-                        id="mentor-filter"
-                        className={styles.mentorFilterSelect}
-                        value={mentorFilter}
-                        onChange={event => handleMentorFilterChange(event.target.value)}
-                    >
-                        <option value="all">All mentees</option>
-                        <option value="mine" disabled={!adminUser}>My mentees</option>
-                        <option value="waitlist">Waitlist</option>
-                    </select>
+                </div>
+            )}
 
-                    <div className={styles.menteeList} aria-label="Mentees">
-                        {menteePagination.paginatedItems.length > 0 ? menteePagination.paginatedItems.map(mentee => (
-                                <button
-                                    key={mentee.id}
-                                    type="button"
-                                    className={`${styles.menteeListItem} ${selectedMentee?.id === mentee.id ? styles.menteeListItemActive : ""}`}
-                                    onClick={() => navigate(menteeRoute(mentee.id))}
-                                >
-                                    <span>{getUserName(mentee.mentee)}</span>
-                                    <small>
-                                        <span className={`${styles.menteeStateText} ${styles[`${mentee.state}Text`]}`}>
-                                            {stateLabels[mentee.state]}
-                                        </span>
-                                        {" - "}
-                                        {formatAdminUtcDate(mentee.waitlistTime)}
-                                    </small>
-                                </button>
-                            )) : (
-                                <div className={styles.emptyState}>
-                                    <p>No mentees match these filters.</p>
-                                    <button type="button" className={styles.clearFiltersButton} aria-label="Clear mentee search" onClick={clearMenteeFilters}>
-                                        Clear filters
-                                    </button>
-                                </div>
-                            )}
-                    </div>
-                    <AdminPagination
-                        {...menteePagination}
-                        totalItems={menteePagination.totalItems}
-                        variant="inline"
-                        className={styles.menteeListPagination}
-                    />
-                </aside>
-
-                <main
-                    className={`${styles.menteeDetailPanel} ${selectedMentee ? "" : styles.menteeDetailPanelWithoutSelection}`}
-                    style={{["--strip-color" as string]: stateStripColor[selectedMentee?.state || 'waitlisted']}}
-                >
-                    {selectedMentee ? (
-                        <>
-                            <header className={styles.detailHeader}>
-                                <div>
-                                    <button type="button" className={styles.backToMentees} onClick={() => navigate(menteeRoute())}>
-                                        Back to mentees
-                                    </button>
-                                    <h2>{getUserName(selectedMentee.mentee)}</h2>
-                                    <span className={`${styles.menteeStateBadge} ${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>
-                                        {stateLabels[selectedMentee.state]}
-                                    </span>
-                                </div>
-                                <div className={styles.eyebrowActions}>
-                                    <div className={styles.stateActionButtonRow}>
-                                        {selectedActionPolicy?.canPickup ? (
-                                            <button type="button" onClick={requestPickup} disabled={busyAction === "pickup"}>
-                                                Pickup
-                                            </button>
-                                        ) : null}
-                                        {selectedActionPolicy?.canTerminate ? (
-                                            <button type="button" onClick={handleTerminateClick}
-                                                    className={styles.dangerStateAction}
-                                                    disabled={busyAction === "terminate"}>
-                                                Terminate
-                                            </button>
-                                        ) : null}
-                                        {selectedActionPolicy?.canPass ? (
-                                            <button type="button" onClick={requestPass} disabled={busyAction === "pass"}>
-                                                Pass
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            </header>
-
-                            <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
-
-                            <section className={styles.profileSection} aria-label="Profile & timeline">
-                                <h3>Profile &amp; timeline</h3>
-                                <div className={styles.detailGrid}>
-                                    <DetailItem label="Waitlist time"
-                                                value={formatAdminUtcDate(selectedMentee.waitlistTime)}/>
-                                    <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
-                                    <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
-                                    <DetailItem label="Termination time"
-                                                value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
-                                    <DetailItem label="Mentor" value={getUserName(getAssignedMentorId(selectedMentee))}/>
-                                    <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
-                                    <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
-                                    {selectedMentee.terminationReason ? (
-                                        <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/>
-                                    ) : null}
-                                </div>
-                            </section>
-
-                            <section className={styles.actionsGrid} aria-label="Mentee actions">
-                                {selectedActionPolicy?.canSchedule ? (
-                                    <form className={styles.actionPanel} onSubmit={handleSchedule}>
-                                        <h3>Schedule Session</h3>
-                                        <input
-                                            value={sessionForm.mentorId}
-                                            onChange={event => setSessionForm(prev => ({
-                                                ...prev,
-                                                mentorId: event.target.value
-                                            }))}
-                                            placeholder="Mentor Discord ID (blank for you)"
-                                        />
-                                        <div className={styles.inlineInputs}>
-                                            <input
-                                                value={sessionForm.airport}
-                                                onChange={event => setSessionForm(prev => ({
-                                                    ...prev,
-                                                    airport: event.target.value.toUpperCase()
-                                                }))}
-                                                placeholder="Airport"
-                                                maxLength={5}
-                                                required
-                                            />
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="99"
-                                                value={sessionForm.pilots}
-                                                onChange={event => setSessionForm(prev => ({
-                                                    ...prev,
-                                                    pilots: event.target.value
-                                                }))}
-                                                required
-                                            />
-                                        </div>
-                                        <label className={styles.utcDateTimeLabel}>
-                                            <span>Session time</span>
-                                            <input
-                                                type="datetime-local"
-                                                list="session-time-suggestions"
-                                                value={sessionForm.time}
-                                                onChange={event => setSessionForm(prev => ({
-                                                    ...prev,
-                                                    time: event.target.value
-                                                }))}
-                                                required
-                                            />
-                                            <datalist id="session-time-suggestions">
-                                                {sessionTimeSuggestions.map(value => (
-                                                    <option key={value} value={value}/>
-                                                ))}
-                                            </datalist>
-                                        </label>
-                                        <button type="submit" disabled={busyAction === "schedule"}>Schedule</button>
-                                    </form>
-                                ) : null}
-                            </section>
-
-                            <UserNotesSection
-                                notes={selectedMenteeNotes}
-                                getUserName={getUserName}
-                            />
-
-                            <SessionSection
-                                title="Future Sessions"
-                                sessions={selectedSessions.future}
-                                getUserName={getUserName}
-                                editable
-                                busyAction={busyAction}
-                                attendeeInputs={attendeeInputs}
-                                assignments={assignments}
-                                sessionTimeSuggestions={sessionTimeSuggestions}
-                                onAttendeeInputChange={(sessionId, value) => setAttendeeInputs(prev => ({
-                                    ...prev,
-                                    [sessionId]: value
-                                }))}
-                                onUpdateSession={handleUpdateSession}
-                                onAddAttendee={handleAddAttendee}
-                                onRemoveAttendee={handleRemoveAttendee}
-                                onCancelSession={handleCancelSession}
-                                onOpenAssignmentGenerator={(session, existingAssignment) => setAssignmentSession({
-                                    session,
-                                    existingAssignment
-                                })}
-                            />
-
-                            <SessionSection
-                                title="Past Sessions"
-                                sessions={selectedSessions.past}
-                                getUserName={getUserName}
-                                editable
-                                busyAction={busyAction}
-                                attendeeInputs={attendeeInputs}
-                                assignments={assignments}
-                                sessionTimeSuggestions={sessionTimeSuggestions}
-                                onAttendeeInputChange={(sessionId, value) => setAttendeeInputs(prev => ({
-                                    ...prev,
-                                    [sessionId]: value
-                                }))}
-                                onUpdateSession={handleUpdateSession}
-                                onAddAttendee={handleAddAttendee}
-                                onRemoveAttendee={handleRemoveAttendee}
-                                onCancelSession={handleCancelSession}
-                                onOpenAssignmentGenerator={(session, existingAssignment) => setAssignmentSession({
-                                    session,
-                                    existingAssignment
-                                })}
-                            />
-
-                            <AttendedSessionSection
-                                title="Attended sessions"
-                                sessions={attendedSessions}
-                                getUserName={getUserName}
-                                editable={false}
-                                busyAction={busyAction}
-                                attendeeInputs={attendeeInputs}
-                                assignments={assignments}
-                                sessionTimeSuggestions={sessionTimeSuggestions}
-                                onAttendeeInputChange={(sessionId, value) => setAttendeeInputs(prev => ({
-                                    ...prev,
-                                    [sessionId]: value
-                                }))}
-                                onUpdateSession={handleUpdateSession}
-                                onAddAttendee={handleAddAttendee}
-                                onRemoveAttendee={handleRemoveAttendee}
-                                onCancelSession={handleCancelSession}
-                                onOpenAssignmentGenerator={(session, existingAssignment) => setAssignmentSession({
-                                    session,
-                                    existingAssignment
-                                })}
-                            />
-                        </>
-                    ) : (
-                        <div className={styles.emptyState}>Select a mentee to view their profile.</div>
-                    )}
-                </main>
-
-                {pendingStateAction ? (
-                    <MenteeActionConfirmation
-                        action={pendingStateAction}
-                        onCancel={() => setPendingStateAction(undefined)}
-                        onConfirm={handleStateActionConfirm}
-                    />
-                ) : null}
-
-                {showTerminateModal && (
-                    <div className={styles.modalBackdrop} onClick={() => setShowTerminateModal(false)} onKeyDown={e => {
-                        if (e.key === "Escape") setShowTerminateModal(false);
-                    }}>
-                        <div className={styles.terminateModal} onClick={e => e.stopPropagation()}>
-                            <h3>Terminate Mentee</h3>
-                            <form onSubmit={handleTerminateConfirm}>
-                                <textarea
-                                    value={terminateReason}
-                                    onChange={e => setTerminateReason(e.target.value)}
-                                    placeholder="Reason for termination"
-                                    required
-                                    autoFocus
-                                />
-                                <div className={styles.modalActions}>
-                                    <button type="button" onClick={() => setShowTerminateModal(false)}>Cancel</button>
-                                    <button type="submit" disabled={busyAction === "terminate"}>Confirm Terminate
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-            </div>
             {assignmentSession && selectedMentee ? (
                 <AssignmentGeneratorModal
                     token={token}
@@ -703,6 +499,342 @@ const AdminMentees = ({
                 />
             ) : null}
         </div>
+    );
+};
+
+interface MenteeListPageProps {
+    pagination: PaginationResult<AdminMentee>;
+    filter: string;
+    mentorFilter: MentorFilter;
+    view: MenteeView;
+    adminUser: AdminUser | undefined;
+    getUserName: (id?: string) => string;
+    onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    onMentorFilterChange: (value: string) => void;
+    onViewChange: (view: MenteeView) => void;
+    onClearFilters: () => void;
+    onOpenMentee: (id: number) => void;
+}
+
+const MenteeListPage = ({
+                            pagination,
+                            filter,
+                            mentorFilter,
+                            view,
+                            adminUser,
+                            getUserName,
+                            onSearchChange,
+                            onMentorFilterChange,
+                            onViewChange,
+                            onClearFilters,
+                            onOpenMentee,
+                        }: MenteeListPageProps) => {
+    const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all";
+    return (
+        <main className={styles.menteesListPage} aria-labelledby="mentees-page-title">
+            <header className={styles.menteesPageHeader}>
+                <div>
+                    <h2 id="mentees-page-title">Mentees</h2>
+                    <p>Browse the mentorship queue, check ownership, and open a full profile when you need to take action.</p>
+                </div>
+                <div className={styles.menteesPageCount}>
+                    <strong>{pagination.totalItems}</strong>
+                    <span>{pagination.totalItems === 1 ? "mentee" : "mentees"} shown</span>
+                </div>
+            </header>
+
+            <section className={styles.menteesToolbar} aria-label="Mentee filters and view options">
+                <label className={styles.filterField} htmlFor="mentee-search">
+                    <span>Search</span>
+                    <input
+                        id="mentee-search"
+                        value={filter}
+                        onChange={onSearchChange}
+                        placeholder="Name, Discord ID, IFC, recruiter..."
+                    />
+                </label>
+                <label className={styles.filterField} htmlFor="mentor-filter">
+                    <span>Mentor</span>
+                    <select id="mentor-filter" value={mentorFilter} onChange={event => onMentorFilterChange(event.target.value)}>
+                        <option value="all">All mentees</option>
+                        <option value="mine" disabled={!adminUser}>My mentees</option>
+                        <option value="waitlist">Unassigned waitlist</option>
+                    </select>
+                </label>
+                <div className={styles.viewSwitcher} role="group" aria-label="Mentee list view">
+                    <button type="button" aria-pressed={view === "cards"} className={view === "cards" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("cards")}>Cards</button>
+                    <button type="button" aria-pressed={view === "table"} className={view === "table" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("table")}>Table</button>
+                </div>
+            </section>
+
+            <div className={styles.menteesListMeta}>
+                <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
+                {hasFilters ? (
+                    <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                ) : null}
+            </div>
+
+            {pagination.paginatedItems.length > 0 ? (
+                view === "cards" ? (
+                    <div className={styles.menteesCardGrid} aria-label="Mentees in card view">
+                        {pagination.paginatedItems.map(mentee => (
+                            <MenteeCard key={mentee.id} mentee={mentee} getUserName={getUserName} onOpen={onOpenMentee}/>
+                        ))}
+                    </div>
+                ) : (
+                    <MenteeTable mentees={pagination.paginatedItems} getUserName={getUserName} onOpen={onOpenMentee}/>
+                )
+            ) : (
+                <div className={styles.menteesEmptyState}>
+                    <h3>No mentees match these filters</h3>
+                    <p>Try a broader search or clear the filters to see the full queue.</p>
+                    <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                </div>
+            )}
+
+            <AdminPagination
+                {...pagination}
+                totalItems={pagination.totalItems}
+                className={styles.menteesPagination}
+            />
+        </main>
+    );
+};
+
+const MenteeCard = ({mentee, getUserName, onOpen}: {mentee: AdminMentee; getUserName: (id?: string) => string; onOpen: (id: number) => void}) => (
+    <button type="button" className={styles.menteeCard} onClick={() => onOpen(mentee.id)}>
+        <span className={styles.menteeCardHeader}>
+            <span>
+                <strong>{getUserName(mentee.mentee)}</strong>
+                <small>Record #{mentee.id}</small>
+            </span>
+            <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
+        </span>
+        <span className={styles.menteeCardDetails}>
+            <span><small>Mentor</small><strong>{getUserName(getAssignedMentorId(mentee))}</strong></span>
+            <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
+            <span><small>IFC</small><strong>{formatIfcDisplay(mentee)}</strong></span>
+            <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
+        </span>
+        <span className={styles.menteeCardFooter}>
+            <span>Joined {formatAdminUtcDate(mentee.waitlistTime)}</span>
+            <span>Open profile</span>
+        </span>
+    </button>
+);
+
+const MenteeTable = ({mentees, getUserName, onOpen}: {mentees: AdminMentee[]; getUserName: (id?: string) => string; onOpen: (id: number) => void}) => (
+    <div className={styles.menteesTableWrap}>
+        <table className={styles.menteesTable}>
+            <caption className={styles.visuallyHidden}>Mentee records</caption>
+            <thead>
+            <tr>
+                <th scope="col">Mentee</th>
+                <th scope="col">Status</th>
+                <th scope="col">Mentor</th>
+                <th scope="col">Recruiter</th>
+                <th scope="col">IFC</th>
+                <th scope="col">Sessions</th>
+                <th scope="col"><span className={styles.visuallyHidden}>Profile</span></th>
+            </tr>
+            </thead>
+            <tbody>
+            {mentees.map(mentee => (
+                <tr key={mentee.id}>
+                    <th scope="row">
+                        <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
+                            <strong>{getUserName(mentee.mentee)}</strong>
+                            <small>#{mentee.id} · {formatAdminUtcDate(mentee.waitlistTime)}</small>
+                        </button>
+                    </th>
+                    <td><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
+                    <td>{getUserName(getAssignedMentorId(mentee))}</td>
+                    <td>{mentee.recruiter || "Not set"}</td>
+                    <td>{formatIfcDisplay(mentee)}</td>
+                    <td>{mentee.sessions.length}</td>
+                    <td><button type="button" className={styles.tableOpenButton} onClick={() => onOpen(mentee.id)}>Open</button></td>
+                </tr>
+            ))}
+            </tbody>
+        </table>
+    </div>
+);
+
+interface MenteeProfilePageProps {
+    selectedMentee: AdminMentee | undefined;
+    getUserName: (id?: string) => string;
+    onBack: () => void;
+    actionError: string | undefined;
+    onDismissActionError: () => void;
+    selectedActionPolicy: MenteeActionPolicy | undefined;
+    busyAction: string | undefined;
+    onPickup: () => void;
+    onTerminate: () => void;
+    onPass: () => void;
+    selectedSessions: {future: Session[]; past: Session[]};
+    attendedSessions: Session[];
+    selectedMenteeNotes: UserNote[];
+    sessionForm: SessionFormState;
+    onSessionFormChange: (changes: Partial<SessionFormState>) => void;
+    sessionTimeSuggestions: string[];
+    onSchedule: (event: FormEvent) => void;
+    attendeeInputs: Record<string, string>;
+    assignments: AdminAssignment[];
+    onAttendeeInputChange: (sessionId: number, value: string) => void;
+    onUpdateSession: (sessionId: number, form: SessionEditForm) => Promise<Session | undefined>;
+    onAddAttendee: (event: FormEvent, sessionId: number) => Promise<Session | undefined>;
+    onRemoveAttendee: (sessionId: number, attendeeId: string) => Promise<Session | undefined>;
+    onCancelSession: (sessionId: number) => Promise<Session | undefined>;
+    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
+}
+
+const MenteeProfilePage = ({
+                              selectedMentee,
+                              getUserName,
+                              onBack,
+                              actionError,
+                              onDismissActionError,
+                              selectedActionPolicy,
+                              busyAction,
+                              onPickup,
+                              onTerminate,
+                              onPass,
+                              selectedSessions,
+                              attendedSessions,
+                              selectedMenteeNotes,
+                              sessionForm,
+                              onSessionFormChange,
+                              sessionTimeSuggestions,
+                              onSchedule,
+                              attendeeInputs,
+                              assignments,
+                              onAttendeeInputChange,
+                              onUpdateSession,
+                              onAddAttendee,
+                              onRemoveAttendee,
+                              onCancelSession,
+                              onOpenAssignmentGenerator,
+                          }: MenteeProfilePageProps) => {
+    if (!selectedMentee) {
+        return (
+            <main className={styles.profileNotFound}>
+                <button type="button" className={styles.profileBackButton} onClick={onBack}>Back to mentees</button>
+                <h2>Mentee not found</h2>
+                <p>This mentee record may have been removed or you may not have access to it.</p>
+            </main>
+        );
+    }
+
+    return (
+        <main className={styles.profilePage} aria-labelledby="mentee-profile-title">
+            <div className={styles.profileBreadcrumb}>
+                <button type="button" className={styles.profileBackButton} onClick={onBack}>Back to mentees</button>
+                <span aria-hidden="true">/</span>
+                <span>Mentee profile</span>
+            </div>
+            <header className={styles.profileHeader}>
+                <div className={styles.profileIdentity}>
+                    <div className={styles.profileTitleRow}>
+                        <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee)}</h2>
+                        <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
+                    </div>
+                    <p>Record #{selectedMentee.id} · {formatIfcDisplay(selectedMentee)}</p>
+                </div>
+                <div className={styles.profileActionButtons}>
+                    {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}>Pick up</button> : null}
+                    {selectedActionPolicy?.canTerminate ? <button type="button" className={styles.dangerStateAction} onClick={onTerminate} disabled={busyAction === "terminate"}>Terminate</button> : null}
+                    {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}>Pass</button> : null}
+                </div>
+            </header>
+
+            <AdminToast message={actionError} onDismiss={onDismissActionError}/>
+
+            <section className={styles.profileSection} aria-label="Profile & timeline">
+                <div className={styles.sectionHeading}>
+                    <div><h3>Profile &amp; timeline</h3><p>Key ownership and lifecycle details for this mentorship record.</p></div>
+                </div>
+                <div className={styles.detailGrid}>
+                    <DetailItem label="Waitlist time" value={formatAdminUtcDate(selectedMentee.waitlistTime)}/>
+                    <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
+                    <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
+                    <DetailItem label="Termination time" value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
+                    <DetailItem label="Mentor" value={getUserName(getAssignedMentorId(selectedMentee))}/>
+                    <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
+                    <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
+                    {selectedMentee.terminationReason ? <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/> : null}
+                </div>
+            </section>
+
+            {selectedActionPolicy?.canSchedule ? (
+                <section className={styles.actionsGrid} aria-label="Mentee actions">
+                    <form className={styles.actionPanel} onSubmit={onSchedule}>
+                        <h3>Schedule session</h3>
+                        <p className={styles.actionPanelDescription}>Create the next practical session for this mentee.</p>
+                        <input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Mentor Discord ID (blank for you)"/>
+                        <div className={styles.inlineInputs}>
+                            <input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="Airport" maxLength={5} required/>
+                            <input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/>
+                        </div>
+                        <label className={styles.utcDateTimeLabel}>
+                            <span>Session time</span>
+                            <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
+                            <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
+                        </label>
+                        <button type="submit" disabled={busyAction === "schedule"}>Schedule session</button>
+                    </form>
+                </section>
+            ) : null}
+
+            <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
+            <SessionSection
+                title="Future Sessions"
+                sessions={selectedSessions.future}
+                getUserName={getUserName}
+                editable
+                busyAction={busyAction}
+                attendeeInputs={attendeeInputs}
+                assignments={assignments}
+                sessionTimeSuggestions={sessionTimeSuggestions}
+                onAttendeeInputChange={onAttendeeInputChange}
+                onUpdateSession={onUpdateSession}
+                onAddAttendee={onAddAttendee}
+                onRemoveAttendee={onRemoveAttendee}
+                onCancelSession={onCancelSession}
+                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
+            />
+            <SessionSection
+                title="Past Sessions"
+                sessions={selectedSessions.past}
+                getUserName={getUserName}
+                editable
+                busyAction={busyAction}
+                attendeeInputs={attendeeInputs}
+                assignments={assignments}
+                sessionTimeSuggestions={sessionTimeSuggestions}
+                onAttendeeInputChange={onAttendeeInputChange}
+                onUpdateSession={onUpdateSession}
+                onAddAttendee={onAddAttendee}
+                onRemoveAttendee={onRemoveAttendee}
+                onCancelSession={onCancelSession}
+                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
+            />
+            <AttendedSessionSection
+                title="Attended sessions"
+                sessions={attendedSessions}
+                getUserName={getUserName}
+                editable={false}
+                busyAction={busyAction}
+                attendeeInputs={attendeeInputs}
+                assignments={assignments}
+                sessionTimeSuggestions={sessionTimeSuggestions}
+                onAttendeeInputChange={onAttendeeInputChange}
+                onUpdateSession={onUpdateSession}
+                onAddAttendee={onAddAttendee}
+                onRemoveAttendee={onRemoveAttendee}
+                onCancelSession={onCancelSession}
+                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
+            />
+        </main>
     );
 };
 

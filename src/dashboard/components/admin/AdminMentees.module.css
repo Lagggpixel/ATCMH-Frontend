@@ -1,8 +1,8 @@
 .adminMenteesContainer {
-    max-width: 1400px;
+    max-width: 1480px;
     margin: 0 auto;
-    padding: 20px;
-    min-height: calc(100dvh - 40px);
+    padding: clamp(18px, 2.8vw, 36px);
+    min-height: calc(100dvh - 73px);
 }
 
 .adminMenteesLayout {
@@ -1469,6 +1469,580 @@
     }
 
     .sessionRowActions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Mentee index and profile pages --- */
+.visuallyHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.menteesListPage,
+.profilePage {
+    display: grid;
+    gap: 22px;
+    min-width: 0;
+}
+
+.menteesPageHeader {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.menteesPageHeader h2,
+.profileHeader h2 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: clamp(1.65rem, 3vw, 2.25rem);
+    letter-spacing: -0.035em;
+}
+
+.menteesPageHeader p {
+    max-width: 640px;
+    margin: 8px 0 0;
+    color: var(--muted-text);
+    line-height: 1.55;
+}
+
+.menteesPageCount {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 2px;
+    min-width: 110px;
+    padding-left: 22px;
+    border-left: 1px solid var(--border-color);
+    text-align: right;
+}
+
+.menteesPageCount strong {
+    color: var(--text-color);
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.menteesPageCount span,
+.menteesListMeta,
+.profileBreadcrumb,
+.profileIdentity p {
+    color: var(--muted-text);
+    font-size: 0.86rem;
+}
+
+.menteesToolbar {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.55fr) minmax(170px, 0.8fr) auto;
+    gap: 14px;
+    align-items: end;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-color) 82%, transparent);
+}
+
+.filterField {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+}
+
+.filterField > span {
+    color: var(--muted-text);
+    font-size: 0.78rem;
+    font-weight: 750;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+.filterField input,
+.filterField select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.92rem;
+}
+
+.filterField input::placeholder {
+    color: color-mix(in srgb, var(--muted-text) 76%, transparent);
+}
+
+.viewSwitcher {
+    display: inline-flex;
+    min-height: 42px;
+    padding: 3px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    background: var(--input-bg);
+}
+
+.viewSwitcher button {
+    min-width: 78px;
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted-text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 750;
+}
+
+.viewSwitcher button:hover,
+.viewButtonActive {
+    background: var(--surface-3-color) !important;
+    color: var(--text-color) !important;
+}
+
+.menteesListMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 28px;
+}
+
+.menteesCardGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 14px;
+}
+
+.menteeCard {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--surface-color);
+    color: var(--text-color);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.menteeCard:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 72%, var(--border-color));
+    background: var(--surface-2-color);
+    transform: translateY(-2px);
+}
+
+.menteeCard:focus-visible,
+.tableMenteeButton:focus-visible,
+.tableOpenButton:focus-visible,
+.profileBackButton:focus-visible {
+    outline: 3px solid #9bbcff;
+    outline-offset: 2px;
+}
+
+.menteeCardHeader,
+.menteeCardFooter,
+.profileBreadcrumb,
+.profileHeader,
+.profileTitleRow {
+    display: flex;
+    align-items: center;
+}
+
+.menteeCardHeader,
+.menteeCardFooter,
+.profileHeader {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.menteeCardHeader > span:first-child {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.menteeCardHeader strong {
+    overflow: hidden;
+    color: var(--text-color);
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.menteeCardHeader small,
+.menteeCardDetails small,
+.menteeCardFooter,
+.tableMenteeButton small {
+    color: var(--muted-text);
+    font-size: 0.78rem;
+}
+
+.menteeCardDetails {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding: 14px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.menteeCardDetails > span {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.menteeCardDetails small {
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.menteeCardDetails strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.menteeCardFooter {
+    align-items: baseline;
+}
+
+.menteeCardFooter span:last-child {
+    color: var(--accent-strong-color);
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+.menteesTableWrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--surface-color);
+}
+
+.menteesTable {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.menteesTable th,
+.menteesTable td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.menteesTable th {
+    color: var(--muted-text);
+    font-size: 0.76rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.menteesTable thead th {
+    background: var(--surface-2-color);
+}
+
+.menteesTable thead th:nth-child(1) { width: 24%; }
+.menteesTable thead th:nth-child(2) { width: 14%; }
+.menteesTable thead th:nth-child(3) { width: 17%; }
+.menteesTable thead th:nth-child(4) { width: 16%; }
+.menteesTable thead th:nth-child(5) { width: 16%; }
+.menteesTable thead th:nth-child(6) { width: 9%; }
+.menteesTable thead th:nth-child(7) { width: 9%; }
+
+.menteesTable tbody tr:last-child th,
+.menteesTable tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.menteesTable tbody tr:hover th,
+.menteesTable tbody tr:hover td {
+    background: var(--surface-2-color);
+}
+
+.tableMenteeButton {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.tableMenteeButton strong {
+    color: var(--accent-strong-color);
+}
+
+.tableOpenButton {
+    min-height: 32px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+.tableOpenButton:hover {
+    border-color: var(--accent-color);
+    background: var(--surface-3-color);
+}
+
+.menteesEmptyState,
+.profileNotFound {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 56px 24px;
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-color) 64%, transparent);
+    text-align: center;
+}
+
+.menteesEmptyState h3,
+.profileNotFound h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.menteesEmptyState p,
+.profileNotFound p {
+    max-width: 480px;
+    margin: 0 0 10px;
+    color: var(--muted-text);
+    line-height: 1.5;
+}
+
+.menteesPagination {
+    margin-top: -2px;
+}
+
+.profilePage {
+    width: min(1080px, 100%);
+    margin: 0 auto;
+}
+
+.profileBreadcrumb {
+    gap: 9px;
+    min-height: 32px;
+}
+
+.profileBackButton {
+    min-height: 34px;
+    padding: 6px 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 750;
+}
+
+.profileBackButton:hover {
+    border-color: var(--accent-color);
+    background: var(--surface-3-color);
+}
+
+.profileHeader {
+    align-items: end;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profileIdentity {
+    min-width: 0;
+}
+
+.profileTitleRow {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+.profileIdentity p {
+    margin: 8px 0 0;
+}
+
+.profileActionButtons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 8px;
+}
+
+.profileActionButtons button {
+    min-height: 36px;
+    padding: 7px 13px;
+    border: 1px solid var(--accent-color);
+    border-radius: 7px;
+    background: var(--accent-color);
+    color: #111;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 750;
+}
+
+.profileActionButtons button:hover {
+    border-color: var(--accent-strong-color);
+    background: var(--accent-strong-color);
+}
+
+.profileActionButtons button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.profileActionButtons .dangerStateAction {
+    border-color: var(--error-color);
+    background: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.profileActionButtons .dangerStateAction:hover {
+    border-color: var(--error-color);
+    background: color-mix(in srgb, var(--error-color) 30%, var(--surface-color));
+    color: var(--text-color);
+}
+
+.profilePage .profileSection {
+    margin-top: 2px;
+    padding-top: 4px;
+}
+
+.sectionHeading {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.sectionHeading h3 {
+    margin: 0;
+    font-size: 1.08rem;
+}
+
+.sectionHeading p {
+    margin: 5px 0 0;
+    color: var(--muted-text);
+    font-size: 0.86rem;
+}
+
+.profilePage .detailGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 24px;
+}
+
+.profilePage .actionsGrid {
+    margin-top: 2px;
+}
+
+.actionPanelDescription {
+    margin: -2px 0 2px;
+    color: var(--muted-text);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+    .menteesToolbar {
+        grid-template-columns: minmax(0, 1fr) minmax(170px, 0.75fr);
+    }
+
+    .viewSwitcher {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .profilePage .detailGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .adminMenteesContainer {
+        padding: 16px 12px 24px;
+    }
+
+    .menteesPageHeader,
+    .profileHeader {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .menteesPageCount {
+        grid-auto-flow: column;
+        align-items: baseline;
+        gap: 8px;
+        padding-left: 0;
+        border-left: 0;
+        text-align: left;
+    }
+
+    .menteesToolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .viewSwitcher {
+        grid-column: auto;
+        width: 100%;
+    }
+
+    .viewSwitcher button {
+        flex: 1;
+    }
+
+    .menteesListMeta {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .menteesCardGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .profileActionButtons {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .profileActionButtons button {
+        flex: 1;
+    }
+
+    .profilePage .detailGrid {
         grid-template-columns: 1fr;
     }
 }
