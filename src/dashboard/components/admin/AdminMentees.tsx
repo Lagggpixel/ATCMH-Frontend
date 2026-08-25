@@ -531,28 +531,25 @@ const MenteeListPage = ({
                         }: MenteeListPageProps) => {
     const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all";
     return (
-        <main className={styles.menteesListPage} aria-labelledby="mentees-page-title">
-            <header className={styles.menteesPageHeader}>
-                <div>
-                    <h2 id="mentees-page-title">Mentees</h2>
-                    <p>Browse the mentorship queue, check ownership, and open a full profile when you need to take action.</p>
-                </div>
-                <div className={styles.menteesPageCount}>
-                    <strong>{pagination.totalItems}</strong>
-                    <span>{pagination.totalItems === 1 ? "mentee" : "mentees"} shown</span>
-                </div>
-            </header>
-
+        <main className={styles.menteesListPage} aria-label="Mentees">
             <section className={styles.menteesToolbar} aria-label="Mentee filters and view options">
-                <label className={styles.filterField} htmlFor="mentee-search">
-                    <span>Search</span>
+                <div className={styles.filterField}>
+                    <div className={styles.filterFieldHeader}>
+                        <label className={styles.filterFieldLabel} htmlFor="mentee-search">Search</label>
+                        <div className={styles.filterFieldMeta}>
+                            <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
+                            {hasFilters ? (
+                                <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                            ) : null}
+                        </div>
+                    </div>
                     <input
                         id="mentee-search"
                         value={filter}
                         onChange={onSearchChange}
                         placeholder="Name, Discord ID, IFC, recruiter..."
                     />
-                </label>
+                </div>
                 <label className={styles.filterField} htmlFor="mentor-filter">
                     <span>Mentor</span>
                     <select id="mentor-filter" value={mentorFilter} onChange={event => onMentorFilterChange(event.target.value)}>
@@ -566,13 +563,6 @@ const MenteeListPage = ({
                     <button type="button" aria-pressed={view === "table"} className={view === "table" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("table")}>Table</button>
                 </div>
             </section>
-
-            <div className={styles.menteesListMeta}>
-                <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
-                {hasFilters ? (
-                    <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
-                ) : null}
-            </div>
 
             {pagination.paginatedItems.length > 0 ? (
                 view === "cards" ? (
@@ -611,7 +601,7 @@ const MenteeCard = ({mentee, getUserName, onOpen}: {mentee: AdminMentee; getUser
             <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
         </span>
         <span className={styles.menteeCardDetails}>
-            <span><small>Mentor</small><strong>{getUserName(getAssignedMentorId(mentee))}</strong></span>
+            <span><small>Mentor</small><strong>{getMentorDisplayName(mentee, getUserName)}</strong></span>
             <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
             <span><small>IFC</small><strong>{formatIfcDisplay(mentee)}</strong></span>
             <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
@@ -648,7 +638,7 @@ const MenteeTable = ({mentees, getUserName, onOpen}: {mentees: AdminMentee[]; ge
                         </button>
                     </th>
                     <td><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
-                    <td>{getUserName(getAssignedMentorId(mentee))}</td>
+                    <td>{getMentorDisplayName(mentee, getUserName)}</td>
                     <td>{mentee.recruiter || "Not set"}</td>
                     <td>{formatIfcDisplay(mentee)}</td>
                     <td>{mentee.sessions.length}</td>
@@ -758,7 +748,7 @@ const MenteeProfilePage = ({
                     <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
                     <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
                     <DetailItem label="Termination time" value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
-                    <DetailItem label="Mentor" value={getUserName(getAssignedMentorId(selectedMentee))}/>
+                    <DetailItem label="Mentor" value={getMentorDisplayName(selectedMentee, getUserName)}/>
                     <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
                     <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
                     {selectedMentee.terminationReason ? <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/> : null}
@@ -1755,6 +1745,11 @@ const getMenteeSessionCount = (mentee: AdminMentee, session: Session) => {
 };
 
 const getAssignedMentorId = (mentee: AdminMentee) => mentee.practicalMentor ?? mentee.writtenMentor;
+
+const getMentorDisplayName = (mentee: AdminMentee, getUserName: (id?: string) => string) => {
+    const mentorId = getAssignedMentorId(mentee);
+    return mentorId ? getUserName(mentorId) : "None";
+};
 
 const getUserNameFromMap = (usersById: Map<string, AtcmhUser>, id: string) => {
     const user = usersById.get(id);

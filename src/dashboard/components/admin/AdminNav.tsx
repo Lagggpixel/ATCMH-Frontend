@@ -1,3 +1,4 @@
+import {type MouseEvent} from "react";
 import {useLocation, Link} from "@/src/dashboard/next-navigation";
 import styles from "./AdminNav.module.css";
 import type {AdminUser} from "../../types/AdminUser.ts";
@@ -5,23 +6,38 @@ import {adminNavigationGroups} from "./AdminNavigation.ts";
 
 interface AdminNavProps {
     adminUser?: AdminUser;
+    embedded?: boolean;
 }
 
 const EXAM_CENTER_ENABLED = true;
 
-const AdminNav = ({adminUser}: AdminNavProps) => {
+const supportsDesktopHover = () => typeof window !== "undefined"
+    && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+const openNavDropdownOnHover = (event: MouseEvent<HTMLDetailsElement>) => {
+    if (supportsDesktopHover()) event.currentTarget.open = true;
+};
+
+const closeNavDropdownOnLeave = (event: MouseEvent<HTMLDetailsElement>) => {
+    if (supportsDesktopHover()) event.currentTarget.open = false;
+};
+
+const AdminNav = ({adminUser, embedded = false}: AdminNavProps) => {
     const location = useLocation();
     const navGroups = adminNavigationGroups(adminUser, EXAM_CENTER_ENABLED);
 
-    return (
-        <header className={styles.adminHeader}>
-            <nav className={styles.adminNav} aria-label="Dashboard sections">
+    const navigation = <nav className={`${styles.adminNav} ${embedded ? styles.adminNavEmbedded : ""}`} aria-label="Dashboard sections">
                 {navGroups.map(group => {
                     const groupId = `dashboard-nav-${group.label.toLowerCase()}`;
                     const menuId = `${groupId}-menu`;
                     const hasActiveItem = group.items.some(item => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`));
                     return (
-                        <details key={group.label} className={`${styles.adminNavDropdown} ${hasActiveItem ? styles.adminNavDropdownActive : ""}`}>
+                        <details
+                            key={group.label}
+                            className={`${styles.adminNavDropdown} ${hasActiveItem ? styles.adminNavDropdownActive : ""}`}
+                            onMouseEnter={openNavDropdownOnHover}
+                            onMouseLeave={closeNavDropdownOnLeave}
+                        >
                             <summary id={groupId} className={styles.adminNavDropdownSummary} aria-controls={menuId}>{group.label}</summary>
                             <div id={menuId} className={styles.adminNavDropdownMenu} aria-labelledby={groupId}>
                                 {group.sections.map((section, sectionIndex) => (
@@ -39,9 +55,9 @@ const AdminNav = ({adminUser}: AdminNavProps) => {
                         </details>
                     );
                 })}
-            </nav>
-        </header>
-    );
+            </nav>;
+
+    return embedded ? navigation : <header className={styles.adminHeader}>{navigation}</header>;
 };
 
 export default AdminNav;

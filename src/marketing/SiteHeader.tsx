@@ -31,7 +31,7 @@ function UserMenu({showDashboard, onLogout}: {showDashboard: boolean; onLogout: 
   </details>;
 }
 
-function AuthNavigation({showLogin}: {showLogin: boolean}) {
+export function AuthNavigation({showLogin}: {showLogin: boolean}) {
   const {session, adminUser, loading, error, logout} = usePortalAuth();
   const state = headerAuthState({loading, hasDashboardSession: Boolean(session), hasAdminPermission: Boolean(adminUser), dashboardUnavailable: Boolean(error), hasExamsSession: false});
   if (state === "loading") return <span className="nav-auth-loading" aria-label="Checking account"/>;

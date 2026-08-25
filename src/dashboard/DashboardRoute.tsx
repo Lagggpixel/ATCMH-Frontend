@@ -58,7 +58,7 @@ export default function DashboardRoute() {
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
     }
     return <DashboardNavigationProvider params={"params" in route ? route.params : undefined}>
-        <DashboardWorkspace adminUser={state.loaded ? state.adminUser : undefined} label={screenLabels[route.screen]}>
+        <DashboardWorkspace label={screenLabels[route.screen]}>
             {content}
         </DashboardWorkspace>
     </DashboardNavigationProvider>;

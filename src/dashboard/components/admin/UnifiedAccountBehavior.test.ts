@@ -19,7 +19,7 @@ test("mock question navigation follows its dedicated server capability", () => {
     assert.equal(adminNavigationItems(user({canManageMockQuestions: true}), false).some(item => item.path === "/dashboard/mock-questions"), true);
 });
 
-test("dashboard navigation keeps mentorship, assessment, and administration grouped", () => {
+test("dashboard navigation keeps mentorship, assessment, and administration grouped without nested assessment labels", () => {
     const groups = adminNavigationGroups(user({canManageMockQuestions: true, canManageApplicationQuestions: true, canManageAccounts: true, canReviewAltAccounts: true, canViewAuditLogs: true}), true);
     assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Administration"]);
     assert.deepEqual(groups.map(group => group.items.map(item => item.label)), [
@@ -27,8 +27,13 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
         ["Mock Questions", "Application Questions", "Exam Center", "Course Center"],
         ["Statistics", "Accounts", "Alternative Evidence", "Audit Logs"],
     ]);
-    assert.deepEqual(groups[1].sections.map(section => section.label), ["Exams", "Courses"]);
-    assert.deepEqual(groups[1].sections[1].items, [{path: "/dashboard/exams/courses", label: "Course Center"}]);
+    assert.deepEqual(groups[1].sections.map(section => section.label), [undefined]);
+    assert.deepEqual(groups[1].sections[0].items, [
+        {path: "/dashboard/mock-questions", label: "Mock Questions"},
+        {path: "/dashboard/application-questions", label: "Application Questions"},
+        {path: "/dashboard/exams", label: "Exam Center"},
+        {path: "/dashboard/exams/courses", label: "Course Center"},
+    ]);
     assert.deepEqual(adminNavigationItems(user(), false).map(item => item.path), [
         "/dashboard/mentees", "/dashboard/assignments", "/dashboard/sessions", "/dashboard/usernotes", "/dashboard/manual", "/dashboard/stats",
     ]);
