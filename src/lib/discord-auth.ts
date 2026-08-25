@@ -2,7 +2,7 @@ import { type ManagementCapability } from "./permissions";
 import { csrfMatches, examsSessionCookie, introspectCentralSession } from "./central-auth";
 import { allowedMutationOrigins } from "./browser-session";
 
-const mentorCapabilities: ManagementCapability[] = ["manage-exams", "import-exams", "unlock-learners", "review-attempts"];
+const mentorCapabilities: ManagementCapability[] = ["manage-exams", "manage-courses", "import-exams", "unlock-learners", "review-attempts"];
 const administratorCapabilities: ManagementCapability[] = [...mentorCapabilities, "publish-exams", "manage-taxonomy", "manage-system"];
 
 export interface AuthorizedManager {

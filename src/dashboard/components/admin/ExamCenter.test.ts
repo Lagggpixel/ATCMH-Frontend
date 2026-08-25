@@ -31,7 +31,7 @@ const attemptManagerSource = readFileSync(join(currentDir, "ExamAttemptManager.t
 const attemptReviewSource = readFileSync(join(currentDir, "ExamAttemptReview.tsx"), "utf8");
 
 test("exam management uses dedicated catalog, editor, import, and website routes", () => {
-    for (const view of ["catalog", "create", "edit", "import", "unlocks", "website", "attempts", "attempt-review"]) {
+    for (const view of ["catalog", "create", "edit", "import", "unlocks", "website", "attempts", "attempt-review", "courses", "course-create", "course-edit", "course-preview", "course-stats"]) {
         assert.match(appSource, new RegExp(`view: "${view}"`));
     }
     assert.match(appSource, /params: \{examId:/);
@@ -103,6 +103,8 @@ test("direct exam workspaces centralize authorization and show access denied loc
     assert.equal(canAccessExamCenterView("attempt-review", reviewer), true);
     assert.equal(canAccessExamCenterView("attempts", viewer), false);
     assert.equal(canAccessExamCenterView("attempt-review", viewer), false);
+    assert.equal(canAccessExamCenterView("course-preview", mentor), false);
+    assert.equal(canAccessExamCenterView("course-preview", {discordId: "course-manager", canManageAll: false, capabilities: ["manage-courses"]}), true);
     assert.match(centerSource, /You do not have access to this\s+Exam Center workspace\./);
     assert.match(centerSource, /to="\/dashboard\/exams"/);
 });
@@ -173,6 +175,7 @@ test("attempt review uses the immutable stored review and provides a back route"
 
 test("exam navigation and empty unlock copy use the approved wording", () => {
     assert.match(centerSource, />Quizzes<\/NavLink>/);
+    assert.match(centerSource, />Courses<\/NavLink>/);
     assert.match(unlockManagerSource, /Public quizzes do not require learner unlocks\./);
 });
 
