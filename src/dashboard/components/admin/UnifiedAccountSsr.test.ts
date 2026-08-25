@@ -51,7 +51,7 @@ test("actual capability navigation includes privileged routes only for capable u
     const base = {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false};
     assert.doesNotMatch(inRouter(React.createElement(AdminNav,{adminUser:base}),"/dashboard"), />Accounts</);
     const privileged = inRouter(React.createElement(AdminNav,{adminUser:{...base,canManageAccounts:true,canReviewAltAccounts:true}}),"/dashboard");
-    assert.match(privileged, />Accounts</); assert.match(privileged, /Alt Evidence/);
+    assert.match(privileged, />Accounts</); assert.match(privileged, /Alternative Evidence/);
 });
 
 test("admin navigation uses compact integrated tabs", async () => {

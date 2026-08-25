@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {adminNavigationItems} from "./AdminNavigation.ts";
+import {adminNavigationGroups, adminNavigationItems} from "./AdminNavigation.ts";
 import {accountPageState, accountStatusLabel} from "../account/AccountPageState.ts";
 import type {AdminUser} from "../../types/AdminUser.ts";
 import {impersonationBannerText} from "../account/ImpersonationState.ts";
@@ -17,6 +17,19 @@ test("account and alt navigation outcomes follow server capabilities", () => {
 test("mock question navigation follows its dedicated server capability", () => {
     assert.equal(adminNavigationItems(user(), false).some(item => item.path === "/dashboard/mock-questions"), false);
     assert.equal(adminNavigationItems(user({canManageMockQuestions: true}), false).some(item => item.path === "/dashboard/mock-questions"), true);
+});
+
+test("dashboard navigation keeps mentorship, assessment, and administration grouped", () => {
+    const groups = adminNavigationGroups(user({canManageMockQuestions: true, canManageApplicationQuestions: true, canManageAccounts: true, canReviewAltAccounts: true, canViewAuditLogs: true}), true);
+    assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Administration"]);
+    assert.deepEqual(groups.map(group => group.items.map(item => item.label)), [
+        ["Mentees", "Assignments", "Sessions", "User Notes", "Mentor Manual"],
+        ["Mock Questions", "Application Questions", "Exam Center"],
+        ["Statistics", "Accounts", "Alternative Evidence", "Audit Logs"],
+    ]);
+    assert.deepEqual(adminNavigationItems(user(), false).map(item => item.path), [
+        "/dashboard/mentees", "/dashboard/assignments", "/dashboard/sessions", "/dashboard/usernotes", "/dashboard/manual", "/dashboard/stats",
+    ]);
 });
 
 test("impersonation outcome names the target account", () => assert.equal(impersonationBannerText("42"), "Impersonating account 42"));
