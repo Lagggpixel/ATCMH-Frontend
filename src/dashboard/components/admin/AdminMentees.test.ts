@@ -9,28 +9,37 @@ const componentSource = readFileSync(join(currentDir, "AdminMentees.tsx"), "utf8
 const stylesSource = readFileSync(join(currentDir, "AdminMentees.module.css"), "utf8");
 const paginationSource = readFileSync(join(currentDir, "AdminPagination.tsx"), "utf8");
 
-test("mentee workspace uses a dedicated list sidebar without a summary strip", () => {
-    assert.doesNotMatch(componentSource, /aria-label="Mentee overview"/);
-    assert.match(stylesSource, /\.adminMenteesLayout\s*\{[^}]*grid-template-columns:\s*minmax\(300px, 340px\)\s+minmax\(0, 1fr\);/s);
-    assert.match(stylesSource, /\.menteeListPanel\s*\{[^}]*height:\s*calc\(100dvh - 73px\);[^}]*border-right:\s*1px solid var\(--border-color\);/s);
-    assert.match(componentSource, /menteeStateBadge/);
-    assert.match(componentSource, /stateBadge/);
-    assert.match(componentSource, /Profile &amp; timeline/);
+test("mentee index separates cards/table views from the profile route", () => {
+    assert.match(componentSource, /const MenteeListPage/);
+    assert.match(componentSource, /const MenteeProfilePage/);
+    assert.match(componentSource, /type MenteeView = "cards" \| "table"/);
+    assert.match(componentSource, /MENTEE_VIEW_PARAM/);
+    assert.match(componentSource, /aria-label="Mentee filters and view options"/);
+    assert.match(componentSource, /aria-pressed=\{view === "cards"\}/);
+    assert.match(componentSource, /className=\{styles\.menteesCardGrid\}/);
+    assert.match(componentSource, /className=\{styles\.menteesTable\}/);
+    assert.match(componentSource, /className=\{styles\.profilePage\}/);
+    assert.doesNotMatch(componentSource, /Select a mentee to view their profile\./);
+    assert.match(stylesSource, /\.menteesCardGrid\s*\{/);
+    assert.match(stylesSource, /\.menteesTableWrap\s*\{/);
 });
 
 test("mentee filters reset pagination and expose a no-results recovery state", () => {
-    assert.match(componentSource, /setFilter\(event\.target\.value\);/);
+    assert.match(componentSource, /const filter = searchParams\.get\(MENTEE_SEARCH_PARAM\)/);
+    assert.match(componentSource, /updateListQuery\(\{search: event\.target\.value\}\)/);
     assert.match(componentSource, /handleMentorFilterChange/);
     assert.match(componentSource, /MENTOR_FILTER_PARAM/);
-    assert.match(componentSource, /menteeRoute\(mentee\.id\)/);
-    assert.match(componentSource, /No mentees match these filters\./);
-    assert.match(componentSource, /aria-label="Clear mentee search"/);
+    assert.match(componentSource, /menteeRoute\(id\)/);
+    assert.match(componentSource, /No mentees match these filters/);
+    assert.match(componentSource, /onClearFilters/);
+    assert.match(componentSource, /search: "", mentorFilter: "all"/);
 });
 
-test("mobile mentees use a master-detail flow with compact session cards", () => {
-    assert.match(stylesSource, /\.menteeListPanelWithSelection\s*\{[^}]*display:\s*none;/);
-    assert.match(stylesSource, /\.menteeDetailPanelWithoutSelection\s*\{[^}]*display:\s*none;/);
-    assert.match(stylesSource, /\.backToMentees\s*\{[^}]*display:\s*inline-flex;/);
+test("mobile mentees keep the list usable and profile content readable", () => {
+    assert.match(stylesSource, /\.menteesToolbar\s*\{/);
+    assert.match(stylesSource, /\.menteesCardGrid\s*\{/);
+    assert.match(stylesSource, /\.profilePage \.detailGrid\s*\{/);
+    assert.match(stylesSource, /@media \(max-width: 620px\)/);
     assert.match(stylesSource, /\.sessionsTable tr\s*\{[^}]*grid-template-columns:/);
 });
 
