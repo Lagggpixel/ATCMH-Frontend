@@ -76,6 +76,9 @@ test("admin navigation uses category dropdowns with flat assessment placement", 
     assert.match(source, /onMouseLeave=\{closeNavDropdownOnLeave\}/);
     assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
     assert.match(css, /\.adminNavDropdown:hover > \.adminNavDropdownMenu/);
+    assert.match(css, /\.adminNavEmbedded \.adminNavDropdownMenu\s*\{[^}]*top:\s*100%/s);
+    assert.match(css, /(?:^|\n)\.adminNavDropdownMenu\s*\{[^}]*top:\s*100%/s);
+    assert.doesNotMatch(css, /\.adminNavDropdown::after/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
 });
 
