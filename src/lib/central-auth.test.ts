@@ -7,7 +7,6 @@ import {
   exchangeCentralHandoff,
   introspectCentralSession,
   logoutCentralSession,
-  handoffCallbackPath,
   safeLocalReturnTo,
 } from "./central-auth";
 
@@ -27,11 +26,11 @@ test("central login URL keeps both providers and an AuthReturnPolicy-safe relati
     assert.equal(url.searchParams.get("provider"), provider);
     assert.equal(url.searchParams.get("app"), "exams");
     const outerReturnTo = url.searchParams.get("returnTo")!;
-    assert.ok(outerReturnTo.startsWith("/exams/api/auth/callback?"));
+    assert.ok(outerReturnTo.startsWith("/api/auth/callback?"));
     assert.ok(!outerReturnTo.startsWith("//"));
     const callback = new URL(outerReturnTo, "https://www.atcmh.org");
     assert.equal(callback.origin, "https://www.atcmh.org");
-    assert.equal(callback.pathname, "/exams/api/auth/callback");
+    assert.equal(callback.pathname, "/api/auth/callback");
     assert.equal(callback.searchParams.get("returnTo"), "/exams/quizzes?view=mine");
   }
 });
@@ -45,16 +44,10 @@ test("return destinations fail closed to local paths", () => {
   assert.equal(safeLocalReturnTo("/ok\\evil"), "/exams");
 });
 
-test("Dashboard-to-Exams handoffs may return only to the Exam Center workspace", () => {
+test("the shared callback may return to either authenticated workspace", () => {
   assert.equal(safeLocalReturnTo("/dashboard/exams"), "/dashboard/exams");
   assert.equal(safeLocalReturnTo("/dashboard/exams/attempts/attempt-1"), "/dashboard/exams/attempts/attempt-1");
-  assert.equal(safeLocalReturnTo("/dashboard/mentees"), "/exams");
-});
-
-test("legacy root impersonation handoffs are routed only to the local callback", () => {
-  const path = handoffCallbackPath("h".repeat(43), "/exams/quizzes");
-  assert.equal(path, `/exams/api/auth/callback?handoff=${"h".repeat(43)}&returnTo=%2Fexams%2Fquizzes`);
-  assert.equal(handoffCallbackPath("https://evil.example/token"), undefined);
+  assert.equal(safeLocalReturnTo("/dashboard/mentees"), "/dashboard/mentees");
 });
 
 test("handoff exchange uses the service key and validates the central response", async () => {

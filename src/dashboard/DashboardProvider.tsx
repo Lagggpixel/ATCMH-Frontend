@@ -46,7 +46,8 @@ export function useDashboard() {
 }
 
 export default function DashboardProvider({dashboardApiUrl, children}: {dashboardApiUrl: string; children: ReactNode}) {
-    configureDashboardApiUrl(dashboardApiUrl);
+    void dashboardApiUrl;
+    configureDashboardApiUrl("/api/dashboard");
     const auth = usePortalAuth();
     const token = auth.session?.csrfToken ?? null;
     const [loaded, setLoaded] = useState(false);
@@ -69,15 +70,16 @@ export default function DashboardProvider({dashboardApiUrl, children}: {dashboar
         }
         void (async () => {
             try {
-                const publicUsers = await ApiUtils.getAtcmhUsers();
-                if (current) setUsers(publicUsers);
                 if (token && auth.adminUser) {
                         if (current) setAuthorizedAdminUser({token, user: auth.adminUser});
-                        const [nextSessions, nextNotes, nextMentees, nextAssignments] = await Promise.all([
-                            ApiUtils.getSessions(token), ApiUtils.getUserNotes(token), ApiUtils.getMentees(token), ApiUtils.getAssignments(token),
+                        const [nextUsers, nextSessions, nextNotes, nextMentees, nextAssignments] = await Promise.all([
+                            ApiUtils.getDashboardUsers(token), ApiUtils.getSessions(token), ApiUtils.getUserNotes(token), ApiUtils.getMentees(token), ApiUtils.getAssignments(token),
                         ]);
-                        if (current) { setSessions(nextSessions); setUserNotes(nextNotes); setMentees(nextMentees); setAssignments(nextAssignments); }
-                } else if (current) setAuthorizedAdminUser(undefined);
+                        if (current) { setUsers(nextUsers); setSessions(nextSessions); setUserNotes(nextNotes); setMentees(nextMentees); setAssignments(nextAssignments); }
+                } else {
+                    const publicUsers = await ApiUtils.getAtcmhUsers();
+                    if (current) { setUsers(publicUsers); setAuthorizedAdminUser(undefined); }
+                }
             } catch (reason) {
                 if (current) setError(reason instanceof Error ? reason.message : String(reason));
             } finally {

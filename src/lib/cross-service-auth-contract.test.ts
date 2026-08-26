@@ -16,16 +16,16 @@ test("Exams login emits the encoded return path required by central auth", () =>
   assert.deepEqual(Object.fromEntries(login.searchParams), {
     provider: "ifc",
     app: "exams",
-    returnTo: "/exams/api/auth/callback?returnTo=%2Fexams%2Fquizzes",
+    returnTo: "/api/auth/callback?returnTo=%2Fexams%2Fquizzes",
   });
 });
 
-test("Dashboard Exams impersonation stays inside the unified Frontend", () => {
+test("Dashboard account impersonation uses the shared web session", () => {
   const dashboard = readFileSync(new URL("../dashboard/components/admin/AdminAccounts.tsx", import.meta.url), "utf8");
   const dashboardAuth = readFileSync(new URL("../dashboard/utils/AuthSessionUtils.ts", import.meta.url), "utf8");
-  assert.match(dashboard, /handoff/);
-  assert.match(dashboardAuth, /\/exams\/api\/auth\/callback/);
-  assert.match(dashboardAuth, /returnTo.*\/exams/);
+  assert.doesNotMatch(dashboard, /examsImpersonationHandoffUrl|handoffCode/);
+  assert.match(dashboard, /IMPERSONATE_DASHBOARD/);
+  assert.match(dashboardAuth, /\/api\/auth\/login/);
 });
 
 test("Dashboard category PATCH matches the Frontend-owned Exams preflight contract", () => {
@@ -36,10 +36,10 @@ test("Dashboard category PATCH matches the Frontend-owned Exams preflight contra
 });
 
 test("Exams callback handles the documented central-auth outcomes locally", () => {
-  const exams = readFileSync(new URL("../app/exams/api/auth/callback/route.ts", import.meta.url), "utf8");
+  const exams = readFileSync(new URL("../app/api/auth/callback/route.ts", import.meta.url), "utf8");
   for (const code of ["cancelled", "provider_failure", "consent_declined", "invalid_consent", "consent_expired"]) {
     assert.match(exams, new RegExp(`"${code}"`));
   }
   assert.match(exams, /invalid_handoff/);
-  assert.match(exams, /\/exams\?authError=/);
+  assert.match(exams, /authError=invalid_handoff/);
 });

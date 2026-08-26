@@ -10,6 +10,7 @@ import {
     isCurrentExamQuiz,
     quizVisibilityReason,
 } from "./ExamCenterAccess.ts";
+import {canAccessCourseCenterView} from "./CourseCenterAccess.ts";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(join(currentDir, "../../route-map.ts"), "utf8");
@@ -31,11 +32,13 @@ const attemptManagerSource = readFileSync(join(currentDir, "ExamAttemptManager.t
 const attemptReviewSource = readFileSync(join(currentDir, "ExamAttemptReview.tsx"), "utf8");
 
 test("exam management uses dedicated catalog, editor, import, and website routes", () => {
-    for (const view of ["catalog", "create", "edit", "import", "unlocks", "website", "attempts", "attempt-review", "courses", "course-create", "course-edit", "course-preview", "course-stats"]) {
+    for (const view of ["catalog", "create", "edit", "import", "unlocks", "website", "attempts", "attempt-review"]) {
         assert.match(appSource, new RegExp(`view: "${view}"`));
     }
     assert.match(appSource, /params: \{examId:/);
     assert.match(appSource, /params: \{attemptId:/);
+    assert.match(appSource, /screen: "courses"/);
+    assert.match(appSource, /view: "course-preview"/);
 });
 
 test("exam center receives the shared global Dashboard navigation once", () => {
@@ -43,13 +46,11 @@ test("exam center receives the shared global Dashboard navigation once", () => {
     assert.match(dashboardRouteSource, /<DashboardWorkspace label=\{screenLabels\[route\.screen\]\}/);
 });
 
-test("a Dashboard-to-Exams handoff failure remains retryable without sending staff to Exams sign-in", () => {
-    assert.match(examsApiSource, /export class ExamsSessionHandoffError extends Error/);
-    assert.match(examsApiSource, /export const isExamsSessionHandoffFailure = \(reason: unknown\): reason is ExamsSessionHandoffError/);
-    assert.match(centerSource, /isExamsSessionHandoffFailure\(reason\)/);
-    assert.match(centerSource, /Could not connect Dashboard to Exams/);
-    assert.match(centerSource, /examsAuthRequired && !examsHandoffFailed \? "Retry after signing in" : "Try again"/);
-    assert.match(centerSource, /examsAuthRequired && !examsHandoffFailed \? <a href=\{EXAMS_LOGIN_URL\}/);
+test("an expired shared session uses the one ATCMH login", () => {
+    assert.doesNotMatch(examsApiSource, /ExamsSessionHandoff/);
+    assert.doesNotMatch(centerSource, /Could not connect Dashboard to Exams|isExamsSessionHandoffFailure/);
+    assert.match(centerSource, /Your ATCMH session expired/);
+    assert.match(centerSource, /<a href=\{EXAMS_LOGIN_URL\}>Sign in to ATCMH<\/a>/);
 });
 
 test("exam center removes redundant identity and permission copy", () => {
@@ -67,13 +68,13 @@ test("exam navigation stays scrollable without showing a scrollbar", () => {
     assert.match(centerCss, /\.examNav::-webkit-scrollbar\s*\{[\s\S]*?display: none;/);
 });
 
-test("course workspaces do not render the Exam Center sub-navigation", () => {
-    assert.match(centerSource, /const isCourseView = \(view: ExamCenterView\) => view === "courses"/);
-    assert.match(centerSource, /view === "course-create"/);
-    assert.match(centerSource, /view === "course-edit"/);
-    assert.match(centerSource, /view === "course-preview"/);
-    assert.match(centerSource, /view === "course-stats"/);
-    assert.match(centerSource, /data && !isCourseView\(view\) \? <nav className=\{styles\.examNav\}/);
+test("Course Center has its own dashboard screen instead of living inside Exam Center", () => {
+    assert.doesNotMatch(centerSource, /CourseCenter/);
+    assert.doesNotMatch(centerSource, /courseId/);
+    assert.match(dashboardRouteSource, /case "courses": content = <CourseCenter/);
+    const courseSource = readFileSync(join(currentDir, "CourseCenter.tsx"), "utf8");
+    assert.match(courseSource, /to="\/dashboard\/courses"/);
+    assert.match(courseSource, /canAccessCourseCenterView/);
 });
 
 test("courses live in the flat Assessment dashboard dropdown instead of the Exam Center tabs", () => {
@@ -81,7 +82,7 @@ test("courses live in the flat Assessment dashboard dropdown instead of the Exam
     const adminNavigationSource = readFileSync(join(currentDir, "AdminNavigation.ts"), "utf8");
     assert.doesNotMatch(adminNavigationSource, /label: "Exams"/);
     assert.doesNotMatch(adminNavigationSource, /label: "Courses"/);
-    assert.match(adminNavigationSource, /path: "\/dashboard\/exams\/courses", label: "Course Center"/);
+    assert.match(adminNavigationSource, /path: "\/dashboard\/courses", label: "Course Center"/);
 });
 
 test("the catalog does not render import or website forms inline", () => {
@@ -120,8 +121,6 @@ test("direct exam workspaces centralize authorization and show access denied loc
     assert.equal(canAccessExamCenterView("attempt-review", reviewer), true);
     assert.equal(canAccessExamCenterView("attempts", viewer), false);
     assert.equal(canAccessExamCenterView("attempt-review", viewer), false);
-    assert.equal(canAccessExamCenterView("course-preview", mentor), false);
-    assert.equal(canAccessExamCenterView("course-preview", {discordId: "course-manager", canManageAll: false, capabilities: ["manage-courses"]}), true);
     assert.match(centerSource, /You do not have access to this\s+Exam Center workspace\./);
     assert.match(centerSource, /to="\/dashboard\/exams"/);
 });
@@ -227,6 +226,9 @@ test("the active exam tab underline meets the integrated navigation divider", ()
 test("exam center view type includes the unlocks workspace", () => {
     const accessSource = readFileSync(join(currentDir, "ExamCenterAccess.ts"), "utf8");
     assert.match(accessSource, /ExamCenterView = [^;]+"unlocks"/);
+    assert.doesNotMatch(accessSource, /course-/);
+    assert.equal(canAccessCourseCenterView("course-preview", {discordId: "mentor", canManageAll: false, capabilities: ["manage-exams"]}), false);
+    assert.equal(canAccessCourseCenterView("course-preview", {discordId: "course-manager", canManageAll: false, capabilities: ["manage-courses"]}), true);
 });
 
 test("unlock mutations cannot update a different selected quiz", () => {

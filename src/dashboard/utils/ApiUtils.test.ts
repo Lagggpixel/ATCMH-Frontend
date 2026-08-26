@@ -37,6 +37,43 @@ test("getAdminUser distinguishes authorized, unauthenticated, and forbidden resp
     });
 });
 
+test("auto-match requests carry weekly UTC availability and selected leniency as JSON", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedUrl = "";
+    let requestedInit: RequestInit | undefined;
+    globalThis.fetch = async (input, init) => {
+        requestedUrl = String(input);
+        requestedInit = init;
+        return new Response(JSON.stringify([]), {status: 200});
+    };
+
+    const availability = [
+        "Monday: Not available",
+        "Tuesday: 0900-1700",
+        "Wednesday: Not available",
+        "Thursday: Not available",
+        "Friday: Not available",
+        "Saturday: Not available",
+        "Sunday: Not available",
+    ].join("\n");
+
+    try {
+        await ApiUtils.getAutoMatchCandidates(
+            "token",
+            availability,
+            "strict",
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+
+    const url = new URL(requestedUrl);
+    assert.equal(url.pathname, "/admin/mentees/auto-match");
+    assert.equal(requestedInit?.method, "POST");
+    assert.equal(new Headers(requestedInit?.headers).get("Content-Type"), "application/json");
+    assert.deepEqual(JSON.parse(String(requestedInit?.body)), {availability, leniency: "strict"});
+});
+
 test("admin data requests surface unauthorized responses as errors", async () => {
     await withFetch(new Response(JSON.stringify({error: "Forbidden"}), {
         status: 403,
@@ -47,6 +84,31 @@ test("admin data requests surface unauthorized responses as errors", async () =>
             /failed with 403 Forbidden/
         );
     });
+});
+
+test("Dashboard user directory uses the authenticated admin endpoint", async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedUrl = "";
+    let requestedCredentials: RequestCredentials | undefined;
+    globalThis.fetch = async (input, init) => {
+        requestedUrl = String(input);
+        requestedCredentials = init?.credentials;
+        return new Response(JSON.stringify([{
+            id: "639910224643358721",
+            username: "Current member",
+            allTimeAttendance: 0,
+            recentAttendance: 0,
+        }]), {status: 200});
+    };
+
+    try {
+        const users = await ApiUtils.getDashboardUsers("csrf-token");
+        assert.equal(new URL(requestedUrl).pathname, "/admin/users");
+        assert.equal(requestedCredentials, "include");
+        assert.equal(users?.[0]?.username, "Current member");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
 
 test("getAuditLogs forwards explicit all limit", async () => {

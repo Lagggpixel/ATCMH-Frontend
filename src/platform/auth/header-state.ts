@@ -1,14 +1,12 @@
-export type HeaderAuthState = "loading" | "signed-out" | "unavailable" | "exams-only" | "account" | "admin";
+export type HeaderAuthState = "loading" | "signed-out" | "unavailable" | "account" | "admin";
 
 export function headerAuthState(input: {
   loading: boolean;
-  hasDashboardSession: boolean;
+  hasSession: boolean;
   hasAdminPermission: boolean;
   dashboardUnavailable: boolean;
-  hasExamsSession: boolean;
 }): HeaderAuthState {
   if (input.loading) return "loading";
-  if (input.hasDashboardSession) return input.hasAdminPermission ? "admin" : "account";
-  if (input.hasExamsSession) return "exams-only";
+  if (input.hasSession) return input.hasAdminPermission ? "admin" : "account";
   return input.dashboardUnavailable ? "unavailable" : "signed-out";
 }

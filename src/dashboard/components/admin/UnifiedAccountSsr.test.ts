@@ -24,7 +24,7 @@ test("actual account route renders signed-out and restored lowercase-status outc
     const {default: AccountPage} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/account/AccountPage.tsx");
     const signedOut = inRouter(React.createElement(AccountPage, {session: null, loading: false, error: null, onLogout: async () => {}}), "/account");
     assert.match(signedOut, /Return home to sign in/);
-    assert.match(signedOut, /loginFor=dashboard/);
+    assert.match(signedOut, /login=1/);
     const restored = inRouter(React.createElement(AccountPage, {session: {accountId: "7", status: "active", application: "dashboard", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "x", impersonating: false, identities: []}, loading: false, error: null, onLogout: async () => {}}), "/account");
     assert.match(restored, /Account 7/); assert.match(restored, />Active</);
     const cancelled = inRouter(React.createElement(AccountPage, {session: null, loading: false, error: null, onLogout: async () => {}}), "/account?authError=cancelled");
@@ -76,8 +76,11 @@ test("admin navigation uses category dropdowns with flat assessment placement", 
     assert.match(source, /onMouseLeave=\{closeNavDropdownOnLeave\}/);
     assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
     assert.match(css, /\.adminNavDropdown:hover > \.adminNavDropdownMenu/);
-    assert.match(css, /\.adminNavEmbedded \.adminNavDropdownMenu\s*\{[^}]*top:\s*100%/s);
-    assert.match(css, /(?:^|\n)\.adminNavDropdownMenu\s*\{[^}]*top:\s*100%/s);
+    assert.match(css, /\.adminNavEmbedded \.adminNavDropdownMenu\s*\{[^}]*top:\s*calc\(100% \+ 0\.75rem\)[^}]*background:\s*var\(--card-solid\)/s);
+    assert.match(css, /(?:^|\n)\.adminNavDropdownMenu\s*\{[^}]*top:\s*calc\(100% \+ 0\.5rem\)[^}]*background:\s*var\(--surface-2-color, var\(--surface-color\)\)/s);
+    assert.match(css, /\.adminNavDropdown:first-child > \.adminNavDropdownMenu\s*\{[^}]*left:\s*0[^}]*transform:\s*none/s);
+    assert.match(css, /\.adminNavDropdown:last-child > \.adminNavDropdownMenu\s*\{[^}]*right:\s*0[^}]*left:\s*auto/s);
+    assert.match(css, /\.adminNavDropdownMenu::before\s*\{[^}]*top:\s*-0\.75rem[^}]*height:\s*0\.75rem/s);
     assert.doesNotMatch(css, /\.adminNavDropdown::after/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
 });

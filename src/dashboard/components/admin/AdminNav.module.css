@@ -69,12 +69,11 @@
 }
 
 .adminNavEmbedded .adminNavDropdownMenu {
-    top: 100%;
+    top: calc(100% + 0.75rem);
     border-color: var(--border);
     border-radius: 0.9rem;
-    background: rgba(10, 18, 31, 0.96);
+    background: var(--card-solid);
     box-shadow: var(--shadow);
-    backdrop-filter: blur(18px);
 }
 
 .adminNavEmbedded .adminNavDropdownSection + .adminNavDropdownSection {
@@ -138,7 +137,7 @@
 
 .adminNavDropdownMenu {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 0.5rem);
     left: 50%;
     display: grid;
     gap: 12px;
@@ -148,9 +147,29 @@
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    background: var(--surface-color);
+    background: var(--surface-2-color, var(--surface-color));
     box-shadow: var(--panel-shadow);
     transform: translateX(-50%);
+}
+
+.adminNavDropdown:first-child > .adminNavDropdownMenu {
+    left: 0;
+    transform: none;
+}
+
+.adminNavDropdown:last-child > .adminNavDropdownMenu {
+    right: 0;
+    left: auto;
+    transform: none;
+}
+
+.adminNavDropdownMenu::before {
+    position: absolute;
+    top: -0.75rem;
+    right: 0;
+    left: 0;
+    height: 0.75rem;
+    content: "";
 }
 
 .adminNavDropdownSection {
@@ -253,6 +272,10 @@
         max-width: none;
         margin-top: 5px;
         transform: none;
+    }
+
+    .adminNavDropdownMenu::before {
+        display: none;
     }
 
     .adminNavEmbedded {

@@ -1,9 +1,18 @@
 import { type ManagementCapability } from "./permissions";
-import { csrfMatches, examsSessionCookie, introspectCentralSession } from "./central-auth";
+import {
+  sessionCookie,
+  csrfMatches,
+  introspectCentralSession,
+  legacyDashboardSessionCookie,
+  loopbackSessionCookie,
+  sessionTokenFromCookieHeader,
+} from "./central-auth";
 import { allowedMutationOrigins } from "./browser-session";
 
-const mentorCapabilities: ManagementCapability[] = ["manage-exams", "manage-courses", "import-exams", "unlock-learners", "review-attempts"];
-const administratorCapabilities: ManagementCapability[] = [...mentorCapabilities, "publish-exams", "manage-taxonomy", "manage-system"];
+const managementCapabilities = new Set<ManagementCapability>([
+  "manage-exams", "manage-courses", "import-exams", "unlock-learners", "review-attempts",
+  "publish-exams", "manage-taxonomy", "manage-system",
+]);
 
 export interface AuthorizedManager {
   accountId: string;
@@ -15,48 +24,39 @@ export interface AuthorizedManager {
   impersonatedDiscordId?: string;
 }
 
-interface DiscordMember { roles: unknown }
-
-export function parseDiscordIdList(value: string | undefined): Set<string> {
-  return new Set((value ?? "").split(",").map((id) => id.trim()).filter(Boolean));
-}
-
-export interface DiscordStaffClassification {
-  isAdministrator: boolean;
-  isMentor: boolean;
-}
-
-export function classifyDiscordStaff(discordId: string, roles: unknown): DiscordStaffClassification {
-  const validRoles = Array.isArray(roles) && roles.every((role): role is string => typeof role === "string")
-    ? roles
-    : [];
-  const administratorRoleIds = parseDiscordIdList(process.env.DISCORD_ADMIN_ROLE_IDS);
-  const mentorRoleIds = parseDiscordIdList(process.env.DISCORD_MENTOR_ROLE_IDS);
-  const isAdministrator = parseDiscordIdList(process.env.DISCORD_ADMIN_USER_IDS).has(discordId)
-    || validRoles.some((role) => administratorRoleIds.has(role));
-  return {
-    isAdministrator,
-    isMentor: isAdministrator || validRoles.some((role) => mentorRoleIds.has(role)),
-  };
-}
-
 function cookieToken(request: Request) {
-  const cookies = request.headers.get("cookie") ?? "";
-  for (const part of cookies.split(";")) {
-    const [name, ...value] = part.trim().split("=");
-    if (name === examsSessionCookie) return decodeURIComponent(value.join("="));
-  }
-  return undefined;
+  return sessionTokenFromCookieHeader(request.headers.get("cookie"));
 }
 
-type DiscordLookup<T> =
-  | { ok: true; status: number; body: T }
-  | { ok: false; status: number };
+function dashboardCookie(request: Request, token: string): string {
+  const source = request.headers.get("cookie") ?? "";
+  const name = source.includes(`${sessionCookie}=`) ? sessionCookie
+    : source.includes(`${loopbackSessionCookie}=`) ? loopbackSessionCookie
+      : legacyDashboardSessionCookie;
+  return `${name}=${token}`;
+}
 
-async function discordJson<T>(url: string, authorization: string): Promise<DiscordLookup<T>> {
-  const response = await fetch(url, { headers: { authorization }, cache: "no-store" });
-  if (!response.ok) return { ok: false, status: response.status };
-  return { ok: true, status: response.status, body: await response.json() as T };
+interface CapabilityResponse {
+  capabilities?: unknown;
+  canManageAll?: unknown;
+}
+
+async function centralizedCapabilities(request: Request, token: string): Promise<CapabilityResponse | Response> {
+  const apiUrl = process.env.DASHBOARD_API_URL?.replace(/\/$/, "");
+  if (!apiUrl) return new Response("Authorization is temporarily unavailable", { status: 503 });
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/admin/exams-capabilities`, {
+      headers: { cookie: dashboardCookie(request, token) },
+      cache: "no-store",
+    });
+  } catch {
+    return new Response("Authorization is temporarily unavailable", { status: 503 });
+  }
+  if (!response.ok) return response.status === 401 || response.status === 403
+    ? new Response(response.status === 401 ? "Unauthorized" : "Forbidden", { status: response.status })
+    : new Response("Authorization is temporarily unavailable", { status: 503 });
+  return await response.json() as CapabilityResponse;
 }
 
 export async function requireManagementCapability(
@@ -65,11 +65,7 @@ export async function requireManagementCapability(
   _ownerId?: string,
 ): Promise<AuthorizedManager | Response> {
   const token = cookieToken(request);
-  const guildId = process.env.DISCORD_GUILD_ID;
-  const botToken = process.env.DISCORD_BOT_TOKEN;
-  if (!token || !guildId || !botToken) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  if (!token) return new Response("Unauthorized", { status: 401 });
 
   const session = await introspectCentralSession(token);
   if (!session) return new Response("Unauthorized", { status: 401 });
@@ -80,26 +76,20 @@ export async function requireManagementCapability(
     }
   }
 
-  let member: DiscordLookup<DiscordMember>;
-  try {
-    member = await discordJson<DiscordMember>(`https://discord.com/api/v10/guilds/${guildId}/members/${session.discordId}`, `Bot ${botToken}`);
-  } catch {
-    return new Response("Discord authorization is temporarily unavailable", { status: 503 });
-  }
-  if (!member.ok) return member.status === 404
-    ? new Response("Forbidden", { status: 403 })
-    : new Response("Discord authorization is temporarily unavailable", { status: 503 });
+  const centralized = await centralizedCapabilities(request, token);
+  if (centralized instanceof Response) return centralized;
+  const capabilities = Array.isArray(centralized.capabilities)
+    ? centralized.capabilities.filter((value): value is ManagementCapability =>
+      typeof value === "string" && managementCapabilities.has(value as ManagementCapability))
+    : [];
 
   const actorDiscordId = session.impersonating ? session.realActorDiscordId! : session.discordId;
   const actorAccountId = session.impersonating ? session.realActorAccountId! : session.accountId;
-  // Impersonation has the target user's authorization. The real actor is kept
-  // separately for audit attribution and never lends roles to the target.
-  const { isAdministrator, isMentor } = classifyDiscordStaff(session.discordId, member.body.roles);
   const actor: AuthorizedManager = {
     accountId: actorAccountId,
     discordId: actorDiscordId,
-    capabilities: isAdministrator ? administratorCapabilities : isMentor ? mentorCapabilities : [],
-    canManageAll: isAdministrator,
+    capabilities,
+    canManageAll: centralized.canManageAll === true,
     impersonating: session.impersonating,
     ...(session.impersonating ? { impersonatedAccountId: session.accountId, impersonatedDiscordId: session.discordId } : {}),
   };

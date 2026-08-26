@@ -1,7 +1,33 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+export const sessionCookie = "__Host-atcmh_session";
+export const loopbackSessionCookie = "atcmh_session";
+export const legacyDashboardSessionCookie = "atcmh_dashboard_session";
 export const examsSessionCookie = "atcmh_exams_session";
-export const examsSessionMaxAge = 30 * 24 * 60 * 60;
+export const sessionMaxAge = 7 * 24 * 60 * 60;
+/** @deprecated retained only to clear pre-unification cookies. */
+export const examsSessionMaxAge = sessionMaxAge;
+
+export function sessionTokenFromCookieHeader(header: string | null | undefined): string | undefined {
+  const values = new Map<string, string>();
+  for (const part of (header ?? "").split(";")) {
+    const [name, ...raw] = part.trim().split("=");
+    if (name) values.set(name, decodeURIComponent(raw.join("=")));
+  }
+  for (const name of [sessionCookie, loopbackSessionCookie, legacyDashboardSessionCookie, examsSessionCookie]) {
+    const value = values.get(name);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+export function sessionTokenFromCookieStore(store: {get(name: string): {value: string} | undefined}): string | undefined {
+  for (const name of [sessionCookie, loopbackSessionCookie, legacyDashboardSessionCookie, examsSessionCookie]) {
+    const value = store.get(name)?.value;
+    if (value) return value;
+  }
+  return undefined;
+}
 
 export interface CentralAuthEnvironment {
   DASHBOARD_API_URL?: string;
@@ -46,18 +72,15 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
     || /[\u0000-\u001f\u007f]/.test(value)) return "/exams";
   try {
     const parsed = new URL(value, PRIVATE_RETURN_ORIGIN);
-    return parsed.origin === PRIVATE_RETURN_ORIGIN && (parsed.pathname === "/exams" || parsed.pathname.startsWith("/exams/") || parsed.pathname === "/dashboard/exams" || parsed.pathname.startsWith("/dashboard/exams/"))
+    const allowed = parsed.pathname === "/" || parsed.pathname === "/account"
+      || parsed.pathname === "/apply" || parsed.pathname.startsWith("/apply?")
+      || parsed.pathname === "/leaderboard" || parsed.pathname === "/dashboard"
+      || parsed.pathname.startsWith("/dashboard/") || parsed.pathname === "/exams"
+      || parsed.pathname.startsWith("/exams/");
+    return parsed.origin === PRIVATE_RETURN_ORIGIN && allowed
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`
       : "/exams";
   } catch { return "/exams"; }
-}
-
-export function handoffCallbackPath(handoff: string | null | undefined, returnTo: string | null | undefined = "/exams"): string | undefined {
-  if (!handoff || !/^[A-Za-z0-9_-]{20,256}$/.test(handoff)) return undefined;
-  const callback = new URL("/exams/api/auth/callback", PRIVATE_RETURN_ORIGIN);
-  callback.searchParams.set("handoff", handoff);
-  callback.searchParams.set("returnTo", safeLocalReturnTo(returnTo));
-  return `${callback.pathname}${callback.search}`;
 }
 
 export function centralLoginUrl(
@@ -66,11 +89,12 @@ export function centralLoginUrl(
   env: CentralAuthEnvironment = process.env as CentralAuthEnvironment,
 ): URL {
   const { backend } = config(env);
-  const callback = new URL("/exams/api/auth/callback", PRIVATE_RETURN_ORIGIN);
-  callback.searchParams.set("returnTo", safeLocalReturnTo(returnTo));
+  const destination = safeLocalReturnTo(returnTo);
+  const callback = new URL("/api/auth/callback", PRIVATE_RETURN_ORIGIN);
+  callback.searchParams.set("returnTo", destination);
   const login = new URL("/auth/login", backend);
   login.searchParams.set("provider", provider);
-  login.searchParams.set("app", "exams");
+  login.searchParams.set("app", destination === "/exams" || destination.startsWith("/exams/") ? "exams" : "dashboard");
   login.searchParams.set("returnTo", `${callback.pathname}${callback.search}`);
   return login;
 }

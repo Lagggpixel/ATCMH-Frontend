@@ -4,20 +4,18 @@ import {headerAuthState} from "./header-state";
 
 const state = (overrides: Partial<Parameters<typeof headerAuthState>[0]> = {}) => headerAuthState({
   loading: false,
-  hasDashboardSession: false,
+  hasSession: false,
   hasAdminPermission: false,
   dashboardUnavailable: false,
-  hasExamsSession: false,
   ...overrides,
 });
 
 test("shared header distinguishes every authentication and capability state", () => {
   assert.equal(state({loading: true}), "loading");
   assert.equal(state(), "signed-out");
-  assert.equal(state({hasDashboardSession: true}), "account");
-  assert.equal(state({hasDashboardSession: true, hasAdminPermission: true}), "admin");
+  assert.equal(state({hasSession: true}), "account");
+  assert.equal(state({hasSession: true, hasAdminPermission: true}), "admin");
   assert.equal(state({dashboardUnavailable: true}), "unavailable");
-  assert.equal(state({hasExamsSession: true}), "exams-only");
 });
 
 test("Dashboard permission cannot surface without a live Dashboard session", () => {

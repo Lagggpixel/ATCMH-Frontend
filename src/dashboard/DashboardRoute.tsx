@@ -13,6 +13,7 @@ import AdminAuditLogs from "./components/admin/AdminAuditLogs";
 import AdminAssignmentGuide from "./components/admin/AdminAssignmentGuide";
 import AdminManual from "./components/admin/AdminManual";
 import ExamCenter from "./components/admin/ExamCenter";
+import CourseCenter from "./components/admin/CourseCenter";
 import AdminAccounts from "./components/admin/AdminAccounts";
 import AdminAltAccounts from "./components/admin/AdminAltAccounts";
 import AdminMockQuestions from "./components/admin/AdminMockQuestions";
@@ -33,6 +34,7 @@ const screenLabels = {
     accounts: "Accounts",
     "alt-accounts": "Alt-account evidence",
     exams: "Exam Center",
+    courses: "Course Center",
 } as const;
 
 export default function DashboardRoute() {
@@ -56,6 +58,7 @@ export default function DashboardRoute() {
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
+        case "courses": content = <CourseCenter token={state.token} users={state.users ?? []} view={route.view} courseId={route.params?.courseId}/>; break;
     }
     return <DashboardNavigationProvider params={"params" in route ? route.params : undefined}>
         <DashboardWorkspace label={screenLabels[route.screen]}>

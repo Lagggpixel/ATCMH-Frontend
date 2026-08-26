@@ -9,6 +9,7 @@ if (process.env.SESSION_ROUTE_CASE !== "1") {
     mock.module("next/headers", { exports: { cookies: async () => ({ get: () => ({ value: "opaque-central-token" }) }) } });
     mock.module("@/src/lib/central-auth", { exports: {
       examsSessionCookie: "atcmh_exams_session",
+      sessionTokenFromCookieStore: (store: {get(name: string): {value: string} | undefined}) => store.get("__Host-atcmh_session")?.value,
       introspectCentralSession: async () => ({ accountId: "42", discordId: "123456789012345678", expiresAt: "2099-01-01T00:00:00Z", impersonating: true, realActorAccountId: "7", realActorDiscordId: "999999999999999999" }),
       csrfTokenFor: () => "browser-csrf",
     } });

@@ -25,7 +25,7 @@ export default function HomeLoginModal() {
   const request = resolveHomeLoginRequest(params);
   const error = safeAuthError(params.get("authError"));
   const authRef = error ? safeAuthRef(params.get("authRef")) : undefined;
-  const open = params.has("loginFor") || Boolean(error);
+  const open = params.has("login") || params.has("loginFor") || Boolean(error);
 
   useEffect(() => {
     if (!open) return;
@@ -46,9 +46,7 @@ export default function HomeLoginModal() {
   }, [open, router]);
 
   if (!open) return null;
-  const providerHref = (provider: "discord" | "ifc") => request.application === "dashboard"
-    ? loginPath(ApiUtils.apiOrigin, provider, request.returnTo)
-    : `/exams/api/auth/login?provider=${provider}&returnTo=${encodeURIComponent(request.returnTo)}`;
+  const providerHref = (provider: "discord" | "ifc") => loginPath(ApiUtils.apiOrigin, provider, request.returnTo);
 
   return <div className="login-modal-backdrop" onMouseDown={(event) => {
     if (event.target === event.currentTarget) router.replace("/");
@@ -56,7 +54,7 @@ export default function HomeLoginModal() {
     <section className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
       <button ref={closeRef} className="login-modal-close" type="button" aria-label="Close login" onClick={() => router.replace("/")}>×</button>
       <p className="login-modal-eyebrow">ATCMH account</p>
-      <h2 id="login-modal-title">Sign in to {request.application === "exams" ? "Exam Center" : "ATCMH"}</h2>
+      <h2 id="login-modal-title">Sign in to ATCMH</h2>
       {error ? <div className="login-modal-error" role="alert">
         <p>{authErrorCopy[error] ?? "Login could not be completed. Please try again."}</p>
         {authRef ? <p>Support reference: <code>{authRef}</code></p> : null}

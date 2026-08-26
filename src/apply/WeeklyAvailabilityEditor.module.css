@@ -1,0 +1,86 @@
+.availabilityEditor {
+    display: grid;
+    gap: .55rem;
+    margin-top: 1rem;
+    outline: none;
+}
+
+.availabilityEditor:focus-visible {
+    border-radius: .75rem;
+    outline: 3px solid #9bbcff;
+    outline-offset: 3px;
+}
+
+.availabilityDay {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, .7fr) minmax(9rem, .85fr) minmax(18rem, 1.5fr);
+    align-items: center;
+    gap: .75rem;
+    padding: .7rem .8rem;
+    border: 1px solid color-mix(in srgb, var(--muted-text, var(--muted, #94a3b8)) 22%, transparent);
+    border-radius: .7rem;
+    background: color-mix(in srgb, var(--input-bg, #091322) 86%, transparent);
+}
+
+.availabilityDay > strong {
+    font-size: .9rem;
+}
+
+.availabilityToggle {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: var(--muted-text, var(--muted, #94a3b8));
+    cursor: pointer;
+    font-size: .86rem;
+}
+
+.availabilityToggle input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--accent-color, var(--accent, #22d3ee));
+}
+
+.availabilityTimes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+}
+
+.availabilityTimes label {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    color: var(--muted-text, var(--muted, #94a3b8));
+    font-size: .78rem;
+}
+
+.availabilityTimes input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: .5rem .55rem;
+    border: 1px solid color-mix(in srgb, var(--muted-text, var(--muted, #94a3b8)) 32%, transparent);
+    border-radius: .55rem;
+    background: var(--input-bg, #091322);
+    color: var(--text-color, var(--foreground, #f8fafc));
+    color-scheme: dark;
+    font: inherit;
+}
+
+@media (max-width: 760px) {
+    .availabilityDay {
+        grid-template-columns: 1fr auto;
+    }
+
+    .availabilityTimes {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 480px) {
+    .availabilityTimes {
+        grid-template-columns: 1fr;
+    }
+}

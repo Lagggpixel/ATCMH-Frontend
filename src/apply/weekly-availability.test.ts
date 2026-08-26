@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import test from "node:test";
 import {
     defaultWeeklyAvailability,
@@ -6,6 +7,8 @@ import {
     parseWeeklyAvailability,
     serializeWeeklyAvailability,
 } from "./weekly-availability";
+
+const source = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("structured availability serializes to the shared backend contract", () => {
     const entries = defaultWeeklyAvailability();
@@ -52,4 +55,16 @@ test("canonical validation rejects missing days and invalid UTC times", () => {
         "Saturday: Not available",
         "Sunday: Not available",
     ].join("\n")), false);
+});
+
+test("application and mentor matching share the same weekday availability editor", () => {
+    const application = source("./ApplicationPage.tsx");
+    const editor = source("./WeeklyAvailabilityEditor.tsx");
+
+    assert.match(application, /import WeeklyAvailabilityEditor from "\.\/WeeklyAvailabilityEditor"/);
+    assert.match(application, /<WeeklyAvailabilityEditor id=\{id} value=\{value} onChange=\{onChange}\/?>/);
+    assert.match(editor, /entries\.map\(\(entry, index\) =>/);
+    assert.match(editor, /type="checkbox" checked=\{entry\.available}/);
+    assert.match(editor, /type="time" step=\{60}/);
+    assert.match(editor, /onChange\(serializeWeeklyAvailability\(next\)\)/);
 });

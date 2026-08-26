@@ -1,5 +1,3 @@
-import { classifyDiscordStaff, parseDiscordIdList } from "./discord-auth";
-
 export interface LearnerAccessContext {
   discordId: string;
   canAccessPrivateQuizzes: boolean;
@@ -17,28 +15,26 @@ export async function resolveLearnerAccess(discordId: string): Promise<LearnerAc
   const ordinary = ordinaryAccess(discordId);
   if (!discordSnowflake.test(discordId)) return ordinary;
 
-  if (parseDiscordIdList(process.env.DISCORD_ADMIN_USER_IDS).has(discordId)) {
-    return { discordId, canAccessPrivateQuizzes: true };
-  }
-
-  const guildId = process.env.DISCORD_GUILD_ID;
-  const botToken = process.env.DISCORD_BOT_TOKEN;
-  if (!guildId || !botToken) return ordinary;
+  const dashboardApiUrl = process.env.DASHBOARD_API_URL?.replace(/\/$/, "");
+  const authKey = process.env.EXAMS_AUTH_KEY;
+  if (!dashboardApiUrl || !authKey) return ordinary;
 
   try {
     const response = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
-      { headers: { authorization: `Bot ${botToken}` }, cache: "no-store" },
+      `${dashboardApiUrl}/internal/auth/discord/exams-access`,
+      {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-Exams-Auth-Key": authKey},
+        body: JSON.stringify({discordId}),
+        cache: "no-store",
+      },
     );
     if (!response.ok) return ordinary;
 
-    const member: unknown = await response.json();
-    if (typeof member !== "object" || member === null || !("roles" in member)) return ordinary;
-    const roles = member.roles;
-    if (!Array.isArray(roles) || !roles.every((role) => typeof role === "string")) return ordinary;
-
-    const staff = classifyDiscordStaff(discordId, roles);
-    return { discordId, canAccessPrivateQuizzes: staff.isMentor };
+    const result: unknown = await response.json();
+    const canAccessPrivateQuizzes = typeof result === "object" && result !== null
+      && "canAccessPrivateQuizzes" in result && result.canAccessPrivateQuizzes === true;
+    return { discordId, canAccessPrivateQuizzes };
   } catch {
     return ordinary;
   }

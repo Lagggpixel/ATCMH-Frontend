@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { handoffCallbackPath } from "@/src/lib/central-auth";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-repository";
 import { getVerifiedLearnerDiscordSubject } from "@/src/lib/learner-session";
@@ -17,10 +16,8 @@ async function loadExamCatalogue() {
   return { quizzes, showVisibility: access?.canAccessPrivateQuizzes === true, unavailable: false };
 }
 
-export default async function LearnerHomePage({ searchParams }: { searchParams: Promise<{ authError?: string; handoff?: string }> }) {
+export default async function LearnerHomePage({ searchParams }: { searchParams: Promise<{ authError?: string }> }) {
   const query = await searchParams;
-  const callback = handoffCallbackPath(query.handoff);
-  if (callback) redirect(callback);
   const authError = query.authError;
   if (authError) redirect(`${homeLoginHref("exams", "/exams")}&authError=${encodeURIComponent(authError)}`);
   const catalogue = await loadExamCatalogue().catch(() => ({ quizzes: [], showVisibility: false, unavailable: true }));

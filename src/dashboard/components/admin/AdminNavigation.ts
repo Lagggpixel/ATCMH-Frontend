@@ -37,7 +37,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
             ...(adminUser?.canManageApplicationQuestions ? [{path: "/dashboard/application-questions", label: "Application Questions"}] : []),
             ...(examCenterEnabled ? [
                 {path: "/dashboard/exams", label: "Exam Center"},
-                {path: "/dashboard/exams/courses", label: "Course Center"},
+                {path: "/dashboard/courses", label: "Course Center"},
             ] : []),
         ],
     }]),

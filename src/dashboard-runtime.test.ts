@@ -10,6 +10,8 @@ test("Dashboard receives its backend URL at runtime and keeps Exams calls same-o
   assert.doesNotMatch(api, /import\.meta/);
   assert.match(provider, /dashboardApiUrl/);
   assert.match(provider, /configureDashboardApiUrl/);
+  assert.match(provider, /ApiUtils\.getDashboardUsers\(token\)/);
+  assert.match(api, /\/admin\/users/);
   assert.doesNotMatch(exams, /VITE_|https:\/\/exams\.atcmh\.org/);
   assert.match(exams, /\/exams\/api\/auth\/session/);
   assert.match(exams, /\/exams\/api\/management/);

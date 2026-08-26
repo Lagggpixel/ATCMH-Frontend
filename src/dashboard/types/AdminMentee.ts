@@ -8,6 +8,8 @@ export interface AdminMentee {
     mentee: string;
     channel: string;
     recruiter?: string;
+    timezone?: string | null;
+    availability?: string | null;
     practicalMentor?: string;
     writtenMentor?: string;
     waitlistTime: ApiTimestamp;

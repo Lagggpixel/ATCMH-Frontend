@@ -368,6 +368,43 @@
     font-size: 0.98rem;
 }
 
+.availabilityDetail {
+    grid-column: 1 / -1;
+}
+
+.availabilityList {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 20px;
+    margin: 8px 0 0;
+}
+
+.availabilityList > div {
+    display: grid;
+    grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 0;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+}
+
+.availabilityList dt,
+.availabilityList dd {
+    margin: 0;
+}
+
+.availabilityList dt {
+    color: var(--muted-text);
+    font-size: 0.84rem;
+}
+
+.availabilityList dd {
+    overflow-wrap: anywhere;
+    color: var(--text-color);
+    font-size: 0.94rem;
+    font-weight: 600;
+}
+
 .actionsGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1609,6 +1646,181 @@
     color: var(--text-color) !important;
 }
 
+.autoMatchPanel {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-color) 88%, transparent);
+}
+
+.autoMatchHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.autoMatchHeader h2 {
+    margin: 0 0 5px;
+    font-size: 1.1rem;
+}
+
+.autoMatchHeader p:last-child {
+    max-width: 760px;
+    margin: 0;
+    color: var(--muted-text);
+    line-height: 1.45;
+}
+
+.autoMatchEyebrow {
+    margin: 0 0 6px;
+    color: var(--accent-strong-color);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.autoMatchCount {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--surface-2-color);
+    color: var(--muted-text);
+    font-size: 0.8rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.autoMatchForm {
+    display: grid;
+    gap: 14px;
+}
+
+.autoMatchActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.autoMatchActions label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.autoMatchActions label span {
+    color: var(--muted-text);
+    font-size: 0.78rem;
+    font-weight: 750;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+.autoMatchActions select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    font: inherit;
+}
+
+.autoMatchForm button,
+.autoMatchResults > button {
+    min-height: 42px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    background: var(--accent-color);
+    color: #111;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.autoMatchForm button:hover,
+.autoMatchResults > button:hover {
+    border-color: var(--accent-strong-color);
+    background: var(--accent-strong-color);
+}
+
+.autoMatchForm button:disabled,
+.autoMatchResults > button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.autoMatchHint,
+.autoMatchEmpty {
+    margin: 0;
+    color: var(--muted-text);
+    font-size: 0.84rem;
+}
+
+.autoMatchError {
+    margin: 0;
+    color: var(--danger-text);
+    font-weight: 700;
+}
+
+.autoMatchResults {
+    display: grid;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 14px;
+}
+
+.autoMatchSelectAll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-color);
+    font-weight: 750;
+}
+
+.autoMatchCandidateList {
+    display: grid;
+    gap: 8px;
+    max-height: 320px;
+    overflow: auto;
+}
+
+.autoMatchCandidate {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-2-color);
+    cursor: pointer;
+}
+
+.autoMatchCandidate:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 62%, var(--border-color));
+}
+
+.autoMatchCandidate > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.autoMatchCandidate small {
+    color: var(--muted-text);
+    overflow-wrap: anywhere;
+}
+
 .menteesCardGrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -1658,6 +1870,7 @@
 .profileHeader {
     justify-content: space-between;
     gap: 12px;
+    min-width: 0;
 }
 
 .menteeCardHeader > span:first-child {
@@ -1710,13 +1923,23 @@
 }
 
 .menteeCardFooter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
+}
+
+.menteeCardFooter span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .menteeCardFooter span:last-child {
     color: var(--accent-strong-color);
     font-size: 0.82rem;
     font-weight: 750;
+    white-space: nowrap;
 }
 
 .menteesTableWrap {
@@ -1972,6 +2195,10 @@
         grid-template-columns: minmax(0, 1fr) minmax(170px, 0.75fr);
     }
 
+    .autoMatchForm button {
+        width: 100%;
+    }
+
     .viewSwitcher {
         grid-column: 1 / -1;
         justify-self: start;
@@ -1990,6 +2217,14 @@
     .profileHeader {
         align-items: start;
         flex-direction: column;
+    }
+
+    .autoMatchHeader {
+        display: grid;
+    }
+
+    .autoMatchActions {
+        grid-template-columns: 1fr;
     }
 
     .menteesToolbar {

@@ -27,7 +27,7 @@ export default function AccountPage({session, loading, error, onLogout}: Account
             <h1>Your ATCMH account</h1>
             <dl className={styles.summary}>
                 <div><dt>Status</dt><dd>{accountStatusLabel(activeSession.status)}</dd></div>
-                <div><dt>Application</dt><dd>Dashboard</dd></div>
+                <div><dt>Session</dt><dd>ATCMH web</dd></div>
                 <div><dt>Session expires</dt><dd>{new Date(activeSession.expiresAt).toLocaleString()}</dd></div>
             </dl>
             <h2>Linked identities</h2>

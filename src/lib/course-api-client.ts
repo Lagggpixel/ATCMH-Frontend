@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { examsSessionCookie } from "./central-auth";
+import { sessionCookie, loopbackSessionCookie, legacyDashboardSessionCookie, sessionTokenFromCookieStore } from "./central-auth";
 import type { LearnerCourse, ManagedCourseSummary } from "@/src/dashboard/types/Course";
 
 const dashboardApiUrl = () => (process.env.DASHBOARD_API_URL ?? "https://dashboard-api.atcmh.org").replace(/\/$/, "");
@@ -15,12 +15,11 @@ function frontendOrigin() {
 
 async function backendRequest(path: string, options: RequestInit = {}) {
     const cookieStore = await cookies();
-    const forwarded = [examsSessionCookie, "atcmh_dashboard_session"].flatMap(name => {
-        const value = cookieStore.get(name)?.value;
-        return value ? [`${name}=${encodeURIComponent(value)}`] : [];
-    });
+    const token = sessionTokenFromCookieStore(cookieStore);
+    const name = cookieStore.get(sessionCookie) ? sessionCookie
+        : cookieStore.get(loopbackSessionCookie) ? loopbackSessionCookie : legacyDashboardSessionCookie;
     const headers = new Headers(options.headers);
-    if (forwarded.length > 0) headers.set("Cookie", forwarded.join("; "));
+    if (token) headers.set("Cookie", `${name}=${encodeURIComponent(token)}`);
     headers.set("Origin", frontendOrigin());
     return fetch(`${dashboardApiUrl()}${path}`, {
         ...options,
