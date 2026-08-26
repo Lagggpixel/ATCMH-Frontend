@@ -1,7 +1,8 @@
-import { csrfMatches, examsSessionCookie, introspectCentralSession, type CentralSession } from "./central-auth";
+import { csrfMatches, introspectCentralSession, sessionTokenFromCookieHeader, type CentralSession } from "./central-auth";
 import { parseFrontendPublicOrigin } from "./frontend-origin";
 
-export function cookieValue(header: string | null, name = examsSessionCookie): string | undefined {
+export function cookieValue(header: string | null, name?: string): string | undefined {
+  if (!name) return sessionTokenFromCookieHeader(header);
   for (const part of (header ?? "").split(";")) {
     const [candidate, ...value] = part.trim().split("=");
     if (candidate === name) return decodeURIComponent(value.join("="));

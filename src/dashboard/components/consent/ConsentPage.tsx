@@ -33,8 +33,7 @@ const completionNotice = (authError: string | null, requestId: string | null): C
 };
 
 const RetryLogin = () => <div className={styles.recoveryActions}>
-    <Link className={styles.primaryLink} to="/?loginFor=dashboard&amp;returnTo=%2Faccount">Return to Dashboard login</Link>
-    <Link className={styles.secondaryLink} to="/?loginFor=exams&amp;returnTo=%2Fexams">Return to Exams login</Link>
+    <Link className={styles.primaryLink} to="/?login=1&amp;returnTo=%2Faccount">Return to ATCMH login</Link>
 </div>;
 
 export const ConsentPageView = ({state, notice}: ConsentPageViewProps) => {

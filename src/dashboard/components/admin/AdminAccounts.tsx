@@ -7,14 +7,13 @@ import {buildMutationRequest, createMutationUiState, mergeIdentityOptions, mutat
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import styles from "./AdminAccounts.module.css";
-import {examsImpersonationHandoffUrl} from "../../utils/AuthSessionUtils.ts";
 
 const operations: Array<{value: AdminOperation; label: string}> = [
     {value: "LINK", label: "Link identity"}, {value: "REASSIGN", label: "Reassign identity"},
     {value: "UNLINK", label: "Unlink identity"}, {value: "MERGE", label: "Merge into another account"},
     {value: "SUSPEND", label: "Suspend"}, {value: "RESTORE", label: "Restore"},
     {value: "DELETE", label: "Soft delete"}, {value: "LOGOUT_ALL", label: "Log out all sessions"},
-    {value: "IMPERSONATE_DASHBOARD", label: "Impersonate in Dashboard"}, {value: "IMPERSONATE_EXAMS", label: "Impersonate in Exams"},
+    {value: "IMPERSONATE_DASHBOARD", label: "Impersonate account"},
 ];
 
 const subject = (identity: AccountIdentity) => identity.providerSubject ?? identity.subject;
@@ -77,10 +76,7 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
         setError(null);
         try {
             const result = await ApiUtils.commitAccountMutation(csrfToken, preview.token, reason.trim());
-            if (result.operation === "IMPERSONATE_DASHBOARD") { await onSessionChanged(); window.location.assign("/account"); return; }
-            if (result.operation === "IMPERSONATE_EXAMS" && result.handoffCode) {
-                window.location.assign(examsImpersonationHandoffUrl(window.location.origin, result.handoffCode)); return;
-            }
+            if (result.operation === "IMPERSONATE_DASHBOARD" || result.operation === "IMPERSONATE_EXAMS") { await onSessionChanged(); window.location.assign("/account"); return; }
             setMutation(current => mutationUiReducer(current, {type: "CANCEL_PREVIEW"})); await search(); await open(draft.sourceAccountId);
         } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     };

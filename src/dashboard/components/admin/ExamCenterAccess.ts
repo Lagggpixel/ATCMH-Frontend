@@ -1,6 +1,6 @@
 import type {ExamManagementActor} from "../../types/Exam.ts";
 
-export type ExamCenterView = "catalog" | "create" | "edit" | "import" | "unlocks" | "attempts" | "attempt-review" | "website" | "courses" | "course-create" | "course-edit" | "course-preview" | "course-stats";
+export type ExamCenterView = "catalog" | "create" | "edit" | "import" | "unlocks" | "attempts" | "attempt-review" | "website";
 
 const hasCapability = (actor: ExamManagementActor, capability: ExamManagementActor["capabilities"][number]) =>
     actor.capabilities.includes(capability);
@@ -22,12 +22,6 @@ export const canAccessExamCenterView = (view: ExamCenterView, actor: ExamManagem
             return hasCapability(actor, "review-attempts");
         case "website":
             return canManageExamWebsite(actor);
-        case "courses":
-        case "course-create":
-        case "course-edit":
-        case "course-preview":
-        case "course-stats":
-            return hasCapability(actor, "manage-courses");
         case "catalog":
             return true;
     }

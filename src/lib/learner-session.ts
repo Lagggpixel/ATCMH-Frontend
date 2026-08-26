@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { examsSessionCookie, introspectCentralSession } from "./central-auth";
+import { introspectCentralSession, sessionTokenFromCookieStore } from "./central-auth";
 import type { LearnerIdentity } from "./learner-identity";
 
 /** Introspects the opaque central session on every authorization-sensitive read. */
@@ -16,7 +16,7 @@ export async function getVerifiedLearnerIdentity(): Promise<LearnerIdentity | un
 }
 
 export async function getVerifiedCentralSession() {
-  return introspectCentralSession((await cookies()).get(examsSessionCookie)?.value);
+  return introspectCentralSession(sessionTokenFromCookieStore(await cookies()));
 }
 
 /** Reads only an HttpOnly, signed Discord subject; never trust query/header IDs. */

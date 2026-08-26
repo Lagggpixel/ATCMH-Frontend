@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 
-import { csrfTokenFor, examsSessionCookie, introspectCentralSession } from "@/src/lib/central-auth";
+import { csrfTokenFor, introspectCentralSession, sessionTokenFromCookieStore } from "@/src/lib/central-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const token = (await cookies()).get(examsSessionCookie)?.value;
+  const token = sessionTokenFromCookieStore(await cookies());
   const central = await introspectCentralSession(token);
   const session = central && token ? {
     accountId: central.accountId,

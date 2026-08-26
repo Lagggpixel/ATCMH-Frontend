@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-    examsImpersonationHandoffUrl,
     loginPath,
     PRIVACY_POLICY_URL,
     safeDashboardReturnTo,
@@ -9,9 +8,9 @@ import {
 } from "./AuthSessionUtils.ts";
 
 test("central login offers a provider without exposing provider credentials", () => {
-    const url = new URL(loginPath("https://api.test", "ifc", "/account"));
-    assert.equal(url.pathname, "/auth/login");
-    assert.deepEqual(Object.fromEntries(url.searchParams), {provider: "ifc", app: "dashboard", returnTo: "/account"});
+    const url = new URL(loginPath("https://api.test", "ifc", "/account"), "https://www.atcmh.org");
+    assert.equal(url.pathname, "/api/auth/login");
+    assert.deepEqual(Object.fromEntries(url.searchParams), {provider: "ifc", returnTo: "/account"});
     assert.equal(url.hash, "");
 });
 
@@ -20,10 +19,6 @@ test("return destinations stay on the dashboard", () => {
     assert.equal(safeDashboardReturnTo("//evil.test"), "/account");
     assert.equal(safeDashboardReturnTo("https://evil.test"), "/account");
     assert.equal(safeDashboardReturnTo("/auth/callback"), "/account");
-});
-
-test("Exams impersonation uses the one-use callback contract", () => {
-    assert.equal(examsImpersonationHandoffUrl("https://www.atcmh.org", "one use/+"), "https://www.atcmh.org/exams/api/auth/callback?handoff=one+use%2F%2B&returnTo=%2Fexams");
 });
 
 test("login disclosure uses the canonical ATCMH legal documents", () => {

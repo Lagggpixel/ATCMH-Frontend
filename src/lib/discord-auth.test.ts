@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { csrfTokenFor } from "./central-auth";
-import { classifyDiscordStaff, parseDiscordIdList, requireManagementCapability } from "./discord-auth";
+import { requireManagementCapability } from "./discord-auth";
 
 const originalFetch = globalThis.fetch;
 const token = "t".repeat(43);
@@ -12,7 +12,7 @@ function request(method = "GET", authenticated = true, csrf?: string, origin = "
   return new Request("https://www.atcmh.org/exams/api/management/exams/quizzes", {
     method,
     headers: {
-      ...(authenticated ? { cookie: `atcmh_exams_session=${token}` } : {}),
+      ...(authenticated ? { cookie: `__Host-atcmh_session=${token}` } : {}),
       ...(method !== "GET" ? { origin, "X-CSRF-Token": csrf ?? "" } : {}),
     },
   });
@@ -27,11 +27,6 @@ function configure() {
   process.env.EXAMS_AUTH_KEY = "auth-key";
   process.env.EXAMS_CSRF_SECRET = "x".repeat(32);
   process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org";
-  process.env.DISCORD_GUILD_ID = "guild";
-  process.env.DISCORD_BOT_TOKEN = "bot-token";
-  process.env.DISCORD_MENTOR_ROLE_IDS = "mentor-role,moderator-role";
-  process.env.DISCORD_ADMIN_ROLE_IDS = "admin-role";
-  process.env.DISCORD_ADMIN_USER_IDS = "";
 }
 
 function centralSession(discordId = mentorId) {
@@ -43,10 +38,10 @@ function impersonatedSession() {
     realActorAccountId: "7", realActorDiscordId: "999999999999999999" };
 }
 
-function authFetch(roles: string[], discordId = mentorId) {
+function authFetch(capabilities: string[], discordId = mentorId, canManageAll = false) {
   return async (input: RequestInfo | URL) => String(input).includes("/internal/auth/sessions/introspect")
     ? json(centralSession(discordId))
-    : json({ roles });
+    : json({ capabilities, canManageAll });
 }
 
 test.beforeEach(configure);
@@ -69,13 +64,13 @@ test("revoked or unavailable central sessions fail closed", async () => {
 });
 
 test("mentor and administrator capabilities are derived from the introspected Discord ID", async () => {
-  globalThis.fetch = authFetch(["mentor-role"]);
+  globalThis.fetch = authFetch(["manage-exams"]);
   const mentor = await requireManagementCapability(request(), "manage-exams");
   assert.ok(!(mentor instanceof Response));
   assert.equal(mentor.discordId, mentorId);
   assert.equal(mentor.canManageAll, false);
 
-  globalThis.fetch = authFetch(["admin-role"]);
+  globalThis.fetch = authFetch(["manage-system"], mentorId, true);
   const admin = await requireManagementCapability(request(), "manage-system");
   assert.ok(!(admin instanceof Response));
   assert.equal(admin.canManageAll, true);
@@ -95,7 +90,7 @@ test("guild lookup failure is controlled and missing capability is forbidden", a
 });
 
 test("every management mutation requires exact Origin and per-session CSRF", async () => {
-  globalThis.fetch = authFetch(["mentor-role"]);
+  globalThis.fetch = authFetch(["manage-exams"]);
   const missing = await requireManagementCapability(request("POST"), "manage-exams");
   assert.ok(missing instanceof Response);
   assert.equal(missing.status, 403);
@@ -109,9 +104,8 @@ test("every management mutation requires exact Origin and per-session CSRF", asy
 });
 
 test("superadmin impersonating a non-staff target loses management access", async () => {
-  process.env.DISCORD_ADMIN_USER_IDS = "999999999999999999";
   globalThis.fetch = async (input) => String(input).includes("/internal/auth/sessions/introspect")
-    ? json(impersonatedSession()) : json({ roles: [] });
+    ? json(impersonatedSession()) : json({ capabilities: [], canManageAll: false });
   const actor = await requireManagementCapability(request(), "manage-system");
   assert.ok(actor instanceof Response);
   assert.equal(actor.status, 403);
@@ -119,7 +113,7 @@ test("superadmin impersonating a non-staff target loses management access", asyn
 
 test("impersonated target staff retains target capabilities while audit identity remains the real actor", async () => {
   globalThis.fetch = async (input) => String(input).includes("/internal/auth/sessions/introspect")
-    ? json(impersonatedSession()) : json({ roles: ["mentor-role"] });
+    ? json(impersonatedSession()) : json({ capabilities: ["manage-exams"], canManageAll: false });
   const actor = await requireManagementCapability(request(), "manage-exams");
   assert.ok(!(actor instanceof Response));
   assert.equal(actor.discordId, "999999999999999999");
@@ -131,10 +125,9 @@ test("impersonated target staff retains target capabilities while audit identity
   assert.equal(actor.impersonatedDiscordId, mentorId);
 });
 
-test("Discord staff policy keeps configured role tiers", () => {
-  assert.deepEqual([...parseDiscordIdList(" admin-1, ,mentor-1, moderator-1 ,")], ["admin-1", "mentor-1", "moderator-1"]);
-  process.env.DISCORD_ADMIN_USER_IDS = "admin-user";
-  assert.deepEqual(classifyDiscordStaff("admin-user", []), { isAdministrator: true, isMentor: true });
-  assert.deepEqual(classifyDiscordStaff("learner", ["moderator-role"]), { isAdministrator: false, isMentor: true });
-  assert.deepEqual(classifyDiscordStaff("learner", ["unrelated"]), { isAdministrator: false, isMentor: false });
+test("unknown centralized capabilities are ignored", async () => {
+  globalThis.fetch = authFetch(["manage-exams", "invented-capability"]);
+  const actor = await requireManagementCapability(request(), "manage-exams");
+  assert.ok(!(actor instanceof Response));
+  assert.deepEqual(actor.capabilities, ["manage-exams"]);
 });

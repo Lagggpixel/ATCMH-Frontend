@@ -47,6 +47,9 @@ test("mobile mentees keep the list usable and profile content readable", () => {
     assert.match(stylesSource, /\.profilePage \.detailGrid\s*\{/);
     assert.match(stylesSource, /@media \(max-width: 620px\)/);
     assert.match(stylesSource, /\.sessionsTable tr\s*\{[^}]*grid-template-columns:/);
+    assert.match(stylesSource, /\.menteeCardFooter\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
+    assert.match(stylesSource, /\.menteeCardFooter span:first-child\s*\{[^}]*white-space:\s*nowrap;/);
+    assert.match(stylesSource, /\.menteeCardFooter span:last-child\s*\{[^}]*white-space:\s*nowrap;/);
 });
 
 test("state actions use custom confirmation semantics and pagination exposes its semantics", () => {
@@ -58,4 +61,39 @@ test("state actions use custom confirmation semantics and pagination exposes its
     assert.match(componentSource, /role="dialog" aria-modal="true"/);
     assert.match(componentSource, /styles\.dangerButton/);
     assert.match(paginationSource, /aria-current=\{i === page \? "page" : undefined\}/);
+});
+
+test("waitlist view exposes a shared weekly UTC availability matcher with selectable leniency and pickup", () => {
+    assert.match(componentSource, /mentorFilter === "waitlist"/);
+    assert.match(componentSource, /AutoMatchPanel/);
+    assert.match(componentSource, /defaultWeeklyAvailabilityAnswer/);
+    assert.match(componentSource, /WeeklyAvailabilityEditor id="mentor-weekly-availability"/);
+    assert.match(componentSource, /Auto-match by weekly UTC availability/);
+    assert.doesNotMatch(componentSource, /Window start \(Zulu\)|Window end \(Zulu\)/);
+    assert.match(componentSource, /Strict · overlap only/);
+    assert.match(componentSource, /Medium · up to 30 min gap/);
+    assert.match(componentSource, /Very loose · up to 2 hr gap/);
+    assert.match(componentSource, /Pick up selected/);
+    assert.match(componentSource, /Pick up matched mentees\?/);
+    assert.match(componentSource, /Confirm pickup/);
+    assert.match(componentSource, /candidate\.overlaps \? "Overlaps your availability"/);
+    assert.match(componentSource, /Weekly availability \(UTC\)/);
+    assert.match(stylesSource, /\.autoMatchPanel\s*\{/);
+    assert.match(stylesSource, /\.autoMatchActions\s*\{/);
+    assert.match(stylesSource, /\.autoMatchCandidateList\s*\{/);
+});
+
+test("mentee profile places IFC before a structured weekly availability list", () => {
+    const profileDetails = componentSource.slice(
+        componentSource.indexOf('<div className={styles.detailGrid}>'),
+        componentSource.indexOf('</div>', componentSource.indexOf('<div className={styles.detailGrid}>')),
+    );
+
+    assert.ok(profileDetails.indexOf('label="IFC"') < profileDetails.indexOf("<WeeklyAvailabilityDetail"));
+    assert.match(componentSource, /const WeeklyAvailabilityDetail/);
+    assert.match(componentSource, /<dl className=\{styles\.availabilityList\}>/);
+    assert.match(componentSource, /<dt>\{day\}<\/dt>/);
+    assert.match(componentSource, /<dd>\{time\}<\/dd>/);
+    assert.match(stylesSource, /\.availabilityDetail\s*\{[^}]*grid-column:\s*1 \/ -1;/);
+    assert.match(stylesSource, /\.availabilityList\s*\{[^}]*grid-template-columns:/);
 });

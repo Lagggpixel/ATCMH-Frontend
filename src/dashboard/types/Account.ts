@@ -15,7 +15,7 @@ export interface AccountIdentity {
 export interface DashboardAuthSession {
     accountId: string;
     status?: AccountSummary["status"];
-    application: "dashboard";
+    application: "web";
     expiresAt: string;
     csrfToken: string;
     impersonating: boolean;

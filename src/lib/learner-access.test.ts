@@ -11,48 +11,27 @@ function response(body: unknown, status = 200) {
 }
 
 function configureStaff() {
-  process.env.DISCORD_GUILD_ID = "987654321098765432";
-  process.env.DISCORD_BOT_TOKEN = "bot-token";
-  process.env.DISCORD_ADMIN_USER_IDS = "223456789012345678";
-  process.env.DISCORD_ADMIN_ROLE_IDS = "323456789012345678";
-  process.env.DISCORD_MENTOR_ROLE_IDS = "423456789012345678, 523456789012345678";
+  process.env.DASHBOARD_API_URL = "https://dashboard-api.atcmh.org";
+  process.env.EXAMS_AUTH_KEY = "auth-key";
 }
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
-  delete process.env.DISCORD_GUILD_ID;
-  delete process.env.DISCORD_BOT_TOKEN;
-  delete process.env.DISCORD_ADMIN_USER_IDS;
-  delete process.env.DISCORD_ADMIN_ROLE_IDS;
-  delete process.env.DISCORD_MENTOR_ROLE_IDS;
+  delete process.env.DASHBOARD_API_URL;
+  delete process.env.EXAMS_AUTH_KEY;
 });
 
-test("configured administrator user bypasses the guild lookup", async () => {
+test("centralized staff decision grants access to private quizzes", async () => {
   configureStaff();
-  process.env.DISCORD_ADMIN_USER_IDS = `  ${discordId}, 223456789012345678 `;
-  let calls = 0;
-  globalThis.fetch = async () => { calls += 1; return response({ roles: [] }); };
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), "https://dashboard-api.atcmh.org/internal/auth/discord/exams-access");
+    assert.equal(new Headers(init?.headers).get("x-exams-auth-key"), "auth-key");
+    assert.equal(init?.body, JSON.stringify({discordId}));
+    return response({ canAccessPrivateQuizzes: true });
+  };
 
   assert.deepEqual(await resolveLearnerAccess(discordId), { discordId, canAccessPrivateQuizzes: true });
-  assert.equal(calls, 0);
 });
-
-for (const [label, role] of [
-  ["administrator", "323456789012345678"],
-  ["mentor", "423456789012345678"],
-  ["moderator", "523456789012345678"],
-] as const) {
-  test(`${label} role grants access to private quizzes`, async () => {
-    configureStaff();
-    globalThis.fetch = async (url, init) => {
-      assert.equal(String(url), `https://discord.com/api/v10/guilds/987654321098765432/members/${discordId}`);
-      assert.equal(new Headers(init?.headers).get("authorization"), "Bot bot-token");
-      return response({ roles: [role] });
-    };
-
-    assert.deepEqual(await resolveLearnerAccess(discordId), { discordId, canAccessPrivateQuizzes: true });
-  });
-}
 
 test("nonmember receives ordinary learner access", async () => {
   configureStaff();
@@ -61,9 +40,9 @@ test("nonmember receives ordinary learner access", async () => {
   assert.deepEqual(await resolveLearnerAccess(discordId), { discordId, canAccessPrivateQuizzes: false });
 });
 
-test("malformed roles receive ordinary learner access", async () => {
+test("malformed centralized decisions receive ordinary learner access", async () => {
   configureStaff();
-  for (const body of [{}, { roles: null }, { roles: "423456789012345678" }, { roles: [423456789012345678] }]) {
+  for (const body of [{}, { canAccessPrivateQuizzes: null }, { canAccessPrivateQuizzes: "true" }]) {
     globalThis.fetch = async () => response(body);
     assert.deepEqual(await resolveLearnerAccess(discordId), { discordId, canAccessPrivateQuizzes: false });
   }
@@ -78,7 +57,7 @@ for (const status of [401, 403, 404, 500, 503]) {
   });
 }
 
-test("Discord fetch rejection receives ordinary learner access", async () => {
+test("central authorization rejection receives ordinary learner access", async () => {
   configureStaff();
   globalThis.fetch = async () => { throw new Error("Discord unavailable"); };
 
@@ -94,7 +73,7 @@ test("invalid Discord ID and missing lookup configuration receive ordinary learn
     discordId: "not-a-snowflake",
     canAccessPrivateQuizzes: false,
   });
-  delete process.env.DISCORD_BOT_TOKEN;
+  delete process.env.EXAMS_AUTH_KEY;
   assert.deepEqual(await resolveLearnerAccess(discordId), { discordId, canAccessPrivateQuizzes: false });
   assert.equal(calls, 0);
 });

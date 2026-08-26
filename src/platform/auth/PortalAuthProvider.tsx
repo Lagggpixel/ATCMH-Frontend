@@ -23,7 +23,8 @@ export function usePortalAuth() {
 }
 
 export default function PortalAuthProvider({dashboardApiUrl, children}: {dashboardApiUrl: string; children: ReactNode}) {
-  configureDashboardApiUrl(dashboardApiUrl);
+  void dashboardApiUrl;
+  configureDashboardApiUrl("/api/dashboard");
   const [session, setSession] = useState<DashboardAuthSession | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser>();
   const [loading, setLoading] = useState(true);

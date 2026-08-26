@@ -6,6 +6,16 @@ export interface ExamsCookieOptions {
   domain?: string;
 }
 
+/** The only account-session cookie. Host-only by construction. */
+export function sessionCookieOptions(frontendPublicOrigin: string): ExamsCookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: !isExactHttpLoopbackOrigin(frontendPublicOrigin),
+    path: "/",
+  };
+}
+
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export function isExactHttpLoopbackOrigin(value: string): boolean {

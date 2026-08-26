@@ -1,16 +1,14 @@
 "use client";
 
 import {useCallback, useEffect, useRef, useState} from "react";
-import {useRouter} from "next/navigation";
 import {bootstrapDashboardExamsSession} from "./dashboard-exams-session-bootstrap";
 
 function errorMessage(reason: unknown) {
   return reason instanceof Error ? reason.message : "We could not connect your Dashboard session to the Exam Center.";
 }
 
-/** Bridges a Dashboard-only browser into the local Exams session once. */
+/** Refreshes shared session state when the Exams shell mounts. */
 export default function DashboardExamSessionBootstrap() {
-  const router = useRouter();
   const hasStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -20,14 +18,13 @@ export default function DashboardExamSessionBootstrap() {
     hasStarted.current = true;
     setError(null);
     try {
-      const result = await bootstrapDashboardExamsSession();
-      if (result === "bridged") router.refresh();
+      await bootstrapDashboardExamsSession();
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
       setIsRetrying(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void bootstrap(), 0);

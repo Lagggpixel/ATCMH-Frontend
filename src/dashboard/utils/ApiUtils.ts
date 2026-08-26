@@ -3,6 +3,7 @@ import type {AtcmhUser} from "../types/AtcmhUser.ts";
 import type {Session} from "../types/Session.ts";
 import type {UserNote} from "../types/UserNote.ts";
 import type {AdminMentee} from "../types/AdminMentee.ts";
+import type {AutoMatchCandidate, AutoMatchLeniency} from "../types/AutoMatchCandidate.ts";
 import type {AdminUser} from "../types/AdminUser.ts";
 import type {AdminAssignment, AdminAssignmentPayload} from "../types/AdminAssignment.ts";
 import type {AuditLog, AuditLogFilterMetadata} from "../types/AuditLog.ts";
@@ -232,6 +233,13 @@ export class ApiUtils {
         return ApiUtils.parseJson<AtcmhUser[]>(response);
     }
 
+    static async getDashboardUsers(token: string | null): Promise<AtcmhUser[] | undefined> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/users`, token);
+
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.parseJson<AtcmhUser[]>(response);
+    }
+
     static async getSessions(token: string | null): Promise<Session[] | undefined> {
         const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/sessions`, token);
 
@@ -292,6 +300,17 @@ export class ApiUtils {
 
         await ApiUtils.ensureOk(response);
         return ApiUtils.parseJson<AdminMentee[]>(response);
+    }
+
+    static async getAutoMatchCandidates(
+        token: string | null,
+        availability: string,
+        leniency: AutoMatchLeniency,
+    ): Promise<AutoMatchCandidate[] | undefined> {
+        return ApiUtils.adminJson<AutoMatchCandidate[]>(`${dashboardApiUrl}/admin/mentees/auto-match`, token, {
+            method: "POST",
+            body: JSON.stringify({availability, leniency}),
+        });
     }
 
     static async getAssignments(token: string | null): Promise<AdminAssignment[] | undefined> {

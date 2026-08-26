@@ -9,13 +9,6 @@ export const safeDashboardReturnTo = (value: string | null, fallback = "/account
 };
 
 export const loginPath = (apiOrigin: string, provider: "discord" | "ifc", returnTo: string) => {
-    const url = new URL("/auth/login", apiOrigin);
-    url.search = new URLSearchParams({provider, app: "dashboard", returnTo: safeDashboardReturnTo(returnTo)}).toString();
-    return url.toString();
-};
-
-export const examsImpersonationHandoffUrl = (examsOrigin: string, handoff: string) => {
-    const url = new URL("/exams/api/auth/callback", examsOrigin);
-    url.search = new URLSearchParams({handoff, returnTo: "/exams"}).toString();
-    return url.toString();
+    void apiOrigin;
+    return `/api/auth/login?${new URLSearchParams({provider, returnTo: safeDashboardReturnTo(returnTo)})}`;
 };

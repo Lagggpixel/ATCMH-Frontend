@@ -32,7 +32,7 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
         {path: "/dashboard/mock-questions", label: "Mock Questions"},
         {path: "/dashboard/application-questions", label: "Application Questions"},
         {path: "/dashboard/exams", label: "Exam Center"},
-        {path: "/dashboard/exams/courses", label: "Course Center"},
+        {path: "/dashboard/courses", label: "Course Center"},
     ]);
     assert.deepEqual(adminNavigationItems(user(), false).map(item => item.path), [
         "/dashboard/mentees", "/dashboard/assignments", "/dashboard/sessions", "/dashboard/usernotes", "/dashboard/manual", "/dashboard/stats",

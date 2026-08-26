@@ -27,6 +27,32 @@ export const parseUtcDateTimeInput = (value: string) => {
     return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)).toISOString();
 };
 
+export const parseZuluDateTimeInput = (value: string) => {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+
+    if (!match) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            throw new Error("Enter a valid Zulu time.");
+        }
+        return date.toISOString();
+    }
+
+    const [, year, month, day, hour, minute, second = "0"] = match;
+    const date = new Date(Date.UTC(
+        Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second),
+    ));
+    if (date.getUTCFullYear() !== Number(year)
+        || date.getUTCMonth() !== Number(month) - 1
+        || date.getUTCDate() !== Number(day)
+        || date.getUTCHours() !== Number(hour)
+        || date.getUTCMinutes() !== Number(minute)
+        || date.getUTCSeconds() !== Number(second)) {
+        throw new Error("Enter a valid Zulu time.");
+    }
+    return date.toISOString();
+};
+
 export const generateHalfHourUtcDateTimeSuggestions = (start: Date = new Date(), count = 96) => {
     const first = new Date(start.getTime());
     first.setUTCSeconds(0, 0);

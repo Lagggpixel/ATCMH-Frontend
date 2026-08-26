@@ -5,6 +5,7 @@ import {
     generateHalfHourUtcDateTimeSuggestions,
     formatIfcDisplay,
     parseUtcDateTimeInput,
+    parseZuluDateTimeInput,
 } from "./AdminDateUtils.ts";
 
 test("formats IFC by name without appending the IFC id", () => {
@@ -30,6 +31,11 @@ test("formats admin dates in UTC", () => {
     assert.equal(formatAdminUtcDate("2026-06-19T18:30:00.000Z"), "2026-06-19 18:30 UTC");
     assert.equal(formatAdminUtcDate("2026-06-19T18:30:00.000Z", {showUtcSuffix: false}), "2026-06-19 18:30");
     assert.equal(formatAdminUtcDate(undefined), "Not set");
+});
+
+test("parses datetime-local input as a Zulu wall-clock value without local conversion", () => {
+    assert.equal(parseZuluDateTimeInput("2026-06-19T18:30"), "2026-06-19T18:30:00.000Z");
+    assert.throws(() => parseZuluDateTimeInput("2026-02-30T18:30"), /valid Zulu time/);
 });
 
 test("generates half-hour UTC datetime-local suggestions", () => {
