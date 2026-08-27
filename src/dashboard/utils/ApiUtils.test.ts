@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {ApiUtils} from "./ApiUtils.ts";
+import {ApiUtils, configureDashboardApiUrl} from "./ApiUtils.ts";
 
 const withFetch = async (response: Response, run: () => Promise<void>) => {
     const originalFetch = globalThis.fetch;
@@ -213,6 +213,7 @@ test("session restoration and mutations use opaque cookies plus CSRF instead of 
 test("consent context uses the backend-owned HttpOnly challenge cookie", async () => {
     const originalFetch = globalThis.fetch;
     let request: Request | undefined;
+    configureDashboardApiUrl("/api/dashboard", "https://dashboard-api.test");
     globalThis.fetch = async (input, init) => {
         request = new Request(input, init);
         return Response.json({
@@ -230,8 +231,10 @@ test("consent context uses the backend-owned HttpOnly challenge cookie", async (
         assert.equal(context?.csrfToken, "csrf-value");
     } finally {
         globalThis.fetch = originalFetch;
+        configureDashboardApiUrl("https://dashboard-api.atcmh.org");
     }
 
+    assert.equal(new URL(request!.url).origin, "https://dashboard-api.test");
     assert.equal(new URL(request!.url).pathname, "/auth/consent/context");
     assert.equal(request!.credentials, "include");
     assert.equal(request!.headers.get("Authorization"), null);

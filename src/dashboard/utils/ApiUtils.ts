@@ -30,9 +30,11 @@ import type {
 } from "../types/ApplicationQuestion.ts";
 
 let dashboardApiUrl = "https://dashboard-api.atcmh.org";
+let consentApiUrl = dashboardApiUrl;
 
-export function configureDashboardApiUrl(value: string) {
+export function configureDashboardApiUrl(value: string, directOrigin = value) {
     dashboardApiUrl = value.replace(/\/$/, "");
+    consentApiUrl = directOrigin.replace(/\/$/, "");
 }
 
 export type AdminUserAuthResult =
@@ -57,6 +59,9 @@ export interface EligibilityResponse {
 export class ApiUtils {
 
     static get apiOrigin() { return dashboardApiUrl; }
+
+    /** Consent uses the backend origin because its challenge cookie is host-only there. */
+    static get consentApiOrigin() { return consentApiUrl; }
 
     static async getAuthSession(): Promise<DashboardAuthSession | null> {
         const response = await fetch(`${dashboardApiUrl}/auth/me`, {credentials: "include"});
@@ -154,7 +159,7 @@ export class ApiUtils {
     }
 
     static async getConsentContext(): Promise<PolicyConsentContext | null> {
-        const response = await fetch(`${dashboardApiUrl}/auth/consent/context`, {
+        const response = await fetch(`${consentApiUrl}/auth/consent/context`, {
             credentials: "include",
             cache: "no-store",
         });

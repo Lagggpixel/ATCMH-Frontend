@@ -57,6 +57,11 @@ test("ready consent view renders the exact native form contract without a challe
     assert.doesNotMatch(html, /name="challenge"|consentChallenge|__Host-atcmh_consent/);
 });
 
+test("consent stays on the direct backend origin when the dashboard proxy is configured", async () => {
+    const component = readFileSync(new URL("./ConsentPage.tsx", import.meta.url), "utf8");
+    assert.match(component, /ApiUtils\.consentApiOrigin/);
+});
+
 test("completion failure stays retryable and only displays a validated request ID", async () => {
     const ConsentPageView = await loadView();
     const notice = {message: "We could not complete sign-in. Please try again.", requestId: "123e4567-e89b-42d3-a456-426614174000"};
