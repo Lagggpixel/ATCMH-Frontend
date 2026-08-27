@@ -1617,6 +1617,63 @@
     color: color-mix(in srgb, var(--muted-text) 76%, transparent);
 }
 
+.searchInputRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-width: 0;
+}
+
+.searchInputRowWithToggle input {
+    box-sizing: border-box;
+    border-radius: 8px 0 0 8px;
+}
+
+.autoMatchToggleButton {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    max-width: 130px;
+    padding: 8px 11px;
+    border: 1px solid var(--border-color);
+    border-left-color: color-mix(in srgb, var(--border-color) 72%, var(--input-bg));
+    border-radius: 0 8px 8px 0;
+    background: var(--surface-2-color);
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.autoMatchToggleButton:hover,
+.autoMatchToggleButton[aria-expanded="true"] {
+    border-color: var(--accent-color);
+    background: var(--surface-3-color);
+}
+
+.autoMatchToggleButton:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 3px solid #9bbcff;
+    outline-offset: 2px;
+}
+
+.autoMatchToggleCount {
+    display: inline-grid;
+    min-width: 20px;
+    min-height: 20px;
+    place-items: center;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--accent-color);
+    color: #111;
+    font-size: 0.72rem;
+}
+
 .viewSwitcher {
     display: inline-flex;
     min-height: 42px;
@@ -1649,6 +1706,9 @@
 .autoMatchPanel {
     display: grid;
     gap: 14px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     padding: 18px;
     border: 1px solid var(--border-color);
     border-radius: 12px;
@@ -1698,6 +1758,9 @@
 .autoMatchForm {
     display: grid;
     gap: 14px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .autoMatchActions {
@@ -1734,8 +1797,7 @@
     font: inherit;
 }
 
-.autoMatchForm button,
-.autoMatchResults > button {
+.autoMatchForm button {
     min-height: 42px;
     padding: 8px 14px;
     border: 1px solid var(--accent-color);
@@ -1748,20 +1810,18 @@
     white-space: nowrap;
 }
 
-.autoMatchForm button:hover,
-.autoMatchResults > button:hover {
+.autoMatchForm button:hover {
     border-color: var(--accent-strong-color);
     background: var(--accent-strong-color);
 }
 
-.autoMatchForm button:disabled,
-.autoMatchResults > button:disabled {
+.autoMatchForm button:disabled {
     cursor: not-allowed;
     opacity: 0.55;
 }
 
 .autoMatchHint,
-.autoMatchEmpty {
+.autoMatchResultHint {
     margin: 0;
     color: var(--muted-text);
     font-size: 0.84rem;
@@ -1771,54 +1831,6 @@
     margin: 0;
     color: var(--danger-text);
     font-weight: 700;
-}
-
-.autoMatchResults {
-    display: grid;
-    gap: 10px;
-    border-top: 1px solid var(--border-color);
-    padding-top: 14px;
-}
-
-.autoMatchSelectAll {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-color);
-    font-weight: 750;
-}
-
-.autoMatchCandidateList {
-    display: grid;
-    gap: 8px;
-    max-height: 320px;
-    overflow: auto;
-}
-
-.autoMatchCandidate {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--surface-2-color);
-    cursor: pointer;
-}
-
-.autoMatchCandidate:hover {
-    border-color: color-mix(in srgb, var(--accent-color) 62%, var(--border-color));
-}
-
-.autoMatchCandidate > span {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-}
-
-.autoMatchCandidate small {
-    color: var(--muted-text);
-    overflow-wrap: anywhere;
 }
 
 .menteesCardGrid {
@@ -1836,7 +1848,6 @@
     border-radius: 12px;
     background: var(--surface-color);
     color: var(--text-color);
-    cursor: pointer;
     text-align: left;
     font: inherit;
     transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
@@ -1848,12 +1859,43 @@
     transform: translateY(-2px);
 }
 
-.menteeCard:focus-visible,
+.menteeCardOpen {
+    display: grid;
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
+.menteeCardOpen:focus-visible,
 .tableMenteeButton:focus-visible,
 .tableOpenButton:focus-visible,
 .profileBackButton:focus-visible {
     outline: 3px solid #9bbcff;
     outline-offset: 2px;
+}
+
+.menteeCardMatchBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    color: var(--muted-text);
+    font-size: 0.78rem;
+}
+
+.menteeCardMatchBar > span:last-child {
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .menteeCardHeader,
@@ -1943,7 +1985,12 @@
 }
 
 .menteesTableWrap {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
     border: 1px solid var(--border-color);
     border-radius: 12px;
     background: var(--surface-color);
@@ -1976,11 +2023,11 @@
     background: var(--surface-2-color);
 }
 
-.menteesTable thead th:nth-child(1) { width: 24%; }
-.menteesTable thead th:nth-child(2) { width: 14%; }
-.menteesTable thead th:nth-child(3) { width: 17%; }
-.menteesTable thead th:nth-child(4) { width: 16%; }
-.menteesTable thead th:nth-child(5) { width: 16%; }
+.menteesTable thead th:nth-child(1) { width: 23%; }
+.menteesTable thead th:nth-child(2) { width: 13%; }
+.menteesTable thead th:nth-child(3) { width: 16%; }
+.menteesTable thead th:nth-child(4) { width: 15%; }
+.menteesTable thead th:nth-child(5) { width: 15%; }
 .menteesTable thead th:nth-child(6) { width: 9%; }
 .menteesTable thead th:nth-child(7) { width: 9%; }
 
@@ -2005,6 +2052,21 @@
     cursor: pointer;
     font: inherit;
     text-align: left;
+}
+
+.tableMenteeIdentity {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.tableMatchSummary {
+    overflow: hidden;
+    color: var(--muted-text);
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tableMenteeButton strong {
@@ -2227,8 +2289,34 @@
         grid-template-columns: 1fr;
     }
 
+    .menteeCardMatchBar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .menteeCardMatchBar > span:last-child {
+        max-width: 100%;
+        text-align: left;
+    }
+
     .menteesToolbar {
         grid-template-columns: 1fr;
+    }
+
+    .searchInputRowWithToggle {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .searchInputRowWithToggle input {
+        border-radius: 8px;
+    }
+
+    .autoMatchToggleButton {
+        width: 100%;
+        max-width: none;
+        border-left-color: var(--border-color);
+        border-radius: 8px;
     }
 
     .viewSwitcher {

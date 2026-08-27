@@ -120,10 +120,9 @@ const AdminMentees = ({
     const [autoMatchAvailability, setAutoMatchAvailability] = useState(defaultWeeklyAvailabilityAnswer);
     const [autoMatchLeniency, setAutoMatchLeniency] = useState<AutoMatchLeniency>("medium");
     const [autoMatchCandidates, setAutoMatchCandidates] = useState<AutoMatchCandidate[]>([]);
-    const [selectedAutoMatchIds, setSelectedAutoMatchIds] = useState<Set<number>>(new Set());
     const [autoMatchSearched, setAutoMatchSearched] = useState(false);
     const [autoMatchError, setAutoMatchError] = useState<string | undefined>();
-    const [showAutoMatchPickupModal, setShowAutoMatchPickupModal] = useState(false);
+    const [autoMatchOpen, setAutoMatchOpen] = useState(false);
     const [autoMatchPreferencesLoadedFor, setAutoMatchPreferencesLoadedFor] = useState<string>();
     const autoMatchSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
     const [attendeeInputs, setAttendeeInputs] = useState<Record<string, string>>({});
@@ -138,6 +137,10 @@ const AdminMentees = ({
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
     const preferenceAccountId = accountId ?? adminUser?.id;
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
+    const autoMatchCandidateIds = useMemo(
+        () => new Set(autoMatchCandidates.map(candidate => candidate.id)),
+        [autoMatchCandidates],
+    );
 
     const selectedMentee = useMemo(() => {
         if (!mentees || !menteeRecordId) return undefined;
@@ -152,6 +155,9 @@ const AdminMentees = ({
                 return false;
             }
             if (mentorFilter === "waitlist" && (getAssignedMentorId(mentee) != null || mentee.state !== "waitlisted")) {
+                return false;
+            }
+            if (mentorFilter === "waitlist" && autoMatchSearched && !autoMatchCandidateIds.has(mentee.id)) {
                 return false;
             }
             if (!normalized) {
@@ -172,7 +178,7 @@ const AdminMentees = ({
                 stateLabels[mentee.state],
             ].filter(Boolean).join(" ").toLowerCase().includes(normalized);
         });
-    }, [adminUser, filter, mentees, mentorFilter, usersById]);
+    }, [adminUser, autoMatchCandidateIds, autoMatchSearched, filter, mentees, mentorFilter, usersById]);
 
     const menteePagination = usePagination(displayedMentees, 50);
 
@@ -214,10 +220,8 @@ const AdminMentees = ({
         setAutoMatchAvailability(defaultWeeklyAvailabilityAnswer);
         setAutoMatchLeniency("medium");
         setAutoMatchCandidates([]);
-        setSelectedAutoMatchIds(new Set());
         setAutoMatchSearched(false);
         setAutoMatchError(undefined);
-        setShowAutoMatchPickupModal(false);
 
         if (!loggedIn || !token || !preferenceAccountId) {
             return () => {
@@ -278,54 +282,13 @@ const AdminMentees = ({
             setBusyAction("auto-match-search");
             const candidates = await ApiUtils.getAutoMatchCandidates(token, autoMatchAvailability, autoMatchLeniency);
             setAutoMatchCandidates(candidates ?? []);
-            setSelectedAutoMatchIds(new Set());
             setAutoMatchSearched(true);
+            menteePagination.reset();
         } catch (err) {
             setAutoMatchError(err instanceof Error ? err.message : String(err));
         } finally {
             setBusyAction(undefined);
         }
-    };
-
-    const handleAutoMatchPickup = async () => {
-        const selected = autoMatchCandidates.filter(candidate => selectedAutoMatchIds.has(candidate.id));
-        if (selected.length === 0) {
-            setAutoMatchError("Select at least one matched mentee first.");
-            return;
-        }
-
-        setAutoMatchError(undefined);
-        setBusyAction("auto-match-pickup");
-        const pickedUpIds: number[] = [];
-        const failures: string[] = [];
-        for (const candidate of selected) {
-            try {
-                const updated = await ApiUtils.pickupMentee(token, candidate.id);
-                if (updated) {
-                    pickedUpIds.push(candidate.id);
-                    onMenteeChanged(updated);
-                } else {
-                    failures.push(candidate.mentee);
-                }
-            } catch (err) {
-                failures.push(`${candidate.mentee}: ${err instanceof Error ? err.message : String(err)}`);
-            }
-        }
-        setAutoMatchCandidates(current => current.filter(candidate => !pickedUpIds.includes(candidate.id)));
-        setSelectedAutoMatchIds(current => new Set([...current].filter(id => !pickedUpIds.includes(id))));
-        if (failures.length > 0) {
-            setAutoMatchError(`Picked up ${pickedUpIds.length}; failed for ${failures.join(", ")}.`);
-        }
-        setBusyAction(undefined);
-    };
-
-    const requestAutoMatchPickup = () => {
-        if (!autoMatchCandidates.some(candidate => selectedAutoMatchIds.has(candidate.id))) {
-            setAutoMatchError("Select at least one matched mentee first.");
-            return;
-        }
-        setAutoMatchError(undefined);
-        setShowAutoMatchPickupModal(true);
     };
 
     const clearMenteeFilters = () => {
@@ -338,10 +301,11 @@ const AdminMentees = ({
     useEffect(() => {
         if (mentorFilter !== "waitlist") {
             setAutoMatchCandidates([]);
-            setSelectedAutoMatchIds(new Set());
             setAutoMatchSearched(false);
             setAutoMatchError(undefined);
-            setShowAutoMatchPickupModal(false);
+            setAutoMatchOpen(false);
+        } else {
+            setAutoMatchOpen(true);
         }
     }, [mentorFilter]);
 
@@ -596,24 +560,17 @@ const AdminMentees = ({
                     onViewChange={handleViewChange}
                     onClearFilters={clearMenteeFilters}
                     onOpenMentee={id => navigate(menteeRoute(id))}
+                    autoMatchOpen={autoMatchOpen}
+                    onAutoMatchToggleOpen={() => setAutoMatchOpen(open => !open)}
                     autoMatchCandidates={autoMatchCandidates}
                     autoMatchAvailability={autoMatchAvailability}
                     autoMatchLeniency={autoMatchLeniency}
-                    selectedAutoMatchIds={selectedAutoMatchIds}
                     autoMatchSearched={autoMatchSearched}
-                    autoMatchBusy={busyAction === "auto-match-search" || busyAction === "auto-match-pickup"}
+                    autoMatchBusy={busyAction === "auto-match-search"}
                     autoMatchError={autoMatchError}
                     onAutoMatchAvailabilityChange={setAutoMatchAvailability}
                     onAutoMatchLeniencyChange={value => setAutoMatchLeniency(value)}
                     onAutoMatchSearch={handleAutoMatchSearch}
-                    onAutoMatchToggle={id => setSelectedAutoMatchIds(current => {
-                        const next = new Set(current);
-                        if (next.has(id)) next.delete(id);
-                        else next.add(id);
-                        return next;
-                    })}
-                    onAutoMatchToggleAll={checked => setSelectedAutoMatchIds(checked ? new Set(autoMatchCandidates.map(candidate => candidate.id)) : new Set())}
-                    onAutoMatchPickup={requestAutoMatchPickup}
                 />
             )}
 
@@ -622,17 +579,6 @@ const AdminMentees = ({
                     action={pendingStateAction}
                     onCancel={() => setPendingStateAction(undefined)}
                     onConfirm={handleStateActionConfirm}
-                />
-            ) : null}
-
-            {showAutoMatchPickupModal ? (
-                <AutoMatchPickupConfirmation
-                    count={autoMatchCandidates.filter(candidate => selectedAutoMatchIds.has(candidate.id)).length}
-                    onCancel={() => setShowAutoMatchPickupModal(false)}
-                    onConfirm={() => {
-                        setShowAutoMatchPickupModal(false);
-                        void handleAutoMatchPickup();
-                    }}
                 />
             ) : null}
 
@@ -689,19 +635,17 @@ interface MenteeListPageProps {
     onViewChange: (view: MenteeView) => void;
     onClearFilters: () => void;
     onOpenMentee: (id: number) => void;
+    autoMatchOpen: boolean;
+    onAutoMatchToggleOpen: () => void;
     autoMatchCandidates: AutoMatchCandidate[];
     autoMatchAvailability: string;
     autoMatchLeniency: AutoMatchLeniency;
-    selectedAutoMatchIds: Set<number>;
     autoMatchSearched: boolean;
     autoMatchBusy: boolean;
     autoMatchError: string | undefined;
     onAutoMatchAvailabilityChange: (value: string) => void;
     onAutoMatchLeniencyChange: (value: AutoMatchLeniency) => void;
     onAutoMatchSearch: (event: FormEvent) => void;
-    onAutoMatchToggle: (id: number) => void;
-    onAutoMatchToggleAll: (checked: boolean) => void;
-    onAutoMatchPickup: () => void;
 }
 
 const MenteeListPage = ({
@@ -716,21 +660,24 @@ const MenteeListPage = ({
                             onViewChange,
                             onClearFilters,
                             onOpenMentee,
+                            autoMatchOpen,
+                            onAutoMatchToggleOpen,
                             autoMatchCandidates,
                             autoMatchAvailability,
                             autoMatchLeniency,
-                            selectedAutoMatchIds,
                             autoMatchSearched,
                             autoMatchBusy,
                             autoMatchError,
                             onAutoMatchAvailabilityChange,
                             onAutoMatchLeniencyChange,
                             onAutoMatchSearch,
-                            onAutoMatchToggle,
-                            onAutoMatchToggleAll,
-                            onAutoMatchPickup,
                         }: MenteeListPageProps) => {
     const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all";
+    const autoMatchCandidateById = useMemo(
+        () => new Map(autoMatchCandidates.map(candidate => [candidate.id, candidate])),
+        [autoMatchCandidates],
+    );
+    const autoMatchActive = mentorFilter === "waitlist" && autoMatchSearched;
     return (
         <main className={styles.menteesListPage} aria-label="Mentees">
             <section className={styles.menteesToolbar} aria-label="Mentee filters and view options">
@@ -744,12 +691,26 @@ const MenteeListPage = ({
                             ) : null}
                         </div>
                     </div>
-                    <input
-                        id="mentee-search"
-                        value={filter}
-                        onChange={onSearchChange}
-                        placeholder="Name, Discord ID, IFC, recruiter..."
-                    />
+                    <div className={`${styles.searchInputRow} ${mentorFilter === "waitlist" ? styles.searchInputRowWithToggle : ""}`}>
+                        <input
+                            id="mentee-search"
+                            value={filter}
+                            onChange={onSearchChange}
+                            placeholder="Name, Discord ID, IFC, recruiter..."
+                        />
+                        {mentorFilter === "waitlist" ? (
+                            <button
+                                type="button"
+                                className={styles.autoMatchToggleButton}
+                                aria-controls="auto-match-panel"
+                                aria-expanded={autoMatchOpen}
+                                onClick={onAutoMatchToggleOpen}
+                            >
+                                <span>{autoMatchOpen ? "Hide helper" : "Match helper"}</span>
+                                {autoMatchSearched ? <span className={styles.autoMatchToggleCount}>{autoMatchCandidates.length}</span> : null}
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
                 <label className={styles.filterField} htmlFor="mentor-filter">
                     <span>Mentor</span>
@@ -765,21 +726,17 @@ const MenteeListPage = ({
                 </div>
             </section>
 
-            {mentorFilter === "waitlist" ? (
+            {mentorFilter === "waitlist" && autoMatchOpen ? (
                 <AutoMatchPanel
                     candidates={autoMatchCandidates}
                     availability={autoMatchAvailability}
                     leniency={autoMatchLeniency}
-                    selectedIds={selectedAutoMatchIds}
                     searched={autoMatchSearched}
                     busy={autoMatchBusy}
                     error={autoMatchError}
                     onAvailabilityChange={onAutoMatchAvailabilityChange}
                     onLeniencyChange={onAutoMatchLeniencyChange}
                     onSearch={onAutoMatchSearch}
-                    onToggle={onAutoMatchToggle}
-                    onToggleAll={onAutoMatchToggleAll}
-                    onPickup={onAutoMatchPickup}
                 />
             ) : null}
 
@@ -787,11 +744,23 @@ const MenteeListPage = ({
                 view === "cards" ? (
                     <div className={styles.menteesCardGrid} aria-label="Mentees in card view">
                         {pagination.paginatedItems.map(mentee => (
-                            <MenteeCard key={mentee.id} mentee={mentee} getUserName={getUserName} onOpen={onOpenMentee}/>
+                            <MenteeCard
+                                key={mentee.id}
+                                mentee={mentee}
+                                getUserName={getUserName}
+                                onOpen={onOpenMentee}
+                                match={autoMatchActive ? autoMatchCandidateById.get(mentee.id) : undefined}
+                            />
                         ))}
                     </div>
                 ) : (
-                    <MenteeTable mentees={pagination.paginatedItems} getUserName={getUserName} onOpen={onOpenMentee}/>
+                    <MenteeTable
+                        mentees={pagination.paginatedItems}
+                        getUserName={getUserName}
+                        onOpen={onOpenMentee}
+                        autoMatchActive={autoMatchActive}
+                        candidateById={autoMatchCandidateById}
+                    />
                 )
             ) : (
                 <div className={styles.menteesEmptyState}>
@@ -814,34 +783,26 @@ interface AutoMatchPanelProps {
     candidates: AutoMatchCandidate[];
     availability: string;
     leniency: AutoMatchLeniency;
-    selectedIds: Set<number>;
     searched: boolean;
     busy: boolean;
     error: string | undefined;
     onAvailabilityChange: (value: string) => void;
     onLeniencyChange: (value: AutoMatchLeniency) => void;
     onSearch: (event: FormEvent) => void;
-    onToggle: (id: number) => void;
-    onToggleAll: (checked: boolean) => void;
-    onPickup: () => void;
 }
 
 const AutoMatchPanel = ({
                             candidates,
                             availability,
                             leniency,
-                            selectedIds,
                             searched,
                             busy,
                             error,
                             onAvailabilityChange,
                             onLeniencyChange,
                             onSearch,
-                            onToggle,
-                            onToggleAll,
-                            onPickup,
                         }: AutoMatchPanelProps) => (
-    <section className={styles.autoMatchPanel} aria-labelledby="auto-match-title">
+    <section id="auto-match-panel" className={styles.autoMatchPanel} aria-labelledby="auto-match-title">
         <div className={styles.autoMatchHeader}>
             <div>
                 <p className={styles.autoMatchEyebrow}>Waitlist helper</p>
@@ -870,66 +831,56 @@ const AutoMatchPanel = ({
         </form>
 
         {error ? <p className={styles.autoMatchError} role="alert">{error}</p> : null}
-
-        {searched && candidates.length > 0 ? (
-            <div className={styles.autoMatchResults}>
-                <label className={styles.autoMatchSelectAll}>
-                    <input
-                        type="checkbox"
-                        checked={selectedIds.size === candidates.length}
-                        onChange={event => onToggleAll(event.target.checked)}
-                    />
-                    <span>Select all matches</span>
-                </label>
-                <div className={styles.autoMatchCandidateList}>
-                    {candidates.map(candidate => (
-                        <label key={candidate.id} className={styles.autoMatchCandidate}>
-                            <input
-                                type="checkbox"
-                                checked={selectedIds.has(candidate.id)}
-                                onChange={() => onToggle(candidate.id)}
-                            />
-                            <span>
-                                <strong>{candidate.ifcName || candidate.ifcId || `Discord ${candidate.mentee}`}</strong>
-                                <small>{candidate.overlaps ? "Overlaps your availability" : `${candidate.distanceMinutes} min from your availability`} · {candidate.timezone || "Timezone not provided"}</small>
-                                <small>{candidate.availability || "Availability not provided"}</small>
-                            </span>
-                        </label>
-                    ))}
-                </div>
-                <button type="button" onClick={onPickup} disabled={busy || selectedIds.size === 0}>
-                    {busy ? "Picking up…" : `Pick up selected (${selectedIds.size})`}
-                </button>
-            </div>
-        ) : searched ? (
-            <p className={styles.autoMatchEmpty}>No waitlisted mentees match your weekly UTC availability and leniency.</p>
-        ) : null}
+        {searched ? <p className={styles.autoMatchResultHint} role="status">Matches now filter the main cards or table below.</p> : null}
     </section>
 );
 
-const MenteeCard = ({mentee, getUserName, onOpen}: {mentee: AdminMentee; getUserName: (id?: string) => string; onOpen: (id: number) => void}) => (
-    <button type="button" className={styles.menteeCard} onClick={() => onOpen(mentee.id)}>
-        <span className={styles.menteeCardHeader}>
-            <span>
-                <strong>{getUserName(mentee.mentee)}</strong>
-                <small>Record #{mentee.id}</small>
+interface MenteeCardProps {
+    mentee: AdminMentee;
+    getUserName: (id?: string) => string;
+    onOpen: (id: number) => void;
+    match?: AutoMatchCandidate;
+}
+
+const MenteeCard = ({mentee, getUserName, onOpen, match}: MenteeCardProps) => (
+    <article className={styles.menteeCard}>
+        {match ? (
+            <div className={styles.menteeCardMatchBar}>
+                <span>{formatAutoMatchSummary(match)}</span>
+                <span>{match.timezone || "Timezone not provided"}</span>
+            </div>
+        ) : null}
+        <button type="button" className={styles.menteeCardOpen} onClick={() => onOpen(mentee.id)}>
+            <span className={styles.menteeCardHeader}>
+                <span>
+                    <strong>{getUserName(mentee.mentee)}</strong>
+                    <small>Record #{mentee.id}</small>
+                </span>
+                <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
             </span>
-            <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
-        </span>
-        <span className={styles.menteeCardDetails}>
-            <span><small>Mentor</small><strong>{getMentorDisplayName(mentee, getUserName)}</strong></span>
-            <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
-            <span><small>IFC</small><strong>{formatIfcDisplay(mentee)}</strong></span>
-            <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
-        </span>
-        <span className={styles.menteeCardFooter}>
-            <span>Joined {formatAdminUtcDate(mentee.waitlistTime)}</span>
-            <span>Open profile</span>
-        </span>
-    </button>
+            <span className={styles.menteeCardDetails}>
+                <span><small>Mentor</small><strong>{getMentorDisplayName(mentee, getUserName)}</strong></span>
+                <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
+                <span><small>IFC</small><strong>{formatIfcDisplay(mentee)}</strong></span>
+                <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
+            </span>
+            <span className={styles.menteeCardFooter}>
+                <span>Joined {formatAdminUtcDate(mentee.waitlistTime)}</span>
+                <span>Open profile</span>
+            </span>
+        </button>
+    </article>
 );
 
-const MenteeTable = ({mentees, getUserName, onOpen}: {mentees: AdminMentee[]; getUserName: (id?: string) => string; onOpen: (id: number) => void}) => (
+interface MenteeTableProps {
+    mentees: AdminMentee[];
+    getUserName: (id?: string) => string;
+    onOpen: (id: number) => void;
+    autoMatchActive: boolean;
+    candidateById: Map<number, AutoMatchCandidate>;
+}
+
+const MenteeTable = ({mentees, getUserName, onOpen, autoMatchActive, candidateById}: MenteeTableProps) => (
     <div className={styles.menteesTableWrap}>
         <table className={styles.menteesTable}>
             <caption className={styles.visuallyHidden}>Mentee records</caption>
@@ -948,10 +899,17 @@ const MenteeTable = ({mentees, getUserName, onOpen}: {mentees: AdminMentee[]; ge
             {mentees.map(mentee => (
                 <tr key={mentee.id}>
                     <th scope="row">
-                        <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
-                            <strong>{getUserName(mentee.mentee)}</strong>
-                            <small>#{mentee.id} · {formatAdminUtcDate(mentee.waitlistTime)}</small>
-                        </button>
+                        <div className={styles.tableMenteeIdentity}>
+                            <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
+                                <strong>{getUserName(mentee.mentee)}</strong>
+                                <small>#{mentee.id} · {formatAdminUtcDate(mentee.waitlistTime)}</small>
+                            </button>
+                            {autoMatchActive && candidateById.get(mentee.id) ? (
+                                <small className={styles.tableMatchSummary}>
+                                    {formatAutoMatchSummary(candidateById.get(mentee.id)!)} · {candidateById.get(mentee.id)?.timezone || "Timezone not provided"}
+                                </small>
+                            ) : null}
+                        </div>
                     </th>
                     <td><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
                     <td>{getMentorDisplayName(mentee, getUserName)}</td>
@@ -1184,36 +1142,6 @@ const MenteeActionConfirmation = ({
         </div>
     );
 };
-
-const AutoMatchPickupConfirmation = ({
-                                          count,
-                                          onCancel,
-                                          onConfirm,
-                                      }: {
-    count: number;
-    onCancel: () => void;
-    onConfirm: () => void;
-}) => (
-    <div className={styles.modalBackdrop} role="presentation" onClick={onCancel} onKeyDown={event => {
-        if (event.key === "Escape") onCancel();
-    }}>
-        <div
-            className={styles.confirmationModal}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="auto-match-confirmation-title"
-            aria-describedby="auto-match-confirmation-description"
-            onClick={event => event.stopPropagation()}
-        >
-            <h3 id="auto-match-confirmation-title">Pick up matched mentees?</h3>
-            <p id="auto-match-confirmation-description">This will assign {count} selected {count === 1 ? "mentee" : "mentees"} to you and move them out of the waitlist.</p>
-            <div className={styles.modalActions}>
-                <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
-                <button type="button" onClick={onConfirm}>Confirm pickup</button>
-            </div>
-        </div>
-    </div>
-);
 
 const DetailItem = ({label, value}: { label: string; value: string }) => (
     <div className={styles.detailItem}>
@@ -2117,6 +2045,10 @@ const getMenteeSessionCount = (mentee: AdminMentee, session: Session) => {
     });
 
     return pastRunningSessions.length + 1;
+};
+
+const formatAutoMatchSummary = (candidate: AutoMatchCandidate) => {
+    return candidate.overlaps ? "Overlaps availability" : `${candidate.distanceMinutes} min gap`;
 };
 
 const getAssignedMentorId = (mentee: AdminMentee) => mentee.practicalMentor ?? mentee.writtenMentor;

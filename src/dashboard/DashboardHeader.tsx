@@ -17,6 +17,6 @@ export default function DashboardHeader() {
         <div className={styles.dashboardNavigation}>
             {adminUser ? <AdminNav adminUser={adminUser} embedded/> : null}
         </div>
-        <div className="nav-primary-auth"><AuthNavigation showLogin={false}/></div>
+        <div className={`nav-primary-auth ${styles.accountNavigation}`}><AuthNavigation showLogin={false}/></div>
     </header>;
 }

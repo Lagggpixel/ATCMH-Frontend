@@ -25,10 +25,13 @@ test("dashboard catch-all page only renders the route content", () => {
 test("dashboard replaces the public header contents without losing its shared treatment", () => {
     const layout = source("layout.tsx");
     const header = readFileSync(join(appDirectory, "../../dashboard/DashboardHeader.tsx"), "utf8");
+    const headerStyles = readFileSync(join(appDirectory, "../../dashboard/DashboardHeader.module.css"), "utf8");
 
     assert.match(layout, /header=\{<DashboardHeader\/>\}/);
     assert.match(header, /site-header is-scrolled is-solid/);
     assert.match(header, /Back to main site/);
     assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded\/>/);
     assert.match(header, /<AuthNavigation showLogin=\{false\}\/>/);
+    assert.match(header, /nav-primary-auth \$\{styles\.accountNavigation}/);
+    assert.match(headerStyles, /@media \(max-width: 1080px\)[\s\S]*?\.dashboardHeader \.accountNavigation\s*\{[^}]*display:\s*flex[^}]*min-width:\s*2\.75rem/s);
 });

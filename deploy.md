@@ -27,7 +27,7 @@ EXAMS_AUDIT_INGEST_URL=https://dashboard-api.atcmh.org
 APPLICATION_IFC_RESULT_SECRET=<shared server-only value, at least 32 random bytes>
 ```
 
-Supply the MySQL, Exams session, Discord role, import, and audit values through the runtime environment. Keep these rules:
+Supply the MySQL, shared-session, Discord role, import, and audit values through the runtime environment. Keep these rules:
 
 - Add `INFINITE_FLIGHT_API_KEY` to the Portainer stack environment; the backend will not deploy when it is blank.
 - Set `MYSQL_PORT=3306` unless the selected MySQL service explicitly uses another port.
@@ -36,7 +36,7 @@ Supply the MySQL, Exams session, Discord role, import, and audit values through 
 - `EXAMS_AUTH_KEY` must match Dashboard-Backend's handoff key.
 - `EXAMS_AUDIT_INGEST_KEY` must match Dashboard-Backend's audit-ingest key and must differ from `EXAMS_AUTH_KEY`.
 - `APPLICATION_IFC_RESULT_SECRET` must be the same independent server-only value in Frontend and Dashboard-Backend. It signs short-lived `/link-results` outcomes and must never use a `NEXT_PUBLIC_*` name.
-- `EXAMS_CSRF_SECRET` must be the same server-only value in Frontend and Dashboard-Backend; the backend validates the HMAC token returned by the Exams session route for course completion and management writes.
+- `EXAMS_CSRF_SECRET` must be the same server-only value in Frontend and Dashboard-Backend; the backend validates the HMAC token returned by the shared session route for course completion and management writes.
 - Apply Dashboard-Backend's `sql/2026-08-25-courses.sql` to `MYSQL_LMS_DATABASE` before using Course Center or learner courses. The backend may also use `MYSQL_LMS_URL` when the LMS schema is not derived from `MYSQL_URL`.
 - Keep `EXAMS_MANAGEMENT_WRITES_ENABLED=false` until database migrations and staff write checks are complete.
 - Use strong independent values for `EXAMS_LEARNER_SESSION_SECRET` and `IMPORT_IDEMPOTENCY_SECRET`.
@@ -124,7 +124,7 @@ Verify, in order:
 1. `/`, `/terms`, `/policy`, and `/leaderboard` load on the canonical origin.
 2. The home Login modal completes Discord and Infinite Flight login.
 3. Dashboard login, consent, Account, permission-gated navigation, logout, and a representative staff mutation work.
-4. Exams handoff, one-use callback behavior, learner quiz start/submission/result, and `/exams` cookie scoping work.
+4. Main-site login returns to Exam Center, the internal one-use callback bootstrap creates the shared session, and learner quiz start/submission/result work.
 5. Staff Exams management respects Discord capabilities, CSRF, exact Origin validation, and the management-write flag.
 6. Impersonation and audit events attribute the real administrator.
 7. Browser console and mobile navigation are clean.

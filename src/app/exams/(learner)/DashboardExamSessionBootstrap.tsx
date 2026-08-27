@@ -4,7 +4,7 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {bootstrapDashboardExamsSession} from "./dashboard-exams-session-bootstrap";
 
 function errorMessage(reason: unknown) {
-  return reason instanceof Error ? reason.message : "We could not connect your Dashboard session to the Exam Center.";
+  return reason instanceof Error ? reason.message : "We could not load your shared ATCMH session.";
 }
 
 /** Refreshes shared session state when the Exams shell mounts. */

@@ -16,7 +16,7 @@ export default async function CourseCataloguePage() {
       {!identity ? <section className={styles.privateGate} aria-labelledby="course-login-title">
         <p className={styles.eyebrow}>Private learning space</p>
         <h1 id="course-login-title">Sign in to view courses</h1>
-        <p>Courses are only available to authenticated ATCMH learners. Sign in with your Exams account to continue.</p>
+        <p>Courses are only available to authenticated ATCMH learners. Sign in with your ATCMH account to continue.</p>
         <Link href={homeLoginHref("exams", "/exams/courses")}>Sign in</Link>
       </section> : <>
         <header className={styles.courseHeader}>

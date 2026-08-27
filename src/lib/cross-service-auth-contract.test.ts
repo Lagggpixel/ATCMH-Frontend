@@ -9,13 +9,13 @@ const env = {
   EXAMS_CSRF_SECRET: "x".repeat(32), FRONTEND_PUBLIC_ORIGIN: "https://www.atcmh.org",
 };
 
-test("Exams login emits the encoded return path required by central auth", () => {
+test("Exam Center login uses the shared main-site auth audience and return path", () => {
   const login = centralLoginUrl("ifc", "/exams/quizzes", env);
   assert.equal(login.origin, "https://dashboard-api.atcmh.org");
   assert.equal(login.pathname, "/auth/login");
   assert.deepEqual(Object.fromEntries(login.searchParams), {
     provider: "ifc",
-    app: "exams",
+    app: "dashboard",
     returnTo: "/api/auth/callback?returnTo=%2Fexams%2Fquizzes",
   });
 });
@@ -37,9 +37,12 @@ test("Dashboard category PATCH matches the Frontend-owned Exams preflight contra
 
 test("Exams callback handles the documented central-auth outcomes locally", () => {
   const exams = readFileSync(new URL("../app/api/auth/callback/route.ts", import.meta.url), "utf8");
+  const home = readFileSync(new URL("../platform/auth/HomeLoginModal.tsx", import.meta.url), "utf8");
   for (const code of ["cancelled", "provider_failure", "consent_declined", "invalid_consent", "consent_expired"]) {
     assert.match(exams, new RegExp(`"${code}"`));
   }
   assert.match(exams, /invalid_handoff/);
   assert.match(exams, /authError=invalid_handoff/);
+  assert.doesNotMatch(home, /one-time Exams login/);
+  assert.match(home, /ATCMH sign-in link/);
 });

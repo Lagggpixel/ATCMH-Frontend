@@ -24,7 +24,7 @@ test("central login URL keeps both providers and an AuthReturnPolicy-safe relati
     assert.equal(url.origin, "https://dashboard-api.atcmh.org");
     assert.equal(url.pathname, "/auth/login");
     assert.equal(url.searchParams.get("provider"), provider);
-    assert.equal(url.searchParams.get("app"), "exams");
+    assert.equal(url.searchParams.get("app"), "dashboard");
     const outerReturnTo = url.searchParams.get("returnTo")!;
     assert.ok(outerReturnTo.startsWith("/api/auth/callback?"));
     assert.ok(!outerReturnTo.startsWith("//"));

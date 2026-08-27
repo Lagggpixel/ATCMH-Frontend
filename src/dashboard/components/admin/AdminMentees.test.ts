@@ -50,6 +50,9 @@ test("mobile mentees keep the list usable and profile content readable", () => {
     assert.match(stylesSource, /\.menteeCardFooter\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
     assert.match(stylesSource, /\.menteeCardFooter span:first-child\s*\{[^}]*white-space:\s*nowrap;/);
     assert.match(stylesSource, /\.menteeCardFooter span:last-child\s*\{[^}]*white-space:\s*nowrap;/);
+    assert.match(stylesSource, /\.menteesTableWrap\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto;/s);
+    assert.match(stylesSource, /@media \(max-width: 620px\)[\s\S]*?\.searchInputRowWithToggle\s*\{[^}]*grid-template-columns:\s*1fr/s);
+    assert.match(stylesSource, /@media \(max-width: 620px\)[\s\S]*?\.autoMatchToggleButton\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/s);
 });
 
 test("state actions use custom confirmation semantics and pagination exposes its semantics", () => {
@@ -63,9 +66,12 @@ test("state actions use custom confirmation semantics and pagination exposes its
     assert.match(paginationSource, /aria-current=\{i === page \? "page" : undefined\}/);
 });
 
-test("waitlist view exposes a shared weekly UTC availability matcher with selectable leniency and pickup", () => {
+test("waitlist view exposes a shared weekly UTC availability matcher that filters the main list", () => {
     assert.match(componentSource, /mentorFilter === "waitlist"/);
     assert.match(componentSource, /AutoMatchPanel/);
+    assert.match(componentSource, /className=\{styles\.autoMatchToggleButton\}/);
+    assert.match(componentSource, /aria-expanded=\{autoMatchOpen\}/);
+    assert.match(componentSource, /autoMatchOpen \? \(/);
     assert.match(componentSource, /defaultWeeklyAvailabilityAnswer/);
     assert.match(componentSource, /WeeklyAvailabilityEditor id="mentor-weekly-availability"/);
     assert.match(componentSource, /Auto-match by weekly UTC availability/);
@@ -73,19 +79,22 @@ test("waitlist view exposes a shared weekly UTC availability matcher with select
     assert.match(componentSource, /Strict · overlap only/);
     assert.match(componentSource, /Medium · up to 30 min gap/);
     assert.match(componentSource, /Very loose · up to 2 hr gap/);
-    assert.match(componentSource, /Pick up selected/);
-    assert.match(componentSource, /Pick up matched mentees\?/);
-    assert.match(componentSource, /Confirm pickup/);
+    assert.match(componentSource, /autoMatchCandidateIds\.has\(mentee\.id\)/);
+    assert.match(componentSource, /const autoMatchActive = mentorFilter === "waitlist" && autoMatchSearched/);
+    assert.match(componentSource, /match=\{autoMatchActive \? autoMatchCandidateById\.get\(mentee\.id\) : undefined\}/);
+    assert.match(componentSource, /className=\{styles\.tableMatchSummary\}/);
     assert.match(componentSource, /accountId: string \| undefined/);
     assert.match(componentSource, /getWaitlistHelperPreferences/);
     assert.match(componentSource, /saveWaitlistHelperPreferences/);
     assert.match(componentSource, /autoMatchPreferencesLoadedFor/);
     assert.match(componentSource, /autoMatchSaveQueue/);
-    assert.match(componentSource, /candidate\.overlaps \? "Overlaps your availability"/);
+    assert.doesNotMatch(componentSource, /autoMatchCandidateList/);
+    assert.doesNotMatch(componentSource, /selectedAutoMatchIds|AutoMatchSelectionBar|AutoMatchPickupConfirmation|showAutoMatchPickupModal|handleAutoMatchPickup|requestAutoMatchPickup|Pick up selected|Pick up matched mentees\?|Select match|onAutoMatchToggle=|onAutoMatchToggleAll=|onAutoMatchPickup=/);
     assert.match(componentSource, /Weekly availability \(UTC\)/);
     assert.match(stylesSource, /\.autoMatchPanel\s*\{/);
     assert.match(stylesSource, /\.autoMatchActions\s*\{/);
-    assert.match(stylesSource, /\.autoMatchCandidateList\s*\{/);
+    assert.doesNotMatch(stylesSource, /\.autoMatchSelectionBar\s*\{|\.autoMatchSelectionControls\s*\{|\.autoMatchSelectionCheckbox\s*\{|\.menteeCardMatchSelect\s*\{|\.tableMatchSelect\s*\{/);
+    assert.match(stylesSource, /\.searchInputRowWithToggle\s+input\s*\{/);
 });
 
 test("mentee profile places IFC before a structured weekly availability list", () => {

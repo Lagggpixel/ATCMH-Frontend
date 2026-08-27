@@ -43,11 +43,17 @@ interface CapabilityResponse {
 
 async function centralizedCapabilities(request: Request, token: string): Promise<CapabilityResponse | Response> {
   const apiUrl = process.env.DASHBOARD_API_URL?.replace(/\/$/, "");
-  if (!apiUrl) return new Response("Authorization is temporarily unavailable", { status: 503 });
+  const authKey = process.env.EXAMS_AUTH_KEY?.trim();
+  const frontendOrigin = process.env.FRONTEND_PUBLIC_ORIGIN?.replace(/\/$/, "");
+  if (!apiUrl || !authKey || !frontendOrigin) return new Response("Authorization is temporarily unavailable", { status: 503 });
   let response: Response;
   try {
     response = await fetch(`${apiUrl}/admin/exams-capabilities`, {
-      headers: { cookie: dashboardCookie(request, token) },
+      headers: {
+        cookie: dashboardCookie(request, token),
+        origin: frontendOrigin,
+        "X-Exams-Auth-Key": authKey,
+      },
       cache: "no-store",
     });
   } catch {

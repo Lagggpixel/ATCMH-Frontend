@@ -1,4 +1,4 @@
-/** Identity resolved only from a currently active central Exams session. */
+/** Identity resolved only from a currently active shared ATCMH session. */
 export interface LearnerIdentity {
   accountId?: string;
   discordId: string;

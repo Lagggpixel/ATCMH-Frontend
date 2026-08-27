@@ -94,7 +94,10 @@ export function centralLoginUrl(
   callback.searchParams.set("returnTo", destination);
   const login = new URL("/auth/login", backend);
   login.searchParams.set("provider", provider);
-  login.searchParams.set("app", destination === "/exams" || destination.startsWith("/exams/") ? "exams" : "dashboard");
+  // Exams is a return destination, not a separate authentication audience.
+  // The backend keeps its dashboard transaction slot for this shared login,
+  // then the frontend exchanges the cross-origin handoff into the one WEB session.
+  login.searchParams.set("app", "dashboard");
   login.searchParams.set("returnTo", `${callback.pathname}${callback.search}`);
   return login;
 }

@@ -76,6 +76,21 @@ test("mentor and administrator capabilities are derived from the introspected Di
   assert.equal(admin.canManageAll, true);
 });
 
+test("centralized capability lookup authenticates as an internal service", async () => {
+  let capabilityHeaders: Headers | undefined;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).includes("/internal/auth/sessions/introspect")) return json(centralSession());
+    capabilityHeaders = new Headers(init?.headers);
+    return json({capabilities: ["manage-exams"]});
+  };
+
+  const actor = await requireManagementCapability(request(), "manage-exams");
+  assert.ok(!(actor instanceof Response));
+  assert.equal(capabilityHeaders?.get("X-Exams-Auth-Key"), "auth-key");
+  assert.equal(capabilityHeaders?.get("cookie"), `__Host-atcmh_session=${token}`);
+  assert.equal(capabilityHeaders?.get("origin"), "https://www.atcmh.org");
+});
+
 test("guild lookup failure is controlled and missing capability is forbidden", async () => {
   globalThis.fetch = async (input) => String(input).includes("/internal/auth/sessions/introspect")
     ? json(centralSession()) : new Response("down", { status: 503 });
