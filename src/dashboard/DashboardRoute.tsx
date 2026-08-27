@@ -48,7 +48,7 @@ export default function DashboardRoute() {
         case "sessions": content = <AdminSessions {...common} users={state.users} sessions={state.sessions}/>; break;
         case "stats": content = <AdminStats {...common} users={state.users} sessions={state.sessions}/>; break;
         case "usernotes": content = <AdminUserNotes {...common} users={state.users} userNotes={state.userNotes} token={state.token} onUserNoteChanged={state.onUserNoteChanged}/>; break;
-        case "mentees": content = <AdminMentees {...common} users={state.users} mentees={state.mentees} sessions={state.sessions} userNotes={state.userNotes} assignments={state.assignments} token={state.token} onMenteeChanged={state.onMenteeChanged} onSessionChanged={state.onSessionChanged} onSessionAssignmentSaved={state.onSessionAssignmentSaved}/>; break;
+        case "mentees": content = <AdminMentees {...common} accountId={state.auth.session?.accountId} users={state.users} mentees={state.mentees} sessions={state.sessions} userNotes={state.userNotes} assignments={state.assignments} token={state.token} onMenteeChanged={state.onMenteeChanged} onSessionChanged={state.onSessionChanged} onSessionAssignmentSaved={state.onSessionAssignmentSaved}/>; break;
         case "assignments": content = <AdminAssignments {...common} users={state.users} assignments={state.assignments} token={state.token} onAssignmentChanged={state.onAssignmentChanged} onAssignmentDeleted={state.onAssignmentDeleted}/>; break;
         case "assignment-guide": content = <AdminAssignmentGuide {...common}/>; break;
         case "manual": content = <AdminManual {...common} token={state.token}/>; break;

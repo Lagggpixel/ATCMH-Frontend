@@ -3,7 +3,7 @@ import type {AtcmhUser} from "../types/AtcmhUser.ts";
 import type {Session} from "../types/Session.ts";
 import type {UserNote} from "../types/UserNote.ts";
 import type {AdminMentee} from "../types/AdminMentee.ts";
-import type {AutoMatchCandidate, AutoMatchLeniency} from "../types/AutoMatchCandidate.ts";
+import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../types/AutoMatchCandidate.ts";
 import type {AdminUser} from "../types/AdminUser.ts";
 import type {AdminAssignment, AdminAssignmentPayload} from "../types/AdminAssignment.ts";
 import type {AuditLog, AuditLogFilterMetadata} from "../types/AuditLog.ts";
@@ -310,6 +310,22 @@ export class ApiUtils {
         return ApiUtils.adminJson<AutoMatchCandidate[]>(`${dashboardApiUrl}/admin/mentees/auto-match`, token, {
             method: "POST",
             body: JSON.stringify({availability, leniency}),
+        });
+    }
+
+    static async getWaitlistHelperPreferences(token: string | null): Promise<WaitlistHelperPreferences | undefined> {
+        return ApiUtils.adminJson<WaitlistHelperPreferences>(`${dashboardApiUrl}/admin/waitlist-helper/preferences`, token, {
+            method: "GET",
+        });
+    }
+
+    static async saveWaitlistHelperPreferences(
+        token: string | null,
+        preferences: WaitlistHelperPreferences,
+    ): Promise<WaitlistHelperPreferences | undefined> {
+        return ApiUtils.adminJson<WaitlistHelperPreferences>(`${dashboardApiUrl}/admin/waitlist-helper/preferences`, token, {
+            method: "PUT",
+            body: JSON.stringify(preferences),
         });
     }
 

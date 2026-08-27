@@ -1,5 +1,10 @@
 export type AutoMatchLeniency = "strict" | "medium" | "very-loose";
 
+export interface WaitlistHelperPreferences {
+    availability: string;
+    leniency: AutoMatchLeniency;
+}
+
 export interface AutoMatchCandidate {
     id: number;
     mentee: string;

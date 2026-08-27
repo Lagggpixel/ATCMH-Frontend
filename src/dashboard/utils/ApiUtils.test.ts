@@ -74,6 +74,37 @@ test("auto-match requests carry weekly UTC availability and selected leniency as
     assert.deepEqual(JSON.parse(String(requestedInit?.body)), {availability, leniency: "strict"});
 });
 
+test("waitlist helper preferences load and save through the authenticated account endpoint", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    globalThis.fetch = async (input, init) => {
+        const request = new Request(input, init);
+        requests.push(request);
+        return Response.json({
+            availability: "Monday: 0900-1700\nTuesday: Not available\nWednesday: Not available\nThursday: Not available\nFriday: Not available\nSaturday: Not available\nSunday: Not available",
+            leniency: "very-loose",
+        });
+    };
+
+    const preferences = {
+        availability: "Monday: 0900-1700\nTuesday: Not available\nWednesday: Not available\nThursday: Not available\nFriday: Not available\nSaturday: Not available\nSunday: Not available",
+        leniency: "very-loose" as const,
+    };
+    try {
+        assert.deepEqual(await ApiUtils.getWaitlistHelperPreferences("token"), preferences);
+        assert.deepEqual(await ApiUtils.saveWaitlistHelperPreferences("token", preferences), preferences);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(new URL(requests[0].url).pathname, "/admin/waitlist-helper/preferences");
+    assert.equal(requests[0].method, "GET");
+    assert.equal(requests[0].credentials, "include");
+    assert.equal(requests[1].method, "PUT");
+    assert.equal(requests[1].headers.get("X-CSRF-Token"), "token");
+    assert.deepEqual(await requests[1].json(), preferences);
+});
+
 test("admin data requests surface unauthorized responses as errors", async () => {
     await withFetch(new Response(JSON.stringify({error: "Forbidden"}), {
         status: 403,

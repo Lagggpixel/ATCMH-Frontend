@@ -76,6 +76,11 @@ test("waitlist view exposes a shared weekly UTC availability matcher with select
     assert.match(componentSource, /Pick up selected/);
     assert.match(componentSource, /Pick up matched mentees\?/);
     assert.match(componentSource, /Confirm pickup/);
+    assert.match(componentSource, /accountId: string \| undefined/);
+    assert.match(componentSource, /getWaitlistHelperPreferences/);
+    assert.match(componentSource, /saveWaitlistHelperPreferences/);
+    assert.match(componentSource, /autoMatchPreferencesLoadedFor/);
+    assert.match(componentSource, /autoMatchSaveQueue/);
     assert.match(componentSource, /candidate\.overlaps \? "Overlaps your availability"/);
     assert.match(componentSource, /Weekly availability \(UTC\)/);
     assert.match(stylesSource, /\.autoMatchPanel\s*\{/);
