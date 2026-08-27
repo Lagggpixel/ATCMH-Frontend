@@ -116,6 +116,12 @@
     background: var(--surface-color);
 }
 
+.savedQuiz {
+    background: var(--success-bg);
+    outline: 2px solid var(--success-color);
+    outline-offset: -2px;
+}
+
 .examDetails,
 .examDetails strong,
 .examDetails > span {

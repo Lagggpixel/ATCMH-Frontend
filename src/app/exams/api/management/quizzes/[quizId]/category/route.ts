@@ -3,6 +3,8 @@ import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { managedQuizDto } from "@/src/lib/management-dto";
 import { moveManagedQuizCategory } from "@/src/lib/management-service";
 import { managementAuthorizationError, managementError, parseManagementJson, requiredString } from "@/src/lib/management-route";
+import { emitDashboardAuditEvent } from "@/src/lib/dashboard-audit-client";
+import { quizCategoryMovedAuditEvent } from "@/src/lib/management-audit";
 
 interface RouteContext { params: Promise<{ quizId: string }> }
 
@@ -12,6 +14,7 @@ export async function PATCH(request: Request, {params}: RouteContext) {
   try {
     const body = await parseManagementJson(request);
     const quiz = await moveManagedQuizCategory((await params).quizId, requiredString(body, "categoryId"), actor);
+    await emitDashboardAuditEvent(quizCategoryMovedAuditEvent(quiz, actor));
     return withManagementCors(request, Response.json({quiz: managedQuizDto(quiz)}));
   } catch (error) {
     return withManagementCors(request, managementError(error));

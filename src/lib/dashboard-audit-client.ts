@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 export interface DashboardAuditEvent {
+  eventId?: string;
   action: `exam.${string}`;
   actorId?: string;
   actorName?: string;
@@ -16,6 +17,21 @@ interface AuditEnvironment {
 }
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+export interface AuditDeliveryWarning {
+  eventId: string;
+  action: string;
+  targetId?: string;
+  reason: "missing_configuration" | "request_failed" | "unexpected_status";
+  status?: number;
+}
+
+interface AuditDeliveryOptions {
+  timeoutMs?: number;
+  warn?: (message: string, context: AuditDeliveryWarning) => void;
+}
+
+const defaultAuditTimeoutMs = 2_000;
+
 export function auditEventId(action: string, targetId: string | undefined): string {
   const bytes = createHash("sha256").update(`${action}:${targetId ?? ""}`).digest().subarray(0, 16);
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
@@ -25,9 +41,9 @@ export function auditEventId(action: string, targetId: string | undefined): stri
 }
 
 /**
- * Best-effort learner audit delivery. A saved attempt must never be lost because
- * the Dashboard service is temporarily unavailable; deterministic IDs allow a
- * later retry to be safely deduplicated by Dashboard-Backend.
+ * Best-effort audit delivery. A completed Exams write must never be reported as
+ * failed because Dashboard is temporarily unavailable. Callers may provide an
+ * operation-specific ID; one-shot learner events retain deterministic IDs.
  */
 export async function emitDashboardAuditEvent(
   event: DashboardAuditEvent,
@@ -36,22 +52,45 @@ export async function emitDashboardAuditEvent(
     EXAMS_AUDIT_INGEST_KEY: process.env.EXAMS_AUDIT_INGEST_KEY,
   },
   fetchImpl: Fetch = fetch,
+  options: AuditDeliveryOptions = {},
 ): Promise<boolean> {
   const baseUrl = env.EXAMS_AUDIT_INGEST_URL?.trim();
   const key = env.EXAMS_AUDIT_INGEST_KEY?.trim();
-  if (!baseUrl || !key) return false;
+  const resolvedEventId = event.eventId ?? auditEventId(event.action, event.targetId);
+  const warn = options.warn ?? ((message: string, context: AuditDeliveryWarning) => console.warn(message, context));
+  const warningContext = (reason: AuditDeliveryWarning["reason"], status?: number): AuditDeliveryWarning => ({
+    eventId: resolvedEventId,
+    action: event.action,
+    ...(event.targetId ? {targetId: event.targetId} : {}),
+    reason,
+    ...(status === undefined ? {} : {status}),
+  });
+  if (!baseUrl || !key) {
+    warn("Dashboard audit delivery skipped", warningContext("missing_configuration"));
+    return false;
+  }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? defaultAuditTimeoutMs);
   try {
+    const payload = {...event};
+    delete payload.eventId;
     const response = await fetchImpl(new URL("internal/audit-logs/exams", `${baseUrl.replace(/\/$/, "")}/`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Exams-Audit-Key": key,
       },
-      body: JSON.stringify({ ...event, eventId: auditEventId(event.action, event.targetId) }),
+      body: JSON.stringify({ ...payload, eventId: resolvedEventId }),
+      signal: controller.signal,
     });
-    return response.status === 201 || response.status === 409;
+    const delivered = response.status === 201 || response.status === 409;
+    if (!delivered) warn("Dashboard audit delivery failed", warningContext("unexpected_status", response.status));
+    return delivered;
   } catch {
+    warn("Dashboard audit delivery failed", warningContext("request_failed"));
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }

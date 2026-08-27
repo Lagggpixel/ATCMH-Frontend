@@ -2,6 +2,8 @@ import { requireManagementCapability } from "@/src/lib/discord-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { assertManagementWritesEnabled, listQuizUnlocks, setQuizUnlock } from "@/src/lib/management-service";
 import { managementAuthorizationError, managementError, ManagementValidationError, optionalString, parseManagementJson, requiredString } from "@/src/lib/management-route";
+import { emitDashboardAuditEvent } from "@/src/lib/dashboard-audit-client";
+import { quizUnlockAuditEvent } from "@/src/lib/management-audit";
 
 interface RouteContext { params: Promise<{ quizId: string }> }
 
@@ -27,7 +29,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
     const quizId = (await params).quizId;
     const discordId = requiredString(body, "discordId");
     const userName = optionalString(body, "userName");
-    await setQuizUnlock({ quizId, discordId, userName, unlocked: body.unlocked }, actor);
+    const update = { quizId, discordId, userName, unlocked: body.unlocked };
+    await setQuizUnlock(update, actor);
+    await emitDashboardAuditEvent(quizUnlockAuditEvent(update, actor));
     return withManagementCors(request, Response.json({ unlock: { quizId, discordId, userName, unlocked: body.unlocked } }));
   } catch (error) {
     return withManagementCors(request, managementError(error));

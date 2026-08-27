@@ -1,5 +1,5 @@
 import type {
-    ExamImportCommitResult, ExamImportPreview, ExamAttemptDetail, ExamAttemptPage, ExamManagementActor,
+    ExamImportCommitResult, ExamImportError, ExamImportPreview, ExamAttemptDetail, ExamAttemptPage, ExamManagementActor,
     ExamQuizUnlock, ExamQuizUnlockUpdate, ExamQuizUnlockUpdateResult, ExamQuizSaveResult, ExamQuizSummary,
     ExamCategory, ExamWebsiteContent, ManagedExamQuiz, NormalizedExamImport,
 } from "../types/Exam.ts";
@@ -80,7 +80,23 @@ export class ExamsApiUtils {
     static async getQuiz(id: string, _token: string): Promise<ManagedExamQuiz> { return (await ExamsApiUtils.getJson<{quiz: ManagedExamQuiz}>(`/exams/api/management/quizzes/${id}`, _token)).quiz; }
     static async listQuizUnlocks(quizId: string, _token: string): Promise<ExamQuizUnlock[]> { return (await ExamsApiUtils.getJson<{unlocks: ExamQuizUnlock[]}>(`/exams/api/management/quizzes/${encodeURIComponent(quizId)}/unlocks`, _token)).unlocks; }
     static async updateQuizUnlock(quizId: string, update: ExamQuizUnlockUpdate, _token: string): Promise<ExamQuizUnlockUpdateResult> { return (await ExamsApiUtils.fetchJson<{unlock: ExamQuizUnlockUpdateResult}>(`/exams/api/management/quizzes/${encodeURIComponent(quizId)}/unlocks`,_token,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(update)})).unlock; }
-    static async saveQuiz(quiz: ManagedExamQuiz, token: string): Promise<ExamQuizSaveResult> {const path=quiz.id?`/exams/api/management/quizzes/${quiz.id}`:"/exams/api/management/quizzes";const response=await ExamsApiUtils.request(path,token,{method:quiz.id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(quiz)});if(response.status===422)return response.json();if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json(); }
+    static async saveQuiz(quiz: ManagedExamQuiz, token: string): Promise<ExamQuizSaveResult> {
+        const path = quiz.id ? `/exams/api/management/quizzes/${quiz.id}` : "/exams/api/management/quizzes";
+        const response = await ExamsApiUtils.request(path, token, {
+            method: quiz.id ? "PUT" : "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(quiz),
+        });
+        if (response.status === 422) {
+            const rejected = await response.json() as {error?: string; errors?: ExamImportError[]; issues?: ExamImportError[]};
+            return {
+                valid: false,
+                errors: rejected.errors ?? rejected.issues ?? [{path: "quiz", message: rejected.error ?? "The Exams service rejected this quiz."}],
+            };
+        }
+        if (!response.ok) await ExamsApiUtils.throwResponseError(response);
+        return response.json();
+    }
     static async listCourses(token: string): Promise<ManagedCourseSummary[]> { return (await ExamsApiUtils.backendJson<{courses: ManagedCourseSummary[]}>('/admin/courses', token)).courses; }
     static async getCourse(id: string, token: string): Promise<ManagedCourse> { return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(`/admin/courses/${encodeURIComponent(id)}`, token)).course; }
     static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.backendJson<{statistics: CourseStatistics}>(`/admin/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }

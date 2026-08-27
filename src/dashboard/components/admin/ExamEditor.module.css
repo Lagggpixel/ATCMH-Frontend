@@ -14,9 +14,12 @@
 .check { align-items: center; display: flex; font-weight: 650; margin-top: 14px; }
 .check input, .option input[type="radio"] { accent-color: var(--accent-color); padding: 0; }
 .questionsHeading { border-top: 1px solid var(--border-color); margin-top: 22px; padding-top: 18px; }
-.questionsHeading button, .addOption, .quietButton, .saveButton, .dangerButton { border: 1px solid var(--border-color); border-radius: 7px; cursor: pointer; font: inherit; padding: 8px 11px; }
-.questionsHeading button, .saveButton { background: var(--accent-color); border-color: var(--accent-color); color: #111; font-weight: 800; }
+.questionsHeading button, .addOption, .quietButton, .saveButton, .dangerButton, .createFolderButton { border: 1px solid var(--border-color); border-radius: 7px; cursor: pointer; font: inherit; padding: 8px 11px; }
+.questionsHeading button, .saveButton, .createFolderButton { background: var(--accent-color); border-color: var(--accent-color); color: #111; font-weight: 800; }
 .quietButton, .addOption { background: var(--surface-2-color); color: var(--text-color); }
+.folderCreator { align-self: end; display: grid; gap: 8px; }
+.folderCreatorActions { display: flex; gap: 8px; justify-content: flex-end; }
+.editor button:disabled { cursor: not-allowed; opacity: .55; }
 .dangerButton { background: transparent; color: #ff9292; }
 .questions { display: grid; gap: 14px; margin-top: 14px; }
 .question { background: var(--surface-2-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; }

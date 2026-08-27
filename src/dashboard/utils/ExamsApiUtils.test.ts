@@ -3,6 +3,18 @@ import assert from "node:assert/strict";
 import {ExamsApiUtils, ExamsAuthenticationRequiredError} from "./ExamsApiUtils.ts";
 
 const sessionResponse = () => new Response(JSON.stringify({session: {accountId: "1", discordId: "123", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "exams-csrf", impersonating: false}}), {status: 200, headers: {"Content-Type": "application/json"}});
+const quizDraft = {
+    categoryId: "a447a1c6-0d75-4d09-93d9-1d902c7ed1df",
+    title: "Tower basics",
+    description: "Learn the basics",
+    category: "Tower",
+    feedbackMode: "after_submission" as const,
+    timeLimitSeconds: 900,
+    tags: [],
+    isPrivate: true,
+    randomizeQuestions: false,
+    questions: [{prompt: "Who clears a runway?", randomizeOptions: false, options: [{text: "Tower", isCorrect: true}, {text: "Ground", isCorrect: false}]}],
+};
 test.beforeEach(() => ExamsApiUtils.clearSessionCache());
 test.afterEach(() => ExamsApiUtils.clearSessionCache());
 
@@ -158,7 +170,7 @@ test("quiz saves use the protected management create endpoint", async () => {
     globalThis.fetch = async (input, init) => {
         if (String(input).endsWith("/api/auth/session")) return sessionResponse();
         request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
-        return new Response(JSON.stringify({quiz: {id: 18, title: "Tower basics"}}), {
+        return new Response(JSON.stringify({valid: true, quiz: {id: "c2a07cd2-3e2e-482e-b2ee-9d5c6fec6bc4", title: "Tower basics", isPrivate: true}}), {
             status: 201,
             headers: {"Content-Type": "application/json"},
         });
@@ -166,17 +178,8 @@ test("quiz saves use the protected management create endpoint", async () => {
 
     try {
         ExamsApiUtils.clearSessionCache();
-        await ExamsApiUtils.saveQuiz({
-            title: "Tower basics",
-            description: "Learn the basics",
-            category: "Tower",
-            feedbackMode: "after_submission",
-            timeLimitSeconds: 900,
-            tags: [],
-            isPrivate: true,
-            randomizeQuestions: false,
-            questions: [{prompt: "Who clears a runway?", randomizeOptions: false, options: [{text: "Tower", isCorrect: true}, {text: "Ground", isCorrect: false}]}],
-        }, "discord-token");
+        const result = await ExamsApiUtils.saveQuiz(quizDraft, "discord-token");
+        assert.equal(result.valid, true);
     } finally {
         globalThis.fetch = originalFetch;
     }
@@ -187,6 +190,25 @@ test("quiz saves use the protected management create endpoint", async () => {
     assert.equal(request.headers.get("Authorization"), null);
     assert.equal(request.headers.get("X-CSRF-Token"), "exams-csrf");
     assert.equal(request.credentials, "include");
+});
+
+test("quiz save validation errors normalize the API error envelope into a rejected result", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async input => String(input).endsWith("/api/auth/session")
+        ? sessionResponse()
+        : new Response(JSON.stringify({error: "category does not exist", issues: [{path: "category", message: "Choose an existing folder"}]}), {
+            status: 422,
+            headers: {"Content-Type": "application/json"},
+        });
+
+    try {
+        ExamsApiUtils.clearSessionCache();
+        const result = await ExamsApiUtils.saveQuiz(quizDraft, "discord-token");
+        assert.deepEqual(result, {valid: false, errors: [{path: "category", message: "Choose an existing folder"}]});
+    } finally {
+        ExamsApiUtils.clearSessionCache();
+        globalThis.fetch = originalFetch;
+    }
 });
 
 test("website saves surface a mentor denial from the Exams API", async () => {

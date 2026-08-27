@@ -3,6 +3,8 @@ import { managedQuizDto, managedQuizSummaryDto } from "@/src/lib/management-dto"
 import { assertManagementWritesEnabled, listManagedQuizzes, saveManagedQuiz } from "@/src/lib/management-service";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { managementAuthorizationError, managementError, parseManagementJson } from "@/src/lib/management-route";
+import { emitDashboardAuditEvent } from "@/src/lib/dashboard-audit-client";
+import { quizSavedAuditEvent } from "@/src/lib/management-audit";
 
 export async function GET(request: Request) {
   const actor = await requireManagementCapability(request, "manage-exams");
@@ -19,6 +21,7 @@ export async function POST(request: Request) {
     const body = await parseManagementJson(request);
     if (body.id !== undefined) throw new Error("New quizzes must not include an id");
     const quiz = await saveManagedQuiz(body as never, actor);
+    await emitDashboardAuditEvent(quizSavedAuditEvent(quiz, actor, "create"));
     return withManagementCors(request, Response.json({ valid: true, quiz: managedQuizDto(quiz) }, { status: 201 }));
   } catch (error) {
     return withManagementCors(request, managementError(error));
