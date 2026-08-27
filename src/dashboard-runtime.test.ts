@@ -6,10 +6,12 @@ test("Dashboard receives its backend URL at runtime and keeps Exams calls same-o
   const api = readFileSync(new URL("./dashboard/utils/ApiUtils.ts", import.meta.url), "utf8");
   const exams = readFileSync(new URL("./dashboard/utils/ExamsApiUtils.ts", import.meta.url), "utf8");
   const provider = readFileSync(new URL("./dashboard/DashboardProvider.tsx", import.meta.url), "utf8");
+  const portalProvider = readFileSync(new URL("./platform/auth/PortalAuthProvider.tsx", import.meta.url), "utf8");
 
   assert.doesNotMatch(api, /import\.meta/);
   assert.match(provider, /dashboardApiUrl/);
-  assert.match(provider, /configureDashboardApiUrl/);
+  assert.match(provider, /configureDashboardApiUrl\("\/api\/dashboard", dashboardApiUrl\)/);
+  assert.match(portalProvider, /configureDashboardApiUrl\("\/api\/dashboard", dashboardApiUrl\)/);
   assert.match(provider, /ApiUtils\.getDashboardUsers\(token\)/);
   assert.match(api, /\/admin\/users/);
   assert.doesNotMatch(exams, /VITE_|https:\/\/exams\.atcmh\.org/);

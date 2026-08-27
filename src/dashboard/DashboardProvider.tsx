@@ -46,8 +46,7 @@ export function useDashboard() {
 }
 
 export default function DashboardProvider({dashboardApiUrl, children}: {dashboardApiUrl: string; children: ReactNode}) {
-    void dashboardApiUrl;
-    configureDashboardApiUrl("/api/dashboard");
+    configureDashboardApiUrl("/api/dashboard", dashboardApiUrl);
     const auth = usePortalAuth();
     const token = auth.session?.csrfToken ?? null;
     const [loaded, setLoaded] = useState(false);

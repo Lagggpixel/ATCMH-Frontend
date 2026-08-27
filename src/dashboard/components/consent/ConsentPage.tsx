@@ -55,7 +55,7 @@ export const ConsentPageView = ({state, notice}: ConsentPageViewProps) => {
             <h1 id="consent-title">Before you continue</h1>
             <p className={styles.intro}>Review the policies that apply while signing in to {applicationName}.</p>
             {notice ? <div className={styles.notice} role="alert"><p>{notice.message}</p>{notice.requestId ? <small>Request ID: {notice.requestId}</small> : null}</div> : null}
-            <form action={`${ApiUtils.apiOrigin}/auth/consent`} method="post" className={styles.form}>
+            <form action={`${ApiUtils.consentApiOrigin}/auth/consent`} method="post" className={styles.form}>
                 <input type="hidden" name="csrf" value={context.csrfToken}/>
                 <label className={styles.agreement}>
                     <input type="checkbox" name="agreement" value="agreed" required/>
