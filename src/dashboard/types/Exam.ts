@@ -16,6 +16,7 @@ export interface ExamManagementActor {
 
 export interface ExamQuizSummary {
     id: string;
+    categoryId?: string | null;
     title: string;
     description?: string | null;
     category?: string | null;
@@ -48,6 +49,7 @@ export interface ExamQuestion {
 /** A quiz payload is validated by the Exams API before it is persisted. */
 export interface ManagedExamQuiz {
     id?: string;
+    categoryId?: string;
     title: string;
     description: string;
     category: string;
@@ -59,11 +61,9 @@ export interface ManagedExamQuiz {
     questions: ExamQuestion[];
 }
 
-export interface ExamQuizSaveResult {
-    valid?: boolean;
-    quiz?: ExamQuizSummary;
-    errors?: ExamImportError[];
-}
+export type ExamQuizSaveResult =
+    | {valid: true; quiz: ExamQuizSummary; errors?: never}
+    | {valid: false; quiz?: never; errors: ExamImportError[]};
 
 export interface ExamQuizUnlock {
     discordId: string;

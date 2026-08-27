@@ -81,6 +81,7 @@ test("quiz GET returns the Dashboard DTO without raw correct-option IDs", async 
       id: quizId,
       title: "Tower fundamentals",
       description: "A short quiz",
+      categoryId: "category-id",
       category: "Tower",
       feedbackMode: "after_submission",
       timeLimitSeconds: 900,

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2";
+import type { PoolConnection } from "mysql2/promise";
 
 import { queryReadOnly, withWriteTransaction } from "./db";
-import { getQuiz, listManagedQuizzes as listManagedQuizSummaries, type Quiz, type QuizSummary } from "./exams-repository";
+import { getQuiz, getQuizWithQuery, listManagedQuizzes as listManagedQuizSummaries, type Quiz, type QuizReadQuery, type QuizSummary } from "./exams-repository";
 import { quizImportSchema, type NormalizedImport } from "./import-schema";
 import { assertAdministrator, assertManagementCapability, type ManagementActor } from "./permissions";
 
@@ -10,6 +11,7 @@ const discordSnowflake = /^\d{15,20}$/;
 
 export interface ManagedQuizInput extends NormalizedImport {
   id?: string;
+  categoryId?: string;
 }
 
 export interface QuizUnlockInput {
@@ -54,24 +56,27 @@ export function assertManagementWritesEnabled() {
   }
 }
 
-function parseManagedQuizInput(input: ManagedQuizInput): { id?: string; quiz: NormalizedImport } {
-  const { id, ...candidate } = input;
+function parseManagedQuizInput(input: ManagedQuizInput): { id?: string; categoryId?: string; quiz: NormalizedImport } {
+  const { id, categoryId, ...candidate } = input;
   if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw new Error("Quiz IDs must be UUIDs");
   }
-  return { id, quiz: quizImportSchema.parse(candidate) };
+  if (categoryId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(categoryId)) {
+    throw new Error("Category IDs must be UUIDs");
+  }
+  return { id, categoryId, quiz: quizImportSchema.parse(candidate) };
 }
 
-async function taxonomyIds(quiz: NormalizedImport) {
-  const [category] = await queryReadOnly<Array<RowDataPacket & { id: string }>>(
-    "SELECT id FROM categories WHERE name = ? LIMIT 1",
-    [quiz.category],
+async function taxonomyIds(quiz: NormalizedImport, categoryId: string | undefined, query: QuizReadQuery) {
+  const [category] = await query<Array<RowDataPacket & { id: string }>>(
+    categoryId ? "SELECT id FROM categories WHERE id = ? LIMIT 1" : "SELECT id FROM categories WHERE name = ? ORDER BY id ASC LIMIT 1",
+    [categoryId ?? quiz.category],
   );
   if (!category) throw new Error("category does not exist");
 
   const tagIds = new Set<string>();
   for (const tagName of quiz.tags) {
-    const [tag] = await queryReadOnly<Array<RowDataPacket & { id: string }>>(
+    const [tag] = await query<Array<RowDataPacket & { id: string }>>(
       "SELECT id FROM tags WHERE name = ? LIMIT 1",
       [tagName],
     );
@@ -79,6 +84,13 @@ async function taxonomyIds(quiz: NormalizedImport) {
     tagIds.add(tag.id);
   }
   return { categoryId: category.id, tagIds: [...tagIds] };
+}
+
+function writeQuery(connection: Pick<PoolConnection, "execute">): QuizReadQuery {
+  return async <T extends RowDataPacket[]>(sql: string, values: readonly unknown[] = []) => {
+    const [rows] = await connection.execute(sql, values as never[]) as unknown as [T];
+    return rows;
+  };
 }
 
 /** Discord-authorized mentors and administrators can manage every quiz. */
@@ -100,18 +112,31 @@ export async function getManagedQuiz(id: string, actor: ManagementActor): Promis
 export async function saveManagedQuiz(input: ManagedQuizInput, actor: ManagementActor): Promise<Quiz> {
   assertManagementCapability(actor, "manage-exams");
   assertManagementWritesEnabled();
-  const { id: suppliedId, quiz } = parseManagedQuizInput(input);
-  const { categoryId, tagIds } = await taxonomyIds(quiz);
+  const { id: suppliedId, categoryId: suppliedCategoryId, quiz } = parseManagedQuizInput(input);
   const quizId = suppliedId ?? randomUUID();
   const now = new Date().toISOString();
 
-  await withWriteTransaction(async (connection) => {
+  return withWriteTransaction(async (connection) => {
+    const query = writeQuery(connection);
+    let existingCategoryId: string | undefined;
     if (suppliedId) {
       const [existing] = await connection.execute(
-        "SELECT id FROM quizzes WHERE id = ? FOR UPDATE",
+        "SELECT id, category_id FROM quizzes WHERE id = ? FOR UPDATE",
         [quizId],
-      ) as unknown as [Array<{ id: string }>];
+      ) as unknown as [Array<{ id: string; category_id: string }>];
       if (existing.length === 0) throw new Error("Quiz not found");
+      existingCategoryId = existing[0].category_id;
+      if (!actor.canManageAll && suppliedCategoryId && suppliedCategoryId !== existingCategoryId) {
+        throw new Error("administrator access is required to move a quiz between folders");
+      }
+    }
+
+    // Quiz managers choose the folder when creating a quiz. Moving an existing
+    // quiz remains an administrator-only taxonomy operation, even if a caller
+    // bypasses the editor and submits a category name or id directly.
+    const effectiveCategoryId = suppliedId && !actor.canManageAll ? existingCategoryId : suppliedCategoryId;
+    const { categoryId, tagIds } = await taxonomyIds(quiz, effectiveCategoryId, query);
+    if (suppliedId) {
       await connection.execute(
         `UPDATE quizzes SET title = ?, description = ?, category_id = ?, feedback_mode = ?, time_limit_seconds = ?,
          randomize_questions = ?, is_private = ?, updated_at = ? WHERE id = ?`,
@@ -126,8 +151,8 @@ export async function saveManagedQuiz(input: ManagedQuizInput, actor: Management
     } else {
       await connection.execute(
         `INSERT INTO quizzes (id, title, description, category_id, feedback_mode, time_limit_seconds, created_at, updated_at, randomize_questions, is_private)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)`,
-        [quizId, quiz.title, quiz.description, categoryId, quiz.feedbackMode, quiz.timeLimitSeconds, now, now, quiz.randomizeQuestions],
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [quizId, quiz.title, quiz.description, categoryId, quiz.feedbackMode, quiz.timeLimitSeconds, now, now, quiz.randomizeQuestions, quiz.isPrivate],
       );
     }
 
@@ -150,11 +175,10 @@ export async function saveManagedQuiz(input: ManagedQuizInput, actor: Management
     for (const tagId of tagIds) {
       await connection.execute("INSERT INTO quiz_tags (quiz_id, tag_id) VALUES (?, ?)", [quizId, tagId]);
     }
+    const saved = await getQuizWithQuery(quizId, query);
+    if (!saved) throw new Error("Saved quiz could not be loaded");
+    return saved;
   });
-
-  const saved = await getQuiz(quizId);
-  if (!saved) throw new Error("Saved quiz could not be loaded");
-  return saved;
 }
 
 /** Administrator-only category change that deliberately preserves quiz content. */
@@ -223,7 +247,7 @@ export async function listQuizUnlocks(quizId: string, actor: ManagementActor) {
 }
 
 export async function listManagedCategories(actor: ManagementActor): Promise<ManagedCategory[]> {
-  assertAdministrator(actor);
+  assertManagementCapability(actor, "manage-exams");
   const rows = await queryReadOnly<Array<RowDataPacket & { id: string; name: string; parent_id: string | null }>>(
     "SELECT id, name, parent_id FROM categories ORDER BY name ASC, id ASC",
   );

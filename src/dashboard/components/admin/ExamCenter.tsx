@@ -52,6 +52,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
     const [examsAuthRequired, setExamsAuthRequired] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [editorRequest, setEditorRequest] = useState<ExamEditorRequest | null>(null);
+    const [lastSavedQuizId, setLastSavedQuizId] = useState<string | null>(null);
     const canManageExams = data ? hasCapability(data.actor, "manage-exams") : false;
 
     useEffect(() => {
@@ -69,7 +70,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
         void (async () => {
             try {
                 const [actor, quizzes] = await Promise.all([ExamsApiUtils.getManagementMe(token), ExamsApiUtils.listQuizzes(token)]);
-                const categories = actor.canManageAll ? await ExamsApiUtils.listCategories(token) : [];
+                const categories = hasCapability(actor, "manage-exams") ? await ExamsApiUtils.listCategories(token) : [];
                 if (active) setData({actor, quizzes, categories});
             } catch (reason) {
                 if (active) {
@@ -109,15 +110,34 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
         setEditorRequest(null);
         navigate("/dashboard/exams");
     };
-    const createQuiz = () => navigate("/dashboard/exams/new");
-    const editQuiz = (quiz: ExamQuizSummary) => navigate(`/dashboard/exams/${quiz.id}/edit`);
-    const savedQuiz = () => {
-        setReloadKey(key => key + 1);
+    const createQuiz = () => { setLastSavedQuizId(null); navigate("/dashboard/exams/new"); };
+    const editQuiz = (quiz: ExamQuizSummary) => { setLastSavedQuizId(null); navigate(`/dashboard/exams/${quiz.id}/edit`); };
+    const savedQuiz = (quiz: ExamQuizSummary) => {
+        setData(current => current ? {
+            ...current,
+            quizzes: [...current.quizzes.filter(item => item.id !== quiz.id), quiz]
+                .sort((left, right) => left.title.localeCompare(right.title)),
+        } : current);
+        setLastSavedQuizId(quiz.id);
         navigate("/dashboard/exams");
     };
     const retryAfterExamsLogin = () => { ExamsApiUtils.clearSessionCache(); setReloadKey(key => key + 1); };
-    const createCategory = async (name: string) => { await ExamsApiUtils.createCategory(name, token!); setReloadKey(key => key + 1); };
-    const moveQuizCategory = async (quiz: ExamQuizSummary, categoryId: string) => { await ExamsApiUtils.moveQuizCategory(quiz.id, categoryId, token!); setReloadKey(key => key + 1); };
+    const createCategory = async (name: string) => {
+        const category = await ExamsApiUtils.createCategory(name, token!);
+        setData(current => current ? {
+            ...current,
+            categories: [...current.categories.filter(item => item.id !== category.id), category]
+                .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id)),
+        } : current);
+        return category;
+    };
+    const moveQuizCategory = async (quiz: ExamQuizSummary, categoryId: string) => {
+        const moved = await ExamsApiUtils.moveQuizCategory(quiz.id, categoryId, token!);
+        setData(current => current ? {
+            ...current,
+            quizzes: current.quizzes.map(item => item.id === moved.id ? moved : item),
+        } : current);
+    };
 
     if (!token) return <AdminLoginScreen/>;
 
@@ -155,10 +175,11 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
                     Exam Center workspace.</p><Link className={styles.backLink} to="/dashboard/exams">Back to Exam
                     Center</Link></section> : null}
             {canAccessView && view === "create" ?
-                <ExamEditor quiz={null} token={token} onCancel={showQuizList} onSaved={savedQuiz}/> : null}
+                <ExamEditor quiz={null} categories={data.categories} token={token} onCancel={showQuizList} canManageFolders={data.actor.canManageAll}
+                            onCreateCategory={data.actor.canManageAll ? createCategory : undefined} onSaved={savedQuiz}/> : null}
             {canAccessView && view === "edit" && editorRequestIsCurrent && editorRequest?.quiz ?
-                <ExamEditor quiz={editorRequest.quiz} token={token} onCancel={showQuizList}
-                            onSaved={savedQuiz}/> : null}
+                <ExamEditor quiz={editorRequest.quiz} categories={data.categories} token={token} onCancel={showQuizList} canManageFolders={data.actor.canManageAll}
+                            onCreateCategory={data.actor.canManageAll ? createCategory : undefined} onSaved={savedQuiz}/> : null}
             {canAccessView && view === "edit" && editorRequestIsCurrent && editorRequest?.error ?
                 <section className={styles.state} role="alert"><p>{editorRequest.error}</p></section> : null}
             {canAccessView && view === "edit" && (!editorRequestIsCurrent || (!editorRequest?.quiz && !editorRequest?.error)) ?
@@ -170,7 +191,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
             {canAccessView && view === "attempt-review" ? <ExamAttemptReview actor={data.actor} token={token} users={users}/> : null}
             {canAccessView && view === "website" ? <ExamWebsiteManager token={token}/> : null}
             {canAccessView && view === "catalog" ? <>
-                <ExamCatalog quizzes={data.quizzes} onEdit={canManageExams ? editQuiz : undefined} categories={data.categories} onCreateCategory={data.actor.canManageAll ? createCategory : undefined} onMoveQuizCategory={data.actor.canManageAll ? moveQuizCategory : undefined}/>
+                <ExamCatalog quizzes={data.quizzes} revealQuizId={lastSavedQuizId} onEdit={canManageExams ? editQuiz : undefined} categories={data.categories} onCreateCategory={data.actor.canManageAll ? async name => { await createCategory(name); } : undefined} onMoveQuizCategory={data.actor.canManageAll ? moveQuizCategory : undefined}/>
             </> : null}
         </> : null}
     </main>;

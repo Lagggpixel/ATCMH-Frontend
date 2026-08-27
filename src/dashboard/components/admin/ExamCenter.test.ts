@@ -277,8 +277,33 @@ test("quiz editor confirms before its Back and Cancel controls discard a dirty d
 });
 
 test("quiz editor disarms only after a successful save", () => {
-    assert.match(editorSource, /if \(result\.valid === false\) \{[\s\S]*?return;\s*}\s*disarm\(\);\s*onSaved\(\);/);
+    assert.match(editorSource, /if \(result\.valid !== true \|\| !result\.quiz\?\.id\) \{[\s\S]*?return;\s*}\s*disarm\(\);\s*onSaved\(result\.quiz\);/);
     assert.doesNotMatch(editorSource, /try \{\s*disarm\(\);/);
+});
+
+test("quiz editor selects canonical folders and creates an administrator folder inline", () => {
+    assert.match(editorSource, /<select required aria-label="Folder" disabled=\{!canChangeFolder\}/);
+    assert.match(editorSource, /const canChangeFolder = !quiz\?\.id \|\| canManageFolders/);
+    assert.match(editorSource, /\+ Create new folder…/);
+    assert.match(editorSource, /const category = await onCreateCategory\(name\);[\s\S]*?categoryId: category\.id/);
+    assert.doesNotMatch(editorSource, /event\.target\.value === createCategoryValue\)[\s\S]{0,160}categoryId: undefined/);
+    assert.match(centerSource, /categories=\{data\.categories\}/);
+    assert.match(centerSource, /onCreateCategory=\{data\.actor\.canManageAll \? createCategory : undefined\}/);
+});
+
+test("quiz editor preserves rejected drafts and serializes concurrent save attempts", () => {
+    assert.match(editorSource, /if \(savingRef\.current\) return;/);
+    assert.match(editorSource, /savingRef\.current = true;/);
+    assert.match(editorSource, /savingRef\.current = false;/);
+    assert.match(editorSource, /disabled=\{isSaving \|\| showCategoryCreator \|\| !selectedCategoryId\}/);
+    assert.match(examsApiSource, /response\.status === 422[\s\S]*?valid: false/);
+});
+
+test("successful quiz saves update and reveal the returned canonical quiz", () => {
+    assert.match(centerSource, /const savedQuiz = \(quiz: ExamQuizSummary\)/);
+    assert.match(centerSource, /setLastSavedQuizId\(quiz\.id\)/);
+    assert.match(centerSource, /revealQuizId=\{lastSavedQuizId\}/);
+    assert.match(catalogSource, /folders\.find\(item => item\.quizzes\.some\(quiz => quiz\.id === revealQuizId\)\)/);
 });
 
 test("website content compares edits with its last loaded or saved snapshot", () => {

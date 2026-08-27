@@ -41,6 +41,11 @@ const isDiscordId = (value: string) => /^\d{15,20}$/.test(value);
 
 let readOnlyQuery = queryReadOnly;
 
+export type QuizReadQuery = <T extends RowDataPacket[]>(
+  sql: string,
+  values?: readonly unknown[],
+) => Promise<T>;
+
 /** Test seam; application code always uses the database module. */
 export function setReadOnlyQueryForTests(query: typeof queryReadOnly) {
   readOnlyQuery = query;
@@ -106,21 +111,21 @@ export async function listEligibleQuizzes(context: LearnerAccessContext): Promis
   return rows.map(toSummary);
 }
 
-export async function getQuiz(id: string): Promise<Quiz | null> {
+export async function getQuizWithQuery(id: string, query: QuizReadQuery): Promise<Quiz | null> {
   if (!isQuizId(id)) {
     throw new Error("Quiz IDs must be UUIDs");
   }
-  const [quiz] = await readOnlyQuery<QuizRow[]>(`SELECT ${quizColumns} FROM quizzes q JOIN categories c ON c.id = q.category_id WHERE q.id = ? LIMIT 1`, [id]);
+  const [quiz] = await query<QuizRow[]>(`SELECT ${quizColumns} FROM quizzes q JOIN categories c ON c.id = q.category_id WHERE q.id = ? LIMIT 1`, [id]);
   if (!quiz) return null;
 
   const [tagRows, questionRows, optionRows, bankDrawRows] = await Promise.all([
-    readOnlyQuery<RowDataPacket[]>(
+    query<RowDataPacket[]>(
       "SELECT t.id, t.name FROM quiz_tags qt JOIN tags t ON t.id = qt.tag_id WHERE qt.quiz_id = ? ORDER BY t.name ASC", [id]),
-    readOnlyQuery<RowDataPacket[]>(
+    query<RowDataPacket[]>(
       "SELECT id, prompt, correct_option_id, sort_order, randomize_options FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order ASC", [id]),
-    readOnlyQuery<RowDataPacket[]>(
+    query<RowDataPacket[]>(
       "SELECT qo.id, qo.question_id, qo.text, qo.sort_order FROM quiz_options qo JOIN quiz_questions qq ON qq.id = qo.question_id WHERE qq.quiz_id = ? ORDER BY qo.sort_order ASC", [id]),
-    readOnlyQuery<RowDataPacket[]>(
+    query<RowDataPacket[]>(
       "SELECT question_bank_id, question_count, sort_order FROM quiz_bank_draws WHERE quiz_id = ? ORDER BY sort_order ASC", [id]),
   ]);
 
@@ -147,6 +152,10 @@ export async function getQuiz(id: string): Promise<Quiz | null> {
       sortOrder: draw.sort_order,
     })),
   };
+}
+
+export async function getQuiz(id: string): Promise<Quiz | null> {
+  return getQuizWithQuery(id, readOnlyQuery);
 }
 
 /**

@@ -1,5 +1,6 @@
-import {useEffect, useState} from "react";
-import type {ExamImportError, ExamQuestion, ManagedExamQuiz} from "../../types/Exam.ts";
+import {useEffect, useRef, useState} from "react";
+import type {ExamCategory, ExamImportError, ExamQuestion, ExamQuizSummary, ManagedExamQuiz} from "../../types/Exam.ts";
+import {getExamCategoryLabel} from "../../utils/ExamCatalogUtils.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {stableExamValue} from "./ExamUnsavedChanges.ts";
 import styles from "./ExamEditor.module.css";
@@ -7,10 +8,15 @@ import {useExamUnsavedChanges} from "./useExamUnsavedChanges.ts";
 
 interface ExamEditorProps {
     quiz: ManagedExamQuiz | null;
+    categories: ExamCategory[];
     token: string;
     onCancel: () => void;
-    onSaved: () => void;
+    canManageFolders?: boolean;
+    onCreateCategory?: (name: string) => Promise<ExamCategory>;
+    onSaved: (quiz: ExamQuizSummary) => void;
 }
+
+const createCategoryValue = "__create_category__";
 
 const newQuestion = (): ExamQuestion => ({
     prompt: "",
@@ -35,22 +41,33 @@ const asDraft = (quiz: ManagedExamQuiz | null): ManagedExamQuiz => quiz ? {
     questions: quiz.questions.map(question => ({...question, options: question.options.map(option => ({...option}))})),
 } : newQuiz();
 
-const ExamEditor = ({quiz, token, onCancel, onSaved}: ExamEditorProps) => {
+const ExamEditor = ({quiz, categories, token, onCancel, canManageFolders = false, onCreateCategory, onSaved}: ExamEditorProps) => {
     const [draft, setDraft] = useState<ManagedExamQuiz>(() => asDraft(quiz));
     const [baseline, setBaseline] = useState<ManagedExamQuiz>(() => asDraft(quiz));
     const [validationErrors, setValidationErrors] = useState<ExamImportError[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [showCategoryCreator, setShowCategoryCreator] = useState(false);
+    const savingRef = useRef(false);
 
     useEffect(() => {
         setBaseline(asDraft(quiz));
         setDraft(asDraft(quiz));
         setValidationErrors([]);
         setError(null);
+        setIsCreatingCategory(false);
+        setNewCategoryName("");
+        setShowCategoryCreator(false);
     }, [quiz]);
 
     const isDirty = stableExamValue(draft) !== stableExamValue(baseline);
     const {confirmAndRun, disarm} = useExamUnsavedChanges({isDirty});
+    const selectedCategoryId = draft.categoryId
+        ?? categories.find(category => category.name.trim() === draft.category.trim())?.id
+        ?? "";
+    const canChangeFolder = !quiz?.id || canManageFolders;
 
     const updateQuestion = (questionIndex: number, update: (question: ExamQuestion) => ExamQuestion) => {
         setDraft(current => ({...current, questions: current.questions.map((question, index) => index === questionIndex ? update(question) : question)}));
@@ -58,21 +75,50 @@ const ExamEditor = ({quiz, token, onCancel, onSaved}: ExamEditorProps) => {
 
     const submit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (savingRef.current) return;
         setError(null);
         setValidationErrors([]);
+        if (showCategoryCreator || !selectedCategoryId) {
+            setValidationErrors([{path: "category", message: "Choose an existing folder or create a new one."}]);
+            return;
+        }
+        savingRef.current = true;
         setIsSaving(true);
         try {
-            const result = await ExamsApiUtils.saveQuiz(draft, token);
-            if (result.valid === false) {
+            const selectedCategory = categories.find(category => category.id === selectedCategoryId);
+            const result = await ExamsApiUtils.saveQuiz({
+                ...draft,
+                categoryId: selectedCategoryId,
+                category: selectedCategory?.name ?? draft.category,
+            }, token);
+            if (result.valid !== true || !result.quiz?.id) {
                 setValidationErrors(result.errors ?? [{path: "quiz", message: "The Exams service rejected this quiz."}]);
                 return;
             }
             disarm();
-            onSaved();
+            onSaved(result.quiz);
         } catch (reason) {
             setError(reason instanceof Error ? reason.message : String(reason));
         } finally {
+            savingRef.current = false;
             setIsSaving(false);
+        }
+    };
+
+    const createCategory = async () => {
+        const name = newCategoryName.trim();
+        if (!name || !onCreateCategory || isCreatingCategory) return;
+        setError(null);
+        setIsCreatingCategory(true);
+        try {
+            const category = await onCreateCategory(name);
+            setDraft(current => ({...current, categoryId: category.id, category: category.name}));
+            setNewCategoryName("");
+            setShowCategoryCreator(false);
+        } catch (reason) {
+            setError(reason instanceof Error ? reason.message : String(reason));
+        } finally {
+            setIsCreatingCategory(false);
         }
     };
 
@@ -87,7 +133,28 @@ const ExamEditor = ({quiz, token, onCancel, onSaved}: ExamEditorProps) => {
                 <fieldset disabled={isSaving}>
                     <div className={styles.fieldGrid}>
                         <label>Title<input required value={draft.title} maxLength={255} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label>
-                        <label>Category<input required value={draft.category} maxLength={255} onChange={event => setDraft(current => ({...current, category: event.target.value}))}/></label>
+                        <label>Folder
+                            <select required aria-label="Folder" disabled={!canChangeFolder} value={showCategoryCreator ? createCategoryValue : selectedCategoryId} onChange={event => {
+                                if (event.target.value === createCategoryValue) {
+                                    setShowCategoryCreator(true);
+                                    return;
+                                }
+                                const category = categories.find(item => item.id === event.target.value);
+                                setShowCategoryCreator(false);
+                                setDraft(current => ({...current, categoryId: category?.id, category: category?.name ?? ""}));
+                            }}>
+                                <option value="" disabled>Choose a folder</option>
+                                {categories.map(category => <option key={category.id} value={category.id}>{getExamCategoryLabel(category, categories)}</option>)}
+                                {canManageFolders && onCreateCategory ? <option value={createCategoryValue}>+ Create new folder…</option> : null}
+                            </select>
+                        </label>
+                        {showCategoryCreator && canManageFolders && onCreateCategory ? <div className={styles.folderCreator}>
+                            <label>New folder name<input autoFocus aria-label="New folder name" value={newCategoryName} maxLength={255} onChange={event => setNewCategoryName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void createCategory(); } }}/></label>
+                            <div className={styles.folderCreatorActions}>
+                                <button type="button" className={styles.quietButton} onClick={() => setShowCategoryCreator(false)}>Cancel</button>
+                                <button type="button" className={styles.createFolderButton} disabled={!newCategoryName.trim() || isCreatingCategory} onClick={() => void createCategory()}>{isCreatingCategory ? "Creating…" : "Create folder"}</button>
+                            </div>
+                        </div> : null}
                         <label>Feedback
                             <select value={draft.feedbackMode} onChange={event => setDraft(current => ({...current, feedbackMode: event.target.value as ManagedExamQuiz["feedbackMode"]}))}>
                                 <option value="after_submission">After submission</option>
@@ -121,7 +188,7 @@ const ExamEditor = ({quiz, token, onCancel, onSaved}: ExamEditorProps) => {
                 </fieldset>
                 {validationErrors.length > 0 ? <section className={styles.validationErrors} role="alert"><h3>Review these fields</h3><ul>{validationErrors.map(issue => <li key={`${issue.path}:${issue.message}`}><code>{issue.path}</code>: {issue.message}</li>)}</ul></section> : null}
                 {error ? <p className={styles.error} role="alert">{error}</p> : null}
-                <div className={styles.footer}><button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton}>{isSaving ? "Saving…" : "Save quiz"}</button></div>
+                <div className={styles.footer}><button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton} disabled={isSaving || showCategoryCreator || !selectedCategoryId}>{isSaving ? "Saving…" : "Save quiz"}</button></div>
             </form>
         </section>
     );
