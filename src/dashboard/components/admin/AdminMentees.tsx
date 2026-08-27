@@ -1,7 +1,7 @@
-import {type ChangeEvent, type FormEvent, useEffect, useMemo, useState} from "react";
+import {type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee} from "../../types/AdminMentee.ts";
-import type {AutoMatchCandidate, AutoMatchLeniency} from "../../types/AutoMatchCandidate.ts";
+import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../../types/AutoMatchCandidate.ts";
 import type {AdminUser} from "../../types/AdminUser.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {Session} from "../../types/Session.ts";
@@ -41,6 +41,7 @@ interface AdminMenteesProps {
     loaded: boolean;
     loggedIn: boolean;
     error: string | undefined;
+    accountId: string | undefined;
     users: AtcmhUser[] | undefined;
     mentees: AdminMentee[] | undefined;
     sessions: Session[] | undefined;
@@ -94,6 +95,7 @@ const AdminMentees = ({
                           loaded,
                           loggedIn,
                           error,
+                          accountId,
                           users,
                           mentees,
                           sessions,
@@ -122,6 +124,8 @@ const AdminMentees = ({
     const [autoMatchSearched, setAutoMatchSearched] = useState(false);
     const [autoMatchError, setAutoMatchError] = useState<string | undefined>();
     const [showAutoMatchPickupModal, setShowAutoMatchPickupModal] = useState(false);
+    const [autoMatchPreferencesLoadedFor, setAutoMatchPreferencesLoadedFor] = useState<string>();
+    const autoMatchSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
     const [attendeeInputs, setAttendeeInputs] = useState<Record<string, string>>({});
     const [assignmentSession, setAssignmentSession] = useState<{
         session: Session;
@@ -132,6 +136,7 @@ const AdminMentees = ({
     const view = normalizeMenteeView(searchParams.get(MENTEE_VIEW_PARAM));
     const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
+    const preferenceAccountId = accountId ?? adminUser?.id;
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
 
     const selectedMentee = useMemo(() => {
@@ -202,6 +207,68 @@ const AdminMentees = ({
         menteePagination.reset();
         updateListQuery({mentorFilter: nextFilter});
     };
+
+    useEffect(() => {
+        let current = true;
+        setAutoMatchPreferencesLoadedFor(undefined);
+        setAutoMatchAvailability(defaultWeeklyAvailabilityAnswer);
+        setAutoMatchLeniency("medium");
+        setAutoMatchCandidates([]);
+        setSelectedAutoMatchIds(new Set());
+        setAutoMatchSearched(false);
+        setAutoMatchError(undefined);
+        setShowAutoMatchPickupModal(false);
+
+        if (!loggedIn || !token || !preferenceAccountId) {
+            return () => {
+                current = false;
+            };
+        }
+
+        void ApiUtils.getWaitlistHelperPreferences(token)
+            .then(preferences => {
+                if (!current) return;
+                if (preferences) {
+                    setAutoMatchAvailability(preferences.availability);
+                    setAutoMatchLeniency(preferences.leniency);
+                }
+                setAutoMatchPreferencesLoadedFor(preferenceAccountId);
+            })
+            .catch(reason => {
+                if (!current) return;
+                setAutoMatchPreferencesLoadedFor(preferenceAccountId);
+                setAutoMatchError(`Could not load your waitlist helper settings: ${reason instanceof Error ? reason.message : String(reason)}`);
+            });
+
+        return () => {
+            current = false;
+        };
+    }, [loggedIn, preferenceAccountId, token]);
+
+    useEffect(() => {
+        if (!loggedIn || !token || !preferenceAccountId || autoMatchPreferencesLoadedFor !== preferenceAccountId) return;
+
+        let current = true;
+        const preferences: WaitlistHelperPreferences = {
+            availability: autoMatchAvailability,
+            leniency: autoMatchLeniency,
+        };
+        const timer = window.setTimeout(() => {
+            autoMatchSaveQueue.current = autoMatchSaveQueue.current
+                .catch(() => undefined)
+                .then(() => ApiUtils.saveWaitlistHelperPreferences(token, preferences))
+                .catch(reason => {
+                    if (current) {
+                        setAutoMatchError(`Could not save your waitlist helper settings: ${reason instanceof Error ? reason.message : String(reason)}`);
+                    }
+                });
+        }, 350);
+
+        return () => {
+            current = false;
+            window.clearTimeout(timer);
+        };
+    }, [autoMatchAvailability, autoMatchLeniency, autoMatchPreferencesLoadedFor, loggedIn, preferenceAccountId, token]);
 
     const handleAutoMatchSearch = async (event: FormEvent) => {
         event.preventDefault();
