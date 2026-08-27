@@ -22,6 +22,10 @@ const closeNavDropdownOnLeave = (event: MouseEvent<HTMLDetailsElement>) => {
     if (supportsDesktopHover()) event.currentTarget.open = false;
 };
 
+const closeNavDropdownOnSelection = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.currentTarget.closest("details")?.removeAttribute("open");
+};
+
 const AdminNav = ({adminUser, embedded = false}: AdminNavProps) => {
     const location = useLocation();
     const navGroups = adminNavigationGroups(adminUser, EXAM_CENTER_ENABLED);
@@ -34,11 +38,12 @@ const AdminNav = ({adminUser, embedded = false}: AdminNavProps) => {
                     return (
                         <details
                             key={group.label}
+                            name="dashboard-navigation"
                             className={`${styles.adminNavDropdown} ${hasActiveItem ? styles.adminNavDropdownActive : ""}`}
                             onMouseEnter={openNavDropdownOnHover}
                             onMouseLeave={closeNavDropdownOnLeave}
                         >
-                            <summary id={groupId} className={styles.adminNavDropdownSummary} aria-controls={menuId}>{group.label}</summary>
+                            <summary id={groupId} className={styles.adminNavDropdownSummary} aria-controls={menuId} aria-label={`${group.label} sections`}>{group.label}</summary>
                             <div id={menuId} className={styles.adminNavDropdownMenu} aria-labelledby={groupId}>
                                 {group.sections.map((section, sectionIndex) => (
                                     <div key={section.label ?? sectionIndex} className={styles.adminNavDropdownSection}>
@@ -46,7 +51,7 @@ const AdminNav = ({adminUser, embedded = false}: AdminNavProps) => {
                                         <div className={styles.adminNavDropdownSectionItems}>
                                             {section.items.map(item => {
                                                 const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-                                                return <Link key={item.path} to={item.path} className={`${styles.adminNavDropdownItem} ${isActive ? styles.adminNavDropdownItemActive : ""}`} aria-current={isActive ? "page" : undefined}>{item.label}</Link>;
+                                                return <Link key={item.path} to={item.path} className={`${styles.adminNavDropdownItem} ${isActive ? styles.adminNavDropdownItemActive : ""}`} aria-current={isActive ? "page" : undefined} onClick={closeNavDropdownOnSelection}>{item.label}</Link>;
                                             })}
                                         </div>
                                     </div>

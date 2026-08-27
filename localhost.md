@@ -93,8 +93,7 @@ After a production build, `npm run dev` uses `.next-dev` rather than `.next`; th
 Verify both Discord and Infinite Flight login from the home modal. Confirm that:
 
 1. Dashboard login returns to the requested `/dashboard` or `/account` path.
-2. Exams login returns to the requested `/exams` path and creates the separate Exams session.
+2. Main-site login returns to the requested `/exams` path and creates the shared ATCMH session.
 3. A signed-in non-admin receives the themed Dashboard 403 page.
 4. Dashboard navigation appears only after `/admin/me` confirms staff access.
 5. Logout clears the appropriate session without weakening the other application audience.
-

@@ -12,7 +12,7 @@ interface ExamsBrowserSession {accountId: string; discordId: string; expiresAt: 
 interface ExamsSessionResponse {session: ExamsBrowserSession | null}
 
 export class ExamsAuthenticationRequiredError extends Error {
-    constructor() { super("Sign in to the Exams Center to use this workspace."); this.name = "ExamsAuthenticationRequiredError"; }
+    constructor() { super("Sign in to ATCMH to use the Exam Center."); this.name = "ExamsAuthenticationRequiredError"; }
 }
 export const isExamsAuthenticationRequired = (reason: unknown): reason is ExamsAuthenticationRequiredError => reason instanceof ExamsAuthenticationRequiredError;
 export const EXAMS_AUTH_REQUIRED_EVENT = "atcmh:exams-auth-required";

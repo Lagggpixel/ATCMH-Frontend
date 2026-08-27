@@ -58,7 +58,12 @@
 }
 
 .adminSessionsSessionsTable {
-    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
     background-color: transparent;
     box-shadow: none;
 }

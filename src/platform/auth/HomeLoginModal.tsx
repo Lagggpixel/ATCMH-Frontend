@@ -12,7 +12,7 @@ const authErrorCopy: Record<string, string> = {
   invalid_login: "We could not complete that sign-in. Please start again. If this continues, contact support.",
   provider_failure: "The identity provider could not verify your sign-in. Please try again. If this continues, contact support.",
   link_conflict: "Your linked identities need review before login can continue.",
-  invalid_handoff: "The one-time Exams login expired or was already used.",
+  invalid_handoff: "Your ATCMH sign-in link expired or was already used. Please start again from the main site.",
   consent_declined: "You must accept the current policies before access can be granted.",
   consent_expired: "The policy confirmation expired. Please restart login.",
   invalid_consent: "The policy confirmation could not be verified. Please restart login.",

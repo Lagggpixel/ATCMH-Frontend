@@ -54,6 +54,11 @@
         flex-basis: 100%;
         justify-content: flex-start;
     }
+
+    .dashboardHeader .accountNavigation {
+        display: flex;
+        min-width: 2.75rem;
+    }
 }
 
 @media (max-width: 640px) {

@@ -243,21 +243,28 @@
     }
 
     .adminNav {
+        position: relative;
         width: 100%;
         margin-inline: 0;
         justify-content: stretch;
     }
 
     .adminNavDropdown {
-        flex: 1 1 0;
+        position: static;
+        flex: 1 1 auto;
         min-width: 0;
     }
 
     .adminNavDropdownSummary {
         justify-content: center;
+        gap: clamp(3px, 0.9vw, 7px);
+        width: 100%;
+        min-width: 0;
         min-height: 42px;
-        padding: 6px 9px;
-        font-size: 0.88rem;
+        padding: 6px clamp(3px, 1.4vw, 9px);
+        overflow: hidden;
+        font-size: clamp(0.76rem, 3.3vw, 0.88rem);
+        white-space: nowrap;
     }
 
     .adminNavDropdownActive > .adminNavDropdownSummary {
@@ -266,11 +273,16 @@
         color: var(--text-color);
     }
 
-    .adminNavDropdownMenu {
-        position: static;
+    .adminNav .adminNavDropdown > .adminNavDropdownMenu {
+        position: absolute;
+        z-index: 2;
+        top: calc(100% + 0.5rem);
+        right: 0;
+        left: 0;
         width: 100%;
-        max-width: none;
-        margin-top: 5px;
+        min-width: 0;
+        max-width: 100%;
+        margin-top: 0;
         transform: none;
     }
 
@@ -284,17 +296,22 @@
     }
 
     .adminNavEmbedded .adminNavDropdown {
-        flex: 1 1 0;
+        flex: 1 1 auto;
         min-width: 0;
     }
 
     .adminNavEmbedded .adminNavDropdownSummary {
         justify-content: center;
+        gap: clamp(3px, 0.9vw, 7px);
+        width: 100%;
+        min-width: 0;
         min-height: 42px;
-        padding: 6px 9px;
+        padding: 6px clamp(3px, 1.4vw, 9px);
         border: 1px solid transparent;
         border-radius: 9px;
-        font-size: 0.88rem;
+        overflow: hidden;
+        font-size: clamp(0.76rem, 3.3vw, 0.88rem);
+        white-space: nowrap;
     }
 
     .adminNavEmbedded .adminNavDropdownActive > .adminNavDropdownSummary::before {

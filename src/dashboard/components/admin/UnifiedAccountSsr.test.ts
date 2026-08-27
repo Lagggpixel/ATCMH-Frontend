@@ -59,10 +59,12 @@ test("admin navigation uses category dropdowns with flat assessment placement", 
     const html = inRouter(React.createElement(AdminNav, {adminUser: {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false}}), "/dashboard");
     const source = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.tsx", import.meta.url), "utf8");
     const css = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.module.css", import.meta.url), "utf8");
+    const triggerLabels = [...html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/g)]
+        .map(([, body]) => body.replace(/<[^>]+>/g, "").trim());
 
     assert.match(html, /<nav[^>]*aria-label="Dashboard sections"/);
-    assert.match(html, /<details[^>]*adminNavDropdown/);
-    assert.match(html, /<summary[^>]*>Assessment<\/summary>/);
+    assert.match(html, /<details[^>]*name="dashboard-navigation"[^>]*adminNavDropdown/);
+    assert.deepEqual(triggerLabels, ["Mentorship", "Assessment", "Administration"]);
     assert.doesNotMatch(html, />Exams<\/span>|>Courses<\/span>/);
     assert.match(html, /Course Center/);
     assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
@@ -74,6 +76,7 @@ test("admin navigation uses category dropdowns with flat assessment placement", 
     assert.match(css, /\.adminNavDropdownSection \+ \.adminNavDropdownSection\s*\{[^}]*border-top:/s);
     assert.match(source, /onMouseEnter=\{openNavDropdownOnHover\}/);
     assert.match(source, /onMouseLeave=\{closeNavDropdownOnLeave\}/);
+    assert.match(source, /onClick=\{closeNavDropdownOnSelection\}/);
     assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
     assert.match(css, /\.adminNavDropdown:hover > \.adminNavDropdownMenu/);
     assert.match(css, /\.adminNavEmbedded \.adminNavDropdownMenu\s*\{[^}]*top:\s*calc\(100% \+ 0\.75rem\)[^}]*background:\s*var\(--card-solid\)/s);
@@ -82,7 +85,11 @@ test("admin navigation uses category dropdowns with flat assessment placement", 
     assert.match(css, /\.adminNavDropdown:last-child > \.adminNavDropdownMenu\s*\{[^}]*right:\s*0[^}]*left:\s*auto/s);
     assert.match(css, /\.adminNavDropdownMenu::before\s*\{[^}]*top:\s*-0\.75rem[^}]*height:\s*0\.75rem/s);
     assert.doesNotMatch(css, /\.adminNavDropdown::after/);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdown\s*\{[^}]*position:\s*static/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavEmbedded \.adminNavDropdown\s*\{[^}]*flex:\s*1 1 auto/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav \.adminNavDropdown > \.adminNavDropdownMenu\s*\{[^}]*position:\s*absolute[^}]*right:\s*0[^}]*left:\s*0[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*max-width:\s*100%/s);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavEmbedded \.adminNavDropdownSummary\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*font-size:\s*clamp\(0\.76rem, 3\.3vw, 0\.88rem\)[^}]*white-space:\s*nowrap/s);
+    assert.doesNotMatch(html, />Mentor<|>Assess<|>Admin</);
 });
 
 test("actual confirmation and stale-error views wire commit and cancel callbacks", async () => {
