@@ -28,10 +28,11 @@ interface CourseEditorProps {
     onSaved: (course: ManagedCourse) => void;
 }
 
-const ACCEPTED_MEDIA = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
-const acceptedMedia = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/webm"]);
+const ACCEPTED_MEDIA = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.mov";
+const MEDIA_VALIDATION_MESSAGE = "Choose a JPEG, PNG, GIF, WebP, MP4, WebM, or MOV file no larger than 50 MB.";
+const acceptedMedia = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/webm", "video/quicktime"]);
 const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
-const extensionMediaTypes: Record<string, string> = {jpeg: "image/jpeg", jpg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm"};
+const extensionMediaTypes: Record<string, string> = {jpeg: "image/jpeg", jpg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime"};
 
 const newDocument = (): CourseDocumentV1 => ({version: 1, blocks: [{...createCourseBlock("text"), markdown: "# Section title\n\nWrite the learning material here."}]});
 const newSection = (sortOrder: number): ManagedCourseDraftSection => {
@@ -57,6 +58,32 @@ function documentFor(section: ManagedCourseDraftSection): CourseDocumentV1 {
 
 function blockTypeLabel(block: CourseBlock) {
     return block.type === "media" ? block.kind : block.type;
+}
+
+const INSERTABLE_BLOCK_TYPES: ReadonlyArray<{type: CourseBlock["type"]; label: string}> = [
+    {type: "text", label: "Text"},
+    {type: "media", label: "Image/video"},
+    {type: "callout", label: "Callout"},
+    {type: "diagram", label: "Diagram"},
+    {type: "quiz", label: "Quiz"},
+    {type: "activity", label: "Activity"},
+];
+
+interface InsertBlockMenuProps {
+    label: string;
+    onInsert: (type: CourseBlock["type"]) => void;
+}
+
+function InsertBlockMenu({label, onInsert}: InsertBlockMenuProps) {
+    return <details className={styles.insertMenu}>
+        <summary className={styles.insertButton}>{label}</summary>
+        <div className={styles.insertMenuList}>
+            {INSERTABLE_BLOCK_TYPES.map(option => <button key={option.type} type="button" onClick={event => {
+                onInsert(option.type);
+                event.currentTarget.closest("details")?.removeAttribute("open");
+            }}>{option.label}</button>)}
+        </div>
+    </details>;
 }
 
 function mediaTypeForFile(file: File) {
@@ -90,8 +117,6 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
     const [initialDraft] = useState<ManagedCourseDraft>(() => asDraft(course));
     const [draft, setDraft] = useState<ManagedCourseDraft>(initialDraft);
     const [baseline, setBaseline] = useState<ManagedCourseDraft>(initialDraft);
-    const [quizSelection, setQuizSelection] = useState<Record<number, string>>({});
-    const [blockType, setBlockType] = useState<CourseBlock["type"]>("text");
     const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
     const [pendingPreviews, setPendingPreviews] = useState<Record<string, string>>({});
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
@@ -114,7 +139,6 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         const next = asDraft(course);
         setDraft(next);
         setBaseline(next);
-        setQuizSelection({});
         setPendingFiles({});
         setPendingPreviews({});
         setUploadProgress({});
@@ -200,7 +224,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
             return prepared ? [prepared] : [];
         });
         if (usable.length === 0) {
-            setError("Choose a JPEG, PNG, GIF, WebP, MP4, or WebM file no larger than 50 MB.");
+            setError(MEDIA_VALIDATION_MESSAGE);
             return;
         }
         if (usable.length !== files.length) setError("Some files were skipped because their media type is not supported.");
@@ -226,7 +250,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                 return prepared ? [prepared] : [];
             });
             if (preparedFiles.length === 0) {
-                setError("Choose a JPEG, PNG, GIF, WebP, MP4, or WebM file no larger than 50 MB.");
+                setError(MEDIA_VALIDATION_MESSAGE);
                 return;
             }
             if (preparedFiles.length !== files.length) setError("Some files were skipped because their media type is not supported.");
@@ -282,10 +306,8 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         setDragging(null);
     };
 
-    const addBlock = (sectionIndex: number, insertionIndex: number, type = blockType) => {
+    const addBlock = (sectionIndex: number, insertionIndex: number, type: CourseBlock["type"]) => {
         const block = createCourseBlock(type);
-        const selectedQuiz = quizSelection[sectionIndex] ?? quizSelection[-1];
-        if (type === "quiz" && selectedQuiz) Object.assign(block, {quizId: selectedQuiz});
         updateDocument(sectionIndex, document => insertCourseBlock(document, insertionIndex, block));
     };
 
@@ -293,7 +315,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         if (!file) return;
         const prepared = prepareMediaFile(file);
         if (!prepared) {
-            setError("Choose a JPEG, PNG, GIF, WebP, MP4, or WebM file no larger than 50 MB.");
+            setError(MEDIA_VALIDATION_MESSAGE);
             return;
         }
         const nextKind = prepared.type.startsWith("video/") ? "video" : "image";
@@ -367,13 +389,13 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
 
     return <section className={styles.editor} aria-labelledby="course-editor-heading">
         <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Back to courses</button></div></div>
-        <p className={styles.description}>Compose each section as a responsive page. Add media from your computer, drop it between any blocks, or paste it at the text caret. Use the up/down buttons for keyboard-accessible block movement.</p>
+        <p className={styles.description}>Compose each section as a responsive page. Add media from your computer, drop it between any blocks, or paste it at the text caret. MOV uploads are converted to browser-friendly MP4 on the server. Use the up/down buttons for keyboard-accessible block movement.</p>
         <form onSubmit={event => void save(event)}>
             <fieldset disabled={isSaving}>
                 <div className={styles.fieldGrid}><label>Title<input required maxLength={255} value={draft.title} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label><label>Slug<input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={200} value={draft.slug} onChange={event => setDraft(current => ({...current, slug: event.target.value}))}/></label></div>
                 <label>Description<textarea rows={3} maxLength={2000} value={draft.description} onChange={event => setDraft(current => ({...current, description: event.target.value}))}/></label>
                 <label className={styles.check}><input type="checkbox" checked={draft.isPublished} disabled={!canPublish} onChange={event => setDraft(current => ({...current, isPublished: event.target.checked}))}/> Make available to signed-in learners {canPublish ? "" : "(administrator publishing permission required)"}</label>
-                <div className={styles.composerToolbar} aria-label="Course block tools"><label>New block<select value={blockType} onChange={event => setBlockType(event.target.value as CourseBlock["type"])}><option value="text">Text</option><option value="callout">Callout</option><option value="diagram">Diagram</option><option value="quiz">Quiz</option><option value="activity">Activity</option><option value="media">Image/video</option></select></label><label>Quiz for new quiz block<select value={quizSelection[-1] ?? ""} onChange={event => setQuizSelection(current => ({...current, [-1]: event.target.value}))}><option value="">Choose a quiz…</option>{quizzes.map(quiz => <option key={quiz.id} value={quiz.id}>{quiz.title}</option>)}</select></label><span className={styles.composerHint}>Insertion bars accept file drops.</span></div>
+                <p className={styles.composerHint}>Choose what to insert from any “Insert here” or “Add at end” button. Insertion bars also accept file drops.</p>
                 <div className={styles.sectionsHeading}><h3>Sections</h3><button type="button" onClick={() => setDraft(current => ({...current, sections: [...current.sections, newSection(current.sections.length + 1)]}))}>Add section</button></div>
                 <div className={styles.sections}>
                     {draft.sections.map((section, sectionIndex) => {
@@ -383,7 +405,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                             <label>Section title<input required maxLength={255} value={section.title} onChange={event => updateSection(sectionIndex, current => ({...current, title: event.target.value}))}/></label>
                             <div className={styles.blockCanvas} aria-label={`Section ${sectionIndex + 1} page composer`}>
                                 {document.blocks.map((block, blockIndex) => <div key={`slot-${block.id}`}>
-                                    <div className={styles.insertionZone} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer.files.length) enqueueFiles(sectionIndex, blockIndex, Array.from(event.dataTransfer.files)); else moveBlock(sectionIndex, blockIndex); }}><button type="button" onClick={() => addBlock(sectionIndex, blockIndex)}>＋ Insert here</button><span>or drop image/video</span></div>
+                                    <div className={styles.insertionZone} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer.files.length) enqueueFiles(sectionIndex, blockIndex, Array.from(event.dataTransfer.files)); else moveBlock(sectionIndex, blockIndex); }}><InsertBlockMenu label="＋ Insert here" onInsert={type => addBlock(sectionIndex, blockIndex, type)}/><span>or drop image/video</span></div>
                                     <div className={styles.blockCard} draggable onDragStart={(event: DragEvent<HTMLDivElement>) => { event.dataTransfer.effectAllowed = "move"; draggingRef.current = {sectionIndex, blockId: block.id}; setDragging({sectionIndex, blockId: block.id}); }} onDragEnd={() => { draggingRef.current = null; setDragging(null); }}>
                                         <div className={styles.blockCardHeader}><span className={styles.blockType}>{blockTypeLabel(block)}</span><div className={styles.blockActions}><button type="button" aria-label={`Move ${blockTypeLabel(block)} up`} onClick={() => {draggingRef.current = {sectionIndex, blockId: block.id}; moveBlock(sectionIndex, Math.max(0, blockIndex - 1));}} disabled={blockIndex === 0}>↑</button><button type="button" aria-label={`Move ${blockTypeLabel(block)} down`} onClick={() => {draggingRef.current = {sectionIndex, blockId: block.id}; moveBlock(sectionIndex, blockIndex + 1);}} disabled={blockIndex === document.blocks.length - 1}>↓</button><button type="button" className={styles.removeButton} onClick={() => removeBlock(sectionIndex, block.id)}>Remove</button></div></div>
                                         {block.type === "text" ? <label>Text (safe Markdown)<textarea rows={Math.max(4, Math.min(12, block.markdown.split(/\r?\n/).length + 2))} value={block.markdown} onFocus={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onSelect={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onChange={event => { setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart}); updateBlock(sectionIndex, block.id, current => current.type === "text" ? {...current, markdown: event.target.value} : current); }}/></label> : null}
@@ -394,7 +416,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                                         {block.type === "media" ? <div className={styles.mediaBlock}><div className={styles.mediaPreview}>{pendingPreviews[block.id] ? block.kind === "image" ? <img src={pendingPreviews[block.id]} alt="Pending course upload"/> : <video src={pendingPreviews[block.id]} controls={block.controls ?? true}/> : block.mediaId ? block.kind === "image" ? <img src={`${ApiUtils.apiOrigin}/admin/courses/${encodeURIComponent(draft.id ?? "")}/media/${encodeURIComponent(block.mediaId)}`} alt={block.alt || "Course image"}/> : <video src={`${ApiUtils.apiOrigin}/admin/courses/${encodeURIComponent(draft.id ?? "")}/media/${encodeURIComponent(block.mediaId)}`} controls={block.controls ?? true} preload="metadata"/> : <span>Drop a file here or choose one below.</span>}</div><div className={styles.blockFields}><label>Alt text{block.kind === "image" ? " (required)" : ""}<input required={block.kind === "image"} value={block.alt ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, alt: event.target.value} : current)}/></label><label>Caption<input value={block.caption ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, caption: event.target.value} : current)}/></label><label>Width<select value={block.width} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, width: event.target.value as CourseMediaBlock["width"]} : current)}><option value="content">Content</option><option value="wide">Wide</option><option value="full">Full</option></select></label><label>Alignment<select value={block.align} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, align: event.target.value as CourseMediaBlock["align"]} : current)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>{block.kind === "video" ? <><label className={styles.inlineCheck}><input type="checkbox" checked={block.controls ?? true} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, controls: event.target.checked} : current)}/> Show video controls</label><label>Poster media UUID<input value={block.posterMediaId ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "media" ? {...current, posterMediaId: event.target.value || undefined} : current)}/></label></> : null}<label className={styles.fileButton}>Choose replacement file<input type="file" accept={ACCEPTED_MEDIA} onChange={event => { replaceMedia(sectionIndex, block, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }}/></label>{uploading[block.id] ? <><span className={styles.uploading}>Uploading {uploadProgress[block.id] ?? 0}%…</span><button type="button" className={styles.quietButton} onClick={() => cancelUpload(block.id)}>Cancel upload</button></> : pendingFiles[block.id] ? <><span className={styles.uploading}>{draft.id ? "Upload failed — retry or replace the file." : "Queued until save"}</span>{draft.id ? <button type="button" className={styles.quietButton} onClick={() => retryUpload(block.id)}>Retry upload</button> : null}</> : null}</div></div> : null}
                                     </div>
                                 </div>)}
-                                <div className={styles.insertionZone} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer.files.length) enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.dataTransfer.files)); else moveBlock(sectionIndex, document.blocks.length); }}><button type="button" onClick={() => addBlock(sectionIndex, document.blocks.length)}>＋ Add at end</button><span>Drop image/video at the end</span></div>
+                                <div className={styles.insertionZone} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer.files.length) enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.dataTransfer.files)); else moveBlock(sectionIndex, document.blocks.length); }}><InsertBlockMenu label="＋ Add at end" onInsert={type => addBlock(sectionIndex, document.blocks.length, type)}/><span>Drop image/video at the end</span></div>
                             </div>
                             <div className={styles.mediaDropZone}><span>Drop image/video anywhere in this section</span><label className={styles.fileButton}>Attach files<input type="file" multiple accept={ACCEPTED_MEDIA} onChange={event => { enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }}/></label></div>
                         </article>;
