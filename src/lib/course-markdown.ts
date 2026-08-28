@@ -3,17 +3,23 @@ const isQuizId = (value: string) => new RegExp(`^${uuid}$`, "i").test(value);
 const quizDirective = new RegExp(`^\\{\\{quiz:(${uuid})(?:\\s+(required|optional))?(?:\\s+pass:(\\d{1,3}))?\\}\\}$`, "i");
 const quizPassOnlyDirective = new RegExp(`^\\{\\{quiz:(${uuid})\\s+pass:(\\d{1,3})\\}\\}$`, "i");
 const mediaDirective = new RegExp(`^\\{\\{(image|video):(${uuid})\\}\\}$`, "i");
+const activityDirective = new RegExp(`^\\{\\{activity:(${uuid})(?:\\s+(required|optional))?(?:\\s+pass:(\\d{1,3}))?\\}\\}$`, "i");
+const diagramDirective = /^\{\{diagram:([a-z0-9][a-z0-9-]{0,79})\}\}$/i;
 
 export type CourseMarkdownBlock =
   | { type: "heading"; level: number; text: string }
   | { type: "paragraph"; lines: string[] }
   | { type: "list"; items: string[] }
   | { type: "quiz"; quizId: string; required: boolean; passPercentage?: number }
-  | { type: "media"; mediaId: string; kind: "image" | "video" };
+  | { type: "media"; mediaId: string; kind: "image" | "video" }
+  | { type: "activity"; activityId: string; required: boolean; passPercentage?: number }
+  | { type: "diagram"; diagramId: string };
 
 export type CourseMarkdownReference =
   | { type: "quiz"; quizId: string; required: boolean; passPercentage?: number }
-  | { type: "media"; mediaId: string; kind: "image" | "video" };
+  | { type: "media"; mediaId: string; kind: "image" | "video" }
+  | { type: "activity"; activityId: string; required: boolean; passPercentage?: number }
+  | { type: "diagram"; diagramId: string };
 
 export class CourseMarkdownValidationError extends Error {
   constructor(message: string) {
@@ -38,6 +44,18 @@ function directiveFor(line: string): CourseMarkdownBlock | undefined {
 
   const media = line.match(mediaDirective);
   if (media) return { type: "media", kind: media[1].toLowerCase() as "image" | "video", mediaId: media[2].toLowerCase() };
+  const activity = line.match(activityDirective);
+  if (activity) {
+    const passPercentage = activity[3] === undefined ? undefined : Number(activity[3]);
+    return {
+      type: "activity",
+      activityId: activity[1].toLowerCase(),
+      required: activity[2]?.toLowerCase() === "required",
+      ...(passPercentage === undefined ? {} : { passPercentage }),
+    };
+  }
+  const diagram = line.match(diagramDirective);
+  if (diagram) return {type: "diagram", diagramId: diagram[1].toLowerCase()};
   return undefined;
 }
 
@@ -107,6 +125,13 @@ export function courseMarkdownReferences(markdown: string): CourseMarkdownRefere
       ...(block.passPercentage === undefined ? {} : { passPercentage: block.passPercentage }),
     });
     if (block.type === "media") references.push({ type: "media", mediaId: block.mediaId, kind: block.kind });
+    if (block.type === "activity") references.push({
+      type: "activity",
+      activityId: block.activityId,
+      required: block.required,
+      ...(block.passPercentage === undefined ? {} : {passPercentage: block.passPercentage}),
+    });
+    if (block.type === "diagram") references.push({type: "diagram", diagramId: block.diagramId});
   }
   return references;
 }
@@ -128,6 +153,15 @@ export function validateCourseMarkdown(markdown: string) {
       if (!reference.required) throw new CourseMarkdownValidationError("A passing score can only be set on a required quiz");
       if (!Number.isInteger(reference.passPercentage) || reference.passPercentage < 1 || reference.passPercentage > 100) {
         throw new CourseMarkdownValidationError("Quiz passing scores must be between 1 and 100");
+      }
+    }
+    if (reference.type === "activity" && !isQuizId(reference.activityId)) {
+      throw new CourseMarkdownValidationError(`Invalid activity ID: ${reference.activityId}`);
+    }
+    if (reference.type === "activity" && reference.passPercentage !== undefined) {
+      if (!reference.required) throw new CourseMarkdownValidationError("A passing score can only be set on a required activity");
+      if (!Number.isInteger(reference.passPercentage) || reference.passPercentage < 1 || reference.passPercentage > 100) {
+        throw new CourseMarkdownValidationError("Activity passing scores must be between 1 and 100");
       }
     }
   }

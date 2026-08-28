@@ -3,7 +3,7 @@ import type {
     ExamQuizUnlock, ExamQuizUnlockUpdate, ExamQuizUnlockUpdateResult, ExamQuizSaveResult, ExamQuizSummary,
     ExamCategory, ExamWebsiteContent, ManagedExamQuiz, NormalizedExamImport,
 } from "../types/Exam.ts";
-import type {CourseMediaUpload, CourseStatistics, ManagedCourse, ManagedCourseDraft, ManagedCourseSummary} from "../types/Course.ts";
+import type {CourseActivitySubmission, CourseMediaUpload, CourseStatistics, CourseViewEventInput, ManagedCourse, ManagedCourseDraft, ManagedCourseSummary} from "../types/Course.ts";
 import {ApiUtils} from "./ApiUtils.ts";
 
 export const EXAMS_LOGIN_URL = "/?login=1&returnTo=%2Fexams";
@@ -101,7 +101,53 @@ export class ExamsApiUtils {
     static async getCourse(id: string, token: string): Promise<ManagedCourse> { return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(`/admin/courses/${encodeURIComponent(id)}`, token)).course; }
     static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.backendJson<{statistics: CourseStatistics}>(`/admin/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }
     static async saveCourse(course: ManagedCourseDraft, token: string): Promise<ManagedCourse> { const path = course.id ? `/admin/courses/${encodeURIComponent(course.id)}` : "/admin/courses"; return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(course)})).course; }
-    static async uploadCourseMedia(courseId: string, file: File, token: string): Promise<CourseMediaUpload> { const path = `/admin/courses/${encodeURIComponent(courseId)}/media?filename=${encodeURIComponent(file.name)}`; return (await ExamsApiUtils.backendJson<{media: CourseMediaUpload}>(path, token, {method: "POST", headers: {"Content-Type": file.type}, body: file})).media; }
+    static async uploadCourseMedia(courseId: string, file: File, token: string, onProgress?: (percentage: number) => void, signal?: AbortSignal): Promise<CourseMediaUpload> {
+        const path = `/admin/courses/${encodeURIComponent(courseId)}/media?filename=${encodeURIComponent(file.name)}`;
+        if (!onProgress || typeof XMLHttpRequest === "undefined") {
+            return (await ExamsApiUtils.backendJson<{media: CourseMediaUpload}>(path, token, {method: "POST", headers: {"Content-Type": file.type}, body: file, signal})).media;
+        }
+        return new Promise<CourseMediaUpload>((resolve, reject) => {
+            const request = new XMLHttpRequest();
+            const abort = () => request.abort();
+            const cleanup = () => signal?.removeEventListener("abort", abort);
+            if (signal?.aborted) { reject(new Error("Course media upload was cancelled.")); return; }
+            request.open("POST", `${ApiUtils.apiOrigin}${path}`);
+            request.withCredentials = true;
+            request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+            request.setRequestHeader("X-CSRF-Token", token);
+            request.upload.addEventListener("progress", event => {
+                if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+            });
+            signal?.addEventListener("abort", abort, {once: true});
+            request.addEventListener("error", () => { cleanup(); reject(new Error("Course media upload failed.")); });
+            request.addEventListener("abort", () => { cleanup(); reject(new Error("Course media upload was cancelled.")); });
+            request.addEventListener("load", () => {
+                cleanup();
+                let body: {media?: CourseMediaUpload; error?: string} = {};
+                try { body = JSON.parse(request.responseText || "{}"); } catch { /* handled by the generic response below */ }
+                if (request.status >= 200 && request.status < 300 && body.media) resolve(body.media);
+                else reject(new Error(body.error || `Course media upload failed with ${request.status}.`));
+            });
+            request.send(file);
+        });
+    }
+    static async deleteCourseMedia(courseId: string, mediaId: string, token: string): Promise<void> {
+        const response = await ExamsApiUtils.backendRequest(`/admin/courses/${encodeURIComponent(courseId)}/media/${encodeURIComponent(mediaId)}`, token, {method: "DELETE"});
+        if (!response.ok) await ExamsApiUtils.throwResponseError(response);
+    }
+    static async submitCourseActivity(courseId: string, activityId: string, answer: Record<string, unknown>, token: string, idempotencyKey?: string): Promise<CourseActivitySubmission> {
+        const headers: Record<string, string> = {"Content-Type": "application/json"};
+        if (idempotencyKey) headers["X-Idempotency-Key"] = idempotencyKey;
+        return ExamsApiUtils.backendJson<CourseActivitySubmission>(`/courses/${encodeURIComponent(courseId)}/activities/${encodeURIComponent(activityId)}/submit`, token, {method: "POST", headers, body: JSON.stringify({answer})});
+    }
+    static async recordCourseView(courseId: string, event: CourseViewEventInput, token: string, keepalive = false): Promise<void> {
+        await ExamsApiUtils.backendJson<{accepted: boolean}>(`/courses/${encodeURIComponent(courseId)}/view-events`, token, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(event),
+            keepalive,
+        });
+    }
     static async getWebsiteContent(_token: string): Promise<ExamWebsiteContent> { return (await ExamsApiUtils.getJson<{content: ExamWebsiteContent}>("/exams/api/management/website",_token)).content; }
     static async saveWebsiteContent(content: ExamWebsiteContent, token: string): Promise<ExamWebsiteContent> {const response=await ExamsApiUtils.request("/exams/api/management/website",token,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(content)});if(!response.ok)await ExamsApiUtils.throwResponseError(response);return (await response.json() as {content?:ExamWebsiteContent}).content??content; }
     static async previewImport(file: File, token: string): Promise<ExamImportPreview> {const form=new FormData();form.set("file",file);const response=await ExamsApiUtils.request("/exams/api/management/imports/preview",token,{method:"POST",body:form});if(response.status===422)return response.json();if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json(); }
