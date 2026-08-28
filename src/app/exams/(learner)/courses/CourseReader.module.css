@@ -33,9 +33,46 @@
 .markdown strong { color: #fff; }
 .markdown code { border-radius: 5px; background: #18243a; padding: 2px 5px; color: #bae6fd; font-size: .9em; }
 .markdown a { color: #8fdcf5; }
-.media { margin: 22px 0; text-align: center; }
+.media { margin: 28px 0; text-align: center; }
 .media img, .media video { display: block; max-width: 100%; max-height: 560px; margin: 0 auto; border-radius: 9px; border: 1px solid #30384d; background: #050a15; }
 .media video { width: min(100%, 820px); }
+.mediaContent { max-width: 100%; }
+.mediaWide { width: min(100%, 980px); margin-right: auto; margin-left: auto; }
+.mediaFull { width: calc(100% + 52px); margin-right: -26px; margin-left: -26px; }
+.alignLeft { text-align: left; }
+.alignLeft img, .alignLeft video { margin-left: 0; }
+.alignRight { text-align: right; }
+.alignRight img, .alignRight video { margin-right: 0; }
+.media figcaption { margin-top: 8px; color: #9da9bd; font-size: 13px; line-height: 1.45; }
+.diagram { margin: 28px 0; overflow: hidden; border: 1px solid #30384d; border-radius: 10px; background: linear-gradient(135deg, rgb(16 31 54 / 88%), rgb(7 12 28 / 88%)); padding: 12px; color: #d9deea; text-align: center; }
+.diagram svg { display: block; width: 100%; height: auto; min-height: 120px; }
+.diagram figcaption { margin-top: 7px; color: #9da9bd; font-size: 12px; }
+.callout { margin: 22px 0; border-left: 4px solid #38bdf8; border-radius: 0 9px 9px 0; background: rgb(20 42 71 / 55%); padding: 15px 18px; }
+.callout h3 { margin: 4px 0 7px; color: #f4f5fb; font-size: 18px; }
+.callout p { margin: 7px 0; }
+.calloutLabel { color: #67e8f9; font-size: 11px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.calloutWarning, .calloutMistake { border-left-color: #f59e0b; background: rgb(93 61 20 / 32%); }
+.calloutMandatory { border-left-color: #ef4444; background: rgb(93 24 39 / 32%); }
+.calloutRecommended, .calloutExample { border-left-color: #22c55e; background: rgb(20 80 48 / 30%); }
+.activityCard { display: grid; gap: 13px; margin: 26px 0; border: 1px solid #375179; border-radius: 11px; background: linear-gradient(140deg, rgb(29 78 216 / 18%), rgb(12 16 39 / 74%)); padding: 19px; }
+.activityHeader, .activityFooter { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.activityEyebrow { margin: 0; color: #8fdcf5; font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.activityCard h3 { margin: 4px 0 0; color: #f4f5fb; font-size: 20px; }
+.activityPrompt { margin: 0; color: #d2d9e7; line-height: 1.55; }
+.activityPreview { margin: 0; color: #aebbd0; font-size: 13px; }
+.activityInputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.activityCard label { display: grid; gap: 6px; color: #c8d1e2; font-size: 13px; font-weight: 700; }
+.activityCard select, .activityCard textarea { width: 100%; border: 1px solid #3d4e6b; border-radius: 7px; background: #101a31; color: #f4f5fb; padding: 9px; font: inherit; }
+.activityOptions { display: grid; gap: 8px; border: 1px solid #3d4e6b; border-radius: 8px; padding: 11px; }
+.activityOptions legend { padding: 0 4px; color: #c8d1e2; font-size: 13px; font-weight: 750; }
+.activityOptions label { display: flex; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.activityOptions input { width: auto; accent-color: #38bdf8; }
+.activityFooter { color: #aebbd0; font-size: 12px; }
+.activityAction { min-height: 38px; border: 1px solid #38bdf8; border-radius: 8px; background: #0e7490; padding: 8px 13px; color: white; cursor: pointer; font: inherit; font-weight: 800; }
+.activityAction:disabled { cursor: wait; opacity: .6; }
+.activityPassed, .activityResultPassed { border-radius: 999px; background: rgb(34 197 94 / 18%); padding: 5px 9px; color: #a5e6b9; font-size: 11px; font-weight: 800; }
+.activityResultPassed, .activityResultFailed { margin: 0; border-radius: 7px; padding: 9px 11px; font-size: 13px; }
+.activityResultFailed { background: rgb(245 158 11 / 18%); color: #f4d28c; }
 .quizCard { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin: 24px 0; border: 1px solid #315384; border-radius: 10px; background: linear-gradient(120deg, rgb(37 99 235 / 17%), rgb(12 16 39 / 72%)); padding: 19px 20px; }
 .quizCard h3 { margin: 6px 0 5px; color: #f4f5fb; font-size: 19px; }
 .quizCard p:not(.quizEyebrow) { margin: 0; color: #b6c1d4; font-size: 14px; line-height: 1.45; }
@@ -67,4 +104,8 @@
   .quizAction, .courseCardMeta, .completeButton { width: 100%; }
   .completion { justify-items: stretch; }
   .privateGate { margin: 45px auto; padding: 28px 20px; }
+  .mediaFull { width: 100%; margin-right: 0; margin-left: 0; }
+  .activityInputs { grid-template-columns: 1fr; }
+  .activityHeader, .activityFooter { align-items: stretch; flex-direction: column; }
+  .activityAction { width: 100%; }
 }

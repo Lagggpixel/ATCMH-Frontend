@@ -61,7 +61,7 @@
 .saveButton { min-width: 110px; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .statistics { padding-bottom: 25px; }
-.statCards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+.statCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
 .statCard { display: grid; gap: 8px; min-height: 88px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-2-color); padding: 14px; }
 .statCard span { color: var(--muted-text); font-size: .78rem; font-weight: 750; }
 .statCard strong { color: var(--text-color); font-size: 1.45rem; line-height: 1; }
@@ -103,3 +103,25 @@
 .previewUnavailable { flex: 0 0 auto; color: var(--muted-text); font-size: .84rem; }
 @media (max-width: 1100px) { .statCards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .center { padding: 0 12px 24px; } .headingActions, .row, .heading, .previewHeader { align-items: stretch; flex-direction: column; } .headingButtons, .previewHeaderActions { justify-content: flex-start; } .fieldGrid { grid-template-columns: 1fr; } .rowMeta { justify-content: flex-start; } .createButton, .saveButton { width: 100%; } .footer { flex-direction: column-reverse; } .footer button { width: 100%; } .statisticsGrid { grid-template-columns: 1fr; } .statCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .previewQuiz { align-items: stretch; flex-direction: column; } .previewQuizAction { text-align: center; } }
+
+.composerToolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-2-color); padding: 13px; }
+.composerToolbar label { min-width: 190px; }
+.composerHint, .fieldHint { align-self: center; color: var(--muted-text); font-size: .82rem; line-height: 1.4; }
+.blockCanvas { display: grid; gap: 7px; border: 1px dashed color-mix(in srgb, var(--accent-color) 40%, var(--border-color)); border-radius: 10px; background: color-mix(in srgb, var(--accent-color) 3%, var(--surface-2-color)); padding: 10px; }
+.insertionZone { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 30px; border: 1px dashed transparent; border-radius: 7px; color: var(--muted-text); font-size: .76rem; transition: border-color .15s ease, background .15s ease; }
+.insertionZone:hover, .insertionZone:focus-within { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 9%, transparent); }
+.insertionZone button { min-height: 28px; border: 0; background: transparent; color: var(--accent-strong-color); padding: 4px 7px; cursor: pointer; font: inherit; font-weight: 800; }
+.blockCard { display: grid; gap: 12px; border: 1px solid var(--border-color); border-radius: 9px; background: var(--surface-color); padding: 13px; }
+.blockCard[draggable="true"] { cursor: grab; }
+.blockCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 9px; }
+.blockType { border-radius: 999px; background: color-mix(in srgb, var(--accent-color) 13%, var(--surface-2-color)); padding: 4px 8px; color: var(--accent-strong-color); font-size: .72rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.blockActions { display: flex; align-items: center; gap: 5px; }
+.blockActions button:not(.removeButton) { min-width: 29px; min-height: 29px; border: 1px solid var(--border-color); border-radius: 6px; background: transparent; color: var(--text-color); cursor: pointer; font: inherit; font-weight: 800; }
+.blockActions button:disabled { cursor: not-allowed; opacity: .35; }
+.blockFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.blockFields label:last-child:nth-child(odd), .blockFields label:nth-child(3) { grid-column: 1 / -1; }
+.mediaBlock { display: grid; grid-template-columns: minmax(150px, .85fr) minmax(0, 1.15fr); gap: 15px; align-items: start; }
+.mediaPreview { display: grid; place-items: center; min-height: 150px; overflow: hidden; border: 1px solid var(--border-color); border-radius: 8px; background: #07111f; color: #b7c2d4; font-size: .82rem; text-align: center; }
+.mediaPreview img, .mediaPreview video { display: block; width: 100%; max-height: 280px; object-fit: contain; }
+.mediaDropZone { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px dashed var(--border-color); border-radius: 8px; padding: 10px 12px; color: var(--muted-text); font-size: .82rem; }
+@media (max-width: 760px) { .blockFields, .mediaBlock { grid-template-columns: 1fr; } .blockCardHeader, .mediaDropZone { align-items: stretch; flex-direction: column; } .blockActions { justify-content: flex-start; } }
