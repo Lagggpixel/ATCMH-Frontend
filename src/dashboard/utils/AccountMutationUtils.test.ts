@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildMutationRequest, createMutationUiState, mergeIdentityOptions, mutationUiReducer, type MutationDraft, type MutationUiState} from "./AccountMutationUtils.ts";
+import {archivedMergeIdentityOptions, buildMutationRequest, createMutationUiState, mergeIdentityOptions, mutationUiReducer, type MutationDraft, type MutationUiState} from "./AccountMutationUtils.ts";
 import type {AccountDetail, AdminMutationPreview} from "../types/Account.ts";
 
 const draft = (operation: MutationDraft["operation"]): MutationDraft => ({operation, sourceAccountId: "1", targetAccountId: "2", provider: "IFC", subject: "ifc-7", displayName: "Pilot", suspensionUntil: "", discordSubject: "discord-1", ifcSubject: "ifc-7"});
@@ -11,6 +11,13 @@ test("link and reassign previews name the exact provider identity", () => {
 
 test("merge previews preserve explicit retained Discord and IFC choices", () => {
     assert.deepEqual(buildMutationRequest(draft("MERGE")).parameters, {discordSubject: "discord-1", ifcSubject: "ifc-7"});
+});
+
+test("merged identity repair previews promote the selected archived identity", () => {
+    assert.deepEqual(buildMutationRequest(draft("SWAP_MERGE_IDENTITY")), {
+        operation: "SWAP_MERGE_IDENTITY", sourceAccountId: "1", targetAccountId: "2",
+        parameters: {provider: "IFC", subject: "ifc-7", displayName: "Pilot"},
+    });
 });
 
 test("irreversible lifecycle actions carry no client-invented fields", () => {
@@ -52,4 +59,13 @@ test("merge choices combine active identities from both owners with ownership la
 
 test("NONE is explicit only when neither merge account has an active provider identity", () => {
     assert.deepEqual(mergeIdentityOptions(account("1", []), account("2", []), "ifc"), [{value: "NONE", label: "No active IFC identity"}]);
+});
+
+test("merged identity repair choices only expose archived identities on the merged source", () => {
+    const options = archivedMergeIdentityOptions(account("1", [
+        {provider: "discord", subject: "archived", displayName: "Correct", active: false},
+        {provider: "DISCORD", subject: "active", displayName: "Other", active: true},
+        {provider: "ifc", subject: "ifc-archived", active: false},
+    ]), account("2", [{provider: "DISCORD", subject: "target-archived", active: false}]), "discord");
+    assert.deepEqual(options.map(option => [option.value, option.accountId]), [["archived", "1"], ["target-archived", "2"]]);
 });
