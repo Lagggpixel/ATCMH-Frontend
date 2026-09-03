@@ -40,9 +40,14 @@ export const mergeIdentityOptions = (source: AccountDetail, target: AccountDetai
     return identities.length ? identities : [{value: "NONE", label: `No active ${provider.toUpperCase()} identity`}];
 };
 
+export const archivedMergeIdentityOptions = (source: AccountDetail, target: AccountDetail | null, provider: IdentityProvider): MergeIdentityOption[] =>
+    [source, target].filter((account): account is AccountDetail => account != null)
+        .flatMap(account => account.identities.filter(identity => identity.active === false && String(identity.provider).toLowerCase() === provider)
+            .map(identity => ({value: identitySubject(identity), label: `${identity.displayName || identitySubject(identity)} — archived — account ${account.id}`, accountId: account.id})));
+
 export const buildMutationRequest = (draft: MutationDraft): AdminMutationRequest => {
     const parameters: Record<string, string> = {};
-    if (["LINK", "REASSIGN", "UNLINK"].includes(draft.operation)) {
+    if (["LINK", "REASSIGN", "UNLINK", "SWAP_MERGE_IDENTITY"].includes(draft.operation)) {
         parameters.provider = draft.provider;
         parameters.subject = draft.subject.trim();
         if (draft.displayName.trim()) parameters.displayName = draft.displayName.trim();
@@ -57,7 +62,7 @@ export const buildMutationRequest = (draft: MutationDraft): AdminMutationRequest
     return {
         operation: draft.operation,
         sourceAccountId: draft.sourceAccountId,
-        targetAccountId: ["MERGE", "REASSIGN"].includes(draft.operation) ? draft.targetAccountId : null,
+        targetAccountId: ["MERGE", "REASSIGN", "SWAP_MERGE_IDENTITY"].includes(draft.operation) ? draft.targetAccountId : null,
         parameters,
     };
 };

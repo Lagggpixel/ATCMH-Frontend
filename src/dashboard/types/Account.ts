@@ -42,7 +42,7 @@ export interface AccountDetail extends AccountSummary {
 }
 
 export type AdminOperation = "LINK" | "REASSIGN" | "UNLINK" | "MERGE" | "SUSPEND" |
-    "RESTORE" | "DELETE" | "LOGOUT_ALL" | "IMPERSONATE_DASHBOARD" | "IMPERSONATE_EXAMS";
+    "RESTORE" | "DELETE" | "LOGOUT_ALL" | "SWAP_MERGE_IDENTITY" | "IMPERSONATE_DASHBOARD" | "IMPERSONATE_EXAMS";
 
 export interface AdminMutationRequest {
     operation: AdminOperation;
