@@ -479,3 +479,33 @@ test("a mutation clears, re-bootstraps, and retries once after auth loss", async
     assert.equal(sessionLoads, 2);
     assert.deepEqual(csrfHeaders, ["old-csrf", "new-csrf"]);
 });
+
+test("course deletion sends dashboard CSRF and accepts an empty success response", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    globalThis.fetch = async (input, init) => {
+        requests.push(new Request(new URL(String(input), "https://www.atcmh.org"), init));
+        return new Response(null, {status: 204});
+    };
+    try {
+        await ExamsApiUtils.deleteCourse("course/id", "dashboard-csrf");
+        assert.equal(requests.length, 1);
+        assert.ok(requests[0].url.endsWith("/admin/courses/course%2Fid"));
+        assert.equal(requests[0].method, "DELETE");
+        assert.equal(requests[0].credentials, "include");
+        assert.equal(requests[0].headers.get("X-CSRF-Token"), "dashboard-csrf");
+        assert.equal(requests[0].headers.get("Authorization"), null);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("course deletion surfaces a server rejection instead of reporting success", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({error: "Course not found"}), {status: 404});
+    try {
+        await assert.rejects(ExamsApiUtils.deleteCourse("missing", "dashboard-csrf"), /Course not found/);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});

@@ -99,6 +99,10 @@ export class ExamsApiUtils {
     }
     static async listCourses(token: string): Promise<ManagedCourseSummary[]> { return (await ExamsApiUtils.backendJson<{courses: ManagedCourseSummary[]}>('/admin/courses', token)).courses; }
     static async getCourse(id: string, token: string): Promise<ManagedCourse> { return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(`/admin/courses/${encodeURIComponent(id)}`, token)).course; }
+    static async deleteCourse(id: string, token: string): Promise<void> {
+        const response = await ExamsApiUtils.backendRequest(`/admin/courses/${encodeURIComponent(id)}`, token, {method: "DELETE"});
+        if (!response.ok) await ExamsApiUtils.throwResponseError(response);
+    }
     static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.backendJson<{statistics: CourseStatistics}>(`/admin/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }
     static async saveCourse(course: ManagedCourseDraft, token: string): Promise<ManagedCourse> { const path = course.id ? `/admin/courses/${encodeURIComponent(course.id)}` : "/admin/courses"; return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(course)})).course; }
     static async uploadCourseMedia(courseId: string, file: File, token: string, onProgress?: (percentage: number) => void, signal?: AbortSignal): Promise<CourseMediaUpload> {
