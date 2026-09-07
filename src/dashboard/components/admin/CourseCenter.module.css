@@ -132,3 +132,26 @@
 .mediaPreview img, .mediaPreview video { display: block; width: 100%; max-height: 280px; object-fit: contain; }
 .mediaDropZone { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px dashed var(--border-color); border-radius: 8px; padding: 10px 12px; color: var(--muted-text); font-size: .82rem; }
 @media (max-width: 760px) { .blockFields, .mediaBlock { grid-template-columns: 1fr; } .blockCardHeader, .mediaDropZone { align-items: stretch; flex-direction: column; } .blockActions { justify-content: flex-start; } }
+
+/* Course catalog: readable content and a clear action hierarchy. */
+.catalogFilters { display: flex; flex-wrap: wrap; gap: 5px; }
+.catalogFilters button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted-text); font: inherit; font-size: .88rem; cursor: pointer; }
+.catalogFilters button[aria-pressed="true"] { background: var(--surface-2-color); border-color: var(--border-color); color: var(--text-color); font-weight: 750; }
+.catalogFilters button span { font-size: .75rem; opacity: .8; }
+.catalogResult { margin: 0 0 12px; color: var(--muted-text); font-size: .82rem; }
+.courseList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.courseCard { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-2-color); overflow: hidden; }
+.courseCardContent { flex: 1; padding: 22px; }
+.courseCardMeta { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--muted-text); font-size: .8rem; }
+.courseCard h3 { margin: 0 0 10px; color: var(--text-color); font-size: 1.2rem; line-height: 1.4; overflow-wrap: anywhere; }
+.courseCardContent > p { margin: 0; max-width: 65ch; color: var(--muted-text); line-height: 1.6; overflow-wrap: anywhere; }
+.courseCardFooter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 22px; border-top: 1px solid var(--border-color); }
+.courseActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.courseActions button { font-size: .85rem; min-height: 40px; }
+.courseDelete { min-height: 40px; padding: 8px; border: 0; border-radius: 6px; background: transparent; color: var(--danger-text); font: inherit; font-size: .85rem; cursor: pointer; }
+.courseDelete:hover { background: var(--danger-bg); }
+.catalogEmpty { padding: 48px 24px; text-align: center; border: 1px dashed var(--border-color); border-radius: 12px; color: var(--muted-text); }
+.catalogEmpty h3 { margin: 0; color: var(--text-color); }
+.center button:focus-visible, .center a:focus-visible, .search input:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+@media (max-width: 1100px) { .courseList { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .catalog .toolbar { align-items: stretch; flex-direction: column; } .catalog .search { width: 100%; } .courseCardContent { padding: 18px; } .courseCardFooter { padding: 14px 18px; } .headingActions { align-items: flex-start; } }

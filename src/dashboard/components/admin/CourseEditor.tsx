@@ -25,6 +25,7 @@ interface CourseEditorProps {
     canPublish: boolean;
     onCancel: () => void;
     onPreview?: () => void;
+    onDelete?: (onDeleted: () => void) => void;
     onSaved: (course: ManagedCourse) => void;
 }
 
@@ -113,7 +114,7 @@ function updateSectionDocument(draft: ManagedCourseDraft, sectionIndex: number, 
     };
 }
 
-export default function CourseEditor({course, quizzes, activities = [], token, canPublish, onCancel, onPreview, onSaved}: CourseEditorProps) {
+export default function CourseEditor({course, quizzes, activities = [], token, canPublish, onCancel, onPreview, onDelete, onSaved}: CourseEditorProps) {
     const [initialDraft] = useState<ManagedCourseDraft>(() => asDraft(course));
     const [draft, setDraft] = useState<ManagedCourseDraft>(initialDraft);
     const [baseline, setBaseline] = useState<ManagedCourseDraft>(initialDraft);
@@ -424,7 +425,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                 </div>
             </fieldset>
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
-            <div className={styles.footer}><button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton}>{isSaving ? "Saving course…" : "Save course"}</button></div>
+            <div className={styles.footer}>{course && onDelete ? <button type="button" className={styles.removeButton} disabled={isSaving || Object.keys(uploading).length > 0} onClick={() => onDelete(disarm)}>Delete course</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton}>{isSaving ? "Saving course…" : "Save course"}</button></div>
         </form>
     </section>;
 }
