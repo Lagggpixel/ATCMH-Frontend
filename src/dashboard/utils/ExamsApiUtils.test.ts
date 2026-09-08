@@ -192,6 +192,39 @@ test("quiz saves use the protected management create endpoint", async () => {
     assert.equal(request.credentials, "include");
 });
 
+test("course media upload preserves the HEIC MIME type for backend conversion", async () => {
+    const originalFetch = globalThis.fetch;
+    let request: Request | undefined;
+    globalThis.fetch = async (input, init) => {
+        request = new Request(new URL(String(input), "https://www.atcmh.org"), init);
+        return new Response(JSON.stringify({media: {
+            id: "media-1",
+            courseId: "course-1",
+            filename: "layout.jpg",
+            contentType: "image/jpeg",
+            kind: "image",
+            sizeBytes: 4,
+            sha256: "hash",
+            markdown: "{{image:media-1}}",
+        }}), {status: 201, headers: {"Content-Type": "application/json"}});
+    };
+
+    try {
+        const result = await ExamsApiUtils.uploadCourseMedia(
+            "course-1", new File(["heic"], "layout.heic", {type: "image/heic"}), "dashboard-csrf");
+        assert.equal(result.contentType, "image/jpeg");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+
+    assert.ok(request);
+    assert.equal(request.url, "https://dashboard-api.atcmh.org/admin/courses/course-1/media?filename=layout.heic");
+    assert.equal(request.method, "POST");
+    assert.equal(request.headers.get("Content-Type"), "image/heic");
+    assert.equal(request.headers.get("X-CSRF-Token"), "dashboard-csrf");
+    assert.deepEqual(Array.from(new Uint8Array(await request.arrayBuffer())), [104, 101, 105, 99]);
+});
+
 test("quiz save validation errors normalize the API error envelope into a rejected result", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async input => String(input).endsWith("/api/auth/session")
