@@ -149,14 +149,14 @@ export default function ApplicationPage() {
         const activeType = applicationTypes.find(option => option.value === application.applicationType);
         const title = application.status === "DIFFERENT_APPLICATION_IN_PROGRESS" && activeType
             ? `${activeType.label} application already in progress` : copy.title;
-        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{title}</h1><p>{copy.detail}</p>{application.superAdminBypassActive === true ? <SuperAdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
+        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{title}</h1><p>{copy.detail}</p>{application.superAdminBypassActive === true ? <AdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
     }
     if (requestError && (!questions || !application)) return <State title="Application unavailable" detail="We could not load your application." error={requestError}/>;
     if (!questions || !application) return <State title="Loading your application" detail="Checking eligibility and restoring any saved answers." loading/>;
 
     return <main className={styles.page}>
         <section className={styles.applicationHeader}><div><p className={styles.eyebrow}>Website application · {selectedType.label}</p><h1>Tell us where you are in your IFATC journey</h1><p>The answers below come from the same question set used in Discord.</p></div><Link href="/apply">Change application</Link></section>
-        {application.superAdminBypassActive === true ? <SuperAdminBypassNotice/> : null}
+        {application.superAdminBypassActive === true ? <AdminBypassNotice/> : null}
         <div className={styles.progress} aria-label={`${visibleQuestions.length} application questions`}><span>{visibleQuestions.filter(question => answers[question.key]?.trim()).length} of {visibleQuestions.length} answered</span><span>{application.status === "DRAFT" ? "Draft saved" : "Not submitted"}</span></div>
         {requestError ? <p className={styles.error} role="alert">{requestError}</p> : null}
         <form className={styles.form} onSubmit={event => { event.preventDefault(); void persist(true); }}>
@@ -171,9 +171,9 @@ export default function ApplicationPage() {
     </main>;
 }
 
-function SuperAdminBypassNotice() {
-    return <aside className={styles.bypassNotice} role="status" aria-label="Super Admin eligibility bypass active">
-        <strong>Super Admin bypass active</strong>
+function AdminBypassNotice() {
+    return <aside className={styles.bypassNotice} role="status" aria-label="Admin eligibility bypass active">
+        <strong>Admin bypass active</strong>
     </aside>;
 }
 
