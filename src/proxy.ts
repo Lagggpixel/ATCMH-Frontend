@@ -1,8 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server";
+
+import {reportWebsiteAccess} from "./lib/website-access";
 
 import { securityHeadersFor } from "./lib/security-headers";
 
-export function proxy(request: NextRequest) {
+export function proxy(request: NextRequest, event: NextFetchEvent) {
+  event.waitUntil(reportWebsiteAccess(request));
   const response = NextResponse.next();
   for (const { key, value } of securityHeadersFor(process.env, process.env.NODE_ENV)) {
     response.headers.set(key, value);

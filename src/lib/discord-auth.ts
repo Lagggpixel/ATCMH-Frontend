@@ -1,3 +1,4 @@
+import {websiteAccessReportedHeaders} from "./website-access";
 import { type ManagementCapability } from "./permissions";
 import {
   sessionCookie,
@@ -50,6 +51,7 @@ async function centralizedCapabilities(request: Request, token: string): Promise
   try {
     response = await fetch(`${apiUrl}/admin/exams-capabilities`, {
       headers: {
+        ...websiteAccessReportedHeaders(),
         cookie: dashboardCookie(request, token),
         origin: frontendOrigin,
         "X-Exams-Auth-Key": authKey,

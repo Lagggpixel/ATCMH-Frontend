@@ -21,7 +21,12 @@ const subject = (identity: AccountIdentity) => identity.providerSubject ?? ident
 const formatCell = (value: unknown) => value == null ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value);
 
 function RecordList({title, rows}: {title: string; rows: Record<string, unknown>[]}) {
-    return <section className={styles.recordSection}><h3>{title} <span>{rows.length}</span></h3>{rows.length ? <div className={styles.recordList}>{rows.map((row, index) => <details key={`${title}-${index}`}><summary>{formatCell(row.action ?? row.operation ?? row.outcome ?? row.application ?? row.id)}</summary><dl>{Object.entries(row).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatCell(value)}</dd></div>)}</dl></details>)}</div> : <p className={styles.muted}>No records.</p>}</section>;
+    return <section className={styles.recordSection}><h3>{title} <span>{rows.length}</span></h3>{rows.length ? <div className={styles.recordList}>{rows.map((row, index) => <details key={`${title}-${index}`}><summary>{formatCell(row.action ?? row.operation ?? row.outcome ?? row.kind ?? row.application ?? row.id)}{row.occurredAt ? ` · ${new Date(String(row.occurredAt)).toLocaleString()}` : ""}</summary><dl>{Object.entries(row).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatCell(value)}</dd></div>)}</dl></details>)}</div> : <p className={styles.muted}>No records.</p>}</section>;
+}
+
+export function AccountIpAddresses({addresses, canView}: {addresses: AccountDetail["ipAddresses"]; canView: boolean}) {
+    if (!canView) return null;
+    return <section className={styles.recordSection}><h3>IP addresses <span>{addresses?.length ?? 0}</span></h3>{addresses?.length ? <div className={styles.ipTableWrap}><table className={styles.ipTable}><thead><tr><th scope="col">IP address</th><th scope="col">First seen</th><th scope="col">Last seen</th><th scope="col">Events</th></tr></thead><tbody>{addresses.map(address => <tr key={address.ip}><td><code>{address.ip}</code></td><td>{new Date(address.firstSeen).toLocaleString()}</td><td>{new Date(address.lastSeen).toLocaleString()}</td><td>{address.count}</td></tr>)}</tbody></table></div> : <p className={styles.muted}>No recorded IP addresses.</p>}</section>;
 }
 
 export function AccountRequestError({error}: {error: string | null}) {
@@ -123,7 +128,8 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
                     <button type="submit" disabled={!actionReady}>Preview action</button>
                 </form>
                 <AccountMutationConfirmation preview={preview} reason={reason} onReason={value => setMutation(current => mutationUiReducer(current, {type: "SET_REASON", reason: value}))} onCommit={() => void commit()} onCancel={() => setMutation(current => mutationUiReducer(current, {type: "CANCEL_PREVIEW"}))}/>
-                <div className={styles.historyGrid}><RecordList title="Sessions" rows={selected.sessions}/><RecordList title="Link and conflict history" rows={selected.linkHistory}/><RecordList title="Login history" rows={selected.loginHistory}/><RecordList title="Management audits" rows={selected.managementAudits}/></div>
+                <AccountIpAddresses addresses={selected.ipAddresses} canView={adminUser.canViewIpAddresses === true}/>
+                <div className={styles.historyGrid}><RecordList title="Sessions" rows={selected.sessions}/><RecordList title="Link and conflict history" rows={selected.linkHistory}/><RecordList title="Login history" rows={selected.loginHistory}/><RecordList title="Recent access history" rows={selected.accessHistory ?? []}/><RecordList title="Management audits" rows={selected.managementAudits}/></div>
             </> : <p className={styles.muted}>Select an account to view identities, security history and management actions.</p>}</section>
         </div>
     </main>;

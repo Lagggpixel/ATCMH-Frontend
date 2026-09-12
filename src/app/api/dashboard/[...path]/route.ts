@@ -1,3 +1,4 @@
+import {websiteAccessReportedHeaders} from "@/src/lib/website-access";
 import {
   legacyDashboardSessionCookie,
   loopbackSessionCookie,
@@ -41,6 +42,7 @@ function oneSessionCookie(header: string | null) {
 
 async function proxy(request: Request, context: {params: Promise<{path: string[]}>}) {
   const {path} = await context.params;
+  if (path[0]?.toLowerCase() === "internal" || path.some(segment => segment === "." || segment === ".." || /[\\/]/.test(segment))) return new Response("Not found", {status: 404});
   const incoming = new URL(request.url);
   const target = new URL(`/${path.map(encodeURIComponent).join("/")}${incoming.search}`, backendOrigin());
   const headers = new Headers();
@@ -51,6 +53,7 @@ async function proxy(request: Request, context: {params: Promise<{path: string[]
   const cookie = oneSessionCookie(request.headers.get("cookie"));
   if (cookie) headers.set("cookie", cookie);
   headers.set("origin", frontendOrigin());
+  for (const [name, value] of Object.entries(websiteAccessReportedHeaders())) headers.set(name, value);
   const method = request.method.toUpperCase();
   const upstream = await fetch(target, {
     method,

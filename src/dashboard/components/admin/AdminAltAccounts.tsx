@@ -8,11 +8,13 @@ import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import {dialogKeyResult} from "../../utils/DialogKeyboard.ts";
 import styles from "./AdminAltAccounts.module.css";
 
-type PendingAction = { kind: "detach" | "vpn"; ip: string; accountId?: string } | {
+type PendingAction = { kind: "detach" | "vpn"; ip?: string; addressRef?: string; accountId?: string } | {
     kind: "reverse";
     suppression: AltSuppression
 };
 type EvidenceType = AltAccountCandidate["evidenceType"];
+
+export const addressTarget = (address: {ip?: string; addressRef?: string}) => address.addressRef ? {addressRef: address.addressRef} : {ip: address.ip};
 
 const evidenceOrder: EvidenceType[] = ["SAME_IP", "VPN_INDICATOR", "NETWORK_SIMILARITY", "OWNERSHIP_CONFLICT"];
 
@@ -60,16 +62,16 @@ export function AltEvidenceActions({candidate, onAction}: {
     candidate: AltAccountCandidate;
     onAction: (action: PendingAction, trigger: HTMLButtonElement) => void
 }) {
-    return candidate.ip ?
+    return candidate.ip || candidate.addressRef ?
         <div className={styles.actions}>{candidate.accounts.map(accountId => <button type="button" key={accountId}
                                                                                      onClick={event => onAction({
                                                                                          kind: "detach",
-                                                                                         ip: candidate.ip!,
+                                                                                         ...addressTarget(candidate),
                                                                                          accountId
                                                                                      }, event.currentTarget)}>Detach
             account {accountId}</button>)}
             <button type="button"
-                    onClick={event => onAction({kind: "vpn", ip: candidate.ip!}, event.currentTarget)}>Mark IP as VPN
+                    onClick={event => onAction({kind: "vpn", ...addressTarget(candidate)}, event.currentTarget)}>Mark IP as VPN
             </button>
         </div> : <p className={styles.reviewLink}>Resolve ownership through the normal account preview workflow.</p>;
 }
@@ -91,15 +93,15 @@ function CandidateCard({candidate, onSelect, onAction}: {
             <span>{candidate.evidenceType === "SAME_IP" ? "Same IP" : candidate.evidenceType === "VPN_INDICATOR" ? "VPN indicator" : candidate.evidenceType === "NETWORK_SIMILARITY" ? "Network similarity" : "Historical identity conflict"}</span><strong>{candidate.count} event{candidate.count === 1 ? "" : "s"}</strong>
         </div>
         {candidate.ip ? <code>{candidate.ip}</code> : candidate.network ? <code>{candidate.network}</code> :
-            <p><strong>{candidate.provider}</strong> identity {candidate.subject}</p>}
+            candidate.evidenceType === "OWNERSHIP_CONFLICT" ? <p><strong>{candidate.provider}</strong> identity {candidate.subject}</p> : <code>Hidden</code>}
         {candidate.evidenceType === "VPN_INDICATOR" ?
             <p className={styles.metadata}>{candidate.indicatorSource === "MANUAL" ? "Manual staff indicator" : "Existing provider indicator"}{indicator ? ` · ${indicator}` : ""}{candidate.networkProvider ? ` · ${candidate.networkProvider}` : ""}</p> : null}
         <p className={styles.rationale}>{candidate.rationale}</p>
         <p className={styles.dates}>First {new Date(candidate.firstSeen).toLocaleString()} ·
             Last {new Date(candidate.lastSeen).toLocaleString()}</p>
         {candidate.addresses?.length ?
-            <div className={styles.addresses}>{candidate.addresses.map(address => <div key={address.ip}>
-                <code>{address.ip}</code><AccountLinks accounts={address.accounts} onSelect={onSelect}/>
+            <div className={styles.addresses}>{candidate.addresses.map(address => <div key={address.addressRef ?? address.ip}>
+                <code>{address.ip ?? "Hidden"}</code><AccountLinks accounts={address.accounts} onSelect={onSelect}/>
             </div>)}</div> : null}
         <AccountLinks accounts={candidate.accounts} onSelect={onSelect}/>
         <AltEvidenceActions candidate={candidate} onAction={onAction}/>
@@ -137,7 +139,7 @@ export function EvidenceSections({candidates, onSelect, onAction}: {
         return <section key={type} className={styles.group}>
             <header><h2>{sectionCopy[type].title}</h2><p>{sectionCopy[type].description}</p></header>
             <div className={styles.candidates}>{items.map((candidate, index) => <CandidateCard
-                key={`${candidate.evidenceType}-${candidate.ip ?? candidate.network ?? candidate.subject}-${index}`}
+                key={`${candidate.evidenceType}-${candidate.addressRef ?? candidate.ip ?? candidate.network ?? candidate.subject}-${index}`}
                 candidate={candidate} onSelect={onSelect} onAction={onAction}/>)}</div>
         </section>;
     })}</div>;
@@ -264,7 +266,7 @@ export default function AdminAltAccounts({csrfToken, adminUser, loaded}: {
             if (pending.kind === "reverse") await ApiUtils.reverseAltSuppression(csrfToken, pending.suppression.id, reason.trim());
             else await ApiUtils.suppressAltSignal(csrfToken, pending.kind, {
                 accountId: pending.accountId,
-                ip: pending.ip,
+                ...addressTarget(pending),
                 reason: reason.trim()
             });
             setPending(null);
@@ -298,7 +300,7 @@ export default function AdminAltAccounts({csrfToken, adminUser, loaded}: {
             <p className={styles.empty}>No unsuppressed evidence candidates for this view.</p>}
         <section className={styles.suppressions}><h2>Suppression history</h2><p>Original audit and login evidence
             remains intact. Active suppressions can be reversed.</p>{suppressions.map(item => <article key={item.id}>
-            <span><strong>{item.type === "GLOBAL_VPN" ? "VPN classification" : `Detached account ${item.accountId}`}</strong><code>{item.signal}</code><small>{item.reason}</small></span>{item.reversedAt ?
+            <span><strong>{item.type === "GLOBAL_VPN" ? "VPN classification" : `Detached account ${item.accountId}`}</strong><code>{item.signal ?? "Hidden"}</code><small>{item.reason}</small></span>{item.reversedAt ?
             <em>Reversed</em> : <button type="button" onClick={event => openPending({
                 kind: "reverse",
                 suppression: item
