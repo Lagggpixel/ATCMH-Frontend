@@ -1,7 +1,7 @@
 export type CourseMediaKind = "image" | "video";
 export type CourseMediaWidth = "content" | "wide" | "full";
 export type CourseMediaAlign = "left" | "center" | "right";
-export type CourseCalloutTone = "mandatory" | "recommended" | "warning" | "example" | "mistake" | "info";
+export type CourseCalloutTone = "mandatory" | "recommended" | "warning" | "example" | "mistake" | "info" | "command" | "decision" | "scenario" | "rule" | "success";
 
 export interface CourseTextBlock {
     id: string;
@@ -45,6 +45,16 @@ export interface CourseQuizBlock {
     passPercent?: number;
 }
 
+export interface CourseCheckBlock {
+    id: string;
+    type: "check";
+    prompt: string;
+    options: string[];
+    correctOption: number;
+    explanation: string;
+    incorrectExplanation?: string;
+}
+
 export interface CourseActivityBlock {
     id: string;
     type: "activity";
@@ -54,6 +64,7 @@ export interface CourseActivityBlock {
 }
 
 export type CourseBlock =
+    | CourseCheckBlock
     | CourseTextBlock
     | CourseMediaBlock
     | CourseCalloutBlock
@@ -90,6 +101,7 @@ const DIAGRAM_DIRECTIVE = /^\{\{diagram:([a-z0-9][a-z0-9-]{0,79})\}\}$/i;
 const TYPED_DIRECTIVE = /\{\{/;
 const DOCUMENT_FIELDS = new Set(["version", "blocks"]);
 const BLOCK_FIELDS: Record<CourseBlock["type"], Set<string>> = {
+    check: new Set(["id", "type", "prompt", "options", "correctOption", "explanation", "incorrectExplanation"]),
     text: new Set(["id", "type", "markdown"]),
     media: new Set(["id", "type", "mediaId", "kind", "alt", "caption", "width", "align", "controls", "posterMediaId"]),
     callout: new Set(["id", "type", "tone", "title", "markdown"]),
@@ -138,6 +150,21 @@ function validateBlock(raw: unknown, index: number, seen: Set<string>): CourseBl
     for (const key of Object.keys(raw)) if (!BLOCK_FIELDS[type as CourseBlock["type"]].has(key)) {
         throw new CourseDocumentValidationError(`Course block contains an unsupported field: ${key}`);
     }
+    if (type === "check") {
+        const safeText = (value: unknown, name: string, limit: number) => {
+            const text = stringField(value, name, limit);
+            if (HTML_TAG.test(text) || TYPED_DIRECTIVE.test(text)) throw new CourseDocumentValidationError(`${name} must be plain text`);
+            return text;
+        };
+        const prompt = safeText(raw.prompt, "Knowledge check prompt", 2000);
+        const explanation = safeText(raw.explanation, "Knowledge check explanation", 4000);
+        const incorrectExplanation = raw.incorrectExplanation === undefined ? undefined : safeText(raw.incorrectExplanation, "Knowledge check incorrect explanation", 4000);
+        if (!Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 6) throw new CourseDocumentValidationError("Knowledge checks need 2 to 6 options");
+        const options = raw.options.map(value => safeText(value, "Knowledge check option", 500));
+        const correctOption = raw.correctOption;
+        if (typeof correctOption !== "number" || !Number.isInteger(correctOption) || correctOption < 0 || correctOption >= options.length) throw new CourseDocumentValidationError("Choose a valid knowledge check answer");
+        return {id, type, prompt, options, correctOption, explanation, ...(incorrectExplanation === undefined ? {} : {incorrectExplanation})};
+    }
     if (type === "text") {
         const markdown = stringField(raw.markdown, `Course text block ${index + 1}`, 1_000_000);
         if (HTML_TAG.test(markdown)) throw new CourseDocumentValidationError("Raw HTML is not allowed in course text");
@@ -170,7 +197,7 @@ function validateBlock(raw: unknown, index: number, seen: Set<string>): CourseBl
     }
     if (type === "callout") {
         const tone = raw.tone === undefined ? "info" : raw.tone;
-        if (!["mandatory", "recommended", "warning", "example", "mistake", "info"].includes(String(tone))) {
+        if (!["mandatory", "recommended", "warning", "example", "mistake", "info", "command", "decision", "scenario", "rule", "success"].includes(String(tone))) {
             throw new CourseDocumentValidationError("Course callout tone is invalid");
         }
         const title = stringField(raw.title, "Course callout title", 160);
@@ -241,6 +268,7 @@ export function courseDocumentReferences(document: CourseDocumentV1): CourseDocu
 
 export function courseDocumentToMarkdown(document: CourseDocumentV1): string {
     return document.blocks.map(block => {
+        if (block.type === "check") return `### Knowledge check (ungraded)\n\n${block.prompt}\n\n${block.options.map(option => `- ${option}`).join("\n")}\n\nAnswer: ${block.options[block.correctOption]}\n\n${block.explanation}`;
         if (block.type === "text") return block.markdown.trim();
         if (block.type === "media") return `{{${block.kind}:${block.mediaId}}}`;
         if (block.type === "quiz") return `{{quiz:${block.quizId}${block.required ? " required" : " optional"}${block.passPercent === undefined ? "" : ` pass:${block.passPercent}`}}}`;
@@ -280,6 +308,7 @@ export function courseDocumentFromMarkdown(markdown: string): CourseDocumentV1 {
     return {version: 1, blocks};
 }
 
+export function createCourseBlock(type: "check"): CourseCheckBlock;
 export function createCourseBlock(type: "text"): CourseTextBlock;
 export function createCourseBlock(type: "media"): CourseMediaBlock;
 export function createCourseBlock(type: "callout"): CourseCalloutBlock;
@@ -289,6 +318,7 @@ export function createCourseBlock(type: "activity"): CourseActivityBlock;
 export function createCourseBlock(type: CourseBlock["type"]): CourseBlock;
 export function createCourseBlock(type: CourseBlock["type"]): CourseBlock {
     const id = generatedId();
+    if (type === "check") return {id, type, prompt: "What would you do next?", options: ["First action", "Second action"], correctOption: 0, explanation: "Explain why this action fits the situation."};
     if (type === "text") return {id, type, markdown: "Write the learning material here."};
     if (type === "media") return {id, type, mediaId: "", kind: "image", alt: "", width: "content", align: "center"};
     if (type === "callout") return {id, type, tone: "info", title: "Note", markdown: "Add context for the learner."};

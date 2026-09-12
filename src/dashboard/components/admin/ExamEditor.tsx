@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import type {ExamCategory, ExamImportError, ExamQuestion, ExamQuizSummary, ManagedExamQuiz} from "../../types/Exam.ts";
 import {getExamCategoryLabel} from "../../utils/ExamCatalogUtils.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
+import {alignGroundControlQuiz, groundControlQuizAlignmentState} from "../../utils/GroundControlQuizAlignment.ts";
 import {stableExamValue} from "./ExamUnsavedChanges.ts";
 import styles from "./ExamEditor.module.css";
 import {useExamUnsavedChanges} from "./useExamUnsavedChanges.ts";
@@ -68,6 +69,7 @@ const ExamEditor = ({quiz, categories, token, onCancel, canManageFolders = false
         ?? categories.find(category => category.name.trim() === draft.category.trim())?.id
         ?? "";
     const canChangeFolder = !quiz?.id || canManageFolders;
+    const groundAlignment = groundControlQuizAlignmentState(draft);
 
     const updateQuestion = (questionIndex: number, update: (question: ExamQuestion) => ExamQuestion) => {
         setDraft(current => ({...current, questions: current.questions.map((question, index) => index === questionIndex ? update(question) : question)}));
@@ -131,6 +133,12 @@ const ExamEditor = ({quiz, categories, token, onCancel, canManageFolders = false
             <p className={styles.description}>Changes remain local until you choose Save quiz. The Exams service validates every submission.</p>
             <form onSubmit={event => void submit(event)}>
                 <fieldset disabled={isSaving}>
+                    {groundAlignment !== "unrelated" ? <div className={styles.description}>
+                        {groundAlignment === "available" ? <>
+                            <p>Align questions 1 and 4 with the Ground course: Ground responsibility and operational runway information. Review the staged wording below, then choose Save quiz.</p>
+                            <button type="button" className={styles.quietButton} onClick={() => setDraft(current => alignGroundControlQuiz(current))}>Apply Ground course alignment</button>
+                        </> : <p>{groundAlignment === "aligned" ? "Questions 1 and 4 match the Ground course alignment." : "Ground questions have changed from the reviewed version. Review their responsibility and runway-information wording manually."}</p>}
+                    </div> : null}
                     <div className={styles.fieldGrid}>
                         <label>Title<input required value={draft.title} maxLength={255} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label>
                         <label>Folder

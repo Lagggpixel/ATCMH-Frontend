@@ -69,7 +69,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
               {isCompleted ? <span className={styles.status}>Completed</span> : !isUnlocked ? <span className={styles.status}>Locked</span> : null}
             </header>
             {isUnlocked || isCompleted ? <div className={styles.sectionBody}>
-              <CourseMarkdown courseId={course.id} document={document} blocks={parseCourseMarkdown(section.markdown)} quizzes={quizzes} quizProgress={course.quizProgress} activities={course.activities} activityProgress={course.activityProgress}/>
+              <CourseMarkdown sectionId={section.id} courseId={course.id} document={document} blocks={parseCourseMarkdown(section.markdown)} quizzes={quizzes} quizProgress={course.quizProgress} activities={course.activities} activityProgress={course.activityProgress}/>
               {!isCompleted ? <CourseSectionCompletionButton courseId={course.id} sectionId={section.id} disabled={requiredMissing} disabledReason={requiredMissing ? "Complete every required quiz and activity checkpoint above before moving to the next section." : undefined}/> : null}
             </div> : <div className={styles.sectionBody}><p className={styles.lockedCopy}>Complete the previous section to unlock this material.</p></div>}
           </section>;

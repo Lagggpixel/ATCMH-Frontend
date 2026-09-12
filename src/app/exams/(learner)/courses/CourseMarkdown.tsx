@@ -6,6 +6,8 @@ import {parseCourseDocument, type CourseDocumentV1, type CourseMediaBlock} from 
 import {parseCourseMarkdown, type CourseMarkdownBlock} from "@/src/lib/course-markdown";
 import {ApiUtils} from "@/src/dashboard/utils/ApiUtils";
 import CourseActivityCard from "./CourseActivityCard";
+import CourseSectionNav from "./CourseSectionNav";
+import CourseKnowledgeCheck from "./CourseKnowledgeCheck";
 import CourseDiagram from "./CourseDiagram";
 import styles from "./CourseReader.module.css";
 
@@ -36,6 +38,7 @@ function renderInline(text: string): ReactNode[] {
 
 interface CourseMarkdownProps {
   courseId: string;
+  sectionId?: string;
   blocks?: CourseMarkdownBlock[];
   document?: CourseDocumentV1 | string | null;
   quizzes: Map<string, QuizSummary>;
@@ -72,9 +75,10 @@ function renderMedia(courseId: string, block: CourseMediaBlock, mode: "learner" 
 function renderLegacy(courseId: string, blocks: CourseMarkdownBlock[], quizzes: Map<string, QuizSummary>, quizProgress: CourseQuizProgress[], activities: CourseActivity[], activityProgress: CourseActivityProgress[], mode: "learner" | "admin", prefix: string): ReactNode[] {
   return blocks.map((block, index) => {
     const key = `${prefix}-${index}`;
+    if (block.type === "table") return <div className={styles.tableScroll} key={key} role="region" aria-label="Course comparison table" tabIndex={0}><table><thead><tr>{block.headers.map((header, i) => <th scope="col" key={i}>{renderInline(header)}</th>)}</tr></thead><tbody>{block.rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{renderInline(cell)}</td>)}</tr>)}</tbody></table></div>;
     if (block.type === "heading") {
       const Heading = block.level <= 1 ? "h2" : block.level === 2 ? "h3" : "h4";
-      return <Heading key={key}>{renderInline(block.text)}</Heading>;
+      return <Heading id={`course-heading-${key}`} className={/^\d+\.\s/.test(block.text) ? styles.lessonHeading : undefined} key={key}>{renderInline(block.text)}</Heading>;
     }
     if (block.type === "list") return <ul key={key}>{block.items.map((item, itemIndex) => <li key={`${key}-${itemIndex}`}>{renderInline(item)}</li>)}</ul>;
     if (block.type === "media") return block.mediaId ? renderMedia(courseId, {id: key, type: "media", mediaId: block.mediaId, kind: block.kind, alt: "Course attachment", width: "content", align: "center"}, mode, key) : null;
@@ -88,13 +92,14 @@ function renderLegacy(courseId: string, blocks: CourseMarkdownBlock[], quizzes: 
   });
 }
 
-export default function CourseMarkdown({courseId, blocks = [], document, quizzes, quizProgress, activities = [], activityProgress = [], mode = "learner"}: CourseMarkdownProps) {
+export default function CourseMarkdown({courseId, sectionId = courseId, blocks = [], document, quizzes, quizProgress, activities = [], activityProgress = [], mode = "learner"}: CourseMarkdownProps) {
   const parsedDocument = parseCourseDocument(document);
   const activityMap = new Map(activities.map(activity => [activity.id, activity]));
   const progressMap = new Map(activityProgress.map(progress => [progress.activityId, progress]));
   const rendered = parsedDocument?.blocks.flatMap((block, index): ReactNode[] => {
-    const key = `document-${index}-${block.id}`;
-      if (block.type === "text") return renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key);
+    const key = `${sectionId}-document-${index}-${block.id}`;
+    if (block.type === "check") return [<CourseKnowledgeCheck key={`${key}-${JSON.stringify(block)}`} block={block}/>];
+    if (block.type === "text") return renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key);
     if (block.type === "media") return block.mediaId ? [renderMedia(courseId, block, mode, key)] : [];
     if (block.type === "quiz") return [renderQuiz(courseId, block, quizzes, quizProgress, key)];
     if (block.type === "activity") {
@@ -104,7 +109,8 @@ export default function CourseMarkdown({courseId, blocks = [], document, quizzes
     if (block.type === "diagram") return [<CourseDiagram key={key} block={block}/>];
     return [<aside className={`${styles.callout} ${styles[`callout${block.tone[0].toUpperCase()}${block.tone.slice(1)}`] ?? ""}`} key={key}><p className={styles.calloutLabel}>{block.tone}</p><h3>{block.title}</h3><div>{renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key)}</div></aside>];
   }) ?? renderLegacy(courseId, blocks, quizzes, quizProgress, activities, activityProgress, mode, "legacy");
-  return <div className={styles.markdown}>{rendered}</div>;
+  const lessons = parsedDocument?.blocks.flatMap((block, index) => block.type === "text" ? parseCourseMarkdownSafe(block.markdown).flatMap((item, headingIndex) => item.type === "heading" && (/^\d+\.\s/.test(item.text) || item.text === "Quick Revision Sheet") ? [{label: item.text, id: `course-heading-${sectionId}-document-${index}-${block.id}-${headingIndex}`}] : []) : []) ?? [];
+  return <div className={styles.markdown}>{lessons.length > 1 ? <CourseSectionNav lessons={lessons}/> : null}{rendered}</div>;
 }
 
 function parseCourseMarkdownSafe(markdown: string): CourseMarkdownBlock[] {

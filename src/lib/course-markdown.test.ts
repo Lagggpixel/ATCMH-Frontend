@@ -40,3 +40,10 @@ test("passing scores require a required quiz and stay within percentage bounds",
   assert.throws(() => validateCourseMarkdown(`{{quiz:${quizId} pass:80}}`), /only be set on a required quiz/);
   assert.throws(() => validateCourseMarkdown(`{{quiz:${quizId} required pass:0}}`), /between 1 and 100/);
 });
+
+test("comparison tables preserve safe inline text and following quiz references", () => {
+  const blocks = parseCourseMarkdown(`| Source | Purpose |\n| --- | --- |\n| METAR | **Current weather** |\n| TAF | Forecast |\n\n{{quiz:${quizId} required pass:80}}`);
+  assert.deepEqual(blocks[0], {type: "table", headers: ["Source", "Purpose"], rows: [["METAR", "**Current weather**"], ["TAF", "Forecast"]]});
+  assert.equal(blocks[1].type, "quiz");
+  assert.equal(parseCourseMarkdown("| One | Two |\n| --- |\n")[0].type, "paragraph");
+});
