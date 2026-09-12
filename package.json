@@ -1,7 +1,7 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "1.5.19",
+  "version": "1.7.3",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
