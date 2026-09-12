@@ -221,7 +221,7 @@ export class ApiUtils {
         return await ApiUtils.parseJson(response) as AltEvidenceScan;
     }
 
-    static async suppressAltSignal(csrfToken: string, kind: "detach" | "vpn", body: {accountId?: string; ip: string; reason: string}): Promise<void> {
+    static async suppressAltSignal(csrfToken: string, kind: "detach" | "vpn", body: {accountId?: string; ip?: string; addressRef?: string; reason: string}): Promise<void> {
         await ApiUtils.centralAdminJson(`${dashboardApiUrl}/admin/alt-accounts/${kind}`, csrfToken, {method: "POST", body: JSON.stringify(body)});
     }
 

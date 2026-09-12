@@ -50,8 +50,8 @@ The Service may collect, store, display, or process information needed for ATCMH
 - Assignment templates, assignment slots, generated assignment content, and assignment thread metadata.
 - Notification preferences and scheduled notification records.
 - Admin manual metadata and uploaded manual PDF content.
-- Audit logs for administrative actions and authentication lifecycle events, including login requests, outcomes, and login IP addresses.
-- Security evidence derived from exact shared login IP addresses or historical linked-account conflicts for alternate-account evidence review. This evidence is not an automatic finding of wrongdoing.
+- Website access records and audit logs for administrative actions and authentication lifecycle events, including request times, login outcomes, and IP addresses.
+- Security evidence derived from exact shared website access and login IP addresses or historical linked-account conflicts for alternate-account evidence review. This evidence is not an automatic finding of wrongdoing.
 - Operational logs, error details, and backup metadata needed to run and troubleshoot the Service.
 
 Some information, such as public leaderboard attendance totals and usernames, may be visible without signing in. Staff-only data is intended for authorized ATCMH staff and may be filtered based on role.
@@ -74,7 +74,7 @@ ATCMH staff may restrict, remove, or correct content and records when needed for
 
 Authorized staff may create or update records for sessions, mentees, assignments, user notes, attendance, manuals, and audit logs. Staff actions should be accurate, relevant to ATCMH operations, and consistent with ATCMH community rules.
 
-Audit logs may record staff actions and authentication lifecycle events. Raw login IP addresses, link-conflict counterparts, and alternate-account evidence review are restricted to the super administrator. Other staff views may omit security-sensitive details.
+Audit logs may record staff actions and authentication lifecycle events. Raw IP addresses are restricted to the super administrator. Allowlisted administrators may review link-conflict counterparts and alternate-account evidence with IP addresses and network prefixes hidden. Other staff views may omit security-sensitive details.
 
 Security, authentication, account-link, policy-acceptance, and audit records may be preserved for service integrity, abuse prevention, dispute resolution, and accountability. The Privacy Policy describes ATCMH's retention practices and your available data rights in more detail.
 

@@ -33,3 +33,32 @@ test("rescan status shows bounded progress, result, and truncation honestly", as
     assert.match(done, /100 most recent addresses/);
     assert.doesNotMatch(done, /203\.0\.113|provider/i);
 });
+
+test("redacted evidence stays actionable using opaque references without displaying them", async () => {
+    const {EvidenceSections, AltEvidenceActions, addressTarget} = await vite.ssrLoadModule("/src/dashboard/components/admin/AdminAltAccounts.tsx") as any;
+    const candidate = {evidenceType: "SAME_IP", accounts: ["7", "8"], addressRef: "opaque-address-token", rationale: "Shared address", firstSeen: "2026-09-07T00:00:00Z", lastSeen: "2026-09-07T00:00:00Z", count: 2};
+    const html = renderToStaticMarkup(React.createElement(EvidenceSections, {candidates: [candidate], onSelect: () => {}, onAction: () => {}}));
+    assert.match(html, /Hidden/);
+    assert.match(html, /Detach account 7/);
+    assert.match(html, /Mark IP as VPN/);
+    assert.doesNotMatch(html, /opaque-address-token/);
+    let action: any;
+    const tree = AltEvidenceActions({candidate, onAction: (value: unknown) => {action = value;}});
+    const buttons = tree.props.children[0];
+    buttons[0].props.onClick({currentTarget: {}});
+    assert.equal(action.addressRef, "opaque-address-token");
+    assert.equal(action.accountId, "7");
+    assert.equal(Object.hasOwn(action, "ip"), false);
+    assert.deepEqual(addressTarget({ip: "203.0.113.2", addressRef: "opaque"}), {addressRef: "opaque"});
+});
+
+test("per-account IP list is visible only with the explicit IP capability", async () => {
+    const {AccountIpAddresses} = await vite.ssrLoadModule("/src/dashboard/components/admin/AdminAccounts.tsx") as any;
+    const addresses = [{ip: "203.0.113.8", firstSeen: "2026-09-07T00:00:00Z", lastSeen: "2026-09-07T01:00:00Z", count: 4}];
+    assert.equal(renderToStaticMarkup(React.createElement(AccountIpAddresses, {addresses, canView: false})), "");
+    const html = renderToStaticMarkup(React.createElement(AccountIpAddresses, {addresses, canView: true}));
+    assert.match(html, /203\.0\.113\.8/);
+    assert.match(html, /First seen/);
+    assert.match(html, /Last seen/);
+    assert.match(html, /<td>4<\/td>/);
+});

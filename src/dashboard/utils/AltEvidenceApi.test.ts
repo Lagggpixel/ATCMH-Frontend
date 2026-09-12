@@ -28,3 +28,21 @@ test("alt evidence API scopes reviews and sends CSRF-protected rescan requests",
     assert.deepEqual(await requests[1].json(), {accountId: "42"});
     assert.equal(requests[2].method, "GET");
 });
+
+test("admin suppression sends only its opaque address reference", async () => {
+    const originalFetch = globalThis.fetch;
+    let request: Request | undefined;
+    configureDashboardApiUrl("https://dashboard.test");
+    globalThis.fetch = async (input, init) => {
+        request = new Request(input, init);
+        return Response.json({ok: true});
+    };
+    try {
+        await ApiUtils.suppressAltSignal("csrf", "detach", {accountId: "42", addressRef: "opaque-reference", reason: "Reviewed"});
+        assert.equal(request?.headers.get("X-CSRF-Token"), "csrf");
+        assert.deepEqual(await request!.json(), {accountId: "42", addressRef: "opaque-reference", reason: "Reviewed"});
+    } finally {
+        globalThis.fetch = originalFetch;
+        configureDashboardApiUrl("https://dashboard-api.atcmh.org");
+    }
+});

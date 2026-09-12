@@ -21,3 +21,9 @@
 .historyGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.recordSection { min-width: 0; }.recordSection h3 span { color: var(--muted-text); font-size: .8rem; }.recordList { display: grid; gap: 6px; }.recordList details { border: 1px solid var(--border-color); border-radius: 7px; padding: 9px; background: var(--surface-2-color); }.recordList summary { cursor: pointer; }.recordList dl { display: grid; gap: 5px; }.recordList dl div { display: grid; grid-template-columns: minmax(100px, .4fr) 1fr; gap: 8px; }.recordList dt { color: var(--muted-text); }.recordList dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .filters { grid-template-columns: repeat(3, 1fr); }.layout { grid-template-columns: 1fr; }.results { max-height: 300px; } }
 @media (max-width: 650px) { .filters, .historyGrid, .mergeOwners { grid-template-columns: 1fr; }.page { padding: 12px; } }
+
+.ipTableWrap { overflow-x: auto; }
+.ipTable { width: 100%; min-width: 680px; border-collapse: collapse; margin-bottom: 18px; text-align: left; }
+.ipTable th, .ipTable td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+.ipTable th { color: var(--muted-text); font-size: .84rem; }
+.ipTable code { white-space: nowrap; }

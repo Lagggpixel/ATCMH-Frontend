@@ -65,7 +65,7 @@ The bot does not intentionally collect messages from channels it cannot access. 
 ## 2.4 Website Usage and Technical Data
 
 When you use the website, Dashboard, Exams Center, or an authentication flow, we may collect technical information such as:
-- IP address, including the login IP address for each authentication lifecycle request
+- IP address for website access and authentication lifecycle requests
 - browser type and version
 - device type
 - operating system
@@ -77,7 +77,7 @@ When you use the website, Dashboard, Exams Center, or an authentication flow, we
 - error logs
 - security and audit logs
 
-Authentication lifecycle records may include a unique transaction or request identifier, application, provider, outcome, linked account, timestamps, and trusted proxy or network information. ATCMH may compare exact normalised login IP addresses shared by accounts and historical Discord-to-Infinite-Flight link conflicts to create candidates for alternate-account evidence review. These candidates support human review; they do not automatically prove misconduct or trigger a merge, suspension, or other penalty.
+Authentication lifecycle records may include a unique transaction or request identifier, application, provider, outcome, linked account, timestamps, and trusted proxy or network information. Website access records may associate the request time and trusted client IP with your signed-in account. Cached navigation and returning to a visible tab also send an access request when a network connection is available. ATCMH may compare exact normalised IP addresses from website access and login records shared by accounts and historical Discord-to-Infinite-Flight link conflicts to create candidates for alternate-account evidence review. These candidates support human review; they do not automatically prove misconduct or trigger a merge, suspension, or other penalty.
 
 This information is used to keep the platform secure, diagnose issues, prevent abuse, improve reliability, and support the legal, safety, and abuse-prevention purposes described in this Policy.
 
@@ -149,7 +149,7 @@ Information may be visible to authorised users, including:
 
 Access is intended to be limited based on role, permission level, and operational need.
 
-Raw login IP addresses, provider conflict counterparts, and alternate-account evidence review are restricted to the ATCMH super administrator. Other administrative audit views may show that a login event occurred while redacting those security-sensitive details.
+Raw IP addresses are restricted to the ATCMH super administrator. Allowlisted administrators may review provider conflict counterparts and alternate-account evidence with IP addresses and network prefixes hidden. Other staff audit views may show that a login event occurred while redacting security-sensitive details.
 
 ## 5.2 With Discord
 

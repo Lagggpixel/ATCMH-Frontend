@@ -35,8 +35,10 @@ export interface AccountSummary {
 }
 
 export interface AccountDetail extends AccountSummary {
+    ipAddresses?: {ip: string; firstSeen: string; lastSeen: string; count: number}[];
     sessions: Record<string, unknown>[];
     linkHistory: Record<string, unknown>[];
+    accessHistory?: Record<string, unknown>[];
     loginHistory: Record<string, unknown>[];
     managementAudits: Record<string, unknown>[];
 }
@@ -71,6 +73,7 @@ export interface AltAccountCandidate {
     evidenceType: "SAME_IP" | "VPN_INDICATOR" | "NETWORK_SIMILARITY" | "OWNERSHIP_CONFLICT";
     accounts: string[];
     ip?: string;
+    addressRef?: string;
     network?: string;
     provider?: string;
     subject?: string;
@@ -86,8 +89,9 @@ export interface AltAccountCandidate {
 }
 
 export interface AltEvidenceAddress {
-    ip: string;
-    network: string;
+    ip?: string;
+    addressRef?: string;
+    network?: string;
     accounts: string[];
     networkProvider?: string | null;
     providerSignals?: string[];
@@ -113,7 +117,8 @@ export interface AltSuppression {
     id: string;
     type: "ACCOUNT_IP" | "GLOBAL_VPN";
     accountId?: string | null;
-    signal: string;
+    signal?: string;
+    signalRef?: string;
     reason: string;
     createdAt: string;
     reversedAt?: string | null;
