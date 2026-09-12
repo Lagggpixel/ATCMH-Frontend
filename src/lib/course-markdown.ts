@@ -7,6 +7,7 @@ const activityDirective = new RegExp(`^\\{\\{activity:(${uuid})(?:\\s+(required|
 const diagramDirective = /^\{\{diagram:([a-z0-9][a-z0-9-]{0,79})\}\}$/i;
 
 export type CourseMarkdownBlock =
+  | { type: "table"; headers: string[]; rows: string[][] }
   | { type: "heading"; level: number; text: string }
   | { type: "paragraph"; lines: string[] }
   | { type: "list"; items: string[] }
@@ -75,8 +76,22 @@ export function parseCourseMarkdown(markdown: string): CourseMarkdownBlock[] {
     list = [];
   };
 
-  for (const rawLine of markdown.split(/\r?\n/)) {
+  const lines = markdown.split(/\r?\n/);
+  const cells = (line: string) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const rawLine = lines[lineIndex];
     const line = rawLine.trim();
+    const separator = lines[lineIndex + 1]?.trim();
+    if (line.startsWith("|") && separator?.startsWith("|") && cells(separator).every(cell => /^:?-{3,}:?$/.test(cell)) && cells(separator).length === cells(line).length) {
+      flushParagraph();
+      flushList();
+      const headers = cells(line);
+      const rows: string[][] = [];
+      lineIndex++;
+      while (lines[lineIndex + 1]?.trim().startsWith("|") && cells(lines[lineIndex + 1]).length === headers.length) rows.push(cells(lines[++lineIndex]));
+      blocks.push({type: "table", headers, rows});
+      continue;
+    }
     if (line.length === 0) {
       flushParagraph();
       flushList();

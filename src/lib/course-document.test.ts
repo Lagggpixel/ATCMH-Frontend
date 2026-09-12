@@ -68,3 +68,26 @@ test("unsafe or incomplete block documents are rejected before upload/save", () 
     assert.doesNotThrow(() => validateCourseDocument({version: 1, blocks: [{id: "x", type: "media", mediaId, kind: "video", width: "content", align: "center"}]}));
     assert.equal(parseCourseDocument("not JSON"), null);
 });
+
+test("ungraded checks validate strictly without creating assessment references", () => {
+    const check = {id: "practice", type: "check", prompt: "Who moves first?", options: ["Arrival", "Departure"], correctOption: 0, explanation: "Clear the runway exit."};
+    const document = validateCourseDocument({version: 1, blocks: [check]});
+    assert.deepEqual(courseDocumentReferences(document), []);
+    assert.deepEqual(parseCourseDocument(JSON.stringify(document)), document);
+    assert.match(courseDocumentToMarkdown(document), /Answer: Arrival/);
+    for (const update of [{correctOption: -1}, {correctOption: 2}, {correctOption: .5}, {correctOption: "0"}, {options: ["Only one"]}, {options: ["", "Second"]}, {prompt: "<script>x</script>"}, {explanation: "{{quiz:bad}}"}, {required: true}]) {
+        assert.throws(() => validateCourseDocument({version: 1, blocks: [{...check, ...update}]}), CourseDocumentValidationError);
+    }
+});
+
+test("checks support optional incorrect reasoning without changing legacy checks", () => {
+    const check = {id: "practice", type: "check", prompt: "Who moves first?", options: ["Arrival", "Departure"], correctOption: 0, explanation: "Protect traffic leaving the runway.", incorrectExplanation: "Keep the exit clear before sequencing departures."};
+    const document = validateCourseDocument({version: 1, blocks: [check]});
+    assert.deepEqual(parseCourseDocument(JSON.stringify(document)), document);
+    assert.deepEqual(courseDocumentReferences(document), []);
+    for (const incorrectExplanation of [null, 4, "", "<b>Unsafe</b>", "{{quiz:bad}}", "x".repeat(4001)]) {
+        assert.throws(() => validateCourseDocument({version: 1, blocks: [{...check, incorrectExplanation}]}), CourseDocumentValidationError);
+    }
+    const legacy = validateCourseDocument({version: 1, blocks: [{...check, incorrectExplanation: undefined}]}).blocks[0];
+    assert.equal("incorrectExplanation" in legacy, false);
+});

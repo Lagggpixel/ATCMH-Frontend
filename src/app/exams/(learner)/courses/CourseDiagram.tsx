@@ -1,4 +1,5 @@
 import type {CourseDiagramBlock} from "@/src/lib/course-document";
+import CourseGroundDiagram from "./CourseGroundDiagram";
 import styles from "./CourseReader.module.css";
 
 interface CourseDiagramProps {
@@ -10,6 +11,7 @@ function Label({x, y, children}: {x: number; y: number; children: string}) {
 }
 
 export default function CourseDiagram({block}: CourseDiagramProps) {
+    if (["ground-movement-flow", "ground-pushback", "ground-intersection", "ground-head-on", "ground-arrival-priority", "ground-three-way", "ground-progressive-taxi", "ground-runway-crossing"].includes(block.diagramId)) return <CourseGroundDiagram block={block}/>;
     const label = block.diagramId.replace(/-/g, " ");
     const markerId = `course-arrow-${block.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
     const common = {viewBox: "0 0 720 230", role: "img", "aria-label": `ATC diagram: ${label}` as string};
