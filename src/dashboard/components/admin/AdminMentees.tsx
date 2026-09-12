@@ -1504,11 +1504,42 @@ const SessionDetailsModal = ({
     const sessionEditable = editable && !session.cancelled;
     const [editForm, setEditForm] = useState(() => createSessionEditForm(session));
     const [editState, setEditState] = useState("");
+    const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
+    const [cancelError, setCancelError] = useState<string>();
+    const cancelSessionButton = useRef<HTMLButtonElement>(null);
+    const cancelConfirmationDialog = useRef<HTMLDialogElement>(null);
+    const keepSessionButton = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         setEditForm(createSessionEditForm(session));
         setEditState("");
+        setShowCancelConfirmation(false);
     }, [session]);
+
+    useEffect(() => {
+        if (!showCancelConfirmation) return;
+        const dialog = cancelConfirmationDialog.current;
+        dialog?.showModal();
+        keepSessionButton.current?.focus();
+        return () => dialog?.close();
+    }, [showCancelConfirmation]);
+
+    const dismissCancelConfirmation = () => {
+        cancelConfirmationDialog.current?.close();
+        setShowCancelConfirmation(false);
+        cancelSessionButton.current?.focus();
+    };
+
+    const confirmCancellation = async () => {
+        if (!showCancelConfirmation || !sessionEditable || busyAction) return;
+        setCancelError(undefined);
+        const updatedSession = await onCancelSession();
+        if (updatedSession) {
+            setShowCancelConfirmation(false);
+        } else {
+            setCancelError("The session could not be cancelled. Please try again.");
+        }
+    };
 
     const submitSessionUpdate = async (event: FormEvent) => {
         event.preventDefault();
@@ -1636,12 +1667,55 @@ const SessionDetailsModal = ({
                                 <button type="submit" disabled={Boolean(busyAction)}>Add</button>
                             </form>
                             <button
+                                ref={cancelSessionButton}
                                 type="button"
-                                onClick={onCancelSession}
+                                className={styles.dangerButton}
+                                onClick={() => {
+                                    setCancelError(undefined);
+                                    setShowCancelConfirmation(true);
+                                }}
                                 disabled={Boolean(busyAction)}
+                                aria-haspopup="dialog"
+                                aria-controls={`cancel-session-confirmation-${session.id}`}
                             >
                                 Cancel Session
                             </button>
+                            {showCancelConfirmation ? (
+                                <dialog
+                                    ref={cancelConfirmationDialog}
+                                    id={`cancel-session-confirmation-${session.id}`}
+                                    className={styles.sessionCancelConfirmation}
+                                    aria-labelledby={`cancel-session-prompt-${session.id}`}
+                                    aria-describedby={`cancel-session-description-${session.id}`}
+                                    onCancel={event => {
+                                        event.preventDefault();
+                                        if (!busyAction) dismissCancelConfirmation();
+                                    }}
+                                >
+                                    <h3 id={`cancel-session-prompt-${session.id}`}>Cancel this session?</h3>
+                                    <p id={`cancel-session-description-${session.id}`}>The session will be marked as cancelled.</p>
+                                    {cancelError ? <p role="alert">{cancelError}</p> : null}
+                                    <div className={styles.modalActions}>
+                                        <button
+                                            ref={keepSessionButton}
+                                            type="button"
+                                            className={styles.secondaryButton}
+                                            onClick={dismissCancelConfirmation}
+                                            disabled={Boolean(busyAction)}
+                                        >
+                                            Keep Session
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.dangerButton}
+                                            onClick={confirmCancellation}
+                                            disabled={Boolean(busyAction)}
+                                        >
+                                            {busyAction === `cancel-${session.id}` ? "Cancelling..." : "Confirm Cancellation"}
+                                        </button>
+                                    </div>
+                                </dialog>
+                            ) : null}
                         </div>
                     </section>
                 ) : null}
