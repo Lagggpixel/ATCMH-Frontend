@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useMemo, useState} from "react";
 
 export interface PaginationResult<T> {
     paginatedItems: T[];
@@ -15,10 +15,16 @@ export interface PaginationResult<T> {
 export function usePagination<T>(items: T[], itemsPerPage: number = 25): PaginationResult<T> {
     const [page, setPage] = useState(0);
     const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
-    const paginatedItems = items.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
-    const goToPage = (p: number) => setPage(Math.max(0, Math.min(p, totalPages - 1)));
-    const goNext = () => goToPage(page + 1);
-    const goPrev = () => goToPage(page - 1);
-    const reset = () => setPage(0);
-    return { paginatedItems, page, totalPages, totalItems: items.length, goToPage, goNext, goPrev, reset, itemsPerPage };
+    const paginatedItems = useMemo(
+        () => items.slice(page * itemsPerPage, (page + 1) * itemsPerPage),
+        [items, page, itemsPerPage],
+    );
+    const goToPage = useCallback((p: number) => setPage(Math.max(0, Math.min(p, totalPages - 1))), [totalPages]);
+    const goNext = useCallback(() => setPage(current => Math.min(current + 1, totalPages - 1)), [totalPages]);
+    const goPrev = useCallback(() => setPage(current => Math.max(0, current - 1)), []);
+    const reset = useCallback(() => setPage(0), []);
+    return useMemo(
+        () => ({paginatedItems, page, totalPages, totalItems: items.length, goToPage, goNext, goPrev, reset, itemsPerPage}),
+        [goNext, goPrev, goToPage, items.length, itemsPerPage, page, paginatedItems, reset, totalPages],
+    );
 }
