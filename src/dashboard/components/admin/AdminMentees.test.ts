@@ -31,14 +31,29 @@ test("mentee index separates cards/table views from the profile route", () => {
 });
 
 test("mentee filters reset pagination and expose a no-results recovery state", () => {
-    assert.match(componentSource, /const filter = searchParams\.get\(MENTEE_SEARCH_PARAM\)/);
-    assert.match(componentSource, /updateListQuery\(\{search: event\.target\.value\}\)/);
+    assert.match(componentSource, /const searchParam = searchParams\.get\(MENTEE_SEARCH_PARAM\)/);
+    assert.match(componentSource, /const \[searchInput, setSearchInput\] = useState\(\(\) => searchParam\)/);
+    assert.match(componentSource, /const searchInputDirtyRef = useRef\(false\)/);
+    assert.match(componentSource, /const deferredSearchInput = useDeferredValue\(searchInput\)/);
+    assert.match(componentSource, /event\.currentTarget\.value/);
+    assert.match(componentSource, /setTimeout\(\(\) => updateListQuery\(\{search: searchInput\}\), 220\)/);
+    assert.match(componentSource, /startTransition\(\(\) => navigate/);
+    assert.doesNotMatch(componentSource, /updateListQuery\(\{search: event\.target\.value\}\)/);
     assert.match(componentSource, /handleMentorFilterChange/);
     assert.match(componentSource, /MENTOR_FILTER_PARAM/);
     assert.match(componentSource, /menteeRoute\(id\)/);
     assert.match(componentSource, /No mentees match these filters/);
     assert.match(componentSource, /onClearFilters/);
     assert.match(componentSource, /search: "", mentorFilter: "all"/);
+});
+
+test("mentee search work is indexed and list rows avoid unnecessary rerenders", () => {
+    assert.match(componentSource, /const menteeSearchTextById = useMemo/);
+    assert.match(componentSource, /new Map\(mentees\.map/);
+    assert.match(componentSource, /return menteeSearchTextById\.get\(mentee\.id\)\?\.includes\(normalized\)/);
+    assert.match(componentSource, /const MenteeCard = memo/);
+    assert.match(componentSource, /const MenteeTable = memo/);
+    assert.match(componentSource, /const AutoMatchPanel = memo/);
 });
 
 test("mobile mentees keep the list usable and profile content readable", () => {

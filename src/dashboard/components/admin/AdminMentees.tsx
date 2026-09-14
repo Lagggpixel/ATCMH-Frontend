@@ -1,4 +1,4 @@
-import {type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState} from "react";
+import {memo, startTransition, type ChangeEvent, type FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee} from "../../types/AdminMentee.ts";
 import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../../types/AutoMatchCandidate.ts";
@@ -111,6 +111,11 @@ const AdminMentees = ({
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const {menteeRecordId} = useParams();
+    const searchParam = searchParams.get(MENTEE_SEARCH_PARAM) ?? "";
+    const [searchInput, setSearchInput] = useState(() => searchParam);
+    const searchInputRef = useRef(searchParam);
+    const searchInputDirtyRef = useRef(false);
+    const deferredSearchInput = useDeferredValue(searchInput);
     const [actionError, setActionError] = useState<string | undefined>();
     const [busyAction, setBusyAction] = useState<string | undefined>();
     const [showTerminateModal, setShowTerminateModal] = useState(false);
@@ -131,7 +136,6 @@ const AdminMentees = ({
         existingAssignment?: SessionAssignment
     } | undefined>();
 
-    const filter = searchParams.get(MENTEE_SEARCH_PARAM) ?? "";
     const view = normalizeMenteeView(searchParams.get(MENTEE_VIEW_PARAM));
     const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
@@ -142,13 +146,42 @@ const AdminMentees = ({
         [autoMatchCandidates],
     );
 
+    useEffect(() => {
+        if (searchInputRef.current === searchParam) {
+            searchInputDirtyRef.current = false;
+            return;
+        }
+        if (searchInputDirtyRef.current) return;
+        searchInputRef.current = searchParam;
+        setSearchInput(searchParam);
+    }, [searchParam]);
+
     const selectedMentee = useMemo(() => {
         if (!mentees || !menteeRecordId) return undefined;
         return mentees.find(mentee => String(mentee.id) === menteeRecordId);
     }, [menteeRecordId, mentees]);
 
+    const menteeSearchTextById = useMemo(() => {
+        if (!mentees) return new Map<number, string>();
+        return new Map(mentees.map<[number, string]>(mentee => {
+            const mentorId = getAssignedMentorId(mentee);
+            const user = usersById.get(mentee.mentee);
+            return [mentee.id, [
+                String(mentee.id),
+                String(mentee.mentee),
+                mentorId == null ? undefined : String(mentorId),
+                user?.username,
+                mentorId == null ? undefined : getUserNameFromMap(usersById, mentorId),
+                mentee.ifcName,
+                mentee.ifcId,
+                mentee.recruiter,
+                stateLabels[mentee.state],
+            ].filter(Boolean).join(" ").toLowerCase()];
+        }));
+    }, [mentees, usersById]);
+
     const displayedMentees = useMemo(() => {
-        const normalized = filter.trim().toLowerCase();
+        const normalized = deferredSearchInput.trim().toLowerCase();
         if (!mentees) return [];
         return mentees.filter(mentee => {
             if (mentorFilter === "mine" && adminUser && getAssignedMentorId(mentee) !== adminUser.id) {
@@ -163,33 +196,27 @@ const AdminMentees = ({
             if (!normalized) {
                 return true;
             }
-
-            const user = usersById.get(mentee.mentee);
-            const mentorId = getAssignedMentorId(mentee);
-            return [
-                String(mentee.id),
-                String(mentee.mentee),
-                mentorId == null ? undefined : String(mentorId),
-                user?.username,
-                mentorId == null ? undefined : getUserNameFromMap(usersById, mentorId),
-                mentee.ifcName,
-                mentee.ifcId,
-                mentee.recruiter,
-                stateLabels[mentee.state],
-            ].filter(Boolean).join(" ").toLowerCase().includes(normalized);
+            return menteeSearchTextById.get(mentee.id)?.includes(normalized) ?? false;
         });
-    }, [adminUser, autoMatchCandidateIds, autoMatchSearched, filter, mentees, mentorFilter, usersById]);
+    }, [adminUser, autoMatchCandidateIds, autoMatchSearched, deferredSearchInput, menteeSearchTextById, mentees, mentorFilter]);
 
     const menteePagination = usePagination(displayedMentees, 50);
+    const resetMenteePagination = menteePagination.reset;
 
-    const menteeRoute = (id?: number) => {
-        const path = id == null ? "/dashboard/mentees" : `/dashboard/mentees/${id}`;
-        const query = searchParams.toString();
-        return query ? `${path}?${query}` : path;
-    };
-
-    const updateListQuery = (updates: {search?: string; mentorFilter?: MentorFilter; view?: MenteeView}) => {
+    const listQuery = useMemo(() => {
         const nextParams = new URLSearchParams(searchParams.toString());
+        if (searchInput.trim()) nextParams.set(MENTEE_SEARCH_PARAM, searchInput);
+        else nextParams.delete(MENTEE_SEARCH_PARAM);
+        return nextParams.toString();
+    }, [searchInput, searchParams]);
+
+    const menteeRoute = useCallback((id?: number) => {
+        const path = id == null ? "/dashboard/mentees" : `/dashboard/mentees/${id}`;
+        return listQuery ? `${path}?${listQuery}` : path;
+    }, [listQuery]);
+
+    const updateListQuery = useCallback((updates: {search?: string; mentorFilter?: MentorFilter; view?: MenteeView}) => {
+        const nextParams = new URLSearchParams(listQuery);
         if (updates.search !== undefined) {
             if (updates.search.trim()) nextParams.set(MENTEE_SEARCH_PARAM, updates.search);
             else nextParams.delete(MENTEE_SEARCH_PARAM);
@@ -200,19 +227,28 @@ const AdminMentees = ({
         }
         if (updates.view !== undefined) nextParams.set(MENTEE_VIEW_PARAM, updates.view);
         const query = nextParams.toString();
-        navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true});
-    };
+        startTransition(() => navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true}));
+    }, [listQuery, location.pathname, navigate]);
 
-    const handleMenteeSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
-        menteePagination.reset();
-        updateListQuery({search: event.target.value});
-    };
+    useEffect(() => {
+        if (searchInput === searchParam) return;
+        const timer = window.setTimeout(() => updateListQuery({search: searchInput}), 220);
+        return () => window.clearTimeout(timer);
+    }, [searchInput, searchParam, updateListQuery]);
 
-    const handleMentorFilterChange = (value: string) => {
+    const handleMenteeSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const value = event.currentTarget.value;
+        searchInputDirtyRef.current = value !== searchParam;
+        searchInputRef.current = value;
+        setSearchInput(value);
+        resetMenteePagination();
+    }, [resetMenteePagination, searchParam]);
+
+    const handleMentorFilterChange = useCallback((value: string) => {
         const nextFilter = normalizeMentorFilter(value);
-        menteePagination.reset();
+        resetMenteePagination();
         updateListQuery({mentorFilter: nextFilter});
-    };
+    }, [resetMenteePagination, updateListQuery]);
 
     useEffect(() => {
         let current = true;
@@ -274,7 +310,7 @@ const AdminMentees = ({
         };
     }, [autoMatchAvailability, autoMatchLeniency, autoMatchPreferencesLoadedFor, loggedIn, preferenceAccountId, token]);
 
-    const handleAutoMatchSearch = async (event: FormEvent) => {
+    const handleAutoMatchSearch = useCallback(async (event: FormEvent) => {
         event.preventDefault();
         setAutoMatchError(undefined);
 
@@ -283,20 +319,24 @@ const AdminMentees = ({
             const candidates = await ApiUtils.getAutoMatchCandidates(token, autoMatchAvailability, autoMatchLeniency);
             setAutoMatchCandidates(candidates ?? []);
             setAutoMatchSearched(true);
-            menteePagination.reset();
+            resetMenteePagination();
         } catch (err) {
             setAutoMatchError(err instanceof Error ? err.message : String(err));
         } finally {
             setBusyAction(undefined);
         }
-    };
+    }, [autoMatchAvailability, autoMatchLeniency, resetMenteePagination, token]);
 
-    const clearMenteeFilters = () => {
-        menteePagination.reset();
+    const clearMenteeFilters = useCallback(() => {
+        searchInputDirtyRef.current = searchParam !== "";
+        searchInputRef.current = "";
+        setSearchInput("");
+        resetMenteePagination();
         updateListQuery({search: "", mentorFilter: "all"});
-    };
+    }, [resetMenteePagination, searchParam, updateListQuery]);
 
-    const handleViewChange = (nextView: MenteeView) => updateListQuery({view: nextView});
+    const handleViewChange = useCallback((nextView: MenteeView) => updateListQuery({view: nextView}), [updateListQuery]);
+    const handleAutoMatchToggleOpen = useCallback(() => setAutoMatchOpen(open => !open), []);
 
     useEffect(() => {
         if (mentorFilter !== "waitlist") {
@@ -337,11 +377,13 @@ const AdminMentees = ({
     const selectedActionPolicy = selectedMentee
         ? getMenteeActionPolicy({state: selectedMentee.state, hasMentor: selectedMenteeHasMentor})
         : undefined;
-    const getUserName = (id?: string) => {
+    const getUserName = useCallback((id?: string) => {
         if (!id) return "Not set";
         const user = usersById.get(id);
         return user ? user.username : `User (${id})`;
-    };
+    }, [usersById]);
+
+    const handleOpenMentee = useCallback((id: number) => navigate(menteeRoute(id)), [menteeRoute, navigate]);
 
     const runAction = async <T, >(name: string, action: () => Promise<T | undefined>, onSuccess: (result: T) => void) => {
         setActionError(undefined);
@@ -550,7 +592,7 @@ const AdminMentees = ({
             ) : (
                 <MenteeListPage
                     pagination={menteePagination}
-                    filter={filter}
+                    filter={searchInput}
                     mentorFilter={mentorFilter}
                     view={view}
                     adminUser={adminUser}
@@ -559,9 +601,9 @@ const AdminMentees = ({
                     onMentorFilterChange={handleMentorFilterChange}
                     onViewChange={handleViewChange}
                     onClearFilters={clearMenteeFilters}
-                    onOpenMentee={id => navigate(menteeRoute(id))}
+                    onOpenMentee={handleOpenMentee}
                     autoMatchOpen={autoMatchOpen}
-                    onAutoMatchToggleOpen={() => setAutoMatchOpen(open => !open)}
+                    onAutoMatchToggleOpen={handleAutoMatchToggleOpen}
                     autoMatchCandidates={autoMatchCandidates}
                     autoMatchAvailability={autoMatchAvailability}
                     autoMatchLeniency={autoMatchLeniency}
@@ -569,7 +611,7 @@ const AdminMentees = ({
                     autoMatchBusy={busyAction === "auto-match-search"}
                     autoMatchError={autoMatchError}
                     onAutoMatchAvailabilityChange={setAutoMatchAvailability}
-                    onAutoMatchLeniencyChange={value => setAutoMatchLeniency(value)}
+                    onAutoMatchLeniencyChange={setAutoMatchLeniency}
                     onAutoMatchSearch={handleAutoMatchSearch}
                 />
             )}
@@ -694,6 +736,7 @@ const MenteeListPage = ({
                     <div className={`${styles.searchInputRow} ${mentorFilter === "waitlist" ? styles.searchInputRowWithToggle : ""}`}>
                         <input
                             id="mentee-search"
+                            type="search"
                             value={filter}
                             onChange={onSearchChange}
                             placeholder="Name, Discord ID, IFC, recruiter..."
@@ -791,7 +834,7 @@ interface AutoMatchPanelProps {
     onSearch: (event: FormEvent) => void;
 }
 
-const AutoMatchPanel = ({
+const AutoMatchPanel = memo(function AutoMatchPanel({
                             candidates,
                             availability,
                             leniency,
@@ -801,7 +844,8 @@ const AutoMatchPanel = ({
                             onAvailabilityChange,
                             onLeniencyChange,
                             onSearch,
-                        }: AutoMatchPanelProps) => (
+                        }: AutoMatchPanelProps) {
+    return (
     <section id="auto-match-panel" className={styles.autoMatchPanel} aria-labelledby="auto-match-title">
         <div className={styles.autoMatchHeader}>
             <div>
@@ -833,7 +877,8 @@ const AutoMatchPanel = ({
         {error ? <p className={styles.autoMatchError} role="alert">{error}</p> : null}
         {searched ? <p className={styles.autoMatchResultHint} role="status">Matches now filter the main cards or table below.</p> : null}
     </section>
-);
+    );
+});
 
 interface MenteeCardProps {
     mentee: AdminMentee;
@@ -842,7 +887,8 @@ interface MenteeCardProps {
     match?: AutoMatchCandidate;
 }
 
-const MenteeCard = ({mentee, getUserName, onOpen, match}: MenteeCardProps) => (
+const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}: MenteeCardProps) {
+    return (
     <article className={styles.menteeCard}>
         {match ? (
             <div className={styles.menteeCardMatchBar}>
@@ -870,7 +916,8 @@ const MenteeCard = ({mentee, getUserName, onOpen, match}: MenteeCardProps) => (
             </span>
         </button>
     </article>
-);
+    );
+});
 
 interface MenteeTableProps {
     mentees: AdminMentee[];
@@ -880,7 +927,8 @@ interface MenteeTableProps {
     candidateById: Map<number, AutoMatchCandidate>;
 }
 
-const MenteeTable = ({mentees, getUserName, onOpen, autoMatchActive, candidateById}: MenteeTableProps) => (
+const MenteeTable = memo(function MenteeTable({mentees, getUserName, onOpen, autoMatchActive, candidateById}: MenteeTableProps) {
+    return (
     <div className={styles.menteesTableWrap}>
         <table className={styles.menteesTable}>
             <caption className={styles.visuallyHidden}>Mentee records</caption>
@@ -922,7 +970,8 @@ const MenteeTable = ({mentees, getUserName, onOpen, autoMatchActive, candidateBy
             </tbody>
         </table>
     </div>
-);
+    );
+});
 
 interface MenteeProfilePageProps {
     selectedMentee: AdminMentee | undefined;
