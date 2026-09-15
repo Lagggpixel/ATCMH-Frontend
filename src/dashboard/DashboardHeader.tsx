@@ -10,13 +10,15 @@ export default function DashboardHeader() {
     const {adminUser} = usePortalAuth();
 
     return <header className={`site-header is-scrolled is-solid ${styles.dashboardHeader}`}>
-        <Link className={styles.backButton} href="/" aria-label="Back to main site">
-            <span aria-hidden="true">←</span>
-            Back to main site
-        </Link>
         <div className={styles.dashboardNavigation}>
             {adminUser ? <AdminNav adminUser={adminUser} embedded/> : null}
         </div>
-        <div className={`nav-primary-auth ${styles.accountNavigation}`}><AuthNavigation showLogin={false}/></div>
+        <div className={styles.siteActions}>
+            <Link className={styles.backButton} href="/" aria-label="Back to main site">
+                <span aria-hidden="true">←</span>
+                Back to main site
+            </Link>
+            <div className={`nav-primary-auth ${styles.accountNavigation}`}><AuthNavigation showLogin={false}/></div>
+        </div>
     </header>;
 }
