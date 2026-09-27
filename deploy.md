@@ -69,7 +69,7 @@ The equivalent command from the directory containing `Frontend` is:
 docker buildx build \
   -f Frontend/.dockerfile \
   --platform linux/amd64,linux/arm64 \
-  -t registry.lagggpixel.com/atcmh-frontend:1.0.1 \
+  -t registry.lagggpixel.com/atcmh-frontend:1.7.8 \
   -t registry.lagggpixel.com/atcmh-frontend:latest \
   Frontend \
   --push
@@ -77,10 +77,10 @@ docker buildx build \
 
 Increment the immutable version tag for every release. Production Compose should reference the versioned tag, not `latest`. The image runs the standalone Next server as the non-root `nextjs` user on port `3000`; its container healthcheck requests `/api/health`.
 
-Publish the matching backend `2.8.1` image before updating the stack:
+Publish the matching backend image using the version in `Backend/gradle.properties` before updating the stack:
 
 ```bash
-cd Dashboard-Backend
+cd Backend
 ./gradlew pushImage
 ```
 
