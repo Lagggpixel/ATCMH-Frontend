@@ -67,8 +67,16 @@ type MenteeStateAction = "pickup" | "pass";
 const MENTOR_FILTER_PARAM = "mentorFilter";
 const MENTEE_SEARCH_PARAM = "search";
 const MENTEE_VIEW_PARAM = "view";
+const MAX_ASSIGNMENT_CODE_POINTS = 1500;
+const countUnicodeCodePoints = (value: string): number => {
+    let count = 0;
+    for (let offset = 0; offset < value.length; count += 1) {
+        const codePoint = value.codePointAt(offset);
+        offset += codePoint != null && codePoint > 0xFFFF ? 2 : 1;
+    }
+    return count;
+};
 const AVAILABILITY_ENTRY_SEPARATOR = /\n+|(?=\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):)/;
-
 type MenteeActionPolicy = ReturnType<typeof getMenteeActionPolicy>;
 type SessionFormState = {mentorId: string; airport: string; pilots: string; time: string};
 
@@ -1785,6 +1793,7 @@ interface AssignmentGeneratorModalProps {
     onError: (message: string) => void;
     existingAssignment?: SessionAssignment;
 }
+type AssignmentLoadState = "not-needed" | "loading" | "loaded" | "failed";
 
 const AssignmentGeneratorModal = ({
                                       token,
@@ -1809,6 +1818,9 @@ const AssignmentGeneratorModal = ({
     }, [assignments, session.airport]);
     const defaultAssignment = sortedAssignments[0];
     const [fetchedAssignment, setFetchedAssignment] = useState<SessionAssignment | undefined>(existingAssignment);
+    const [assignmentLoadState, setAssignmentLoadState] = useState<AssignmentLoadState>(() => (
+        existingAssignment ? "loaded" : session.hasAssignment ? "loading" : "not-needed"
+    ));
     const initialAssignmentId = chooseSessionAssignmentTemplateId(existingAssignment, sortedAssignments, defaultAssignment?.id ?? 0);
     const [assignmentId, setAssignmentId] = useState(initialAssignmentId);
     const selectedAssignment = sortedAssignments.find(assignment => assignment.id === assignmentId) ?? defaultAssignment;
@@ -1825,18 +1837,32 @@ const AssignmentGeneratorModal = ({
     const [previewText, setPreviewText] = useState(existingAssignment?.content ?? "");
     const [previewDirty, setPreviewDirty] = useState(Boolean(existingAssignment?.content));
 
-    const isEditMode = fetchedAssignment != null;
+    const isEditMode = session.hasAssignment || fetchedAssignment != null;
 
     useEffect(() => {
-        if (session.hasAssignment && !existingAssignment) {
-            ApiUtils.getSessionAssignment(token, mentee.id, session.id).then(data => {
-                if (data) {
-                    setFetchedAssignment(data);
-                }
-            }).catch(() => {
-            });
-        }
-    }, [session.id, mentee.id, session.hasAssignment, existingAssignment, token]);
+        if (!session.hasAssignment || existingAssignment) return;
+
+        let current = true;
+        ApiUtils.getSessionAssignment(token, mentee.id, session.id).then(data => {
+            if (!current) return;
+            if (data) {
+                setFetchedAssignment(data);
+                setAssignmentLoadState("loaded");
+                return;
+            }
+
+            setAssignmentLoadState("failed");
+            onError("Not authorized");
+        }).catch(err => {
+            if (!current) return;
+            setAssignmentLoadState("failed");
+            onError(err instanceof Error ? err.message : "Could not load assignment");
+        });
+
+        return () => {
+            current = false;
+        };
+    }, [session.id, mentee.id, session.hasAssignment, existingAssignment, token, onError]);
 
     useEffect(() => {
         if (!fetchedAssignment) return;
@@ -1864,6 +1890,7 @@ const AssignmentGeneratorModal = ({
     }), [mentee, session, adminUser]);
     const generatedText = selectedAssignment ? generateAssignmentText(selectedAssignment, slotAssignments, assignmentContext) : "";
     const messageText = previewDirty ? previewText : generatedText;
+    const messageCodePointCount = countUnicodeCodePoints(messageText.trim());
 
     const resetPreviewText = () => {
         setPreviewDirty(false);
@@ -1943,6 +1970,12 @@ const AssignmentGeneratorModal = ({
 
     const sendAssignment = async () => {
         if (!selectedAssignment || !messageText.trim() || sending) return;
+        if (isEditMode && (assignmentLoadState !== "loaded" || !fetchedAssignment)) return;
+        if (!isEditMode && messageCodePointCount > MAX_ASSIGNMENT_CODE_POINTS) {
+            setSendState("");
+            onError(`Assignment content is ${messageCodePointCount} Unicode code points; the maximum is ${MAX_ASSIGNMENT_CODE_POINTS}. Shorten it before sending.`);
+            return;
+        }
 
         setSending(true);
         setSendState(isEditMode ? "Saving..." : "Sending...");
@@ -1956,6 +1989,7 @@ const AssignmentGeneratorModal = ({
                     onError("Not authorized");
                     return;
                 }
+                setAssignmentLoadState("loaded");
                 setSendState("Saved");
                 setFetchedAssignment(response);
                 setPreviewText(response.content);
@@ -1968,6 +2002,7 @@ const AssignmentGeneratorModal = ({
                     onError("Not authorized");
                     return;
                 }
+                setAssignmentLoadState("loaded");
                 setSendState("Sent");
                 setSentThreadUrl(response.threadUrl);
                 setFetchedAssignment(response);
@@ -2112,9 +2147,15 @@ const AssignmentGeneratorModal = ({
                                 </button>
                                 <div className={styles.copyRow}>
                                     <span>{sendState || copyState}</span>
+                                    <span
+                                        className={messageCodePointCount > MAX_ASSIGNMENT_CODE_POINTS ? styles.assignmentCharacterCountExceeded : undefined}
+                                        aria-live="polite"
+                                    >
+                                        {messageCodePointCount} / {MAX_ASSIGNMENT_CODE_POINTS} Unicode code points
+                                    </span>
                                     <button type="button" onClick={copyText}>Copy Text</button>
                                     <button type="button" onClick={sendAssignment}
-                                            disabled={!selectedAssignment || !messageText.trim() || sending}>
+                                            disabled={!selectedAssignment || !messageText.trim() || sending || (isEditMode && assignmentLoadState !== "loaded")}>
                                         {isEditMode ? "Save & Update" : "Send"}
                                     </button>
                                     {sentThreadUrl ? (
