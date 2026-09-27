@@ -1112,6 +1112,10 @@
     font-weight: 700;
 }
 
+.copyRow .assignmentCharacterCountExceeded {
+    color: var(--danger-text);
+}
+
 .copyRow a {
     color: var(--accent-color);
     font-weight: 750;
