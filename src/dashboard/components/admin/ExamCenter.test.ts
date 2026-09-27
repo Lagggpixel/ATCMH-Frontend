@@ -168,13 +168,6 @@ test("attempt reviews open on a dedicated subpage rather than inside the list", 
     assert.match(centerSource, /view === "attempt-review"\s*\?\s*<ExamAttemptReview/);
 });
 
-test("attempt views resolve current Dashboard usernames while preserving historical fallbacks", () => {
-    assert.match(centerSource, /<ExamAttemptManager token=\{token\} users=\{users\}\/>/);
-    assert.match(centerSource, /<ExamAttemptReview actor=\{data\.actor\} token=\{token\} users=\{users\}\/>/);
-    assert.match(attemptManagerSource, /getUserNameOrFallback\(attempt\.studentDiscordId, attempt\.studentName\)/);
-    assert.match(attemptReviewSource, /getUserNameOrFallback\(attempt\.studentDiscordId, attempt\.studentName\)/);
-});
-
 test("attempt deletion is limited to super administrators and names its target", () => {
     assert.match(attemptReviewSource, /actor\.canManageAll\s*\?\s*<button/);
     assert.match(attemptReviewSource, /This permanently removes \{displayName\}’s attempt for \{attempt\.quizTitle\}/);

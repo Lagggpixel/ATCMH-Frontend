@@ -4,6 +4,7 @@ import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {AuditLog, AuditLogFilterMetadata} from "../../types/AuditLog.ts";
 import {formatAdminUtcDate, parseUtcDateTimeInput} from "../../utils/AdminDateUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
+import {formatUserName} from "../../../lib/user-display-name.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
@@ -56,10 +57,8 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
 
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
 
-    const getUserName = useCallback((id?: string | null, fallback?: string | null) => {
-        if (id == null) return fallback || "System";
-        return usersById.get(id)?.username ?? fallback ?? `User (${id})`;
-    }, [usersById]);
+    const getUserName = useCallback((id?: string | null, fallback?: string | null) =>
+        formatUserName(id, id == null ? undefined : usersById.get(id)?.username, fallback), [usersById]);
 
     useEffect(() => {
         if (!token || !adminUser?.canViewAuditLogs) {

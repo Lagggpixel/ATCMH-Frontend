@@ -23,6 +23,7 @@ import {
     getAssignmentSlotKey
 } from "../../utils/AssignmentGenerator.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
+import {formatUserName} from "../../../lib/user-display-name.ts";
 import {
     chooseSessionAssignmentTemplateId,
     parseSessionAssignmentSlots,
@@ -178,7 +179,7 @@ const AdminMentees = ({
                 String(mentee.id),
                 String(mentee.mentee),
                 mentorId == null ? undefined : String(mentorId),
-                user?.username,
+                formatUserName(mentee.mentee, user?.username, mentee.ifcName),
                 mentorId == null ? undefined : getUserNameFromMap(usersById, mentorId),
                 mentee.ifcName,
                 mentee.ifcId,
@@ -385,10 +386,9 @@ const AdminMentees = ({
     const selectedActionPolicy = selectedMentee
         ? getMenteeActionPolicy({state: selectedMentee.state, hasMentor: selectedMenteeHasMentor})
         : undefined;
-    const getUserName = useCallback((id?: string) => {
-        if (!id) return "Not set";
-        const user = usersById.get(id);
-        return user ? user.username : `User (${id})`;
+    const getUserName = useCallback((id?: string, fallback?: string | null) => {
+        if (!id) return formatUserName(null, undefined, fallback ?? "Not set");
+        return formatUserName(id, usersById.get(id)?.username, fallback);
     }, [usersById]);
 
     const handleOpenMentee = useCallback((id: number) => navigate(menteeRoute(id)), [menteeRoute, navigate]);
@@ -890,7 +890,7 @@ const AutoMatchPanel = memo(function AutoMatchPanel({
 
 interface MenteeCardProps {
     mentee: AdminMentee;
-    getUserName: (id?: string) => string;
+    getUserName: (id?: string, fallback?: string | null) => string;
     onOpen: (id: number) => void;
     match?: AutoMatchCandidate;
 }
@@ -907,7 +907,7 @@ const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}
         <button type="button" className={styles.menteeCardOpen} onClick={() => onOpen(mentee.id)}>
             <span className={styles.menteeCardHeader}>
                 <span>
-                    <strong>{getUserName(mentee.mentee)}</strong>
+                    <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
                     <small>Record #{mentee.id}</small>
                 </span>
                 <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
@@ -929,7 +929,7 @@ const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}
 
 interface MenteeTableProps {
     mentees: AdminMentee[];
-    getUserName: (id?: string) => string;
+    getUserName: (id?: string, fallback?: string | null) => string;
     onOpen: (id: number) => void;
     autoMatchActive: boolean;
     candidateById: Map<number, AutoMatchCandidate>;
@@ -957,7 +957,7 @@ const MenteeTable = memo(function MenteeTable({mentees, getUserName, onOpen, aut
                     <th scope="row">
                         <div className={styles.tableMenteeIdentity}>
                             <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
-                                <strong>{getUserName(mentee.mentee)}</strong>
+                                <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
                                 <small>#{mentee.id} · {formatAdminUtcDate(mentee.waitlistTime)}</small>
                             </button>
                             {autoMatchActive && candidateById.get(mentee.id) ? (
@@ -983,7 +983,7 @@ const MenteeTable = memo(function MenteeTable({mentees, getUserName, onOpen, aut
 
 interface MenteeProfilePageProps {
     selectedMentee: AdminMentee | undefined;
-    getUserName: (id?: string) => string;
+    getUserName: (id?: string, fallback?: string | null) => string;
     onBack: () => void;
     actionError: string | undefined;
     onDismissActionError: () => void;
@@ -1056,7 +1056,7 @@ const MenteeProfilePage = ({
             <header className={styles.profileHeader}>
                 <div className={styles.profileIdentity}>
                     <div className={styles.profileTitleRow}>
-                        <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee)}</h2>
+                        <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
                         <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
                     </div>
                     <p>Record #{selectedMentee.id} · {formatIfcDisplay(selectedMentee)}</p>
@@ -2222,9 +2222,7 @@ const getMentorDisplayName = (mentee: AdminMentee, getUserName: (id?: string) =>
     return mentorId ? getUserName(mentorId) : "None";
 };
 
-const getUserNameFromMap = (usersById: Map<string, AtcmhUser>, id: string) => {
-    const user = usersById.get(id);
-    return user ? user.username : `User (${id})`;
-};
+const getUserNameFromMap = (usersById: Map<string, AtcmhUser>, id: string) =>
+    formatUserName(id, usersById.get(id)?.username);
 
 export default AdminMentees;

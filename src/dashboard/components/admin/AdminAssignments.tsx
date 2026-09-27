@@ -3,6 +3,7 @@ import type {AdminAssignment, AdminAssignmentGroup, AdminAssignmentPayload} from
 import type {AdminUser} from "../../types/AdminUser.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
+import {formatUserName} from "../../../lib/user-display-name.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
@@ -477,10 +478,8 @@ const AdminAssignments = ({
     );
 };
 
-const getUserName = (usersById: Map<string, AtcmhUser>, id: string) => {
-    const user = usersById.get(id);
-    return user ? user.username : `User (${id})`;
-};
+const getUserName = (usersById: Map<string, AtcmhUser>, id: string) =>
+    formatUserName(id, usersById.get(id)?.username);
 
 const CollapsibleTextarea = ({
                                  id,

@@ -1,4 +1,5 @@
 import type {DashboardAuthSession} from "../../types/Account.ts";
+import {availableUserName} from "@/src/lib/user-display-name";
 
 export type AccountPageState = {kind: "loading"} | {kind: "signed-out"; authMessage?: string; error?: string | null} |
     {kind: "account"; accountId: string; status: string; discord?: string; ifc?: string; expiresAt: string};
@@ -6,7 +7,7 @@ export const accountPageState = (session: DashboardAuthSession | null, loading: 
     if (loading) return {kind: "loading"};
     if (!session) return {kind: "signed-out", authMessage: accountAuthErrorMessage(authError), error};
     const identity = (provider: string) => session.identities.find(item => item.provider.toLowerCase() === provider);
-    const display = (provider: string) => {const item=identity(provider);return item ? item.displayName || item.subject : undefined;};
+    const display = (provider: string) => {const item=identity(provider);return item ? availableUserName(item.displayName) ?? item.subject : undefined;};
     return {kind: "account", accountId: session.accountId, status: session.status ?? "Unavailable", discord: display("discord"), ifc: display("ifc"), expiresAt: session.expiresAt};
 };
 export const accountStatusLabel = (status: string | undefined) => status ? status.toLowerCase().replace(/(^|_)\w/g, match => match.replace("_", " ").toUpperCase()) : "Unavailable";

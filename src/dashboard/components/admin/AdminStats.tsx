@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import type {Session} from "../../types/Session.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
+import {formatUserName} from "../../../lib/user-display-name.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
@@ -78,7 +79,7 @@ const AdminStats = ({
 
                 return {
                     mentorId,
-                    mentorName: mentor ? mentor.username : `User (${mentorId})`,
+                    mentorName: formatUserName(mentorId, mentor?.username),
                     total: mentorSessions.length,
                     cancelled: mentorSessions.filter(s => s.cancelled).length,
                     active: mentorSessions.filter(s => !s.cancelled).length
@@ -92,7 +93,7 @@ const AdminStats = ({
 
                 return {
                     menteeId,
-                    menteeName: mentee ? mentee.username : `User (${menteeId})`,
+                    menteeName: formatUserName(menteeId, mentee?.username),
                     total: menteeSessions.length,
                     cancelled: menteeSessions.filter(s => s.cancelled).length,
                     active: menteeSessions.filter(s => !s.cancelled).length

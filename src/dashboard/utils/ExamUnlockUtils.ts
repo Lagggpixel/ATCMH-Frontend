@@ -1,5 +1,6 @@
 import type {AtcmhUser} from "../types/AtcmhUser.ts";
 import type {ExamQuizUnlock} from "../types/Exam.ts";
+import {matchesUserSearch} from "../../lib/user-display-name.ts";
 
 const DISCORD_ID = /^\d{15,20}$/;
 
@@ -19,7 +20,7 @@ export const filterUnlockCandidates = (users: AtcmhUser[], unlocks: ExamQuizUnlo
     const normalized = query.trim().toLowerCase();
     const unlockedIds = new Set(unlocks.map(unlock => unlock.discordId));
     if (!normalized) return [];
-    return users.filter(user => !unlockedIds.has(user.id) && [user.username, user.id].some(value => value.toLowerCase().includes(normalized))).slice(0, 8);
+    return users.filter(user => !unlockedIds.has(user.id) && matchesUserSearch(user.id, user.username, normalized)).slice(0, 8);
 };
 
 export const applyConfirmedUnlockUpdate = (unlocks: ExamQuizUnlock[], update: ExamQuizUnlock, unlocked: boolean) => unlocked
