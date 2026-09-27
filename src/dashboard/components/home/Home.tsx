@@ -3,6 +3,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {ApiUtils} from "../../utils/ApiUtils";
 import type {AtcmhUser} from "../../types/AtcmhUser";
+import {formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
 import styles from "./Home.module.css";
 
 export default function Home() {
@@ -17,7 +18,7 @@ export default function Home() {
   }, []);
 
   const displayedUsers = useMemo(() => [...(users ?? [])]
-    .filter(user => user.username.toLowerCase().includes(filter.toLowerCase()))
+    .filter(user => matchesUserSearch(user.id, user.username, filter))
     .sort((a, b) => sortBy === "allTime" ? b.allTimeAttendance - a.allTimeAttendance : b.recentAttendance - a.recentAttendance), [filter, sortBy, users]);
   const allTimeAttendance = useMemo(() => (users ?? []).reduce((total, user) => total + user.allTimeAttendance, 0), [users]);
 
@@ -35,12 +36,12 @@ export default function Home() {
         <div className={styles.homePanelHeader}>
           <div><h2>Leaderboard</h2><p>{displayedUsers.length.toLocaleString()} of {users.length.toLocaleString()} users shown</p></div>
           <div className={styles.homeControls}>
-            <div className={styles.homeFilterControl}><label htmlFor="username-filter">Search users</label><input id="username-filter" type="search" placeholder="Name…" value={filter} onChange={event => setFilter(event.target.value)}/></div>
+            <div className={styles.homeFilterControl}><label htmlFor="username-filter">Search users</label><input id="username-filter" type="search" placeholder="Name or Discord ID…" value={filter} onChange={event => setFilter(event.target.value)}/></div>
             <div className={styles.homeSortControls} aria-label="Sort leaderboard"><span>Sort</span><button className={`${styles.homeSortButton} ${sortBy === "allTime" ? styles.homeSortButtonActive : ""}`} onClick={() => setSortBy("allTime")} aria-pressed={sortBy === "allTime"}>All time</button><button className={`${styles.homeSortButton} ${sortBy === "recent" ? styles.homeSortButtonActive : ""}`} onClick={() => setSortBy("recent")} aria-pressed={sortBy === "recent"}>Recent</button></div>
           </div>
         </div>
         <div className={styles.homeUsersTable}><table className={styles.homeUsersDataTable}><thead><tr><th scope="col">Rank</th><th scope="col">Username</th><th scope="col">All Time</th><th scope="col">Recent</th></tr></thead><tbody>
-          {displayedUsers.length ? displayedUsers.map((user, index) => <tr key={user.id}><td data-label="Rank">#{index + 1}</td><td data-label="Username" className={styles.homeUsernameCell}>{user.username}</td><td data-label="All time">{user.allTimeAttendance.toLocaleString()}</td><td data-label="Recent">{user.recentAttendance.toLocaleString()}</td></tr>) : <tr><td className={styles.homeNoResults} colSpan={4}>No users match your filter.</td></tr>}
+          {displayedUsers.length ? displayedUsers.map((user, index) => <tr key={user.id}><td data-label="Rank">#{index + 1}</td><td data-label="Username" className={styles.homeUsernameCell}>{formatUserName(user.id, user.username)}</td><td data-label="All time">{user.allTimeAttendance.toLocaleString()}</td><td data-label="Recent">{user.recentAttendance.toLocaleString()}</td></tr>) : <tr><td className={styles.homeNoResults} colSpan={4}>No users match your filter.</td></tr>}
         </tbody></table></div>
       </section>
     </div>

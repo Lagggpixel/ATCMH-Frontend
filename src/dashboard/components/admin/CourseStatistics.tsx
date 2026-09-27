@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {CourseStatistics as CourseStatisticsData, ManagedCourse} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
+import {availableUserName, formatUserName} from "../../../lib/user-display-name.ts";
 import styles from "./CourseCenter.module.css";
 
 interface CourseStatisticsProps {
@@ -27,7 +28,7 @@ const formatDuration = (seconds: number | null | undefined) => {
 export default function CourseStatistics({course, users, token, onEdit}: CourseStatisticsProps) {
     const [statistics, setStatistics] = useState<CourseStatisticsData | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const userNames = useMemo(() => new Map(users.map(user => [String(user.id), user.username])), [users]);
+    const userNames = useMemo(() => new Map(users.map(user => [String(user.id), availableUserName(user.username)])), [users]);
     const activityStatistics = statistics?.activities ?? [];
 
     useEffect(() => {
@@ -67,7 +68,7 @@ export default function CourseStatistics({course, users, token, onEdit}: CourseS
             <div className={styles.statisticsGrid}>
                 <section className={styles.statisticsPanel} aria-labelledby="course-learners-heading">
                     <div className={styles.panelHeading}><h3 id="course-learners-heading">Learners</h3><span>{statistics.learners.length}</span></div>
-                    {statistics.learners.length === 0 ? <p className={styles.empty}>No learners have opened this course.</p> : <div className={styles.tableWrap}><table><thead><tr><th>Learner</th><th>Status</th><th>Sections</th><th>Viewed</th><th>View time</th><th>Last active</th><th>Completed</th></tr></thead><tbody>{statistics.learners.map(learner => <tr key={learner.userId}><td><strong>{userNames.get(learner.userId) ?? learner.userId}</strong>{userNames.has(learner.userId) ? <small>{learner.userId}</small> : null}</td><td><span className={learner.status === "completed" ? styles.published : styles.draft}>{learner.status === "completed" ? "Completed" : "In progress"}</span></td><td>{learner.completedSectionCount}/{course.sections.length}</td><td>{learner.viewed ? "Yes" : "No"}</td><td>{formatDuration(learner.viewTimeSeconds)}</td><td>{formatDate(learner.lastAccessedAt)}</td><td>{formatDate(learner.completedAt)}</td></tr>)}</tbody></table></div>}
+                    {statistics.learners.length === 0 ? <p className={styles.empty}>No learners have opened this course.</p> : <div className={styles.tableWrap}><table><thead><tr><th>Learner</th><th>Status</th><th>Sections</th><th>Viewed</th><th>View time</th><th>Last active</th><th>Completed</th></tr></thead><tbody>{statistics.learners.map(learner => <tr key={learner.userId}><td><strong>{formatUserName(learner.userId, userNames.get(learner.userId))}</strong>{userNames.get(learner.userId) ? <small>{learner.userId}</small> : null}</td><td><span className={learner.status === "completed" ? styles.published : styles.draft}>{learner.status === "completed" ? "Completed" : "In progress"}</span></td><td>{learner.completedSectionCount}/{course.sections.length}</td><td>{learner.viewed ? "Yes" : "No"}</td><td>{formatDuration(learner.viewTimeSeconds)}</td><td>{formatDate(learner.lastAccessedAt)}</td><td>{formatDate(learner.completedAt)}</td></tr>)}</tbody></table></div>}
                 </section>
                 <section className={styles.statisticsPanel} aria-labelledby="course-sections-heading">
                     <div className={styles.panelHeading}><h3 id="course-sections-heading">Section progress</h3><span>{statistics.sections.length}</span></div>

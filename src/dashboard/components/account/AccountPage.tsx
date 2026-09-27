@@ -3,6 +3,7 @@ import type {DashboardAuthSession} from "../../types/Account.ts";
 import styles from "./AccountPage.module.css";
 import {accountPageState, accountStatusLabel} from "./AccountPageState.ts";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
+import {availableUserName} from "@/src/lib/user-display-name";
 
 interface AccountPageProps {
     session: DashboardAuthSession | null;
@@ -33,7 +34,7 @@ export default function AccountPage({session, loading, error, onLogout}: Account
             <h2>Linked identities</h2>
             <div className={styles.identityGrid}>{["discord", "ifc"].map(provider => {
                 const identity = byProvider.get(provider);
-                return <article className={styles.identity} key={provider}><span>{identityName(provider)}</span>{identity ? <><strong>{identity.displayName || identity.subject}</strong><small>{identity.subject}</small></> : <strong>Not linked</strong>}</article>;
+                return <article className={styles.identity} key={provider}><span>{identityName(provider)}</span>{identity ? <><strong>{availableUserName(identity.displayName) ?? identity.subject}</strong><small>{identity.subject}</small></> : <strong>Not linked</strong>}</article>;
             })}</div>
             <div className={styles.actions}><button type="button" onClick={() => void onLogout(false)}>Log out here</button><button type="button" className={styles.danger} onClick={() => void onLogout(true)}>Log out everywhere</button></div>
         </section>

@@ -1,4 +1,5 @@
 import type {AccountDetail, AccountIdentity, AdminMutationPreview, AdminMutationRequest, AdminOperation, IdentityProvider} from "../types/Account.ts";
+import {availableUserName} from "@/src/lib/user-display-name";
 
 export interface MutationDraft {
     operation: AdminOperation;
@@ -36,14 +37,14 @@ const identitySubject = (identity: AccountIdentity) => identity.providerSubject 
 export const mergeIdentityOptions = (source: AccountDetail, target: AccountDetail | null, provider: IdentityProvider): MergeIdentityOption[] => {
     const identities = [source, target].filter((account): account is AccountDetail => account != null)
         .flatMap(account => account.identities.filter(identity => identity.active !== false && String(identity.provider).toLowerCase() === provider)
-            .map(identity => ({value: identitySubject(identity), label: `${identity.displayName || identitySubject(identity)} — account ${account.id}`, accountId: account.id})));
+            .map(identity => ({value: identitySubject(identity), label: `${availableUserName(identity.displayName) ?? identitySubject(identity)} — account ${account.id}`, accountId: account.id})));
     return identities.length ? identities : [{value: "NONE", label: `No active ${provider.toUpperCase()} identity`}];
 };
 
 export const archivedMergeIdentityOptions = (source: AccountDetail, target: AccountDetail | null, provider: IdentityProvider): MergeIdentityOption[] =>
     [source, target].filter((account): account is AccountDetail => account != null)
         .flatMap(account => account.identities.filter(identity => identity.active === false && String(identity.provider).toLowerCase() === provider)
-            .map(identity => ({value: identitySubject(identity), label: `${identity.displayName || identitySubject(identity)} — archived — account ${account.id}`, accountId: account.id})));
+            .map(identity => ({value: identitySubject(identity), label: `${availableUserName(identity.displayName) ?? identitySubject(identity)} — archived — account ${account.id}`, accountId: account.id})));
 
 export const buildMutationRequest = (draft: MutationDraft): AdminMutationRequest => {
     const parameters: Record<string, string> = {};

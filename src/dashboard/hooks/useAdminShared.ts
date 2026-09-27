@@ -1,5 +1,6 @@
 import {useEffect, useState} from "react";
 import type {AtcmhUser} from "../types/AtcmhUser";
+import {formatUserName} from "../../lib/user-display-name.ts";
 
 // -----------------------------------------------------------------------------
 // useUserLookup
@@ -14,15 +15,10 @@ export interface UserLookup {
 export function useUserLookup(users: AtcmhUser[] | undefined): UserLookup {
     const usersById = new Map(users?.map(user => [user.id, user]) ?? []);
 
-    const getUserName = (id: string) => {
-        const user = usersById.get(id);
-        return user ? user.username : `User (${id})`;
-    };
+    const getUserName = (id: string) => formatUserName(id, usersById.get(id)?.username);
 
-    const getUserNameOrFallback = (id?: string | null, fallback?: string | null) => {
-        if (id == null) return fallback || "System";
-        return usersById.get(id)?.username ?? fallback ?? `User (${id})`;
-    };
+    const getUserNameOrFallback = (id?: string | null, fallback?: string | null) =>
+        formatUserName(id, id == null ? undefined : usersById.get(id)?.username, fallback);
 
     return {usersById, getUserName, getUserNameOrFallback};
 }

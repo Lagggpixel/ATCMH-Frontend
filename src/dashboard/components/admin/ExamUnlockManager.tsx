@@ -4,6 +4,7 @@ import type {ExamQuizSummary, ExamQuizUnlock, ExamQuizUnlockUpdate} from "../../
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {groupExamQuizzes} from "../../utils/ExamCatalogUtils.ts";
 import {filterUnlockCandidates, isAlreadyUnlocked, isCurrentUnlockListRequest, isDiscordId} from "../../utils/ExamUnlockUtils.ts";
+import {availableUserName, formatUserName} from "../../../lib/user-display-name.ts";
 import styles from "./ExamUnlockManager.module.css";
 
 interface ExamUnlockManagerProps {
@@ -28,6 +29,7 @@ const ExamUnlockManager = ({quizzes, users, token}: ExamUnlockManagerProps) => {
     const [pendingDiscordId, setPendingDiscordId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const candidates = useMemo(() => filterUnlockCandidates(users, unlocks, query), [query, unlocks, users]);
+    const usersById = useMemo(() => new Map(users.map(user => [user.id, user])), [users]);
 
     useEffect(() => {
         setUnlocks([]);
@@ -91,6 +93,7 @@ const ExamUnlockManager = ({quizzes, users, token}: ExamUnlockManagerProps) => {
     </section>;
 
     const targetDiscordId = selectedUser?.id ?? manualDiscordId.trim();
+    const selectedUserName = availableUserName(selectedUser?.username);
     const targetAlreadyUnlocked = isAlreadyUnlocked(unlocks, targetDiscordId);
     const canUnlock = (Boolean(selectedUser) || isDiscordId(manualDiscordId)) && !targetAlreadyUnlocked;
     const selectQuiz = (quizId: string) => {
@@ -114,20 +117,23 @@ const ExamUnlockManager = ({quizzes, users, token}: ExamUnlockManagerProps) => {
             <section className={styles.memberSection} aria-labelledby="add-learner-heading">
                 <h3 id="add-learner-heading">Unlock a learner</h3>
                 <label>Search Dashboard members<input value={query} onChange={event => { setQuery(event.target.value); setSelectedUser(null); }} placeholder="Username or Discord ID"/></label>
-                {candidates.length > 0 && !selectedUser ? <div className={styles.results} aria-label="Matching members">{candidates.map(user => <button type="button" key={user.id} onClick={() => { setSelectedUser(user); setQuery(user.username); setManualDiscordId(""); }}><strong>{user.username}</strong><span>{user.id}</span></button>)}</div> : null}
-                {selectedUser ? <p className={styles.selection}>Selected: <strong>{selectedUser.username}</strong> <span>{selectedUser.id}</span></p> : <>
+                {candidates.length > 0 && !selectedUser ? <div className={styles.results} aria-label="Matching members">{candidates.map(user => <button type="button" key={user.id} onClick={() => { setSelectedUser(user); setQuery(formatUserName(user.id, user.username)); setManualDiscordId(""); }}><strong>{formatUserName(user.id, user.username)}</strong><span>{user.id}</span></button>)}</div> : null}
+                {selectedUser ? <p className={styles.selection}>Selected: <strong>{formatUserName(selectedUser.id, selectedUser.username)}</strong> <span>{selectedUser.id}</span></p> : <>
                     <div className={styles.divider}><span>or use a Discord ID</span></div>
                     <label>Manual Discord ID<input inputMode="numeric" value={manualDiscordId} onChange={event => setManualDiscordId(event.target.value)} aria-describedby="discord-id-help"/></label>
                     <p className={styles.help} id="discord-id-help">Enter the learner’s 15–20 digit Discord ID. A username will not be inferred.</p>
                     {targetAlreadyUnlocked ? <p className={styles.help} role="status">This learner is already unlocked for this quiz.</p> : null}
                 </>}
-                <button className={styles.unlockButton} type="button" disabled={!canUnlock || isLoading || Boolean(pendingDiscordId)} onClick={() => void updateUnlock({discordId: targetDiscordId, ...(selectedUser ? {userName: selectedUser.username} : {}), unlocked: true})}>{pendingDiscordId === targetDiscordId ? "Unlocking…" : "Unlock learner"}</button>
+                <button className={styles.unlockButton} type="button" disabled={!canUnlock || isLoading || Boolean(pendingDiscordId)} onClick={() => void updateUnlock({discordId: targetDiscordId, ...(selectedUserName ? {userName: selectedUserName} : {}), unlocked: true})}>{pendingDiscordId === targetDiscordId ? "Unlocking…" : "Unlock learner"}</button>
             </section>
             <section className={styles.listSection} aria-labelledby="current-unlocks-heading">
                 <h3 id="current-unlocks-heading">Current unlocks</h3>
                 {isLoading ? <p aria-live="polite">Loading quiz unlocks…</p> : null}
                 {!isLoading && !error && unlocks.length === 0 ? <p>No learners are currently unlocked for this quiz.</p> : null}
-                {!isLoading && unlocks.length > 0 ? <ul>{unlocks.map(unlock => <li key={unlock.discordId}><div><strong>{unlock.userName ?? "Discord user"}</strong><span>{unlock.discordId}</span></div><button type="button" className={styles.lockButton} disabled={Boolean(pendingDiscordId)} onClick={() => void updateUnlock({discordId: unlock.discordId, ...(unlock.userName ? {userName: unlock.userName} : {}), unlocked: false})}>{pendingDiscordId === unlock.discordId ? "Locking…" : "Lock"}</button></li>)}</ul> : null}
+                {!isLoading && unlocks.length > 0 ? <ul>{unlocks.map(unlock => {
+                    const name = availableUserName(usersById.get(unlock.discordId)?.username) ?? availableUserName(unlock.userName);
+                    return <li key={unlock.discordId}><div><strong>{formatUserName(unlock.discordId, name)}</strong><span>{unlock.discordId}</span></div><button type="button" className={styles.lockButton} disabled={Boolean(pendingDiscordId)} onClick={() => void updateUnlock({discordId: unlock.discordId, ...(name ? {userName: name} : {}), unlocked: false})}>{pendingDiscordId === unlock.discordId ? "Locking…" : "Lock"}</button></li>;
+                })}</ul> : null}
             </section>
         </div>}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
