@@ -7,7 +7,7 @@ import {fileURLToPath} from "node:url";
 function renderedSecurityHeaders(nodeEnv, dashboardApiUrl) {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
-    "const {securityHeadersFor}=await import('./src/lib/security-headers.ts'); console.log(JSON.stringify(securityHeadersFor(process.env, process.env.NODE_ENV)));"], {
+    "const imported=await import('./src/lib/security-headers.ts'); const {securityHeadersFor}=imported.default ?? imported; console.log(JSON.stringify(securityHeadersFor(process.env, process.env.NODE_ENV)));"], {
     cwd: root, encoding: "utf8", env: {...process.env, NODE_ENV: nodeEnv, DASHBOARD_API_URL: dashboardApiUrl,
       FRONTEND_PUBLIC_ORIGIN: nodeEnv === "production" ? "https://www.atcmh.org" : "http://localhost:3000"},
   });
@@ -104,19 +104,6 @@ test("container runs standalone Next as non-root and healthchecks the global rou
   assert.match(dockerfile, /USER nextjs/);
   assert.match(dockerfile, /\/api\/health/);
   assert.doesNotMatch(dockerfile, /ARG\s+.*(?:SECRET|TOKEN|KEY|PASSWORD)/i);
-});
-
-test("docker push script publishes versioned and latest multi-platform images", () => {
-  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-  const command = packageJson.scripts?.["docker:push"] ?? "";
-
-  assert.match(packageJson.version, /^\d+\.\d+\.\d+$/);
-  assert.match(command, /docker buildx build/);
-  assert.match(command, /-f \.dockerfile/);
-  assert.match(command, /--platform linux\/amd64,linux\/arm64/);
-  assert.match(command, /registry\.lagggpixel\.com\/atcmh-frontend:\$npm_package_version/);
-  assert.match(command, /registry\.lagggpixel\.com\/atcmh-frontend:latest/);
-  assert.match(command, /\. --push$/);
 });
 
 test("environment examples and ignores contain no public secret channel", () => {

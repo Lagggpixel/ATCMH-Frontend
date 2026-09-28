@@ -6,8 +6,8 @@ if (process.env.SESSION_ROUTE_CASE !== "1") {
 } else {
   test("session endpoint exposes CSRF metadata only to the unified origin and never the opaque cookie", async () => {
     process.env.FRONTEND_PUBLIC_ORIGIN = "https://www.atcmh.org";
-    mock.module("next/headers", { exports: { cookies: async () => ({ get: () => ({ value: "opaque-central-token" }) }) } });
-    mock.module("@/src/lib/central-auth", { exports: {
+    mock.module("next/headers", { namedExports: { cookies: async () => ({ get: () => ({ value: "opaque-central-token" }) }) } });
+    mock.module("@/src/lib/central-auth", { namedExports: {
       examsSessionCookie: "atcmh_exams_session",
       sessionTokenFromCookieStore: (store: {get(name: string): {value: string} | undefined}) => store.get("__Host-atcmh_session")?.value,
       introspectCentralSession: async () => ({ accountId: "42", discordId: "123456789012345678", expiresAt: "2099-01-01T00:00:00Z", impersonating: true, realActorAccountId: "7", realActorDiscordId: "999999999999999999" }),

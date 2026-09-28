@@ -10,9 +10,10 @@ interface CourseSectionCompletionButtonProps {
   sectionId: string;
   disabled: boolean;
   disabledReason?: string;
+  nextHref?: string;
 }
 
-export default function CourseSectionCompletionButton({ courseId, sectionId, disabled, disabledReason }: CourseSectionCompletionButtonProps) {
+export default function CourseSectionCompletionButton({ courseId, sectionId, disabled, disabledReason, nextHref }: CourseSectionCompletionButtonProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,8 @@ export default function CourseSectionCompletionButton({ courseId, sectionId, dis
       });
       const body = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(body.error || "We could not save your course progress.");
-      router.refresh();
+      if (nextHref) router.push(nextHref);
+      else router.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -44,7 +46,7 @@ export default function CourseSectionCompletionButton({ courseId, sectionId, dis
     {disabledReason ? <p className={styles.completionHint}>{disabledReason}</p> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     <button type="button" className={styles.completeButton} disabled={disabled || pending} onClick={() => void complete()}>
-      {pending ? "Saving…" : "Mark section complete"}
+      {pending ? "Saving…" : nextHref ? "Complete and continue" : "Complete subsection"}
     </button>
   </div>;
 }

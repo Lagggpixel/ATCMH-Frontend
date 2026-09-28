@@ -111,6 +111,121 @@
   .activityAction { width: 100%; }
 }
 
+/* Layered course workspace: site shell, warm desk, outline, and reading paper. */
+.readerShell { min-height: 100vh; background: #f4f0e9; color: #101d36; }
+.readerHero { min-height: 190px; background: #e9dfcf url('/assets/course-airport-hero.png') center 54% / cover no-repeat; border-bottom: 1px solid #d9d3c9; }
+.heroInner { width: min(100% - 64px, 1400px); margin: auto; padding: 20px 0 28px; }
+.heroInner .backLink { display: inline-block; margin-bottom: 12px; color: #25446f; font-weight: 750; }
+.heroEyebrow { margin: 0 0 5px; color: #6d5137; font-size: .75rem; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
+.heroInner h1 { max-width: 780px; margin: 0; color: #0b172e; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(2.4rem, 4.4vw, 4.5rem); line-height: 1.05; letter-spacing: -.035em; }
+.heroInner p:last-child { max-width: 720px; margin: 8px 0 0; color: #4a483f; font-size: clamp(1rem, 1.4vw, 1.2rem); line-height: 1.5; }
+.readerToolbar { background: #fbf9f4; border-bottom: 1px solid #ded8ce; box-shadow: 0 3px 12px #3329140c; }
+.toolbarInner { width: min(100% - 64px, 1400px); min-height: 77px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+.toolbarSection { display: grid; gap: 3px; }
+.toolbarSection > span { color: #526d93; font-size: .78rem; font-weight: 750; }
+.toolbarSection strong { color: #122348; font-size: 1.12rem; }
+.toolbarProgress { display: flex; align-items: center; gap: 16px; min-width: min(100%, 390px); color: #577199; font-size: .82rem; }
+.toolbarProgress .progressTrack { flex: 1; height: 8px; margin: 0; background: #dbe2e9; }
+.toolbarProgress .progressTrack span { background: #1167e8; }
+.toolbarProgress strong { color: #5273a0; white-space: nowrap; }
+.toolbarProgress small { font-size: .78rem; font-weight: 500; }
+.readerWorkspace { display: grid; grid-template-columns: minmax(250px, 292px) minmax(0, 1fr); gap: 20px; width: min(100% - 64px, 1400px); margin: auto; align-items: start; }
+.desktopOutline { position: sticky; top: 0; height: min(100vh, 850px); min-height: 400px; display: flex; flex-direction: column; border-right: 1px solid #dcd7cd; background: #f7f5ef; }
+.outlineHeading { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 23px 18px 18px 0; color: #102342; font-size: .92rem; font-weight: 800; }
+.outlineHeading small { display: block; color: #73849a; font-size: .73rem; font-weight: 500; }
+.outlineNav { min-height: 0; overflow-y: auto; padding: 0 16px 28px 0; scrollbar-color: #b3bfd0 transparent; }
+.outlineGroup { border-bottom: 1px solid #d9dfe4; padding: 11px 0; }
+.outlineGroup summary { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; padding: 4px 5px; color: #132744; cursor: pointer; list-style: none; }
+.outlineGroup summary::-webkit-details-marker { display: none; }
+.outlineGroupNumber { grid-column: 1 / -1; color: #5374a0; font-size: .74rem; }
+.outlineGroup summary strong { font-size: .91rem; }
+.outlineGroupCount { color: #6d819b; font-size: .73rem; }
+.outlineGroup ol { display: grid; gap: 2px; margin: 9px 0 0; padding: 0; list-style: none; }
+.outlineGroup a, .outlineLocked { display: grid; grid-template-columns: 14px 1fr; gap: 9px; align-items: start; padding: 8px 9px; border-radius: 6px; color: #183253; font-size: .82rem; line-height: 1.3; text-decoration: none; }
+.outlineGroup a:hover, .outlineCurrent { background: #dcecff; color: #075fdd !important; }
+.outlineLocked { color: #99a4b1; }
+.outlineMark { display: inline-block; width: 13px; height: 13px; margin-top: 1px; border: 1.7px solid #6684ad; border-radius: 50%; }
+.outlineDone { border-color: #1770df; background: #1770df; box-shadow: inset 0 0 0 3px #fff; }
+.sectionSwitcher { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.readerMain { min-width: 0; padding: 18px 0 70px; }
+.readerContext { display: none; }
+.readerMain .section { min-height: 540px; border: 1px solid #e4ddd2; border-radius: 12px; background: #fffefd; box-shadow: 0 14px 34px #392b1a14; }
+.readerMain .sectionHeader { border-bottom: 0; padding: 29px 32px 0; }
+.readerMain .sectionHeader h2 { color: #101f42; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(2rem, 3vw, 3.2rem); line-height: 1.1; letter-spacing: -.03em; }
+.readerMain .sectionNumber { margin-bottom: 11px; color: #0869ef; font-size: .74rem; letter-spacing: .14em; }
+.readerMain .sectionBody { padding: 16px 32px 32px; }
+.readerShell .markdown { color: #203961; font-size: 1.05rem; line-height: 1.75; }
+.readerShell .markdown h2, .readerShell .markdown h3, .readerShell .markdown h4 { color: #102347; font-family: Georgia, 'Times New Roman', serif; }
+.readerShell .markdown strong { color: #112a52; }
+.readerShell .markdown code { background: #edf2f8; color: #0c56a7; }
+.readerShell .markdown a { color: #0868df; }
+.readerShell .media img, .readerShell .media video { border-color: #d8dfeb; background: #e9eff6; }
+.readerShell .media figcaption { color: #657e9e; }
+.readerShell .callout { border-left-color: #0872ee; border-radius: 8px; background: #e8f2fd; color: #17396a; padding: 18px 22px; }
+.readerShell .callout h3 { color: #123368; }
+.readerShell .calloutLabel { color: #006cea; }
+.readerShell .calloutWarning, .readerShell .calloutMistake { border-left-color: #d58a1e; background: #fff3dd; }
+.readerShell .calloutMandatory { border-left-color: #c85652; background: #fff0ec; }
+.readerShell .calloutRecommended, .readerShell .calloutExample { border-left-color: #26a66b; background: #ebf8f0; }
+.readerShell .quizCard, .readerShell .activityCard { border-color: #d2dfef; background: #f1f7fe; }
+.readerShell .quizCard h3, .readerShell .activityCard h3 { color: #132b54; }
+.readerShell .quizCard p:not(.quizEyebrow), .readerShell .activityPrompt { color: #3c557a; }
+.readerShell .quizEyebrow, .readerShell .activityEyebrow { color: #0869ef; }
+.readerShell .completion { border-top-color: #d9e0e9; }
+.readerShell .completeButton { background: #0869ee; color: #fff; }
+.readerShell .status { color: #176f44; background: #e5f5eb; }
+.readerShell .lockedCopy { color: #556b88; }
+.returnLink { color: #075fd2; font-weight: 800; }
+.pageNavigation { display: flex; justify-content: space-between; gap: 15px; border-top: 1px solid #dce3eb; margin-top: 24px; padding-top: 20px; }
+.pageNavigation a { display: grid; gap: 3px; min-width: 120px; border: 1px solid #b5c9e5; border-radius: 8px; padding: 11px 17px; color: #124786; font-size: .75rem; text-decoration: none; }
+.pageNavigation a span { font-size: .93rem; font-weight: 800; }
+.pageNavigation .nextLink { background: #0869ee; border-color: #0869ee; color: #fff; text-align: right; }
+.nextLocked { align-self: center; color: #71839d; font-size: .8rem; }
+.mobileOutlineButton, .outlineDialog { display: none; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* The catalog uses the same warm desk and generous card rhythm. */
+.courseCatalogue { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }
+.courseCatalogue .courseCard { min-height: 185px; align-items: stretch; border-color: #dedbd3; border-radius: 12px; background: #fffefd; box-shadow: 0 9px 24px #201e1610; }
+.courseCatalogue .courseCard h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.65rem; }
+.courseCatalogue .courseCard p { line-height: 1.65; }
+
+@media (max-width: 900px) {
+  .readerWorkspace { grid-template-columns: 245px minmax(0,1fr); width: min(100% - 36px, 1400px); gap: 16px; }
+  .heroInner, .toolbarInner { width: min(100% - 36px, 1400px); }
+  .courseCatalogue { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .readerHero { min-height: 215px; background-image: linear-gradient(90deg, rgba(249, 243, 231, .94), rgba(249, 243, 231, .72) 65%, rgba(249, 243, 231, .16)), url('/assets/course-airport-hero.png'); background-position: center, 62% center; }
+  .heroInner { padding: 16px 0 27px; }
+  .heroInner h1 { max-width: 72%; font-size: clamp(2.25rem, 8vw, 3.4rem); }
+  .heroInner p:last-child { max-width: 74%; font-size: .95rem; }
+  .toolbarInner { min-height: 66px; }
+  .toolbarSection { display: none; }
+  .toolbarProgress { width: 100%; min-width: 0; }
+  .readerWorkspace { display: flex; flex-direction: column; gap: 0; width: min(100% - 28px, 650px); padding-top: 18px; }
+  .desktopOutline, .sectionSwitcher { display: none; }
+  .mobileOutlineButton { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 62px; border: 1px solid #d7d6d1; border-radius: 11px; background: #fffefd; padding: 14px 20px; color: #102348; cursor: pointer; font: inherit; font-weight: 800; box-shadow: 0 5px 16px #241c1110; }
+  .mobileOutlineButton span { color: #58759c; font-size: .75rem; font-weight: 600; }
+  .readerMain { width: 100%; padding: 18px 0 90px; }
+  .readerContext { display: block; padding: 0 10px 16px; }
+  .readerContext span { color: #5d76a1; font-size: .84rem; }
+  .readerContext h2 { margin: 3px 0 0; color: #102348; font-size: 1.5rem; }
+  .readerMain .sectionHeader { padding: 25px 22px 0; }
+  .readerMain .sectionHeader h2 { font-size: 2.25rem; }
+  .readerMain .sectionBody { padding: 12px 22px 26px; }
+  .readerShell .markdown { font-size: 1.02rem; }
+  .pageNavigation { flex-direction: column; }
+  .pageNavigation a { text-align: center; }
+  .pageNavigation .nextLink { text-align: center; }
+  .outlineDialog[open] { display: block; width: 100vw; max-width: none; height: 100vh; max-height: none; margin: 0; border: 0; padding: 0; background: transparent; }
+  .outlineDialog::backdrop { background: #07152c99; }
+  .outlineDialogPanel { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(100vw, 390px); background: #fbf9f4; box-shadow: -15px 0 45px #08192e48; }
+  .outlineDialog .outlineHeading { padding: 22px 18px; border-bottom: 1px solid #dbe0e5; }
+  .outlineDialog .outlineHeading button { border: 1px solid #b9c8da; border-radius: 7px; background: #fff; padding: 8px 11px; color: #153763; font: inherit; cursor: pointer; }
+  .outlineDialog .outlineNav { flex: 1; padding: 10px 18px 40px; }
+}
+
 .calloutCommand { border-color: #60a5fa; background: #142941; }
 .calloutDecision, .calloutRule { border-color: #fbbf24; background: #302919; }
 .calloutScenario { border-color: #a78bfa; background: #26213b; }
@@ -131,3 +246,31 @@
 
 .markdown .lessonHeading { margin-top: 48px; border-top: 1px solid #475569; padding-top: 26px; font-size: 1.5rem; scroll-margin-top: 24px; }
 @media (max-width: 550px) { .knowledgeCheck { padding: 16px; } }
+.catalogShell { min-height: 100vh; background: #f4f0e9; color: #12264a; }
+.catalogShell .coursePage { width: min(100% - 48px, 1240px); padding: 56px 0 80px; }
+.catalogShell .courseHeader { max-width: 780px; margin-bottom: 34px; }
+.catalogShell .backLink { color: #245888; font-weight: 750; }
+.catalogShell .eyebrow { color: #0b68db; }
+.catalogShell .courseHeader h1 { color: #112443; font: 700 clamp(2.6rem, 5vw, 4.5rem)/1.05 Georgia, 'Times New Roman', serif; }
+.catalogShell .courseDescription { color: #4f6380; }
+.catalogShell .courseCard { display: flex; flex-direction: column; align-items: start; justify-content: space-between; min-height: 210px; padding: 30px; }
+.catalogShell .courseCard h2 { color: #12264a; }
+.catalogShell .courseCard p { color: #526582; }
+.catalogShell .courseCardMeta { color: #1768c4; font-weight: 750; }
+.catalogShell .privateGate { border-color: #dedbd3; background: #fffefd; }
+.catalogShell .privateGate h1 { color: #12264a; }
+.catalogShell .privateGate p { color: #526582; }
+.readerShell .knowledgeCheck { background: #f1f6fc; border-color: #a7bfdc; color: #18355d; }
+.readerShell .knowledgeCheck label { border-color: #bfcee0; }
+.readerShell .knowledgeCheck label:has(input:checked) { background: #e1effe; border-color: #0b70e8; }
+.readerShell .checkFeedback { background: #e3f0fd; }
+.readerShell .markdown .checkNote { color: #58729a; }
+.readerShell .tableScroll th, .readerShell .tableScroll td { border-color: #c6d4e5; }
+.readerShell .tableScroll th { background: #e7f0fb; color: #183b68; }
+.readerShell .markdown .lessonHeading { border-color: #d8e2ed; }
+.readerShell .calloutCommand { background: #e7f0fd; }
+.readerShell .calloutDecision, .readerShell .calloutRule { background: #fff4dc; }
+.readerShell .calloutScenario { background: #f3effd; }
+.readerShell .calloutSuccess { background: #e7f8ec; }
+@media (max-width: 700px) { .catalogShell .coursePage { width: min(100% - 28px, 650px); padding: 34px 0 58px; } .catalogShell .courseCard { min-height: 185px; padding: 23px; } }
+.readerShell, .catalogShell { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }

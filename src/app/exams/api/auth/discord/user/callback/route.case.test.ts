@@ -7,9 +7,10 @@ if (process.env.ROUTE_CASE_RUN !== "1") {
   let exchanges = 0;
   let GET: (request: Request) => Promise<Response>;
   test.before(async () => {
-    mock.module("@/src/lib/central-auth", { exports: {
+    mock.module("@/src/lib/central-auth", { namedExports: {
       examsSessionCookie: "atcmh_exams_session",
       sessionCookie: "__Host-atcmh_session",
+      legacyDashboardSessionCookie: "atcmh_dashboard_session",
       loopbackSessionCookie: "atcmh_session",
       sessionMaxAge: 7 * 24 * 60 * 60,
       exchangeCentralHandoff: async () => { exchanges += 1; return { token: "o".repeat(43), expiresAt: new Date(Date.now() + 40 * 24 * 60 * 60 * 1000).toISOString() }; },

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent} from "react";
 import type {ExamQuizSummary} from "../../types/Exam.ts";
-import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftSection} from "../../types/Course.ts";
+import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftSection, ManagedCourseDraftGroup} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
@@ -17,6 +17,7 @@ import {
 import {createGroundControlDocument} from "../../../lib/ground-control-course";
 import {stableExamValue} from "./ExamUnsavedChanges.ts";
 import {useExamUnsavedChanges} from "./useExamUnsavedChanges.ts";
+import {orderedCourseDraft} from "./course-editor-order";
 import styles from "./CourseCenter.module.css";
 
 interface CourseEditorProps {
@@ -32,22 +33,31 @@ interface CourseEditorProps {
 }
 
 const newDocument = (): CourseDocumentV1 => ({version: 1, blocks: [{...createCourseBlock("text"), markdown: "# Section title\n\nWrite the learning material here."}]});
-const newSection = (sortOrder: number): ManagedCourseDraftSection => {
+const newSection = (sortOrder: number, groupId: string): ManagedCourseDraftSection => {
     const document = newDocument();
-    return {title: "", markdown: courseDocumentToMarkdown(document), document, sortOrder};
+    return {id: crypto.randomUUID(), groupId, title: "", markdown: courseDocumentToMarkdown(document), document, sortOrder};
 };
-const newCourse = (): ManagedCourseDraft => ({slug: "", title: "", description: "", isPublished: false, sections: [newSection(1)]});
-const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => course ? {
-    id: course.id,
-    slug: course.slug,
-    title: course.title,
-    description: course.description,
-    isPublished: course.isPublished,
-    sections: course.sections.map(section => {
-        const document = section.document ?? courseDocumentFromMarkdown(section.markdown);
-        return {...section, document, markdown: courseDocumentToMarkdown(document)};
-    }),
-} : newCourse();
+const newCourse = (): ManagedCourseDraft => {
+    const id = crypto.randomUUID();
+    return {slug: "", title: "", description: "", isPublished: false, navigationMode: "sequential", sectionGroups: [{id, title: "Section 1", sortOrder: 1}], sections: [newSection(1, id)]};
+};
+const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => {
+    if (!course) return newCourse();
+    const groups = course.sectionGroups?.length ? course.sectionGroups : [{id: crypto.randomUUID(), title: course.title, sortOrder: 1}];
+    return {
+        id: course.id,
+        slug: course.slug,
+        title: course.title,
+        description: course.description,
+        isPublished: course.isPublished,
+        navigationMode: course.navigationMode ?? "sequential",
+        sectionGroups: groups,
+        sections: course.sections.map(section => {
+            const document = section.document ?? courseDocumentFromMarkdown(section.markdown);
+            return {...section, groupId: section.groupId ?? groups[0].id, document, markdown: courseDocumentToMarkdown(document)};
+        }),
+    };
+};
 
 function documentFor(section: ManagedCourseDraftSection): CourseDocumentV1 {
     return section.document ?? courseDocumentFromMarkdown(section.markdown);
@@ -101,6 +111,7 @@ function updateSectionDocument(draft: ManagedCourseDraft, sectionIndex: number, 
 export default function CourseEditor({course, quizzes, activities = [], token, canPublish, onCancel, onPreview, onDelete, onSaved}: CourseEditorProps) {
     const [initialDraft] = useState<ManagedCourseDraft>(() => asDraft(course));
     const [draft, setDraft] = useState<ManagedCourseDraft>(initialDraft);
+    const [activeSectionId, setActiveSectionId] = useState(initialDraft.sections[0].id);
     const [baseline, setBaseline] = useState<ManagedCourseDraft>(initialDraft);
     const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
     const [pendingPreviews, setPendingPreviews] = useState<Record<string, string>>({});
@@ -125,6 +136,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         previewUrls.current = {};
         const next = asDraft(course);
         setDraft(next);
+        setActiveSectionId(next.sections[0]?.id);
         setBaseline(next);
         setPendingFiles({});
         setPendingPreviews({});
@@ -374,22 +386,87 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         }
     };
 
+    const addGroup = () => {
+        const group: ManagedCourseDraftGroup = {id: crypto.randomUUID(), title: `Section ${draft.sectionGroups.length + 1}`, sortOrder: draft.sectionGroups.length + 1};
+        const section = newSection(draft.sections.length + 1, group.id!);
+        setDraft(current => orderedCourseDraft(current, [...current.sectionGroups, group], [...current.sections, section]));
+        setActiveSectionId(section.id);
+    };
+
+    const addSubsection = (groupId: string) => {
+        const section = newSection(draft.sections.length + 1, groupId);
+        setDraft(current => orderedCourseDraft(current, current.sectionGroups, [...current.sections, section]));
+        setActiveSectionId(section.id);
+    };
+
+    const moveGroup = (index: number, direction: -1 | 1) => {
+        const target = index + direction;
+        if (target < 0 || target >= draft.sectionGroups.length) return;
+        setDraft(current => {
+            const groups = [...current.sectionGroups];
+            [groups[index], groups[target]] = [groups[target], groups[index]];
+            return orderedCourseDraft(current, groups);
+        });
+    };
+
+    const moveSubsection = (index: number, direction: -1 | 1) => {
+        const target = index + direction;
+        if (target < 0 || target >= draft.sections.length || draft.sections[index].groupId !== draft.sections[target].groupId) return;
+        setDraft(current => {
+            const sections = [...current.sections];
+            [sections[index], sections[target]] = [sections[target], sections[index]];
+            return orderedCourseDraft(current, current.sectionGroups, sections);
+        });
+    };
+
+    const removeSubsection = (index: number) => {
+        if (draft.sections.length < 2 || !window.confirm(`Remove “${draft.sections[index].title || "Untitled subsection"}” and its content from this course?`)) return;
+        const next = draft.sections.filter((_, itemIndex) => itemIndex !== index);
+        setDraft(current => orderedCourseDraft(current, current.sectionGroups, next));
+        if (activeSectionId === draft.sections[index].id) setActiveSectionId(next[Math.min(index, next.length - 1)].id);
+    };
+
+    const removeGroup = (groupId: string) => {
+        if (draft.sectionGroups.length < 2) return;
+        const group = draft.sectionGroups.find(item => item.id === groupId);
+        if (!window.confirm(`Remove “${group?.title}” and every subsection inside it from this course?`)) return;
+        const nextGroups = draft.sectionGroups.filter(item => item.id !== groupId);
+        const remaining = draft.sections.filter(item => item.groupId !== groupId);
+        const nextSections = remaining.length ? remaining : [newSection(1, nextGroups[0].id!)];
+        setDraft(current => orderedCourseDraft(current, nextGroups, nextSections));
+        if (!nextSections.some(item => item.id === activeSectionId)) setActiveSectionId(nextSections[0]?.id);
+    };
+
     return <section className={styles.editor} aria-labelledby="course-editor-heading">
         <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Back to courses</button></div></div>
-        <p className={styles.description}>Compose each section as a responsive page. Add media from your computer, drop it between any blocks, or paste it at the text caret. MOV uploads are converted to browser-friendly MP4 and HEIC/HEIF uploads to JPEG on the server. Use the up/down buttons for keyboard-accessible block movement.</p>
+        <p className={styles.description}>Organize the course into sections and subsections. Select one subsection to edit its learning material and checkpoints. MOV uploads are converted to MP4 and HEIC/HEIF uploads to JPEG.</p>
         <form onSubmit={event => void save(event)}>
             <fieldset disabled={isSaving}>
                 <div className={styles.fieldGrid}><label>Title<input required maxLength={255} value={draft.title} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label><label>Slug<input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={200} value={draft.slug} onChange={event => setDraft(current => ({...current, slug: event.target.value}))}/></label></div>
                 <label>Description<textarea rows={3} maxLength={2000} value={draft.description} onChange={event => setDraft(current => ({...current, description: event.target.value}))}/></label>
                 <label className={styles.check}><input type="checkbox" checked={draft.isPublished} disabled={!canPublish} onChange={event => setDraft(current => ({...current, isPublished: event.target.checked}))}/> Make available to signed-in learners {canPublish ? "" : "(administrator publishing permission required)"}</label>
+                <label>Navigation mode<select value={draft.navigationMode} onChange={event => setDraft(current => ({...current, navigationMode: event.target.value as ManagedCourseDraft["navigationMode"]}))}><option value="sequential">Sequential · one subsection at a time</option><option value="section_by_section">Section by section · any subsection in the current section</option><option value="free">Free · any subsection in any order</option></select></label>
                 <p className={styles.composerHint}>Choose what to insert from any “Insert here” or “Add at end” button. Insertion bars also accept file drops.</p>
-                <div className={styles.sectionsHeading}><h3>Sections</h3><button type="button" onClick={() => setDraft(current => ({...current, sections: [...current.sections, newSection(current.sections.length + 1)]}))}>Add section</button></div>
+                <div className={styles.sectionsHeading}><h3>Course structure</h3><button type="button" onClick={addGroup}>Add section</button></div>
+                <div className={styles.editorWorkspace}>
+                    <aside className={styles.editorOutline} aria-label="Course structure">
+                        {draft.sectionGroups.map((group, groupIndex) => <div className={styles.editorGroup} key={group.id}>
+                            <div className={styles.editorGroupHeading}><span>Section {groupIndex + 1}</span><div><button type="button" aria-label={`Move ${group.title} section up`} disabled={groupIndex === 0} onClick={() => moveGroup(groupIndex, -1)}>↑</button><button type="button" aria-label={`Move ${group.title} section down`} disabled={groupIndex === draft.sectionGroups.length - 1} onClick={() => moveGroup(groupIndex, 1)}>↓</button>{draft.sectionGroups.length > 1 ? <button type="button" aria-label={`Remove ${group.title} section`} onClick={() => removeGroup(group.id!)}>Remove</button> : null}</div></div>
+                            <label className={styles.editorGroupTitle}>Section title<input required maxLength={255} value={group.title} onChange={event => setDraft(current => ({...current, sectionGroups: current.sectionGroups.map(item => item.id === group.id ? {...item, title: event.target.value} : item)}))}/></label>
+                            <ol>{draft.sections.map((section, sectionIndex) => section.groupId === group.id ? <li key={section.id}>
+                                <button type="button" className={section.id === activeSectionId ? styles.editorOutlineActive : ""} onClick={() => setActiveSectionId(section.id)}>{section.title || `Untitled subsection ${sectionIndex + 1}`}</button>
+                                <div className={styles.editorSubsectionActions}><button type="button" aria-label={`Move ${section.title || "subsection"} up`} disabled={sectionIndex === 0 || draft.sections[sectionIndex - 1]?.groupId !== group.id} onClick={() => moveSubsection(sectionIndex, -1)}>↑</button><button type="button" aria-label={`Move ${section.title || "subsection"} down`} disabled={sectionIndex === draft.sections.length - 1 || draft.sections[sectionIndex + 1]?.groupId !== group.id} onClick={() => moveSubsection(sectionIndex, 1)}>↓</button><button type="button" aria-label={`Remove ${section.title || "subsection"}`} disabled={draft.sections.length < 2} onClick={() => removeSubsection(sectionIndex)}>×</button></div>
+                            </li> : null)}</ol>
+                            <button type="button" className={styles.editorAddLeaf} onClick={() => addSubsection(group.id!)}>Add subsection</button>
+                        </div>)}
+                    </aside>
                 <div className={styles.sections}>
                     {draft.sections.map((section, sectionIndex) => {
+                        if (section.id !== activeSectionId) return null;
                         const document = documentFor(section);
                         return <article className={styles.sectionCard} key={section.id ?? `new-${sectionIndex}`} onPaste={event => pasteFiles(event, sectionIndex)} onDragOver={event => event.preventDefault()} onDrop={event => { if (event.dataTransfer.files.length) { event.preventDefault(); enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.dataTransfer.files)); } }}>
-                            <div className={styles.sectionCardHeading}><h4>Section {sectionIndex + 1}</h4>{draft.sections.length > 1 ? <button type="button" className={styles.removeButton} onClick={() => setDraft(current => ({...current, sections: current.sections.filter((_, index) => index !== sectionIndex).map((item, index) => ({...item, sortOrder: index + 1}))}))}>Remove</button> : null}</div>
-                            <label>Section title<input required maxLength={255} value={section.title} onChange={event => updateSection(sectionIndex, current => ({...current, title: event.target.value}))}/></label>
+                            <div className={styles.sectionCardHeading}><div><span className={styles.eyebrow}>Subsection {sectionIndex + 1}</span><h4>{section.title || "Untitled subsection"}</h4></div>{draft.sections.length > 1 ? <button type="button" className={styles.removeButton} onClick={() => removeSubsection(sectionIndex)}>Remove subsection</button> : null}</div>
+                            <div className={styles.fieldGrid}><label>Subsection title<input required maxLength={255} value={section.title} onChange={event => updateSection(sectionIndex, current => ({...current, title: event.target.value}))}/></label><label>Parent section<select value={section.groupId} onChange={event => setDraft(current => orderedCourseDraft(current, current.sectionGroups, current.sections.map(item => item.id === section.id ? {...item, groupId: event.target.value} : item)))}>{draft.sectionGroups.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
                             <details className={styles.composerHint}><summary>Ground Control lesson template</summary>
                                 <p>Replace this section with eight practical lessons, traffic diagrams, five ungraded checks and a revision sheet. Choose its final assessment below. Review the result before saving.</p>
                                 <button type="button" onClick={() => {setTemplateSection(sectionIndex); setTemplateQuizId(document.blocks.find(block => block.type === "quiz")?.quizId ?? "");}}>Choose template quiz</button>
@@ -429,6 +506,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                             <div className={styles.mediaDropZone}><span>Drop image/video anywhere in this section</span><label className={styles.fileButton}>Attach files<input type="file" multiple accept={ACCEPTED_MEDIA} onChange={event => { enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }}/></label></div>
                         </article>;
                     })}
+                </div>
                 </div>
             </fieldset>
             {error ? <p className={styles.error} role="alert">{error}</p> : null}

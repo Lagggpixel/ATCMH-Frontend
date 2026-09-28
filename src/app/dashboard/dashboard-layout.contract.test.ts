@@ -29,7 +29,7 @@ test("dashboard replaces the public header contents without losing its shared tr
 
     assert.match(layout, /header=\{<DashboardHeader\/>\}/);
     assert.match(header, /site-header is-scrolled is-solid/);
-    assert.match(header, /Back to main site/);
+    assert.match(header, /ATCMH Home/);
     assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded\/>/);
     assert.match(header, /<AuthNavigation showLogin=\{false\}\/>/);
     assert.match(header, /nav-primary-auth \$\{styles\.accountNavigation}/);

@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createServer, type ViteDevServer} from "vite";
+import {fileURLToPath} from "node:url";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 
 let vite: ViteDevServer;
-const root = new URL("../../../..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../..", import.meta.url));
 
 test.before(async () => {
     vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true}, logLevel: "silent"});
