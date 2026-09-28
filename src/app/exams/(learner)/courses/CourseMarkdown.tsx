@@ -46,6 +46,7 @@ interface CourseMarkdownProps {
   activities?: CourseActivity[];
   activityProgress?: CourseActivityProgress[];
   mode?: "learner" | "admin";
+  suppressHeading?: string;
 }
 
 function mediaSource(courseId: string, mediaId: string, mode: "learner" | "admin") {
@@ -72,11 +73,12 @@ function renderMedia(courseId: string, block: CourseMediaBlock, mode: "learner" 
   return <figure className={className} key={key}>{block.kind === "image" ? <img src={src} alt={block.alt || "Course image"} loading="lazy"/> : <video src={src} controls={block.controls ?? true} poster={block.posterMediaId ? mediaSource(courseId, block.posterMediaId, mode) : undefined} preload="metadata">Your browser does not support embedded video.</video>}{block.caption ? <figcaption>{block.caption}</figcaption> : null}</figure>;
 }
 
-function renderLegacy(courseId: string, blocks: CourseMarkdownBlock[], quizzes: Map<string, QuizSummary>, quizProgress: CourseQuizProgress[], activities: CourseActivity[], activityProgress: CourseActivityProgress[], mode: "learner" | "admin", prefix: string): ReactNode[] {
+function renderLegacy(courseId: string, blocks: CourseMarkdownBlock[], quizzes: Map<string, QuizSummary>, quizProgress: CourseQuizProgress[], activities: CourseActivity[], activityProgress: CourseActivityProgress[], mode: "learner" | "admin", prefix: string, suppressHeading?: string): ReactNode[] {
   return blocks.map((block, index) => {
     const key = `${prefix}-${index}`;
     if (block.type === "table") return <div className={styles.tableScroll} key={key} role="region" aria-label="Course comparison table" tabIndex={0}><table><thead><tr>{block.headers.map((header, i) => <th scope="col" key={i}>{renderInline(header)}</th>)}</tr></thead><tbody>{block.rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{renderInline(cell)}</td>)}</tr>)}</tbody></table></div>;
     if (block.type === "heading") {
+      if (index === 0 && suppressHeading?.trim().toLowerCase() === block.text.trim().toLowerCase()) return null;
       const Heading = block.level <= 1 ? "h2" : block.level === 2 ? "h3" : "h4";
       return <Heading id={`course-heading-${key}`} className={/^\d+\.\s/.test(block.text) ? styles.lessonHeading : undefined} key={key}>{renderInline(block.text)}</Heading>;
     }
@@ -92,14 +94,14 @@ function renderLegacy(courseId: string, blocks: CourseMarkdownBlock[], quizzes: 
   });
 }
 
-export default function CourseMarkdown({courseId, sectionId = courseId, blocks = [], document, quizzes, quizProgress, activities = [], activityProgress = [], mode = "learner"}: CourseMarkdownProps) {
+export default function CourseMarkdown({courseId, sectionId = courseId, blocks = [], document, quizzes, quizProgress, activities = [], activityProgress = [], mode = "learner", suppressHeading}: CourseMarkdownProps) {
   const parsedDocument = parseCourseDocument(document);
   const activityMap = new Map(activities.map(activity => [activity.id, activity]));
   const progressMap = new Map(activityProgress.map(progress => [progress.activityId, progress]));
   const rendered = parsedDocument?.blocks.flatMap((block, index): ReactNode[] => {
     const key = `${sectionId}-document-${index}-${block.id}`;
     if (block.type === "check") return [<CourseKnowledgeCheck key={`${key}-${JSON.stringify(block)}`} block={block}/>];
-    if (block.type === "text") return renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key);
+    if (block.type === "text") return renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key, index === 0 ? suppressHeading : undefined);
     if (block.type === "media") return block.mediaId ? [renderMedia(courseId, block, mode, key)] : [];
     if (block.type === "quiz") return [renderQuiz(courseId, block, quizzes, quizProgress, key)];
     if (block.type === "activity") {
@@ -108,7 +110,7 @@ export default function CourseMarkdown({courseId, sectionId = courseId, blocks =
     }
     if (block.type === "diagram") return [<CourseDiagram key={key} block={block}/>];
     return [<aside className={`${styles.callout} ${styles[`callout${block.tone[0].toUpperCase()}${block.tone.slice(1)}`] ?? ""}`} key={key}><p className={styles.calloutLabel}>{block.tone}</p><h3>{block.title}</h3><div>{renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key)}</div></aside>];
-  }) ?? renderLegacy(courseId, blocks, quizzes, quizProgress, activities, activityProgress, mode, "legacy");
+  }) ?? renderLegacy(courseId, blocks, quizzes, quizProgress, activities, activityProgress, mode, "legacy", suppressHeading);
   const lessons = parsedDocument?.blocks.flatMap((block, index) => block.type === "text" ? parseCourseMarkdownSafe(block.markdown).flatMap((item, headingIndex) => item.type === "heading" && (/^\d+\.\s/.test(item.text) || item.text === "Quick Revision Sheet") ? [{label: item.text, id: `course-heading-${sectionId}-document-${index}-${block.id}-${headingIndex}`}] : []) : []) ?? [];
   return <div className={styles.markdown}>{lessons.length > 1 ? <CourseSectionNav lessons={lessons}/> : null}{rendered}</div>;
 }

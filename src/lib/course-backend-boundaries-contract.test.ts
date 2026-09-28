@@ -11,7 +11,8 @@ test("course UI and learner quiz access use the Dashboard backend authority", ()
   assert.match(source("./exams-repository.ts"), /isPublishedCourseQuiz/);
   assert.match(source("../dashboard/utils/ExamsApiUtils.ts"), /\/admin\/courses/);
   assert.match(source("../app/exams/(learner)/courses/CourseSectionCompletionButton.tsx"), /ApiUtils\.apiOrigin/);
-    assert.match(source("../dashboard/components/admin/CoursePreview.tsx"), /ApiUtils\.apiOrigin/);
+  assert.match(source("../dashboard/components/admin/CoursePreview.tsx"), /mode="admin"/);
+  assert.match(source("../app/exams/(learner)/courses/CourseMarkdown.tsx"), /ApiUtils\.apiOrigin/);
 });
 
 test("course catalogue and reader remain gated to verified learners", () => {
@@ -22,13 +23,13 @@ test("course catalogue and reader remain gated to verified learners", () => {
   assert.match(catalogue, /Sign in to view courses/);
   assert.match(detail, /getVerifiedLearnerIdentity\(\)/);
   assert.match(detail, /Sign in to open this course/);
-  assert.match(detail, /<CourseViewTracker courseId=\{course\.id\}\/>/);
+  assert.match(detail, /<CourseReadingView course=\{course\}/);
+  assert.match(source("../app/exams/(learner)/courses/CourseReadingView.tsx"), /<CourseViewTracker courseId=\{course\.id\}\/>/);
 });
 
 test("course view telemetry carries CSRF, session identity, visibility heartbeats, and section context", () => {
   const tracker = source("../app/exams/(learner)/courses/CourseViewTracker.tsx");
   const api = source("../dashboard/utils/ExamsApiUtils.ts");
-  const detail = source("../app/exams/(learner)/courses/[courseId]/page.tsx");
   assert.match(tracker, /getExistingSession\(\)/);
   assert.match(tracker, /recordCourseView/);
   assert.match(tracker, /visibilitychange/);
@@ -38,7 +39,7 @@ test("course view telemetry carries CSRF, session identity, visibility heartbeat
   assert.match(api, /\/courses\/\$\{encodeURIComponent\(courseId\)\}\/view-events/);
   assert.match(source("../dashboard/components/admin/CourseStatistics.tsx"), /Activity pass rate/);
   assert.match(source("../dashboard/components/admin/CourseStatistics.tsx"), /activityPassRate/);
-  assert.match(detail, /data-course-section-id=\{section\.id\}/);
+  assert.match(source("../app/exams/(learner)/courses/CourseReadingView.tsx"), /data-course-section-id=\{selected\.id\}/);
 });
 
 test("course data and mutation ownership no longer has Next API route files", () => {

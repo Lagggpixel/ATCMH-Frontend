@@ -2,13 +2,14 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
+import {fileURLToPath} from "node:url";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createServer, type ViteDevServer} from "vite";
 
 const render = (component: React.ReactElement) => renderToStaticMarkup(component);
 let vite: ViteDevServer;
-const root = new URL("../../../..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../..", import.meta.url));
 test.before(async () => { vite = await createServer({root, resolve: {alias: {"@": root}}, appType: "custom", server: {middlewareMode: true}, logLevel: "silent"}); });
 test.after(async () => { await vite.close(); });
 const loadView = async () => (await vite.ssrLoadModule("/src/dashboard/components/consent/ConsentPage.tsx") as {ConsentPageView: React.ComponentType<any>}).ConsentPageView;

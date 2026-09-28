@@ -8,6 +8,21 @@ export interface ManagedCourseSummary {
     isPublished: boolean;
     updatedAt: string;
     sectionCount: number;
+    sectionGroupCount?: number;
+    navigationMode?: CourseNavigationMode;
+}
+
+export type CourseNavigationMode = "sequential" | "section_by_section" | "free";
+
+export interface ManagedCourseSectionGroup {
+    id: string;
+    courseId?: string;
+    title: string;
+    sortOrder: number;
+}
+
+export interface ManagedCourseDraftGroup extends Omit<ManagedCourseSectionGroup, "id"> {
+    id?: string;
 }
 
 export interface ManagedCourseSection {
@@ -17,6 +32,7 @@ export interface ManagedCourseSection {
     markdown: string;
     document?: CourseDocumentV1 | null;
     sortOrder: number;
+    groupId: string;
     updatedAt?: string;
 }
 
@@ -27,6 +43,7 @@ export interface ManagedCourseDraftSection {
     markdown: string;
     document?: CourseDocumentV1 | null;
     sortOrder: number;
+    groupId?: string;
     updatedAt?: string;
 }
 
@@ -36,11 +53,15 @@ export interface ManagedCourseDraft {
     title: string;
     description: string;
     isPublished: boolean;
+    navigationMode: CourseNavigationMode;
+    sectionGroups: ManagedCourseDraftGroup[];
     sections: ManagedCourseDraftSection[];
 }
 
 export interface ManagedCourse extends ManagedCourseSummary {
     id: string;
+    navigationMode: CourseNavigationMode;
+    sectionGroups: ManagedCourseSectionGroup[];
     sections: ManagedCourseSection[];
     quizzes?: CourseQuizSummary[];
     activities?: CourseActivity[];

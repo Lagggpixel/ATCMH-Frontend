@@ -8,34 +8,6 @@
     --panel-shadow: var(--shadow);
 }
 
-.backButton {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    min-height: 2.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 999px;
-    background: transparent;
-    padding: 0.55rem 0.95rem;
-    color: var(--muted-text);
-    font-size: 0.85rem;
-    font-weight: 700;
-    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
-}
-
-.backButton:hover {
-    border-color: var(--primary);
-    background: var(--button-hover);
-    color: var(--foreground);
-}
-
-.backButton:focus-visible {
-    outline: 3px solid #9bbcff;
-    outline-offset: 3px;
-}
-
 .siteActions {
     display: flex;
     flex: 0 0 auto;
@@ -70,9 +42,12 @@
     }
 }
 
-@media (max-width: 640px) {
-    .backButton {
-        padding: 0.72rem 0.9rem;
-        font-size: 0.82rem;
-    }
-}
+.brandLink { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .65rem; color: #f6f9ff; text-decoration: none; }
+.brandLink img { object-fit: contain; }
+.brandLink > span:first-of-type { display: grid; gap: 1px; line-height: 1.1; }
+.brandLink strong { font-size: 1rem; letter-spacing: .02em; }
+.brandLink small { color: #c9d6e8; font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
+.homeLabel { margin-left: .9rem; border-left: 1px solid #53677f; padding-left: 1.25rem; color: #dbe8f9; font-size: .83rem; }
+.brandLink:hover .homeLabel, .brandLink:focus-visible .homeLabel { color: #72e6f8; }
+.brandLink:focus-visible { outline: 3px solid #9bbcff; outline-offset: 4px; }
+@media (max-width: 640px) { .brandLink small, .homeLabel { display: none; } }

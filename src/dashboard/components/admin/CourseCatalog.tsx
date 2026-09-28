@@ -32,7 +32,7 @@ export default function CourseCatalog({courses, onEdit, onPreview, onStatistics,
         {filtered.length === 0 ? <div className={styles.catalogEmpty}><h3>{courses.length === 0 ? "Your courses start here" : "No matching courses"}</h3><p>{courses.length === 0 ? "Create a course to organize lessons and learning activities." : "Try another search or show all courses."}</p>{courses.length > 0 ? <button type="button" className={styles.quietButton} onClick={() => {setQuery(""); setStatus("all");}}>Clear filters</button> : null}</div> : <div className={styles.courseList}>
             {filtered.map(course => <article className={styles.courseCard} key={course.id} aria-label={course.title}>
                 <div className={styles.courseCardContent}>
-                    <div className={styles.courseCardMeta}><span className={course.isPublished ? styles.published : styles.draft}>{course.isPublished ? "Published" : "Draft"}</span><span>{course.sectionCount} {course.sectionCount === 1 ? "section" : "sections"}</span></div>
+                    <div className={styles.courseCardMeta}><span className={course.isPublished ? styles.published : styles.draft}>{course.isPublished ? "Published" : "Draft"}</span><span>{course.sectionGroupCount ?? 0} sections · {course.sectionCount} subsections</span></div>
                     <h3>{course.title}</h3>
                     <p>{course.description || "Add a description to help learners understand this course."}</p>
                 </div>
