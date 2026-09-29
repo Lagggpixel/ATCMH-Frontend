@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {GET} from "./route";
+import {GET, PUT} from "./route";
 
 test("relay supplies only its derived access marker and cannot proxy internal routes", async () => {
   const previous = {...process.env};
@@ -20,6 +20,9 @@ test("relay supplies only its derived access marker and cannot proxy internal ro
       assert.equal((await GET(request, {params: Promise.resolve({path})})).status, 404);
     }
     assert.equal(forwarded.length, 1);
+    const revision = "2026-09-29T10:11:12.123Z";
+    await PUT(new Request("https://www.atcmh.org/api/dashboard/admin/courses/course-1", {method: "PUT", headers: {"If-Match": revision}}), {params: Promise.resolve({path: ["admin", "courses", "course-1"]})});
+    assert.equal(forwarded[1].headers.get("If-Match"), revision);
   } finally {
     globalThis.fetch = originalFetch;
     for (const key of ["DASHBOARD_API_URL", "FRONTEND_PUBLIC_ORIGIN", "EXAMS_AUTH_KEY"]) {

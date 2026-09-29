@@ -60,6 +60,7 @@ test("active protection warns before unloading even without answers", () => {
     window,
     quizId: "quiz-1",
     getAnswers: () => ({}),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => true,
   });
   protection.install();
@@ -78,6 +79,7 @@ test("cancelling a same-origin link leaves the attempt active without submitting
     window,
     quizId: "quiz-1",
     getAnswers: () => ({ question: "answer" }),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => { submissions += 1; return true; },
   });
   protection.install();
@@ -99,6 +101,7 @@ test("confirmed same-origin links submit once and only navigate after success", 
     window,
     quizId: "quiz-1",
     getAnswers: () => ({ question: "answer" }),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: () => {
       submissions += 1;
       return new Promise((resolve) => { release = resolve; });
@@ -108,6 +111,7 @@ test("confirmed same-origin links submit once and only navigate after success", 
   const event = click({ href: "https://www.atcmh.org/exams/quizzes" });
   window.dispatch("click", event);
   window.dispatch("click", click({ href: "https://www.atcmh.org/exams/quizzes" }));
+  await Promise.resolve();
 
   assert.equal(submissions, 1);
   assert.deepEqual(window.assigned, []);
@@ -126,6 +130,7 @@ test("pagehide sends the most recently selected answers", () => {
     window,
     quizId: "quiz one",
     getAnswers: () => answers,
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => true,
     sendKeepalive: (_quizId, currentAnswers) => { sent.push(currentAnswers); return true; },
   });
@@ -145,6 +150,7 @@ test("back restores the sentinel on cancel and submits before leaving on confirm
     window,
     quizId: "quiz-1",
     getAnswers: () => ({}),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => { submissions += 1; return true; },
   });
   protection.install();
@@ -155,12 +161,13 @@ test("back restores the sentinel on cancel and submits before leaving on confirm
   assert.deepEqual(window.historyMoves, [1]);
   assert.equal(submissions, 0);
 
+  window.dispatch("popstate"); // completion of the sentinel restoration
   window.confirmed = true;
   window.dispatch("popstate");
   await Promise.resolve();
   await Promise.resolve();
   assert.equal(submissions, 1);
-  assert.equal(window.backCalls, 1);
+  assert.deepEqual(window.historyMoves, [1, 1, -2]);
 });
 
 test("modified and external links are left to the browser", () => {
@@ -169,6 +176,7 @@ test("modified and external links are left to the browser", () => {
     window,
     quizId: "quiz-1",
     getAnswers: () => ({}),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => true,
   });
   protection.install();
@@ -188,6 +196,7 @@ test("uninstall removes all lifecycle listeners", () => {
     window,
     quizId: "quiz-1",
     getAnswers: () => ({}),
+    confirmNavigation: async () => window.confirmed,
     onConfirmedNavigation: async () => true,
   });
   protection.install();

@@ -52,7 +52,8 @@ const createEnvironment = (confirmResult = true) => {
     };
 
     return {
-        window: {...target, confirm: () => confirmResult, location, history},
+        window: {...target, location, history},
+        confirm: async () => confirmResult,
         document: target,
         location,
         history,
@@ -68,59 +69,61 @@ test("serializes nested objects deterministically while preserving array order",
     assert.notEqual(stableExamValue({items: ["first", "second"]}), stableExamValue({items: ["second", "first"]}));
 });
 
-test("clean navigation bypasses confirmation and runs once", () => {
+test("clean navigation bypasses confirmation and runs once", async () => {
     const environment = createEnvironment(false);
-    const guard = createExamUnsavedChangesGuard({isDirty: () => false}, environment);
+    const guard = createExamUnsavedChangesGuard({isDirty: () => false, confirm: environment.confirm}, environment);
     let calls = 0;
 
     guard.activate();
 
-    assert.equal(guard.confirmAndRun(() => calls++), true);
+    assert.equal(await guard.confirmAndRun(() => calls++), true);
     assert.equal(calls, 1);
     assert.equal(environment.target.count("beforeunload"), 0);
 });
 
-test("Cancel invokes no navigation action", () => {
+test("Cancel invokes no navigation action", async () => {
     const environment = createEnvironment(false);
-    const guard = createExamUnsavedChangesGuard({isDirty: () => true}, environment);
+    const guard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: environment.confirm}, environment);
     let calls = 0;
 
     guard.activate();
 
-    assert.equal(guard.confirmAndRun(() => calls++), false);
+    assert.equal(await guard.confirmAndRun(() => calls++), false);
     assert.equal(calls, 0);
 });
 
-test("Leave disarms protection and invokes navigation exactly once", () => {
+test("Leave disarms protection and invokes navigation exactly once", async () => {
     const environment = createEnvironment(true);
-    const guard = createExamUnsavedChangesGuard({isDirty: () => true}, environment);
+    const guard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: environment.confirm}, environment);
     let calls = 0;
 
     guard.activate();
 
-    assert.equal(guard.confirmAndRun(() => calls++), true);
+    assert.equal(await guard.confirmAndRun(() => calls++), true);
     assert.equal(calls, 1);
     assert.equal(environment.target.count("beforeunload"), 0);
 });
 
-test("Back restores the sentinel after Cancel and leaves after confirmation", () => {
+test("Back restores the sentinel after Cancel and leaves after confirmation", async () => {
     const cancelled = createEnvironment(false);
-    const cancelledGuard = createExamUnsavedChangesGuard({isDirty: () => true}, cancelled);
+    const cancelledGuard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: cancelled.confirm}, cancelled);
     cancelledGuard.activate();
     cancelled.window.emit("popstate");
     assert.deepEqual(cancelled.history.goCalls, [1]);
 
     const leaving = createEnvironment(true);
-    const leavingGuard = createExamUnsavedChangesGuard({isDirty: () => true}, leaving);
+    const leavingGuard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: leaving.confirm}, leaving);
     leavingGuard.activate();
     leaving.window.emit("popstate");
-    assert.equal(leaving.history.backCalls, 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(leaving.history.goCalls, [1, -2]);
     assert.equal(leaving.target.count("popstate"), 0);
 });
 
-test("dirty protection captures same-origin links and removes every listener when disarmed", () => {
+test("dirty protection captures same-origin links and removes every listener when disarmed", async () => {
     const environment = createEnvironment(true);
-    const guard = createExamUnsavedChangesGuard({isDirty: () => true}, environment);
+    const guard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: environment.confirm}, environment);
     const click = {
         button: 0,
         defaultPrevented: false,
@@ -134,9 +137,11 @@ test("dirty protection captures same-origin links and removes every listener whe
 
     guard.activate();
     environment.document.emit("click", click);
+    await Promise.resolve();
+    await Promise.resolve();
 
     assert.equal(click.defaultPrevented, true);
     assert.deepEqual(environment.location.assigned, ["https://www.atcmh.org/dashboard/exams"]);
     for (const type of ["beforeunload", "popstate", "click"]) assert.equal(environment.target.count(type), 0);
-    assert.equal(EXAM_UNSAVED_CHANGES_MESSAGE, "You have unsaved Exam Center changes. Leave and discard them?");
+    assert.equal(EXAM_UNSAVED_CHANGES_MESSAGE, "Your unsaved changes will be lost if you leave this page.");
 });

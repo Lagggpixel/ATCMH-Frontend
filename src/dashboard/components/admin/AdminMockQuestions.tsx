@@ -12,6 +12,7 @@ import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import AdminToast from "./AdminToast.tsx";
 import {mockQuestionReadiness} from "./MockQuestionReadiness.ts";
 import styles from "./AdminMockQuestions.module.css";
+import {useConfirmation} from "../../../platform/confirmation/ConfirmationProvider.tsx";
 
 interface Props {
     loaded: boolean;
@@ -29,6 +30,7 @@ const emptyForm = (nextOrder: number): MockQuestionTemplatePayload => ({
 });
 
 export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, token}: Props) {
+    const confirm = useConfirmation();
     const [templates, setTemplates] = useState<MockQuestionTemplate[]>();
     const [selectedId, setSelectedId] = useState<number | "new">("new");
     const [form, setForm] = useState<MockQuestionTemplatePayload>(emptyForm(1));
@@ -103,7 +105,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     };
 
     const remove = async () => {
-        if (selectedId === "new" || !token || !window.confirm("Remove this mock question template? Existing runs keep their snapshot.")) return;
+        if (selectedId === "new" || !token || !await confirm({title: "Remove mock question?", message: "This template will be removed. Existing runs keep their snapshot.", confirmLabel: "Remove template", cancelLabel: "Keep template", tone: "danger"})) return;
         setBusy(true);
         try {
             if (!await ApiUtils.deleteMockQuestionTemplate(token, selectedId)) throw new Error("You are not authorized to manage mock questions.");

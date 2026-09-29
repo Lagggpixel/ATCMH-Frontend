@@ -13,6 +13,7 @@ import AdminToast from "./AdminToast.tsx";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import styles from "./AdminAssignments.module.css";
 import {useTableSort} from "../../hooks/useTableSort.ts";
+import {useConfirmation} from "../../../platform/confirmation/ConfirmationProvider.tsx";
 
 interface AdminAssignmentsProps {
     loaded: boolean;
@@ -96,12 +97,14 @@ const AdminAssignments = ({
     const [query, setQuery] = useState("");
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const confirm = useConfirmation();
     const editParam = searchParams.get("edit");
     const selectedId: number | "new" | null = editParam === "new" ? "new" : editParam && /^\d+$/.test(editParam) ? Number(editParam) : null;
     const [form, setForm] = useState<AdminAssignmentPayload>(() => clonePayload(emptyForm));
     const baselineRef = useRef(JSON.stringify(emptyForm));
     const lastEditRef = useRef<string | null>(null);
     const confirmedTransitionRef = useRef<string | null>(null);
+    const allowUnloadRef = useRef(false);
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string | undefined>();
     const [openFields, setOpenFields] = useState<Record<CollapsibleFieldId, boolean>>({
@@ -162,10 +165,14 @@ const AdminAssignments = ({
         if (lastEditRef.current === nextKey) return;
         if (nextKey !== "new" && nextKey !== "" && !assignments) return;
         if (lastEditRef.current !== null && dirty && confirmedTransitionRef.current !== nextKey) {
-            if (!window.confirm("Discard unsaved assignment changes?")) {
-                navigate(lastEditRef.current ? `/dashboard/assignments?edit=${lastEditRef.current}` : "/dashboard/assignments", {replace: true});
-                return;
-            }
+            const previousKey = lastEditRef.current;
+            navigate(previousKey ? `/dashboard/assignments?edit=${previousKey}` : "/dashboard/assignments", {replace: true});
+            void confirm({title: "Discard assignment changes?", message: "Your edits to this template have not been saved.", confirmLabel: "Discard changes", cancelLabel: "Keep editing", tone: "danger"}).then(accepted => {
+                if (!accepted) return;
+                confirmedTransitionRef.current = nextKey;
+                navigate(nextKey ? `/dashboard/assignments?edit=${nextKey}` : "/dashboard/assignments", {replace: true});
+            });
+            return;
         }
         confirmedTransitionRef.current = null;
         lastEditRef.current = nextKey;
@@ -174,20 +181,21 @@ const AdminAssignments = ({
         baselineRef.current = JSON.stringify(nextForm);
         setForm(nextForm);
         setActionError(undefined);
-    }, [assignments, dirty, editParam, navigate]);
+    }, [assignments, dirty, editParam, navigate, confirm]);
 
     useEffect(() => {
         if (!dirty) return;
-        const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+        const preventUnload = (event: BeforeUnloadEvent) => { if (!allowUnloadRef.current) { event.preventDefault(); event.returnValue = ""; } };
         const preventDashboardNavigation = (event: MouseEvent) => {
             const anchor = (event.target as Element).closest("a[href]");
             if (!anchor || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.getAttribute("target") === "_blank" || anchor.hasAttribute("download")) return;
             const destination = new URL(anchor.getAttribute("href") ?? "", window.location.href);
             if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
-            if (!window.confirm("Discard unsaved assignment changes?")) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
+            event.preventDefault();
+            event.stopPropagation();
+            void confirm({title: "Discard assignment changes?", message: "Your edits to this template have not been saved.", confirmLabel: "Discard and leave", cancelLabel: "Keep editing", tone: "danger"}).then(accepted => {
+                if (accepted) { allowUnloadRef.current = true; window.location.assign(destination.href); }
+            });
         };
         window.addEventListener("beforeunload", preventUnload);
         document.addEventListener("click", preventDashboardNavigation, true);
@@ -195,11 +203,11 @@ const AdminAssignments = ({
             window.removeEventListener("beforeunload", preventUnload);
             document.removeEventListener("click", preventDashboardNavigation, true);
         };
-    }, [dirty]);
+    }, [dirty, confirm]);
 
-    const openEditor = (key: string) => {
+    const openEditor = async (key: string) => {
         if (key === (editParam ?? "")) return;
-        if (dirty && !window.confirm("Discard unsaved assignment changes?")) return;
+        if (dirty && !await confirm({title: "Discard assignment changes?", message: "Your edits to this template have not been saved.", confirmLabel: "Discard changes", cancelLabel: "Keep editing", tone: "danger"})) return;
         confirmedTransitionRef.current = key;
         navigate(key ? `/dashboard/assignments?edit=${key}` : "/dashboard/assignments");
     };
@@ -282,7 +290,7 @@ const AdminAssignments = ({
     };
 
     const removeAssignment = async () => {
-        if (selectedId === "new" || selectedId === null || !window.confirm("Remove this assignment template?")) return;
+        if (selectedId === "new" || selectedId === null || !await confirm({title: "Remove template?", message: "This assignment template will be removed permanently.", confirmLabel: "Remove template", cancelLabel: "Keep template", tone: "danger"})) return;
         setActionError(undefined);
         setBusy(true);
         try {

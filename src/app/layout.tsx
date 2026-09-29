@@ -4,6 +4,7 @@ import "./base.css";
 import "@/src/marketing/marketing.css";
 import WebsiteAccess from "@/src/platform/WebsiteAccess";
 import PortalAuthProvider from "@/src/platform/auth/PortalAuthProvider";
+import ConfirmationProvider from "@/src/platform/confirmation/ConfirmationProvider";
 import {publicRuntimeConfig} from "@/src/lib/runtime-config";
 
 export const dynamic = "force-dynamic";
@@ -15,5 +16,5 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: ReactNode}) {
     const {dashboardApiUrl} = publicRuntimeConfig();
-    return <html lang="en"><body><WebsiteAccess/><PortalAuthProvider dashboardApiUrl={dashboardApiUrl}>{children}</PortalAuthProvider></body></html>;
+    return <html lang="en"><body><WebsiteAccess/><PortalAuthProvider dashboardApiUrl={dashboardApiUrl}><ConfirmationProvider>{children}</ConfirmationProvider></PortalAuthProvider></body></html>;
 }
