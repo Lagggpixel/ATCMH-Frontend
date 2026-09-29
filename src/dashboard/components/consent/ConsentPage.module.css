@@ -12,7 +12,7 @@
 .agreement a:focus-visible { border-radius: 2px; outline: 3px solid #9bbcff; outline-offset: 3px; }
 .version { font-size: .8rem; margin: -6px 0 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.actions button, .primaryLink, .secondaryLink { background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 8px; color: #111; cursor: pointer; font: inherit; font-weight: 700; padding: 10px 16px; text-decoration: none; }
+.actions button, .primaryLink, .secondaryLink { background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 8px; color: #fff; cursor: pointer; font: inherit; font-weight: 700; padding: 10px 16px; text-decoration: none; }
 .actions .acceptButton { background: #2563eb; border-color: #1d4ed8; color: #fff; }
 .actions .acceptButton:hover { background: #1d4ed8; border-color: #1e40af; color: #fff; }
 .actions .acceptButton:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }

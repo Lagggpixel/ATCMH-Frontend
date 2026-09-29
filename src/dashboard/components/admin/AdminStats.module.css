@@ -165,3 +165,23 @@
         text-transform: uppercase;
     }
 }
+
+.adminStatsContainer { max-width: 1360px; padding: clamp(20px, 3vw, 40px); }
+.adminStatsSubContainer h2 { margin-bottom: 6px; color: #10264b; font: 700 clamp(2rem, 3vw, 2.7rem)/1.1 Georgia, 'Times New Roman', serif; }
+.adminStatsSubContainer > p { color: var(--muted-text); }
+.adminStatsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 26px; }
+.adminStatCard { min-width: 0; border: 1px solid var(--border-color); border-radius: 11px; background: #fff; box-shadow: 0 8px 22px #1427400a; padding: 22px; }
+.adminStatCard h3 { margin-bottom: 18px; font-size: 1.05rem; }
+.adminStatsChartContainer { height: 285px; }
+.adminStatsTable { background: #fff; }
+.adminStatsDataTable th { background: #f1f5f9; }
+.adminStatsDataTable td, .adminStatsDataTable tbody tr:nth-child(even) td { background: #fff; }
+
+@media (max-width: 1000px) {
+    .adminStatsGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+    .adminStatsContainer { padding: 16px; }
+    .adminStatCard { padding: 17px; }
+    .adminStatsChartContainer { height: 270px; }
+}

@@ -29,8 +29,6 @@ export default function CourseReadingView({course, subsection, basePath, trackVi
   const progressPercent = sections.length ? Math.round(completionCount / sections.length * 100) : 0;
   const quizzes = new Map(course.quizzes.map(quiz => [quiz.id, quiz]));
   const document = parseCourseDocument(selected.document);
-  const headingCount = (document ? document.blocks.flatMap(block => block.type === "text" ? parseCourseMarkdown(block.markdown) : []) : parseCourseMarkdown(selected.markdown))
-    .filter(block => block.type === "heading").length;
   const references = document ? courseDocumentReferences(document) : courseMarkdownReferences(selected.markdown).reduce<ReturnType<typeof courseDocumentReferences>>((result, reference) => {
     if (reference.type === "quiz") result.push({type: "quiz", id: reference.quizId, required: reference.required, ...(reference.passPercentage === undefined ? {} : {passPercent: reference.passPercentage})});
     if (reference.type === "activity") result.push({type: "activity", id: reference.activityId, required: reference.required, ...(reference.passPercentage === undefined ? {} : {passPercent: reference.passPercentage})});
@@ -50,12 +48,11 @@ export default function CourseReadingView({course, subsection, basePath, trackVi
     return false;
   });
 
-  return <main className={`learner-main ${styles.readerShell}`}>
+  return <main className={`learner-main ${styles.readerShell}`} data-course-page>
     {trackView ? <><DashboardExamSessionBootstrap/><CourseViewTracker courseId={course.id}/></> : null}
     <div className={styles.readerHero}>
       <div className={styles.heroInner}>
         <Link className={styles.backLink} href="/exams/courses">All courses</Link>
-        <p className={styles.heroEyebrow}>ATCMH · Guided course</p>
         <h1>{course.title}</h1>
         <p>{course.description || "A practical course for ATCMH learners."}</p>
       </div>
@@ -69,14 +66,13 @@ export default function CourseReadingView({course, subsection, basePath, trackVi
     <div className={styles.readerWorkspace}>
       <CourseOutline courseId={course.id} groups={groups} sections={sections} currentId={selected.id} completedIds={course.completedSectionIds} accessibleIds={accessible.map(section => section.id)} basePath={basePath}/>
       <div className={styles.readerMain}>
-        <div className={styles.readerContext}><span>Section {groupIndex + 1} · {group?.title}</span><h2>{selected.title}</h2></div>
         <article className={`${styles.section} ${!unlocked ? styles.locked : ""}`} aria-labelledby={`section-${selected.id}`} data-course-section-id={selected.id}>
           <header className={styles.sectionHeader}>
             <div><span className={styles.sectionNumber}>Section {groupIndex + 1} · {group?.title}</span><h2 id={`section-${selected.id}`}>{selected.title}</h2></div>
             {completed.has(selected.id) ? <span className={styles.status}>Completed</span> : !unlocked ? <span className={styles.status}>Locked</span> : null}
           </header>
           {unlocked ? <div className={styles.sectionBody}>
-            <CourseMarkdown sectionId={selected.id} courseId={course.id} document={document} blocks={parseCourseMarkdown(selected.markdown)} quizzes={quizzes} quizProgress={course.quizProgress} activities={course.activities} activityProgress={course.activityProgress} suppressHeading={headingCount === 1 ? selected.title : undefined}/>
+            <CourseMarkdown sectionId={selected.id} courseId={course.id} document={document} blocks={parseCourseMarkdown(selected.markdown)} quizzes={quizzes} quizProgress={course.quizProgress} activities={course.activities} activityProgress={course.activityProgress} suppressHeading={selected.title}/>
             {!completed.has(selected.id) && trackView ? <CourseSectionCompletionButton courseId={course.id} sectionId={selected.id} nextHref={next ? subsectionHref(course.id, next.id, basePath) : undefined} disabled={requiredMissing} disabledReason={requiredMissing ? "Complete every required checkpoint on this page before marking it complete." : undefined}/> : null}
             <nav className={styles.pageNavigation} aria-label="Subsection navigation">
               {previous && canOpenSubsection(previous, sections, groups, mode, completed) ? <Link href={subsectionHref(course.id, previous.id, basePath)}>Previous <span>{previous.title}</span></Link> : <span/>}

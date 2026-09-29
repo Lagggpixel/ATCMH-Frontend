@@ -16,7 +16,7 @@ export default async function CoursePage({params, searchParams}: {
   const {courseId} = await params;
   const {subsection} = await searchParams;
   const identity = await getVerifiedLearnerIdentity();
-  if (!identity) return <main className="learner-main"><div className={styles.coursePage}><DashboardExamSessionBootstrap/><section className={styles.privateGate} aria-labelledby="course-login-title"><p className={styles.eyebrow}>Private learning space</p><h1 id="course-login-title">Sign in to open this course</h1><p>Course material is only available to authenticated ATCMH learners.</p><Link href={homeLoginHref("exams", `/exams/courses/${encodeURIComponent(courseId)}`)}>Sign in</Link></section></div></main>;
+  if (!identity) return <main className={`learner-main ${styles.catalogShell}`} data-course-page><div className={styles.coursePage}><DashboardExamSessionBootstrap/><section className={styles.privateGate} aria-labelledby="course-login-title"><h1 id="course-login-title">Sign in to open this course</h1><p>Course material is only available to authenticated ATCMH learners.</p><Link href={homeLoginHref("exams", `/exams/courses/${encodeURIComponent(courseId)}`)}>Sign in</Link></section></div></main>;
 
   const course = await getCourseForLearner(courseId);
   if (!course) notFound();

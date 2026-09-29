@@ -10,7 +10,7 @@ const source = (filename: string) => readFileSync(join(appDirectory, filename), 
 test("dashboard layout keeps the gated runtime mounted across child route changes", () => {
     const layout = source("layout.tsx");
 
-    assert.match(layout, /<SiteFrame footer=\{false\} header=\{<DashboardHeader\/>\}>\s*<DashboardAccessGate>\s*<DashboardRuntime>\{children\}<\/DashboardRuntime>/);
+    assert.match(layout, /<SiteFrame theme="light" footer=\{false\} header=\{<DashboardHeader\/>\}>\s*<DashboardAccessGate>\s*<DashboardRuntime>\{children\}<\/DashboardRuntime>/);
     assert.match(layout, /import DashboardHeader from "@\/src\/dashboard\/DashboardHeader"/);
     assert.match(layout, /export const dynamic = "force-dynamic"/);
 });
@@ -28,10 +28,11 @@ test("dashboard replaces the public header contents without losing its shared tr
     const headerStyles = readFileSync(join(appDirectory, "../../dashboard/DashboardHeader.module.css"), "utf8");
 
     assert.match(layout, /header=\{<DashboardHeader\/>\}/);
-    assert.match(header, /site-header is-scrolled is-solid/);
+    assert.match(header, /site-header is-scrolled is-solid is-light/);
     assert.match(header, /ATCMH Home/);
     assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded\/>/);
     assert.match(header, /<AuthNavigation showLogin=\{false\}\/>/);
     assert.match(header, /nav-primary-auth \$\{styles\.accountNavigation}/);
-    assert.match(headerStyles, /@media \(max-width: 1080px\)[\s\S]*?\.dashboardHeader \.accountNavigation\s*\{[^}]*display:\s*flex[^}]*min-width:\s*2\.75rem/s);
+    assert.match(header, /aria-controls="dashboard-sections" aria-expanded=\{menuOpen\}/);
+    assert.match(headerStyles, /@media \(max-width: 1100px\)[\s\S]*?\.dashboardHeader \.accountNavigation\s*\{[^}]*display:\s*flex[^}]*min-width:\s*2\.75rem/s);
 });

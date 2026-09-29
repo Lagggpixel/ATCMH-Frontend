@@ -49,6 +49,8 @@ function NavigationLinks() {
 
 export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "hero" | "solid"; showLogin?: boolean}) {
   const [hasScrolled, setHasScrolled] = useState(false);
+  const pathname = usePathname();
+  const light = pathname.startsWith("/exams/courses");
   useEffect(() => {
     if (variant === "solid") return;
     const update = () => setHasScrolled(window.scrollY > 24);
@@ -58,8 +60,8 @@ export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "he
   }, [variant]);
 
   const filled = variant === "solid" || hasScrolled;
-  return <header className={`site-header${filled ? " is-scrolled" : ""}${variant === "solid" ? " is-solid" : ""}`}>
-    <Link className="brand" href="/" aria-label="ATC Mentorship Hub home"><img src="/assets/logoLight-DWbJHT7m.png" alt="ATCMH"/></Link>
+  return <header className={`site-header${filled ? " is-scrolled" : ""}${variant === "solid" ? " is-solid" : ""}${light ? " is-light" : ""}`}>
+    <Link className="brand" href="/" aria-label="ATC Mentorship Hub home">{light ? <><img src="/assets/logo-Czz1Kl8u.png" alt=""/><span className="light-brand-name"><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span></> : <img src="/assets/logoLight-DWbJHT7m.png" alt="ATCMH"/>}</Link>
     <nav className="nav-links" aria-label="Primary navigation"><NavigationLinks/></nav>
     <div className="nav-primary-auth"><AuthNavigation showLogin={showLogin}/></div>
     <details className="mobile-navigation">

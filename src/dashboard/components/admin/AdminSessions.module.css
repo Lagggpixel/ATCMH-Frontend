@@ -359,3 +359,26 @@
         white-space: normal;
     }
 }
+
+.adminSessionsContainer { max-width: 1360px; padding: clamp(20px, 3vw, 40px); }
+.adminSessionsControls { align-items: end; gap: 16px; margin-bottom: 20px; padding: 20px; border: 1px solid var(--border-color); border-radius: 11px; background: #fff; }
+.secondaryFilters { display: contents; }
+.mobileFiltersToggle { display: none; }
+.adminSessionsFilterControl input, .adminSessionsFilterControl select { min-height: 44px; border-radius: 7px; background: #fff; }
+.adminSessionsSessionsCount { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.adminSessionsSessionsTable { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border-color); border-radius: 11px; background: #fff; box-shadow: 0 8px 22px #1427400a; }
+.adminSessionsDataTable th { background: #f1f5f9; }
+.adminSessionsDataTable td, .adminSessionsDataTable tbody tr:nth-child(even) td { background: #fff; }
+.adminSessionsDataTable tbody tr:hover td { background: #f8fbff; }
+
+@media (max-width: 700px) {
+    .adminSessionsContainer { padding: 16px; }
+    .adminSessionsControls { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; padding: 15px; }
+    .mobileFiltersToggle { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: 7px; background: #f8fafc; padding: 8px 13px; color: var(--text-color); cursor: pointer; font: inherit; font-size: .88rem; font-weight: 750; }
+    .mobileFiltersToggle[aria-expanded="true"] { border-color: #a9c8ee; background: #e8f1ff; }
+    .secondaryFilters { display: none; grid-column: 1 / -1; gap: 12px; padding-top: 5px; }
+    .secondaryFilters[data-open="true"] { display: grid; }
+    .adminSessionsSessionsTable { border: 0; background: transparent; box-shadow: none; }
+    .adminSessionsDataTable tr { border-radius: 9px; box-shadow: 0 8px 22px #1427400a; }
+    .adminSessionsDataTable td, .adminSessionsDataTable tbody tr:nth-child(even) td { background: #fff; }
+}

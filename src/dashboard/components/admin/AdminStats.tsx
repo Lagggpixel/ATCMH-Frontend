@@ -219,7 +219,7 @@ const AdminStats = ({
                     <div className={styles.adminStatCard}>
                         <h3>Session Status Distribution</h3>
                         <div className={styles.adminStatsChartContainer}>
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={stats?.overallStats}
@@ -252,7 +252,7 @@ const AdminStats = ({
                     <div className={styles.adminStatCard}>
                         <h3>Session Time Distribution</h3>
                         <div className={styles.adminStatsChartContainer}>
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats?.hourCounts}>
                                     <XAxis dataKey="hour"/>
                                     <YAxis/>
@@ -275,7 +275,7 @@ const AdminStats = ({
                     <div className={styles.adminStatCard}>
                         <h3>Attendance Rate</h3>
                         <div className={styles.adminStatsChartContainer}>
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={stats?.attendanceMovingAverage ?? []}>
                                     <CartesianGrid strokeDasharray="3 3"/>
                                     <XAxis dataKey="date"/>

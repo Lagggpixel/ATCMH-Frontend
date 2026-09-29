@@ -13,7 +13,7 @@
 .check { align-items: center; display: flex; font-weight: 650; }
 .check input { accent-color: var(--accent-color); padding: 0; }
 .sectionHeading button, .saveButton, .removeButton { border: 1px solid var(--border-color); border-radius: 7px; cursor: pointer; font: inherit; padding: 8px 11px; }
-.sectionHeading button, .saveButton { background: var(--accent-color); border-color: var(--accent-color); color: #111; font-weight: 800; }
+.sectionHeading button, .saveButton { background: var(--accent-color); border-color: var(--accent-color); color: #fff; font-weight: 800; }
 .removeButton { background: transparent; color: #ff9292; justify-self: start; }
 .error { background: var(--danger-bg); border: 1px solid var(--error-color); border-radius: 8px; color: var(--danger-text) !important; padding: 12px; }
 .success { color: var(--success-text) !important; font-weight: 750; }

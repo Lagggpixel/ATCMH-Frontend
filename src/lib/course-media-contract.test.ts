@@ -13,5 +13,5 @@ test("course media authoring accepts MOV and HEIC files and normalizes their bro
     assert.match(mediaSource, /image\/heic/);
     assert.match(mediaSource, /heic:\s*"image\/heic"/);
     assert.match(editorSource, /isHeicMediaFile/);
-    assert.match(editorSource, /HEIC\/HEIF uploads to JPEG/);
+    assert.match(editorSource, /prepareMediaFile\(file\)/);
 });

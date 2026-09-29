@@ -7,5 +7,5 @@ import SiteFrame from "@/src/platform/SiteFrame";
 export const dynamic = "force-dynamic";
 
 export default function DashboardLayout({children}: Readonly<{children: ReactNode}>) {
-    return <SiteFrame footer={false} header={<DashboardHeader/>}><DashboardAccessGate><DashboardRuntime>{children}</DashboardRuntime></DashboardAccessGate></SiteFrame>;
+    return <SiteFrame theme="light" footer={false} header={<DashboardHeader/>}><DashboardAccessGate><DashboardRuntime>{children}</DashboardRuntime></DashboardAccessGate></SiteFrame>;
 }
