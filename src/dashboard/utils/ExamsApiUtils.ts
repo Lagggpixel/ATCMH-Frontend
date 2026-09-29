@@ -104,7 +104,7 @@ export class ExamsApiUtils {
         if (!response.ok) await ExamsApiUtils.throwResponseError(response);
     }
     static async getCourseStatistics(id: string, token: string): Promise<CourseStatistics> { return (await ExamsApiUtils.backendJson<{statistics: CourseStatistics}>(`/admin/courses/${encodeURIComponent(id)}/statistics`, token)).statistics; }
-    static async saveCourse(course: ManagedCourseDraft, token: string): Promise<ManagedCourse> { const path = course.id ? `/admin/courses/${encodeURIComponent(course.id)}` : "/admin/courses"; return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(course)})).course; }
+    static async saveCourse(course: ManagedCourseDraft, token: string, expectedUpdatedAt?: string): Promise<ManagedCourse> { const path = course.id ? `/admin/courses/${encodeURIComponent(course.id)}` : "/admin/courses"; return (await ExamsApiUtils.backendJson<{course: ManagedCourse}>(path, token, {method: course.id ? "PUT" : "POST", headers: {"Content-Type": "application/json", ...(course.id && expectedUpdatedAt ? {"If-Match": expectedUpdatedAt} : {})}, body: JSON.stringify(course)})).course; }
     static async uploadCourseMedia(courseId: string, file: File, token: string, onProgress?: (percentage: number) => void, signal?: AbortSignal): Promise<CourseMediaUpload> {
         const path = `/admin/courses/${encodeURIComponent(courseId)}/media?filename=${encodeURIComponent(file.name)}`;
         if (!onProgress || typeof XMLHttpRequest === "undefined") {
@@ -175,5 +175,12 @@ export class ExamsApiUtils {
         return response.json() as Promise<T>;
     }
     private static async fetchJson<T>(path:string,token:string,options:RequestInit={}):Promise<T>{const response=await ExamsApiUtils.request(path,token,options);if(!response.ok)await ExamsApiUtils.throwResponseError(response);return response.json();}
-    private static async throwResponseError(response:Response):Promise<never>{const details=await response.text().catch(()=>"");throw new Error(`Exams API failed with ${response.status} ${response.statusText}${details?`: ${details}`:""}`);}
+    private static async throwResponseError(response:Response):Promise<never>{
+        const details=await response.text().catch(()=>"");
+        let message="";
+        try { const body=JSON.parse(details) as {error?: unknown; message?: unknown}; message=typeof body.error==="string"?body.error:typeof body.message==="string"?body.message:""; }
+        catch { message=details.trim(); }
+        const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+        throw new Error(message ? `${message} (${status})` : `Request failed (${status}). Please try again.`);
+    }
 }
