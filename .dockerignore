@@ -17,6 +17,7 @@ tests
 **/*.test.*
 **/*.case.ts
 *.log
+*.tsbuildinfo
 *.dump
 *.sql.gz
 *transcript*
