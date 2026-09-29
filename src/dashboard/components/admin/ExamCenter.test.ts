@@ -170,7 +170,8 @@ test("attempt reviews open on a dedicated subpage rather than inside the list", 
 
 test("attempt deletion is limited to super administrators and names its target", () => {
     assert.match(attemptReviewSource, /actor\.canManageAll\s*\?\s*<button/);
-    assert.match(attemptReviewSource, /This permanently removes \{displayName\}’s attempt for \{attempt\.quizTitle\}/);
+    assert.match(attemptReviewSource, /This permanently removes \$\{displayName\}’s attempt for \$\{attempt\.quizTitle\}/);
+    assert.match(attemptReviewSource, /useConfirmation\(\)/);
     assert.match(attemptReviewSource, /role="alert"/);
     assert.match(attemptReviewSource, /navigate\("\/dashboard\/exams\/attempts"\)/);
 });
@@ -275,7 +276,7 @@ test("quiz editor disarms only after a successful save", () => {
 });
 
 test("quiz editor selects canonical folders and creates an administrator folder inline", () => {
-    assert.match(editorSource, /<select required aria-label="Folder" disabled=\{!canChangeFolder\}/);
+    assert.match(editorSource, /<select id="exam-folder" aria-label="Folder" aria-invalid=\{[^}]+\} disabled=\{!canChangeFolder\}/);
     assert.match(editorSource, /const canChangeFolder = !quiz\?\.id \|\| canManageFolders/);
     assert.match(editorSource, /\+ Create new folder…/);
     assert.match(editorSource, /const category = await onCreateCategory\(name\);[\s\S]*?categoryId: category\.id/);
@@ -288,7 +289,7 @@ test("quiz editor preserves rejected drafts and serializes concurrent save attem
     assert.match(editorSource, /if \(savingRef\.current\) return;/);
     assert.match(editorSource, /savingRef\.current = true;/);
     assert.match(editorSource, /savingRef\.current = false;/);
-    assert.match(editorSource, /disabled=\{isSaving \|\| showCategoryCreator \|\| !selectedCategoryId\}/);
+    assert.match(editorSource, /disabled=\{isSaving \|\| showCategoryCreator\}/);
     assert.match(examsApiSource, /response\.status === 422[\s\S]*?valid: false/);
 });
 

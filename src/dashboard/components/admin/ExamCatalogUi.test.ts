@@ -8,15 +8,18 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const catalogSource = readFileSync(join(currentDir, "ExamCatalog.tsx"), "utf8");
 const catalogCss = readFileSync(join(currentDir, "ExamCatalog.module.css"), "utf8");
 
-test("exam folders are collapsed when the catalog first opens", () => {
-    assert.match(catalogSource, /useState<Set<string>>\(\(\) => new Set\(\)\)/);
-    assert.doesNotMatch(catalogSource, /folders\[0\]/);
+test("the first populated folder opens and saved quizzes reveal their folder", () => {
+    assert.match(catalogSource, /folders\.find\(folder => folder\.quizzes\.length > 0\)\?\.id/);
+    assert.match(catalogSource, /revealQuizId/);
 });
 
-test("the move-folder selector is a compact action beside Edit", () => {
+test("private quiz actions expose unlocks and moving without crowding the ledger", () => {
     assert.match(catalogSource, /className=\{styles\.quizActions\}/);
+    assert.match(catalogSource, /canUnlock && quiz\.isPrivate/);
+    assert.match(catalogSource, /Manage unlocks/);
+    assert.match(catalogSource, /unlocks\?quiz=/);
+    assert.match(catalogSource, /className=\{styles\.actionMenu\}/);
     assert.match(catalogSource, /className=\{styles\.moveSelect\}/);
     assert.match(catalogSource, /aria-label=\{`Move \$\{quiz\.title\} to another folder`\}/);
-    assert.match(catalogSource, /<option value="">Move<\/option>/);
-    assert.match(catalogCss, /\.moveSelect\s*\{[\s\S]*?width: 78px;[\s\S]*?min-height: 38px;[\s\S]*?border-radius: 9px;/);
+    assert.match(catalogCss, /\.actionMenuPanel\s*\{/);
 });
