@@ -194,8 +194,8 @@
 .previewHero .quietButton { background: #fffdf9; color: #193759; border-color: #c8cbd0; }
 @media (max-width: 700px) { .previewHero { background-image: linear-gradient(90deg, rgba(249, 243, 231, .92), rgba(249, 243, 231, .68) 65%, rgba(249, 243, 231, .12)), url('/assets/course-airport-hero.png'); background-position: center, 62% center; } }
 .previewProgress { display: flex; justify-content: space-between; align-items: center; gap: 15px; min-height: 65px; border-bottom: 1px solid #dfdbd3; background: #fbfaf7; padding: 12px clamp(22px, 4vw, 54px); color: #577097; font-size: .84rem; }
-.previewWorkspace { display: grid; grid-template-columns: minmax(245px, 290px) minmax(0,1fr); gap: 22px; align-items: start; padding: 24px clamp(22px, 4vw, 54px) 0; }
-.previewSidebar { position: sticky; top: 92px; display: flex; flex-direction: column; max-height: clamp(320px, calc(100dvh - 270px), 680px); overflow: hidden; border: 1px solid #dce3eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px #1427400a; }
+.previewWorkspace { display: grid; grid-template-columns: minmax(245px, 280px) minmax(0,1fr); gap: 22px; align-items: start; padding: 24px clamp(22px, 4vw, 54px) 0; }
+.previewSidebar { position: sticky; top: 92px; display: flex; flex-direction: column; max-height: max(320px, calc(100dvh - 250px)); overflow: hidden; border: 1px solid #dce3eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px #1427400a; }
 .previewOutlineHeading { border-bottom: 1px solid #e8edf2; padding: 18px 19px; color: #122b54; font-size: .93rem; font-weight: 800; }
 .previewOutlineNav { display: grid; gap: 3px; }
 .previewSidebar .previewOutlineNav { min-height: 0; overflow-y: auto; padding: 8px 11px 16px; scrollbar-color: #b3bfd0 transparent; }
@@ -318,7 +318,7 @@
 .previewHero h2 { color: #112953; font: 700 clamp(1.7rem, 2.5vw, 2.4rem)/1.1 Georgia, 'Times New Roman', serif; }
 .previewHero p:last-child { margin: 5px 0 0; color: #526987; font-size: .88rem; }
 .previewHero .quietButton { flex: 0 0 auto; min-height: 44px; }
-.previewWorkspace { max-width: 1360px; margin-inline: auto; }
+.previewWorkspace { max-width: 1420px; margin-inline: auto; }
 .previewPaper { min-height: 0; border-color: #e0e5eb; background: #fff; box-shadow: 0 10px 26px #1427400d; }
 .previewSectionHeader h3 { font-size: clamp(1.8rem, 3vw, 2.7rem); }
 .editor { max-width: 1360px; margin-inline: auto; padding-top: clamp(24px, 4vw, 50px); }
