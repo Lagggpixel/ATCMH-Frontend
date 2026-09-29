@@ -360,6 +360,16 @@
     }
 }
 
+@media (max-width: 700px) {
+    .adminSessionsDataTable tr { border-radius: .8rem; }
+    .adminSessionsDataTable td:first-child { display: block; border-bottom: 1px solid var(--border-color); background: #f8fbff !important; color: #10264b; font-weight: 700; text-align: left; }
+    .adminSessionsDataTable td:first-child::before { display: block; margin-bottom: .2rem; }
+    .adminSessionsDataTable td { gap: .5rem; }
+    .adminSessionsDataTable td:last-child { display: flex; justify-content: flex-end; }
+    .adminSessionsDataTable td:last-child::before { margin-right: auto; }
+    .adminAttendeesViewButton, .adminAttendeesCloseButton { min-height: 44px; }
+}
+
 .adminSessionsContainer { max-width: 1360px; padding: clamp(20px, 3vw, 40px); }
 .adminSessionsControls { align-items: end; gap: 16px; margin-bottom: 20px; padding: 20px; border: 1px solid var(--border-color); border-radius: 11px; background: #fff; }
 .secondaryFilters { display: contents; }

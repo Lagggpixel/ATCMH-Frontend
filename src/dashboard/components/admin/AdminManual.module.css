@@ -120,9 +120,13 @@
         width: 100%;
     }
 
-    .manualViewerPanel,
-    .manualViewer {
-        min-height: 58dvh;
-        height: 58dvh;
-    }
+    .manualViewerPanel { display: none; }
+    .manualActions { justify-content: stretch; }
+    .manualActions a { min-height: 48px; }
+}
+.mobileManualCard { display: none; }
+@media (max-width: 640px) {
+    .mobileManualCard { display: grid; gap: .7rem; border: 1px solid var(--border-color); border-radius: .8rem; background: #fff; padding: 1.4rem; }
+    .mobileManualCard h2 { margin: 0; color: #10264b; font-family: Georgia, 'Times New Roman', serif; font-size: 1.65rem; }
+    .mobileManualCard p { margin: 0; color: var(--muted-text); overflow-wrap: anywhere; }
 }

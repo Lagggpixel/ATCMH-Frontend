@@ -52,6 +52,7 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
     const [mergeTargetError, setMergeTargetError] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     const search = async () => {
         if (!csrfToken) return;
@@ -104,14 +105,18 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
     const actionReady = draft.operation === "MERGE" ? mergeReady : draft.operation === "SWAP_MERGE_IDENTITY" ? swapReady : true;
     if (!loaded) return <AdminLoadingScreen/>;
     if (!adminUser?.canManageAccounts) return <AdminUnauthorizedScreen/>;
-    return <main className={styles.page}>
+    return <main className={styles.page} data-detail-open={selected !== null}>
         <AccountRequestError error={error}/>
+        <button type="button" className={styles.mobileBack} onClick={() => setSelected(null)}>Back to accounts</button>
         <form className={styles.filters} onSubmit={event => {event.preventDefault(); void search();}}>
             <label>Account ID<input value={filters.accountId} onChange={e => setFilters({...filters, accountId: e.target.value})}/></label>
             <label>Discord ID or name<input value={filters.discord} onChange={e => setFilters({...filters, discord: e.target.value})}/></label>
+            <button type="button" className={styles.mobileFiltersToggle} aria-expanded={filtersOpen} aria-controls="account-extra-filters" onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "More filters"}</button>
+            <div id="account-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
             <label>IFC ID or name<input value={filters.ifc} onChange={e => setFilters({...filters, ifc: e.target.value})}/></label>
             <label>Status<select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}><option value="">Any</option>{["ACTIVE", "SUSPENDED", "DELETED", "MERGED"].map(value => <option key={value}>{value}</option>)}</select></label>
             <label>Identity<select value={filters.identityActive} onChange={e => setFilters({...filters, identityActive: e.target.value})}><option value="">Any</option><option value="true">Active</option><option value="false">Archived</option></select></label>
+            </div>
             <button type="submit">{loading ? "Searching…" : "Search"}</button>
         </form>
         <div className={styles.layout}>

@@ -424,3 +424,16 @@
         min-width: 0;
     }
 }
+
+@media (max-width: 700px) {
+    .adminUserNotesDataTable tr { border-radius: .8rem; }
+    .adminUserNotesDataTable td:first-child { display: block; background: #f8fbff !important; color: #10264b; font-weight: 700; text-align: left; }
+    .adminUserNotesDataTable td:first-child::before { display: block; margin-bottom: .25rem; }
+    .adminUserNotesTimeCell time { justify-items: start; }
+    .adminUserNoteCellNote { display: block !important; text-align: left !important; }
+    .adminUserNoteCellNote::before { display: block; margin-bottom: .3rem; }
+    .adminUserNotesActionCell { display: block !important; }
+    .adminUserNotesActionCell::before { display: block; margin-bottom: .5rem; }
+    .adminUserNotesActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .adminUserNotesActions button, .adminUserNotesCreateButton { min-height: 44px; }
+}

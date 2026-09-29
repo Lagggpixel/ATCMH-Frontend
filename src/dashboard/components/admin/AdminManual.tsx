@@ -92,6 +92,11 @@ const AdminManual = ({loaded, loggedIn, error, token}: AdminManualProps) => {
 
             {manual && (
                 <>
+                    <section className={styles.mobileManualCard}>
+                        <h2>Mentor Manual</h2>
+                        <p>{manual.filename}</p>
+                        <p>{pdfUrl ? "Open the PDF in your browser or download a copy to read on this device." : "The PDF could not be loaded. Try this page again shortly."}</p>
+                    </section>
                     <section className={styles.manualViewerPanel}>
                         {pdfUrl ? (
                             <object className={styles.manualViewer} data={pdfUrl} type="application/pdf">
