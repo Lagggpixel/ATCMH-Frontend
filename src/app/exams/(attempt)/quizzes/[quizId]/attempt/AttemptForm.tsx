@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { submitLearnerAttempt } from "./actions";
-import { coordinateAttemptSubmission, remainingSeconds, type AttemptQuestion } from "./attempt-form-model";
+import { coordinateAttemptSubmission, type AttemptQuestion } from "./attempt-form-model";
 import { useAttemptNavigationProtection } from "./useAttemptNavigationProtection";
 
 interface AttemptFormProps {
@@ -17,6 +17,8 @@ interface AttemptFormProps {
 export default function AttemptForm({ deadline, quizId, quizTitle, questions }: AttemptFormProps) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [navigationActive, setNavigationActive] = useState(true);
   const [error, setError] = useState<string>();
@@ -72,7 +74,7 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
     const updateTimer = () => {
       const next = Math.max(0, deadline - Math.floor(Date.now() / 1_000));
       setSecondsLeft(next);
-      if (next === 0 && !timeoutAttempted.current) {
+      if (next === 0 && !timeoutAttempted.current && csrfToken) {
         timeoutAttempted.current = true;
         void submit("timeout");
       }
@@ -80,7 +82,7 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
     updateTimer();
     const timer = window.setInterval(updateTimer, 250);
     return () => window.clearInterval(timer);
-  }, [deadline, submit]);
+  }, [csrfToken, deadline, submit]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,6 +90,8 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
   };
 
   const timerText = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
+  const currentQuestion = questions[currentIndex];
+  const answeredCount = questions.filter(question => Boolean(answers[question.id])).length;
 
   return (
     <form className={`attempt-form${deadline !== null ? " attempt-form--timed" : ""}${pending ? " attempt-form--pending" : ""}`} onSubmit={handleSubmit}>
@@ -99,19 +103,20 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
         {deadline !== null ? <p className="attempt-timer" role="timer" aria-live="off"><span>Time remaining</span><strong>{timerText}</strong></p> : null}
       </header>
 
-      <div className="attempt-questions">
-        {questions.map((question, questionIndex) => (
-          <section className="attempt-question" key={question.id}>
-            <h2 id={`question-${question.id}-title`}><span>Question {questionIndex + 1}</span>{question.prompt}</h2>
-            <div className="attempt-options" role="radiogroup" aria-labelledby={`question-${question.id}-title`}>
-              {question.options.map((option) => (
+      <div className="attempt-progress"><div><strong>Question {currentIndex + 1} of {questions.length}</strong><span>{answeredCount} answered</span></div><progress value={currentIndex + 1} max={questions.length} aria-label="Quiz position"/></div>
+
+      {currentQuestion ? <div className="attempt-questions">
+          <section className="attempt-question" key={currentQuestion.id}>
+            <h2 id={`question-${currentQuestion.id}-title`}>{currentQuestion.prompt}</h2>
+            <div className="attempt-options" role="radiogroup" aria-labelledby={`question-${currentQuestion.id}-title`}>
+              {currentQuestion.options.map((option) => (
                 <label className="attempt-option" key={option.id}>
                   <input
-                    checked={answers[question.id] === option.id}
+                    checked={answers[currentQuestion.id] === option.id}
                     disabled={pending}
-                    name={`question-${question.id}`}
+                    name={`question-${currentQuestion.id}`}
                     onChange={() => setAnswers((current) => {
-                      const next = { ...current, [question.id]: option.id };
+                      const next = { ...current, [currentQuestion.id]: option.id };
                       answersRef.current = next;
                       return next;
                     })}
@@ -123,15 +128,17 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
               ))}
             </div>
           </section>
-        ))}
-      </div>
+      </div> : null}
 
       <footer className="attempt-submit">
         {error ? <p className="attempt-error" role="alert">{error}</p> : null}
-        <div className="attempt-submit__action">
-          <button className="button" disabled={pending || !csrfToken} type="submit">{pending ? "Submitting…" : csrfToken ? "Submit quiz" : "Securing session…"}</button>
+        <div className="attempt-submit__action attempt-navigation">
+          <button className="button button--quiet" type="button" disabled={pending || currentIndex === 0} onClick={() => { setCurrentIndex(index => index - 1); setOverviewOpen(false); }}>Previous</button>
+          <button className="button" type="button" disabled={pending} onClick={() => { if (currentIndex === questions.length - 1) setOverviewOpen(true); else setCurrentIndex(index => index + 1); }}>{currentIndex === questions.length - 1 ? "Review answers" : "Next question"}</button>
         </div>
+        <button className="attempt-overview-toggle" type="button" aria-expanded={overviewOpen} aria-controls="attempt-overview" onClick={() => setOverviewOpen(open => !open)}>{overviewOpen ? "Hide all questions" : "View all questions"}</button>
       </footer>
+      {overviewOpen ? <section className="attempt-overview" id="attempt-overview" aria-label="Answer overview"><div><h2>Answer overview</h2><p>{answeredCount} of {questions.length} answered. You can return to any question before submitting.</p></div><div className="attempt-overview__grid">{questions.map((question, index) => <button type="button" key={question.id} className={index === currentIndex ? "is-current" : ""} onClick={() => { setCurrentIndex(index); setOverviewOpen(false); }}><span>Question {index + 1}</span><small>{answers[question.id] ? "Answered" : "Unanswered"}</small></button>)}</div><button className="button attempt-overview__submit" type="submit" disabled={pending || !csrfToken}>{pending ? "Submitting…" : csrfToken ? "Submit quiz" : "Securing session…"}</button></section> : null}
     </form>
   );
 }

@@ -162,3 +162,19 @@
         margin-bottom: 14px;
     }
 }
+.examCenter { width: min(100%, 1280px); padding: 24px; }
+.examNav { gap: 18px; min-height: 48px; margin-bottom: 22px; border-bottom-color: var(--border-color); }
+.examNav a { min-height: 48px; padding: 0 4px; font-weight: 700; }
+.headingActions { gap: 10px; margin-bottom: 18px; }
+.createButton, .secondaryAction { min-height: 42px; }
+.createButton { border-color: var(--accent-color); background: var(--accent-color); color: #fff; padding-inline: 17px; }
+.createButton:hover { background: var(--accent-strong-color); color: #fff; }
+.secondaryAction { border-color: var(--border-color); background: #fff; color: var(--accent-strong-color); }
+@media (max-width: 760px) {
+    .examCenter { padding: 16px; }
+    .examNav { flex-wrap: nowrap; gap: 16px; overflow-x: auto; border-bottom: 1px solid var(--border-color); mask-image: none; }
+    .examNav a { flex: 0 0 auto; min-height: 46px; border: 0; border-radius: 0; background: transparent; padding: 0 3px; white-space: nowrap; }
+    .examNav .activeNavLink { border: 0; background: transparent; }
+    .examNav .activeNavLink::after { display: block; }
+}
+@media (max-width: 390px) { .examCenter { padding: 12px; } }

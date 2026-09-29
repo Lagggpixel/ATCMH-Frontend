@@ -5,17 +5,18 @@ import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import {useUserLookup} from "../../hooks/useAdminShared.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {formatAttemptResult, formatAttemptStatus, formatAttemptSubmittedAt} from "../../utils/ExamAttemptUtils.ts";
+import {useConfirmation} from "../../../platform/confirmation/ConfirmationProvider.tsx";
 import styles from "./ExamAttemptReview.module.css";
 
 interface ExamAttemptReviewProps { token: string; actor: ExamManagementActor; users: AtcmhUser[]; }
 
 const ExamAttemptReview = ({token, actor, users}: ExamAttemptReviewProps) => {
     const navigate = useNavigate();
+    const confirm = useConfirmation();
     const {getUserNameOrFallback} = useUserLookup(users);
     const {attemptId} = useParams<{attemptId: string}>();
     const [attempt, setAttempt] = useState<ExamAttemptDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const requestVersion = useRef(0);
@@ -54,13 +55,17 @@ const ExamAttemptReview = ({token, actor, users}: ExamAttemptReviewProps) => {
     if (!attempt) return <section className={styles.state} role="alert"><p>{error ?? "This attempt could not be found."}</p><Link to="/dashboard/exams/attempts">Back to attempts</Link></section>;
     const review = attempt.review;
     const displayName = getUserNameOrFallback(attempt.studentDiscordId, attempt.studentName);
+    const confirmDelete = async () => {
+        if (!await confirm({title: "Delete this attempt?", message: `This permanently removes ${displayName}’s attempt for ${attempt.quizTitle}, including its answers.`, confirmLabel: "Delete attempt", cancelLabel: "Keep attempt", tone: "danger"})) return;
+        await deleteAttempt();
+    };
 
     return <section className={styles.review} aria-labelledby="attempt-review-heading">
         <Link className={styles.backLink} to="/dashboard/exams/attempts">← Back to attempts</Link>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <header className={styles.heading}>
             <div><p className={styles.eyebrow}>Stored attempt</p><h2 id="attempt-review-heading">{displayName}</h2><p>{attempt.quizTitle}</p></div>
-            <div className={styles.actions}>{actor.canManageAll ? <button type="button" className={styles.deleteButton} onClick={() => setIsConfirmingDelete(true)}>Delete attempt</button> : null}</div>
+            <div className={styles.actions}>{actor.canManageAll ? <button type="button" className={styles.deleteButton} disabled={isDeleting} onClick={() => void confirmDelete()}>Delete attempt</button> : null}</div>
         </header>
         <dl className={styles.summary}>
             <div><dt>Result</dt><dd>{formatAttemptResult(attempt)}</dd></div>
@@ -69,10 +74,6 @@ const ExamAttemptReview = ({token, actor, users}: ExamAttemptReviewProps) => {
             <div><dt>Attempt code</dt><dd>{attempt.code}</dd></div>
             <div><dt>Discord ID</dt><dd>{attempt.studentDiscordId ?? "Not recorded"}</dd></div>
         </dl>
-        {isConfirmingDelete ? <section className={styles.confirmation} role="dialog" aria-modal="true" aria-labelledby="delete-attempt-heading">
-            <h3 id="delete-attempt-heading">Delete this attempt?</h3><p>This permanently removes {displayName}’s attempt for {attempt.quizTitle}, including its answers.</p>
-            <div><button type="button" onClick={() => setIsConfirmingDelete(false)} disabled={isDeleting}>Keep attempt</button><button type="button" className={styles.confirmDelete} onClick={() => void deleteAttempt()} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete attempt"}</button></div>
-        </section> : null}
         <section className={styles.questions} aria-labelledby="questions-heading">
             <h3 id="questions-heading">Question review</h3>
             {!review.available ? <p className={styles.unavailable}>A per-question review was not recorded for this historical attempt.</p> : <ol>{review.questions.map((question, index) => <li key={`${index}-${question.prompt}`} className={styles.question}>

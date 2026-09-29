@@ -12,22 +12,60 @@
 .memberSection, .listSection { border-top: 1px solid var(--border-color); min-width: 0; padding-top: 18px; }
 .memberSection { display: grid; gap: 14px; }
 .results { display: grid; gap: 6px; }
-.results button { align-items: center; background: transparent; border: 1px solid var(--border-color); border-radius: 9px; color: var(--text-color); cursor: pointer; display: flex; justify-content: space-between; min-height: 40px; padding: 8px 10px; text-align: left; }
+.results button { align-items: center; background: transparent; border: 1px solid var(--border-color); border-radius: 9px; color: var(--text-color); cursor: pointer; display: flex; justify-content: space-between; min-height: 44px; padding: 8px 10px; text-align: left; }
 .results button:hover { background: var(--surface-2-color); }
 .results span, .selection span, .listSection li span { color: var(--muted-text); font-size: .85rem; }
 .selection { color: var(--text-color); margin: 0; }
 .divider { align-items: center; color: var(--muted-text); display: flex; font-size: .8rem; gap: 10px; }
 .divider::before, .divider::after { background: var(--border-color); content: ""; flex: 1; height: 1px; }
 .help { color: var(--muted-text); font-size: .85rem; margin: -8px 0 0; }
-.unlockButton { background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 9px; color: #fff; cursor: pointer; font: inherit; font-weight: 800; min-height: 40px; padding: 8px 12px; justify-self: start; }
+.unlockButton { background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 9px; color: #fff; cursor: pointer; font: inherit; font-weight: 800; min-height: 44px; padding: 8px 12px; justify-self: start; }
 .unlockButton:disabled, .lockButton:disabled { cursor: not-allowed; opacity: .55; }
 .listSection > p { color: var(--muted-text); }
 .listSection ul { list-style: none; margin: 12px 0 0; padding: 0; }
 .listSection li { align-items: center; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: space-between; min-height: 52px; padding: 8px 6px; }
 .listSection li:hover { background: var(--surface-2-color); border-radius: 8px; }
 .listSection li div { display: grid; gap: 3px; }
-.lockButton { background: transparent; border: 0; border-radius: 8px; color: var(--muted-text); cursor: pointer; font: inherit; min-height: 40px; padding: 8px 10px; }
+.lockButton { background: transparent; border: 0; border-radius: 8px; color: var(--muted-text); cursor: pointer; font: inherit; min-height: 44px; padding: 8px 10px; }
 .lockButton:hover, .lockButton:focus-visible { color: var(--error-color); }
 .error { background: var(--danger-bg); border: 1px solid var(--error-color); border-radius: 8px; color: var(--danger-text); margin: 18px 0 0; padding: 12px; }
-@media (max-width: 840px) { .workspace { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .manager { padding: 15px; } .results button { align-items: flex-start; flex-direction: column; } }
+/* The canvas, selector, grant form, and access ledger are separate surfaces. */
+.manager { padding: 12px 0 28px; }
+.heading { border: 0; margin: 0 0 20px; padding: 0; }
+.heading h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -.025em; }
+.heading p { margin-top: 6px; }
+.pickerSurface { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr); align-items: end; gap: 16px; border: 1px solid var(--border-color); border-radius: 14px; background: #fff; padding: 20px; box-shadow: 0 8px 22px rgb(18 41 80 / 4%); }
+.quizPicker, .quizSearch { display: grid; gap: 7px; color: var(--text-color); font-size: .86rem; font-weight: 750; }
+.quizPicker { max-width: none; }
+.manager input, .manager select { width: 100%; min-height: 44px; }
+.prompt { border: 1px dashed var(--border-color); border-radius: 14px; margin-top: 18px; padding: 32px; background: #fff; }
+.workspace { grid-template-columns: minmax(290px, .85fr) minmax(0, 1.5fr); gap: 16px; margin-top: 18px; }
+.memberSection, .listSection { border: 1px solid var(--border-color); border-radius: 14px; background: #fff; min-width: 0; padding: 24px; box-shadow: 0 8px 22px rgb(18 41 80 / 4%); }
+.memberSection h3, .listSection h3 { font-size: 1.16rem; }
+.memberSection { align-content: start; gap: 18px; }
+.listHeading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
+.listHeading h3 span { color: var(--muted-text); font-size: .84rem; font-weight: 500; white-space: nowrap; margin-left: 8px; }
+.listHeading label { display: grid; gap: 5px; width: min(240px, 100%); color: var(--muted-text); font-size: .78rem; font-weight: 700; }
+.listSection ul { margin-top: 18px; border-top: 1px solid var(--border-color); }
+.listSection li { min-height: 70px; padding: 12px 4px; }
+.lockButton { border: 1px solid var(--border-color); color: var(--text-color); font-weight: 700; }
+.manualId { min-width: 0; }
+.manualId summary { color: var(--accent-strong-color); cursor: pointer; font-weight: 700; }
+.manualId label { margin-top: 12px; }
+.manualId .help { margin: 8px 0 0; }
+.mobileTabs { display: none; }
+@media (max-width: 840px) {
+    .workspace { grid-template-columns: 1fr; }
+    .pickerSurface { grid-template-columns: 1fr; }
+    .mobileTabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--border-color); border-radius: 11px; background: #fff; }
+    .mobileTabs button { min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--text-color); font: inherit; font-weight: 700; cursor: pointer; }
+    .mobileTabs button[aria-pressed="true"] { background: var(--info-bg); color: var(--accent-strong-color); }
+    .mobileHidden { display: none; }
+}
+@media (max-width: 700px) {
+    .manager { padding: 8px 0 24px; }
+    .pickerSurface, .memberSection, .listSection { padding: 16px; }
+    .results button { align-items: flex-start; flex-direction: column; }
+    .listHeading { align-items: stretch; flex-direction: column; }
+    .listHeading label { width: 100%; }
+}
