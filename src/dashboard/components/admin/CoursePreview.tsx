@@ -38,7 +38,7 @@ export default function CoursePreview({course, quizzes, onEdit}: CoursePreviewPr
             <button type="button" className={styles.quietButton} onClick={onEdit}>Edit course</button>
         </header>
         <div className={styles.previewWorkspace}>
-            <aside className={styles.previewSidebar}>{outline}</aside>
+            <aside className={styles.previewSidebar} aria-label="Course outline"><div className={styles.previewOutlineHeading}>Course outline</div>{outline}</aside>
             <div className={styles.previewReader}>
                 <details className={styles.previewMobileOutline}><summary>Course outline</summary>{outline}</details>
                 {selected ? <article className={styles.previewPaper} key={selected.id}>

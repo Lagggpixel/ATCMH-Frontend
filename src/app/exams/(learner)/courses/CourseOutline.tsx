@@ -59,7 +59,7 @@ export default function CourseOutline({courseId, groups, sections, currentId, co
       </select>
     </div>
     <aside className={styles.desktopOutline} aria-label="Course outline">
-      <div className={styles.outlineHeading}><span>Course outline</span><small>{groups.length} sections · {sections.length} subsections</small></div>
+      <div className={styles.outlineHeading}><span>Course outline</span></div>
       {outline(false)}
     </aside>
     <button ref={opener} type="button" className={styles.mobileOutlineButton} onClick={() => dialog.current?.showModal()} aria-haspopup="dialog">Course outline <span>{groups.length} sections</span></button>
@@ -67,7 +67,7 @@ export default function CourseOutline({courseId, groups, sections, currentId, co
       if (event.target === dialog.current) dialog.current.close();
     }}>
       <div className={styles.outlineDialogPanel}>
-        <div className={styles.outlineHeading}><div><strong>Course outline</strong><small>{groups.length} sections · {sections.length} subsections</small></div><button type="button" onClick={() => dialog.current?.close()}>Close</button></div>
+        <div className={styles.outlineHeading}><strong>Course outline</strong><button type="button" onClick={() => dialog.current?.close()}>Close</button></div>
         {outline(true)}
       </div>
     </dialog>
