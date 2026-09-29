@@ -129,13 +129,14 @@
 .toolbarProgress .progressTrack span { background: #1167e8; }
 .toolbarProgress strong { color: #5273a0; white-space: nowrap; }
 .toolbarProgress small { font-size: .78rem; font-weight: 500; }
-.readerWorkspace { display: grid; grid-template-columns: minmax(250px, 292px) minmax(0, 1fr); gap: 20px; width: min(100% - 64px, 1400px); margin: auto; align-items: start; }
-.desktopOutline { position: sticky; top: 0; height: min(100vh, 850px); min-height: 400px; display: flex; flex-direction: column; border-right: 1px solid #dcd7cd; background: #f7f5ef; }
-.outlineHeading { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 23px 18px 18px 0; color: #102342; font-size: .92rem; font-weight: 800; }
-.outlineHeading small { display: block; color: #73849a; font-size: .73rem; font-weight: 500; }
-.outlineNav { min-height: 0; overflow-y: auto; padding: 0 16px 28px 0; scrollbar-color: #b3bfd0 transparent; }
-.outlineGroup { border-bottom: 1px solid #d9dfe4; padding: 11px 0; }
-.outlineGroup summary { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; padding: 4px 5px; color: #132744; cursor: pointer; list-style: none; }
+.readerWorkspace { display: grid; grid-template-columns: minmax(250px, 292px) minmax(0, 1fr); gap: 20px; width: min(100% - 64px, 1400px); margin: auto; padding-top: 24px; align-items: start; }
+.desktopOutline { position: sticky; top: 92px; display: flex; flex-direction: column; max-height: clamp(320px, calc(100dvh - 360px), 680px); min-height: 0; overflow: hidden; border: 1px solid #dce3eb; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px #1427400a; }
+.outlineHeading { display: flex; justify-content: space-between; align-items: center; gap: 14px; border-bottom: 1px solid #e8edf2; padding: 18px 19px; color: #102342; font-size: .92rem; font-weight: 800; }
+.outlineNav { min-height: 0; overflow-y: auto; padding: 8px 11px 16px; scrollbar-color: #b3bfd0 transparent; }
+.outlineGroup { border-bottom: 1px solid #e8edf2; padding: 9px 0 12px; }
+.outlineGroup:last-child { border-bottom: 0; }
+.outlineGroup summary { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; border-radius: 7px; padding: 5px 8px; color: #132744; cursor: pointer; list-style: none; }
+.outlineGroup summary:focus-visible, .outlineGroup a:focus-visible { outline: 2px solid #0869ee; outline-offset: 2px; }
 .outlineGroup summary::-webkit-details-marker { display: none; }
 .outlineGroupNumber { grid-column: 1 / -1; color: #5374a0; font-size: .74rem; }
 .outlineGroup summary strong { font-size: .91rem; }
@@ -147,7 +148,7 @@
 .outlineMark { display: inline-block; width: 13px; height: 13px; margin-top: 1px; border: 1.7px solid #6684ad; border-radius: 50%; }
 .outlineDone { border-color: #1770df; background: #1770df; box-shadow: inset 0 0 0 3px #fff; }
 .sectionSwitcher { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-.readerMain { min-width: 0; padding: 18px 0 70px; }
+.readerMain { min-width: 0; padding: 0 0 70px; }
 .readerContext { display: none; }
 .readerMain .section { min-height: 540px; border: 1px solid #e4ddd2; border-radius: 12px; background: #fffefd; box-shadow: 0 14px 34px #392b1a14; }
 .readerMain .sectionHeader { border-bottom: 0; padding: 29px 32px 0; }
@@ -283,7 +284,6 @@
 .heroInner h1 { max-width: 100%; font-size: clamp(2rem, 3.5vw, 3rem); }
 .heroInner p:last-child { max-width: 65ch; color: #536987; font-size: .98rem; }
 .readerToolbar { background: #fff; border-bottom-color: #dce3eb; box-shadow: none; }
-.desktopOutline { background: #f7f8fa; border-right-color: #dce3eb; }
 .readerMain .section { min-height: 0; border-color: #dce3eb; background: #fff; box-shadow: 0 10px 26px #1427400d; }
 .catalogShell .coursePage { padding-top: 45px; }
 .catalogShell .courseHeader { margin-bottom: 28px; }
