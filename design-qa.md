@@ -15,3 +15,16 @@ The course reader combines the layered study notebook surface from the selected 
 ## Follow-up in a deployed environment
 
 The local visual fixture exercised the same reader and preview components without a live course API or login session. After the database conversion and backend deployment, verify a signed-in learner's actual checkpoint attempts, completion writes, and resume route against migrated data.
+
+## Dashboard navigation and Assignments redesign
+
+Visual targets were the approved desktop Assignments, phone list, phone editor, and navigation drawer images. Reviewed the rendered frontend with a temporary local data fixture at desktop, 390px, and 320px widths. The fixture was removed after review.
+
+- Fixed the phone heading and New button collision.
+- Kept Save visible while editing on phones.
+- Raised the drawer above the fixed Save bar and confirmed group expansion.
+- Confirmed assignment selection, search, and Back to templates in the local preview.
+
+The local Dashboard API was unavailable, so authenticated data-backed flows could not be visually exercised in the preview. Frontend tests, lint, TypeScript, and production build cover the checked-in implementation.
+
+final result: passed

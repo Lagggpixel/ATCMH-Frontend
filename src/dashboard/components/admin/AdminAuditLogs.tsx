@@ -52,6 +52,7 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
     const [isLoadingAudit, setIsLoadingAudit] = useState(false);
     const [filterMetadata, setFilterMetadata] = useState<AuditLogFilterMetadata | undefined>(undefined);
     const [filters, setFilters] = useState(emptyFilters);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [submittedFilters, setSubmittedFilters] = useState(toSubmittedFilters(emptyFilters));
     const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
 
@@ -113,6 +114,7 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
     const applyFilters = (event: FormEvent) => {
         event.preventDefault();
         setSubmittedFilters(toSubmittedFilters(filters));
+        setFiltersOpen(false);
     };
 
     const clearFilters = () => {
@@ -193,6 +195,8 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
                         {filterMetadata?.actions.map(action => <option key={action} value={action}>{action}</option>)}
                     </select>
                 </label>
+                <button type="button" className={styles.mobileFiltersToggle} aria-expanded={filtersOpen} aria-controls="audit-more-filters" onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "More filters"}</button>
+                <div id="audit-more-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
                 <label>
                     Actor
                     <select name="actorId" value={filters.actorId} onChange={handleFilterChange}>
@@ -229,6 +233,7 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
                         <option value="all">All</option>
                     </select>
                 </label>
+                </div>
                 <div className={styles.auditFilterActions}>
                     <button type="submit">Apply</button>
                     <button type="button" onClick={clearFilters}>Clear</button>

@@ -27,3 +27,25 @@
 .ipTable th, .ipTable td { padding: 10px; border-bottom: 1px solid var(--border-color); }
 .ipTable th { color: var(--muted-text); font-size: .84rem; }
 .ipTable code { white-space: nowrap; }
+
+.mobileBack, .mobileFiltersToggle { display: none; }
+.secondaryFilters { display: contents; }
+@media (max-width: 1000px) {
+    .results { max-height: none; }
+}
+@media (max-width: 700px) {
+    .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border-color); border-radius: .75rem; background: #fff; padding: 1rem; }
+    .mobileFiltersToggle { display: inline-flex; grid-column: 1 / -1; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: .5rem; background: #f7faff; color: var(--text-color); cursor: pointer; font: inherit; font-weight: 700; }
+    .secondaryFilters { display: none; grid-column: 1 / -1; }
+    .secondaryFilters[data-open="true"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .filters > button[type="submit"] { grid-column: 1 / -1; min-height: 44px; }
+    .page[data-detail-open="true"] .filters, .page[data-detail-open="true"] .results { display: none; }
+    .page[data-detail-open="false"] .detail { display: none; }
+    .mobileBack { display: none; min-height: 44px; border: 0; background: transparent; padding: 0; color: #0869ee; cursor: pointer; font: inherit; font-weight: 700; }
+    .page[data-detail-open="true"] .mobileBack { display: inline-flex; align-items: center; }
+    .detail { border: 0; padding-top: .5rem; }
+    .layout { margin-top: .7rem; }
+    .results { border: 1px solid var(--border-color); border-radius: .75rem; background: #fff; }
+    .results button { min-height: 72px; }
+}
+@media (max-width: 380px) { .filters, .secondaryFilters[data-open="true"] { grid-template-columns: 1fr; } }

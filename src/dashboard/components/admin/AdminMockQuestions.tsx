@@ -34,6 +34,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     const [form, setForm] = useState<MockQuestionTemplatePayload>(emptyForm(1));
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string>();
+    const [mobileEditing, setMobileEditing] = useState(false);
 
     useEffect(() => {
         if (!loaded || !loggedIn || !adminUser?.canManageMockQuestions || !token) return;
@@ -47,6 +48,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     const ordered = useMemo(() => [...(templates ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id), [templates]);
     const readiness = mockQuestionReadiness(ordered.length);
     const select = (template: MockQuestionTemplate) => {
+        setMobileEditing(true);
         setSelectedId(template.id);
         setForm({
             questionText: template.questionText,
@@ -60,6 +62,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
         });
     };
     const createNew = () => {
+        setMobileEditing(true);
         setSelectedId("new");
         setForm(emptyForm(Math.max(0, ...ordered.map(template => template.sortOrder)) + 1));
     };
@@ -135,7 +138,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
     if (!adminUser?.canManageMockQuestions) return <AdminErrorScreen header="Forbidden" content="Only Mentors, Moderators, and Super Admins can manage mock questions."/>;
     if (!templates) return <AdminLoadingScreen/>;
 
-    return <div className={styles.container}>
+    return <div className={styles.container} data-mobile-editing={mobileEditing}>
         <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
         <header className={styles.pageHeader}>
             <div><h1>Mock questions</h1><p>Discord sends every configured question in this order.</p></div>
@@ -155,6 +158,7 @@ export default function AdminMockQuestions({loaded, loggedIn, error, adminUser, 
                 {ordered.length === 0 ? <p className={styles.empty}>No mock questions yet.</p> : null}
             </aside>
             <section className={styles.editorPanel}>
+                <button type="button" className={styles.mobileBack} onClick={() => setMobileEditing(false)}>Back to questions</button>
                 <form onSubmit={save} className={styles.form}>
                     <div className={styles.editorHeader}><h2>{selectedId === "new" ? "New question" : `Edit question #${selectedId}`}</h2></div>
                     <label><span>Question text</span><textarea required maxLength={2000} rows={7} value={form.questionText}

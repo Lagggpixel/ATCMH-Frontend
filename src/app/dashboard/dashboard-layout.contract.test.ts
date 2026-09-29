@@ -30,7 +30,9 @@ test("dashboard replaces the public header contents without losing its shared tr
     assert.match(layout, /header=\{<DashboardHeader\/>\}/);
     assert.match(header, /site-header is-scrolled is-solid is-light/);
     assert.match(header, /ATCMH Home/);
-    assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded\/>/);
+    assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded onNavigate=\{\(\) => setMenuOpen\(false\)\}\/>/);
+    assert.match(header, /role=\{menuOpen \? "dialog" : undefined\} aria-modal=\{menuOpen \? "true" : undefined\}/);
+    assert.match(header, /className=\{styles\.drawerBackdrop\}/);
     assert.match(header, /<AuthNavigation showLogin=\{false\}\/>/);
     assert.match(header, /nav-primary-auth \$\{styles\.accountNavigation}/);
     assert.match(header, /aria-controls="dashboard-sections" aria-expanded=\{menuOpen\}/);

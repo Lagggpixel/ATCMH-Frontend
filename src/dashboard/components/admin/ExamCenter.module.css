@@ -54,6 +54,13 @@
     background: var(--accent-color);
 }
 
+@media (max-width: 640px) {
+    .examNav { flex-wrap: wrap; gap: .4rem; overflow: visible; border-bottom: 0; }
+    .examNav a { flex: 0 1 auto; min-height: 44px; border: 1px solid var(--border-color); border-radius: .5rem; background: #fff; padding: .55rem .8rem; white-space: normal; }
+    .examNav .activeNavLink { border-color: #9dc1ef; background: #e9f2ff; color: #075ee8; }
+    .examNav .activeNavLink::after { display: none; }
+}
+
 .headingActions {
     display: flex;
     align-items: center;
