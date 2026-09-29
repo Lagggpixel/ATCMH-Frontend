@@ -34,6 +34,7 @@ const AdminSessions = ({
         cancelled: "all"
     });
     const [attendeesModalSessionId, setAttendeesModalSessionId] = useState<number | null>(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const {name, value} = e.target;
@@ -137,7 +138,7 @@ const AdminSessions = ({
         <div className={styles.adminSessionsContainer}>
             <div className={styles.adminSessionsControls}>
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="mentor-filter">Filter by Mentor:</label>
+                    <label htmlFor="mentor-filter">Mentor</label>
                     <input
                         id="mentor-filter"
                         type="text"
@@ -148,8 +149,12 @@ const AdminSessions = ({
                     />
                 </div>
 
+                <button type="button" className={styles.mobileFiltersToggle} aria-controls="session-extra-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "Filters"}</button>
+
+                <div id="session-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
+
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="mentee-filter">Filter by Mentee:</label>
+                    <label htmlFor="mentee-filter">Mentee</label>
                     <input
                         id="mentee-filter"
                         type="text"
@@ -161,7 +166,7 @@ const AdminSessions = ({
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="attendee-filter">Filter by Attendee:</label>
+                    <label htmlFor="attendee-filter">Attendee</label>
                     <input
                         id="attendee-filter"
                         type="text"
@@ -173,7 +178,7 @@ const AdminSessions = ({
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="cancelled-filter">Status:</label>
+                    <label htmlFor="cancelled-filter">Status</label>
                     <select
                         id="cancelled-filter"
                         name="cancelled"
@@ -185,8 +190,9 @@ const AdminSessions = ({
                         <option value="cancelled">Cancelled Only</option>
                     </select>
                 </div>
+                </div>
             </div>
-            <div className={styles.adminSessionsSessionsCount}>
+            <div className={styles.adminSessionsSessionsCount} role="status">
                 Showing {displayedSessions.length} session{displayedSessions.length !== 1 ? 's' : ''}
             </div>
             <div className={styles.adminSessionsSessionsTable}>

@@ -439,14 +439,14 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
 
     return <section className={styles.editor} aria-labelledby="course-editor-heading">
         <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Back to courses</button></div></div>
-        <p className={styles.description}>Organize the course into sections and subsections. Select one subsection to edit its learning material and checkpoints. MOV uploads are converted to MP4 and HEIC/HEIF uploads to JPEG.</p>
         <form onSubmit={event => void save(event)}>
             <fieldset disabled={isSaving}>
+                <div className={styles.editorSettings}>
                 <div className={styles.fieldGrid}><label>Title<input required maxLength={255} value={draft.title} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label><label>Slug<input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={200} value={draft.slug} onChange={event => setDraft(current => ({...current, slug: event.target.value}))}/></label></div>
                 <label>Description<textarea rows={3} maxLength={2000} value={draft.description} onChange={event => setDraft(current => ({...current, description: event.target.value}))}/></label>
                 <label className={styles.check}><input type="checkbox" checked={draft.isPublished} disabled={!canPublish} onChange={event => setDraft(current => ({...current, isPublished: event.target.checked}))}/> Make available to signed-in learners {canPublish ? "" : "(administrator publishing permission required)"}</label>
                 <label>Navigation mode<select value={draft.navigationMode} onChange={event => setDraft(current => ({...current, navigationMode: event.target.value as ManagedCourseDraft["navigationMode"]}))}><option value="sequential">Sequential · one subsection at a time</option><option value="section_by_section">Section by section · any subsection in the current section</option><option value="free">Free · any subsection in any order</option></select></label>
-                <p className={styles.composerHint}>Choose what to insert from any “Insert here” or “Add at end” button. Insertion bars also accept file drops.</p>
+                </div>
                 <div className={styles.sectionsHeading}><h3>Course structure</h3><button type="button" onClick={addGroup}>Add section</button></div>
                 <div className={styles.editorWorkspace}>
                     <aside className={styles.editorOutline} aria-label="Course structure">

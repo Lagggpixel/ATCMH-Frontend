@@ -86,14 +86,14 @@
 .paginationButtonActive {
     background-color: var(--accent-color);
     border-color: var(--accent-color);
-    color: #111;
+    color: #fff;
     font-weight: 800;
 }
 
 .paginationButtonActive:hover {
     background-color: var(--accent-strong-color);
     border-color: var(--accent-strong-color);
-    color: #111;
+    color: #fff;
 }
 
 .paginationEllipsis {

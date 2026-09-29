@@ -43,7 +43,7 @@
 .modal label { display: grid; gap: 6px; color: var(--muted-text); }
 .modal textarea { min-height: 100px; padding: 9px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--input-bg); color: var(--text-color); }
 .modal div { display: flex; gap: 10px; margin-top: 14px; }
-.modal button:first-child { border-color: var(--accent-color); background: var(--accent-color); color: #111; font-weight: 700; }
+.modal button:first-child { border-color: var(--accent-color); background: var(--accent-color); color: #fff; font-weight: 700; }
 
 @media (max-width: 600px) {
     .page { padding: 12px; }

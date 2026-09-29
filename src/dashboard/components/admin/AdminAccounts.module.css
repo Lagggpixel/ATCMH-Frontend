@@ -6,7 +6,7 @@
 .filters { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)) auto; align-items: end; gap: 10px; padding: 0 0 16px; border: 0; border-bottom: 1px solid var(--border-color); background: transparent; }
 .filters label, .mutation label, .preview label { display: grid; gap: 5px; color: var(--muted-text); font-size: .84rem; }
 .filters input, .filters select, .mutation input, .mutation select, .preview textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--input-bg); color: var(--text-color); font: inherit; }
-.filters button, .mutation button, .preview button { min-height: 40px; padding: 8px 13px; border: 1px solid var(--accent-color); border-radius: 7px; background: var(--accent-color); color: #111; cursor: pointer; font: inherit; font-weight: 700; }
+.filters button, .mutation button, .preview button { min-height: 40px; padding: 8px 13px; border: 1px solid var(--accent-color); border-radius: 7px; background: var(--accent-color); color: #fff; cursor: pointer; font: inherit; font-weight: 700; }
 .layout { display: grid; grid-template-columns: minmax(230px, 330px) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .results, .detail { border: 0; border-top: 1px solid var(--border-color); border-radius: 0; background: transparent; overflow: hidden; }
 .results { align-self: start; display: grid; max-height: 75dvh; overflow-y: auto; }

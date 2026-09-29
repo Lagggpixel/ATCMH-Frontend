@@ -69,7 +69,7 @@ The equivalent command from the directory containing `Frontend` is:
 docker buildx build \
   -f Frontend/.dockerfile \
   --platform linux/amd64,linux/arm64 \
-  -t registry.lagggpixel.com/atcmh-frontend:1.7.11 \
+  -t registry.lagggpixel.com/atcmh-frontend:1.7.12 \
   -t registry.lagggpixel.com/atcmh-frontend:latest \
   Frontend \
   --push

@@ -2,7 +2,7 @@
 .pageHeader, .editorHeader, .attachmentHeader, .actions, .rowActions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pageHeader h1, .editorHeader h2, .attachmentHeader h3 { margin: 0; }
 .pageHeader p, .attachmentHeader p { margin: 4px 0 0; color: var(--muted-text); }
-.pageHeader button, .actions button, .rowActions button, .fileButton { min-height: 38px; padding: 0 14px; border: 1px solid var(--accent-color); border-radius: 6px; background: var(--accent-color); color: #111; font: inherit; font-weight: 750; cursor: pointer; }
+.pageHeader button, .actions button, .rowActions button, .fileButton { min-height: 38px; padding: 0 14px; border: 1px solid var(--accent-color); border-radius: 6px; background: var(--accent-color); color: #fff; font: inherit; font-weight: 750; cursor: pointer; }
 .ready, .warning { margin: 16px 0; padding: 11px 13px; border-left: 3px solid; background: var(--surface-2-color); }
 .ready { border-color: #42b883; }
 .warning { border-color: #e5a442; }

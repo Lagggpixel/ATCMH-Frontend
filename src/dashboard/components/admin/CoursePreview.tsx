@@ -4,7 +4,6 @@ import {useState} from "react";
 import type {ExamQuizSummary} from "../../types/Exam.ts";
 import type {ManagedCourse} from "../../types/Course.ts";
 import {parseCourseMarkdown} from "@/src/lib/course-markdown";
-import {parseCourseDocument} from "@/src/lib/course-document";
 import {orderedCourseGroups} from "@/src/lib/course-navigation";
 import CourseMarkdown from "@/src/app/exams/(learner)/courses/CourseMarkdown";
 import readerStyles from "@/src/app/exams/(learner)/courses/CourseReader.module.css";
@@ -22,8 +21,6 @@ export default function CoursePreview({course, quizzes, onEdit}: CoursePreviewPr
     const [selectedId, setSelectedId] = useState(sections[0]?.id);
     const selectedIndex = Math.max(0, sections.findIndex(section => section.id === selectedId));
     const selected = sections[selectedIndex];
-    const selectedDocument = parseCourseDocument(selected?.document);
-    const headingCount = selected ? (selectedDocument ? selectedDocument.blocks.flatMap(block => block.type === "text" ? parseCourseMarkdown(block.markdown) : []) : parseCourseMarkdown(selected.markdown)).filter(block => block.type === "heading").length : 0;
     const group = groups.find(item => item.id === selected?.groupId);
     const quizMap = new Map(quizzes.map(quiz => [quiz.id, {
         id: quiz.id, title: quiz.title, description: quiz.description ?? "", categoryId: quiz.categoryId ?? "",
@@ -37,17 +34,16 @@ export default function CoursePreview({course, quizzes, onEdit}: CoursePreviewPr
 
     return <section className={`${styles.preview} ${readerStyles.readerShell}`} aria-labelledby="course-preview-heading">
         <header className={styles.previewHero}>
-            <div><p className={styles.eyebrow}>Staff course preview</p><h2 id="course-preview-heading">{course.title}</h2><p>{course.description || "No course description."}</p></div>
+            <div><h2 id="course-preview-heading">{course.title}</h2><p>Preview · progress is not recorded</p></div>
             <button type="button" className={styles.quietButton} onClick={onEdit}>Edit course</button>
         </header>
-        <div className={styles.previewProgress}><span>Preview · progress is not recorded</span><span>{groups.length} sections · {sections.length} subsections</span></div>
         <div className={styles.previewWorkspace}>
             <aside className={styles.previewSidebar}>{outline}</aside>
             <div className={styles.previewReader}>
-                <details className={styles.previewMobileOutline}><summary>Course outline · {groups.length} sections</summary>{outline}</details>
+                <details className={styles.previewMobileOutline}><summary>Course outline</summary>{outline}</details>
                 {selected ? <article className={styles.previewPaper} key={selected.id}>
                     <div className={styles.previewSectionHeader}><span>Section {groups.findIndex(item => item.id === group?.id) + 1} · {group?.title}</span><h3>{selected.title}</h3></div>
-                    <CourseMarkdown sectionId={selected.id} courseId={course.id} document={selected.document} blocks={parseCourseMarkdown(selected.markdown)} quizzes={quizMap} quizProgress={[]} activities={course.activities ?? []} activityProgress={[]} mode="admin" suppressHeading={headingCount === 1 ? selected.title : undefined}/>
+                    <CourseMarkdown sectionId={selected.id} courseId={course.id} document={selected.document} blocks={parseCourseMarkdown(selected.markdown)} quizzes={quizMap} quizProgress={[]} activities={course.activities ?? []} activityProgress={[]} mode="admin" suppressHeading={selected.title}/>
                     <nav className={styles.previewPagination} aria-label="Preview subsection navigation">
                         {sections[selectedIndex - 1] ? <button type="button" onClick={() => setSelectedId(sections[selectedIndex - 1].id)}>Previous · {sections[selectedIndex - 1].title}</button> : <span/>}
                         {sections[selectedIndex + 1] ? <button type="button" onClick={() => setSelectedId(sections[selectedIndex + 1].id)}>Next · {sections[selectedIndex + 1].title}</button> : <span>End of course</span>}
