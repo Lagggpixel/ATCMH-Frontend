@@ -254,9 +254,9 @@ const AdminStats = ({
                         <div className={styles.adminStatsChartContainer}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats?.hourCounts}>
-                                    <XAxis dataKey="hour"/>
-                                    <YAxis/>
-                                    <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `${value}%`}/>
+                                    <XAxis dataKey="hour" stroke="var(--border-color)" tick={{fill: "var(--muted-text)"}}/>
+                                    <YAxis stroke="var(--border-color)" tick={{fill: "var(--muted-text)"}}/>
+                                    <YAxis yAxisId="right" orientation="right" stroke="var(--border-color)" tick={{fill: "var(--muted-text)"}} tickFormatter={(value) => `${value}%`}/>
                                     <Tooltip
                                         contentStyle={tooltipStyle}
                                         itemStyle={{ color: "var(--text-color)" }}
@@ -277,9 +277,9 @@ const AdminStats = ({
                         <div className={styles.adminStatsChartContainer}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={stats?.attendanceMovingAverage ?? []}>
-                                    <CartesianGrid strokeDasharray="3 3"/>
-                                    <XAxis dataKey="date"/>
-                                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`}/>
+                                    <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3"/>
+                                    <XAxis dataKey="date" stroke="var(--border-color)" tick={{fill: "var(--muted-text)"}}/>
+                                    <YAxis domain={[0, 100]} stroke="var(--border-color)" tick={{fill: "var(--muted-text)"}} tickFormatter={(value) => `${value}%`}/>
                                     <Tooltip
                                         formatter={(value) => `${value ?? 0}%`}
                                         contentStyle={tooltipStyle}

@@ -7,6 +7,7 @@ import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {AuthNavigation} from "@/src/marketing/SiteHeader";
 import AdminNav from "./components/admin/AdminNav";
 import styles from "./DashboardHeader.module.css";
+import AppearanceMenu from "./theme/AppearanceMenu";
 
 export default function DashboardHeader() {
     const {adminUser} = usePortalAuth();
@@ -54,6 +55,7 @@ export default function DashboardHeader() {
         </div>
         {adminUser ? <button ref={menuButton} type="button" className={styles.mobileMenuButton} aria-controls="dashboard-sections" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>Menu</button> : null}
         <div className={styles.siteActions}>
+            <AppearanceMenu/>
             <div className={`nav-primary-auth ${styles.accountNavigation}`}><AuthNavigation showLogin={false}/></div>
         </div>
     </header>;

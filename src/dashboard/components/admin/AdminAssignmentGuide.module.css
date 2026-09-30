@@ -17,10 +17,10 @@
 
 .primaryLink {
     align-items: center;
-    background: var(--accent-color);
+    background: var(--dashboard-button, var(--accent-color));
     border: 1px solid var(--accent-color);
     border-radius: 8px;
-    color: #101318;
+    color: var(--dashboard-ink, #101318);
     display: inline-flex;
     font-weight: 850;
     justify-content: center;
@@ -31,7 +31,7 @@
 }
 
 .primaryLink:hover {
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
 }
 

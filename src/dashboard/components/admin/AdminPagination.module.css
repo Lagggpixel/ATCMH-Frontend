@@ -34,12 +34,12 @@
 }
 
 .paginationBarInline .paginationButton:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--accent-color) 12%, transparent);
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 12%, transparent);
 }
 
 .paginationBarInline .paginationButtonActive,
 .paginationBarInline .paginationButtonActive:hover {
-    background-color: var(--accent-color);
+    background-color: var(--dashboard-button, var(--accent-color));
 }
 
 .paginationInfo {
@@ -70,7 +70,7 @@
 }
 
 .paginationButton:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--accent-color) 14%, var(--surface-3-color));
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 14%, var(--surface-3-color));
     border-color: var(--accent-color);
 }
 
@@ -84,16 +84,16 @@
 }
 
 .paginationButtonActive {
-    background-color: var(--accent-color);
+    background-color: var(--dashboard-button, var(--accent-color));
     border-color: var(--accent-color);
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
     font-weight: 800;
 }
 
 .paginationButtonActive:hover {
-    background-color: var(--accent-strong-color);
+    background-color: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
 }
 
 .paginationEllipsis {
@@ -118,7 +118,7 @@
 .paginationPageSize select {
     min-height: 32px;
     padding: 4px 8px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     background-color: var(--surface-3-color);
     color: var(--text-color);
