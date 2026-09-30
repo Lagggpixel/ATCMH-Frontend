@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "@/src/dashboard/next-navigation";
+import {useNavigate, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {ExamAttemptPage} from "../../types/Exam.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import {useUserLookup} from "../../hooks/useAdminShared.ts";
@@ -16,8 +16,9 @@ const PAGE_SIZE = 25;
 
 const ExamAttemptManager = ({token, users}: ExamAttemptManagerProps) => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const {getUserNameOrFallback} = useUserLookup(users);
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(() => searchParams.get("query") ?? "");
     const [page, setPage] = useState(1);
     const [data, setData] = useState<ExamAttemptPage | null>(null);
     const [isLoading, setIsLoading] = useState(true);
