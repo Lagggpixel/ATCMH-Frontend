@@ -1,4 +1,5 @@
 import {useMemo, useState} from "react";
+import {MagnifyingGlassIcon} from "@phosphor-icons/react/MagnifyingGlass";
 import type {ManagedCourseSummary} from "../../types/Course.ts";
 import styles from "./CourseCenter.module.css";
 
@@ -25,7 +26,7 @@ export default function CourseCatalog({courses, onEdit, onPreview, onStatistics,
                 {[["all", "All courses"], ["published", "Published"], ["draft", "Drafts"]].map(([value, label]) =>
                     <button key={value} type="button" aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
             </div>
-            <label className={styles.search}><span className={styles.visuallyHidden}>Search courses</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search courses…"/></label>
+            <label className={styles.search}><span className={styles.visuallyHidden}>Search courses</span><MagnifyingGlassIcon className={styles.searchIcon} size={20} aria-hidden="true"/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search courses…"/></label>
         </div>
         <p className={styles.visuallyHidden} role="status">{filtered.length} {filtered.length === 1 ? "course" : "courses"}{query.trim() ? ` matching “${query.trim()}”` : ""}</p>
         {filtered.length === 0 ? <div className={styles.catalogEmpty}><h3>{courses.length === 0 ? "No courses yet" : "No matching courses"}</h3>{courses.length > 0 ? <button type="button" className={styles.quietButton} onClick={() => {setQuery(""); setStatus("all");}}>Clear filters</button> : null}</div> : <div className={styles.courseList}>

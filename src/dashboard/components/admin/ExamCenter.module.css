@@ -51,13 +51,13 @@
     bottom: -1px;
     left: 0;
     height: 2px;
-    background: var(--accent-color);
+    background: var(--dashboard-button, var(--accent-color));
 }
 
 @media (max-width: 640px) {
     .examNav { flex-wrap: wrap; gap: .4rem; overflow: visible; border-bottom: 0; }
-    .examNav a { flex: 0 1 auto; min-height: 44px; border: 1px solid var(--border-color); border-radius: .5rem; background: #fff; padding: .55rem .8rem; white-space: normal; }
-    .examNav .activeNavLink { border-color: #9dc1ef; background: #e9f2ff; color: #075ee8; }
+    .examNav a { flex: 0 1 auto; min-height: 44px; border: 1px solid var(--border-color); border-radius: .5rem; background: var(--dashboard-surface, #fff); padding: .55rem .8rem; white-space: normal; }
+    .examNav .activeNavLink { border-color: var(--dashboard-link, #9dc1ef); background: var(--dashboard-selected, #e9f2ff); color: var(--dashboard-link, #075ee8); }
     .examNav .activeNavLink::after { display: none; }
 }
 
@@ -110,8 +110,8 @@
     min-height: 40px;
     border: 1px solid var(--accent-color);
     border-radius: 9px;
-    background: var(--accent-color);
-    color: #fff;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     padding: 8px 14px;
     cursor: pointer;
     font: inherit;
@@ -167,9 +167,9 @@
 .examNav a { min-height: 48px; padding: 0 4px; font-weight: 700; }
 .headingActions { gap: 10px; margin-bottom: 18px; }
 .createButton, .secondaryAction { min-height: 42px; }
-.createButton { border-color: var(--accent-color); background: var(--accent-color); color: #fff; padding-inline: 17px; }
-.createButton:hover { background: var(--accent-strong-color); color: #fff; }
-.secondaryAction { border-color: var(--border-color); background: #fff; color: var(--accent-strong-color); }
+.createButton { border-color: var(--accent-color); background: var(--dashboard-button, var(--accent-color)); color: var(--dashboard-on-button, #fff); padding-inline: 17px; }
+.createButton:hover { background: var(--dashboard-button-hover, var(--accent-strong-color)); color: var(--dashboard-on-button, #fff); }
+.secondaryAction { border-color: var(--border-color); background: var(--dashboard-surface, #fff); color: var(--accent-strong-color); }
 @media (max-width: 760px) {
     .examCenter { padding: 16px; }
     .examNav { flex-wrap: nowrap; gap: 16px; overflow-x: auto; border-bottom: 1px solid var(--border-color); mask-image: none; }

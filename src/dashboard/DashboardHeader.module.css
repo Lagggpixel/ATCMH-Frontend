@@ -11,29 +11,29 @@
     gap: clamp(1rem, 2vw, 2rem);
     z-index: 120;
 }
-.brandLink { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .7rem; color: #10264b; text-decoration: none; }
+.brandLink { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .7rem; color: var(--dashboard-ink, #10264b); text-decoration: none; }
 .brandLink img { object-fit: contain; }
 .brandLink > span:first-of-type { display: grid; gap: 1px; line-height: 1.1; }
 .brandLink strong { font-size: 1rem; letter-spacing: .02em; }
-.brandLink small { color: #526989; font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
-.homeLabel { margin-left: .8rem; border-left: 1px solid #d7e0eb; padding-left: 1rem; color: #213d65; font-size: .86rem; }
-.brandLink:hover .homeLabel, .brandLink:focus-visible .homeLabel { color: #0869ee; }
-.brandLink:focus-visible { outline: 3px solid #9bbcff; outline-offset: 4px; }
+.brandLink small { color: var(--dashboard-muted, #526989); font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
+.homeLabel { margin-left: .8rem; border-left: 1px solid var(--dashboard-border, #d7e0eb); padding-left: 1rem; color: var(--dashboard-ink, #213d65); font-size: .86rem; }
+.brandLink:hover .homeLabel, .brandLink:focus-visible .homeLabel { color: var(--dashboard-link, #0869ee); }
+.brandLink:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 4px; }
 .dashboardNavigation { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: center; }
-.siteActions { display: flex; flex: 0 0 auto; align-items: center; margin-left: auto; }
+.siteActions { display: flex; flex: 0 0 auto; align-items: center; gap: .4rem; margin-left: auto; }
 .mobileMenuButton, .drawerHeader, .drawerBackdrop { display: none; }
 
 @media (max-width: 1100px) {
     .dashboardHeader { position: sticky; flex-wrap: nowrap; gap: .75rem; }
-    .drawerBackdrop { position: fixed; z-index: 98; inset: 0; display: block; width: 100%; border: 0; background: rgba(9, 20, 43, .58); cursor: pointer; }
-    .dashboardNavigation { position: fixed; z-index: 99; inset: 0 auto 0 0; display: none; width: min(390px, 84vw); max-width: 100%; height: 100dvh; overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid #dce3eb; background: #fff; box-shadow: 16px 0 40px rgba(9, 20, 43, .14); }
+    .drawerBackdrop { position: fixed; z-index: 98; inset: 0; display: block; width: 100%; border: 0; background: var(--dashboard-backdrop, rgba(9, 20, 43, .58)); cursor: pointer; }
+    .dashboardNavigation { position: fixed; z-index: 99; inset: 0 auto 0 0; display: none; width: min(390px, 84vw); max-width: 100%; height: 100dvh; overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--dashboard-border, #dce3eb); background: var(--dashboard-surface, #fff); box-shadow: 16px 0 40px var(--dashboard-shadow-color, rgba(9, 20, 43, .14)); }
     .dashboardNavigation[data-open="true"] { display: block; }
-    .drawerHeader { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: .6rem; min-height: 72px; border-bottom: 1px solid #dce3eb; background: #fff; padding: .7rem 1rem; }
+    .drawerHeader { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: .6rem; min-height: 72px; border-bottom: 1px solid var(--dashboard-border, #dce3eb); background: var(--dashboard-surface, #fff); padding: .7rem 1rem; }
     .drawerHeader .brandLink { min-width: 0; }
     .drawerHeader .brandLink small { white-space: nowrap; }
-    .drawerHeader button { flex: 0 0 auto; min-height: 44px; border: 0; background: transparent; color: #075ee8; cursor: pointer; font: inherit; font-weight: 650; }
-    .mobileMenuButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; margin-left: auto; border: 0; background: transparent; padding: .5rem .75rem; color: #12264a; cursor: pointer; font: inherit; font-size: .9rem; font-weight: 700; }
-    .mobileMenuButton:hover, .mobileMenuButton[aria-expanded="true"] { color: #0869ee; }
+    .drawerHeader button { flex: 0 0 auto; min-height: 44px; border: 0; background: transparent; color: var(--dashboard-link, #075ee8); cursor: pointer; font: inherit; font-weight: 650; }
+    .mobileMenuButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; margin-left: auto; border: 0; background: transparent; padding: .5rem .75rem; color: var(--dashboard-ink, #12264a); cursor: pointer; font: inherit; font-size: .9rem; font-weight: 700; }
+    .mobileMenuButton:hover, .mobileMenuButton[aria-expanded="true"] { color: var(--dashboard-link, #0869ee); }
     .siteActions { margin-left: 0; }
     .dashboardHeader .accountNavigation { display: flex; min-width: 2.75rem; }
 }

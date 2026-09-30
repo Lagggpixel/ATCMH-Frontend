@@ -1,0 +1,113 @@
+/* Shared dashboard palette. Public and learner assessment themes keep their own tokens. */
+.dashboard-theme {
+    --bg-color: #f6f3ee;
+    --surface-color: #fff;
+    --surface-2-color: #f8fafc;
+    --surface-3-color: #edf2f8;
+    --text-color: #12264a;
+    --muted-text: #536987;
+    --accent-color: #0869ee;
+    --accent-strong-color: #075cc9;
+    --border-color: #dce3eb;
+    --button-hover: #e8f1ff;
+    --panel-shadow: 0 16px 40px rgb(27 48 77 / 12%);
+    min-height: 100dvh;
+}
+
+html[data-dashboard-theme="dark"] .dashboard-theme,
+html[data-dashboard-theme="dark"] .dashboard-theme .dashboard-product,
+html[data-dashboard-theme="dark"] .dashboard-theme .site-header,
+html[data-dashboard-theme="dark"] [data-dashboard-surface] {
+    color-scheme: dark;
+    --bg-color: #111111;
+    --surface-color: #252525;
+    --surface-2-color: #191919;
+    --surface-3-color: #303030;
+    --input-bg: #161616;
+    --text-color: #f2f3f5;
+    --muted-text: #bfc1c8;
+    --accent-color: #91baff;
+    --accent-strong-color: #b0cdff;
+    --border-color: #414141;
+    --row-bg: #252525;
+    --row-alt-bg: #202020;
+    --button-hover: #293346;
+    --error-color: #ff9ba6;
+    --success-color: #a5dfb8;
+    --danger-bg: #3b2025;
+    --danger-text: #ffb4bd;
+    --success-bg: #1d3327;
+    --success-text: #a5dfb8;
+    --warning-bg: #362c19;
+    --warning-text: #f1d18b;
+    --info-bg: #253146;
+    --info-text: #b0cdff;
+    --active-bg: var(--success-bg);
+    --cancelled-bg: var(--danger-bg);
+    --panel-shadow: 0 16px 40px rgb(0 0 0 / 28%);
+    --dashboard-canvas: #111111;
+    --dashboard-header: #191919;
+    --dashboard-surface: #252525;
+    --dashboard-inset: #161616;
+    --dashboard-secondary: #202020;
+    --dashboard-border: #414141;
+    --dashboard-input-border: #666666;
+    --dashboard-ink: #f2f3f5;
+    --dashboard-muted: #bfc1c8;
+    --dashboard-link: #91baff;
+    --dashboard-selected: #293346;
+    --dashboard-focus: #91baff;
+    --dashboard-shadow: 0 10px 26px rgb(0 0 0 / 24%);
+    --dashboard-shadow-color: rgb(0 0 0 / 24%);
+    --dashboard-backdrop: rgb(0 0 0 / 65%);
+    --dashboard-danger-bg: #3b2025;
+    --dashboard-danger-text: #ffb4bd;
+    --dashboard-danger-button: #b42332;
+    --dashboard-success-bg: #1d3327;
+    --dashboard-success-text: #a5dfb8;
+    --dashboard-warning-bg: #362c19;
+    --dashboard-warning-text: #f1d18b;
+    --dashboard-button: #2563eb;
+    --dashboard-button-hover: #1d4ed8;
+    --dashboard-on-button: #ffffff;
+    --dashboard-scrollbar: #666666;
+}
+
+html[data-dashboard-theme="dark"] .dashboard-theme .unified-product {
+    --background: #111111;
+    --background-soft: #191919;
+    --card: #252525;
+    --card-solid: #252525;
+    --foreground: #f2f3f5;
+    --muted: #bfc1c8;
+    --border: #414141;
+    --primary: #91baff;
+    --primary-strong: #b0cdff;
+    --shadow: 0 16px 40px rgb(0 0 0 / 28%);
+    background: #111111;
+    color: #f2f3f5;
+    color-scheme: dark;
+}
+html[data-dashboard-theme="dark"] .dashboard-theme .site-header.is-light {
+    background: #191919;
+    border-bottom-color: #414141;
+    box-shadow: none;
+}
+html[data-dashboard-theme="dark"] .dashboard-theme .nav-user-menu summary {
+    background: transparent;
+    color: #f2f3f5;
+    border-color: #414141;
+}
+html[data-dashboard-theme="dark"] .dashboard-theme .nav-user-menu-content {
+    background: #252525;
+    color: #f2f3f5;
+}
+html[data-dashboard-theme="dark"] .dashboard-theme .nav-user-menu-content a,
+html[data-dashboard-theme="dark"] .dashboard-theme .nav-user-menu-content button { color: #f2f3f5; }
+html[data-dashboard-theme="dark"] body:has(.dashboard-theme) { background: #111111; }
+.dashboard-theme input, .dashboard-theme select, .dashboard-theme textarea { accent-color: var(--dashboard-button, #0869ee); }
+.dashboard-theme textarea:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 3px; }
+@media (max-width: 560px) {
+    .dashboard-theme .dashboard-product input:not([type="checkbox"]):not([type="radio"]),
+    .dashboard-theme .dashboard-product select, .dashboard-theme .dashboard-product textarea { font-size: 16px; }
+}

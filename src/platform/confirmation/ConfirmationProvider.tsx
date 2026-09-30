@@ -2,6 +2,7 @@
 
 import {createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode} from "react";
 import styles from "./ConfirmationProvider.module.css";
+import {usePathname} from "next/navigation";
 
 export interface ConfirmationOptions {
     title: string;
@@ -21,6 +22,7 @@ export function useConfirmation(): Confirm {
 }
 
 export default function ConfirmationProvider({children}: {children: ReactNode}) {
+    const dashboard = usePathname().startsWith("/dashboard");
     const [request, setRequest] = useState<ConfirmationOptions | null>(null);
     const resolver = useRef<((confirmed: boolean) => void) | null>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -58,7 +60,7 @@ export default function ConfirmationProvider({children}: {children: ReactNode}) 
 
     return <ConfirmationContext.Provider value={confirm}>
         {children}
-        {request ? <dialog ref={dialogRef} className={styles.dialog} aria-labelledby={titleId} aria-describedby={messageId}
+        {request ? <dialog ref={dialogRef} className={styles.dialog} data-dashboard-surface={dashboard || undefined} aria-labelledby={titleId} aria-describedby={messageId}
             onCancel={event => { event.preventDefault(); settle(false); }}
             onClick={event => {
                 if (event.target !== event.currentTarget) return;

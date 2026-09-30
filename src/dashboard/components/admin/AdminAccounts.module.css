@@ -5,8 +5,8 @@
 .error { display: grid; gap: 3px; margin: 12px 0; padding: 12px; border: 1px solid var(--error-color); border-radius: 9px; background: var(--danger-bg); color: var(--danger-text); }
 .filters { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)) auto; align-items: end; gap: 10px; padding: 0 0 16px; border: 0; border-bottom: 1px solid var(--border-color); background: transparent; }
 .filters label, .mutation label, .preview label { display: grid; gap: 5px; color: var(--muted-text); font-size: .84rem; }
-.filters input, .filters select, .mutation input, .mutation select, .preview textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--input-bg); color: var(--text-color); font: inherit; }
-.filters button, .mutation button, .preview button { min-height: 40px; padding: 8px 13px; border: 1px solid var(--accent-color); border-radius: 7px; background: var(--accent-color); color: #fff; cursor: pointer; font: inherit; font-weight: 700; }
+.filters input, .filters select, .mutation input, .mutation select, .preview textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--dashboard-input-border, var(--border-color)); border-radius: 7px; background: var(--input-bg); color: var(--text-color); font: inherit; }
+.filters button, .mutation button, .preview button { min-height: 40px; padding: 8px 13px; border: 1px solid var(--accent-color); border-radius: 7px; background: var(--dashboard-button, var(--accent-color)); color: var(--dashboard-on-button, #fff); cursor: pointer; font: inherit; font-weight: 700; }
 .layout { display: grid; grid-template-columns: minmax(230px, 330px) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .results, .detail { border: 0; border-top: 1px solid var(--border-color); border-radius: 0; background: transparent; overflow: hidden; }
 .results { align-self: start; display: grid; max-height: 75dvh; overflow-y: auto; }
@@ -34,18 +34,18 @@
     .results { max-height: none; }
 }
 @media (max-width: 700px) {
-    .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border-color); border-radius: .75rem; background: #fff; padding: 1rem; }
-    .mobileFiltersToggle { display: inline-flex; grid-column: 1 / -1; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: .5rem; background: #f7faff; color: var(--text-color); cursor: pointer; font: inherit; font-weight: 700; }
+    .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border-color); border-radius: .75rem; background: var(--dashboard-surface, #fff); padding: 1rem; }
+    .mobileFiltersToggle { display: inline-flex; grid-column: 1 / -1; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: .5rem; background: var(--dashboard-secondary, #f7faff); color: var(--text-color); cursor: pointer; font: inherit; font-weight: 700; }
     .secondaryFilters { display: none; grid-column: 1 / -1; }
     .secondaryFilters[data-open="true"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
     .filters > button[type="submit"] { grid-column: 1 / -1; min-height: 44px; }
     .page[data-detail-open="true"] .filters, .page[data-detail-open="true"] .results { display: none; }
     .page[data-detail-open="false"] .detail { display: none; }
-    .mobileBack { display: none; min-height: 44px; border: 0; background: transparent; padding: 0; color: #0869ee; cursor: pointer; font: inherit; font-weight: 700; }
+    .mobileBack { display: none; min-height: 44px; border: 0; background: transparent; padding: 0; color: var(--dashboard-link, #0869ee); cursor: pointer; font: inherit; font-weight: 700; }
     .page[data-detail-open="true"] .mobileBack { display: inline-flex; align-items: center; }
     .detail { border: 0; padding-top: .5rem; }
     .layout { margin-top: .7rem; }
-    .results { border: 1px solid var(--border-color); border-radius: .75rem; background: #fff; }
+    .results { border: 1px solid var(--border-color); border-radius: .75rem; background: var(--dashboard-surface, #fff); }
     .results button { min-height: 72px; }
 }
 @media (max-width: 380px) { .filters, .secondaryFilters[data-open="true"] { grid-template-columns: 1fr; } }

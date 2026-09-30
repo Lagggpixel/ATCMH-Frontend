@@ -1,33 +1,33 @@
 .adminHeader { position: relative; z-index: 20; display: flex; justify-content: center; max-width: 1400px; margin: 0 auto 20px; padding: 0 20px; }
 .adminNav { display: flex; align-items: center; justify-content: center; gap: 1.25rem; min-height: 3rem; }
 .adminNavDropdown { position: relative; }
-.adminNavDropdownSummary { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: .55rem .15rem; color: #18345c; cursor: pointer; font: inherit; font-size: .91rem; font-weight: 650; white-space: nowrap; }
-.adminNavDropdownSummary:hover, .adminNavDropdownSummary[aria-expanded="true"], .adminNavDropdownActive .adminNavDropdownSummary { color: #075ee8; }
-.adminNavDropdownActive .adminNavDropdownSummary { border-bottom-color: #0869ee; }
+.adminNavDropdownSummary { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: .55rem .15rem; color: var(--dashboard-ink, #18345c); cursor: pointer; font: inherit; font-size: .91rem; font-weight: 650; white-space: nowrap; }
+.adminNavDropdownSummary:hover, .adminNavDropdownSummary[aria-expanded="true"], .adminNavDropdownActive .adminNavDropdownSummary { color: var(--dashboard-link, #075ee8); }
+.adminNavDropdownActive .adminNavDropdownSummary { border-bottom-color: var(--dashboard-link, #0869ee); }
 .chevron { display: inline-block; font-size: 1rem; line-height: 1; transition: transform .16s ease; }
 .adminNavDropdownSummary[aria-expanded="true"] .chevron { transform: rotate(180deg); }
-.adminNavDropdownMenu { position: absolute; z-index: 50; top: calc(100% + .35rem); left: 50%; display: grid; gap: .4rem; min-width: 13.5rem; max-width: min(22rem, calc(100vw - 2rem)); border: 1px solid #dce3eb; border-radius: .85rem; background: #fff; padding: .65rem; box-shadow: 0 14px 38px rgba(18, 38, 74, .15); transform: translateX(-50%); }
+.adminNavDropdownMenu { position: absolute; z-index: 50; top: calc(100% + .35rem); left: 50%; display: grid; gap: .4rem; min-width: 13.5rem; max-width: min(22rem, calc(100vw - 2rem)); border: 1px solid var(--dashboard-border, #dce3eb); border-radius: .85rem; background: var(--dashboard-surface, #fff); padding: .65rem; box-shadow: 0 14px 38px var(--dashboard-shadow-color, rgba(18, 38, 74, .15)); transform: translateX(-50%); }
 .adminNavDropdownMenu[hidden] { display: none; }
 .adminNavDropdown:first-child .adminNavDropdownMenu { left: 0; transform: none; }
 .adminNavDropdown:last-child .adminNavDropdownMenu { right: 0; left: auto; transform: none; }
-.adminNavDropdownSection + .adminNavDropdownSection { border-top: 1px solid #e2e8f1; padding-top: .6rem; }
-.adminNavDropdownSectionLabel { display: block; padding: .35rem .65rem; color: #667d9b; font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.adminNavDropdownSection + .adminNavDropdownSection { border-top: 1px solid var(--dashboard-border, #e2e8f1); padding-top: .6rem; }
+.adminNavDropdownSectionLabel { display: block; padding: .35rem .65rem; color: var(--dashboard-muted, #667d9b); font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .adminNavDropdownSectionItems { display: grid; gap: .15rem; }
-.adminNavDropdownItem { display: block; border-radius: .5rem; padding: .6rem .7rem; color: #17335c; font-size: .89rem; text-decoration: none; white-space: nowrap; }
-.adminNavDropdownItem:hover, .adminNavDropdownItemActive { background: #e9f2ff; color: #075ee8; }
-.adminNavDropdownItemActive { box-shadow: inset 3px 0 #0869ee; font-weight: 700; }
-.adminNavDropdownSummary:focus-visible, .adminNavDropdownItem:focus-visible { outline: 3px solid #9bbcff; outline-offset: 2px; }
+.adminNavDropdownItem { display: block; border-radius: .5rem; padding: .6rem .7rem; color: var(--dashboard-ink, #17335c); font-size: .89rem; text-decoration: none; white-space: nowrap; }
+.adminNavDropdownItem:hover, .adminNavDropdownItemActive { background: var(--dashboard-selected, #e9f2ff); color: var(--dashboard-link, #075ee8); }
+.adminNavDropdownItemActive { box-shadow: inset 3px 0 var(--dashboard-shadow-color, #0869ee); font-weight: 700; }
+.adminNavDropdownSummary:focus-visible, .adminNavDropdownItem:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 2px; }
 
 @media (max-width: 1100px) {
     .adminNav, .adminNavEmbedded { display: block; width: 100%; min-height: 0; padding: 1rem 0 2rem; }
-    .adminNavDropdown { border-bottom: 1px solid #dce3eb; }
-    .adminNavDropdownSummary { display: flex; justify-content: space-between; width: 100%; min-height: 4.25rem; border: 0; padding: .75rem 1.5rem; color: #10264b; font-family: Georgia, 'Times New Roman', serif; font-size: 1.55rem; font-weight: 700; text-align: left; }
+    .adminNavDropdown { border-bottom: 1px solid var(--dashboard-border, #dce3eb); }
+    .adminNavDropdownSummary { display: flex; justify-content: space-between; width: 100%; min-height: 4.25rem; border: 0; padding: .75rem 1.5rem; color: var(--dashboard-ink, #10264b); font-family: Georgia, 'Times New Roman', serif; font-size: 1.55rem; font-weight: 700; text-align: left; }
     .adminNavDropdownActive .adminNavDropdownSummary { border-bottom: 0; }
     .adminNavDropdownMenu { position: static; width: 100%; min-width: 0; max-width: none; border: 0; border-radius: 0; padding: 0 0 1.15rem; box-shadow: none; transform: none; }
     .adminNavDropdown:first-child .adminNavDropdownMenu, .adminNavDropdown:last-child .adminNavDropdownMenu { transform: none; }
     .adminNavDropdownSectionItems { gap: 0; }
     .adminNavDropdownItem { min-height: 3.3rem; border-radius: 0; padding: .85rem 1.75rem .85rem 2.4rem; font-size: 1rem; white-space: normal; }
-    .adminNavDropdownItemActive { box-shadow: inset 4px 0 #0869ee; }
+    .adminNavDropdownItemActive { box-shadow: inset 4px 0 var(--dashboard-shadow-color, #0869ee); }
 }
 
 @media (max-width: 380px) { .adminNavDropdownSummary { padding-inline: 1.1rem; font-size: 1.35rem; } .adminNavDropdownItem { padding-left: 1.8rem; } }

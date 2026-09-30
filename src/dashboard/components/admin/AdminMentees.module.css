@@ -73,7 +73,7 @@
     box-sizing: border-box;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     padding: 10px 11px;
     font: inherit;
@@ -115,11 +115,11 @@
 .menteeList::-webkit-scrollbar-thumb {
     border: 2px solid var(--surface-2-color);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-color) 78%, var(--surface-3-color));
+    background: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 78%, var(--surface-3-color));
 }
 
 .menteeList::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 /* --- Mentee list items: hover-only borders --- */
@@ -145,7 +145,7 @@
 
 .menteeListItemActive {
     border-color: var(--accent-color);
-    background-color: color-mix(in srgb, var(--accent-color) 18%, var(--surface-2-color));
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 18%, var(--surface-2-color));
 }
 
 .menteeListItem span {
@@ -243,8 +243,8 @@
     padding: 4px 12px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background-color: var(--accent-color);
-    color: #fff;
+    background-color: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 700;
@@ -253,7 +253,7 @@
 }
 
 .stateActionButtonRow button:hover {
-    background-color: var(--accent-strong-color);
+    background-color: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
 }
 
@@ -327,7 +327,7 @@
     padding: 10px 12px;
     border: 1px solid var(--error-color);
     border-radius: 6px;
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
     background-color: color-mix(in srgb, var(--error-color) 28%, transparent);
 }
 
@@ -511,8 +511,8 @@
     min-height: 36px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background-color: var(--accent-color);
-    color: #fff;
+    background-color: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -530,7 +530,7 @@
 .assignmentToolbarActions button:hover,
 .previewFoldHeader button:hover,
 .copyRow button:hover {
-    background-color: var(--accent-strong-color);
+    background-color: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
 }
 
@@ -553,7 +553,7 @@
 }
 
 .secondaryButton:hover {
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
 }
 
 .userNotesSection,
@@ -746,7 +746,7 @@
 }
 
 .sessionCancelConfirmation::backdrop {
-    background: rgba(5, 8, 12, 0.72);
+    background: var(--dashboard-backdrop, rgba(5, 8, 12, 0.72));
 }
 
 .sessionCancelConfirmation p {
@@ -810,7 +810,7 @@
     display: grid;
     place-items: center;
     padding: 20px;
-    background-color: rgba(5, 8, 12, 0.72);
+    background-color: var(--dashboard-backdrop, rgba(5, 8, 12, 0.72));
 }
 
 .sessionDetailsOverlay {
@@ -953,7 +953,7 @@
     box-sizing: border-box;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     padding: 10px 11px;
     font: inherit;
@@ -1010,7 +1010,7 @@
 .attendeePool button:hover,
 .attendeeChipSelected {
     border-color: var(--accent-color) !important;
-    background-color: color-mix(in srgb, var(--accent-color) 18%, var(--surface-3-color)) !important;
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 18%, var(--surface-3-color)) !important;
 }
 
 .assignmentSlotBoard {
@@ -1047,7 +1047,7 @@
 
 .assignmentSlotCardSelectable,
 .assignmentSlotCard:hover {
-    background-color: color-mix(in srgb, var(--accent-color) 7%, transparent);
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 7%, transparent);
 }
 
 .assignmentSlotText {
@@ -1140,7 +1140,7 @@
 .modalBackdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--dashboard-backdrop, rgba(0, 0, 0, 0.5));
     display: grid;
     place-items: center;
     z-index: 1000;
@@ -1170,7 +1170,7 @@
     width: 100%;
     min-height: 80px;
     padding: 8px 12px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1190,8 +1190,8 @@
     padding: 7px 12px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background: var(--accent-color);
-    color: #fff;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -1199,7 +1199,7 @@
 
 .modalActions button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .modalActions .secondaryButton {
@@ -1215,23 +1215,23 @@
 .modalActions .dangerButton {
     border-color: var(--error-color);
     background: var(--error-color);
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
 }
 
 .modalActions .dangerButton:hover {
     border-color: var(--danger-text);
-    background: color-mix(in srgb, var(--error-color) 78%, #000);
+    background: color-mix(in srgb, var(--error-color) 78%, var(--dashboard-inset, #000));
 }
 
 .sessionActions .dangerButton {
     border-color: var(--error-color);
-    background: #b42318;
-    color: #fff;
+    background: var(--dashboard-danger-button, #b42318);
+    color: var(--dashboard-on-button, #fff);
 }
 
 .sessionActions .dangerButton:hover {
     border-color: var(--danger-text);
-    background: #912018;
+    background: var(--dashboard-danger-button, #912018);
 }
 
 @media (max-width: 1100px) {
@@ -1650,7 +1650,7 @@
     min-width: 0;
     min-height: 42px;
     padding: 9px 12px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 8px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1703,7 +1703,7 @@
 .autoMatchToggleButton:focus-visible {
     position: relative;
     z-index: 1;
-    outline: 3px solid #9bbcff;
+    outline: 3px solid var(--dashboard-focus, #9bbcff);
     outline-offset: 2px;
 }
 
@@ -1714,8 +1714,8 @@
     place-items: center;
     padding: 0 5px;
     border-radius: 999px;
-    background: var(--accent-color);
-    color: #fff;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     font-size: 0.72rem;
 }
 
@@ -1835,7 +1835,7 @@
     min-height: 42px;
     box-sizing: border-box;
     padding: 9px 10px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 8px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1847,8 +1847,8 @@
     padding: 8px 14px;
     border: 1px solid var(--accent-color);
     border-radius: 8px;
-    background: var(--accent-color);
-    color: #fff;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -1857,7 +1857,7 @@
 
 .autoMatchForm button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .autoMatchForm button:disabled {
@@ -1922,7 +1922,7 @@
 .tableMenteeButton:focus-visible,
 .tableOpenButton:focus-visible,
 .profileBackButton:focus-visible {
-    outline: 3px solid #9bbcff;
+    outline: 3px solid var(--dashboard-focus, #9bbcff);
     outline-offset: 2px;
 }
 
@@ -2228,8 +2228,8 @@
     padding: 7px 13px;
     border: 1px solid var(--accent-color);
     border-radius: 7px;
-    background: var(--accent-color);
-    color: #fff;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-size: 0.86rem;
@@ -2238,7 +2238,7 @@
 
 .profileActionButtons button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .profileActionButtons button:disabled {
@@ -2393,11 +2393,11 @@
 
 /* Staff workspace surfaces use the shared light layers. */
 .adminMenteesContainer { max-width: 1360px; }
-.menteesToolbar { gap: 16px; border-color: var(--border-color); background: #fff; box-shadow: 0 8px 22px #1427400a; }
+.menteesToolbar { gap: 16px; border-color: var(--border-color); background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
 .menteesCardGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr)); gap: 20px; }
-.menteeCard { gap: 18px; padding: 22px; background: #fff; box-shadow: 0 8px 22px #1427400a; }
-.menteeCard:hover { background: #fff; box-shadow: 0 12px 28px #14274014; }
-.profilePage .profileSection { border: 1px solid var(--border-color); border-radius: 11px; background: #fff; padding: 20px; box-shadow: 0 8px 22px #1427400a; }
+.menteeCard { gap: 18px; padding: 22px; background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
+.menteeCard:hover { background: var(--dashboard-surface, #fff); box-shadow: 0 12px 28px var(--dashboard-shadow-color, #14274014); }
+.profilePage .profileSection { border: 1px solid var(--border-color); border-radius: 11px; background: var(--dashboard-surface, #fff); padding: 20px; box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
 .profileHeader h2 { font-family: Georgia, 'Times New Roman', serif; }
 
 @media (max-width: 760px) {
