@@ -1,4 +1,13 @@
 import {memo, startTransition, type ChangeEvent, type FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
+import {CalendarBlankIcon as CalendarBlank} from "@phosphor-icons/react/CalendarBlank";
+import {CaretDownIcon as CaretDown} from "@phosphor-icons/react/CaretDown";
+import {CaretRightIcon as CaretRight} from "@phosphor-icons/react/CaretRight";
+import {CircleIcon as Circle} from "@phosphor-icons/react/Circle";
+import {ClockIcon as Clock} from "@phosphor-icons/react/Clock";
+import {NoteIcon as Note} from "@phosphor-icons/react/Note";
+import {UserIcon as User} from "@phosphor-icons/react/User";
+import {UserPlusIcon as UserPlus} from "@phosphor-icons/react/UserPlus";
+import {UsersIcon as Users} from "@phosphor-icons/react/Users";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee} from "../../types/AdminMentee.ts";
 import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../../types/AutoMatchCandidate.ts";
@@ -17,6 +26,7 @@ import {
 } from "../../utils/AdminDateUtils.ts";
 import {createSessionEditForm, toSessionUpdatePayload, type SessionEditForm} from "../../utils/SessionEditForm.ts";
 import {getMenteeActionPolicy} from "../../utils/AdminMenteeActionPolicy.ts";
+import {getMenteeAvailabilityRows, getMenteeLifecycle} from "../../utils/MenteeProfileUtils.ts";
 import {
     autoFillAssignmentSlots,
     generateAssignmentText,
@@ -77,7 +87,6 @@ const countUnicodeCodePoints = (value: string): number => {
     }
     return count;
 };
-const AVAILABILITY_ENTRY_SEPARATOR = /\n+|(?=\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):)/;
 type MenteeActionPolicy = ReturnType<typeof getMenteeActionPolicy>;
 type SessionFormState = {mentorId: string; airport: string; pilots: string; time: string};
 
@@ -371,7 +380,7 @@ const AdminMentees = ({
         if (!selectedMentee) return [];
         return sessions?.filter(session => {
             return session.attendees.includes(selectedMentee.mentee);
-        }) || [];
+        }).sort(sortSessionsDesc) || [];
     }, [sessions, selectedMentee]);
 
     const selectedMenteeNotes = useMemo(() => {
@@ -633,26 +642,7 @@ const AdminMentees = ({
             ) : null}
 
             {showTerminateModal && (
-                <div className={styles.modalBackdrop} onClick={() => setShowTerminateModal(false)} onKeyDown={e => {
-                    if (e.key === "Escape") setShowTerminateModal(false);
-                }}>
-                    <div className={styles.terminateModal} onClick={e => e.stopPropagation()}>
-                        <h3>Terminate Mentee</h3>
-                        <form onSubmit={handleTerminateConfirm}>
-                            <textarea
-                                value={terminateReason}
-                                onChange={e => setTerminateReason(e.target.value)}
-                                placeholder="Reason for termination"
-                                required
-                                autoFocus
-                            />
-                            <div className={styles.modalActions}>
-                                <button type="button" onClick={() => setShowTerminateModal(false)}>Cancel</button>
-                                <button type="submit" disabled={busyAction === "terminate"}>Confirm Terminate</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <MenteeTerminationDialog reason={terminateReason} onReasonChange={setTerminateReason} onCancel={() => setShowTerminateModal(false)} onConfirm={handleTerminateConfirm} busy={busyAction === "terminate"}/>
             )}
 
             {assignmentSession && selectedMentee ? (
@@ -1059,58 +1049,48 @@ const MenteeProfilePage = ({
                         <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
                         <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
                     </div>
-                    <p>Record #{selectedMentee.id} · {formatIfcDisplay(selectedMentee)}</p>
+                    <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
                 </div>
                 <div className={styles.profileActionButtons}>
-                    {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}>Pick up</button> : null}
-                    {selectedActionPolicy?.canTerminate ? <button type="button" className={styles.dangerStateAction} onClick={onTerminate} disabled={busyAction === "terminate"}>Terminate</button> : null}
+                    {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
                     {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}>Pass</button> : null}
+                    {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
                 </div>
             </header>
 
             <AdminToast message={actionError} onDismiss={onDismissActionError}/>
 
-            <section className={styles.profileSection} aria-label="Profile & timeline">
-                <div className={styles.sectionHeading}>
-                    <div><h3>Profile &amp; timeline</h3><p>Key ownership and lifecycle details for this mentorship record.</p></div>
-                </div>
-                <div className={styles.detailGrid}>
-                    <DetailItem label="Waitlist time" value={formatAdminUtcDate(selectedMentee.waitlistTime)}/>
-                    <DetailItem label="Pickup time" value={formatAdminUtcDate(selectedMentee.pickupTime)}/>
-                    <DetailItem label="Pass time" value={formatAdminUtcDate(selectedMentee.passedTime)}/>
-                    <DetailItem label="Termination time" value={formatAdminUtcDate(selectedMentee.terminatedTime)}/>
-                    <DetailItem label="Mentor" value={getMentorDisplayName(selectedMentee, getUserName)}/>
-                    <DetailItem label="Recruiter" value={selectedMentee.recruiter || "Not set"}/>
-                    <DetailItem label="Timezone" value={selectedMentee.timezone || "Not provided"}/>
-                    <DetailItem label="IFC" value={formatIfcDisplay(selectedMentee)}/>
-                    <WeeklyAvailabilityDetail value={selectedMentee.availability}/>
-                    {selectedMentee.terminationReason ? <DetailItem label="Termination reason" value={selectedMentee.terminationReason}/> : null}
-                </div>
-            </section>
+            <MenteeProfileOverview mentee={selectedMentee} getUserName={getUserName}/>
 
             {selectedActionPolicy?.canSchedule ? (
-                <section className={styles.actionsGrid} aria-label="Mentee actions">
+                <details className={styles.schedulingPanel}>
+                    <summary><CalendarBlank size={21} aria-hidden="true"/>Schedule session<CaretDown size={16} aria-hidden="true"/></summary>
                     <form className={styles.actionPanel} onSubmit={onSchedule}>
-                        <h3>Schedule session</h3>
                         <p className={styles.actionPanelDescription}>Create the next practical session for this mentee.</p>
-                        <input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Mentor Discord ID (blank for you)"/>
+                        <label>Mentor Discord ID<input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Blank for you"/></label>
                         <div className={styles.inlineInputs}>
-                            <input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="Airport" maxLength={5} required/>
-                            <input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/>
+                            <label>Airport<input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="ICAO code" maxLength={5} required/></label>
+                            <label>Pilot places<input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/></label>
                         </div>
                         <label className={styles.utcDateTimeLabel}>
-                            <span>Session time</span>
+                            <span>Session time (your local time)</span>
                             <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
                             <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
                         </label>
                         <button type="submit" disabled={busyAction === "schedule"}>Schedule session</button>
                     </form>
-                </section>
+                </details>
             ) : null}
 
-            <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
-            <SessionSection
-                title="Future Sessions"
+            <section className={styles.profileTraining} aria-labelledby="mentee-training-title">
+                <div className={styles.profileSectionHeading}>
+                    <CalendarBlank size={23} aria-hidden="true"/>
+                    <div><h3 id="mentee-training-title">Training sessions</h3>{selectedMentee.sessions.length === 0 ? <p>No mentee training sessions scheduled or previously held.</p> : null}</div>
+                    {selectedMentee.sessions.length === 0 ? <span className={styles.profileQuietStatus}>None yet</span> : null}
+                </div>
+                {selectedSessions.future.length > 0 ? (
+                <SessionSection
+                title="Upcoming sessions"
                 sessions={selectedSessions.future}
                 getUserName={getUserName}
                 editable
@@ -1124,9 +1104,10 @@ const MenteeProfilePage = ({
                 onRemoveAttendee={onRemoveAttendee}
                 onCancelSession={onCancelSession}
                 onOpenAssignmentGenerator={onOpenAssignmentGenerator}
-            />
-            <SessionSection
-                title="Past Sessions"
+                />) : null}
+                {selectedSessions.past.length > 0 ? (
+                <SessionSection
+                title="Past sessions"
                 sessions={selectedSessions.past}
                 getUserName={getUserName}
                 editable
@@ -1140,9 +1121,10 @@ const MenteeProfilePage = ({
                 onRemoveAttendee={onRemoveAttendee}
                 onCancelSession={onCancelSession}
                 onOpenAssignmentGenerator={onOpenAssignmentGenerator}
-            />
+                />) : null}
+            </section>
             <AttendedSessionSection
-                title="Attended sessions"
+                title="Session sign-up history"
                 sessions={attendedSessions}
                 getUserName={getUserName}
                 editable={false}
@@ -1157,6 +1139,7 @@ const MenteeProfilePage = ({
                 onCancelSession={onCancelSession}
                 onOpenAssignmentGenerator={onOpenAssignmentGenerator}
             />
+            <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
         </main>
     );
 };
@@ -1171,11 +1154,13 @@ const MenteeActionConfirmation = ({
     onConfirm: () => void;
 }) => {
     const copy = stateActionCopy[action];
+    const dialogRef = useMenteeDialogFocus(onCancel);
     return (
         <div className={styles.modalBackdrop} role="presentation" onClick={onCancel} onKeyDown={event => {
             if (event.key === "Escape") onCancel();
         }}>
             <div
+                ref={dialogRef}
                 className={styles.confirmationModal}
                 role="dialog"
                 aria-modal="true"
@@ -1200,45 +1185,131 @@ const MenteeActionConfirmation = ({
     );
 };
 
-const DetailItem = ({label, value}: { label: string; value: string }) => (
-    <div className={styles.detailItem}>
-        <span>{label}</span>
-        <strong>{value}</strong>
-    </div>
+const useMenteeDialogFocus = (onDismiss: () => void) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const dismissRef = useRef(onDismiss);
+    useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
+    useEffect(() => {
+        const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const dialog = dialogRef.current;
+        const controls = () => [...(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])].filter(element => element.getClientRects().length > 0);
+        controls()[0]?.focus();
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (!dialog?.contains(document.activeElement)) return;
+            // Nested native confirmations own their own keyboard and focus behavior.
+            if ((document.activeElement as HTMLElement | null)?.closest("dialog[open]")) return;
+            if (event.key === "Escape") {
+                event.preventDefault(); event.stopPropagation(); dismissRef.current();
+            } else if (event.key === "Tab") {
+                const items = controls();
+                const first = items[0], last = items[items.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }
+        };
+        document.addEventListener("keydown", onKeyDown, true);
+        return () => {
+            document.removeEventListener("keydown", onKeyDown, true);
+            const target = opener?.closest("details:not([open])")?.querySelector<HTMLElement>("summary") ?? opener;
+            if (target?.isConnected) target.focus();
+        };
+    }, []);
+    return dialogRef;
+};
+
+const DetailItem = ({label, value}: {label: string; value: string}) => (
+    <div className={styles.detailItem}><span>{label}</span><strong>{value}</strong></div>
 );
 
-const WeeklyAvailabilityDetail = ({value}: {value?: string | null}) => {
-    const entries = value?.trim()
-        ? value.replace(/\r\n?/g, "\n").trim().split(AVAILABILITY_ENTRY_SEPARATOR).map(entry => {
-            const separatorIndex = entry.indexOf(":");
-            return separatorIndex < 0
-                ? {day: "", time: entry.trim()}
-                : {day: entry.slice(0, separatorIndex).trim(), time: entry.slice(separatorIndex + 1).trim()};
-        })
-        : [];
-
-    return (
-        <div className={`${styles.detailItem} ${styles.availabilityDetail}`}>
-            <span>Weekly availability (UTC)</span>
-            {entries.length > 0 ? (
-                <dl className={styles.availabilityList}>
-                    {entries.map(({day, time}, index) => (
-                        <div key={`${day}-${index}`}>
-                            {day ? <dt>{day}</dt> : null}
-                            <dd>{time}</dd>
-                        </div>
-                    ))}
-                </dl>
-            ) : <strong>Not provided</strong>}
+const MenteeTerminationDialog = ({reason, onReasonChange, onCancel, onConfirm, busy}: {
+    reason: string; onReasonChange: (value: string) => void; onCancel: () => void; onConfirm: (event: FormEvent) => void; busy: boolean;
+}) => {
+    const dialogRef = useMenteeDialogFocus(onCancel);
+    return <div className={styles.modalBackdrop} role="presentation" onClick={onCancel}>
+        <div ref={dialogRef} className={styles.terminateModal} role="dialog" aria-modal="true" aria-labelledby="mentee-termination-title" onClick={event => event.stopPropagation()}>
+            <h3 id="mentee-termination-title">Terminate Mentee</h3>
+            <form onSubmit={onConfirm}>
+                <label>Reason for termination<textarea value={reason} onChange={event => onReasonChange(event.target.value)} required/></label>
+                <div className={styles.modalActions}>
+                    <button type="button" onClick={onCancel}>Cancel</button>
+                    <button type="submit" disabled={busy}>Confirm Terminate</button>
+                </div>
+            </form>
         </div>
-    );
+    </div>;
+};
+
+const MenteeProfileActionMenu = ({onTerminate, busy}: {onTerminate: () => void; busy: boolean}) => {
+    const menuRef = useRef<HTMLDetailsElement>(null);
+    useEffect(() => {
+        const closeOutside = (event: PointerEvent) => {
+            if (!menuRef.current?.contains(event.target as Node) && menuRef.current) menuRef.current.open = false;
+        };
+        document.addEventListener("pointerdown", closeOutside);
+        return () => document.removeEventListener("pointerdown", closeOutside);
+    }, []);
+    return <details ref={menuRef} className={styles.profileActionMenu} onKeyDown={event => {
+        if (event.key === "Escape") {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+        }
+    }}>
+        <summary>Actions<CaretDown size={15} aria-hidden="true"/></summary>
+        <div className={styles.profileActionPopover}>
+            <button type="button" className={styles.dangerStateAction} disabled={busy} onClick={() => {
+                if (menuRef.current) menuRef.current.open = false;
+                onTerminate();
+            }}>Terminate</button>
+        </div>
+    </details>;
+};
+
+const MenteeProfileOverview = ({mentee, getUserName}: {mentee: AdminMentee; getUserName: (id?: string) => string}) => {
+    const availability = getMenteeAvailabilityRows(mentee.availability);
+    return <>
+        <section className={styles.profileLifecycle} aria-label="Mentorship timeline">
+            <ol>
+                {getMenteeLifecycle(mentee).map(stage => <li key={stage.state} data-reached={stage.reached} data-current={stage.current} aria-current={stage.current ? "step" : undefined}>
+                    <Circle size={21} weight={stage.current ? "fill" : "regular"} aria-hidden="true"/>
+                    <strong>{stage.label}</strong>
+                    <span>{stage.time != null ? formatAdminUtcDate(stage.time) : stage.reached ? "Date not recorded" : "Not yet"}</span>
+                </li>)}
+            </ol>
+        </section>
+        <section className={styles.profileOverview} aria-label="Availability and ownership">
+            <div className={styles.profileAvailability}>
+                <h3>Weekly availability (UTC)</h3>
+                <p>Times shown in UTC. 00:00 means midnight at the end of the day.</p>
+                {availability.length > 0 ? <dl className={styles.profileAvailabilityList}>
+                    {availability.map(({day, label, segments}, index) => <div key={`${day}-${index}`}>
+                        <dt>{day}</dt>
+                        <dd>
+                            <div className={styles.availabilityTrack} aria-hidden="true">
+                                {segments.map((segment, segmentIndex) => <span key={segmentIndex} style={{left: `${segment.start / 1440 * 100}%`, width: `${(segment.end - segment.start) / 1440 * 100}%`}}><Circle size={8} weight="fill"/><Circle size={8} weight="fill"/></span>)}
+                            </div>
+                            <span>{label}</span>
+                        </dd>
+                    </div>)}
+                </dl> : <p className={styles.profileMissingAvailability}>Availability not provided.</p>}
+            </div>
+            <aside className={styles.profileOwnership} aria-label="Ownership details">
+                <h3>Ownership details</h3>
+                <dl>
+                    <div><User size={22} aria-hidden="true"/><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
+                    <div><Users size={22} aria-hidden="true"/><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
+                    <div><Clock size={22} aria-hidden="true"/><dt>Mentee timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
+                </dl>
+                {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}
+            </aside>
+        </section>
+    </>;
 };
 
 const UserNotesSection = ({notes, getUserName}: { notes: UserNote[]; getUserName: (id?: string) => string }) => (
     <section className={styles.userNotesSection}>
-        <h3>Mentee User Notes</h3>
+        <div className={styles.profileSectionHeading}><Note size={23} aria-hidden="true"/><h3>Notes</h3></div>
         {notes.length === 0 ? (
-            <p className={styles.emptyState}>No user notes for this mentee.</p>
+            <p className={styles.profileEmptyNotes}>No notes yet for this mentee.</p>
         ) : (
             <div className={styles.userNotesList}>
                 {notes.map(note => (
@@ -1428,43 +1499,45 @@ const AttendedSessionSection = ({
                                     onCancelSession
                                 }: SessionSectionProps) => {
     const [viewedSession, setViewedSession] = useState<Session | undefined>();
+    const [showAll, setShowAll] = useState(false);
+    const visibleSessions = showAll ? sessions : sessions.slice(0, 4);
 
     return (
-        <section className={styles.sessionsSection}>
-            <h3>{title}</h3>
+        <section className={styles.profileSignupSection}>
+            <div className={styles.profileSignupHeading}>
+                <div className={styles.profileSectionHeading}>
+                    <CalendarBlank size={23} aria-hidden="true"/>
+                    <div><h3>{title}</h3><p>Pilot support sign-ups ({sessions.length} total). These records do not independently verify attendance.</p></div>
+                </div>
+                {sessions.length > 4 ? <button type="button" className={styles.profileHistoryToggle} aria-expanded={showAll} aria-controls="mentee-signup-history" onClick={() => setShowAll(value => !value)}>
+                    {showAll ? "Show fewer" : `View all ${sessions.length}`}<CaretRight size={15} aria-hidden="true"/>
+                </button> : null}
+            </div>
             {sessions.length === 0 ? (
-                <p className={styles.emptyState}>No {title.toLowerCase()}.</p>
+                <p className={styles.profileEmptyNotes}>No pilot sign-ups recorded.</p>
             ) : (
-                <div className={styles.sessionsTableWrap}>
-                    <table
-                        className={`${styles.sessionsTable} ${editable ? styles.sessionsTableEditable : styles.sessionsTableReadonly}`}>
+                <div id="mentee-signup-history" className={styles.profileSignupTableWrap}>
+                    <table className={styles.profileSignupTable}>
+                        <caption className={styles.visuallyHidden}>Pilot sign-up history, newest first. Times are UTC. Status is as recorded.</caption>
                         <thead>
                         <tr>
-                            <th>Time</th>
-                            <th>Mentor</th>
-                            <th>Airport</th>
-                            <th>Pilots</th>
-                            <th>Status</th>
-                            <th>Attendees</th>
-                            <th>Actions</th>
+                            <th scope="col">Date (UTC)</th>
+                            <th scope="col">Airport</th>
+                            <th scope="col">Mentor</th>
+                            <th scope="col">Recorded status</th>
+                            <th scope="col">Actions</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {sessions.map(session => (
-                            <tr key={session.id} className={session.cancelled ? styles.cancelledSession : undefined}>
-                                <td data-label="Time">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
-                                <td data-label="Mentor">{getUserName(session.mentor)}</td>
+                        {visibleSessions.map(session => (
+                            <tr key={session.id}>
+                                <td data-label="Date (UTC)">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
                                 <td data-label="Airport">{session.airport || "Not set"}</td>
-                                <td data-label="Pilots">{formatPilotCount(session)}</td>
-                                <td data-label="Status">
+                                <td data-label="Mentor">{getUserName(session.mentor)}</td>
+                                <td data-label="Recorded status">
                                     <span
                                         className={`${styles.sessionStatus} ${session.cancelled ? styles.sessionStatusCancelled : styles.sessionStatusScheduled}`}>
                                         {session.cancelled ? "Cancelled" : "Scheduled"}
-                                    </span>
-                                </td>
-                                <td data-label="Attendees">
-                                    <span className={styles.readOnlySession}>
-                                        {session.attendees.length}
                                     </span>
                                 </td>
                                 <td data-label="Actions">
@@ -1472,6 +1545,7 @@ const AttendedSessionSection = ({
                                         <button
                                             type="button"
                                             className={styles.secondaryButton}
+                                            aria-label={`View session at ${session.airport || "unknown airport"}, ${formatAdminUtcDate(session.time)}`}
                                             onClick={() => setViewedSession(session)}
                                         >
                                             View
@@ -1558,6 +1632,7 @@ const SessionDetailsModal = ({
                                  onCancelSession,
                                  onClose
                              }: SessionDetailsModalProps) => {
+    const dialogRef = useMenteeDialogFocus(onClose);
     const sessionEditable = editable && !session.cancelled;
     const [editForm, setEditForm] = useState(() => createSessionEditForm(session));
     const [editState, setEditState] = useState("");
@@ -1607,7 +1682,7 @@ const SessionDetailsModal = ({
 
     return (
         <div className={styles.sessionDetailsOverlay} role="presentation">
-            <div className={styles.sessionDetailsModal} role="dialog" aria-modal="true"
+            <div ref={dialogRef} className={styles.sessionDetailsModal} role="dialog" aria-modal="true"
                  aria-labelledby={`session-details-${session.id}`}>
                 <header className={styles.sessionDetailsHeader}>
                     <div>
@@ -1619,7 +1694,7 @@ const SessionDetailsModal = ({
 
                 <section className={styles.sessionDetailsGrid} aria-label="Session details">
                     <DetailItem label="Mentor" value={getUserName(session.mentor)}/>
-                    <DetailItem label="Mentor" value={getUserName(session.mentee)}/>
+                    <DetailItem label="Mentee" value={getUserName(session.mentee)}/>
                     <DetailItem label="Airport" value={session.airport || "Not set"}/>
                     <DetailItem label="Pilots" value={formatPilotCount(session)}/>
                     <DetailItem label="Assignment" value={session.hasAssignment ? "Sent" : "Not sent"}/>
@@ -2215,7 +2290,7 @@ const formatAutoMatchSummary = (candidate: AutoMatchCandidate) => {
     return candidate.overlaps ? "Overlaps availability" : `${candidate.distanceMinutes} min gap`;
 };
 
-const getAssignedMentorId = (mentee: AdminMentee) => mentee.practicalMentor ?? mentee.writtenMentor;
+const getAssignedMentorId = (mentee: AdminMentee) => mentee.practicalMentor;
 
 const getMentorDisplayName = (mentee: AdminMentee, getUserName: (id?: string) => string) => {
     const mentorId = getAssignedMentorId(mentee);

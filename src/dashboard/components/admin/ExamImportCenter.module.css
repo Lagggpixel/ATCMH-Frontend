@@ -9,7 +9,7 @@
 .schema summary { cursor: pointer; font-weight: 700; }
 .schema dl { margin: 12px 0 0; }
 .schema dl div { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(0, 2fr); gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-color); }
-.schema dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent-color); }
+.schema dt { font-family: var(--font-site); color: var(--accent-color); }
 .schema dd { margin: 0; color: var(--muted-text); }
 .upload { border-top: 1px solid var(--border-color); padding-top: 14px; }
 .upload label { color: var(--text-color); font-weight: 700; }

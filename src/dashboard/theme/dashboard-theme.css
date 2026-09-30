@@ -11,6 +11,23 @@
     --border-color: #dce3eb;
     --button-hover: #e8f1ff;
     --panel-shadow: 0 16px 40px rgb(27 48 77 / 12%);
+    --course-reading: #fff;
+    --course-check: #f0f6fd;
+    --dashboard-canvas: #f6f3ee;
+    --dashboard-header: #fff;
+    --dashboard-surface: #fff;
+    --dashboard-secondary: #f8fafc;
+    --dashboard-inset: #edf2f8;
+    --dashboard-border: #dce3eb;
+    --dashboard-ink: #12264a;
+    --dashboard-muted: #536987;
+    --dashboard-link: #0869ee;
+    --dashboard-selected: #e8f1ff;
+    --dashboard-button: #0869ee;
+    --dashboard-button-hover: #075cc9;
+    --dashboard-on-button: #fff;
+    --dashboard-focus: #9bbcff;
+    --dashboard-shadow-color: rgb(27 48 77 / 8%);
     min-height: 100dvh;
 }
 
@@ -45,6 +62,8 @@ html[data-dashboard-theme="dark"] [data-dashboard-surface] {
     --active-bg: var(--success-bg);
     --cancelled-bg: var(--danger-bg);
     --panel-shadow: 0 16px 40px rgb(0 0 0 / 28%);
+    --course-reading: #111111;
+    --course-check: #252525;
     --dashboard-canvas: #111111;
     --dashboard-header: #191919;
     --dashboard-surface: #252525;
@@ -107,7 +126,17 @@ html[data-dashboard-theme="dark"] .dashboard-theme .nav-user-menu-content button
 html[data-dashboard-theme="dark"] body:has(.dashboard-theme) { background: #111111; }
 .dashboard-theme input, .dashboard-theme select, .dashboard-theme textarea { accent-color: var(--dashboard-button, #0869ee); }
 .dashboard-theme textarea:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 3px; }
+.dashboard-theme .learner-site:has([data-course-page]) { background: var(--dashboard-canvas); color: var(--dashboard-ink); color-scheme: inherit; }
+.dashboard-theme .site-header.is-light .brand,
+.dashboard-theme .site-header.is-light .nav-links,
+.dashboard-theme .site-header.is-light .mobile-navigation summary { color: var(--text-color); }
+.dashboard-theme .site-header.is-light .light-brand-name small { color: var(--muted-text); }
+.dashboard-theme .site-header.is-light .nav-links a.is-active { color: var(--accent-color); }
+.dashboard-theme .site-header.is-light .mobile-navigation nav { background: var(--surface-color); }
+.dashboard-theme .site-footer { background: var(--surface-2-color); color: var(--text-color); }
 @media (max-width: 560px) {
     .dashboard-theme .dashboard-product input:not([type="checkbox"]):not([type="radio"]),
     .dashboard-theme .dashboard-product select, .dashboard-theme .dashboard-product textarea { font-size: 16px; }
 }
+
+.dashboard-theme .dashboard-product:has([data-course-page]) { overflow-x: clip; overflow-y: visible; }

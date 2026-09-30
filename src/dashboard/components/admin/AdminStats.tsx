@@ -49,7 +49,7 @@ function attentionReason(item: StatisticsAttention) {
     if (item.kind === "session_inactivity") return "No recorded completed session in 30 days; none scheduled";
     return `${item.title}: last course access ${number(item.days, " days")} ago`;
 }
-type MentorSort = "completedSessions" | "practicalMentees" | "writtenMentees" | "cancelledSessions" | "lastSessionAt" | "name";
+type MentorSort = "completedSessions" | "practicalMentees" | "cancelledSessions" | "lastSessionAt" | "name";
 function MentorTable({mentors, name}: {mentors: MentorWorkload[]; name: (id: string) => string}) {
     const [sort, setSort] = useState<MentorSort>("completedSessions");
     const [ascending, setAscending] = useState(false);
@@ -59,13 +59,13 @@ function MentorTable({mentors, name}: {mentors: MentorWorkload[]; name: (id: str
             : a[sort] - b[sort];
         return (ascending ? comparison : -comparison) || a.mentorId.localeCompare(b.mentorId);
     }), [mentors, name, sort, ascending]);
-    const headers: Array<[MentorSort, string]> = [["name", "Mentor"], ["practicalMentees", "Practical · Now"], ["writtenMentees", "Written · Now"],
+    const headers: Array<[MentorSort, string]> = [["name", "Mentor"], ["practicalMentees", "Mentees · Now"],
         ["completedSessions", "Completed · Period"], ["cancelledSessions", "Cancelled · Period"], ["lastSessionAt", "Last completed · All time"]];
     const select = (next: MentorSort) => { setSort(next); setAscending(next === sort ? !ascending : next === "name"); };
     return rows.length ? <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="Mentor workload table"><table><caption>Assignments count current mentee engagements. Session figures use the selected period. Dates are UTC.</caption>
         <thead><tr>{headers.map(([key, title]) => <th key={key} scope="col" aria-sort={key === sort ? ascending ? "ascending" : "descending" : "none"}>
             <button type="button" onClick={() => select(key)}>{title}{key === sort ? ascending ? " ↑" : " ↓" : ""}</button></th>)}</tr></thead>
-        <tbody>{rows.map(mentor => <tr key={mentor.mentorId}><th scope="row">{name(mentor.mentorId)}</th><td>{mentor.practicalMentees}</td><td>{mentor.writtenMentees}</td>
+        <tbody>{rows.map(mentor => <tr key={mentor.mentorId}><th scope="row">{name(mentor.mentorId)}</th><td>{mentor.practicalMentees}</td>
             <td>{mentor.completedSessions}</td><td>{mentor.cancelledSessions}</td><td>{utcDate(mentor.lastSessionAt)}</td></tr>)}</tbody></table></div> : <p>No mentor activity or current assignments recorded.</p>;
 }
 
@@ -132,7 +132,7 @@ function ProgrammeView({report, name, retry}: {report: ProgrammeReport; name: (i
                 </table></div><p className={styles.note}>Scroll horizontally for all 24 hours. * Limited evidence. Review session counts before drawing conclusions about timing.</p>
             </section>
         </div>
-        <section className={styles.panel} aria-labelledby="mentors-heading"><h3 id="mentors-heading">Mentor workload</h3><p>Sort by current assignments or recent delivery to see where work is concentrated.</p><MentorTable mentors={report.mentors} name={name}/></section>
+        <section className={styles.panel} aria-labelledby="mentors-heading"><h3 id="mentors-heading">Mentor workload</h3><p>Current Discord mentors only. Sort by current assignments or recent delivery to see where work is concentrated.</p><MentorTable mentors={report.mentors} name={name}/></section>
         <section className={styles.panel} aria-labelledby="courses-heading"><div className={styles.sectionHeading}><div><h3 id="courses-heading">Course progress</h3><p>Starts and completions use the selected period. Enrolment totals, completion rates and inactivity are current snapshots.</p></div><Link href="/dashboard/courses">Open courses</Link></div>
             {report.courses.status === "unavailable" ? <SectionError message={report.courses.message ?? "Course reporting unavailable."} retry={retry}/>
                 : report.courses.status === "forbidden" ? <p>Course reporting requires course management access.</p>

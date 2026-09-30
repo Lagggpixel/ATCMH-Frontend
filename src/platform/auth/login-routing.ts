@@ -24,7 +24,7 @@ export function safeLoginReturnTo(application: LoginApplication, value: string |
   if (!value || hasUnsafeSyntax(value)) return fallback;
   const path = value.split("?", 1)[0];
   return path === "/" || path === "/account" || path === "/apply" || path.startsWith("/apply?")
-    || path === "/leaderboard" || path === "/dashboard" || path.startsWith("/dashboard/")
+    || path === "/leaderboard" || path === "/pilot-guide" || path === "/dashboard" || path.startsWith("/dashboard/")
     || path === "/exams" || path.startsWith("/exams/") ? value : fallback;
 }
 

@@ -1,4 +1,17 @@
 
+### Live community counts
+
+The home page requests `/api/dashboard/public/community-stats` through the existing
+`DASHBOARD_API_URL` relay on load, every minute while visible, and when returning to
+the tab. Members round down to hundreds; graduates round down to fifties. The hero
+and About cards share the same response. Missing counts display `—`; a failed
+refresh retains the last available count with an unavailable tooltip.
+
+Deploy the backend community statistics route alongside the frontend. It uses the
+existing bot's ATCMH guild and `GRADUATE_ROLE_ID`, requires a connected gateway and
+fully loaded member cache, and returns only aggregate counts. No new Discord
+credentials or database changes are required.
+
 ### Website access evidence
 
 The Next proxy reports each meaningful page/API request to the backend through

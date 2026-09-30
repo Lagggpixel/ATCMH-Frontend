@@ -67,7 +67,11 @@ test("active Exam Center attempts remain outside the framed navigation", () => {
   const attemptLayout = source("../app/exams/(attempt)/layout.tsx");
 
   assert.doesNotMatch(examsLayout, /SiteFrame/);
-  assert.match(learnerLayout, /<SiteFrame/);
+  assert.match(learnerLayout, /<LearnerSiteFrame/);
+  const learnerFrame = source("./LearnerSiteFrame.tsx");
+  assert.match(learnerFrame, /<SiteFrame/);
+  assert.match(learnerFrame, /pathname.startsWith\("\/exams\/courses"\)/);
+  assert.match(learnerFrame, /<DashboardThemeProvider>/);
   assert.doesNotMatch(learnerLayout, /ExamLogoutButton|Sign out|accountAccessory/);
   assert.doesNotMatch(attemptLayout, /SiteFrame/);
   assert.match(attemptLayout, /getVerifiedCentralSession/);
@@ -79,6 +83,7 @@ test("Exam Center is the task-first catalogue and the old catalogue URL redirect
   const oldCatalogue = source("../app/exams/(learner)/quizzes/page.tsx");
 
   assert.match(landing, /<QuizCatalogue/);
+  assert.doesNotMatch(landing, /exam-home-tabs|Exam Center content/);
   assert.doesNotMatch(landing, /homeStats|mentorshipSteps|Exam Roster|Mentorship Flow|Learning Pages|Current Notices/);
   assert.match(oldCatalogue, /redirect\("\/exams"\)/);
 });

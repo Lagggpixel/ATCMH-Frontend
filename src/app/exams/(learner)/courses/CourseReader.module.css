@@ -117,7 +117,7 @@
 .heroInner { width: min(100% - 64px, 1460px); margin: auto; padding: 20px 0 28px; }
 .heroInner .backLink { display: inline-block; margin-bottom: 12px; color: var(--dashboard-ink, #25446f); font-weight: 750; }
 .heroEyebrow { margin: 0 0 5px; color: var(--dashboard-muted, #6d5137); font-size: .75rem; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
-.heroInner h1 { max-width: 780px; margin: 0; color: var(--dashboard-ink, #0b172e); font-family: Georgia, 'Times New Roman', serif; font-size: clamp(2.4rem, 4.4vw, 4.5rem); line-height: 1.05; letter-spacing: -.035em; }
+.heroInner h1 { max-width: 780px; margin: 0; color: var(--dashboard-ink, #0b172e); font-family: var(--font-site); font-size: clamp(2.4rem, 4.4vw, 4.5rem); line-height: 1.05; letter-spacing: -.035em; }
 .heroInner p:last-child { max-width: 720px; margin: 8px 0 0; color: var(--dashboard-ink, #4a483f); font-size: clamp(1rem, 1.4vw, 1.2rem); line-height: 1.5; }
 .readerToolbar { background: var(--dashboard-surface, #fbf9f4); border-bottom: 1px solid var(--dashboard-border, #ded8ce); box-shadow: 0 3px 12px var(--dashboard-shadow-color, #3329140c); }
 .toolbarInner { width: min(100% - 64px, 1460px); min-height: 77px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 32px; }
@@ -152,11 +152,11 @@
 .readerContext { display: none; }
 .readerMain .section { min-height: 540px; border: 1px solid var(--dashboard-border, #e4ddd2); border-radius: 12px; background: var(--dashboard-surface, #fffefd); box-shadow: 0 14px 34px var(--dashboard-shadow-color, #392b1a14); }
 .readerMain .sectionHeader { border-bottom: 0; padding: 29px 32px 0; }
-.readerMain .sectionHeader h2 { color: var(--dashboard-ink, #101f42); font-family: Georgia, 'Times New Roman', serif; font-size: clamp(2rem, 3vw, 3.2rem); line-height: 1.1; letter-spacing: -.03em; }
+.readerMain .sectionHeader h2 { color: var(--dashboard-ink, #101f42); font-family: var(--font-site); font-size: clamp(2rem, 3vw, 3.2rem); line-height: 1.1; letter-spacing: -.03em; }
 .readerMain .sectionNumber { margin-bottom: 11px; color: var(--dashboard-link, #0869ef); font-size: .74rem; letter-spacing: .14em; }
 .readerMain .sectionBody { padding: 16px 32px 32px; }
 .readerShell .markdown { color: var(--dashboard-ink, #203961); font-size: 1.05rem; line-height: 1.75; }
-.readerShell .markdown h2, .readerShell .markdown h3, .readerShell .markdown h4 { color: var(--dashboard-ink, #102347); font-family: Georgia, 'Times New Roman', serif; }
+.readerShell .markdown h2, .readerShell .markdown h3, .readerShell .markdown h4 { color: var(--dashboard-ink, #102347); font-family: var(--font-site); }
 .readerShell .markdown strong { color: var(--dashboard-ink, #112a52); }
 .readerShell .markdown code { background: var(--dashboard-secondary, #edf2f8); color: var(--dashboard-link, #0c56a7); }
 .readerShell .markdown a { color: var(--dashboard-link, #0868df); }
@@ -188,7 +188,7 @@
 /* The catalog uses the same warm desk and generous card rhythm. */
 .courseCatalogue { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }
 .courseCatalogue .courseCard { min-height: 185px; align-items: stretch; border-color: var(--dashboard-border, #dedbd3); border-radius: 12px; background: var(--dashboard-surface, #fffefd); box-shadow: 0 9px 24px var(--dashboard-shadow-color, #201e1610); }
-.courseCatalogue .courseCard h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.65rem; }
+.courseCatalogue .courseCard h2 { font-family: var(--font-site); font-size: 1.65rem; }
 .courseCatalogue .courseCard p { line-height: 1.65; }
 
 @media (max-width: 900px) {
@@ -252,7 +252,7 @@
 .catalogShell .courseHeader { max-width: 780px; margin-bottom: 34px; }
 .catalogShell .backLink { color: var(--dashboard-muted, #245888); font-weight: 750; }
 .catalogShell .eyebrow { color: var(--dashboard-link, #0b68db); }
-.catalogShell .courseHeader h1 { color: var(--dashboard-ink, #112443); font: 700 clamp(2.6rem, 5vw, 4.5rem)/1.05 Georgia, 'Times New Roman', serif; }
+.catalogShell .courseHeader h1 { color: var(--dashboard-ink, #112443); font: 700 clamp(2.6rem, 5vw, 4.5rem)/1.05 var(--font-site); }
 .catalogShell .courseDescription { color: var(--dashboard-muted, #4f6380); }
 .catalogShell .courseCard { display: flex; flex-direction: column; align-items: start; justify-content: space-between; min-height: 210px; padding: 30px; }
 .catalogShell .courseCard h2 { color: var(--dashboard-ink, #12264a); }
@@ -274,7 +274,7 @@
 .readerShell .calloutScenario { background: var(--dashboard-secondary, #f3effd); }
 .readerShell .calloutSuccess { background: var(--dashboard-success-bg, #e7f8ec); }
 @media (max-width: 700px) { .catalogShell .coursePage { width: min(100% - 28px, 650px); padding: 34px 0 58px; } .catalogShell .courseCard { min-height: 185px; padding: 23px; } }
-.readerShell, .catalogShell { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.readerShell, .catalogShell { font-family: var(--font-site); }
 
 /* Course pages share the light dashboard palette and keep media in the lesson itself. */
 .readerShell, .catalogShell { background: var(--dashboard-canvas, #f6f3ee); color: var(--dashboard-ink, #12264a); }
@@ -300,4 +300,113 @@
   .readerMain .sectionHeader { padding-top: 23px; }
   .readerMain .sectionHeader h2 { font-size: clamp(1.75rem, 7vw, 2.25rem); }
   .catalogShell .coursePage { padding-top: 26px; }
+}
+
+/* Shared preview and learner reading workspace. */
+.readerShell { min-height: calc(100dvh - 76px); padding: 0; background: var(--course-reading, #fff); }
+.readerWorkspace { display: grid; grid-template-columns: clamp(280px, 25vw, 370px) minmax(0, 1fr); gap: 0; width: 100%; max-width: none; margin: 0; padding: 0; min-height: calc(100dvh - 76px); }
+.desktopOutline { position: sticky; top: 76px; height: calc(100dvh - 76px); max-height: none; align-self: start; display: flex; flex-direction: column; border: 0; border-right: 1px solid var(--dashboard-border); border-radius: 0; background: var(--dashboard-secondary); box-shadow: none; }
+.outlineCourse { padding: 28px 28px 20px 52px; }
+.courseBack { display: flex; align-items: center; gap: 8px; margin-left: -22px; color: var(--dashboard-ink); text-decoration: none; }
+.courseBack span { overflow-wrap: anywhere; font-size: 1.35rem; font-weight: 750; line-height: 1.25; }
+.courseBack svg { flex-shrink: 0; color: var(--dashboard-muted); }
+.outlineCourse p { margin: 3px 0 18px; color: var(--dashboard-muted); }
+.outlineProgress { display: flex; gap: 16px; align-items: center; color: var(--dashboard-muted); font-size: .95rem; }
+.outlineProgress > span { white-space: nowrap; }
+.progressTrack { height: 7px; flex: 1; overflow: hidden; border-radius: 10px; background: var(--dashboard-border); }
+.progressTrack span { display: block; height: 100%; background: var(--dashboard-button); border-radius: inherit; }
+.editCourse { min-height: 40px; padding: 8px 0 0; border: 0; background: transparent; color: var(--dashboard-link); font: inherit; cursor: pointer; }
+.outlineNav { flex: 1; min-height: 0; padding: 0 25px 30px 49px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.outlineGroup { padding: 19px 0 23px; }
+.outlineGroup summary { position: relative; padding: 0 3px 10px; gap: 8px; }
+.outlineGroupNumber { display: block; color: var(--dashboard-muted); font-size: .73rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.outlineGroup summary strong { font-size: 1.05rem; }
+.groupCaret { position: absolute; right: 3px; bottom: 13px; transition: transform .15s; }
+.outlineGroup[open] .groupCaret { transform: rotate(180deg); }
+.outlineGroup ol { gap: 5px; }
+.outlineGroup li { position: relative; }
+.outlineGroup li + li::before { content: ''; position: absolute; z-index: 0; left: 18px; top: -15px; height: 28px; border-left: 1px solid var(--dashboard-border); }
+.outlineGroup li a, .outlineGroup li button, .outlineLocked { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; min-height: 39px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dashboard-ink); text-align: left; font: inherit; font-size: .96rem; line-height: 1.35; text-decoration: none; }
+.outlineGroup li button { cursor: pointer; }
+.outlineGroup li a:hover, .outlineGroup li button:hover, .outlineGroup li .outlineCurrent { background: var(--dashboard-selected); color: var(--dashboard-link); }
+.outlineLocked { color: var(--dashboard-muted); opacity: .65; }
+.outlineMark { width: 16px; height: 16px; margin-top: 2px; border: 0; border-radius: 0; background: var(--dashboard-secondary); color: var(--dashboard-muted); }
+.outlineCurrent .outlineMark { background: var(--dashboard-selected); color: var(--dashboard-link); }
+.readerMain { width: 100%; max-width: 1240px; min-width: 0; margin: 0 auto; padding: 40px 40px 38px; }
+.readerMain .section { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+.readerMain .sectionHeader { display: flex; align-items: flex-start; gap: 20px; padding: 0; border: 0; background: transparent; }
+.sectionHeader > div:first-child { min-width: 0; flex: 1; }
+.readerMain .sectionHeader h2 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.9rem, 2.8vw, 2.65rem); font-weight: 750; line-height: 1.15; letter-spacing: -.02em; }
+.sectionNumber { display: block; margin: 0 0 12px; color: var(--dashboard-link); font-size: .76rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+.readerMain .sectionBody { padding: 0; margin-top: 13px; }
+.lessonPosition { display: flex; align-items: center; gap: 16px; margin-top: 10px; color: var(--dashboard-muted); font-size: .9rem; }
+.lessonPosition > span { white-space: nowrap; }
+.lessonPosition .progressTrack { width: 150px; }
+.readerMain .markdown { font-size: 1.125rem; line-height: 1.5; }
+.readerMain .markdown p { margin: 0 0 20px; }
+.lessonLead { margin-bottom: 30px; color: var(--dashboard-muted); font-size: 1.2rem; }
+.readerMain .lessonLead p { margin-bottom: 0; }
+.lessonContent { display: grid; grid-template-columns: 1.25fr 1fr; gap: 34px; align-items: start; }
+.lessonProse, .lessonVisual { min-width: 0; }
+.readerMain .lessonVisual .media { width: 100%; margin: 0; text-align: left; }
+.lessonVisual .media img { width: 100%; height: auto; max-height: none; object-fit: contain; }
+.lessonVisual .media figcaption { margin-top: 10px; font-size: .92rem; line-height: 1.4; }
+.readerMain .knowledgeCheck { position: relative; margin: 10px 0 0; padding: 24px; border: 1px solid var(--dashboard-border); border-radius: 10px; background: var(--course-check, var(--dashboard-secondary)); box-shadow: 0 2px 8px var(--dashboard-shadow-color); }
+.readerMain .knowledgeLabel { display: flex; align-items: center; gap: 14px; margin: 0 0 16px !important; color: var(--dashboard-link); font-size: .76rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.readerMain .knowledgeCheck label { max-width: calc(100% - 180px); }
+.readerMain .knowledgeCheck legend { margin-bottom: 9px; font-size: 1.15rem; font-weight: 700; line-height: 1.4; }
+.readerMain .knowledgeCheck label, .readerMain .knowledgeCheck label:has(input:checked) { min-height: 36px; margin: 0; padding: 5px 0; border: 0; background: transparent; font-size: 1.03rem; }
+.knowledgeCheck input[type=radio] { width: 19px; height: 19px; margin: 2px 0; accent-color: var(--dashboard-button); }
+.readerMain .checkFeedback { padding-right: 180px; }
+.checkActions { position: absolute; right: 24px; bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 12px; }
+.checkActions span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); color: var(--dashboard-muted); font-size: .8rem; }
+.readerMain .checkActions button { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 8px; background: var(--dashboard-selected); color: var(--dashboard-link); font: inherit; font-size: .96rem; font-weight: 700; cursor: pointer; }
+.checkActions button:disabled { opacity: .5; cursor: default; }
+.readerMain .pageNavigation { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--dashboard-border); }
+.pageNavigation a, .pageNavigation button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 120px; min-height: 46px; padding: 10px 17px; border: 1px solid var(--dashboard-border); border-radius: 8px; background: transparent; color: var(--dashboard-muted); font: inherit; font-size: 1rem; font-weight: 650; text-decoration: none; cursor: pointer; }
+.pageNavigation .nextLink { border-color: var(--dashboard-button); background: var(--dashboard-button); color: var(--dashboard-on-button); }
+.pageNavigation button:disabled { opacity: .5; cursor: default; }
+.readerShell :is(a, button, summary, input, textarea):focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 3px; }
+.readerMain .activityCard button:disabled, .readerMain .quizCard button:disabled { opacity: .65; cursor: default; }
+.mobileCourseHeading { display: none; }
+@media (max-width: 1200px) {
+  .readerMain { padding: 30px; }
+  .lessonContent { grid-template-columns: 1fr; gap: 10px; }
+  .lessonVisual { max-width: 620px; margin-bottom: 24px; }
+  .lessonPosition .progressTrack { width: 80px; }
+}
+@media (max-width: 900px) {
+  .readerWorkspace { display: flex; flex-direction: column; align-items: stretch; }
+  .desktopOutline { display: none; }
+  .mobileCourseHeading { display: block; width: 100%; background: var(--dashboard-secondary); border-bottom: 1px solid var(--dashboard-border); }
+  .mobileCourseHeading .outlineCourse { padding: 20px 28px 15px; }
+  .mobileCourseHeading p { margin-bottom: 12px; }
+  .mobileCourseHeading .outlineProgress { max-width: 380px; }
+  .mobileOutlineButton { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: calc(100% - 48px); min-height: 44px; margin: 18px 24px 0; padding: 10px 14px; border: 1px solid var(--dashboard-border); border-radius: 8px; background: var(--dashboard-secondary); color: var(--dashboard-ink); font: inherit; }
+  .mobileOutlineButton > span { display: flex; align-items: center; gap: 10px; color: var(--dashboard-muted); }
+  .readerMain { padding: 26px 24px 38px; }
+  .outlineDialog { position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--dashboard-ink); }
+  .outlineDialog::backdrop { background: rgb(0 0 0 / 45%); }
+  .outlineDialogPanel { display: flex; flex-direction: column; width: min(100%, 390px); height: 100dvh; margin-left: auto; background: var(--dashboard-secondary); }
+  .outlineHeading { padding: 20px 24px; border-bottom: 1px solid var(--dashboard-border); }
+  .outlineHeading button { min-width: 44px; min-height: 44px; border: 1px solid var(--dashboard-border); border-radius: 8px; background: var(--dashboard-surface); color: var(--dashboard-ink); }
+  .outlineDialog .outlineNav { padding: 8px 20px 30px; }
+  .outlineDialog li :is(a, button, .outlineLocked) { min-height: 44px; padding-block: 11px; }
+}
+@media (max-width: 600px) {
+  .readerMain { padding: 24px 20px 32px; }
+  .readerMain .sectionHeader { display: block; }
+  .readerMain .sectionHeader h2 { font-size: 2rem; }
+  .lessonPosition { display: none; }
+  .sectionHeader .status { display: inline-block; margin-top: 10px; }
+  .readerMain .markdown { font-size: 1.05rem; line-height: 1.55; }
+  .lessonLead { margin-bottom: 24px; font-size: 1.1rem; }
+  .readerMain .knowledgeCheck { padding: 18px; }
+  .readerMain .knowledgeCheck label { max-width: 100%; }
+  .readerMain .checkFeedback { padding-right: 0; }
+  .checkActions { position: static; flex-direction: column; align-items: stretch; gap: 12px; }
+  .readerMain .pageNavigation { flex-direction: row; gap: 12px; }
+  .pageNavigation a, .pageNavigation button { min-width: 0; }
+  .nextLocked { max-width: 50%; text-align: right; }
+  .readerMain .mediaFull { width: 100%; margin-inline: 0; }
 }

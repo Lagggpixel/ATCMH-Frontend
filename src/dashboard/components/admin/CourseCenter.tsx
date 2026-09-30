@@ -128,8 +128,8 @@ export default function CourseCenter({users, token, view, courseId}: CourseCente
 
     if (!token) return <AdminLoginScreen/>;
 
-    return <section className={styles.center} aria-labelledby={headingId}>
-        {view !== "courses" ? <nav className={styles.nav} aria-label="Course Center sections"><NavLink end to="/dashboard/courses" className={({isActive}) => isActive ? styles.active : undefined}>Courses</NavLink>{courseId ? <NavLink to={`/dashboard/courses/${courseId}/preview`} className={({isActive}) => isActive ? styles.active : undefined}>Preview</NavLink> : null}{courseId ? <NavLink to={`/dashboard/courses/${courseId}/stats`} className={({isActive}) => isActive ? styles.active : undefined}>Statistics</NavLink> : null}<NavLink to="/dashboard/courses/new" className={({isActive}) => isActive ? styles.active : undefined}>New course</NavLink></nav> : null}
+    return <section className={`${styles.center} ${view === "course-preview" ? styles.readerCenter : ""}`} aria-labelledby={headingId}>
+        {view !== "courses" && view !== "course-preview" ? <nav className={styles.nav} aria-label="Course Center sections"><NavLink end to="/dashboard/courses" className={({isActive}) => isActive ? styles.active : undefined}>Courses</NavLink>{courseId ? <NavLink to={`/dashboard/courses/${courseId}/preview`} className={({isActive}) => isActive ? styles.active : undefined}>Preview</NavLink> : null}{courseId ? <NavLink to={`/dashboard/courses/${courseId}/stats`} className={({isActive}) => isActive ? styles.active : undefined}>Statistics</NavLink> : null}<NavLink to="/dashboard/courses/new" className={({isActive}) => isActive ? styles.active : undefined}>New course</NavLink></nav> : null}
         {notice ? <p className={styles.state} role="status">{notice}</p> : null}
         {deletion ? <CourseDeleteDialog course={deletion.course} onCancel={() => setDeletion(null)} onConfirm={deleteSelected}/> : null}
         {data && !canAccessView ? <section className={styles.state} role="alert"><h2>Access denied</h2><p>You do not have access to this Course Center workspace.</p><Link to="/dashboard/courses">Back to Course Center</Link></section> : null}
