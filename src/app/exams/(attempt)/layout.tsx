@@ -1,5 +1,6 @@
 import type {ReactNode} from "react";
 import {getVerifiedCentralSession} from "@/src/lib/learner-session";
+import "./attempt.css";
 
 export default async function AttemptLayout({children}: Readonly<{children: ReactNode}>) {
   const session = await getVerifiedCentralSession();
