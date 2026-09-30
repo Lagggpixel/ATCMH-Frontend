@@ -35,7 +35,9 @@ test("first paint restores the saved choice and respects System", () => {
     assert.equal(bootstrap({blocked: true, systemDark: true}), "dark");
 });
 
-test("dashboard preference does not alter public or learner pages", () => {
-    for (const path of ["/", "/exams", "/exams/courses/example", "/account", "/dashboard-example"]) assert.equal(bootstrap({path, saved: "dark"}), undefined);
+test("dashboard preference applies to course readers without altering public or assessment pages", () => {
+    for (const path of ["/", "/exams", "/exams/courses-example", "/account", "/dashboard-example"]) assert.equal(bootstrap({path, saved: "dark"}), undefined);
     assert.equal(bootstrap({path: "/dashboard", saved: "dark"}), "dark");
+    assert.equal(bootstrap({path: "/exams/courses/example", saved: "dark"}), "dark");
+    assert.equal(bootstrap({path: "/exams/courses", saved: "light", systemDark: true}), "light");
 });

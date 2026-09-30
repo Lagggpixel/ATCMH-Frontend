@@ -11,7 +11,6 @@ export interface AdminMentee {
     timezone?: string | null;
     availability?: string | null;
     practicalMentor?: string;
-    writtenMentor?: string;
     waitlistTime: ApiTimestamp;
     pickupTime?: ApiTimestamp;
     passedTime?: ApiTimestamp;

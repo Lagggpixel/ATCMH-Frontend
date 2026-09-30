@@ -13,7 +13,7 @@ export interface ProgrammePeriod {
     medianWaitToPickupDays: StatisticsMetric; medianPickupToPassDays: StatisticsMetric;
 }
 export interface MentorWorkload {
-    mentorId: string; practicalMentees: number; writtenMentees: number;
+    mentorId: string; practicalMentees: number;
     completedSessions: number; cancelledSessions: number; lastSessionAt: string | null;
 }
 export interface StatisticsAttention {

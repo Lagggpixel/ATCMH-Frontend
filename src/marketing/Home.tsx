@@ -2,33 +2,22 @@ import { SiteHeader } from './SiteHeader'
 import SiteFooter from './SiteFooter'
 import HomeLoginModal from '@/src/platform/auth/HomeLoginModal'
 import Eligibility from '@/src/marketing/Eligibility'
-import { Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
+import { AirplaneTiltIcon } from '@phosphor-icons/react/dist/ssr/AirplaneTilt'
+import { BookOpenIcon } from '@phosphor-icons/react/dist/ssr/BookOpen'
+import { BroadcastIcon } from '@phosphor-icons/react/dist/ssr/Broadcast'
+import { GraduationCapIcon } from '@phosphor-icons/react/dist/ssr/GraduationCap'
+import { GlobeHemisphereWestIcon } from '@phosphor-icons/react/dist/ssr/GlobeHemisphereWest'
+import { ArrowDownIcon } from '@phosphor-icons/react/dist/ssr/ArrowDown'
+import { CommunityCount, CommunityStatsProvider } from './CommunityStats'
 
 type Service = {
 	title: string
 	description: string
 	tag: string
 	num: string
-	icon: string
+	icon: ReactNode
 }
-
-type Stat = {
-	value: string
-	label: string
-}
-
-const stats: Stat[] = [
-	{ value: '700+', label: 'Members' },
-	{ value: '200+', label: 'Graduates' },
-	{ value: 'FREE', label: 'Services' },
-]
-
-const aboutStats = [
-	{ value: '200+', label: 'Graduates', icon: '✦' },
-	{ value: 'IFVARB', label: 'Approved', icon: '✓' },
-	{ value: '24/7', label: 'Global Coverage', icon: '⌁' },
-	{ value: '3', label: 'Mentorship Options', icon: '◆' },
-]
 
 const services: Service[] = [
 	{
@@ -37,7 +26,7 @@ const services: Service[] = [
 			'A structured program that combines theoretical knowledge with the practical controlling skills needed to successfully complete the written and practical exams. This pathway is designed to develop highly capable, quality controllers.',
 		tag: 'Most Popular',
 		num: '01',
-		icon: '✈',
+		icon: <AirplaneTiltIcon size={28} weight="duotone" />,
 	},
 	{
 		title: 'Written Exam Prep',
@@ -45,7 +34,7 @@ const services: Service[] = [
 			'Struggling with understanding questions on the written exam? A Mentor will guide you through them while giving you clear explanations to ensure full understanding.',
 		tag: 'Knowledge',
 		num: '02',
-		icon: '□',
+		icon: <BookOpenIcon size={28} weight="duotone" />,
 	},
 	{
 		title: 'Mock Practical',
@@ -53,36 +42,33 @@ const services: Service[] = [
 			'A simulated practical examination conducted to evaluate performance, identify improvement areas, and prepare candidates for the IFATC practical. This is only recommended for returning members.',
 		tag: 'Final Prep',
 		num: '03',
-		icon: '◉',
+		icon: <BroadcastIcon size={28} weight="duotone" />,
 	},
 ]
 
 function Hero() {
 	return (
 		<section className="hero">
-			<img className="hero-bg" src="/assets/hero-bg-e1SohDT3.jpg" alt="" aria-hidden="true" />
+			<img className="hero-bg" src="/assets/home-airport-hero.webp" alt="" aria-hidden="true" fetchPriority="high" />
 			<div className="hero-overlay" />
 			<div className="hero-content">
 				<h1>
-					Control the <span>Expert Server</span> Skies
+					Learn. <span>Practice.</span> Control.
 				</h1>
-				<p>Professional mentorship for aspiring Infinite Flight Air Traffic Controllers.</p>
+				<p><em>Preparing the next generation of Infinite Flight controllers.</em></p>
 				<div className="hero-actions">
 					<a className="primary-button" href="/apply">
-						Apply on the website →
+						Apply
 					</a>
 				</div>
 				<div className="hero-stats" aria-label="ATCMH statistics">
-					{stats.map((stat) => (
-						<div key={stat.label}>
-							<strong>{stat.value}</strong>
-							<span>{stat.label}</span>
-						</div>
-					))}
+					<div><CommunityCount kind="members" /><span>Members</span></div>
+					<div><CommunityCount kind="graduates" /><span>Graduates</span></div>
+					<div><strong>FREE</strong><span>Services</span></div>
 				</div>
 			</div>
 			<a className="scroll-cue" href="#about" aria-label="Scroll to About">
-				↓
+				<ArrowDownIcon size={28} aria-hidden="true" />
 			</a>
 		</section>
 	)
@@ -113,13 +99,16 @@ function About() {
 						IFATC controller.
 					</p>
 					<div className="about-stats">
-						{aboutStats.map((stat) => (
-							<div key={stat.label} className="mini-card">
-								<span aria-hidden="true">{stat.icon}</span>
-								<strong>{stat.value}</strong>
-								<small>{stat.label}</small>
-							</div>
-						))}
+						<div className="mini-card">
+							<span aria-hidden="true"><GraduationCapIcon size={28} weight="duotone" /></span>
+							<CommunityCount kind="graduates" />
+							<small>Graduates</small>
+						</div>
+						<div className="mini-card">
+							<span aria-hidden="true"><GlobeHemisphereWestIcon size={28} weight="duotone" /></span>
+							<strong>24/7</strong>
+							<small>Global Coverage</small>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -178,7 +167,7 @@ function Cta() {
 						available for community support and the legacy application path.
 					</p>
 					<a href="/apply">
-						Apply on the website →
+						Apply
 					</a>
 				</div>
 			</div>
@@ -192,11 +181,13 @@ export default function Home() {
 			<SiteHeader showLogin />
 			<Suspense fallback={null}><HomeLoginModal /></Suspense>
 			<main>
-				<Hero />
-				<About />
-				<Services />
-				<Eligibility />
-				<Cta />
+				<CommunityStatsProvider>
+					<Hero />
+					<About />
+					<Services />
+					<Eligibility />
+					<Cta />
+				</CommunityStatsProvider>
 			</main>
 			<SiteFooter />
 		</div>

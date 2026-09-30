@@ -83,7 +83,7 @@
 }
 
 .hashText {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-family: var(--font-site);
     font-size: 0.82rem;
 }
 
@@ -127,6 +127,6 @@
 .mobileManualCard { display: none; }
 @media (max-width: 640px) {
     .mobileManualCard { display: grid; gap: .7rem; border: 1px solid var(--border-color); border-radius: .8rem; background: var(--dashboard-surface, #fff); padding: 1.4rem; }
-    .mobileManualCard h2 { margin: 0; color: var(--dashboard-ink, #10264b); font-family: Georgia, 'Times New Roman', serif; font-size: 1.65rem; }
+    .mobileManualCard h2 { margin: 0; color: var(--dashboard-ink, #10264b); font-family: var(--font-site); font-size: 1.65rem; }
     .mobileManualCard p { margin: 0; color: var(--muted-text); overflow-wrap: anywhere; }
 }

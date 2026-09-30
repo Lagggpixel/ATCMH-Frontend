@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-repository";
 import { getVerifiedLearnerDiscordSubject } from "@/src/lib/learner-session";
@@ -31,7 +30,6 @@ export default async function LearnerHomePage({ searchParams }: { searchParams: 
             <p>Choose a quiz to begin.</p>
           </div>
         </section>
-        <nav className="exam-home-tabs" aria-label="Exam Center content"><Link href="/exams" aria-current="page">Quizzes</Link><Link href="/exams/courses">Courses</Link></nav>
         <QuizCatalogue {...catalogue} />
       </div>
     </main>

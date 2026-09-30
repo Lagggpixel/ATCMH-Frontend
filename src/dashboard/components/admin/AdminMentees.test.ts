@@ -112,17 +112,12 @@ test("waitlist view exposes a shared weekly UTC availability matcher that filter
     assert.match(stylesSource, /\.searchInputRowWithToggle\s+input\s*\{/);
 });
 
-test("mentee profile places IFC before a structured weekly availability list", () => {
-    const profileDetails = componentSource.slice(
-        componentSource.indexOf('<div className={styles.detailGrid}>'),
-        componentSource.indexOf('</div>', componentSource.indexOf('<div className={styles.detailGrid}>')),
-    );
-
-    assert.ok(profileDetails.indexOf('label="IFC"') < profileDetails.indexOf("<WeeklyAvailabilityDetail"));
-    assert.match(componentSource, /const WeeklyAvailabilityDetail/);
-    assert.match(componentSource, /<dl className=\{styles\.availabilityList\}>/);
+test("mentee profile exposes timeline and text alternatives to its availability chart", () => {
+    assert.match(componentSource, /aria-label="Mentorship timeline"/);
+    assert.match(componentSource, /aria-current=\{stage.current \? "step" : undefined\}/);
+    assert.match(componentSource, /<dl className=\{styles\.profileAvailabilityList\}>/);
     assert.match(componentSource, /<dt>\{day\}<\/dt>/);
-    assert.match(componentSource, /<dd>\{time\}<\/dd>/);
-    assert.match(stylesSource, /\.availabilityDetail\s*\{[^}]*grid-column:\s*1 \/ -1;/);
-    assert.match(stylesSource, /\.availabilityList\s*\{[^}]*grid-template-columns:/);
+    assert.match(componentSource, /className=\{styles.availabilityTrack\} aria-hidden="true"/);
+    assert.match(componentSource, /<span>\{label\}<\/span>/);
+    assert.match(componentSource, /Pilot sign-up history, newest first. Times are UTC. Status is as recorded/);
 });

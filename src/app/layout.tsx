@@ -17,5 +17,5 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: ReactNode}) {
     const {dashboardApiUrl} = publicRuntimeConfig();
-    return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html: dashboardAppearanceBootstrap}}/></head><body><WebsiteAccess/><PortalAuthProvider dashboardApiUrl={dashboardApiUrl}><ConfirmationProvider>{children}</ConfirmationProvider></PortalAuthProvider></body></html>;
+    return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html: dashboardAppearanceBootstrap}}/></head><body><WebsiteAccess/><PortalAuthProvider dashboardApiUrl={dashboardApiUrl}><ConfirmationProvider>{children}</ConfirmationProvider></PortalAuthProvider></body></html>;
 }

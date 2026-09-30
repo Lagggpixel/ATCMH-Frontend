@@ -40,6 +40,7 @@ export default function CourseActivityCard({courseId, activity, progress, mode =
     const [error, setError] = useState<string | null>(null);
 
     const submit = async () => {
+        if (mode === "admin") return;
         setPending(true);
         setError(null);
         try {
@@ -63,12 +64,12 @@ export default function CourseActivityCard({courseId, activity, progress, mode =
     return <aside className={styles.activityCard} aria-label={`${activity.required ? "Required " : ""}${activity.type} activity`}>
         <div className={styles.activityHeader}><div><p className={styles.activityEyebrow}>{activity.required ? "Required activity" : "Practice activity"} · {activity.type}</p><h3>{activity.title}</h3></div>{progress?.passed ? <span className={styles.activityPassed}>Passed</span> : null}</div>
         <p className={styles.activityPrompt}>{activity.prompt}</p>
-        {interactive && activity.type === "sequence" && steps.length > 0 ? <div className={styles.activityInputs}>{steps.map((step, index) => <label key={step.id}>Step {index + 1}<select value={orderedIds[index] ?? ""} onChange={event => setOrderedIds(current => current.map((value, stepIndex) => stepIndex === index ? event.target.value : value))}><option value="">Choose a step…</option>{steps.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>)}</div> : null}
-        {interactive && activity.type === "conflict" && options.length > 0 ? <fieldset className={styles.activityOptions}><legend>Select the conflicts you would resolve</legend>{options.map(option => <label key={option}><input type="checkbox" checked={selectedConflicts.includes(option)} onChange={event => setSelectedConflicts(current => event.target.checked ? [...current, option] : current.filter(value => value !== option))}/>{option}</label>)}</fieldset> : null}
-        {interactive && activity.type !== "sequence" && activity.type !== "conflict" ? <label className={styles.activityResponse}>Your response<textarea rows={4} value={text} onChange={event => setText(event.target.value)} placeholder={activity.type === "clearance" ? "Write the clearance you would issue…" : "Explain your decision…"}/></label> : null}
-        {!interactive ? <p className={styles.activityPreview}>Admin preview · learner response fields and scoring are hidden.</p> : null}
+        {activity.type === "sequence" && steps.length > 0 ? <div className={styles.activityInputs}>{steps.map((step, index) => <label key={step.id}>Step {index + 1}<select value={orderedIds[index] ?? ""} onChange={event => setOrderedIds(current => current.map((value, stepIndex) => stepIndex === index ? event.target.value : value))}><option value="">Choose a step…</option>{steps.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>)}</div> : null}
+        {activity.type === "conflict" && options.length > 0 ? <fieldset className={styles.activityOptions}><legend>Select the conflicts you would resolve</legend>{options.map(option => <label key={option}><input type="checkbox" checked={selectedConflicts.includes(option)} onChange={event => setSelectedConflicts(current => event.target.checked ? [...current, option] : current.filter(value => value !== option))}/>{option}</label>)}</fieldset> : null}
+        {activity.type !== "sequence" && activity.type !== "conflict" ? <label className={styles.activityResponse}>Your response<textarea rows={4} value={text} onChange={event => setText(event.target.value)} placeholder={activity.type === "clearance" ? "Write the clearance you would issue…" : "Explain your decision…"}/></label> : null}
+        {!interactive ? <p className={styles.activityPreview}>Preview · responses are not submitted.</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         {result ? <p className={result.passed ? styles.activityResultPassed : styles.activityResultFailed} role="status">{result.passed ? `Passed · ${result.score}%` : `Try again · ${result.score}%`}{result.feedback ? ` — ${result.feedback}` : ""}</p> : null}
-        <div className={styles.activityFooter}><span>Pass {activity.passPercentage}% · attempts {progress?.attemptCount ?? 0}</span>{interactive ? <button type="button" className={styles.activityAction} disabled={pending} onClick={() => void submit()}>{pending ? "Checking…" : result && !result.passed ? "Try again" : "Submit activity"}</button> : null}</div>
+        <div className={styles.activityFooter}><span>Pass {activity.passPercentage}% · attempts {progress?.attemptCount ?? 0}</span><button type="button" className={styles.activityAction} disabled={pending || !interactive} onClick={() => void submit()}>{pending ? "Checking…" : result && !result.passed ? "Try again" : "Submit activity"}</button></div>
     </aside>;
 }

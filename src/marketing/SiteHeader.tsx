@@ -1,11 +1,13 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useEffect, useState, type MouseEvent} from "react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import {headerAuthState} from "@/src/platform/auth/header-state";
+import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
+import {canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
 
 export const discordUrl = "https://discord.gg/P3kcYbzTBU";
 
@@ -18,13 +20,14 @@ const marketingNavLinks = [
   {label: "Exam Center", href: "/exams"},
 ];
 
-function UserMenu({showDashboard, onLogout}: {showDashboard: boolean; onLogout: () => void}) {
+function UserMenu({showDashboard, showWraps, onLogout}: {showDashboard: boolean; showWraps: boolean; onLogout: () => void}) {
   return <details className="nav-user-menu">
     <summary aria-label="Open account menu">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2.25c-4.56 0-8.25 2.02-8.25 4.5V21h16.5v-2.25c0-2.48-3.69-4.5-8.25-4.5Z"/></svg>
     </summary>
     <div className="nav-user-menu-content">
       <Link href="/account">Account</Link>
+      {showWraps ? <Link href="/wraps">Your wrap</Link> : null}
       {showDashboard ? <Link href="/dashboard">Dashboard</Link> : null}
       <button type="button" onClick={onLogout}>Log out</button>
     </div>
@@ -36,14 +39,31 @@ export function AuthNavigation({showLogin}: {showLogin: boolean}) {
   const state = headerAuthState({loading, hasSession: Boolean(session), hasAdminPermission: Boolean(adminUser), dashboardUnavailable: Boolean(error)});
   if (state === "loading") return <span className="nav-auth-loading" aria-label="Checking account"/>;
   if (state === "signed-out" || state === "unavailable") return showLogin ? <Link className="nav-login" href={homeLoginHref("dashboard", "/")}>Login</Link> : null;
-  return <UserMenu showDashboard={state === "admin"} onLogout={() => void logout(false)}/>;
+  return <UserMenu showDashboard={state === "admin"} showWraps={adminUser?.role === "super_admin" && session?.impersonating === false} onLogout={() => void logout(false)}/>;
 }
 
 function NavigationLinks() {
   const pathname = usePathname();
-  return <>{marketingNavLinks.map(link => {
-    const active = link.href === "/exams" ? pathname.startsWith("/exams") : pathname === link.href;
-    return <Link key={link.label} href={link.href} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</Link>;
+  const {adminUser, loading, error} = usePortalAuth();
+  const links = !loading && !error && canViewAdminPreview(adminUser)
+    ? [...marketingNavLinks, {label: "Courses", href: "/exams/courses"}, {label: "Pilot Guide", href: "/pilot-guide"}]
+    : marketingNavLinks;
+
+  function navigate(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.currentTarget.closest(".mobile-navigation")?.removeAttribute("open");
+    if (pathname !== "/" || !href.startsWith("/#")) return;
+    const target = document.getElementById(href.slice(2));
+    if (!target) return;
+    event.preventDefault();
+    window.history.pushState(null, "", href);
+    target.scrollIntoView({behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start"});
+  }
+
+  return <>{links.map(link => {
+    const active = link.href === "/exams" ? pathname.startsWith("/exams") && !pathname.startsWith("/exams/courses")
+      : link.href === "/exams/courses" ? pathname.startsWith("/exams/courses") : pathname === link.href;
+    return <Link key={link.label} href={link.href} onClick={event => navigate(event, link.href)} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</Link>;
   })}</>;
 }
 
@@ -61,8 +81,9 @@ export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "he
 
   const filled = variant === "solid" || hasScrolled;
   return <header className={`site-header${filled ? " is-scrolled" : ""}${variant === "solid" ? " is-solid" : ""}${light ? " is-light" : ""}`}>
-    <Link className="brand" href="/" aria-label="ATC Mentorship Hub home">{light ? <><img src="/assets/logo-Czz1Kl8u.png" alt=""/><span className="light-brand-name"><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span></> : <img src="/assets/logoLight-DWbJHT7m.png" alt="ATCMH"/>}</Link>
+    <Link className="brand" href="/" aria-label="ATC Mentorship Hub home"><img src="/assets/logo-Czz1Kl8u.png" width={42} height={42} alt=""/><span className="light-brand-name"><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span></Link>
     <nav className="nav-links" aria-label="Primary navigation"><NavigationLinks/></nav>
+    {light ? <div className="course-header-appearance"><AppearanceMenu/></div> : null}
     <div className="nav-primary-auth"><AuthNavigation showLogin={showLogin}/></div>
     <details className="mobile-navigation">
       <summary aria-label="Open navigation">Menu</summary>

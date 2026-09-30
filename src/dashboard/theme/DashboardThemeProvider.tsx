@@ -2,6 +2,7 @@
 
 import {createContext, useContext, useLayoutEffect, useState, type ReactNode} from "react";
 import {DASHBOARD_APPEARANCE_KEY, parseDashboardAppearance, resolveDashboardTheme, type DashboardAppearance} from "./appearance";
+import "./dashboard-theme.css";
 
 interface AppearanceContext {
     appearance: DashboardAppearance;

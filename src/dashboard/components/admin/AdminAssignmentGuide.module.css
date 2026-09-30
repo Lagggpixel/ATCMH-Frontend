@@ -160,7 +160,7 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     color: var(--text-color);
-    font: 0.9rem/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font: 0.9rem/1.65 var(--font-site);
     margin: 0;
     overflow-x: auto;
     padding: 14px;

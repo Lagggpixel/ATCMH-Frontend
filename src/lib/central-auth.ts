@@ -73,7 +73,7 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
   try {
     const parsed = new URL(value, PRIVATE_RETURN_ORIGIN);
     const allowed = parsed.pathname === "/" || parsed.pathname === "/account"
-      || parsed.pathname === "/apply" || parsed.pathname.startsWith("/apply?")
+      || parsed.pathname === "/apply" || parsed.pathname.startsWith("/apply?") || parsed.pathname === "/pilot-guide"
       || parsed.pathname === "/leaderboard" || parsed.pathname === "/dashboard"
       || parsed.pathname.startsWith("/dashboard/") || parsed.pathname === "/exams"
       || parsed.pathname.startsWith("/exams/");

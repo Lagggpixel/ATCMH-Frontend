@@ -53,3 +53,16 @@ test("course data and mutation ownership no longer has Next API route files", ()
     "../app/exams/api/management/courses/[courseId]/media/[mediaId]/route.ts",
   ]) assert.equal(existsSync(new URL(route, import.meta.url)), false, route);
 });
+
+
+test("staff preview shares the learner reader without recording progress or submitting attempts", () => {
+  const preview = source("../dashboard/components/admin/CoursePreview.tsx");
+  assert.match(preview, /<CourseReadingView/);
+  assert.match(preview, /trackView=\{false\}/);
+  const reader = source("../app/exams/(learner)/courses/CourseReadingView.tsx");
+  assert.match(reader, /recordsProgress = trackView && !preview/);
+  assert.match(reader, /recordsProgress \? <><DashboardExamSessionBootstrap/);
+  assert.match(reader, /&& recordsProgress \? <CourseSectionCompletionButton/);
+  assert.match(source("../app/exams/(learner)/courses/CourseActivityCard.tsx"), /if \(mode === "admin"\) return/);
+  assert.match(source("../app/exams/(learner)/courses/CourseMarkdown.tsx"), /mode === "admin" \? <button[^>]*disabled/);
+});
