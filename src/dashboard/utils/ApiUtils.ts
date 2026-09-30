@@ -5,6 +5,7 @@ import type {UserNote} from "../types/UserNote.ts";
 import type {AdminMentee} from "../types/AdminMentee.ts";
 import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../types/AutoMatchCandidate.ts";
 import type {AdminUser} from "../types/AdminUser.ts";
+import type {BotHealth} from "../types/BotHealth.ts";
 import type {AdminAssignment, AdminAssignmentPayload} from "../types/AdminAssignment.ts";
 import type {AuditLog, AuditLogFilterMetadata} from "../types/AuditLog.ts";
 import type {AdminManual} from "../types/AdminManual.ts";
@@ -57,6 +58,14 @@ export interface EligibilityResponse {
 }
 
 export class ApiUtils {
+
+    static async getHealth(signal: AbortSignal): Promise<BotHealth> {
+        const response = await fetch(`${dashboardApiUrl}/admin/health`, {
+            credentials: "include", cache: "no-store", signal,
+        });
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<BotHealth>(response) as BotHealth;
+    }
 
     static get apiOrigin() { return dashboardApiUrl; }
 

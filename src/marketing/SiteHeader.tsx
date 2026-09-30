@@ -80,7 +80,7 @@ export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "he
   }, [variant]);
 
   const filled = variant === "solid" || hasScrolled;
-  return <header className={`site-header${filled ? " is-scrolled" : ""}${variant === "solid" ? " is-solid" : ""}${light ? " is-light" : ""}`}>
+  return <header className={`site-header${filled ? " is-scrolled" : ""}${variant === "solid" ? " is-solid" : ""}${light ? " is-course" : ""}`}>
     <Link className="brand" href="/" aria-label="ATC Mentorship Hub home"><img src="/assets/logo-Czz1Kl8u.png" width={42} height={42} alt=""/><span className="light-brand-name"><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span></Link>
     <nav className="nav-links" aria-label="Primary navigation"><NavigationLinks/></nav>
     {light ? <div className="course-header-appearance"><AppearanceMenu/></div> : null}

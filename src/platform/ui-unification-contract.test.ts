@@ -27,7 +27,7 @@ test("Dashboard access is gated before DashboardRoute renders", () => {
   const layout = source("../app/dashboard/layout.tsx");
   const page = source("../app/dashboard/[[...segments]]/page.tsx");
   assert.match(layout, /<DashboardAccessGate>[\s\S]*<DashboardRuntime>\{children\}/);
-  assert.match(page, /<DashboardRoute\/>/);
+  assert.match(page, /<DashboardRoute frontendVersion=\{version\}\/>/);
   assert.doesNotMatch(page, /DashboardAccessGate|DashboardRuntime|SiteFrame/);
 });
 

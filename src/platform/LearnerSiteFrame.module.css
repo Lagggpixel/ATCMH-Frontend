@@ -1,0 +1,68 @@
+/* Keep the site's navy frame while appearance preferences affect reading surfaces. */
+.coursesFrame {
+    --course-reading: #edf1f5;
+    --course-check: #e5edf7;
+    --dashboard-canvas: #edf1f5;
+    --dashboard-secondary: #e5ebf2;
+}
+
+:global(html[data-dashboard-theme="dark"]) .coursesFrame {
+    --course-reading: #081326;
+    --course-check: #101f34;
+    --dashboard-canvas: #081326;
+    --dashboard-header: #0d1726;
+    --dashboard-surface: #101f34;
+    --dashboard-secondary: #0d1b2e;
+    --dashboard-inset: #07101d;
+    --dashboard-border: #2b3d57;
+    --dashboard-ink: #f3f7ff;
+    --dashboard-muted: #acbad0;
+    --dashboard-link: #71bdff;
+    --dashboard-selected: #193252;
+    --dashboard-focus: #8dcaff;
+}
+
+:global(html[data-dashboard-theme]) .coursesFrame :global(.marketing-product.unified-product) {
+    --background: #07101d;
+    --background-soft: #0d1726;
+    --card: #101f34;
+    --card-solid: #101f34;
+    --border: #2b3d57;
+    --foreground: #f8fafc;
+    --muted: #acbad0;
+    --primary: #3b82f6;
+    --primary-strong: #2563eb;
+    background: #07101d;
+    color: #f8fafc;
+    color-scheme: dark;
+}
+
+:global(html[data-dashboard-theme]) .coursesFrame :global(.site-header.is-course) {
+    --text-color: #f8fafc;
+    --muted-text: #acbad0;
+    --surface-color: #101f34;
+    --border-color: #2b3d57;
+    --button-hover: #193252;
+    background: rgb(7 16 29 / 97%);
+    border-bottom-color: #2b3d57;
+    color-scheme: dark;
+}
+
+:global(html[data-dashboard-theme]) .coursesFrame :global(.site-footer) {
+    background: #07101d;
+    color: #f8fafc;
+}
+
+.coursesFrame :global(.learner-site) {
+    min-height: calc(100dvh - 76px);
+    animation: courses-enter 220ms ease-out;
+}
+
+@keyframes courses-enter {
+    from { opacity: .88; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .coursesFrame :global(.learner-site) { animation: none; }
+}

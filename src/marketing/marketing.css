@@ -711,8 +711,7 @@ img {
 	flex-direction: column;
 }
 
-:scope.unified-product.theme-light,
-:scope.unified-product:has([data-course-page]) {
+:scope.unified-product.theme-light {
 	--background: #f6f3ee;
 	--background-soft: #fbfaf7;
 	--card: #ffffff;
@@ -749,7 +748,6 @@ img {
 .site-header.is-light .nav-user-menu-content { background: #fff; }
 .site-header.is-light .mobile-navigation nav { background: #fff; }
 .site-header.is-light .mobile-navigation summary { color: #12264a; }
-:scope.unified-product:has([data-course-page]) .site-footer { background: #fbfaf7; }
 
 .unified-product-content {
 	flex: 1;

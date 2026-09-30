@@ -1,4 +1,5 @@
 import type {AdminUser} from "../../types/AdminUser.ts";
+import {canViewHealth} from "../../utils/HealthUtils.ts";
 
 export interface AdminNavigationItem {
     path: string;
@@ -44,6 +45,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
     navigationGroup("Administration", [{
         items: [
             {path: "/dashboard/stats", label: "Statistics"},
+            ...(canViewHealth(adminUser) ? [{path: "/dashboard/health", label: "System Health"}] : []),
             ...(adminUser?.canManageAccounts ? [{path: "/dashboard/accounts", label: "Accounts"}] : []),
             ...(adminUser?.canReviewAltAccounts ? [{path: "/dashboard/alt-accounts", label: "Alternative Evidence"}] : []),
             ...(adminUser?.canViewAuditLogs ? [{path: "/dashboard/audit-logs", label: "Audit Logs"}] : []),
