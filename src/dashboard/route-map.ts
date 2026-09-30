@@ -4,7 +4,7 @@ export type DashboardCourseView = "courses" | "course-create" | "course-edit" | 
 export type DashboardRoute =
     | {screen: "redirect"; destination: string}
     | {screen: "mentees"; params?: {menteeRecordId: string}}
-    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "manual" | "mock-questions" | "application-questions" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts"}
+    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "health" | "manual" | "mock-questions" | "application-questions" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts"}
     | {screen: "exams"; view: DashboardExamView; params?: {examId?: string; attemptId?: string}}
     | {screen: "courses"; view: DashboardCourseView; params?: {courseId?: string}}
     | {screen: "not-found"};
@@ -37,6 +37,7 @@ export function resolveDashboardRoute(pathname: string): DashboardRoute {
         ["manual", "manual"], ["audit-logs", "audit-logs"], ["accounts", "accounts"], ["alt-accounts", "alt-accounts"],
         ["mock-questions", "mock-questions"],
         ["application-questions", "application-questions"],
+        ["health", "health"],
     ]);
     if (parts[0] === "guide" && parts[1] === "assignments" && parts.length === 2) return {screen: "assignment-guide"};
     const screen = direct.get(parts[0] ?? "");

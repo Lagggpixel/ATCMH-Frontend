@@ -18,7 +18,8 @@ test("dashboard layout keeps the gated runtime mounted across child route change
 test("dashboard catch-all page only renders the route content", () => {
     const page = source("[[...segments]]\/page.tsx");
 
-    assert.match(page, /return <DashboardRoute\/>/);
+    assert.match(page, /return <DashboardRoute frontendVersion=\{version\}\/>/);
+    assert.match(page, /import \{version\} from "@\/package\.json"/);
     assert.doesNotMatch(page, /DashboardRuntime|DashboardAccessGate|SiteFrame/);
 });
 

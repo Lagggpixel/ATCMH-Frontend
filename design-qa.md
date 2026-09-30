@@ -253,3 +253,63 @@ final result: passed
 - Production build, focused lint and all 8 wraps data/auth/404 tests passed. Statistics remain labelled example activity. Production authorization is unchanged. Local preview left on port 5177; no deployment.
 
 final result: passed
+
+# Courses transition refinement (2026-10-01)
+
+- Used Product Design to inspect the existing main site and `/exams/courses`. The abrupt change came from a separate light/black course frame. Retained the site's navy header, navigation and footer for both reading preferences. The catalogue also retains navy framing; light reading surfaces use a softer blue-grey and dark surfaces use navy rather than black. Existing typography, logo, appearance control and navigation remain.
+- Added a 220ms opacity entrance to course content, without movement. Reduced-motion CSS disables it. This preference was inspected in source; the operating-system setting was not changed.
+
+| Check | Result |
+| --- | --- |
+| Desktop light and dark appearance | Passed: navy header in both modes, preference changes content surfaces |
+| Mobile, 390 × 844 | Passed: no horizontal overflow, readable sign-in content |
+| Mobile menu, main-site navigation and Back | Passed: navigation opens, homepage loads, course returns with light preference retained |
+| Browser errors and warnings | None in the clean final local-preview tab |
+| TypeScript and production build | Passed |
+| Focused UI, appearance and course boundary tests | 16 passed |
+| Focused ESLint | No errors; existing logo image warning |
+
+- Evidence: `design-evidence/courses-transition/01-courses-before.jpg` is the live empty signed-in catalogue reference; `02-courses-after.jpg`, `03-courses-dark.jpg`, and `04-courses-mobile.jpg` show the local signed-out view after the changes. Their authentication/content states differ, so these establish framing and responsiveness rather than a pixel-aligned lesson comparison.
+- The local preview uses an isolated signed-out backend fixture. Authenticated lesson content was checked through source/contracts and the production build, not browser interaction. No deployment or production-data changes were performed.
+
+final result: passed within the documented preview scope
+
+# Courses follow-up — remove the white panel (2026-10-01)
+
+**Findings and fixes**
+- [P1 resolved] The signed-out course access screen displayed a large white card against navy even in Light mode. Following the user's feedback on the existing preview, removed the card, border, rounded container and centered composition. Access copy now sits directly on the navy surface with a left-aligned heading, cyan eyebrow and one blue action. Catalogue cards use scoped navy tokens in both reading preferences. Authenticated lesson reading preferences remain available.
+
+**Comparison evidence**
+- Source: `design-evidence/courses-transition/05-gate-before.jpg`; implementation: `06-gate-after.jpg`; combined comparison: `07-gate-comparison.jpg`.
+- Both captures are 1265 × 712 pixels at the same default desktop viewport, same route `/exams/courses`, Light preference, signed-out fixture and scroll position. No density scaling was needed in the saved comparison (2530 × 712). Its display may be downscaled by the image viewer. User-directed composition/color changes are intentional; the reference is the prior implementation, not a selected new mock.
+- Fonts/typography: retained Source Sans Pro, enlarged heading to a responsive 36–64px, balanced wrapping, 17px desktop / 16px phone body. Copy remains readable and unchanged.
+- Spacing/layout: open base surface, 900px content region, comfortable copy width, no enclosing elevation. Button is 48px tall. Mobile content stays within the viewport with no clipping.
+- Colors/tokens: navy canvas, pale heading, muted blue body, cyan eyebrow, blue CTA. Catalogue tokens are independent of lesson reading preference. White surfaces no longer appear in the access/catalogue area.
+- Assets/image quality: unchanged existing brand logo; no new illustration or substitute artwork. Full comparison keeps logo and copy readable, so no focused crop was needed.
+- Copy/content: access requirements and the existing sign-in return path are unchanged.
+
+**Validation and limits**
+- Browser: tested Light and Dark; 390 × 844 phone capture `08-gate-mobile.jpg`; 320px and 390px widths have no horizontal overflow. Sign in opens the existing home login dialog, whose provider links preserve `/exams/courses` as returnTo. Browser Back returns to the course screen. Restored Light and reset viewport override.
+- No browser errors; a development Fast Refresh full-reload warning occurred during concurrent workspace edits.
+- All 16 focused UI, appearance and course boundary tests passed; whitespace check passed. Production build is blocked by a missing `src/dashboard/components/admin/AdminHealth` import introduced by separate ongoing dashboard changes. Those files were not edited for this refinement.
+- Local signed-out fixture only: authenticated catalogue cards are source-reviewed, not browser-tested with live course data. This change is CSS only. Nothing deployed.
+- No remaining actionable P0/P1/P2 visual findings in the reviewed signed-out screen. Complete: white container removed, scoped catalogue palette updated, sign-in flow verified, responsive evidence saved.
+
+final result: passed
+
+# System health page QA (1 October 2026)
+
+The selected option 1 was implemented using the existing dashboard design system. Full-view and focused comparisons, desktop light/dark views, mobile overflow checks, and core interactions passed. Full report: [System health design QA](design-evidence/system-health/design-qa.md).
+
+Source: `C:/Users/Reid/.codex/generated_images/01a0f488-dbd2-7131-8a91-f7806da8c61e/exec-4800eb85-7e91-4aeb-8629-47b311ca9164.png`.
+Implementation: `C:/Users/Reid/.codex/visualizations/2026/09/30/01a0f488-dbd2-7131-8a91-f7806da8c61e/health-preview/desktop-final-expanded.png`.
+Comparison: `C:/Users/Reid/.codex/visualizations/2026/09/30/01a0f488-dbd2-7131-8a91-f7806da8c61e/health-preview/comparison-final.png`.
+Viewport: 1440 × 1024 CSS px, density 1; source normalized from 1488 × 1058. State: light, operational, expanded disabled job; local sample data. First comparison found oversized overview and undersized job copy; both were corrected and recaptured. Final comparison found no actionable P0/P1/P2 drift. Additional timestamps, both version labels, and real status semantics intentionally replace generated placeholder claims.
+
+final result: passed
+
+# Accounts page redesign QA (1 October 2026)
+
+Implemented the user's selected original image 2: account directory table with a right inspector, using the existing dashboard shell and API contracts. Full-view and focused visual comparisons, Light/Dark, phone/tablet layouts, search recovery, keyboard controls, management confirmation and capability guards passed in an isolated local fixture. Full evidence and limits: [Accounts design QA](design-evidence/accounts/design-qa.md).
+
+final result: passed
