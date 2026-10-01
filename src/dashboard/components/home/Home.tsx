@@ -36,7 +36,7 @@ export default function Home() {
   return <main className={styles.homeContainer}>
     <section className={styles.homeHero} aria-labelledby="leaderboard-title">
       <div className={styles.homeHeroImage} aria-hidden="true">
-        <Image src="/assets/leaderboard-airport.png" alt="" fill sizes="(max-width: 640px) 100vw, 660px" preload className={styles.homePhoto}/>
+        <Image src="/assets/hero-bg-e1SohDT3.jpg" alt="" fill sizes="(max-width: 640px) 100vw, (max-width: 1188px) 64vw, 760px" preload className={styles.homePhoto}/>
       </div>
       <div className={styles.homeHeroCopy}>
         <h1 id="leaderboard-title">Attendance Leaderboard</h1>
