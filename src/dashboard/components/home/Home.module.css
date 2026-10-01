@@ -7,8 +7,8 @@
     line-height: 1.4;
 }
 .homeHero { position: relative; min-height: 270px; display: flex; align-items: center; overflow: hidden; background: #071421; }
-.homeHeroImage { position: absolute; inset: 0 0 0 auto; width: 58%; max-width: 660px; }
-.homePhoto { object-fit: cover; object-position: center 27%; }
+.homeHeroImage { position: absolute; inset: 0 0 0 auto; width: 64%; max-width: 760px; }
+.homePhoto { object-fit: cover; object-position: center; animation: heroFadeIn 700ms ease-out both; }
 .homeHeroImage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #071421 0%, rgba(7, 20, 33, .45) 24%, rgba(7, 20, 33, .08) 62%, rgba(7, 20, 33, .05) 100%); }
 .homeHeroCopy, .homeControls, .homeLeaders ol, .homePanel { width: min(1320px, calc(100% - 2 * clamp(16px, 4.5vw, 64px))); margin-inline: auto; }
 .homeHeroCopy { position: relative; z-index: 1; padding-block: 42px; }
@@ -73,6 +73,7 @@
 .homeNoResults strong { color: #f8fafc; font-size: 1.2rem; }
 .homeNoResults p { margin: 8px 0 16px; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@keyframes heroFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1000px) {
     .homeUsersDataTable th:first-child { width: 60px; }
@@ -112,4 +113,4 @@
     .homePagination > div { margin-left: auto; }
     .homePagination button { padding: 8px 12px; }
 }
-@media (prefers-reduced-motion: reduce) { .homeLoadingSpinner { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .homePhoto, .homeLoadingSpinner { animation: none; } }
