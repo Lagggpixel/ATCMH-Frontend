@@ -1,14 +1,16 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "1.8.4",
+  "version": "1.8.6",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "node --import tsx --test",
-    "docker:push": "node scripts/docker-push.mjs"
+    "docker:push": "node scripts/docker-push.mjs",
+    "docker:build:windows": "node scripts/docker-build-windows.mjs",
+    "docker:build:mac": "node scripts/docker-build-mac.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

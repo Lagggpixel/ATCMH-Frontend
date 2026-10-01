@@ -1,4 +1,26 @@
 
+### Docker builds on Windows and macOS
+
+The deployment server is Linux x86_64, so release images target `linux/amd64`
+on every development computer. `npm run docker:push` detects the local operating
+system and Node architecture, builds the versioned and `latest` tags, and publishes
+them. Docker chooses native execution or emulation automatically; Apple Silicon
+Macs use AMD64 emulation when building with a local Docker Desktop engine. Windows
+AMD64 computers no longer build an additional ARM64 image.
+
+For a local image build without publication, run `npm run docker:build:windows`
+or `npm run docker:build:mac`. Both commands detect the host automatically, target
+the same server platform, and load the image into local Docker. Node-based scripts
+avoid requiring PowerShell on macOS or Bash on Windows.
+
+Append `-- --dry-run` to any of these npm commands to print the Docker command
+without building or publishing. Docker Desktop must be running for an actual build.
+For frontend development without Docker, use `npm run dev`.
+
+The ATCMH backend keeps `gradlew pushImage` (Windows: `.\gradlew.bat pushImage`;
+macOS: `./gradlew pushImage`). Its image also targets `linux/amd64`, with execution
+or emulation selected automatically by Docker.
+
 ### Live community counts
 
 The home page requests `/api/dashboard/public/community-stats` through the existing

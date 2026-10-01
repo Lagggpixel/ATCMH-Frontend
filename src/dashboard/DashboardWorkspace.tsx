@@ -7,7 +7,7 @@ interface DashboardWorkspaceProps {
 }
 
 export default function DashboardWorkspace({label, children}: DashboardWorkspaceProps) {
-    return <div className={styles.workspace}>
+    return <div className={styles.workspace} data-dashboard-workspace>
         <h1 className={styles.screenLabel}>{label}</h1>
         {children}
     </div>;

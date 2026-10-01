@@ -1,7 +1,8 @@
 .page {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    min-height: calc(100dvh - 76px);
+    min-height: 0;
     color: var(--dashboard-ink, var(--text-color));
 }
 .page[data-detail-open="true"] { grid-template-columns: minmax(0, 1fr) minmax(390px, 30%); }
@@ -33,7 +34,7 @@
 .resultsHeading > span { color: var(--muted-text); }
 .textButton { border: 0; padding: 3px 0; background: transparent; color: var(--dashboard-link, var(--accent-strong-color)); font: inherit; cursor: pointer; }
 .textButton:hover { text-decoration: underline; }
-.tableScroll { max-height: calc(100dvh - 370px); min-height: 140px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--dashboard-scrollbar, #bac6d5) transparent; border: 1px solid var(--border-color); border-radius: 8px; background: var(--dashboard-surface, var(--surface-color)); }
+.tableScroll { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--dashboard-scrollbar, #bac6d5) transparent; border: 1px solid var(--border-color); border-radius: 8px; background: var(--dashboard-surface, var(--surface-color)); }
 .accountTable { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; table-layout: fixed; font-size: .96rem; }
 .accountTable th { position: sticky; top: 0; z-index: 1; background: var(--dashboard-surface, var(--surface-color)); padding: 12px 18px; border-bottom: 1px solid var(--border-color); color: var(--muted-text); font-size: .82rem; font-weight: 650; }
 .accountTable th:nth-child(1) { width: 33%; }
@@ -60,7 +61,7 @@
 .status[data-status="SUSPENDED"] { background: var(--danger-bg); color: var(--danger-text); }
 .status[data-status="DELETED"] { background: var(--danger-bg); color: var(--danger-text); }
 .status[data-status="MERGED"] { background: var(--info-bg); color: var(--info-text); }
-.detail { position: sticky; top: 0; align-self: start; min-width: 0; height: calc(100dvh - 78px); overflow-y: auto; overscroll-behavior: contain; background: var(--dashboard-surface, var(--surface-color)); padding: 28px 26px; border-left: 1px solid var(--border-color); scrollbar-width: thin; }
+.detail { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--dashboard-surface, var(--surface-color)); padding: 28px 26px; border-left: 1px solid var(--border-color); scrollbar-width: thin; }
 .page[data-detail-open="false"] .detail { display: none; }
 .detailHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .detailHeader > div { min-width: 0; }
@@ -151,11 +152,39 @@
     .page[data-detail-open="true"] .secondaryFilters label:first-child { grid-column: 1; grid-row: 2; }
     .page[data-detail-open="true"] .secondaryFilters label:nth-child(2) { grid-column: 1; grid-row: 3; }
     .page[data-detail-open="true"] .secondaryFilters label:nth-child(3) { grid-column: 2; grid-row: 3; }
-    .page[data-detail-open="true"] .tableScroll { max-height: calc(100dvh - 440px); }
     .accountTable td, .accountTable th { padding-inline: 12px; }
     .tableIdentity { gap: 7px; }
     .tableIdentity .providerIcon { display: none; }
     .detail { padding-inline: 20px; }
+}
+/* Size the desktop workspace from the real header height, including wrapped filters. */
+@media (min-width: 901px) {
+    :global(.unified-product):has(.page) { height: 100dvh; }
+    :global(.unified-product):has(.page) > :global(.site-header) { flex-shrink: 0; }
+    :global(.unified-product-content):has(.page),
+    :global(.dashboard-product):has(.page),
+    :global([data-dashboard-workspace]):has(.page) { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+    :global(.dashboard-product):has(.page) { overflow: visible; }
+    .page { flex: 1; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+    .page > .error { grid-row: 1; margin-bottom: 0; }
+    .page:has(> .error) { grid-template-rows: auto minmax(0, 1fr); }
+    .directory { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .heading, .filters { flex-shrink: 0; }
+    .layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    .results { display: flex; flex-direction: column; min-height: 0; }
+    .resultsHeading { flex-shrink: 0; }
+    .tableScroll { flex: 1; }
+}
+/* On very short windows, let the directory scroll so its filters remain reachable. */
+@media (min-width: 901px) and (max-height: 550px) {
+    .layout { flex: none; }
+    .tableScroll { overflow: visible; }
+}
+/* Mobile keeps a single document scroller, without a nested directory scroll area. */
+@media (max-width: 900px) {
+    :global(.dashboard-product):has(.page) { overflow: clip visible; }
+    :global([data-dashboard-workspace]):has(.page) { min-height: 0; }
+    .tableScroll { overflow: visible; }
 }
 @media (min-width: 701px) and (max-width: 900px) {
     .accountTable th:nth-child(3), .accountTable td:nth-child(3) { display: none; }
