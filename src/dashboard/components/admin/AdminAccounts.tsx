@@ -204,12 +204,12 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
         <form className={styles.filters} onSubmit={event => {event.preventDefault(); void search();}}>
             <label>Account ID<input placeholder="Enter an account ID" value={filters.accountId} onChange={e => setFilters({...filters, accountId: e.target.value})}/></label>
             <label>Discord ID or name<input placeholder="Discord ID or username" value={filters.discord} onChange={e => setFilters({...filters, discord: e.target.value})}/></label>
-            <button type="button" className={styles.mobileFiltersToggle} aria-expanded={filtersOpen} aria-controls="account-extra-filters" onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "More filters"}</button>
             <div id="account-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
             <label>IFC ID or name<input placeholder="IFC ID or username" value={filters.ifc} onChange={e => setFilters({...filters, ifc: e.target.value})}/></label>
             <label>Status<select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}><option value="">Any status</option>{["ACTIVE", "SUSPENDED", "DELETED", "MERGED"].map(value => <option key={value} value={value}>{statusLabel(value)}</option>)}</select></label>
             <label>Identity<select value={filters.identityActive} onChange={e => setFilters({...filters, identityActive: e.target.value})}><option value="">Any</option><option value="true">Active</option><option value="false">Archived</option></select></label>
             </div>
+            <button type="button" className={styles.mobileFiltersToggle} aria-expanded={filtersOpen} aria-controls="account-extra-filters" onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "More filters"}</button>
             <button type="submit" disabled={loading}>{loading ? "Searching…" : "Search accounts"}</button>
         </form>
         <div className={styles.layout}>
