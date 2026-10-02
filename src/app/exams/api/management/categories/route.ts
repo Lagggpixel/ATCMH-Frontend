@@ -1,3 +1,4 @@
+import { withWriteTransaction } from "@/src/lib/db";
 import { requireManagementCapability } from "@/src/lib/discord-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { assertManagementWritesEnabled, createManagedCategory, listManagedCategories } from "@/src/lib/management-service";
@@ -20,14 +21,16 @@ export async function POST(request: Request) {
   if (actor instanceof Response) return withManagementCors(request, await managementAuthorizationError(actor));
   try {
     assertManagementWritesEnabled();
-    const body = await parseManagementJson(request);
-    const parentId = optionalString(body, "parentId");
-    if (parentId === "") {
-      throw new ManagementValidationError("Invalid parentId", [{ path: "parentId", message: "must be omitted or a UUID" }]);
-    }
-    const category = await createManagedCategory({ name: requiredString(body, "name"), parentId }, actor);
-    await emitDashboardAuditEvent(quizCategoryCreatedAuditEvent(category, actor));
-    return withManagementCors(request, Response.json({ category }, { status: 201 }));
+    return await withWriteTransaction(async () => {
+      const body = await parseManagementJson(request);
+      const parentId = optionalString(body, "parentId");
+      if (parentId === "") {
+        throw new ManagementValidationError("Invalid parentId", [{ path: "parentId", message: "must be omitted or a UUID" }]);
+      }
+      const category = await createManagedCategory({ name: requiredString(body, "name"), parentId }, actor);
+      await emitDashboardAuditEvent(quizCategoryCreatedAuditEvent(category, actor));
+      return withManagementCors(request, Response.json({ category }, { status: 201 }));
+    });
   } catch (error) {
     return withManagementCors(request, managementError(error));
   }

@@ -114,17 +114,20 @@ export async function executeLearnerSubmission(
     failureStage = "persist_attempt";
     let result: AttemptResult;
     try {
-      result = await dependencies.withWriteTransaction((connection) => dependencies.submitAttempt(connection, {
-        attemptId,
-        attemptCode,
-        quizId: quiz.id,
-        studentDiscordId: identity.discordId,
-        submittedAt,
-        answers,
-        questions: attemptQuestions,
-        submissionReason,
-        feedbackMode,
-      }));
+      result = await dependencies.withWriteTransaction(async (connection) => {
+        const saved = await dependencies.submitAttempt(connection, {
+          attemptId, attemptCode, quizId: quiz.id, studentDiscordId: identity.discordId,
+          submittedAt, answers, questions: attemptQuestions, submissionReason, feedbackMode,
+        });
+        await dependencies.sendAttemptAuditEvent?.(attemptCompletedAuditEvent({
+          attemptId, attemptCode, quizId: quiz.id, quizTitle: quiz.title,
+          learnerDiscordId: identity.discordId, learnerAccountId: identity.accountId,
+          actorDiscordId: identity.realActorDiscordId, actorAccountId: identity.realActorAccountId,
+          impersonating: identity.impersonating, score: saved.score, total: saved.total,
+          percentage: saved.percentage, submissionReason, submittedAt,
+        }));
+        return saved;
+      });
     } catch (error) {
       if (!isDuplicateEntryError(error)) throw error;
       const existingAttempt = await dependencies.getAttemptByReference(attemptId);
@@ -142,27 +145,6 @@ export async function executeLearnerSubmission(
       // Logging is best effort and must not replace the stable learner-facing response.
     }
     return { error: SUBMISSION_ERROR };
-  }
-
-  try {
-    await dependencies.sendAttemptAuditEvent?.(attemptCompletedAuditEvent({
-      attemptId: committedAttempt.attemptId,
-      attemptCode: committedAttempt.attemptCode,
-      quizId: committedAttempt.quiz.id,
-      quizTitle: committedAttempt.quiz.title,
-      learnerDiscordId: committedAttempt.identity.discordId,
-      learnerAccountId: committedAttempt.identity.accountId,
-      actorDiscordId: committedAttempt.identity.realActorDiscordId,
-      actorAccountId: committedAttempt.identity.realActorAccountId,
-      impersonating: committedAttempt.identity.impersonating,
-      score: committedAttempt.result.score,
-      total: committedAttempt.result.total,
-      percentage: committedAttempt.result.percentage,
-      submissionReason: committedAttempt.submissionReason,
-      submittedAt: committedAttempt.submittedAt,
-    }));
-  } catch {
-    // Dashboard audit delivery is best effort and must not invalidate a committed attempt.
   }
 
   return { attemptId: committedAttempt.attemptId };

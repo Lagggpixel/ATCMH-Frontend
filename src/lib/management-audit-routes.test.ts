@@ -12,12 +12,15 @@ test("successful quiz mutations emit Dashboard audit events after persistence", 
     ["../app/exams/api/management/quizzes/[quizId]/unlocks/route.ts", "await setQuizUnlock", "await emitDashboardAuditEvent"],
     ["../app/exams/api/management/categories/route.ts", "await createManagedCategory", "await emitDashboardAuditEvent"],
     ["../app/exams/api/management/imports/commit/route.ts", "await commitPreviewedImport", "await emitDashboardAuditEvent"],
+    ["../app/exams/api/management/attempts/[attemptId]/route.ts", "await deleteManagementAttempt", "await emitDashboardAuditEvent"],
+    ["../app/exams/api/management/website/route.ts", "await saveWebsiteContent", "await emitDashboardAuditEvent"],
   ] as const;
 
   for (const [path, mutation, audit] of routes) {
     const route = source(path);
     assert.ok(route.indexOf(mutation) >= 0, `${path} should persist its mutation`);
     assert.ok(route.indexOf(audit) > route.indexOf(mutation), `${path} should audit only after persistence`);
+    assert.ok(route.includes("withWriteTransaction(async () =>"), `${path} should commit the mutation and audit together`);
   }
 });
 
