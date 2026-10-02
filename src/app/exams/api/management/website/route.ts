@@ -2,6 +2,9 @@ import { requireManagementCapability } from "@/src/lib/discord-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { assertManagementWritesEnabled, listWebsiteContent, saveWebsiteContent, type WebsiteContent, type WebsiteContentInput } from "@/src/lib/management-service";
 import { managementAuthorizationError, managementError, ManagementValidationError, optionalString, parseManagementJson, requiredString } from "@/src/lib/management-route";
+import { withWriteTransaction } from "@/src/lib/db";
+import { emitDashboardAuditEvent } from "@/src/lib/dashboard-audit-client";
+import { websiteSavedAuditEvent } from "@/src/lib/management-audit";
 
 function canonicalNumericId(value: unknown, field: string): number {
   if (typeof value !== "string" || !/^(?:0|[1-9]\d*)$/.test(value)) {
@@ -87,8 +90,12 @@ export async function PUT(request: Request) {
   if (actor instanceof Response) return withManagementCors(request, await managementAuthorizationError(actor));
   try {
     assertManagementWritesEnabled();
-    const content = await saveWebsiteContent(parseWebsiteContent(await parseManagementJson(request)), actor);
-    return withManagementCors(request, Response.json({ content: websiteDto(content) }));
+    return await withWriteTransaction(async () => {
+      const before = await listWebsiteContent();
+      const content = await saveWebsiteContent(parseWebsiteContent(await parseManagementJson(request)), actor);
+      await emitDashboardAuditEvent(websiteSavedAuditEvent(before, content, actor));
+      return withManagementCors(request, Response.json({ content: websiteDto(content) }));
+    });
   } catch (error) {
     return withManagementCors(request, managementError(error));
   }

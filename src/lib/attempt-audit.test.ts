@@ -13,6 +13,7 @@ test("builds a learner attempt-start event without quiz data or answers", () => 
   const event = attemptStartedAuditEvent({ ...ids, startedAt: new Date("2026-07-12T12:00:00.000Z") });
   assert.deepEqual(event, {
     action: "exam.attempt.started",
+    occurredAt: new Date("2026-07-12T12:00:00.000Z").getTime(),
     actorId: ids.learnerDiscordId,
     targetType: "attempt",
     targetId: ids.attemptId,

@@ -91,10 +91,19 @@ test("attempt deletion honors the write gate before deleting", async () => {
 test("attempt deletion permits administrators and returns no content", async () => {
   authorize(["admin-role"]);
   process.env.EXAMS_MANAGEMENT_WRITES_ENABLED = "true";
+  const statements: string[] = [];
+  setReadOnlyQueryForTests((async () => [{id: attemptId, student_name: "Learner", quiz_id: "quiz-1",
+    score: 1, total: 1, percentage: 100, question_snapshot: "[]", submission_reason: "manual"}]) as never);
   setWritePoolForTests({ getConnection: async () => ({
     query: async () => [[]] as never,
-    execute: async () => [{ affectedRows: 1 }] as never,
-    commit: async () => undefined,
+    execute: async (sql: string) => {
+      statements.push(sql);
+      if (sql.includes("SELECT")) return [[{id: attemptId, code: "code", quiz_id: "quiz-1", quiz_title: "Quiz",
+        student_name: "Learner", score: 1, total: 1, percentage: 100, submitted_at: null,
+        timed_out: 0, submission_reason: "manual"}]] as never;
+      return [{ affectedRows: 1 }] as never;
+    },
+    commit: async () => { statements.push("COMMIT"); },
     rollback: async () => undefined,
     release: () => undefined,
   }) } as never);
@@ -103,4 +112,5 @@ test("attempt deletion permits administrators and returns no content", async () 
 
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("access-control-allow-origin"), "https://www.atcmh.org");
+  assert.ok(statements.findIndex(sql => sql.startsWith("INSERT INTO dashboard_audit_outbox")) < statements.indexOf("COMMIT"));
 });
