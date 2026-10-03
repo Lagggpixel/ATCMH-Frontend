@@ -67,6 +67,7 @@ No design decision blocks handoff. Live write operations and an actual screen-re
 final result: passed
 
 
+
 ---
 
 # Shared course reader redesign — 30 September 2026
@@ -311,5 +312,83 @@ final result: passed
 # Accounts page redesign QA (1 October 2026)
 
 Implemented the user's selected original image 2: account directory table with a right inspector, using the existing dashboard shell and API contracts. Full-view and focused visual comparisons, Light/Dark, phone/tablet layouts, search recovery, keyboard controls, management confirmation and capability guards passed in an isolated local fixture. Full evidence and limits: [Accounts design QA](design-evidence/accounts/design-qa.md).
+
+final result: passed
+
+## 2026-10-02: Standalone Courses and Pilot Guide
+
+final result: passed
+
+Implemented the approved ATCMH Courses/Pilot Guide direction with isolated headers, Back to ATCMH, dashboard light/dark appearance, two equal course cards per row, and a chapter-based guide reader. No featured course. Guide content remains visibly marked sample material pending the user's existing guide.
+
+Full and focused source/render comparisons were reviewed together, followed by repairs to course density, guide centering, preview-label spacing, dark tip color, signed-out appearance, keyboard focus contrast and above-fold image loading. No unresolved P0/P1/P2 findings.
+
+Verified desktop and phone layouts, theme persistence, course opening, return-to-site navigation, chapter keyboard controls and boundaries, and existing learner/admin access restrictions. Production build/TypeScript and lint passed. Full tests: 615 passed, 3 existing skips, 0 failed. No publication or deployment.
+
+Detailed findings, comparison history, source/viewport details, interaction evidence and limits: [Learning pages QA](design-evidence/learning-pages/design-qa.md).
+
+Screenshot proof: [Courses and Pilot Guide](design-evidence/learning-pages/learning-pages-preview.jpg).
+
+## 2026-10-02: Editable Pilot Guide — Chapter workspace option 1
+
+final result: passed
+
+Implemented the selected Administration → Pilot Guide workspace with visual and
+HTML editing, chapter management, media URL embeds, guide settings, preview and
+revision-protected saving. The reader now uses the persisted guide instead of
+sample content. The complete supplied guide, Discord links, three videos and
+February 2, 2026 date are preserved.
+
+Source and render were reviewed together; typography, chapter selection, rail
+height, editor affordances and mobile title sizing were repaired. Save/read
+consistency, stale-edit recovery, safe HTML, staff denial, unsaved navigation and
+light/dark responsive layouts passed. No unresolved P0/P1/P2 findings.
+
+Frontend: 636 passed, 3 existing skips; TypeScript, production build and lint
+passed (existing warnings only). Backend: 32 focused tests and shadowJar passed.
+No remote migration, publication or deployment. Database migration is ready for
+the release; browser preview uses isolated in-memory fixtures.
+
+Detailed comparisons, evidence and limits:
+[Pilot Guide editor QA](design-evidence/learning-pages/pilot-guide-editor/design-qa.md).
+Screenshot proof:
+[Pilot Guide editor](design-evidence/learning-pages/pilot-guide-editor/desktop-user.png).
+
+## 2026-10-02: Pilot Guide reader redesign — desktop and phone direction 1
+
+Implemented the user's selected numbered desktop rail and compact phone chapter
+selector, with a theme-aware white reading surface and named chapter navigation.
+Existing guide content, sanitization, media and editor previews are preserved.
+Source/render comparisons, light/dark, phone/tablet, keyboard, long-chapter and
+50-chapter/wide-table local draft checks passed after focused repairs. No remote
+publication or deployment. Full evidence, accepted header/type differences and
+verification limits: [Pilot Guide reader QA](design-evidence/pilot-guide-redesign/design-qa.md).
+
+final result: passed
+
+## 2026-10-03: Mock setup and question banks — approved combined direction
+
+Implemented direction 1's ordered mock setup and direction 2's accordion bank
+editor with separate dashboard tabs, authored manual questions, compact
+Ready/Needs attention and aggregate bank capacity checks. Distinct random
+questions and immutable run snapshots are implemented in the backend.
+
+Source/render comparison caught and repaired overly tall bank rows/editor
+spacing. Revised desktop/reference-width comparisons and phone checks passed;
+existing typography, theme tokens and phone control sizes are retained.
+Workflow/API tests, the current frontend source suite, TypeScript, targeted lint,
+production build, backend suite and focused mock/JAR checks passed. No remote
+migration, publication or deployment was performed.
+
+Source truth, screenshot dimensions, comparison history, interaction evidence,
+accepted differences and verification limits:
+[Mock question banks QA](design-evidence/mock-question-banks/design-qa.md).
+
+final result: passed
+
+Deployment follow-through: backend 3.8.13 and frontend 1.8.13 are live, with
+the additive migration preserving the three original questions in order.
+Container health, versions/digests/JAR, backend startup and signed-in desktop/
+phone checks passed. Details: [mock banks deployment](design-evidence/mock-question-banks/deployment.md).
 
 final result: passed

@@ -2,12 +2,11 @@
 
 import type {ReactNode} from "react";
 import {usePathname} from "next/navigation";
-import DashboardThemeProvider from "@/src/dashboard/theme/DashboardThemeProvider";
+import LearningFrame from "@/src/learning/LearningFrame";
 import SiteFrame from "./SiteFrame";
-import styles from "./LearnerSiteFrame.module.css";
 
 export default function LearnerSiteFrame({children}: {children: ReactNode}) {
     const pathname = usePathname();
-    if (pathname.startsWith("/exams/courses")) return <DashboardThemeProvider><div className={styles.coursesFrame}><SiteFrame>{children}</SiteFrame></div></DashboardThemeProvider>;
+    if (pathname === "/exams/courses" || pathname.startsWith("/exams/courses/")) return <LearningFrame product="Courses">{children}</LearningFrame>;
     return <SiteFrame>{children}</SiteFrame>;
 }

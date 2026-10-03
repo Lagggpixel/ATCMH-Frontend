@@ -3,6 +3,8 @@ export type ApplicationType = "mentor" | "written" | "mock";
 export type ApplicationQuestionInputType =
     | "YES_NO"
     | "TEXT"
+    | "REGION"
+    | "TIMEZONE"
     | "POSITIVE_INTEGER"
     | "WEEKLY_AVAILABILITY";
 

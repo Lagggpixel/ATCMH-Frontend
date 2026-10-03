@@ -1,11 +1,12 @@
 "use client";
 
 import {createContext, useContext, useLayoutEffect, useState, type ReactNode} from "react";
-import {DASHBOARD_APPEARANCE_KEY, parseDashboardAppearance, resolveDashboardTheme, type DashboardAppearance} from "./appearance";
+import {DASHBOARD_APPEARANCE_KEY, parseDashboardAppearance, resolveDashboardTheme, type DashboardAppearance, type DashboardTheme} from "./appearance";
 import "./dashboard-theme.css";
 
 interface AppearanceContext {
     appearance: DashboardAppearance;
+    theme: DashboardTheme;
     setAppearance: (value: DashboardAppearance) => void;
 }
 const DashboardAppearanceContext = createContext<AppearanceContext | null>(null);
@@ -18,13 +19,16 @@ export function useDashboardAppearance() {
 
 export default function DashboardThemeProvider({children}: {children: ReactNode}) {
     const [appearance, setPreference] = useState<DashboardAppearance>("system");
+    const [theme, setTheme] = useState<DashboardTheme>("light");
 
     useLayoutEffect(() => {
         const media = window.matchMedia("(prefers-color-scheme: dark)");
         let preference: DashboardAppearance = "system";
         const apply = (next: DashboardAppearance) => {
             preference = next;
-            document.documentElement.dataset.dashboardTheme = resolveDashboardTheme(next, media.matches);
+            const resolved = resolveDashboardTheme(next, media.matches);
+            document.documentElement.dataset.dashboardTheme = resolved;
+            setTheme(resolved);
             setPreference(next);
         };
         try { preference = parseDashboardAppearance(localStorage.getItem(DASHBOARD_APPEARANCE_KEY)); } catch { /* Use system appearance when storage is blocked. */ }
@@ -50,7 +54,7 @@ export default function DashboardThemeProvider({children}: {children: ReactNode}
         window.dispatchEvent(new CustomEvent("dashboard-appearance", {detail: next}));
     };
 
-    return <DashboardAppearanceContext.Provider value={{appearance, setAppearance}}>
+    return <DashboardAppearanceContext.Provider value={{appearance, theme, setAppearance}}>
         <div className="dashboard-theme">{children}</div>
     </DashboardAppearanceContext.Provider>;
 }

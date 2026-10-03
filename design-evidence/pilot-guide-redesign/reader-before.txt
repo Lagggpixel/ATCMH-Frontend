@@ -1,0 +1,147 @@
+"use client";
+
+import {useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent} from "react";
+import {ArrowLeftIcon} from "@phosphor-icons/react/ArrowLeft";
+import {ArrowRightIcon} from "@phosphor-icons/react/ArrowRight";
+import type {PilotGuide} from "./pilot-guide";
+import {sanitizePilotGuideHtml} from "./pilot-guide-html";
+import contentStyles from "./PilotGuideContent.module.css";
+import styles from "./PilotGuideReader.module.css";
+
+export type PilotGuideReaderProps = {
+  guide: PilotGuide;
+  initialChapterId?: string;
+};
+
+function lastUpdatedLabel(value: string): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {month: "long", day: "numeric", year: "numeric", timeZone: "UTC"}).format(date);
+}
+
+export default function PilotGuideReader({guide, initialChapterId}: PilotGuideReaderProps) {
+  const chapters = guide.chapters;
+  const [selectedId, setSelectedId] = useState(() => initialChapterId ?? chapters[0]?.id ?? "");
+  const chapterTabs = useRef<HTMLDivElement>(null);
+  const tabs = useRef<Array<HTMLButtonElement | null>>([]);
+  const panels = useRef<Array<HTMLDivElement | null>>([]);
+  const revealChapter = useRef(false);
+  const id = useId();
+  const selectedIndex = Math.max(0, chapters.findIndex(chapter => chapter.id === selectedId));
+  const selected = chapters[selectedIndex];
+  const previous = chapters[selectedIndex - 1];
+  const next = chapters[selectedIndex + 1];
+  const selectedHtml = useMemo(() => sanitizePilotGuideHtml(selected?.html ?? ""), [selected?.html]);
+
+  useLayoutEffect(() => {
+    const container = chapterTabs.current;
+    const tab = tabs.current[selectedIndex];
+    if (!container || !tab) return;
+    const revealTab = () => {
+      const offset = tab.getBoundingClientRect().left - container.getBoundingClientRect().left;
+      const right = offset + tab.offsetWidth;
+      if (offset < 0) container.scrollLeft += offset;
+      else if (right > container.clientWidth) container.scrollLeft += right - container.clientWidth;
+    };
+    // Keep chapter tabs visible without moving the page or changing focus.
+    revealTab();
+    const observer = new ResizeObserver(revealTab);
+    observer.observe(container);
+    observer.observe(tab);
+    return () => observer.disconnect();
+  }, [selectedIndex, chapters]);
+
+  useLayoutEffect(() => {
+    if (!revealChapter.current) return;
+    revealChapter.current = false;
+    const panel = panels.current[selectedIndex];
+    if (!panel) return;
+    panel.focus({preventScroll: true});
+    // Previous/next returns readers to the new chapter, including from a long chapter's footer.
+    panel.scrollIntoView({block: "start", behavior: "instant"});
+  }, [selectedIndex]);
+
+  function navigateToChapter(chapterId: string) {
+    revealChapter.current = true;
+    setSelectedId(chapterId);
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let target: number;
+    if (event.key === "ArrowRight") target = (index + 1) % chapters.length;
+    else if (event.key === "ArrowLeft") target = (index - 1 + chapters.length) % chapters.length;
+    else if (event.key === "Home") target = 0;
+    else if (event.key === "End") target = chapters.length - 1;
+    else return;
+    event.preventDefault();
+    setSelectedId(chapters[target].id);
+    tabs.current[target]?.focus({preventScroll: true});
+  }
+
+  return <main className={styles.page} aria-labelledby={`${id}-guide-title`} data-pilot-guide-page>
+    <header className={styles.introduction}>
+      <div className={styles.introductionHeading}>
+        <h1 id={`${id}-guide-title`}>{guide.title}</h1>
+        <p className={styles.lastUpdated}>Last updated <time dateTime={guide.lastUpdated}>{lastUpdatedLabel(guide.lastUpdated)}</time></p>
+      </div>
+      <p>{guide.introduction}</p>
+    </header>
+
+    {selected ? <>
+      <div ref={chapterTabs} className={styles.chapterTabs} role="tablist" aria-label="Pilot guide chapters">
+        {chapters.map((chapter, index) => <button
+          key={chapter.id}
+          ref={element => {tabs.current[index] = element;}}
+          id={`${id}-tab-${chapter.id}`}
+          type="button"
+          role="tab"
+          aria-selected={index === selectedIndex}
+          aria-controls={`${id}-panel-${chapter.id}`}
+          tabIndex={index === selectedIndex ? 0 : -1}
+          className={styles.chapterTab}
+          onClick={() => setSelectedId(chapter.id)}
+          onKeyDown={event => handleTabKeyDown(event, index)}
+        >{chapter.title}</button>)}
+      </div>
+
+      <div className={styles.readingCanvas}>
+        <div className={styles.chapterContext}>
+          <div className={styles.chapterPosition}>
+            <span aria-live="polite" aria-atomic="true">Chapter {selectedIndex + 1} of {chapters.length}</span>
+            <div
+              className={styles.progressTrack}
+              role="progressbar"
+              aria-label="Chapter position"
+              aria-valuemin={1}
+              aria-valuemax={chapters.length}
+              aria-valuenow={selectedIndex + 1}
+              aria-valuetext={`Chapter ${selectedIndex + 1} of ${chapters.length}: ${selected.title}`}
+            ><span style={{width: `${(selectedIndex + 1) / chapters.length * 100}%`}}/></div>
+          </div>
+          {next ? <button className={styles.nextChapter} type="button" onClick={() => navigateToChapter(next.id)}>Next: {next.title}<ArrowRightIcon size={17} aria-hidden="true"/></button> : <span className={styles.finalChapter}>Final chapter</span>}
+        </div>
+
+        {chapters.map((chapter, index) => <div
+          key={chapter.id}
+          ref={element => {panels.current[index] = element;}}
+          id={`${id}-panel-${chapter.id}`}
+          role="tabpanel"
+          aria-labelledby={`${id}-tab-${chapter.id}`}
+          tabIndex={0}
+          hidden={index !== selectedIndex}
+          className={styles.chapterPanel}
+        >
+          {index === selectedIndex ? <article className={styles.article} aria-labelledby={`${id}-heading-${chapter.id}`}>
+            <h2 id={`${id}-heading-${chapter.id}`}>{chapter.title}</h2>
+            <div className={contentStyles.content} dangerouslySetInnerHTML={{__html: selectedHtml}}/>
+          </article> : null}
+        </div>)}
+      </div>
+
+      <nav className={styles.pageNavigation} aria-label="Chapter navigation">
+        <button className={styles.previousButton} type="button" disabled={!previous} aria-label={previous ? `Previous chapter: ${previous.title}` : "Previous chapter"} onClick={() => {if (previous) navigateToChapter(previous.id);}}><ArrowLeftIcon size={19} aria-hidden="true"/>Previous</button>
+        <button className={styles.nextButton} type="button" disabled={!next} aria-label={next ? `Next chapter: ${next.title}` : "Next chapter"} onClick={() => {if (next) navigateToChapter(next.id);}}>Next<ArrowRightIcon size={19} aria-hidden="true"/></button>
+      </nav>
+    </> : <p className={styles.emptyState}>The pilot guide is not available right now.</p>}
+  </main>;
+}

@@ -56,6 +56,8 @@ const AdminNav = ({adminUser, embedded = false, onNavigate}: AdminNavProps) => {
                         <div className={styles.adminNavDropdownSectionItems}>
                             {section.items.map(item => {
                                 const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+                                // A new document applies the guide's narrowly scoped video CSP.
+                                if (item.path === "/dashboard/pilot-guide" || location.pathname === "/dashboard/pilot-guide") return <a key={item.path} href={item.path} className={`${styles.adminNavDropdownItem} ${isActive ? styles.adminNavDropdownItemActive : ""}`} aria-current={isActive ? "page" : undefined} onClick={() => {setOpenGroup(null); onNavigate?.();}}>{item.label}</a>;
                                 return <Link key={item.path} to={item.path} className={`${styles.adminNavDropdownItem} ${isActive ? styles.adminNavDropdownItemActive : ""}`} aria-current={isActive ? "page" : undefined} onClick={() => {setOpenGroup(null); onNavigate?.();}}>{item.label}</Link>;
                             })}
                         </div>

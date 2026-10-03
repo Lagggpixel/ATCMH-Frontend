@@ -1,0 +1,40 @@
+.catalogue { width: min(100% - 80px, 1200px); margin-inline: auto; padding: 44px 0 64px; }
+.intro { border-bottom: 1px solid var(--dashboard-border); padding-bottom: 28px; margin-bottom: 28px; }
+.intro h1 { margin: 0 0 10px; font-size: clamp(32px, 3.2vw, 44px); font-weight: 700; letter-spacing: -.025em; line-height: 1.12; }
+.intro p { max-width: 790px; margin: 0; color: var(--dashboard-muted); font-size: 18px; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--dashboard-border); border-radius: 10px; background: var(--dashboard-surface); padding: 14px; }
+.cover { display: block; width: 100%; height: auto; aspect-ratio: 2.5; object-fit: cover; border-radius: 6px; }
+.cardBody { display: flex; flex: 1; flex-direction: column; padding: 18px 4px 4px; }
+.card h2 { margin: 0 0 9px; font-size: 25px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; }
+.card p { margin: 0 0 22px; color: var(--dashboard-muted); font-size: 16px; line-height: 1.5; }
+.openCourse { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 46px; margin-top: auto; border-radius: 7px; background: var(--dashboard-button); padding: 10px 18px; color: var(--dashboard-on-button); font-size: 16px; font-weight: 650; text-decoration: none; }
+.openCourse:hover { background: var(--dashboard-button-hover); }
+.openCourse:focus-visible, .empty a:focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 4px; }
+.empty { padding-block: 42px; }
+.empty h2 { margin: 0 0 10px; font-size: 26px; font-weight: 650; }
+.empty p { margin: 0; color: var(--dashboard-muted); font-size: 17px; line-height: 1.5; }
+.empty a { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; color: var(--dashboard-link); font-weight: 650; }
+@media (max-width: 900px) {
+    .catalogue { width: calc(100% - 48px); padding-top: 24px; }
+    .intro { padding-bottom: 18px; margin-bottom: 18px; }
+    .intro h1 { margin-bottom: 8px; }
+    .intro p { font-size: 16px; }
+    .grid { gap: 14px; }
+    .card { padding: 12px; }
+    .cover { aspect-ratio: 3; }
+    .cardBody { padding-top: 12px; }
+    .card h2 { margin-bottom: 8px; font-size: 20px; }
+    .card p { margin-bottom: 10px; font-size: 14px; line-height: 1.4; }
+    .openCourse { min-height: 42px; font-size: 15px; }
+}
+@media (max-width: 650px) {
+    .catalogue { width: calc(100% - 40px); padding-top: 30px; }
+    .grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .intro { padding-bottom: 24px; margin-bottom: 24px; }
+    .card { padding: 12px; }
+    .cardBody { padding-top: 16px; }
+    .cover { aspect-ratio: 2.5; }
+    .card h2 { font-size: 22px; }
+    .card p { font-size: 16px; line-height: 1.5; }
+}

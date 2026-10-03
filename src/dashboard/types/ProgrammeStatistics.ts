@@ -25,6 +25,13 @@ export interface ProgrammeCourse {
     completionRate: StatisticsMetric; inactiveLearners: number;
     starts: number; completions: number; previousStarts: number | null; previousCompletions: number | null;
 }
+export interface WaitlistDemandSlot { weekday: number; hour: number; waitingMentees: number }
+export interface WaitlistDemand {
+    waitingMentees: number; usableAvailability: number; missingAvailability: number;
+    invalidAvailability: number; noAvailableTimes: number; missingTimezone: number;
+    slots: WaitlistDemandSlot[];
+    timezones: Array<{timezone: string; waitingMentees: number}>;
+}
 export interface ProgrammeReport {
     window: StatisticsWindow;
     snapshot: {waitingMentees: number; trainingMentees: number; medianWaitingDays: StatisticsMetric; oldestWaitingDays: number | null; upcomingSessions: number};
@@ -35,6 +42,7 @@ export interface ProgrammeReport {
     mentors: MentorWorkload[];
     attention: StatisticsAttention[];
     courses: {status: "available" | "unavailable" | "forbidden"; message: string | null; rows: ProgrammeCourse[]};
+    waitlistDemand?: WaitlistDemand;
 }
 export interface ExamStatisticsRow {
     quizId: string; title: string; attempts: number; identifiedLearners: number; unidentifiedAttempts: number;

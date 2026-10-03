@@ -11,6 +11,7 @@ import AdminLoginScreen from "./AdminLoginScreen";
 import AdminLoadingScreen from "./AdminLoadingScreen";
 import AdminErrorScreen from "./AdminErrorScreen";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen";
+import WaitlistDemand from "./WaitlistDemand";
 import styles from "./AdminStats.module.css";
 
 interface AdminStatsProps {
@@ -82,6 +83,7 @@ function ProgrammeView({report, name, retry}: {report: ProgrammeReport; name: (i
             <MetricCard label="Cancellation rate" value={number(current.cancellationRate.value, "%")} detail={`${number(current.cancelledSessions)} of ${number(current.sessionSampleSize)} eligible past sessions`} comparison={compare(current.cancellationRate.value, previous?.cancellationRate.value, true)}/>
             <MetricCard label="Pilot fill rate" value={number(current.pilotFillRate.value, "%")} detail={`${number(current.recordedAttendees)} recorded / ${number(current.requestedPlaces)} requested · ${number(current.pilotFillRate.sampleSize)} sessions`} comparison={compare(current.pilotFillRate.value, previous?.pilotFillRate.value, true)}/>
         </div>
+        <WaitlistDemand demand={report.waitlistDemand}/>
         <div className={styles.grid}>
             <section className={styles.panel} aria-labelledby="pipeline-heading"><h3 id="pipeline-heading">Waitlist & mentee progress</h3>
                 <dl className={styles.facts}>

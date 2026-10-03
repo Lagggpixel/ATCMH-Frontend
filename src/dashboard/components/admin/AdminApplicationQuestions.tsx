@@ -26,6 +26,8 @@ const editFields = (question: ApplicationQuestion): ApplicationQuestionUpdate =>
 const inputTypeLabel: Record<ApplicationQuestion["inputType"], string> = {
     YES_NO: "Yes or no",
     TEXT: "Text",
+    REGION: "Region selection",
+    TIMEZONE: "UTC offset selection",
     POSITIVE_INTEGER: "Positive number",
     WEEKLY_AVAILABILITY: "Weekly availability",
 };

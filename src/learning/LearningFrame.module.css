@@ -1,0 +1,48 @@
+.frame {
+    --dashboard-focus: #0869ee;
+    min-height: 100dvh;
+    background: var(--dashboard-canvas);
+    color: var(--dashboard-ink);
+    color-scheme: light;
+    font-family: var(--font-site);
+}
+.header { border-bottom: 1px solid var(--dashboard-border); background: var(--dashboard-header); }
+.headerInner { width: min(100% - 80px, 1320px); min-height: 90px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.brand { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.brand img { object-fit: contain; }
+.brand span { display: grid; gap: 1px; }
+.brand strong { font-size: 24px; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; }
+.brand small { color: var(--dashboard-muted); font-size: 17px; line-height: 1.3; }
+.actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; }
+.backLink { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; border: 1px solid var(--dashboard-border); border-radius: 8px; padding: 9px 16px; color: var(--dashboard-ink); font-size: 15px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.backLink:hover { background: var(--dashboard-secondary); }
+.accountNavigation { flex: 0 0 auto; min-height: 44px; color: var(--dashboard-ink); }
+.accountNavigation :global(.nav-auth-loading) { display: block; width: 44px; height: 44px; border-radius: 50%; background: var(--dashboard-secondary); }
+.accountNavigation :global(.nav-user-menu) { position: relative; }
+.accountNavigation :global(.nav-user-menu) > summary { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--dashboard-border); border-radius: 50%; list-style: none; cursor: pointer; }
+.accountNavigation :global(.nav-user-menu) > summary::-webkit-details-marker { display: none; }
+.accountNavigation :global(.nav-user-menu-content) { position: absolute; z-index: 30; top: calc(100% + 10px); right: 0; display: grid; min-width: 160px; padding: 6px; border: 1px solid var(--dashboard-border); border-radius: 12px; background: var(--dashboard-surface); box-shadow: 0 16px 40px var(--dashboard-shadow-color, rgba(27, 48, 77, .12)); }
+.accountNavigation :global(.nav-user-menu-content) a, .accountNavigation :global(.nav-user-menu-content) button { border: 0; border-radius: 8px; padding: 10px 12px; background: transparent; color: inherit; font: inherit; font-weight: 650; text-align: left; text-decoration: none; cursor: pointer; }
+.accountNavigation :global(.nav-user-menu-content) a:hover, .accountNavigation :global(.nav-user-menu-content) button:hover, .accountNavigation :global(.nav-user-menu) > summary:hover { background: var(--dashboard-secondary); }
+.accountNavigation :global(.nav-user-menu) > summary:focus-visible, .accountNavigation :global(.nav-user-menu-content) a:focus-visible, .accountNavigation :global(.nav-user-menu-content) button:focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 3px; }
+.backLink:focus-visible, .skipLink:focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 3px; }
+.content { outline: none; }
+.content > :global(.section) { width: min(100% - 80px, 1200px); margin-inline: auto; padding-block: 56px; }
+.content > :global(.section) h1 { font-size: 32px; line-height: 1.2; }
+.content > :global(.section) p { color: var(--dashboard-muted); font-size: 17px; line-height: 1.5; }
+.content > :global(.section) a { color: var(--dashboard-link); }
+.content :global(.learner-site) { min-height: calc(100dvh - 91px); background: var(--dashboard-canvas); color: var(--dashboard-ink); color-scheme: inherit; }
+.skipLink { position: absolute; z-index: 10; top: 8px; left: 16px; transform: translateY(-200%); padding: 12px 16px; border-radius: 8px; background: var(--dashboard-surface); color: var(--dashboard-ink); }
+.skipLink:focus { transform: translateY(0); }
+:global(html[data-dashboard-theme="dark"]) .frame { --dashboard-focus: #91baff; color-scheme: dark; }
+@media (max-width: 700px) {
+    .content > :global(.section) { width: calc(100% - 40px); padding-block: 36px; }
+    .headerInner { width: calc(100% - 32px); min-height: 76px; gap: 8px; }
+    .brand { min-width: 0; flex-shrink: 1; gap: 8px; }
+    .brand img { width: 34px; height: 40px; }
+    .brand strong { font-size: 18px; }
+    .brand small { font-size: 13px; white-space: nowrap; }
+    .actions { gap: 4px; }
+    .backLink { width: 44px; height: 44px; border-color: transparent; padding: 0; }
+    .backLink span { display: none; }
+}

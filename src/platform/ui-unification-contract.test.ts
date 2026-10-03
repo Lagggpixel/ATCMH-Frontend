@@ -31,20 +31,20 @@ test("Dashboard access is gated before DashboardRoute renders", () => {
   assert.doesNotMatch(page, /DashboardAccessGate|DashboardRuntime|SiteFrame/);
 });
 
-test("desktop authentication replaces the Enroll Now CTA without duplicating the center navigation", () => {
+test("shared authentication stays in the header without duplicating the navigation", () => {
   const header = source("../marketing/SiteHeader.tsx");
   const css = source("../marketing/marketing.css");
 
   assert.doesNotMatch(header, /Enroll Now|className="nav-cta"/);
   assert.match(header, /<nav className="nav-links"[^>]*><NavigationLinks\/><\/nav>/);
   assert.match(header, /<div className="nav-primary-auth"><AuthNavigation showLogin=\{showLogin\}\/><\/div>/);
-  assert.match(header, /<nav aria-label="Mobile navigation"><NavigationLinks\/><AuthNavigation showLogin=\{showLogin\}\/><\/nav>/);
+  assert.match(header, /<nav aria-label="Mobile navigation"><NavigationLinks\/><\/nav>/);
   assert.match(header, /<details className="nav-user-menu">/);
-  assert.match(header, /<Link href="\/account">Account<\/Link>/);
+  assert.match(header, /<AccountLink href="\/account">Account<\/AccountLink>/);
   assert.match(header, /showDashboard=\{state === "admin"\}/);
   assert.match(header, /Log out/);
   assert.match(css, /\.nav-user-menu summary\s*\{[^}]*width:\s*2\.75rem/s);
-  assert.match(css, /@media \(max-width: 1080px\)[\s\S]*?\.nav-primary-auth\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /@media \(max-width: 1080px\)[\s\S]*?\.site-header \.nav-primary-auth\s*\{[^}]*order:\s*4/s);
   assert.match(css, /\.nav-primary-auth \.nav-login\s*\{[^}]*color:\s*#07101d !important/s);
 });
 
@@ -70,8 +70,8 @@ test("active Exam Center attempts remain outside the framed navigation", () => {
   assert.match(learnerLayout, /<LearnerSiteFrame/);
   const learnerFrame = source("./LearnerSiteFrame.tsx");
   assert.match(learnerFrame, /<SiteFrame/);
-  assert.match(learnerFrame, /pathname.startsWith\("\/exams\/courses"\)/);
-  assert.match(learnerFrame, /<DashboardThemeProvider>/);
+  assert.match(learnerFrame, /pathname === "\/exams\/courses" \|\| pathname.startsWith\("\/exams\/courses\/"\)/);
+  assert.match(learnerFrame, /<LearningFrame product="Courses">/);
   assert.doesNotMatch(learnerLayout, /ExamLogoutButton|Sign out|accountAccessory/);
   assert.doesNotMatch(attemptLayout, /SiteFrame/);
   assert.match(attemptLayout, /getVerifiedCentralSession/);

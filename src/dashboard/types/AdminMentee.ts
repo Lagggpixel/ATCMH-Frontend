@@ -8,6 +8,7 @@ export interface AdminMentee {
     mentee: string;
     channel: string;
     recruiter?: string;
+    region?: string | null;
     timezone?: string | null;
     availability?: string | null;
     practicalMentor?: string;

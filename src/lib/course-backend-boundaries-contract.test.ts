@@ -19,7 +19,8 @@ test("course catalogue and reader remain gated to verified learners", () => {
   const catalogue = source("../app/exams/(learner)/courses/page.tsx");
   const detail = source("../app/exams/(learner)/courses/[courseId]/page.tsx");
   assert.match(catalogue, /getVerifiedLearnerIdentity\(\)/);
-  assert.match(catalogue, /identity \? await listPublishedCourses\(\)/);
+  assert.match(catalogue, /if \(identity\) \{\s*try \{ courses = await listPublishedCourses\(\)/);
+  assert.match(catalogue, /if \(identity\) return[\s\S]*<CourseCatalogue courses=\{courses\}/);
   assert.match(catalogue, /Sign in to view courses/);
   assert.match(detail, /getVerifiedLearnerIdentity\(\)/);
   assert.match(detail, /Sign in to open this course/);

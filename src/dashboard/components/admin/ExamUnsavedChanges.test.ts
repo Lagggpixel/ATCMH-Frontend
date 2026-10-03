@@ -145,3 +145,21 @@ test("dirty protection captures same-origin links and removes every listener whe
     for (const type of ["beforeunload", "popstate", "click"]) assert.equal(environment.target.count(type), 0);
     assert.equal(EXAM_UNSAVED_CHANGES_MESSAGE, "Your unsaved changes will be lost if you leave this page.");
 });
+
+test("real anchor download properties do not bypass the guard unless the attribute exists", async () => {
+    for (const downloadAttribute of [false, true]) {
+        const environment = createEnvironment(true);
+        const guard = createExamUnsavedChangesGuard({isDirty: () => true, confirm: environment.confirm}, environment);
+        const click = {
+            button: 0, defaultPrevented: false,
+            preventDefault() {this.defaultPrevented = true;},
+            target: {closest: () => ({href: "https://www.atcmh.org/dashboard/pilot-guide", target: "", download: "", hasAttribute: (name: string) => name === "download" && downloadAttribute})},
+        };
+        guard.activate();
+        environment.document.emit("click", click);
+        await Promise.resolve(); await Promise.resolve();
+        assert.equal(click.defaultPrevented, !downloadAttribute);
+        assert.deepEqual(environment.location.assigned, downloadAttribute ? [] : ["https://www.atcmh.org/dashboard/pilot-guide"]);
+        guard.disarm();
+    }
+});

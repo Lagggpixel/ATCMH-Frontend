@@ -370,20 +370,14 @@
 .readerMain .activityCard button:disabled, .readerMain .quizCard button:disabled { opacity: .65; cursor: default; }
 .mobileCourseHeading { display: none; }
 
-/* Discovery and access stay on the site's navy surface in either reading mode. */
+/* Discovery and access share the learning workspace appearance. */
 .catalogShell {
-  --dashboard-surface: #101f34;
-  --dashboard-border: #2b3d57;
-  --dashboard-ink: #f3f7ff;
-  --dashboard-muted: #acbad0;
-  --dashboard-link: #71bdff;
-  --dashboard-focus: #8dcaff;
-  background: #081326;
-  color-scheme: dark;
+  background: var(--dashboard-canvas);
+  color-scheme: inherit;
 }
-.catalogShell .courseHeader h1 { color: #f3f7ff; }
-.catalogShell .backLink, .catalogShell .courseDescription { color: #acbad0; }
-.catalogShell .backLink:hover { color: #f3f7ff; }
+.catalogShell .courseHeader h1 { color: var(--dashboard-ink); }
+.catalogShell .backLink, .catalogShell .courseDescription { color: var(--dashboard-muted); }
+.catalogShell .backLink:hover { color: var(--dashboard-ink); }
 .catalogShell .privateGate {
   width: min(100%, 900px);
   margin: clamp(56px, 10vh, 110px) auto 80px;
@@ -393,20 +387,20 @@
   padding: 0;
   text-align: left;
 }
-.catalogShell .privateGate .eyebrow { margin: 0 0 20px; color: #71bdff; letter-spacing: .16em; }
+.catalogShell .privateGate .eyebrow { margin: 0 0 20px; color: var(--dashboard-link); letter-spacing: .16em; }
 .catalogShell .privateGate h1 {
   max-width: 700px;
-  color: #f3f7ff;
+  color: var(--dashboard-ink);
   font-size: clamp(36px, 5vw, 64px);
   font-weight: 700;
   line-height: 1.08;
   letter-spacing: -.035em;
   text-wrap: balance;
 }
-.catalogShell .privateGate p:not(.eyebrow) { max-width: 540px; margin: 24px 0 32px; color: #acbad0; font-size: 17px; line-height: 1.7; }
-.catalogShell .privateGate a { min-height: 48px; justify-content: center; padding: 12px 24px; background: #2563eb; color: #fff; font-weight: 700; }
-.catalogShell .privateGate a:hover { background: #1d4ed8; }
-.catalogShell :is(a, button):focus-visible { outline: 3px solid #8dcaff; outline-offset: 4px; }
+.catalogShell .privateGate p:not(.eyebrow) { max-width: 540px; margin: 24px 0 32px; color: var(--dashboard-muted); font-size: 17px; line-height: 1.7; }
+.catalogShell .privateGate a { min-height: 48px; justify-content: center; padding: 12px 24px; background: var(--dashboard-button); color: var(--dashboard-on-button); font-weight: 700; }
+.catalogShell .privateGate a:hover { background: var(--dashboard-button-hover); }
+.catalogShell :is(a, button):focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 4px; }
 @media (max-width: 700px) {
   .catalogShell .privateGate { margin: 64px auto 72px; }
   .catalogShell .privateGate p:not(.eyebrow) { font-size: 16px; }

@@ -7,12 +7,12 @@ export function mockQuestionReadiness(questionCount: number): MockQuestionReadin
     if (questionCount <= 0) {
         return {
             ready: false,
-            message: "Unavailable: no mock questions are configured. Add at least one question before sending from Discord.",
+            message: "Needs attention",
         };
     }
 
     return {
         ready: true,
-        message: `Ready: ${questionCount} mock question${questionCount === 1 ? " is" : "s are"} configured. Discord can send this set in order.`,
+        message: "Ready",
     };
 }

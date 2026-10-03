@@ -4,6 +4,7 @@ import {CaretDownIcon as CaretDown} from "@phosphor-icons/react/CaretDown";
 import {CaretRightIcon as CaretRight} from "@phosphor-icons/react/CaretRight";
 import {CircleIcon as Circle} from "@phosphor-icons/react/Circle";
 import {ClockIcon as Clock} from "@phosphor-icons/react/Clock";
+import {GlobeIcon as Globe} from "@phosphor-icons/react/Globe";
 import {NoteIcon as Note} from "@phosphor-icons/react/Note";
 import {UserIcon as User} from "@phosphor-icons/react/User";
 import {UserPlusIcon as UserPlus} from "@phosphor-icons/react/UserPlus";
@@ -1297,6 +1298,7 @@ const MenteeProfileOverview = ({mentee, getUserName}: {mentee: AdminMentee; getU
                 <dl>
                     <div><User size={22} aria-hidden="true"/><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
                     <div><Users size={22} aria-hidden="true"/><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
+                    <div><Globe size={22} aria-hidden="true"/><dt>Mentee region</dt><dd>{mentee.region || "Not provided"}</dd></div>
                     <div><Clock size={22} aria-hidden="true"/><dt>Mentee timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
                 </dl>
                 {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}

@@ -18,7 +18,7 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   }
   // Respond before React can stream: unauthorized requests must be HTTP 404s.
   const response = allowed ? NextResponse.next() : new NextResponse("Not found", {status: 404});
-  for (const { key, value } of securityHeadersFor(process.env, process.env.NODE_ENV)) {
+  for (const { key, value } of securityHeadersFor(process.env, process.env.NODE_ENV, request.nextUrl.pathname)) {
     response.headers.set(key, value);
   }
   if (request.nextUrl.pathname === "/link-results" || request.nextUrl.pathname === "/wraps" || request.nextUrl.pathname.startsWith("/wraps/")) {
