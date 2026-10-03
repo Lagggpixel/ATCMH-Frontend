@@ -1,4 +1,5 @@
 import type {MockQuestionTemplate, MockQuestionTemplatePayload} from "../types/MockQuestionTemplate.ts";
+import type {MockQuestionWorkflow, MockQuestionDraft, MockQuestionSlot} from "../types/MockQuestionTemplate.ts";
 import type {AtcmhUser} from "../types/AtcmhUser.ts";
 import type {Session} from "../types/Session.ts";
 import type {UserNote} from "../types/UserNote.ts";
@@ -84,6 +85,15 @@ export class ApiUtils {
         const response = await fetch(`${dashboardApiUrl}/account/eligibility`, {credentials: "include", cache: "no-store"});
         await ApiUtils.ensureOk(response);
         return await ApiUtils.parseJson<EligibilityResponse>(response) as EligibilityResponse;
+    }
+
+    static async getAvatarUrl(signal: AbortSignal): Promise<string | null> {
+        const response = await fetch(`${dashboardApiUrl}/account/avatar`, {
+            credentials: "include", cache: "no-store", signal,
+        });
+        await ApiUtils.ensureOk(response);
+        const body = await ApiUtils.parseJson<{avatarUrl?: string | null}>(response);
+        return body?.avatarUrl ?? null;
     }
 
     static async getApplicationQuestions(): Promise<ApplicationQuestion[]> {
@@ -406,6 +416,31 @@ export class ApiUtils {
         if (ApiUtils.isUnauthorized(response)) return undefined;
         await ApiUtils.ensureOk(response);
         return ApiUtils.parseJson<MockQuestionTemplate[]>(response);
+    }
+
+    static async getMockQuestionWorkflow(token: string | null): Promise<MockQuestionWorkflow | undefined> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/mock-questions`, token);
+        if (ApiUtils.isUnauthorized(response)) return undefined;
+        await ApiUtils.ensureOk(response);
+        return ApiUtils.parseJson<MockQuestionWorkflow>(response);
+    }
+
+    static async saveMockSetup(token: string | null, revision: number, sequence: MockQuestionSlot[]) {
+        return ApiUtils.adminJson<MockQuestionWorkflow>(`${dashboardApiUrl}/admin/mock-questions/setup`, token, {
+            method: "PUT", body: JSON.stringify({revision, sequence}),
+        });
+    }
+
+    static async saveMockBank(token: string | null, revision: number, id: number | null, name: string, questions: MockQuestionDraft[]) {
+        return ApiUtils.adminJson<MockQuestionWorkflow>(`${dashboardApiUrl}/admin/mock-questions/banks${id == null ? "" : `/${id}`}`, token, {
+            method: id == null ? "POST" : "PUT", body: JSON.stringify({revision, name, questions}),
+        });
+    }
+
+    static async deleteMockBank(token: string | null, revision: number, id: number) {
+        return ApiUtils.adminJson<MockQuestionWorkflow>(`${dashboardApiUrl}/admin/mock-questions/banks/${id}`, token, {
+            method: "DELETE", body: JSON.stringify({revision}),
+        });
     }
 
     static async createMockQuestionTemplate(token: string | null, payload: MockQuestionTemplatePayload): Promise<MockQuestionTemplate | undefined> {

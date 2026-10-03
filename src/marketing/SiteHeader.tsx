@@ -8,6 +8,8 @@ import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import {headerAuthState} from "@/src/platform/auth/header-state";
 import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
 import {canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
+import ProfileAvatar from "@/src/platform/auth/ProfileAvatar";
+import {profileDisplayName} from "@/src/platform/auth/profile-avatar";
 
 export const discordUrl = "https://discord.gg/P3kcYbzTBU";
 
@@ -21,14 +23,17 @@ const marketingNavLinks = [
 ];
 
 function UserMenu({showDashboard, showWraps, onLogout}: {showDashboard: boolean; showWraps: boolean; onLogout: () => void}) {
+  const pathname = usePathname();
+  const AccountLink = pathname === "/dashboard/pilot-guide" || pathname === "/pilot-guide" || pathname.startsWith("/exams/courses") ? "a" : Link;
+  const {session, avatarUrl} = usePortalAuth();
   return <details className="nav-user-menu">
     <summary aria-label="Open account menu">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2.25c-4.56 0-8.25 2.02-8.25 4.5V21h16.5v-2.25c0-2.48-3.69-4.5-8.25-4.5Z"/></svg>
+      <ProfileAvatar avatarUrl={avatarUrl} displayName={profileDisplayName(session)}/>
     </summary>
     <div className="nav-user-menu-content">
-      <Link href="/account">Account</Link>
-      {showWraps ? <Link href="/wraps">Your wrap</Link> : null}
-      {showDashboard ? <Link href="/dashboard">Dashboard</Link> : null}
+      <AccountLink href="/account">Account</AccountLink>
+      {showWraps ? <AccountLink href="/wraps">Your wrap</AccountLink> : null}
+      {showDashboard ? <AccountLink href="/dashboard">Dashboard</AccountLink> : null}
       <button type="button" onClick={onLogout}>Log out</button>
     </div>
   </details>;
@@ -63,6 +68,7 @@ function NavigationLinks() {
   return <>{links.map(link => {
     const active = link.href === "/exams" ? pathname.startsWith("/exams") && !pathname.startsWith("/exams/courses")
       : link.href === "/exams/courses" ? pathname.startsWith("/exams/courses") : pathname === link.href;
+    if (link.href === "/pilot-guide") return <a key={link.label} href={link.href} onClick={event => navigate(event, link.href)} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</a>;
     return <Link key={link.label} href={link.href} onClick={event => navigate(event, link.href)} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</Link>;
   })}</>;
 }
@@ -87,7 +93,7 @@ export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "he
     <div className="nav-primary-auth"><AuthNavigation showLogin={showLogin}/></div>
     <details className="mobile-navigation">
       <summary aria-label="Open navigation">Menu</summary>
-      <nav aria-label="Mobile navigation"><NavigationLinks/><AuthNavigation showLogin={showLogin}/></nav>
+      <nav aria-label="Mobile navigation"><NavigationLinks/></nav>
     </details>
   </header>;
 }

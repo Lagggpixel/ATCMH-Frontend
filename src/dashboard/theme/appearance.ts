@@ -11,4 +11,4 @@ export function resolveDashboardTheme(preference: DashboardAppearance, systemDar
 }
 
 // Runs before dashboard/course paint. Storage may be unavailable in private/restricted browsers.
-export const dashboardAppearanceBootstrap = `(()=>{if(!/^(?:\\/dashboard|\\/exams\\/courses)(?:\\/|$)/.test(location.pathname))return;let p="system";try{const v=localStorage.getItem("${DASHBOARD_APPEARANCE_KEY}");if(v==="light"||v==="dark")p=v;}catch{}document.documentElement.dataset.dashboardTheme=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):p;})();`;
+export const dashboardAppearanceBootstrap = `(()=>{if(!/^(?:\\/dashboard|\\/exams\\/courses|\\/pilot-guide)(?:\\/|$)/.test(location.pathname))return;let p="system";try{const v=localStorage.getItem("${DASHBOARD_APPEARANCE_KEY}");if(v==="light"||v==="dark")p=v;}catch{}document.documentElement.dataset.dashboardTheme=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):p;})();`;

@@ -96,3 +96,30 @@ test("practical attempt count appears only after an attempted but failed practic
     assert.deepEqual(visibleApplicationQuestions(practicalQuestions, {attemptedPractical: "yes", passedPractical: "yes"}).map(value => value.key), ["attemptedPractical", "passedPractical"]);
     assert.deepEqual(visibleApplicationQuestions(practicalQuestions, {attemptedPractical: "yes", passedPractical: "no"}).map(value => value.key), ["attemptedPractical", "passedPractical", "attemptCount"]);
 });
+
+test("region and timezone drafts normalize recognized older answers but preserve unknown drafts for review", () => {
+    const locationQuestions = [question("region", 1, {inputType: "REGION"}), question("timezone", 2, {inputType: "TIMEZONE"})];
+    assert.deepEqual(initializeApplicationAnswers(locationQuestions, {region: "EU", timezone: "UTC+1"}), {
+        region: "Europe", timezone: "UTC+01:00",
+    });
+    assert.deepEqual(initializeApplicationAnswers(locationQuestions, {region: "My old custom location", timezone: "EST"}), {
+        region: "My old custom location", timezone: "EST",
+    });
+    assert.deepEqual(pruneApplicationAnswers(locationQuestions, {region: "NA", timezone: "UTC+0530", currentClock: "17:30"}), {
+        region: "North America", timezone: "UTC+05:30",
+    });
+});
+
+test("location questions require confirmed canonical choices and clock strings cannot be submitted as timezones", () => {
+    const locationQuestions = [question("region", 1, {inputType: "REGION"}), question("timezone", 2, {inputType: "TIMEZONE"})];
+    assert.deepEqual(validateApplicationAnswers(locationQuestions, {}), {
+        region: "Please answer this question.", timezone: "Please answer this question.",
+    });
+    assert.deepEqual(validateApplicationAnswers(locationQuestions, {region: "Other", timezone: "UTC+05:45"}), {});
+    assert.deepEqual(validateApplicationAnswers(locationQuestions, {region: "Uncertain", timezone: "17:30"}), {
+        region: "Choose a region from the list.", timezone: "Choose a UTC offset or confirm one from your current time.",
+    });
+    assert.deepEqual(validateApplicationAnswers(locationQuestions, {region: "Europe", timezone: "UTC+14:15"}), {
+        timezone: "Choose a UTC offset or confirm one from your current time.",
+    });
+});

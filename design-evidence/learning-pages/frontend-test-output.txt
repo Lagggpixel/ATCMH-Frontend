@@ -1,0 +1,3848 @@
+
+> atcmh-frontend@1.8.9 test
+> node --import tsx --test --test-concurrency=4
+
+TAP version 13
+# Subtest: access beacon accepts the configured public origin behind internal reverse proxy
+ok 1 - access beacon accepts the configured public origin behind internal reverse proxy
+  ---
+  duration_ms: 31.1656
+  type: 'test'
+  ...
+# Subtest: relay supplies only its derived access marker and cannot proxy internal routes
+ok 2 - relay supplies only its derived access marker and cannot proxy internal routes
+  ---
+  duration_ms: 37.278
+  type: 'test'
+  ...
+# Subtest: GET /api/health returns the service readiness payload
+ok 3 - GET /api/health returns the service readiness payload
+  ---
+  duration_ms: 6.8825
+  type: 'test'
+  ...
+# Subtest: version metadata returns the actual frontend package version without operational data
+ok 4 - version metadata returns the actual frontend package version without operational data
+  ---
+  duration_ms: 34.8013
+  type: 'test'
+  ...
+# Subtest: dashboard layout keeps the gated runtime mounted across child route changes
+ok 5 - dashboard layout keeps the gated runtime mounted across child route changes
+  ---
+  duration_ms: 2.0072
+  type: 'test'
+  ...
+# Subtest: dashboard catch-all page only renders the route content
+ok 6 - dashboard catch-all page only renders the route content
+  ---
+  duration_ms: 0.5888
+  type: 'test'
+  ...
+# Subtest: dashboard replaces the public header contents without losing its shared treatment
+ok 7 - dashboard replaces the public header contents without losing its shared treatment
+  ---
+  duration_ms: 1.1646
+  type: 'test'
+  ...
+# Subtest: submission resolves trusted staff access and passes it to canonical quiz authorization
+ok 8 - submission resolves trusted staff access and passes it to canonical quiz authorization
+  ---
+  duration_ms: 3.94
+  type: 'test'
+  ...
+# Subtest: a missing or mismatched signed attempt start rejects before writing
+ok 9 - a missing or mismatched signed attempt start rejects before writing
+  ---
+  duration_ms: 0.5114
+  type: 'test'
+  ...
+# Subtest: the server rejects manual submission after the signed deadline
+ok 10 - the server rejects manual submission after the signed deadline
+  ---
+  duration_ms: 0.3841
+  type: 'test'
+  ...
+# Subtest: the server persists an expired timeout and derives its reason
+ok 11 - the server persists an expired timeout and derives its reason
+  ---
+  duration_ms: 2.2823
+  type: 'test'
+  ...
+# Subtest: the server rejects a forged early timeout request
+ok 12 - the server rejects a forged early timeout request
+  ---
+  duration_ms: 0.3989
+  type: 'test'
+  ...
+# Subtest: missing learner identity rejects before quiz access or a write
+ok 13 - missing learner identity rejects before quiz access or a write
+  ---
+  duration_ms: 0.3076
+  type: 'test'
+  ...
+# Subtest: an unavailable quiz rejects without opening a write transaction
+ok 14 - an unavailable quiz rejects without opening a write transaction
+  ---
+  duration_ms: 0.399
+  type: 'test'
+  ...
+# Subtest: invalid submitted answers reject without opening a write transaction
+ok 15 - invalid submitted answers reject without opening a write transaction
+  ---
+  duration_ms: 0.5609
+  type: 'test'
+  ...
+# Subtest: an invalid submission reason rejects before any transaction, write, or audit delivery
+ok 16 - an invalid submission reason rejects before any transaction, write, or audit delivery
+  ---
+  duration_ms: 0.6245
+  type: 'test'
+  ...
+# Subtest: a valid request submits inside the transaction and emits its audit after commit
+ok 17 - a valid request submits inside the transaction and emits its audit after commit
+  ---
+  duration_ms: 1.3845
+  type: 'test'
+  ...
+# Subtest: a committed attempt emits the matching manual audit event without answers
+ok 18 - a committed attempt emits the matching manual audit event without answers
+  ---
+  duration_ms: 0.6888
+  type: 'test'
+  ...
+# Subtest: an impersonated attempt audit attributes the real actor and preserves the learner target
+ok 19 - an impersonated attempt audit attributes the real actor and preserves the learner target
+  ---
+  duration_ms: 0.4879
+  type: 'test'
+  ...
+# Subtest: submission normalizes the database end feedback value into the version-two review contract
+ok 20 - submission normalizes the database end feedback value into the version-two review contract
+  ---
+  duration_ms: 0.5739
+  type: 'test'
+  ...
+# Subtest: submission rejects an unknown persisted feedback value before opening a write transaction
+ok 21 - submission rejects an unknown persisted feedback value before opening a write transaction
+  ---
+  duration_ms: 0.278
+  type: 'test'
+  ...
+# Subtest: a caught write failure logs only its stage and safe database classification
+ok 22 - a caught write failure logs only its stage and safe database classification
+  ---
+  duration_ms: 0.7085
+  type: 'test'
+  ...
+# Subtest: a duplicate submission returns the matching committed attempt without another audit event
+ok 23 - a duplicate submission returns the matching committed attempt without another audit event
+  ---
+  duration_ms: 0.9723
+  type: 'test'
+  ...
+# Subtest: a duplicate submission rejects an attempt owned by a different learner
+ok 24 - a duplicate submission rejects an attempt owned by a different learner
+  ---
+  duration_ms: 0.7173
+  type: 'test'
+  ...
+# Subtest: a duplicate submission rejects an attempt for a different quiz
+ok 25 - a duplicate submission rejects an attempt for a different quiz
+  ---
+  duration_ms: 0.5722
+  type: 'test'
+  ...
+# Subtest: a logging failure cannot replace the generic submission error
+ok 26 - a logging failure cannot replace the generic submission error
+  ---
+  duration_ms: 0.5521
+  type: 'test'
+  ...
+# Subtest: browser-supplied identity fields are ignored in favor of the verified session
+ok 27 - browser-supplied identity fields are ignored in favor of the verified session
+  ---
+  duration_ms: 0.3562
+  type: 'test'
+  ...
+# Subtest: audit delivery rejection does not fail a committed attempt
+ok 28 - audit delivery rejection does not fail a committed attempt
+  ---
+  duration_ms: 0.4635
+  type: 'test'
+  ...
+# Subtest: toAttemptQuestions exposes only learner-safe question and option fields
+ok 29 - toAttemptQuestions exposes only learner-safe question and option fields
+  ---
+  duration_ms: 2.538
+  type: 'test'
+  ...
+# Subtest: remainingSeconds counts down from a fixed start and never becomes negative
+ok 30 - remainingSeconds counts down from a fixed start and never becomes negative
+  ---
+  duration_ms: 0.302
+  type: 'test'
+  ...
+# Subtest: coordinateAttemptSubmission recovers the one-shot guard after a rejected action
+ok 31 - coordinateAttemptSubmission recovers the one-shot guard after a rejected action
+  ---
+  duration_ms: 0.4874
+  type: 'test'
+  ...
+# Subtest: coordinateAttemptSubmission restores the guard and preserves a returned recoverable error
+ok 32 - coordinateAttemptSubmission restores the guard and preserves a returned recoverable error
+  ---
+  duration_ms: 0.2504
+  type: 'test'
+  ...
+# Subtest: coordinateAttemptSubmission allows only one concurrent manual or timeout submission
+ok 33 - coordinateAttemptSubmission allows only one concurrent manual or timeout submission
+  ---
+  duration_ms: 0.4649
+  type: 'test'
+  ...
+# Subtest: active protection warns before unloading even without answers
+ok 34 - active protection warns before unloading even without answers
+  ---
+  duration_ms: 1.9527
+  type: 'test'
+  ...
+# Subtest: cancelling a same-origin link leaves the attempt active without submitting
+ok 35 - cancelling a same-origin link leaves the attempt active without submitting
+  ---
+  duration_ms: 1.403
+  type: 'test'
+  ...
+# Subtest: confirmed same-origin links submit once and only navigate after success
+ok 36 - confirmed same-origin links submit once and only navigate after success
+  ---
+  duration_ms: 0.807
+  type: 'test'
+  ...
+# Subtest: pagehide sends the most recently selected answers
+ok 37 - pagehide sends the most recently selected answers
+  ---
+  duration_ms: 0.7588
+  type: 'test'
+  ...
+# Subtest: back restores the sentinel on cancel and submits before leaving on confirmation
+ok 38 - back restores the sentinel on cancel and submits before leaving on confirmation
+  ---
+  duration_ms: 0.5269
+  type: 'test'
+  ...
+# Subtest: modified and external links are left to the browser
+ok 39 - modified and external links are left to the browser
+  ---
+  duration_ms: 0.8888
+  type: 'test'
+  ...
+# Subtest: uninstall removes all lifecycle listeners
+ok 40 - uninstall removes all lifecycle listeners
+  ---
+  duration_ms: 0.7194
+  type: 'test'
+  ...
+# Subtest: keepalive helper posts the encoded quiz id and reports synchronous failure
+ok 41 - keepalive helper posts the encoded quiz id and reports synchronous failure
+  ---
+  duration_ms: 26.4106
+  type: 'test'
+  ...
+# Subtest: keepalive helper observes rejected requests while reporting synchronous start
+ok 42 - keepalive helper observes rejected requests while reporting synchronous start
+  ---
+  duration_ms: 11.1097
+  type: 'test'
+  ...
+# Subtest: keeps the current heading selected through long gaps
+ok 43 - keeps the current heading selected through long gaps
+  ---
+  duration_ms: 1.531
+  type: 'test'
+  ...
+# Subtest: selects the final visible revision at page bottom
+ok 44 - selects the final visible revision at page bottom
+  ---
+  duration_ms: 0.4822
+  type: 'test'
+  ...
+# Subtest: does not select headings in an offscreen section
+ok 45 - does not select headings in an offscreen section
+  ---
+  duration_ms: 0.2138
+  type: 'test'
+  ...
+# Subtest: leaves an existing Exams session alone
+ok 46 - leaves an existing Exams session alone
+  ---
+  duration_ms: 34.6453
+  type: 'test'
+  ...
+# Subtest: does nothing for an anonymous visitor
+ok 47 - does nothing for an anonymous visitor
+  ---
+  duration_ms: 1.7832
+  type: 'test'
+  ...
+# Subtest: route case is run by route.test.ts with module mocking enabled
+ok 48 - route case is run by route.test.ts with module mocking enabled # SKIP
+  ---
+  duration_ms: 1.6121
+  type: 'test'
+  ...
+# Subtest: callback route returns to FRONTEND_PUBLIC_ORIGIN from a Docker-origin request
+ok 49 - callback route returns to FRONTEND_PUBLIC_ORIGIN from a Docker-origin request
+  ---
+  duration_ms: 879.7385
+  type: 'test'
+  ...
+# Subtest: session route case is launched by its wrapper
+ok 50 - session route case is launched by its wrapper # SKIP
+  ---
+  duration_ms: 1.3845
+  type: 'test'
+  ...
+# Subtest: central session response matches the unified-origin contract
+ok 51 - central session response matches the unified-origin contract
+  ---
+  duration_ms: 679.7069
+  type: 'test'
+  ...
+# Subtest: attempt detail permits reviewers
+ok 52 - attempt detail permits reviewers
+  ---
+  duration_ms: 11.0226
+  type: 'test'
+  ...
+# Subtest: attempt detail validates its UUID and returns 404 when missing
+ok 53 - attempt detail validates its UUID and returns 404 when missing
+  ---
+  duration_ms: 5.0901
+  type: 'test'
+  ...
+# Subtest: attempt deletion is restricted to administrators
+ok 54 - attempt deletion is restricted to administrators
+  ---
+  duration_ms: 3.3842
+  type: 'test'
+  ...
+# Subtest: attempt deletion honors the write gate before deleting
+ok 55 - attempt deletion honors the write gate before deleting
+  ---
+  duration_ms: 2.9176
+  type: 'test'
+  ...
+# Subtest: attempt deletion permits administrators and returns no content
+ok 56 - attempt deletion permits administrators and returns no content
+  ---
+  duration_ms: 5.1529
+  type: 'test'
+  ...
+# Subtest: attempt list permits reviewers and returns the paginated management DTO
+ok 57 - attempt list permits reviewers and returns the paginated management DTO
+  ---
+  duration_ms: 15.9398
+  type: 'test'
+  ...
+# Subtest: attempt list rejects invalid pagination as a validation error
+ok 58 - attempt list rejects invalid pagination as a validation error
+  ---
+  duration_ms: 6.5167
+  type: 'test'
+  ...
+# Subtest: quiz PUT permits an authorised mentor before parsing or writing
+ok 59 - quiz PUT permits an authorised mentor before parsing or writing
+  ---
+  duration_ms: 15.4946
+  type: 'test'
+  ...
+# Subtest: quiz GET returns the Dashboard DTO without raw correct-option IDs
+ok 60 - quiz GET returns the Dashboard DTO without raw correct-option IDs
+  ---
+  duration_ms: 4.9456
+  type: 'test'
+  ...
+# Subtest: exam reporting requires an authenticated reviewer before any database read
+ok 61 - exam reporting requires an authenticated reviewer before any database read
+  ---
+  duration_ms: 70.8263
+  type: 'test'
+  ...
+# Subtest: reviewers receive a private statistics response
+ok 62 - reviewers receive a private statistics response
+  ---
+  duration_ms: 7.3337
+  type: 'test'
+  ...
+# Subtest: invalid windows fail validation and database failures stay within this section
+ok 63 - invalid windows fail validation and database failures stay within this section
+  ---
+  duration_ms: 6.0156
+  type: 'test'
+  ...
+# Subtest: website PUT rejects a mentor before parsing the request
+ok 64 - website PUT rejects a mentor before parsing the request
+  ---
+  duration_ms: 13.41
+  type: 'test'
+  ...
+# Subtest: same-origin JSON submits answers for the route quiz rather than browser identity
+ok 65 - same-origin JSON submits answers for the route quiz rather than browser identity
+  ---
+  duration_ms: 34.5008
+  type: 'test'
+  ...
+# Subtest: same-origin text/plain JSON submits answers
+ok 66 - same-origin text/plain JSON submits answers
+  ---
+  duration_ms: 1.5315
+  type: 'test'
+  ...
+# Subtest: malformed or structurally invalid payloads return stable bad-request JSON
+ok 67 - malformed or structurally invalid payloads return stable bad-request JSON
+  ---
+  duration_ms: 4.1971
+  type: 'test'
+  ...
+# Subtest: an oversized UTF-8 payload is rejected before submission
+ok 68 - an oversized UTF-8 payload is rejected before submission
+  ---
+  duration_ms: 1.2168
+  type: 'test'
+  ...
+# Subtest: a cross-origin request is rejected
+ok 69 - a cross-origin request is rejected
+  ---
+  duration_ms: 0.7736
+  type: 'test'
+  ...
+# Subtest: missing session or start and unexpected failures return the controlled unavailable response
+ok 70 - missing session or start and unexpected failures return the controlled unavailable response
+  ---
+  duration_ms: 2.3424
+  type: 'test'
+  ...
+# Subtest: start route keeps signed-out and signed-in redirects on the browser origin
+ok 71 - start route keeps signed-out and signed-in redirects on the browser origin
+  ---
+  duration_ms: 774.5752
+  type: 'test'
+  ...
+# Subtest: route case is run by route.test.ts with module mocking enabled
+ok 72 - route case is run by route.test.ts with module mocking enabled # SKIP
+  ---
+  duration_ms: 1.0303
+  type: 'test'
+  ...
+# Subtest: signed-out applications offer both central authentication providers
+ok 73 - signed-out applications offer both central authentication providers
+  ---
+  duration_ms: 2.3355
+  type: 'test'
+  ...
+# Subtest: an incomplete session restarts central auth through its existing identity
+ok 74 - an incomplete session restarts central auth through its existing identity
+  ---
+  duration_ms: 0.5613
+  type: 'test'
+  ...
+# Subtest: Admin eligibility bypass is explicitly identified in the application UI
+ok 75 - Admin eligibility bypass is explicitly identified in the application UI
+  ---
+  duration_ms: 1.8794
+  type: 'test'
+  ...
+# Subtest: the bypass warning remains conspicuous in editable and terminal application states
+ok 76 - the bypass warning remains conspicuous in editable and terminal application states
+  ---
+  duration_ms: 0.7751
+  type: 'test'
+  ...
+# Subtest: another active application is rendered as a normal blocking state
+ok 77 - another active application is rendered as a normal blocking state
+  ---
+  duration_ms: 5.5429
+  type: 'test'
+  ...
+# Subtest: conditional application questions use restrained accessible entry motion
+ok 78 - conditional application questions use restrained accessible entry motion
+  ---
+  duration_ms: 1.7391
+  type: 'test'
+  ...
+# Subtest: application questions use open sections while controls retain boundaries
+ok 79 - application questions use open sections while controls retain boundaries
+  ---
+  duration_ms: 0.8233
+  type: 'test'
+  ...
+# Subtest: application type parsing accepts only canonical route values
+ok 80 - application type parsing accepts only canonical route values
+  ---
+  duration_ms: 1.4423
+  type: 'test'
+  ...
+# Subtest: conditional questions follow backend ordering and only appear through visible parents
+ok 81 - conditional questions follow backend ordering and only appear through visible parents
+  ---
+  duration_ms: 2.0861
+  type: 'test'
+  ...
+# Subtest: switching a parent answer prunes hidden website progress instead of submitting stale data
+ok 82 - switching a parent answer prunes hidden website progress instead of submitting stale data
+  ---
+  duration_ms: 1.6784
+  type: 'test'
+  ...
+# Subtest: submission validation covers every currently visible required answer
+ok 83 - submission validation covers every currently visible required answer
+  ---
+  duration_ms: 0.637
+  type: 'test'
+  ...
+# Subtest: weekly availability starts with the backend-compatible seven-day default
+ok 84 - weekly availability starts with the backend-compatible seven-day default
+  ---
+  duration_ms: 0.8917
+  type: 'test'
+  ...
+# Subtest: weekly availability initialization preserves a saved draft
+ok 85 - weekly availability initialization preserves a saved draft
+  ---
+  duration_ms: 3.0418
+  type: 'test'
+  ...
+# Subtest: practical attempt count appears only after an attempted but failed practical
+ok 86 - practical attempt count appears only after an attempted but failed practical
+  ---
+  duration_ms: 0.4834
+  type: 'test'
+  ...
+# Subtest: region and timezone drafts normalize recognized older answers but preserve unknown drafts for review
+ok 87 - region and timezone drafts normalize recognized older answers but preserve unknown drafts for review
+  ---
+  duration_ms: 1.1793
+  type: 'test'
+  ...
+# Subtest: location questions require confirmed canonical choices and clock strings cannot be submitted as timezones
+ok 88 - location questions require confirmed canonical choices and clock strings cannot be submitted as timezones
+  ---
+  duration_ms: 0.5478
+  type: 'test'
+  ...
+# Subtest: broad regions normalize older abbreviations without guessing a location
+ok 89 - broad regions normalize older abbreviations without guessing a location
+  ---
+  duration_ms: 2.5955
+  type: 'test'
+  ...
+# Subtest: timezone drafts become canonical UTC offsets and retain quarter-hour precision
+ok 90 - timezone drafts become canonical UTC offsets and retain quarter-hour precision
+  ---
+  duration_ms: 0.7102
+  type: 'test'
+  ...
+# Subtest: timezone dropdown includes both endpoint offsets and common fractional offsets
+ok 91 - timezone dropdown includes both endpoint offsets and common fractional offsets
+  ---
+  duration_ms: 0.3873
+  type: 'test'
+  ...
+# Subtest: local clock input understands AM/PM, 24-hour time, noon, and midnight
+ok 92 - local clock input understands AM/PM, 24-hour time, noon, and midnight
+  ---
+  duration_ms: 0.6429
+  type: 'test'
+  ...
+# Subtest: current clock inference uses the supplied present UTC time and quarter-hour offsets
+ok 93 - current clock inference uses the supplied present UTC time and quarter-hour offsets
+  ---
+  duration_ms: 0.7772
+  type: 'test'
+  ...
+# Subtest: midnight wraps remain valid and date ambiguity is never silently resolved
+ok 94 - midnight wraps remain valid and date ambiguity is never silently resolved
+  ---
+  duration_ms: 0.2582
+  type: 'test'
+  ...
+# Subtest: structured availability serializes to the shared backend contract
+ok 95 - structured availability serializes to the shared backend contract
+  ---
+  duration_ms: 1.7238
+  type: 'test'
+  ...
+# Subtest: saved canonical drafts restore into editable controls
+ok 96 - saved canonical drafts restore into editable controls
+  ---
+  duration_ms: 1.241
+  type: 'test'
+  ...
+# Subtest: canonical validation rejects missing days and invalid UTC times
+ok 97 - canonical validation rejects missing days and invalid UTC times
+  ---
+  duration_ms: 0.1623
+  type: 'test'
+  ...
+# Subtest: application and mentor matching share the same weekday availability editor
+ok 98 - application and mentor matching share the same weekday availability editor
+  ---
+  duration_ms: 0.657
+  type: 'test'
+  ...
+# Subtest: canonical Dashboard paths resolve to preserved screens
+ok 99 - canonical Dashboard paths resolve to preserved screens
+  ---
+  duration_ms: 3.0684
+  type: 'test'
+  ...
+# Subtest: Dashboard receives its backend URL at runtime and keeps Exams calls same-origin
+ok 100 - Dashboard receives its backend URL at runtime and keeps Exams calls same-origin
+  ---
+  duration_ms: 2.2628
+  type: 'test'
+  ...
+# Subtest: declined policy consent leaves the user safely signed out
+ok 101 - declined policy consent leaves the user safely signed out
+  ---
+  duration_ms: 1.1724
+  type: 'test'
+  ...
+# Subtest: invalid policy consent asks the user to restart sign-in without exposing internals
+ok 102 - invalid policy consent asks the user to restart sign-in without exposing internals
+  ---
+  duration_ms: 0.2893
+  type: 'test'
+  ...
+# Subtest: expired policy consent asks the user to restart sign-in
+ok 103 - expired policy consent asks the user to restart sign-in
+  ---
+  duration_ms: 0.1216
+  type: 'test'
+  ...
+# Subtest: account directory keeps full IDs and exposes selection on a keyboard-accessible control
+ok 104 - account directory keeps full IDs and exposes selection on a keyboard-accessible control
+  ---
+  duration_ms: 13710.9729
+  type: 'test'
+  ...
+# Subtest: directory provider columns show active identities even when archived ones come first
+ok 105 - directory provider columns show active identities even when archived ones come first
+  ---
+  duration_ms: 3.177
+  type: 'test'
+  ...
+# Subtest: unresolved names and missing providers retain useful identity and status information
+ok 106 - unresolved names and missing providers retain useful identity and status information
+  ---
+  duration_ms: 2.8156
+  type: 'test'
+  ...
+# Subtest: overview derives last login from backend timestamps and respects the IP capability
+ok 107 - overview derives last login from backend timestamps and respects the IP capability
+  ---
+  duration_ms: 11.9817
+  type: 'test'
+  ...
+# Subtest: evidence grouping keeps exact matches first and network candidates together
+ok 108 - evidence grouping keeps exact matches first and network candidates together
+  ---
+  duration_ms: 11719.2921
+  type: 'test'
+  ...
+# Subtest: rescan status shows bounded progress, result, and truncation honestly
+ok 109 - rescan status shows bounded progress, result, and truncation honestly
+  ---
+  duration_ms: 11.7759
+  type: 'test'
+  ...
+# Subtest: redacted evidence stays actionable using opaque references without displaying them
+ok 110 - redacted evidence stays actionable using opaque references without displaying them
+  ---
+  duration_ms: 19.4813
+  type: 'test'
+  ...
+# Subtest: per-account IP list is visible only with the explicit IP capability
+ok 111 - per-account IP list is visible only with the explicit IP capability
+  ---
+  duration_ms: 1474.2059
+  type: 'test'
+  ...
+# Subtest: audit log details open in a popup instead of expanding a table row
+ok 112 - audit log details open in a popup instead of expanding a table row
+  ---
+  duration_ms: 2.009
+  type: 'test'
+  ...
+# Subtest: audit log view button is kept on one line
+ok 113 - audit log view button is kept on one line
+  ---
+  duration_ms: 0.3458
+  type: 'test'
+  ...
+# Subtest: audit filters use server-provided options and include a date range
+ok 114 - audit filters use server-provided options and include a date range
+  ---
+  duration_ms: 0.4234
+  type: 'test'
+  ...
+# Subtest: mentee index separates cards/table views from the profile route
+ok 115 - mentee index separates cards/table views from the profile route
+  ---
+  duration_ms: 2.664
+  type: 'test'
+  ...
+# Subtest: mentee filters reset pagination and expose a no-results recovery state
+ok 116 - mentee filters reset pagination and expose a no-results recovery state
+  ---
+  duration_ms: 1.6196
+  type: 'test'
+  ...
+# Subtest: mentee search work is indexed and list rows avoid unnecessary rerenders
+ok 117 - mentee search work is indexed and list rows avoid unnecessary rerenders
+  ---
+  duration_ms: 0.3173
+  type: 'test'
+  ...
+# Subtest: mobile mentees keep the list usable and profile content readable
+ok 118 - mobile mentees keep the list usable and profile content readable
+  ---
+  duration_ms: 6.055
+  type: 'test'
+  ...
+# Subtest: state actions use custom confirmation semantics and pagination exposes its semantics
+ok 119 - state actions use custom confirmation semantics and pagination exposes its semantics
+  ---
+  duration_ms: 0.5576
+  type: 'test'
+  ...
+# Subtest: waitlist view exposes a shared weekly UTC availability matcher that filters the main list
+ok 120 - waitlist view exposes a shared weekly UTC availability matcher that filters the main list
+  ---
+  duration_ms: 4.5603
+  type: 'test'
+  ...
+# Subtest: mentee profile exposes timeline and text alternatives to its availability chart
+ok 121 - mentee profile exposes timeline and text alternatives to its availability chart
+  ---
+  duration_ms: 0.821
+  type: 'test'
+  ...
+# Subtest: mock question editor exposes all required template fields and snapshot guidance
+ok 122 - mock question editor exposes all required template fields and snapshot guidance
+  ---
+  duration_ms: 1.5078
+  type: 'test'
+  ...
+# Subtest: mock question editor gates itself on the dedicated capability
+ok 123 - mock question editor gates itself on the dedicated capability
+  ---
+  duration_ms: 0.2779
+  type: 'test'
+  ...
+# Subtest: mock question editor sends all configured questions and delegates readiness to the count policy
+ok 124 - mock question editor sends all configured questions and delegates readiness to the count policy
+  ---
+  duration_ms: 0.3108
+  type: 'test'
+  ...
+# Subtest: sessions keep the wide table scrollable in landscape and use cards on phones
+ok 125 - sessions keep the wide table scrollable in landscape and use cards on phones
+  ---
+  duration_ms: 2.7886
+  type: 'test'
+  ...
+# Subtest: usernote creation stays with the filter actions
+ok 126 - usernote creation stays with the filter actions
+  ---
+  duration_ms: 1.5579
+  type: 'test'
+  ...
+# Subtest: sortable table headings stay on one line in a scrollable region
+ok 127 - sortable table headings stay on one line in a scrollable region
+  ---
+  duration_ms: 0.5128
+  type: 'test'
+  ...
+# Subtest: filter actions collapse without clipping on narrow viewports
+ok 128 - filter actions collapse without clipping on narrow viewports
+  ---
+  duration_ms: 0.3566
+  type: 'test'
+  ...
+# Subtest: application question management has its own moderator capability and route
+ok 129 - application question management has its own moderator capability and route
+  ---
+  duration_ms: 1.3937
+  type: 'test'
+  ...
+# Subtest: the editor exposes content and ordering without allowing question semantics to drift
+ok 130 - the editor exposes content and ordering without allowing question semantics to drift
+  ---
+  duration_ms: 0.6602
+  type: 'test'
+  ...
+# Subtest: switching to Discord is an explicit destructive restart, never a resume
+ok 131 - switching to Discord is an explicit destructive restart, never a resume
+  ---
+  duration_ms: 0.3931
+  type: 'test'
+  ...
+# Subtest: the first populated folder opens and saved quizzes reveal their folder
+ok 132 - the first populated folder opens and saved quizzes reveal their folder
+  ---
+  duration_ms: 1.386
+  type: 'test'
+  ...
+# Subtest: private quiz actions expose unlocks and moving without crowding the ledger
+ok 133 - private quiz actions expose unlocks and moving without crowding the ledger
+  ---
+  duration_ms: 0.3889
+  type: 'test'
+  ...
+# Subtest: exam management uses dedicated catalog, editor, import, and website routes
+ok 134 - exam management uses dedicated catalog, editor, import, and website routes
+  ---
+  duration_ms: 2.961
+  type: 'test'
+  ...
+# Subtest: exam center receives the shared global Dashboard navigation once
+ok 135 - exam center receives the shared global Dashboard navigation once
+  ---
+  duration_ms: 0.3265
+  type: 'test'
+  ...
+# Subtest: an expired shared session uses the one ATCMH login
+ok 136 - an expired shared session uses the one ATCMH login
+  ---
+  duration_ms: 0.2692
+  type: 'test'
+  ...
+# Subtest: exam center removes redundant identity and permission copy
+ok 137 - exam center removes redundant identity and permission copy
+  ---
+  duration_ms: 0.2025
+  type: 'test'
+  ...
+# Subtest: exam navigation stays scrollable without showing a scrollbar
+ok 138 - exam navigation stays scrollable without showing a scrollbar
+  ---
+  duration_ms: 0.2709
+  type: 'test'
+  ...
+# Subtest: Course Center has its own dashboard screen instead of living inside Exam Center
+ok 139 - Course Center has its own dashboard screen instead of living inside Exam Center
+  ---
+  duration_ms: 0.5617
+  type: 'test'
+  ...
+# Subtest: courses live in the flat Assessment dashboard dropdown instead of the Exam Center tabs
+ok 140 - courses live in the flat Assessment dashboard dropdown instead of the Exam Center tabs
+  ---
+  duration_ms: 0.4564
+  type: 'test'
+  ...
+# Subtest: the catalog does not render import or website forms inline
+ok 141 - the catalog does not render import or website forms inline
+  ---
+  duration_ms: 0.2694
+  type: 'test'
+  ...
+# Subtest: direct editor routes require the loaded actor to manage exams
+ok 142 - direct editor routes require the loaded actor to manage exams
+  ---
+  duration_ms: 0.4739
+  type: 'test'
+  ...
+# Subtest: the editor only renders a quiz loaded for the current route
+ok 143 - the editor only renders a quiz loaded for the current route
+  ---
+  duration_ms: 0.6412
+  type: 'test'
+  ...
+# Subtest: direct exam workspaces centralize authorization and show access denied locally
+ok 144 - direct exam workspaces centralize authorization and show access denied locally
+  ---
+  duration_ms: 0.3852
+  type: 'test'
+  ...
+# Subtest: only an Exams administrator can open the website-content workspace
+ok 145 - only an Exams administrator can open the website-content workspace
+  ---
+  duration_ms: 0.1708
+  type: 'test'
+  ...
+# Subtest: quiz-management access explains why every quiz is visible
+ok 146 - quiz-management access explains why every quiz is visible
+  ---
+  duration_ms: 0.164
+  type: 'test'
+  ...
+# Subtest: exam catalog renders filtered quizzes in collapsible mentor folders
+ok 147 - exam catalog renders filtered quizzes in collapsible mentor folders
+  ---
+  duration_ms: 0.2849
+  type: 'test'
+  ...
+# Subtest: exam catalog controls use the approved soft corner radius
+ok 148 - exam catalog controls use the approved soft corner radius
+  ---
+  duration_ms: 0.2177
+  type: 'test'
+  ...
+# Subtest: exam sub-navigation sends secondary tools to dedicated routes
+ok 149 - exam sub-navigation sends secondary tools to dedicated routes
+  ---
+  duration_ms: 0.316
+  type: 'test'
+  ...
+# Subtest: attempt reviews open on a dedicated subpage rather than inside the list
+ok 150 - attempt reviews open on a dedicated subpage rather than inside the list
+  ---
+  duration_ms: 0.2503
+  type: 'test'
+  ...
+# Subtest: attempt deletion is limited to super administrators and names its target
+ok 151 - attempt deletion is limited to super administrators and names its target
+  ---
+  duration_ms: 0.2151
+  type: 'test'
+  ...
+# Subtest: attempt review uses the immutable stored review and provides a back route
+ok 152 - attempt review uses the immutable stored review and provides a back route
+  ---
+  duration_ms: 0.2706
+  type: 'test'
+  ...
+# Subtest: exam navigation and empty unlock copy use the approved wording
+ok 153 - exam navigation and empty unlock copy use the approved wording
+  ---
+  duration_ms: 0.1841
+  type: 'test'
+  ...
+# Subtest: manual unlocks reject Discord IDs already present in the confirmed list
+ok 154 - manual unlocks reject Discord IDs already present in the confirmed list
+  ---
+  duration_ms: 0.1516
+  type: 'test'
+  ...
+# Subtest: unlock picker groups private quizzes under their mentor folders
+ok 155 - unlock picker groups private quizzes under their mentor folders
+  ---
+  duration_ms: 0.13
+  type: 'test'
+  ...
+# Subtest: unlock workspace keeps desktop columns at their natural heights
+ok 156 - unlock workspace keeps desktop columns at their natural heights
+  ---
+  duration_ms: 0.4129
+  type: 'test'
+  ...
+# Subtest: create and import are quiet catalogue actions rather than persistent destinations
+ok 157 - create and import are quiet catalogue actions rather than persistent destinations
+  ---
+  duration_ms: 6.2324
+  type: 'test'
+  ...
+# Subtest: the active exam tab underline meets the integrated navigation divider
+ok 158 - the active exam tab underline meets the integrated navigation divider
+  ---
+  duration_ms: 0.3144
+  type: 'test'
+  ...
+# Subtest: exam center view type includes the unlocks workspace
+ok 159 - exam center view type includes the unlocks workspace
+  ---
+  duration_ms: 0.6725
+  type: 'test'
+  ...
+# Subtest: unlock mutations cannot update a different selected quiz
+ok 160 - unlock mutations cannot update a different selected quiz
+  ---
+  duration_ms: 0.2606
+  type: 'test'
+  ...
+# Subtest: unlock workspace uses compatible immutable sorting and truthful server audit records
+ok 161 - unlock workspace uses compatible immutable sorting and truthful server audit records
+  ---
+  duration_ms: 0.1887
+  type: 'test'
+  ...
+# Subtest: unlock load errors do not also announce an empty unlock list
+ok 162 - unlock load errors do not also announce an empty unlock list
+  ---
+  duration_ms: 0.1428
+  type: 'test'
+  ...
+# Subtest: exam editing controls require the manage-exams capability
+ok 163 - exam editing controls require the manage-exams capability
+  ---
+  duration_ms: 0.1961
+  type: 'test'
+  ...
+# Subtest: dedicated exam workspaces do not use elevated outer cards
+ok 164 - dedicated exam workspaces do not use elevated outer cards
+  ---
+  duration_ms: 0.2755
+  type: 'test'
+  ...
+# Subtest: quiz editor establishes a normalized baseline whenever its quiz changes
+ok 165 - quiz editor establishes a normalized baseline whenever its quiz changes
+  ---
+  duration_ms: 0.2148
+  type: 'test'
+  ...
+# Subtest: quiz editor confirms before its Back and Cancel controls discard a dirty draft
+ok 166 - quiz editor confirms before its Back and Cancel controls discard a dirty draft
+  ---
+  duration_ms: 0.2063
+  type: 'test'
+  ...
+# Subtest: quiz editor disarms only after a successful save
+ok 167 - quiz editor disarms only after a successful save
+  ---
+  duration_ms: 0.2666
+  type: 'test'
+  ...
+# Subtest: quiz editor selects canonical folders and creates an administrator folder inline
+ok 168 - quiz editor selects canonical folders and creates an administrator folder inline
+  ---
+  duration_ms: 0.6206
+  type: 'test'
+  ...
+# Subtest: quiz editor preserves rejected drafts and serializes concurrent save attempts
+ok 169 - quiz editor preserves rejected drafts and serializes concurrent save attempts
+  ---
+  duration_ms: 0.2786
+  type: 'test'
+  ...
+# Subtest: successful quiz saves update and reveal the returned canonical quiz
+ok 170 - successful quiz saves update and reveal the returned canonical quiz
+  ---
+  duration_ms: 3.2614
+  type: 'test'
+  ...
+# Subtest: website content compares edits with its last loaded or saved snapshot
+ok 171 - website content compares edits with its last loaded or saved snapshot
+  ---
+  duration_ms: 0.3837
+  type: 'test'
+  ...
+# Subtest: failed website saves leave the last successful baseline intact
+ok 172 - failed website saves leave the last successful baseline intact
+  ---
+  duration_ms: 0.3919
+  type: 'test'
+  ...
+# Subtest: imports stay dirty until a commit succeeds and template downloads stay clean
+ok 173 - imports stay dirty until a commit succeeds and template downloads stay clean
+  ---
+  duration_ms: 0.2639
+  type: 'test'
+  ...
+# Subtest: validation checks inactive questions before a quiz can save
+ok 174 - validation checks inactive questions before a quiz can save
+  ---
+  duration_ms: 1.604
+  type: 'test'
+  ...
+# Subtest: validation requires one correct answer and a canonical folder
+ok 175 - validation requires one correct answer and a canonical folder
+  ---
+  duration_ms: 1.2924
+  type: 'test'
+  ...
+# Subtest: moving questions changes order without mutating the original draft
+ok 176 - moving questions changes order without mutating the original draft
+  ---
+  duration_ms: 0.2948
+  type: 'test'
+  ...
+# Subtest: serializes nested objects deterministically while preserving array order
+ok 177 - serializes nested objects deterministically while preserving array order
+  ---
+  duration_ms: 1.8019
+  type: 'test'
+  ...
+# Subtest: clean navigation bypasses confirmation and runs once
+ok 178 - clean navigation bypasses confirmation and runs once
+  ---
+  duration_ms: 0.7225
+  type: 'test'
+  ...
+# Subtest: Cancel invokes no navigation action
+ok 179 - Cancel invokes no navigation action
+  ---
+  duration_ms: 0.4245
+  type: 'test'
+  ...
+# Subtest: Leave disarms protection and invokes navigation exactly once
+ok 180 - Leave disarms protection and invokes navigation exactly once
+  ---
+  duration_ms: 0.4683
+  type: 'test'
+  ...
+# Subtest: Back restores the sentinel after Cancel and leaves after confirmation
+ok 181 - Back restores the sentinel after Cancel and leaves after confirmation
+  ---
+  duration_ms: 1.3523
+  type: 'test'
+  ...
+# Subtest: dirty protection captures same-origin links and removes every listener when disarmed
+ok 182 - dirty protection captures same-origin links and removes every listener when disarmed
+  ---
+  duration_ms: 0.5578
+  type: 'test'
+  ...
+# Subtest: real anchor download properties do not bypass the guard unless the attribute exists
+ok 183 - real anchor download properties do not bypass the guard unless the attribute exists
+  ---
+  duration_ms: 0.6339
+  type: 'test'
+  ...
+# Subtest: any positive mock question count is ready to send
+ok 184 - any positive mock question count is ready to send
+  ---
+  duration_ms: 1.7561
+  type: 'test'
+  ...
+# Subtest: zero mock questions is explicitly unavailable
+ok 185 - zero mock questions is explicitly unavailable
+  ---
+  duration_ms: 1.1703
+  type: 'test'
+  ...
+# Subtest: account and alt navigation outcomes follow server capabilities
+ok 186 - account and alt navigation outcomes follow server capabilities
+  ---
+  duration_ms: 3.4137
+  type: 'test'
+  ...
+# Subtest: mock question navigation follows its dedicated server capability
+ok 187 - mock question navigation follows its dedicated server capability
+  ---
+  duration_ms: 0.4716
+  type: 'test'
+  ...
+# Subtest: dashboard navigation keeps mentorship, assessment, and administration grouped without nested assessment labels
+ok 188 - dashboard navigation keeps mentorship, assessment, and administration grouped without nested assessment labels
+  ---
+  duration_ms: 1.5704
+  type: 'test'
+  ...
+# Subtest: impersonation outcome names the target account
+ok 189 - impersonation outcome names the target account
+  ---
+  duration_ms: 0.1793
+  type: 'test'
+  ...
+# Subtest: personal account outcomes distinguish restoration, conflicts, and linked identities
+ok 190 - personal account outcomes distinguish restoration, conflicts, and linked identities
+  ---
+  duration_ms: 0.5221
+  type: 'test'
+  ...
+# Subtest: linked identities with unresolved names show their verified subjects instead
+ok 191 - linked identities with unresolved names show their verified subjects instead
+  ---
+  duration_ms: 0.2336
+  type: 'test'
+  ...
+# Subtest: real lowercase backend status renders as a user-facing label
+ok 192 - real lowercase backend status renders as a user-facing label
+  ---
+  duration_ms: 0.3069
+  type: 'test'
+  ...
+# Subtest: actual account route renders signed-out and restored lowercase-status outcomes
+ok 193 - actual account route renders signed-out and restored lowercase-status outcomes
+  ---
+  duration_ms: 9871.0734
+  type: 'test'
+  ...
+# Subtest: account page keeps staff dashboard navigation out of the personal account surface
+ok 194 - account page keeps staff dashboard navigation out of the personal account surface
+  ---
+  duration_ms: 2.4256
+  type: 'test'
+  ...
+# Subtest: account logout controls use explicit high-contrast marketing colors
+ok 195 - account logout controls use explicit high-contrast marketing colors
+  ---
+  duration_ms: 55.662
+  type: 'test'
+  ...
+# Subtest: actual capability navigation includes privileged routes only for capable users
+ok 196 - actual capability navigation includes privileged routes only for capable users
+  ---
+  duration_ms: 611.3852
+  type: 'test'
+  ...
+# Subtest: admin navigation uses click-controlled groups and a mobile drawer layout
+ok 197 - admin navigation uses click-controlled groups and a mobile drawer layout
+  ---
+  duration_ms: 22394.4808
+  type: 'test'
+  ...
+# Subtest: actual confirmation and stale-error views wire commit and cancel callbacks
+ok 198 - actual confirmation and stale-error views wire commit and cancel callbacks
+  ---
+  duration_ms: 2170.4926
+  type: 'test'
+  ...
+# Subtest: actual alt dialog and impersonation banner expose their actions
+ok 199 - actual alt dialog and impersonation banner expose their actions
+  ---
+  duration_ms: 999.105
+  type: 'test'
+  ...
+# Subtest: actual audit row renders only the server-projected payload
+ok 200 - actual audit row renders only the server-projected payload
+  ---
+  duration_ms: 456.5764
+  type: 'test'
+  ...
+# Subtest: reordering parents keeps their subsections and content together
+ok 201 - reordering parents keeps their subsections and content together
+  ---
+  duration_ms: 2.1947
+  type: 'test'
+  ...
+# Subtest: moving a subsection to another parent preserves its identity and content
+ok 202 - moving a subsection to another parent preserves its identity and content
+  ---
+  duration_ms: 0.4183
+  type: 'test'
+  ...
+# Subtest: saving a course keeps existing IDs and lets the API assign IDs to new subsections
+ok 203 - saving a course keeps existing IDs and lets the API assign IDs to new subsections
+  ---
+  duration_ms: 1.5341
+  type: 'test'
+  ...
+# Subtest: creating a course sends no provisional subsection IDs
+ok 204 - creating a course sends no provisional subsection IDs
+  ---
+  duration_ms: 1.2478
+  type: 'test'
+  ...
+# Subtest: validation checks an inactive subsection and points to it
+ok 205 - validation checks an inactive subsection and points to it
+  ---
+  duration_ms: 5.1197
+  type: 'test'
+  ...
+# Subtest: an unattached media block is reported instead of silently discarded
+ok 206 - an unattached media block is reported instead of silently discarded
+  ---
+  duration_ms: 0.9983
+  type: 'test'
+  ...
+# Subtest: staged media is valid when it has accessible alt text
+ok 207 - staged media is valid when it has accessible alt text
+  ---
+  duration_ms: 1.5229
+  type: 'test'
+  ...
+# Subtest: invalid quiz in another subsection identifies the block
+ok 208 - invalid quiz in another subsection identifies the block
+  ---
+  duration_ms: 0.8699
+  type: 'test'
+  ...
+# Subtest: the editor's Move down action places the block after its neighbor
+ok 209 - the editor's Move down action places the block after its neighbor
+  ---
+  duration_ms: 0.6299
+  type: 'test'
+  ...
+# Subtest: Dashboard exposes consent as a public route
+ok 210 - Dashboard exposes consent as a public route
+  ---
+  duration_ms: 51.6679
+  type: 'test'
+  ...
+# Subtest: consent view renders safe loading and invalid states
+ok 211 - consent view renders safe loading and invalid states
+  ---
+  duration_ms: 10104.2071
+  type: 'test'
+  ...
+# Subtest: ready consent view renders the exact native form contract without a challenge
+ok 212 - ready consent view renders the exact native form contract without a challenge
+  ---
+  duration_ms: 3.052
+  type: 'test'
+  ...
+# Subtest: consent stays on the direct backend origin when the dashboard proxy is configured
+ok 213 - consent stays on the direct backend origin when the dashboard proxy is configured
+  ---
+  duration_ms: 0.9455
+  type: 'test'
+  ...
+# Subtest: completion failure stays retryable and only displays a validated request ID
+ok 214 - completion failure stays retryable and only displays a validated request ID
+  ---
+  duration_ms: 2.2202
+  type: 'test'
+  ...
+# Subtest: consent policy links and actions have explicit accessible affordances
+ok 215 - consent policy links and actions have explicit accessible affordances
+  ---
+  duration_ms: 3.3184
+  type: 'test'
+  ...
+# Subtest: user avatar initials require a display name
+ok 216 - user avatar initials require a display name
+  ---
+  duration_ms: 1.3081
+  type: 'test'
+  ...
+# Subtest: user menu toggles and dismisses for Escape or an outside pointer
+ok 217 - user menu toggles and dismisses for Escape or an outside pointer
+  ---
+  duration_ms: 1.7323
+  type: 'test'
+  ...
+# Subtest: user menu logs out only this session
+ok 218 - user menu logs out only this session
+  ---
+  duration_ms: 0.3079
+  type: 'test'
+  ...
+# Subtest: search preserves the selected attendance ranking, including Discord ID lookup
+ok 219 - search preserves the selected attendance ranking, including Discord ID lookup
+  ---
+  duration_ms: 4.8172
+  type: 'test'
+  ...
+# Subtest: recent ordering handles equal totals consistently and does not mutate attendance records
+ok 220 - recent ordering handles equal totals consistently and does not mutate attendance records
+  ---
+  duration_ms: 0.3842
+  type: 'test'
+  ...
+# Subtest: pagination includes the last partial page and clamps pages after the result set shrinks
+ok 221 - pagination includes the last partial page and clamps pages after the result set shrinks
+  ---
+  duration_ms: 0.4379
+  type: 'test'
+  ...
+# Subtest: dashboard lookup retains current names and resolves unavailable names without hiding IDs
+ok 222 - dashboard lookup retains current names and resolves unavailable names without hiding IDs
+  ---
+  duration_ms: 4.0981
+  type: 'test'
+  ...
+# Subtest: the pilot guide is a direct Administration screen for administrators
+ok 223 - the pilot guide is a direct Administration screen for administrators
+  ---
+  duration_ms: 4.5192
+  type: 'test'
+  ...
+# Subtest: appearance accepts only supported saved preferences
+ok 224 - appearance accepts only supported saved preferences
+  ---
+  duration_ms: 1.3622
+  type: 'test'
+  ...
+# Subtest: explicit preferences override OS appearance; System follows the OS
+ok 225 - explicit preferences override OS appearance; System follows the OS
+  ---
+  duration_ms: 0.3748
+  type: 'test'
+  ...
+# Subtest: first paint restores the saved choice and respects System
+ok 226 - first paint restores the saved choice and respects System
+  ---
+  duration_ms: 4.5109
+  type: 'test'
+  ...
+# Subtest: dashboard preference applies to courses and pilot guide without altering public or assessment pages
+ok 227 - dashboard preference applies to courses and pilot guide without altering public or assessment pages
+  ---
+  duration_ms: 13.1017
+  type: 'test'
+  ...
+# Subtest: link and reassign previews name the exact provider identity
+ok 228 - link and reassign previews name the exact provider identity
+  ---
+  duration_ms: 2.3044
+  type: 'test'
+  ...
+# Subtest: merge previews preserve explicit retained Discord and IFC choices
+ok 229 - merge previews preserve explicit retained Discord and IFC choices
+  ---
+  duration_ms: 0.29
+  type: 'test'
+  ...
+# Subtest: merged identity repair previews promote the selected archived identity
+ok 230 - merged identity repair previews promote the selected archived identity
+  ---
+  duration_ms: 0.2133
+  type: 'test'
+  ...
+# Subtest: irreversible lifecycle actions carry no client-invented fields
+ok 231 - irreversible lifecycle actions carry no client-invented fields
+  ---
+  duration_ms: 0.2062
+  type: 'test'
+  ...
+# Subtest: every visible draft edit invalidates both preview and reason
+ok 232 - every visible draft edit invalidates both preview and reason
+  ---
+  duration_ms: 0.4616
+  type: 'test'
+  ...
+# Subtest: changing a merge participant requires fresh retained-identity choices
+ok 233 - changing a merge participant requires fresh retained-identity choices
+  ---
+  duration_ms: 0.1623
+  type: 'test'
+  ...
+# Subtest: account selection, cancellation, and a new preview cannot reuse a reason
+ok 234 - account selection, cancellation, and a new preview cannot reuse a reason
+  ---
+  duration_ms: 0.3302
+  type: 'test'
+  ...
+# Subtest: merge choices combine active identities from both owners with ownership labels
+ok 235 - merge choices combine active identities from both owners with ownership labels
+  ---
+  duration_ms: 0.9114
+  type: 'test'
+  ...
+# Subtest: NONE is explicit only when neither merge account has an active provider identity
+ok 236 - NONE is explicit only when neither merge account has an active provider identity
+  ---
+  duration_ms: 0.559
+  type: 'test'
+  ...
+# Subtest: merged identity repair choices only expose archived identities on the merged source
+ok 237 - merged identity repair choices only expose archived identities on the merged source
+  ---
+  duration_ms: 1.9462
+  type: 'test'
+  ...
+# Subtest: merge and archived choices identify accounts by subject when names are unresolved
+ok 238 - merge and archived choices identify accounts by subject when names are unresolved
+  ---
+  duration_ms: 0.3506
+  type: 'test'
+  ...
+# Subtest: formats IFC by name without appending the IFC id
+ok 239 - formats IFC by name without appending the IFC id
+  ---
+  duration_ms: 1.489
+  type: 'test'
+  ...
+# Subtest: parses datetime-local input as local time and converts to UTC
+ok 240 - parses datetime-local input as local time and converts to UTC
+  ---
+  duration_ms: 1.7191
+  type: 'test'
+  ...
+# Subtest: formats admin dates in UTC
+ok 241 - formats admin dates in UTC
+  ---
+  duration_ms: 0.4796
+  type: 'test'
+  ...
+# Subtest: parses datetime-local input as a Zulu wall-clock value without local conversion
+ok 242 - parses datetime-local input as a Zulu wall-clock value without local conversion
+  ---
+  duration_ms: 0.7413
+  type: 'test'
+  ...
+# Subtest: generates half-hour UTC datetime-local suggestions
+ok 243 - generates half-hour UTC datetime-local suggestions
+  ---
+  duration_ms: 1.6096
+  type: 'test'
+  ...
+# Subtest: waitlisted mentees can be picked up and terminated but not scheduled
+ok 244 - waitlisted mentees can be picked up and terminated but not scheduled
+  ---
+  duration_ms: 2.3218
+  type: 'test'
+  ...
+# Subtest: current mentees can be terminated, passed, and scheduled but not picked up
+ok 245 - current mentees can be terminated, passed, and scheduled but not picked up
+  ---
+  duration_ms: 0.4575
+  type: 'test'
+  ...
+# Subtest: passed and terminated mentees have no state or scheduling actions
+ok 246 - passed and terminated mentees have no state or scheduling actions
+  ---
+  duration_ms: 0.379
+  type: 'test'
+  ...
+# Subtest: admin visibility requires the exact session token that authorized the staff lookup
+ok 247 - admin visibility requires the exact session token that authorized the staff lookup
+  ---
+  duration_ms: 1.4238
+  type: 'test'
+  ...
+# Subtest: upserts records by id without dropping existing records
+ok 248 - upserts records by id without dropping existing records
+  ---
+  duration_ms: 2.516
+  type: 'test'
+  ...
+# Subtest: removes assignments by id
+ok 249 - removes assignments by id
+  ---
+  duration_ms: 0.3693
+  type: 'test'
+  ...
+# Subtest: upserts sessions in global and nested mentee state
+ok 250 - upserts sessions in global and nested mentee state
+  ---
+  duration_ms: 0.3688
+  type: 'test'
+  ...
+# Subtest: marks assignment presence in global and nested sessions
+ok 251 - marks assignment presence in global and nested sessions
+  ---
+  duration_ms: 0.3889
+  type: 'test'
+  ...
+# Subtest: alt evidence API scopes reviews and sends CSRF-protected rescan requests
+ok 252 - alt evidence API scopes reviews and sends CSRF-protected rescan requests
+  ---
+  duration_ms: 53.6584
+  type: 'test'
+  ...
+# Subtest: admin suppression sends only its opaque address reference
+ok 253 - admin suppression sends only its opaque address reference
+  ---
+  duration_ms: 3.8328
+  type: 'test'
+  ...
+# Subtest: getAdminUser distinguishes authorized, unauthenticated, and forbidden responses
+ok 254 - getAdminUser distinguishes authorized, unauthenticated, and forbidden responses
+  ---
+  duration_ms: 36.3081
+  type: 'test'
+  ...
+# Subtest: auto-match requests carry weekly UTC availability and selected leniency as JSON
+ok 255 - auto-match requests carry weekly UTC availability and selected leniency as JSON
+  ---
+  duration_ms: 1.7599
+  type: 'test'
+  ...
+# Subtest: waitlist helper preferences load and save through the authenticated account endpoint
+ok 256 - waitlist helper preferences load and save through the authenticated account endpoint
+  ---
+  duration_ms: 4.2215
+  type: 'test'
+  ...
+# Subtest: admin data requests surface unauthorized responses as errors
+ok 257 - admin data requests surface unauthorized responses as errors
+  ---
+  duration_ms: 2.0348
+  type: 'test'
+  ...
+# Subtest: Dashboard user directory uses the authenticated admin endpoint
+ok 258 - Dashboard user directory uses the authenticated admin endpoint
+  ---
+  duration_ms: 3.6242
+  type: 'test'
+  ...
+# Subtest: getAuditLogs forwards explicit all limit
+ok 259 - getAuditLogs forwards explicit all limit
+  ---
+  duration_ms: 1.8976
+  type: 'test'
+  ...
+# Subtest: getAuditLogFilters loads the authorized audit filter metadata
+ok 260 - getAuditLogFilters loads the authorized audit filter metadata
+  ---
+  duration_ms: 1.7057
+  type: 'test'
+  ...
+# Subtest: session restoration and mutations use opaque cookies plus CSRF instead of bearer tokens
+ok 261 - session restoration and mutations use opaque cookies plus CSRF instead of bearer tokens
+  ---
+  duration_ms: 1.6277
+  type: 'test'
+  ...
+# Subtest: consent context uses the backend-owned HttpOnly challenge cookie
+ok 262 - consent context uses the backend-owned HttpOnly challenge cookie
+  ---
+  duration_ms: 1.323
+  type: 'test'
+  ...
+# Subtest: missing or expired consent context is a safe empty result
+ok 263 - missing or expired consent context is a safe empty result
+  ---
+  duration_ms: 0.8027
+  type: 'test'
+  ...
+# Subtest: mock question reads use cookies and writes include CSRF
+ok 264 - mock question reads use cookies and writes include CSRF
+  ---
+  duration_ms: 1.4523
+  type: 'test'
+  ...
+# Subtest: application APIs use the shared question order and cookie-backed CSRF mutations
+ok 265 - application APIs use the shared question order and cookie-backed CSRF mutations
+  ---
+  duration_ms: 44.4966
+  type: 'test'
+  ...
+# Subtest: application state normalizes backend boolean and numeric answers for form controls
+ok 266 - application state normalizes backend boolean and numeric answers for form controls
+  ---
+  duration_ms: 0.9301
+  type: 'test'
+  ...
+# Subtest: application state preserves the server-authorized Super Admin bypass marker
+ok 267 - application state preserves the server-authorized Super Admin bypass marker
+  ---
+  duration_ms: 0.6836
+  type: 'test'
+  ...
+# Subtest: Discord restart sends the expected draft identity and version for atomic invalidation
+ok 268 - Discord restart sends the expected draft identity and version for atomic invalidation
+  ---
+  duration_ms: 1.5132
+  type: 'test'
+  ...
+# Subtest: application question management remains a separate moderator capability
+ok 269 - application question management remains a separate moderator capability
+  ---
+  duration_ms: 2.3078
+  type: 'test'
+  ...
+# Subtest: auto-fill maps attendees to slots in slot order
+ok 270 - auto-fill maps attendees to slots in slot order
+  ---
+  duration_ms: 2.3283
+  type: 'test'
+  ...
+# Subtest: auto-fill uses fallback keys for unsaved slots and never duplicates attendees
+ok 271 - auto-fill uses fallback keys for unsaved slots and never duplicates attendees
+  ---
+  duration_ms: 0.3518
+  type: 'test'
+  ...
+# Subtest: generated assignment text fills placeholders and mentions assigned attendees
+ok 272 - generated assignment text fills placeholders and mentions assigned attendees
+  ---
+  duration_ms: 0.6672
+  type: 'test'
+  ...
+# Subtest: generated assignment text fills session count and mentee placeholders
+ok 273 - generated assignment text fills session count and mentee placeholders
+  ---
+  duration_ms: 0.271
+  type: 'test'
+  ...
+# Subtest: generated assignment text fills placeholders inside description and footer
+ok 274 - generated assignment text fills placeholders inside description and footer
+  ---
+  duration_ms: 0.2603
+  type: 'test'
+  ...
+# Subtest: central login offers a provider without exposing provider credentials
+ok 275 - central login offers a provider without exposing provider credentials
+  ---
+  duration_ms: 2.9367
+  type: 'test'
+  ...
+# Subtest: return destinations stay on the dashboard
+ok 276 - return destinations stay on the dashboard
+  ---
+  duration_ms: 0.3989
+  type: 'test'
+  ...
+# Subtest: login disclosure uses the canonical ATCMH legal documents
+ok 277 - login disclosure uses the canonical ATCMH legal documents
+  ---
+  duration_ms: 0.233
+  type: 'test'
+  ...
+# Subtest: accepts HEIC and HEIF files by MIME type and extension
+ok 278 - accepts HEIC and HEIF files by MIME type and extension
+  ---
+  duration_ms: 1.6155
+  type: 'test'
+  ...
+# Subtest: continues rejecting unsupported media extensions
+ok 279 - continues rejecting unsupported media extensions
+  ---
+  duration_ms: 0.2453
+  type: 'test'
+  ...
+# Subtest: Escape closes the dialog
+ok 280 - Escape closes the dialog
+  ---
+  duration_ms: 1.658
+  type: 'test'
+  ...
+# Subtest: Tab and Shift+Tab remain trapped inside dialog controls
+ok 281 - Tab and Shift+Tab remain trapped inside dialog controls
+  ---
+  duration_ms: 0.3151
+  type: 'test'
+  ...
+# Subtest: filters attempts by learner, nullable Discord ID, quiz title, and code
+ok 282 - filters attempts by learner, nullable Discord ID, quiz title, and code
+  ---
+  duration_ms: 1.736
+  type: 'test'
+  ...
+# Subtest: formats stored result and timeout status for compact review rows
+ok 283 - formats stored result and timeout status for compact review rows
+  ---
+  duration_ms: 0.3045
+  type: 'test'
+  ...
+# Subtest: catalog search matches title, description, and category case-insensitively
+ok 284 - catalog search matches title, description, and category case-insensitively
+  ---
+  duration_ms: 2.8014
+  type: 'test'
+  ...
+# Subtest: catalog filters category and visibility together
+ok 285 - catalog filters category and visibility together
+  ---
+  duration_ms: 0.3986
+  type: 'test'
+  ...
+# Subtest: catalog category matching trims both quiz values and selected options
+ok 286 - catalog category matching trims both quiz values and selected options
+  ---
+  duration_ms: 0.443
+  type: 'test'
+  ...
+# Subtest: catalog search lowercasing is locale independent
+ok 287 - catalog search lowercasing is locale independent
+  ---
+  duration_ms: 0.4222
+  type: 'test'
+  ...
+# Subtest: catalog categories are unique and sorted
+ok 288 - catalog categories are unique and sorted
+  ---
+  duration_ms: 48.3412
+  type: 'test'
+  ...
+# Subtest: groups quizzes into normalized mentor folders
+ok 289 - groups quizzes into normalized mentor folders
+  ---
+  duration_ms: 5.1717
+  type: 'test'
+  ...
+# Subtest: filters before grouping when no managed folders are supplied
+ok 290 - filters before grouping when no managed folders are supplied
+  ---
+  duration_ms: 0.4433
+  type: 'test'
+  ...
+# Subtest: seeds every managed folder, including empty folders
+ok 291 - seeds every managed folder, including empty folders
+  ---
+  duration_ms: 0.9383
+  type: 'test'
+  ...
+# Subtest: keeps same-name folders separate by canonical category id
+ok 292 - keeps same-name folders separate by canonical category id
+  ---
+  duration_ms: 0.8118
+  type: 'test'
+  ...
+# Subtest: catalog formats feedback and update values for staff
+ok 293 - catalog formats feedback and update values for staff
+  ---
+  duration_ms: 17.4174
+  type: 'test'
+  ...
+# Subtest: accepts a JSON import within the client-side size limit
+ok 294 - accepts a JSON import within the client-side size limit
+  ---
+  duration_ms: 3.6633
+  type: 'test'
+  ...
+# Subtest: rejects an unsupported import type before it reaches the Exams API
+ok 295 - rejects an unsupported import type before it reaches the Exams API
+  ---
+  duration_ms: 0.5158
+  type: 'test'
+  ...
+# Subtest: rejects an import larger than one megabyte before preview
+ok 296 - rejects an import larger than one megabyte before preview
+  ---
+  duration_ms: 0.9449
+  type: 'test'
+  ...
+# Subtest: accepts only Discord snowflake-shaped IDs
+ok 297 - accepts only Discord snowflake-shaped IDs
+  ---
+  duration_ms: 2.1702
+  type: 'test'
+  ...
+# Subtest: matches unlock candidates by username without case sensitivity
+ok 298 - matches unlock candidates by username without case sensitivity
+  ---
+  duration_ms: 1.2848
+  type: 'test'
+  ...
+# Subtest: matches unlock candidates by partial Discord ID
+ok 299 - matches unlock candidates by partial Discord ID
+  ---
+  duration_ms: 0.2218
+  type: 'test'
+  ...
+# Subtest: locates members with missing names by ID without searching placeholder labels
+ok 300 - locates members with missing names by ID without searching placeholder labels
+  ---
+  duration_ms: 0.2619
+  type: 'test'
+  ...
+# Subtest: omits users whose Discord IDs are already unlocked
+ok 301 - omits users whose Discord IDs are already unlocked
+  ---
+  duration_ms: 0.2221
+  type: 'test'
+  ...
+# Subtest: detects a manually entered Discord ID that is already unlocked
+ok 302 - detects a manually entered Discord ID that is already unlocked
+  ---
+  duration_ms: 0.1932
+  type: 'test'
+  ...
+# Subtest: returns no candidates for an empty query
+ok 303 - returns no candidates for an empty query
+  ---
+  duration_ms: 0.2712
+  type: 'test'
+  ...
+# Subtest: applies a confirmed unlock and sorts the resulting state
+ok 304 - applies a confirmed unlock and sorts the resulting state
+  ---
+  duration_ms: 23.7482
+  type: 'test'
+  ...
+# Subtest: replaces an existing entry when a confirmed unlock has the same Discord ID
+ok 305 - replaces an existing entry when a confirmed unlock has the same Discord ID
+  ---
+  duration_ms: 0.8317
+  type: 'test'
+  ...
+# Subtest: removes only the matching entry after a confirmed lock
+ok 306 - removes only the matching entry after a confirmed lock
+  ---
+  duration_ms: 23.8941
+  type: 'test'
+  ...
+# Subtest: rejects an older same-quiz list response after a newer refresh starts
+ok 307 - rejects an older same-quiz list response after a newer refresh starts
+  ---
+  duration_ms: 0.4695
+  type: 'test'
+  ...
+# Subtest: management reads use the Exams host session without exposing a provider token
+ok 308 - management reads use the Exams host session without exposing a provider token
+  ---
+  duration_ms: 70.9425
+  type: 'test'
+  ...
+# Subtest: category management uses protected category and focused move endpoints
+ok 309 - category management uses protected category and focused move endpoints
+  ---
+  duration_ms: 4.9572
+  type: 'test'
+  ...
+# Subtest: attempt management reads and deletion use the protected paginated endpoints
+ok 310 - attempt management reads and deletion use the protected paginated endpoints
+  ---
+  duration_ms: 4.5599
+  type: 'test'
+  ...
+# Subtest: management reads surface an Exams API failure without retrying through the Dashboard API
+ok 311 - management reads surface an Exams API failure without retrying through the Dashboard API
+  ---
+  duration_ms: 2.1351
+  type: 'test'
+  ...
+# Subtest: quiz saves use the protected management create endpoint
+ok 312 - quiz saves use the protected management create endpoint
+  ---
+  duration_ms: 1.5042
+  type: 'test'
+  ...
+# Subtest: course media upload preserves the HEIC MIME type for backend conversion
+ok 313 - course media upload preserves the HEIC MIME type for backend conversion
+  ---
+  duration_ms: 25.3661
+  type: 'test'
+  ...
+# Subtest: quiz save validation errors normalize the API error envelope into a rejected result
+ok 314 - quiz save validation errors normalize the API error envelope into a rejected result
+  ---
+  duration_ms: 1.5042
+  type: 'test'
+  ...
+# Subtest: website saves surface a mentor denial from the Exams API
+ok 315 - website saves surface a mentor denial from the Exams API
+  ---
+  duration_ms: 2.3149
+  type: 'test'
+  ...
+# Subtest: import preview uploads the selected file with the Exams host session
+ok 316 - import preview uploads the selected file with the Exams host session
+  ---
+  duration_ms: 13.8695
+  type: 'test'
+  ...
+# Subtest: import commit sends only a server-previewed payload and idempotency key
+ok 317 - import commit sends only a server-previewed payload and idempotency key
+  ---
+  duration_ms: 1.9038
+  type: 'test'
+  ...
+# Subtest: import preview returns server validation errors for display instead of treating them as an API outage
+ok 318 - import preview returns server validation errors for display instead of treating them as an API outage
+  ---
+  duration_ms: 1.0322
+  type: 'test'
+  ...
+# Subtest: import commit returns server validation errors for display instead of treating them as an API outage
+ok 319 - import commit returns server validation errors for display instead of treating them as an API outage
+  ---
+  duration_ms: 1.0734
+  type: 'test'
+  ...
+# Subtest: quiz unlock reads use the selected quiz management endpoint
+ok 320 - quiz unlock reads use the selected quiz management endpoint
+  ---
+  duration_ms: 1.0368
+  type: 'test'
+  ...
+# Subtest: quiz unlock writes send an explicit unlocked state
+ok 321 - quiz unlock writes send an explicit unlocked state
+  ---
+  duration_ms: 1.8922
+  type: 'test'
+  ...
+# Subtest: mutations fail with a controlled auth error when the Exams session is absent
+ok 322 - mutations fail with a controlled auth error when the Exams session is absent
+  ---
+  duration_ms: 1.0595
+  type: 'test'
+  ...
+# Subtest: the shared session is re-read once before retrying a management read
+ok 323 - the shared session is re-read once before retrying a management read
+  ---
+  duration_ms: 1.7771
+  type: 'test'
+  ...
+# Subtest: an absent shared session becomes an authentication-required error
+ok 324 - an absent shared session becomes an authentication-required error
+  ---
+  duration_ms: 1.7101
+  type: 'test'
+  ...
+# Subtest: parallel retries re-read only the shared session endpoint
+ok 325 - parallel retries re-read only the shared session endpoint
+  ---
+  duration_ms: 1.4641
+  type: 'test'
+  ...
+# Subtest: a mutation clears, re-bootstraps, and retries once after auth loss
+ok 326 - a mutation clears, re-bootstraps, and retries once after auth loss
+  ---
+  duration_ms: 1.6619
+  type: 'test'
+  ...
+# Subtest: course deletion sends dashboard CSRF and accepts an empty success response
+ok 327 - course deletion sends dashboard CSRF and accepts an empty success response
+  ---
+  duration_ms: 0.6405
+  type: 'test'
+  ...
+# Subtest: course deletion surfaces a server rejection instead of reporting success
+ok 328 - course deletion surfaces a server rejection instead of reporting success
+  ---
+  duration_ms: 0.6075
+  type: 'test'
+  ...
+# Subtest: aligns only two Ground questions, preserves settings, and is idempotent
+ok 329 - aligns only two Ground questions, preserves settings, and is idempotent
+  ---
+  duration_ms: 6.4049
+  type: 'test'
+  ...
+# Subtest: rejects unrelated quiz, changed content, answer keys and question order
+ok 330 - rejects unrelated quiz, changed content, answer keys and question order
+  ---
+  duration_ms: 1.5785
+  type: 'test'
+  ...
+# Subtest: completes a partially aligned draft
+ok 331 - completes a partially aligned draft
+  ---
+  duration_ms: 0.4249
+  type: 'test'
+  ...
+# Subtest: health page and navigation require application admin roles, even with other capabilities
+ok 332 - health page and navigation require application admin roles, even with other capabilities
+  ---
+  duration_ms: 5.2068
+  type: 'test'
+  ...
+# Subtest: attention filtering includes failed and overdue jobs, but not intentionally disabled jobs
+ok 333 - attention filtering includes failed and overdue jobs, but not intentionally disabled jobs
+  ---
+  duration_ms: 0.4724
+  type: 'test'
+  ...
+# Subtest: uptime formats days, hours and minutes
+ok 334 - uptime formats days, hours and minutes
+  ---
+  duration_ms: 0.2513
+  type: 'test'
+  ...
+# Subtest: availability represents midnight, overnight and full-day windows without losing the original day
+ok 335 - availability represents midnight, overnight and full-day windows without losing the original day
+  ---
+  duration_ms: 3.2062
+  type: 'test'
+  ...
+# Subtest: legacy and malformed availability stays readable rather than becoming a fabricated chart
+ok 336 - legacy and malformed availability stays readable rather than becoming a fabricated chart
+  ---
+  duration_ms: 0.819
+  type: 'test'
+  ...
+# Subtest: lifecycle retains epoch timestamps and distinguishes missing dates from stages not yet reached
+ok 337 - lifecycle retains epoch timestamps and distinguishes missing dates from stages not yet reached
+  ---
+  duration_ms: 2.3754
+  type: 'test'
+  ...
+# Subtest: guide management uses cookie-backed reads and CSRF-protected versioned writes
+ok 338 - guide management uses cookie-backed reads and CSRF-protected versioned writes
+  ---
+  duration_ms: 44.6609
+  type: 'test'
+  ...
+# Subtest: save conflicts retain the draft and expose status without automatically overwriting
+ok 339 - save conflicts retain the draft and expose status without automatically overwriting
+  ---
+  duration_ms: 1.6756
+  type: 'test'
+  ...
+# Subtest: expired sessions and unauthorized management remain explicit failures
+ok 340 - expired sessions and unauthorized management remain explicit failures
+  ---
+  duration_ms: 1.097
+  type: 'test'
+  ...
+# Subtest: missing CSRF and invalid revisions stop before a save request is sent
+ok 341 - missing CSRF and invalid revisions stop before a save request is sent
+  ---
+  duration_ms: 0.6021
+  type: 'test'
+  ...
+# Subtest: successful HTTP responses with malformed guide content are rejected
+ok 342 - successful HTTP responses with malformed guide content are rejected
+  ---
+  duration_ms: 1.8275
+  type: 'test'
+  ...
+# Subtest: chooses the saved assignment template when it is still available
+ok 343 - chooses the saved assignment template when it is still available
+  ---
+  duration_ms: 1.3427
+  type: 'test'
+  ...
+# Subtest: falls back to the default assignment when the saved template is unavailable
+ok 344 - falls back to the default assignment when the saved template is unavailable
+  ---
+  duration_ms: 0.2963
+  type: 'test'
+  ...
+# Subtest: parses saved slot assignments and ignores malformed values
+ok 345 - parses saved slot assignments and ignores malformed values
+  ---
+  duration_ms: 1.2422
+  type: 'test'
+  ...
+# Subtest: ignores unsafe numeric Discord IDs because precision is already lost
+ok 346 - ignores unsafe numeric Discord IDs because precision is already lost
+  ---
+  duration_ms: 0.3496
+  type: 'test'
+  ...
+# Subtest: returns undefined for invalid saved slot assignments
+ok 347 - returns undefined for invalid saved slot assignments
+  ---
+  duration_ms: 0.2741
+  type: 'test'
+  ...
+# Subtest: creates datetime-local session edit form values in local time
+ok 348 - creates datetime-local session edit form values in local time
+  ---
+  duration_ms: 2.6189
+  type: 'test'
+  ...
+# Subtest: converts session edit form values to API payload
+ok 349 - converts session edit form values to API payload
+  ---
+  duration_ms: 0.9068
+  type: 'test'
+  ...
+# Subtest: 30 and 90 day presets create equal-duration UTC comparison windows
+ok 350 - 30 and 90 day presets create equal-duration UTC comparison windows
+  ---
+  duration_ms: 4.0199
+  type: 'test'
+  ...
+# Subtest: custom ranges include the end date, cap today at now, and reject invalid dates
+ok 351 - custom ranges include the end date, cap today at now, and reject invalid dates
+  ---
+  duration_ms: 0.9054
+  type: 'test'
+  ...
+# Subtest: server rejects reversed, non-UTC and future reporting boundaries
+ok 352 - server rejects reversed, non-UTC and future reporting boundaries
+  ---
+  duration_ms: 0.665
+  type: 'test'
+  ...
+# Subtest: comparisons distinguish zero, missing data, count changes and percentage points
+ok 353 - comparisons distinguish zero, missing data, count changes and percentage points
+  ---
+  duration_ms: 37.5745
+  type: 'test'
+  ...
+# Subtest: report fetches are independent and failures give a usable retry message
+ok 354 - report fetches are independent and failures give a usable retry message
+  ---
+  duration_ms: 49.8051
+  type: 'test'
+  ...
+# Subtest: slot labels make UTC and the midnight end boundary explicit
+ok 355 - slot labels make UTC and the midnight end boundary explicit
+  ---
+  duration_ms: 1.352
+  type: 'test'
+  ...
+# Subtest: preview and reader HTML removes executable markup, handlers, and arbitrary embeds
+ok 356 - preview and reader HTML removes executable markup, handlers, and arbitrary embeds
+  ---
+  duration_ms: 8.6117
+  type: 'test'
+  ...
+# Subtest: supplied YouTube URLs become restricted privacy-enhanced embeds
+ok 357 - supplied YouTube URLs become restricted privacy-enhanced embeds
+  ---
+  duration_ms: 1.7468
+  type: 'test'
+  ...
+# Subtest: media and links reject unsafe schemes while preserving accessible safe content
+ok 358 - media and links reject unsafe schemes while preserving accessible safe content
+  ---
+  duration_ms: 1.8286
+  type: 'test'
+  ...
+# Subtest: safe rich HTML survives visual-source previews without retaining executable attributes
+ok 359 - safe rich HTML survives visual-source previews without retaining executable attributes
+  ---
+  duration_ms: 1.2005
+  type: 'test'
+  ...
+# Subtest: sanitizing the full supplied guide preserves critical instructions and all video references
+ok 360 - sanitizing the full supplied guide preserves critical instructions and all video references
+  ---
+  duration_ms: 8.8586
+  type: 'test'
+  ...
+# Subtest: marks the canonical URL helper as server-only
+ok 361 - marks the canonical URL helper as server-only
+  ---
+  duration_ms: 1.6529
+  type: 'test'
+  ...
+# Subtest: validates the canonical origin and resolves only safe app paths
+ok 362 - validates the canonical origin and resolves only safe app paths
+  ---
+  duration_ms: 557.6249
+  type: 'test'
+  ...
+# Subtest: every signed backend outcome is accepted without reflecting provider details
+ok 363 - every signed backend outcome is accepted without reflecting provider details
+  ---
+  duration_ms: 4.3163
+  type: 'test'
+  ...
+# Subtest: tampered, expired, oversized, and malformed result tokens fail closed
+ok 364 - tampered, expired, oversized, and malformed result tokens fail closed
+  ---
+  duration_ms: 1.374
+  type: 'test'
+  ...
+# Subtest: the verifier requires a server-only purpose-specific secret
+ok 365 - the verifier requires a server-only purpose-specific secret
+  ---
+  duration_ms: 0.3066
+  type: 'test'
+  ...
+# Subtest: documents every live atcmh_lms column used by the read repository
+ok 366 - documents every live atcmh_lms column used by the read repository
+  ---
+  duration_ms: 2.637
+  type: 'test'
+  ...
+# Subtest: builds a learner attempt-start event without quiz data or answers
+ok 367 - builds a learner attempt-start event without quiz data or answers
+  ---
+  duration_ms: 4.2012
+  type: 'test'
+  ...
+# Subtest: impersonated learner audit attributes the real actor and names the target
+ok 368 - impersonated learner audit attributes the real actor and names the target
+  ---
+  duration_ms: 0.5156
+  type: 'test'
+  ...
+# Subtest: separates manual and timeout completion events with trusted notification metadata
+ok 369 - separates manual and timeout completion events with trusted notification metadata
+  ---
+  duration_ms: 0.5226
+  type: 'test'
+  ...
+# Subtest: result page has centered summary, canonical actions, and collapsed review
+ok 370 - result page has centered summary, canonical actions, and collapsed review
+  ---
+  duration_ms: 2.1601
+  type: 'test'
+  ...
+# Subtest: result page resolves server-side staff review access
+ok 371 - result page resolves server-side staff review access
+  ---
+  duration_ms: 0.4549
+  type: 'test'
+  ...
+# Subtest: result styles include responsive and keyboard focus contracts
+ok 372 - result styles include responsive and keyboard focus contracts
+  ---
+  duration_ms: 0.4528
+  type: 'test'
+  ...
+# Subtest: versioned review reports correct, incorrect, and unanswered selections
+ok 373 - versioned review reports correct, incorrect, and unanswered selections
+  ---
+  duration_ms: 2.7172
+  type: 'test'
+  ...
+# Subtest: none feedback mode redacts correct answers and correctness
+ok 374 - none feedback mode redacts correct answers and correctness
+  ---
+  duration_ms: 0.6068
+  type: 'test'
+  ...
+# Subtest: legacy and malformed snapshots do not reconstruct mutable quiz data
+ok 375 - legacy and malformed snapshots do not reconstruct mutable quiz data
+  ---
+  duration_ms: 0.2556
+  type: 'test'
+  ...
+# Subtest: normalizes persisted end feedback mode in completed version-two snapshots
+ok 376 - normalizes persisted end feedback mode in completed version-two snapshots
+  ---
+  duration_ms: 0.2461
+  type: 'test'
+  ...
+# Subtest: stored legacy correctness can render when the correct option text was not preserved
+ok 377 - stored legacy correctness can render when the correct option text was not preserved
+  ---
+  duration_ms: 0.2702
+  type: 'test'
+  ...
+# Subtest: rejects snapshots with duplicate question or option IDs
+ok 378 - rejects snapshots with duplicate question or option IDs
+  ---
+  duration_ms: 0.2549
+  type: 'test'
+  ...
+# Subtest: rejects snapshots whose selected or correct option does not belong to the question
+ok 379 - rejects snapshots whose selected or correct option does not belong to the question
+  ---
+  duration_ms: 0.3003
+  type: 'test'
+  ...
+# Subtest: submitted answers retain valid selections and canonical omitted questions
+ok 380 - submitted answers retain valid selections and canonical omitted questions
+  ---
+  duration_ms: 2.6763
+  type: 'test'
+  ...
+# Subtest: submitted answers reject an unknown question key
+ok 381 - submitted answers reject an unknown question key
+  ---
+  duration_ms: 0.6514
+  type: 'test'
+  ...
+# Subtest: submitted answers reject an option belonging to another question
+ok 382 - submitted answers reject an option belonging to another question
+  ---
+  duration_ms: 0.2161
+  type: 'test'
+  ...
+# Subtest: catalogue eligibility includes public and learner-unlocked quizzes only
+ok 383 - catalogue eligibility includes public and learner-unlocked quizzes only
+  ---
+  duration_ms: 0.2822
+  type: 'test'
+  ...
+# Subtest: submission writes the attempt and every displayed answer through one transaction
+ok 384 - submission writes the attempt and every displayed answer through one transaction
+  ---
+  duration_ms: 2.0538
+  type: 'test'
+  ...
+# Subtest: submission preserves the legacy non-null answer layout by omitting unanswered rows
+ok 385 - submission preserves the legacy non-null answer layout by omitting unanswered rows
+  ---
+  duration_ms: 0.421
+  type: 'test'
+  ...
+# Subtest: course-originated submissions remain ordinary exam attempts
+ok 386 - course-originated submissions remain ordinary exam attempts
+  ---
+  duration_ms: 0.4689
+  type: 'test'
+  ...
+# Subtest: attempt results cannot be read by a different learner
+ok 387 - attempt results cannot be read by a different learner
+  ---
+  duration_ms: 1.6485
+  type: 'test'
+  ...
+# Subtest: server-authorized reviewers can read another learner's attempt
+ok 388 - server-authorized reviewers can read another learner's attempt
+  ---
+  duration_ms: 0.6444
+  type: 'test'
+  ...
+# Subtest: legacy attempts derived from the stored Discord mention are ownership-verified
+ok 389 - legacy attempts derived from the stored Discord mention are ownership-verified
+  ---
+  duration_ms: 0.5392
+  type: 'test'
+  ...
+# Subtest: result routes reject before querying when no verified Discord subject exists
+ok 390 - result routes reject before querying when no verified Discord subject exists
+  ---
+  duration_ms: 0.3672
+  type: 'test'
+  ...
+# Subtest: a direct private attempt route requires a matching verified learner unlock
+ok 391 - a direct private attempt route requires a matching verified learner unlock
+  ---
+  duration_ms: 0.4243
+  type: 'test'
+  ...
+# Subtest: scores displayed questions, snapshots their canonical IDs, and uses integer percentage
+ok 392 - scores displayed questions, snapshots their canonical IDs, and uses integer percentage
+  ---
+  duration_ms: 0.4012
+  type: 'test'
+  ...
+# Subtest: the start cookie is available to both the start route and attempt page
+ok 393 - the start cookie is available to both the start route and attempt page
+  ---
+  duration_ms: 1.5827
+  type: 'test'
+  ...
+# Subtest: attempt cookie names are isolated per validated quiz UUID
+ok 394 - attempt cookie names are isolated per validated quiz UUID
+  ---
+  duration_ms: 1.0571
+  type: 'test'
+  ...
+# Subtest: one start always resolves to one opaque attempt UUID
+ok 395 - one start always resolves to one opaque attempt UUID
+  ---
+  duration_ms: 1.5244
+  type: 'test'
+  ...
+# Subtest: starting quiz B cannot overwrite quiz A's deadline or randomization nonce
+ok 396 - starting quiz B cannot overwrite quiz A's deadline or randomization nonce
+  ---
+  duration_ms: 4.1512
+  type: 'test'
+  ...
+# Subtest: signed attempt start rejects tampering and identity or quiz mismatches
+ok 397 - signed attempt start rejects tampering and identity or quiz mismatches
+  ---
+  duration_ms: 0.3366
+  type: 'test'
+  ...
+# Subtest: signed attempt start preserves its server deadline after expiry for timeout persistence
+ok 398 - signed attempt start preserves its server deadline after expiry for timeout persistence
+  ---
+  duration_ms: 0.3871
+  type: 'test'
+  ...
+# Subtest: signed attempt starts preserve the verified course context
+ok 399 - signed attempt starts preserve the verified course context
+  ---
+  duration_ms: 0.3423
+  type: 'test'
+  ...
+# Subtest: attempt ordering is stable for reloads and honors randomization flags
+ok 400 - attempt ordering is stable for reloads and honors randomization flags
+  ---
+  duration_ms: 18.2815
+  type: 'test'
+  ...
+# Subtest: different attempt seeds can produce different question and option orders
+ok 401 - different attempt seeds can produce different question and option orders
+  ---
+  duration_ms: 2.0337
+  type: 'test'
+  ...
+# Subtest: cookie parser finds only the host session cookie
+ok 402 - cookie parser finds only the host session cookie
+  ---
+  duration_ms: 2.2247
+  type: 'test'
+  ...
+# Subtest: mutation origins contain only the exact configured unified origin
+ok 403 - mutation origins contain only the exact configured unified origin
+  ---
+  duration_ms: 1.1435
+  type: 'test'
+  ...
+# Subtest: mutation origins fail closed for malformed or insecure configured URLs
+ok 404 - mutation origins fail closed for malformed or insecure configured URLs
+  ---
+  duration_ms: 0.6256
+  type: 'test'
+  ...
+# Subtest: learner mutations require exact unified origin, per-session CSRF, and active introspection
+ok 405 - learner mutations require exact unified origin, per-session CSRF, and active introspection
+  ---
+  duration_ms: 28.2037
+  type: 'test'
+  ...
+# Subtest: central login URL keeps both providers and an AuthReturnPolicy-safe relative callback
+ok 406 - central login URL keeps both providers and an AuthReturnPolicy-safe relative callback
+  ---
+  duration_ms: 1.8975
+  type: 'test'
+  ...
+# Subtest: return destinations fail closed to local paths
+ok 407 - return destinations fail closed to local paths
+  ---
+  duration_ms: 0.304
+  type: 'test'
+  ...
+# Subtest: the shared callback may return to either authenticated workspace
+ok 408 - the shared callback may return to either authenticated workspace
+  ---
+  duration_ms: 0.1845
+  type: 'test'
+  ...
+# Subtest: handoff exchange uses the service key and validates the central response
+ok 409 - handoff exchange uses the service key and validates the central response
+  ---
+  duration_ms: 24.2742
+  type: 'test'
+  ...
+# Subtest: handoff and introspection fail closed on malformed or inactive responses
+ok 410 - handoff and introspection fail closed on malformed or inactive responses
+  ---
+  duration_ms: 1.3038
+  type: 'test'
+  ...
+# Subtest: introspection returns only a valid Discord-keyed active Exams identity
+ok 411 - introspection returns only a valid Discord-keyed active Exams identity
+  ---
+  duration_ms: 0.6751
+  type: 'test'
+  ...
+# Subtest: introspection exposes real actor metadata only for a valid impersonation
+ok 412 - introspection exposes real actor metadata only for a valid impersonation
+  ---
+  duration_ms: 1.639
+  type: 'test'
+  ...
+# Subtest: CSRF is stable per opaque session and central logout is service authenticated
+ok 413 - CSRF is stable per opaque session and central logout is service authenticated
+  ---
+  duration_ms: 1.5156
+  type: 'test'
+  ...
+# Subtest: course UI and learner quiz access use the Dashboard backend authority
+ok 414 - course UI and learner quiz access use the Dashboard backend authority
+  ---
+  duration_ms: 1.955
+  type: 'test'
+  ...
+# Subtest: course catalogue and reader remain gated to verified learners
+ok 415 - course catalogue and reader remain gated to verified learners
+  ---
+  duration_ms: 0.771
+  type: 'test'
+  ...
+# Subtest: course view telemetry carries CSRF, session identity, visibility heartbeats, and section context
+ok 416 - course view telemetry carries CSRF, session identity, visibility heartbeats, and section context
+  ---
+  duration_ms: 1.0384
+  type: 'test'
+  ...
+# Subtest: course data and mutation ownership no longer has Next API route files
+ok 417 - course data and mutation ownership no longer has Next API route files
+  ---
+  duration_ms: 0.6894
+  type: 'test'
+  ...
+# Subtest: staff preview shares the learner reader without recording progress or submitting attempts
+ok 418 - staff preview shares the learner reader without recording progress or submitting attempts
+  ---
+  duration_ms: 0.7061
+  type: 'test'
+  ...
+# Subtest: course documents round-trip through JSON without losing block metadata
+ok 419 - course documents round-trip through JSON without losing block metadata
+  ---
+  duration_ms: 5.7253
+  type: 'test'
+  ...
+# Subtest: legacy Markdown converts to first-class blocks and keeps directives in order
+ok 420 - legacy Markdown converts to first-class blocks and keeps directives in order
+  ---
+  duration_ms: 1.6661
+  type: 'test'
+  ...
+# Subtest: caret insertion splits a text block and movement supports cross-zone composition
+ok 421 - caret insertion splits a text block and movement supports cross-zone composition
+  ---
+  duration_ms: 0.746
+  type: 'test'
+  ...
+# Subtest: unsafe or incomplete block documents are rejected before upload/save
+ok 422 - unsafe or incomplete block documents are rejected before upload/save
+  ---
+  duration_ms: 1.3557
+  type: 'test'
+  ...
+# Subtest: ungraded checks validate strictly without creating assessment references
+ok 423 - ungraded checks validate strictly without creating assessment references
+  ---
+  duration_ms: 2.8368
+  type: 'test'
+  ...
+# Subtest: checks support optional incorrect reasoning without changing legacy checks
+ok 424 - checks support optional incorrect reasoning without changing legacy checks
+  ---
+  duration_ms: 1.0133
+  type: 'test'
+  ...
+# Subtest: course block choices are contextual to each insertion button
+ok 425 - course block choices are contextual to each insertion button
+  ---
+  duration_ms: 1.6279
+  type: 'test'
+  ...
+# Subtest: course Markdown keeps quiz checkpoints in document order
+ok 426 - course Markdown keeps quiz checkpoints in document order
+  ---
+  duration_ms: 3.6756
+  type: 'test'
+  ...
+# Subtest: course Markdown rejects unknown executable-style directives
+ok 427 - course Markdown rejects unknown executable-style directives
+  ---
+  duration_ms: 0.7258
+  type: 'test'
+  ...
+# Subtest: optional quiz tokens do not become section gates
+ok 428 - optional quiz tokens do not become section gates
+  ---
+  duration_ms: 0.4641
+  type: 'test'
+  ...
+# Subtest: passing scores require a required quiz and stay within percentage bounds
+ok 429 - passing scores require a required quiz and stay within percentage bounds
+  ---
+  duration_ms: 0.7858
+  type: 'test'
+  ...
+# Subtest: comparison tables preserve safe inline text and following quiz references
+ok 430 - comparison tables preserve safe inline text and following quiz references
+  ---
+  duration_ms: 0.7566
+  type: 'test'
+  ...
+# Subtest: course media authoring accepts MOV and HEIC files and normalizes their browser MIME types
+ok 431 - course media authoring accepts MOV and HEIC files and normalizes their browser MIME types
+  ---
+  duration_ms: 1.1806
+  type: 'test'
+  ...
+# Subtest: navigation modes unlock the intended leaves
+ok 432 - navigation modes unlock the intended leaves
+  ---
+  duration_ms: 5.3604
+  type: 'test'
+  ...
+# Subtest: resume chooses the first accessible incomplete leaf and links target one leaf
+ok 433 - resume chooses the first accessible incomplete leaf and links target one leaf
+  ---
+  duration_ms: 0.7454
+  type: 'test'
+  ...
+# Subtest: Exam Center login uses the shared main-site auth audience and return path
+ok 434 - Exam Center login uses the shared main-site auth audience and return path
+  ---
+  duration_ms: 6.5662
+  type: 'test'
+  ...
+# Subtest: Dashboard account impersonation uses the shared web session
+ok 435 - Dashboard account impersonation uses the shared web session
+  ---
+  duration_ms: 2.3196
+  type: 'test'
+  ...
+# Subtest: Dashboard category PATCH matches the Frontend-owned Exams preflight contract
+ok 436 - Dashboard category PATCH matches the Frontend-owned Exams preflight contract
+  ---
+  duration_ms: 1.8083
+  type: 'test'
+  ...
+# Subtest: Exams callback handles the documented central-auth outcomes locally
+ok 437 - Exams callback handles the documented central-auth outcomes locally
+  ---
+  duration_ms: 1.4343
+  type: 'test'
+  ...
+# Subtest: sends a non-sensitive Exams event to the configured Dashboard ingest endpoint
+ok 438 - sends a non-sensitive Exams event to the configured Dashboard ingest endpoint
+  ---
+  duration_ms: 34.5326
+  type: 'test'
+  ...
+# Subtest: treats a duplicate event as delivered and skips unconfigured delivery
+ok 439 - treats a duplicate event as delivered and skips unconfigured delivery
+  ---
+  duration_ms: 0.6098
+  type: 'test'
+  ...
+# Subtest: bounds a stalled audit request and emits non-sensitive delivery context
+ok 440 - bounds a stalled audit request and emits non-sensitive delivery context
+  ---
+  duration_ms: 5.7327
+  type: 'test'
+  ...
+# Subtest: uses stable UUID event IDs without retaining answer data
+ok 441 - uses stable UUID event IDs without retaining answer data
+  ---
+  duration_ms: 0.5039
+  type: 'test'
+  ...
+# Subtest: preserves an operation-specific event id for repeatable management actions
+ok 442 - preserves an operation-specific event id for repeatable management actions
+  ---
+  duration_ms: 0.3263
+  type: 'test'
+  ...
+# Subtest: builds encoded atcmh_lms MySQL URLs from the configured component variables
+ok 443 - builds encoded atcmh_lms MySQL URLs from the configured component variables
+  ---
+  duration_ms: 6.0115
+  type: 'test'
+  ...
+# Subtest: rejects reader configuration outside the production atcmh_lms database
+ok 444 - rejects reader configuration outside the production atcmh_lms database
+  ---
+  duration_ms: 1.8429
+  type: 'test'
+  ...
+# Subtest: uses the shared MySQL configuration for management writes
+ok 445 - uses the shared MySQL configuration for management writes
+  ---
+  duration_ms: 1.9187
+  type: 'test'
+  ...
+# Subtest: allows ordinary read-only statements
+ok 446 - allows ordinary read-only statements
+  ---
+  duration_ms: 0.8045
+  type: 'test'
+  ...
+# Subtest: write transactions only expose parameterized execute calls
+ok 447 - write transactions only expose parameterized execute calls
+  ---
+  duration_ms: 3.0344
+  type: 'test'
+  ...
+# Subtest: management writes derive their connection from MYSQL variables only
+ok 448 - management writes derive their connection from MYSQL variables only
+  ---
+  duration_ms: 1.7162
+  type: 'test'
+  ...
+# Subtest: a failed import transaction rolls back every prior write
+ok 449 - a failed import transaction rolls back every prior write
+  ---
+  duration_ms: 3.1839
+  type: 'test'
+  ...
+# Subtest: rejects writes and locking reads
+ok 450 - rejects writes and locking reads
+  ---
+  duration_ms: 0.3145
+  type: 'test'
+  ...
+# Subtest: management auth requires an opaque central Exams cookie
+ok 451 - management auth requires an opaque central Exams cookie
+  ---
+  duration_ms: 23.1823
+  type: 'test'
+  ...
+# Subtest: revoked or unavailable central sessions fail closed
+ok 452 - revoked or unavailable central sessions fail closed
+  ---
+  duration_ms: 1.2811
+  type: 'test'
+  ...
+# Subtest: mentor and administrator capabilities are derived from the introspected Discord ID
+ok 453 - mentor and administrator capabilities are derived from the introspected Discord ID
+  ---
+  duration_ms: 6.5855
+  type: 'test'
+  ...
+# Subtest: centralized capability lookup authenticates as an internal service
+ok 454 - centralized capability lookup authenticates as an internal service
+  ---
+  duration_ms: 3.7015
+  type: 'test'
+  ...
+# Subtest: guild lookup failure is controlled and missing capability is forbidden
+ok 455 - guild lookup failure is controlled and missing capability is forbidden
+  ---
+  duration_ms: 3.2621
+  type: 'test'
+  ...
+# Subtest: every management mutation requires exact Origin and per-session CSRF
+ok 456 - every management mutation requires exact Origin and per-session CSRF
+  ---
+  duration_ms: 3.9025
+  type: 'test'
+  ...
+# Subtest: superadmin impersonating a non-staff target loses management access
+ok 457 - superadmin impersonating a non-staff target loses management access
+  ---
+  duration_ms: 1.6211
+  type: 'test'
+  ...
+# Subtest: impersonated target staff retains target capabilities while audit identity remains the real actor
+ok 458 - impersonated target staff retains target capabilities while audit identity remains the real actor
+  ---
+  duration_ms: 1.2924
+  type: 'test'
+  ...
+# Subtest: unknown centralized capabilities are ignored
+ok 459 - unknown centralized capabilities are ignored
+  ---
+  duration_ms: 1.9041
+  type: 'test'
+  ...
+# Subtest: histogram median weights attempts, handles ties and has no fabricated empty score
+ok 460 - histogram median weights attempts, handles ties and has no fabricated empty score
+  ---
+  duration_ms: 1.1627
+  type: 'test'
+  ...
+# Subtest: exam summary uses global distinct identities, weighted scores, half-open windows and separate undated counts
+ok 461 - exam summary uses global distinct identities, weighted scores, half-open windows and separate undated counts
+  ---
+  duration_ms: 3.8932
+  type: 'test'
+  ...
+# Subtest: all-time reporting has no previous period and empty ratios are unavailable
+ok 462 - all-time reporting has no previous period and empty ratios are unavailable
+  ---
+  duration_ms: 0.4654
+  type: 'test'
+  ...
+# Subtest: production Exams cookies are scoped and hardened
+ok 463 - production Exams cookies are scoped and hardened
+  ---
+  duration_ms: 2.0901
+  type: 'test'
+  ...
+# Subtest: only exact HTTP loopback origins may omit Secure
+ok 464 - only exact HTTP loopback origins may omit Secure
+  ---
+  duration_ms: 0.3082
+  type: 'test'
+  ...
+# Subtest: quiz IDs must be UUID-like before a query is issued
+ok 465 - quiz IDs must be UUID-like before a query is issued
+  ---
+  duration_ms: 2.4674
+  type: 'test'
+  ...
+# Subtest: public catalogue query never includes private quizzes
+ok 466 - public catalogue query never includes private quizzes
+  ---
+  duration_ms: 0.7303
+  type: 'test'
+  ...
+# Subtest: accepts UUID-like quiz IDs
+ok 467 - accepts UUID-like quiz IDs
+  ---
+  duration_ms: 0.4268
+  type: 'test'
+  ...
+# Subtest: invalid quiz IDs are rejected before a database query
+ok 468 - invalid quiz IDs are rejected before a database query
+  ---
+  duration_ms: 0.5401
+  type: 'test'
+  ...
+# Subtest: attempt reads derive ownership from the legacy Discord mention
+ok 469 - attempt reads derive ownership from the legacy Discord mention
+  ---
+  duration_ms: 0.8263
+  type: 'test'
+  ...
+# Subtest: attempt reads retain ownership for interim display-name rows
+ok 470 - attempt reads retain ownership for interim display-name rows
+  ---
+  duration_ms: 0.635
+  type: 'test'
+  ...
+# Subtest: attempt identity parsing accepts only complete legacy mentions or snowflakes
+ok 471 - attempt identity parsing accepts only complete legacy mentions or snowflakes
+  ---
+  duration_ms: 0.3423
+  type: 'test'
+  ...
+# Subtest: attempt reads merge the legacy snapshot and answer rows without mutable quiz content
+ok 472 - attempt reads merge the legacy snapshot and answer rows without mutable quiz content
+  ---
+  duration_ms: 4.3208
+  type: 'test'
+  ...
+# Subtest: attempt reads normalize early prompt-and-option-ID snapshots into a safe detailed review
+ok 473 - attempt reads normalize early prompt-and-option-ID snapshots into a safe detailed review
+  ---
+  duration_ms: 1.0055
+  type: 'test'
+  ...
+# Subtest: attempt reads preserve a recorded legacy selection whose option text is missing
+ok 474 - attempt reads preserve a recorded legacy selection whose option text is missing
+  ---
+  duration_ms: 0.8584
+  type: 'test'
+  ...
+# Subtest: attempt lookup accepts UUID IDs and exact 32-character legacy codes
+ok 475 - attempt lookup accepts UUID IDs and exact 32-character legacy codes
+  ---
+  duration_ms: 0.3401
+  type: 'test'
+  ...
+# Subtest: attempt lookup normalizes accepted legacy codes to their canonical lowercase form
+ok 476 - attempt lookup normalizes accepted legacy codes to their canonical lowercase form
+  ---
+  duration_ms: 0.2282
+  type: 'test'
+  ...
+# Subtest: attempt lookup rejects ambiguous references before querying
+ok 477 - attempt lookup rejects ambiguous references before querying
+  ---
+  duration_ms: 0.2532
+  type: 'test'
+  ...
+# Subtest: staff catalogue includes every quiz without checking unlocks
+ok 478 - staff catalogue includes every quiz without checking unlocks
+  ---
+  duration_ms: 0.3524
+  type: 'test'
+  ...
+# Subtest: ordinary learner catalogue remains public or exactly their own unlocks
+ok 479 - ordinary learner catalogue remains public or exactly their own unlocks
+  ---
+  duration_ms: 0.2569
+  type: 'test'
+  ...
+# Subtest: staff can open private quizzes without an unlock query
+ok 480 - staff can open private quizzes without an unlock query
+  ---
+  duration_ms: 0.7287
+  type: 'test'
+  ...
+# Subtest: ordinary private quiz lookup checks the exact learner unlock
+ok 481 - ordinary private quiz lookup checks the exact learner unlock
+  ---
+  duration_ms: 0.477
+  type: 'test'
+  ...
+# Subtest: public quiz lookup remains available without an unlock query
+ok 482 - public quiz lookup remains available without an unlock query
+  ---
+  duration_ms: 0.4365
+  type: 'test'
+  ...
+# Subtest: private quiz lookup requires a server-verified Discord snowflake
+ok 483 - private quiz lookup requires a server-verified Discord snowflake
+  ---
+  duration_ms: 0.321
+  type: 'test'
+  ...
+# Subtest: Ground Control teaches eight blocks with practice separate from the final assessment
+ok 484 - Ground Control teaches eight blocks with practice separate from the final assessment
+  ---
+  duration_ms: 4.9225
+  type: 'test'
+  ...
+# Subtest: Ground Control checks provide distinct submitted feedback and include departure taxi
+ok 485 - Ground Control checks provide distinct submitted feedback and include departure taxi
+  ---
+  duration_ms: 0.9122
+  type: 'test'
+  ...
+# Subtest: Runway crossings retain all states in two tables and one schematic
+ok 486 - Runway crossings retain all states in two tables and one schematic
+  ---
+  duration_ms: 0.7429
+  type: 'test'
+  ...
+# Subtest: Command and responsibility teaching remains aligned
+ok 487 - Command and responsibility teaching remains aligned
+  ---
+  duration_ms: 0.5095
+  type: 'test'
+  ...
+# Subtest: rejects imports with no questions
+ok 488 - rejects imports with no questions
+  ---
+  duration_ms: 5.6954
+  type: 'test'
+  ...
+# Subtest: rejects questions with more than one correct option
+ok 489 - rejects questions with more than one correct option
+  ---
+  duration_ms: 1.6214
+  type: 'test'
+  ...
+# Subtest: normalizes a valid quiz without assigning database IDs
+ok 490 - normalizes a valid quiz without assigning database IDs
+  ---
+  duration_ms: 1.7316
+  type: 'test'
+  ...
+# Subtest: parses CSV with a row-specific error for invalid boolean values
+ok 491 - parses CSV with a row-specific error for invalid boolean values
+  ---
+  duration_ms: 0.7168
+  type: 'test'
+  ...
+# Subtest: parses one-option-per-row CSV into the normalized quiz
+ok 492 - parses one-option-per-row CSV into the normalized quiz
+  ---
+  duration_ms: 0.979
+  type: 'test'
+  ...
+# Subtest: a failed imported option leaves transaction rollback to the caller
+ok 493 - a failed imported option leaves transaction rollback to the caller
+  ---
+  duration_ms: 3.0854
+  type: 'test'
+  ...
+# Subtest: writes the existing quiz_tags join rows for resolved import tags
+ok 494 - writes the existing quiz_tags join rows for resolved import tags
+  ---
+  duration_ms: 0.8905
+  type: 'test'
+  ...
+# Subtest: records the import time as the quiz creation and update time
+ok 495 - records the import time as the quiz creation and update time
+  ---
+  duration_ms: 0.8078
+  type: 'test'
+  ...
+# Subtest: impersonated import audit stores real actor account and target metadata
+ok 496 - impersonated import audit stores real actor account and target metadata
+  ---
+  duration_ms: 0.9054
+  type: 'test'
+  ...
+# Subtest: centralized staff decision grants access to private quizzes
+ok 497 - centralized staff decision grants access to private quizzes
+  ---
+  duration_ms: 34.0416
+  type: 'test'
+  ...
+# Subtest: nonmember receives ordinary learner access
+ok 498 - nonmember receives ordinary learner access
+  ---
+  duration_ms: 0.9506
+  type: 'test'
+  ...
+# Subtest: malformed centralized decisions receive ordinary learner access
+ok 499 - malformed centralized decisions receive ordinary learner access
+  ---
+  duration_ms: 1.8302
+  type: 'test'
+  ...
+# Subtest: Discord member lookup 401 receives ordinary learner access
+ok 500 - Discord member lookup 401 receives ordinary learner access
+  ---
+  duration_ms: 0.9399
+  type: 'test'
+  ...
+# Subtest: Discord member lookup 403 receives ordinary learner access
+ok 501 - Discord member lookup 403 receives ordinary learner access
+  ---
+  duration_ms: 1.1676
+  type: 'test'
+  ...
+# Subtest: Discord member lookup 404 receives ordinary learner access
+ok 502 - Discord member lookup 404 receives ordinary learner access
+  ---
+  duration_ms: 0.6725
+  type: 'test'
+  ...
+# Subtest: Discord member lookup 500 receives ordinary learner access
+ok 503 - Discord member lookup 500 receives ordinary learner access
+  ---
+  duration_ms: 1.0654
+  type: 'test'
+  ...
+# Subtest: Discord member lookup 503 receives ordinary learner access
+ok 504 - Discord member lookup 503 receives ordinary learner access
+  ---
+  duration_ms: 0.6163
+  type: 'test'
+  ...
+# Subtest: central authorization rejection receives ordinary learner access
+ok 505 - central authorization rejection receives ordinary learner access
+  ---
+  duration_ms: 0.553
+  type: 'test'
+  ...
+# Subtest: invalid Discord ID and missing lookup configuration receive ordinary learner access
+ok 506 - invalid Discord ID and missing lookup configuration receive ordinary learner access
+  ---
+  duration_ms: 0.5804
+  type: 'test'
+  ...
+# Subtest: signed-in catalogue resolves trusted learner access and uses role-neutral empty copy
+ok 507 - signed-in catalogue resolves trusted learner access and uses role-neutral empty copy
+  ---
+  duration_ms: 1.9879
+  type: 'test'
+  ...
+# Subtest: detail resolves trusted learner access before canonical quiz authorization
+ok 508 - detail resolves trusted learner access before canonical quiz authorization
+  ---
+  duration_ms: 0.6212
+  type: 'test'
+  ...
+# Subtest: attempt render resolves trusted learner access before canonical quiz authorization
+ok 509 - attempt render resolves trusted learner access before canonical quiz authorization
+  ---
+  duration_ms: 0.3957
+  type: 'test'
+  ...
+# Subtest: start resolves trusted learner access before canonical quiz authorization
+ok 510 - start resolves trusted learner access before canonical quiz authorization
+  ---
+  duration_ms: 0.4422
+  type: 'test'
+  ...
+# Subtest: catalogue groups eligible linked quizzes by folder with descriptions
+ok 511 - catalogue groups eligible linked quizzes by folder with descriptions
+  ---
+  duration_ms: 2.0139
+  type: 'test'
+  ...
+# Subtest: catalogue visibility metadata is restricted to trusted staff access
+ok 512 - catalogue visibility metadata is restricted to trusted staff access
+  ---
+  duration_ms: 0.8852
+  type: 'test'
+  ...
+# Subtest: quiz detail uses the site shell and a dedicated content card
+ok 513 - quiz detail uses the site shell and a dedicated content card
+  ---
+  duration_ms: 0.4664
+  type: 'test'
+  ...
+# Subtest: learner pages contain no login controls and protected starts use the home modal
+ok 514 - learner pages contain no login controls and protected starts use the home modal
+  ---
+  duration_ms: 0.976
+  type: 'test'
+  ...
+# Subtest: quiz start control uses a block wrapper that can contain login choices
+ok 515 - quiz start control uses a block wrapper that can contain login choices
+  ---
+  duration_ms: 10.8917
+  type: 'test'
+  ...
+# Subtest: quiz ledger and detail styles include responsive and keyboard focus contracts
+ok 516 - quiz ledger and detail styles include responsive and keyboard focus contracts
+  ---
+  duration_ms: 0.6803
+  type: 'test'
+  ...
+# Subtest: learner site content preserves the live navigation and homepage copy
+ok 517 - learner site content preserves the live navigation and homepage copy
+  ---
+  duration_ms: 3.1106
+  type: 'test'
+  ...
+# Subtest: legacy learner auth labels remain stable for session summaries
+ok 518 - legacy learner auth labels remain stable for session summaries
+  ---
+  duration_ms: 0.2652
+  type: 'test'
+  ...
+# Subtest: Exam Center landing contains no inline authentication UI
+ok 519 - Exam Center landing contains no inline authentication UI
+  ---
+  duration_ms: 0.5853
+  type: 'test'
+  ...
+# Subtest: consent outcomes use safe learner-facing messages
+ok 520 - consent outcomes use safe learner-facing messages
+  ---
+  duration_ms: 4.3325
+  type: 'test'
+  ...
+# Subtest: login disclosure uses the canonical policies and prospective consent wording
+ok 521 - login disclosure uses the canonical policies and prospective consent wording
+  ---
+  duration_ms: 2.3176
+  type: 'test'
+  ...
+# Subtest: login modal renders actionable OAuth failures and only a validated support reference
+ok 522 - login modal renders actionable OAuth failures and only a validated support reference
+  ---
+  duration_ms: 0.7953
+  type: 'test'
+  ...
+# Subtest: footer links to both canonical policies
+ok 523 - footer links to both canonical policies
+  ---
+  duration_ms: 1.3055
+  type: 'test'
+  ...
+# Subtest: management attempts list joins quiz titles, preserves legacy identities, and orders newest first
+ok 524 - management attempts list joins quiz titles, preserves legacy identities, and orders newest first
+  ---
+  duration_ms: 2.8792
+  type: 'test'
+  ...
+# Subtest: management attempt pages search names or quiz titles and return count metadata
+ok 525 - management attempt pages search names or quiz titles and return count metadata
+  ---
+  duration_ms: 1.0936
+  type: 'test'
+  ...
+# Subtest: management attempt page search also matches legacy mentions, stored Discord IDs, and attempt codes
+ok 526 - management attempt page search also matches legacy mentions, stored Discord IDs, and attempt codes
+  ---
+  duration_ms: 0.5526
+  type: 'test'
+  ...
+# Subtest: management attempt page rejects invalid pagination before querying
+ok 527 - management attempt page rejects invalid pagination before querying
+  ---
+  duration_ms: 0.8979
+  type: 'test'
+  ...
+# Subtest: management attempt page omits search predicates for an empty query
+ok 528 - management attempt page omits search predicates for an empty query
+  ---
+  duration_ms: 0.5156
+  type: 'test'
+  ...
+# Subtest: management attempt detail derives review from the stored legacy snapshot
+ok 529 - management attempt detail derives review from the stored legacy snapshot
+  ---
+  duration_ms: 2.2534
+  type: 'test'
+  ...
+# Subtest: management attempt deletion deletes answer rows before its parent attempt
+ok 530 - management attempt deletion deletes answer rows before its parent attempt
+  ---
+  duration_ms: 0.9446
+  type: 'test'
+  ...
+# Subtest: management attempt deletion rolls back when the parent attempt is missing
+ok 531 - management attempt deletion rolls back when the parent attempt is missing
+  ---
+  duration_ms: 0.6812
+  type: 'test'
+  ...
+# Subtest: successful quiz mutations emit Dashboard audit events after persistence
+ok 532 - successful quiz mutations emit Dashboard audit events after persistence
+  ---
+  duration_ms: 3.0236
+  type: 'test'
+  ...
+# Subtest: import preview does not emit a mutation audit
+ok 533 - import preview does not emit a mutation audit
+  ---
+  duration_ms: 0.756
+  type: 'test'
+  ...
+# Subtest: quiz management events name safe metadata without question or answer content
+ok 534 - quiz management events name safe metadata without question or answer content
+  ---
+  duration_ms: 3.2514
+  type: 'test'
+  ...
+# Subtest: repeatable quiz mutations receive distinct audit ids while imports reuse their idempotency key
+ok 535 - repeatable quiz mutations receive distinct audit ids while imports reuse their idempotency key
+  ---
+  duration_ms: 0.4667
+  type: 'test'
+  ...
+# Subtest: management audit details preserve real-actor impersonation context
+ok 536 - management audit details preserve real-actor impersonation context
+  ---
+  duration_ms: 0.3213
+  type: 'test'
+  ...
+# Subtest: allows only the configured unified origin without wildcard CORS
+ok 537 - allows only the configured unified origin without wildcard CORS
+  ---
+  duration_ms: 31.4492
+  type: 'test'
+  ...
+# Subtest: rejects the apex and legacy application origins even outside production
+ok 538 - rejects the apex and legacy application origins even outside production
+  ---
+  duration_ms: 1.9883
+  type: 'test'
+  ...
+# Subtest: rejects untrusted CORS preflight origins
+ok 539 - rejects untrusted CORS preflight origins
+  ---
+  duration_ms: 0.7546
+  type: 'test'
+  ...
+# Subtest: accepts unified-origin write preflights including DELETE and rejects unsupported methods
+ok 540 - accepts unified-origin write preflights including DELETE and rejects unsupported methods
+  ---
+  duration_ms: 2.4799
+  type: 'test'
+  ...
+# Subtest: management quiz DTOs retain the canonical folder id
+ok 541 - management quiz DTOs retain the canonical folder id
+  ---
+  duration_ms: 1.4737
+  type: 'test'
+  ...
+# Subtest: does not provide a development idempotency-secret fallback
+ok 542 - does not provide a development idempotency-secret fallback
+  ---
+  duration_ms: 2.2701
+  type: 'test'
+  ...
+# Subtest: preview persists a random nonce on the write connection
+ok 543 - preview persists a random nonce on the write connection
+  ---
+  duration_ms: 6.8956
+  type: 'test'
+  ...
+# Subtest: commit consumes only an unexpired preview bound to the same actor and payload
+ok 544 - commit consumes only an unexpired preview bound to the same actor and payload
+  ---
+  duration_ms: 4.3623
+  type: 'test'
+  ...
+# Subtest: commit rejects an expired preview without consuming it
+ok 545 - commit rejects an expired preview without consuming it
+  ---
+  duration_ms: 1.5469
+  type: 'test'
+  ...
+# Subtest: commit rejects a consumed preview nonce replay
+ok 546 - commit rejects a consumed preview nonce replay
+  ---
+  duration_ms: 1.6421
+  type: 'test'
+  ...
+# Subtest: commit rejects a preview nonce presented by another Discord actor
+ok 547 - commit rejects a preview nonce presented by another Discord actor
+  ---
+  duration_ms: 1.2275
+  type: 'test'
+  ...
+# Subtest: commit rejects a nonce whose stored payload hash differs from the submitted import
+ok 548 - commit rejects a nonce whose stored payload hash differs from the submitted import
+  ---
+  duration_ms: 2.3631
+  type: 'test'
+  ...
+# Subtest: mentor may manage any quiz after Discord authorization
+ok 549 - mentor may manage any quiz after Discord authorization
+  ---
+  duration_ms: 4.1389
+  type: 'test'
+  ...
+# Subtest: administrator may save global website content
+ok 550 - administrator may save global website content
+  ---
+  duration_ms: 0.4299
+  type: 'test'
+  ...
+# Subtest: quiz managers receive the complete canonical category list
+ok 551 - quiz managers receive the complete canonical category list
+  ---
+  duration_ms: 0.7608
+  type: 'test'
+  ...
+# Subtest: missing quiz update rejects before any mutation
+ok 552 - missing quiz update rejects before any mutation
+  ---
+  duration_ms: 8.1918
+  type: 'test'
+  ...
+# Subtest: quiz managers cannot move an existing quiz through the general update path
+ok 553 - quiz managers cannot move an existing quiz through the general update path
+  ---
+  duration_ms: 1.4668
+  type: 'test'
+  ...
+# Subtest: missing quiz unlock rejects before any mutation
+ok 554 - missing quiz unlock rejects before any mutation
+  ---
+  duration_ms: 1.1432
+  type: 'test'
+  ...
+# Subtest: administrator moves a quiz category without replacing quiz content
+ok 555 - administrator moves a quiz category without replacing quiz content
+  ---
+  duration_ms: 1.4606
+  type: 'test'
+  ...
+# Subtest: duplicate tags produce only one tag join insert
+ok 556 - duplicate tags produce only one tag join insert
+  ---
+  duration_ms: 3.172
+  type: 'test'
+  ...
+# Subtest: new public quizzes persist the requested visibility and read back on the write connection
+ok 557 - new public quizzes persist the requested visibility and read back on the write connection
+  ---
+  duration_ms: 1.6873
+  type: 'test'
+  ...
+# Subtest: a Discord-authorized mentor can manage a quiz regardless of author
+ok 558 - a Discord-authorized mentor can manage a quiz regardless of author
+  ---
+  duration_ms: 1.254
+  type: 'test'
+  ...
+# Subtest: an administrator can manage every quiz
+ok 559 - an administrator can manage every quiz
+  ---
+  duration_ms: 0.2511
+  type: 'test'
+  ...
+# Subtest: public reader loads current published content with the allowed origin and no session data
+ok 560 - public reader loads current published content with the allowed origin and no session data
+  ---
+  duration_ms: 49.3512
+  type: 'test'
+  ...
+# Subtest: public API failures and malformed data remain unavailable rather than serving seed or stale content
+ok 561 - public API failures and malformed data remain unavailable rather than serving seed or stale content
+  ---
+  duration_ms: 3.5202
+  type: 'test'
+  ...
+# Subtest: public fetch validates configured origins before requesting content
+ok 562 - public fetch validates configured origins before requesting content
+  ---
+  duration_ms: 1.2505
+  type: 'test'
+  ...
+# Subtest: published guide envelopes preserve content and server revision metadata
+ok 563 - published guide envelopes preserve content and server revision metadata
+  ---
+  duration_ms: 7.7481
+  type: 'test'
+  ...
+# Subtest: malformed, duplicate, and impossible-date guide responses fail closed
+ok 564 - malformed, duplicate, and impossible-date guide responses fail closed
+  ---
+  duration_ms: 4.1815
+  type: 'test'
+  ...
+# Subtest: writes include content fields while revision remains exclusively in If-Match
+ok 565 - writes include content fields while revision remains exclusively in If-Match
+  ---
+  duration_ms: 0.7647
+  type: 'test'
+  ...
+# Subtest: content snapshots accept incomplete drafts while writes still validate them
+ok 566 - content snapshots accept incomplete drafts while writes still validate them
+  ---
+  duration_ms: 1.0258
+  type: 'test'
+  ...
+# Subtest: catalogue search matches titles and descriptions without case sensitivity
+ok 567 - catalogue search matches titles and descriptions without case sensitivity
+  ---
+  duration_ms: 2.0735
+  type: 'test'
+  ...
+# Subtest: catalogue category filtering composes with search
+ok 568 - catalogue category filtering composes with search
+  ---
+  duration_ms: 0.5017
+  type: 'test'
+  ...
+# Subtest: catalogue category options are unique, sorted, and retain stable IDs
+ok 569 - catalogue category options are unique, sorted, and retain stable IDs
+  ---
+  duration_ms: 19.9518
+  type: 'test'
+  ...
+# Subtest: safe runtime URLs are validated and normalized
+ok 570 - safe runtime URLs are validated and normalized
+  ---
+  duration_ms: 3.7421
+  type: 'test'
+  ...
+# Subtest: runtime config rejects paths, credentials, and non-loopback HTTP
+ok 571 - runtime config rejects paths, credentials, and non-loopback HTTP
+  ---
+  duration_ms: 1.5735
+  type: 'test'
+  ...
+# Subtest: no secret is sourced from a NEXT_PUBLIC variable
+ok 572 - no secret is sourced from a NEXT_PUBLIC variable
+  ---
+  duration_ms: 0.3996
+  type: 'test'
+  ...
+# Subtest: production fails closed while development and test use loopback defaults
+ok 573 - production fails closed while development and test use loopback defaults
+  ---
+  duration_ms: 3.0039
+  type: 'test'
+  ...
+# Subtest: YouTube embeds and direct videos are scoped to guide reader and editor
+ok 574 - YouTube embeds and direct videos are scoped to guide reader and editor
+  ---
+  duration_ms: 4.334
+  type: 'test'
+  ...
+# Subtest: other routes retain their original frame and media restrictions
+ok 575 - other routes retain their original frame and media restrictions
+  ---
+  duration_ms: 1.0927
+  type: 'test'
+  ...
+# Subtest: Exams pages and handlers stay under the canonical /exams boundary
+ok 576 - Exams pages and handlers stay under the canonical /exams boundary
+  ---
+  duration_ms: 1.3613
+  type: 'test'
+  ...
+# Subtest: the unified app exposes only canonical product roots
+ok 577 - the unified app exposes only canonical product roots
+  ---
+  duration_ms: 0.4476
+  type: 'test'
+  ...
+# Subtest: unavailable names use a contextual fallback, then identify the user by ID
+ok 578 - unavailable names use a contextual fallback, then identify the user by ID
+  ---
+  duration_ms: 1.5761
+  type: 'test'
+  ...
+# Subtest: valid current names take precedence over historical names
+ok 579 - valid current names take precedence over historical names
+  ---
+  duration_ms: 0.3519
+  type: 'test'
+  ...
+# Subtest: a backend ID placeholder does not hide a known IFC or historical name
+ok 580 - a backend ID placeholder does not hide a known IFC or historical name
+  ---
+  duration_ms: 0.2338
+  type: 'test'
+  ...
+# Subtest: search matches IDs even when names are unavailable without matching placeholder labels
+ok 581 - search matches IDs even when names are unavailable without matching placeholder labels
+  ---
+  duration_ms: 0.3254
+  type: 'test'
+  ...
+# Subtest: website access keeps full proxy chain, omits query and only includes the session token
+ok 582 - website access keeps full proxy chain, omits query and only includes the session token
+  ---
+  duration_ms: 43.6101
+  type: 'test'
+  ...
+# Subtest: pages and APIs are reported while assets, health and OPTIONS are excluded
+ok 583 - pages and APIs are reported while assets, health and OPTIONS are excluded
+  ---
+  duration_ms: 1.9062
+  type: 'test'
+  ...
+# Subtest: reporter uses internal service credentials without forwarding unrelated data
+ok 584 - reporter uses internal service credentials without forwarding unrelated data
+  ---
+  duration_ms: 5.4405
+  type: 'test'
+  ...
+# Subtest: relay marker is derived and never exposes the internal service credential
+ok 585 - relay marker is derived and never exposes the internal service credential
+  ---
+  duration_ms: 0.8081
+  type: 'test'
+  ...
+# Subtest: reporting failures log no token, service key, forwarding chain or query
+ok 586 - reporting failures log no token, service key, forwarding chain or query
+  ---
+  duration_ms: 0.7567
+  type: 'test'
+  ...
+# Subtest: access denied honestly covers denial, closing, and backing out
+ok 587 - access denied honestly covers denial, closing, and backing out
+  ---
+  duration_ms: 8140.6364
+  type: 'test'
+  ...
+# Subtest: every verified outcome has a clear heading, explanation, and next action
+ok 588 - every verified outcome has a clear heading, explanation, and next action
+  ---
+  duration_ms: 9.0615
+  type: 'test'
+  ...
+# Subtest: invalid or unsigned result input renders generic safe recovery without a reference
+ok 589 - invalid or unsigned result input renders generic safe recovery without a reference
+  ---
+  duration_ms: 0.9734
+  type: 'test'
+  ...
+# Subtest: public route uses the unified shell and hardened result presentation
+ok 590 - public route uses the unified shell and hardened result presentation
+  ---
+  duration_ms: 0.8031
+  type: 'test'
+  ...
+# Subtest: eligibility guides signed-out and IFC-unlinked accounts before requesting results
+ok 591 - eligibility guides signed-out and IFC-unlinked accounts before requesting results
+  ---
+  duration_ms: 1.5208
+  type: 'test'
+  ...
+# Subtest: eligibility renders pass, fail, and manual verification outcomes
+ok 592 - eligibility renders pass, fail, and manual verification outcomes
+  ---
+  duration_ms: 0.5446
+  type: 'test'
+  ...
+# Subtest: eligibility API uses the authenticated account endpoint
+ok 593 - eligibility API uses the authenticated account endpoint
+  ---
+  duration_ms: 0.4092
+  type: 'test'
+  ...
+# Subtest: already IFATC accounts bypass the normal requirements list
+ok 594 - already IFATC accounts bypass the normal requirements list
+  ---
+  duration_ms: 0.3878
+  type: 'test'
+  ...
+# Subtest: member counts round down to hundreds and graduates to fifties
+ok 595 - member counts round down to hundreds and graduates to fifties
+  ---
+  duration_ms: 1.4588
+  type: 'test'
+  ...
+# Subtest: only valid complete Discord count responses are shown
+ok 596 - only valid complete Discord count responses are shown
+  ---
+  duration_ms: 1.4658
+  type: 'test'
+  ...
+# Subtest: cached pageshow and visible-tab return report access and cleanup listeners
+ok 597 - cached pageshow and visible-tab return report access and cleanup listeners
+  ---
+  duration_ms: 4.5296
+  type: 'test'
+  ...
+# Subtest: client access beacon carries no explicit IP, token or URL payload
+ok 598 - client access beacon carries no explicit IP, token or URL payload
+  ---
+  duration_ms: 30.0252
+  type: 'test'
+  ...
+# Subtest: preview navigation is available only to admins and superadmins
+ok 599 - preview navigation is available only to admins and superadmins
+  ---
+  duration_ms: 1.2361
+  type: 'test'
+  ...
+# Subtest: shared header distinguishes every authentication and capability state
+ok 600 - shared header distinguishes every authentication and capability state
+  ---
+  duration_ms: 1.0761
+  type: 'test'
+  ...
+# Subtest: Dashboard permission cannot surface without a live Dashboard session
+ok 601 - Dashboard permission cannot surface without a live Dashboard session
+  ---
+  duration_ms: 0.3723
+  type: 'test'
+  ...
+# Subtest: direct home login uses the Dashboard audience and returns home
+ok 602 - direct home login uses the Dashboard audience and returns home
+  ---
+  duration_ms: 2.4562
+  type: 'test'
+  ...
+# Subtest: contextual login accepts only paths owned by its application
+ok 603 - contextual login accepts only paths owned by its application
+  ---
+  duration_ms: 0.6091
+  type: 'test'
+  ...
+# Subtest: contextual login rejects cross-application and malicious destinations
+ok 604 - contextual login rejects cross-application and malicious destinations
+  ---
+  duration_ms: 0.397
+  type: 'test'
+  ...
+# Subtest: home login links preserve the application and canonical return path
+ok 605 - home login links preserve the application and canonical return path
+  ---
+  duration_ms: 0.5561
+  type: 'test'
+  ...
+# Subtest: compatibility links preserve only supported auth errors
+ok 606 - compatibility links preserve only supported auth errors
+  ---
+  duration_ms: 0.2508
+  type: 'test'
+  ...
+# Subtest: invalid login errors preserve only an opaque support reference
+ok 607 - invalid login errors preserve only an opaque support reference
+  ---
+  duration_ms: 0.3203
+  type: 'test'
+  ...
+# Subtest: marketing, leaderboard, exams, and Dashboard use the shared site shell
+ok 608 - marketing, leaderboard, exams, and Dashboard use the shared site shell
+  ---
+  duration_ms: 2.3635
+  type: 'test'
+  ...
+# Subtest: login controls exist only on the home surface
+ok 609 - login controls exist only on the home surface
+  ---
+  duration_ms: 1.4966
+  type: 'test'
+  ...
+# Subtest: Dashboard access is gated before DashboardRoute renders
+ok 610 - Dashboard access is gated before DashboardRoute renders
+  ---
+  duration_ms: 0.6893
+  type: 'test'
+  ...
+# Subtest: desktop authentication replaces the Enroll Now CTA without duplicating the center navigation
+ok 611 - desktop authentication replaces the Enroll Now CTA without duplicating the center navigation
+  ---
+  duration_ms: 0.9648
+  type: 'test'
+  ...
+# Subtest: framed pages use the complete home navigation
+ok 612 - framed pages use the complete home navigation
+  ---
+  duration_ms: 0.8261
+  type: 'test'
+  ...
+# Subtest: active Exam Center attempts remain outside the framed navigation
+ok 613 - active Exam Center attempts remain outside the framed navigation
+  ---
+  duration_ms: 2.7539
+  type: 'test'
+  ...
+# Subtest: Exam Center is the task-first catalogue and the old catalogue URL redirects
+ok 614 - Exam Center is the task-first catalogue and the old catalogue URL redirects
+  ---
+  duration_ms: 0.9003
+  type: 'test'
+  ...
+# Subtest: wraps requires a live super-admin session and forwards only the session cookie
+ok 615 - wraps requires a live super-admin session and forwards only the session cookie
+  ---
+  duration_ms: 35.9643
+  type: 'test'
+  ...
+# Subtest: ordinary admins, mentors/staff, members and guests cannot open wraps
+ok 616 - ordinary admins, mentors/staff, members and guests cannot open wraps
+  ---
+  duration_ms: 12.9131
+  type: 'test'
+  ...
+# Subtest: impersonation, expired sessions, malformed responses and auth failures fail closed
+ok 617 - impersonation, expired sessions, malformed responses and auth failures fail closed
+  ---
+  duration_ms: 10.761
+  type: 'test'
+  ...
+# Subtest: unauthorized wraps requests are real HTTP 404s before any page is streamed
+ok 618 - unauthorized wraps requests are real HTTP 404s before any page is streamed
+  ---
+  duration_ms: 37.8893
+  type: 'test'
+  ...
+# Subtest: super admins can reach wraps; other routes retain their normal proxy behavior
+ok 619 - super admins can reach wraps; other routes retain their normal proxy behavior
+  ---
+  duration_ms: 6.3077
+  type: 'test'
+  ...
+# Subtest: highlights retain separate annual and August totals from the overview data
+ok 620 - highlights retain separate annual and August totals from the overview data
+  ---
+  duration_ms: 6.7366
+  type: 'test'
+  ...
+# Subtest: mentor highlights include personal participation as well as hosted activity
+ok 621 - mentor highlights include personal participation as well as hosted activity
+  ---
+  duration_ms: 0.9432
+  type: 'test'
+  ...
+# Subtest: mentee highlights use recorded exam outcomes and omit a pass without an achievement
+ok 622 - mentee highlights use recorded exam outcomes and omit a pass without an achievement
+  ---
+  duration_ms: 0.6677
+  type: 'test'
+  ...
+# Subtest: Next emits standalone output and browser security headers
+ok 623 - Next emits standalone output and browser security headers
+  ---
+  duration_ms: 2.7557
+  type: 'test'
+  ...
+# Subtest: the root layout resolves public configuration at request time
+ok 624 - the root layout resolves public configuration at request time
+  ---
+  duration_ms: 0.7825
+  type: 'test'
+  ...
+# Subtest: Next isolates development artifacts from standalone production output
+ok 625 - Next isolates development artifacts from standalone production output
+  ---
+  duration_ms: 964.9124
+  type: 'test'
+  ...
+# Subtest: security headers use the configured Dashboard API and enable transport hardening only in production
+ok 626 - security headers use the configured Dashboard API and enable transport hardening only in production
+  ---
+  duration_ms: 986.8907
+  type: 'test'
+  ...
+# Subtest: production CSP permits only blob-backed object and frame sources for the manual PDF preview
+ok 627 - production CSP permits only blob-backed object and frame sources for the manual PDF preview
+  ---
+  duration_ms: 558.8517
+  type: 'test'
+  ...
+# Subtest: container runs standalone Next as non-root and healthchecks the global route
+ok 628 - container runs standalone Next as non-root and healthchecks the global route
+  ---
+  duration_ms: 0.6562
+  type: 'test'
+  ...
+# Subtest: environment examples and ignores contain no public secret channel
+ok 629 - environment examples and ignores contain no public secret channel
+  ---
+  duration_ms: 1.0008
+  type: 'test'
+  ...
+# Subtest: Frontend contract tests do not read sibling repositories
+ok 630 - Frontend contract tests do not read sibling repositories
+  ---
+  duration_ms: 0.6332
+  type: 'test'
+  ...
+# Subtest: the Next App Router tree lives under src
+ok 631 - the Next App Router tree lives under src
+  ---
+  duration_ms: 1.1253
+  type: 'test'
+  ...
+# Subtest: RootSite marketing and legal content is owned by App Router routes
+ok 632 - RootSite marketing and legal content is owned by App Router routes
+  ---
+  duration_ms: 2.4085
+  type: 'test'
+  ...
+# Subtest: homepage embeds use the ATCMH logo instead of an externally hosted brand image
+ok 633 - homepage embeds use the ATCMH logo instead of an externally hosted brand image
+  ---
+  duration_ms: 0.6071
+  type: 'test'
+  ...
+# Subtest: the unified app exposes the canonical website application route
+ok 634 - the unified app exposes the canonical website application route
+  ---
+  duration_ms: 1.3417
+  type: 'test'
+  ...
+# Subtest: the root navbar links to Leaderboard and permission-gates Dashboard in the account menu
+ok 635 - the root navbar links to Leaderboard and permission-gates Dashboard in the account menu
+  ---
+  duration_ms: 0.7379
+  type: 'test'
+  ...
+# Subtest: privacy policy describes current login, audit, and linked-account processing
+ok 636 - privacy policy describes current login, audit, and linked-account processing
+  ---
+  duration_ms: 2.3002
+  type: 'test'
+  ...
+# Subtest: terms page renders the canonical RootSite terms document
+ok 637 - terms page renders the canonical RootSite terms document
+  ---
+  duration_ms: 2.8894
+  type: 'test'
+  ...
+# Subtest: legal pages use the shared shell while Discord and legal links remain in the footer
+ok 638 - legal pages use the shared shell while Discord and legal links remain in the footer
+  ---
+  duration_ms: 1.5509
+  type: 'test'
+  ...
+# Subtest: terms describe the current consent and central authentication model
+ok 639 - terms describe the current consent and central authentication model
+  ---
+  duration_ms: 0.741
+  type: 'test'
+  ...
+1..639
+# tests 639
+# suites 0
+# pass 636
+# fail 0
+# cancelled 0
+# skipped 3
+# todo 0
+# duration_ms 49528.8506

@@ -1,6 +1,7 @@
 "use client";
 
 import {usePathname} from "next/navigation";
+import dynamic from "next/dynamic";
 import {Navigate, DashboardNavigationProvider} from "./next-navigation";
 import {resolveDashboardRoute} from "./route-map";
 import {useDashboard} from "./DashboardProvider";
@@ -21,6 +22,8 @@ import AdminApplicationQuestions from "./components/admin/AdminApplicationQuesti
 import AdminHealth from "./components/admin/AdminHealth";
 import DashboardWorkspace from "./DashboardWorkspace";
 
+const AdminPilotGuide = dynamic(() => import("./components/admin/AdminPilotGuide"));
+
 const screenLabels = {
     sessions: "Sessions",
     stats: "Statistics",
@@ -37,6 +40,7 @@ const screenLabels = {
     "alt-accounts": "Alt-account evidence",
     exams: "Exam Center",
     courses: "Course Center",
+    "pilot-guide": "Pilot Guide",
 } as const;
 
 export default function DashboardRoute({frontendVersion}: {frontendVersion: string}) {
@@ -60,6 +64,7 @@ export default function DashboardRoute({frontendVersion}: {frontendVersion: stri
         case "audit-logs": content = <AdminAuditLogs {...common} users={state.users} token={state.token}/>; break;
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
+        case "pilot-guide": content = <AdminPilotGuide loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.adminUser} token={state.token}/>; break;
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
         case "courses": content = <CourseCenter token={state.token} users={state.users ?? []} view={route.view} courseId={route.params?.courseId}/>; break;
     }

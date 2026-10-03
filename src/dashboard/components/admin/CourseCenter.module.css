@@ -114,7 +114,7 @@
 .insertMenu { position: relative; display: inline-block; }
 .insertButton { min-height: 28px; border-radius: 6px; padding: 4px 7px; color: var(--accent-strong-color); cursor: pointer; font: inherit; font-weight: 800; list-style: none; }
 .insertButton::-webkit-details-marker { display: none; }
-.insertButton::after { content: "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¾"; display: inline-block; margin-left: 6px; font-size: .7rem; }
+.insertButton::after { content: ""; display: inline-block; width: .4em; height: .4em; margin-left: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; vertical-align: .15em; transform: rotate(45deg); }
 .insertButton:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .insertMenuList { position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; display: grid; min-width: 150px; overflow: hidden; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); box-shadow: 0 8px 20px color-mix(in srgb, var(--dashboard-shadow-color, #000) 22%, transparent); }
 .insertMenuList button { width: 100%; padding: 8px 10px; color: var(--text-color); text-align: left; font-weight: 600; }

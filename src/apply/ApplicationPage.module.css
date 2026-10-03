@@ -36,6 +36,20 @@
 .help { margin: .4rem 0 0; color: var(--muted); line-height: 1.5; }
 .question > input, .question > textarea { width: 100%; margin-top: 1rem; padding: .8rem .9rem; border: 1px solid rgba(148,163,184,.32); border-radius: .7rem; background: #091322; color: var(--foreground); font: inherit; }
 .question > textarea { resize: vertical; line-height: 1.5; }
+.question > select, .timezoneInput > select, .timezoneClockControls input { width: 100%; min-width: 0; padding: .8rem .9rem; border: 1px solid rgba(148,163,184,.32); border-radius: .7rem; background: #091322; color: var(--foreground); font: inherit; }
+.question > select, .timezoneInput { margin-top: 1rem; }
+.question select:focus-visible, .timezoneClockControls input:focus-visible { outline: 3px solid #9bbcff; outline-offset: 2px; }
+.timezoneSuggestion { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .75rem; }
+.timezoneSuggestion p, .timezoneCandidates p { margin: 0; color: var(--muted); line-height: 1.5; }
+.timezoneSuggestion button { flex: none; }
+.timezoneClockToggle { margin-top: 1rem; padding: .35rem 0; border: 0; background: transparent; color: #bfdbfe; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; }
+.timezoneClockPanel { margin-top: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: .7rem; background: rgba(15,23,42,.4); }
+.timezoneClockPanel > label { font-weight: 750; }
+.timezoneClockControls { display: flex; gap: .75rem; margin-top: .75rem; }
+.timezoneClockControls button { flex: none; }
+.timezoneCandidates { margin-top: 1rem; }
+.timezoneCandidates > div { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+@media (max-width: 600px) { .timezoneSuggestion, .timezoneClockControls { align-items: stretch; flex-direction: column; } }
 .choiceRow { display: grid; grid-template-columns: repeat(2, minmax(0, 12rem)); gap: .75rem; margin-top: 1rem; }
 .choiceRow label { cursor: pointer; }
 .choiceRow input { position: absolute; opacity: 0; }

@@ -1,6 +1,9 @@
 .accountPage { min-height: 100dvh; display: grid; place-items: center; padding: 24px; color: var(--foreground); }
 .card { width: min(760px, 100%); padding: clamp(24px, 5vw, 44px); border: 1px solid var(--border); border-radius: 18px; background: var(--card-solid); box-shadow: var(--shadow); }
 .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; font-weight: 700; }
+.profileHeading { display: flex; align-items: center; gap: 18px; }
+.profileHeading h1 { margin: 0; }
+.profileHeading .eyebrow { margin-top: 0; }
 .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 24px 0 32px; }
 .summary div, .identity { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
 .summary dt, .identity span { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }

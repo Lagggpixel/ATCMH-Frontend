@@ -2,6 +2,7 @@
 
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
+import {usePathname} from "next/navigation";
 import Image from "next/image";
 import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {AuthNavigation} from "@/src/marketing/SiteHeader";
@@ -10,6 +11,8 @@ import styles from "./DashboardHeader.module.css";
 import AppearanceMenu from "./theme/AppearanceMenu";
 
 export default function DashboardHeader() {
+    // Leaving the guide loads a document with the destination's media policy.
+    const HomeLink = usePathname() === "/dashboard/pilot-guide" ? "a" : Link;
     const {adminUser} = usePortalAuth();
     const [menuOpen, setMenuOpen] = useState(false);
     const menuButton = useRef<HTMLButtonElement>(null);
@@ -37,18 +40,18 @@ export default function DashboardHeader() {
     }, [menuOpen]);
 
     return <header className={`site-header is-scrolled is-solid is-light ${styles.dashboardHeader}`}>
-        <Link className={styles.brandLink} href="/" aria-label="ATCMH Home">
+        <HomeLink className={styles.brandLink} href="/" aria-label="ATCMH Home">
             <Image src="/assets/logo-Czz1Kl8u.png" width={42} height={42} alt=""/>
             <span><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span>
             <span className={styles.homeLabel}>Home</span>
-        </Link>
+        </HomeLink>
         {menuOpen ? <button type="button" className={styles.drawerBackdrop} aria-label="Close dashboard menu" onClick={() => {setMenuOpen(false); menuButton.current?.focus();}}/> : null}
         <div ref={drawer} id="dashboard-sections" className={styles.dashboardNavigation} data-open={menuOpen} role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen ? "true" : undefined} aria-label={menuOpen ? "Dashboard navigation" : undefined}>
             <div className={styles.drawerHeader}>
-                <Link className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)} aria-label="ATCMH Home">
+                <HomeLink className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)} aria-label="ATCMH Home">
                     <Image src="/assets/logo-Czz1Kl8u.png" width={42} height={42} alt=""/>
                     <span><strong>ATCMH</strong><small>ATC Mentorship Hub</small></span>
-                </Link>
+                </HomeLink>
                 <button ref={closeButton} type="button" onClick={() => {setMenuOpen(false); menuButton.current?.focus();}}>Close</button>
             </div>
             {adminUser ? <AdminNav adminUser={adminUser} embedded onNavigate={() => setMenuOpen(false)}/> : null}

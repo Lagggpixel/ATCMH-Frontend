@@ -50,12 +50,14 @@ const isPrimarySameOriginAnchor = (event: unknown, environment: ExamUnsavedChang
         ctrlKey?: boolean;
         shiftKey?: boolean;
         altKey?: boolean;
-        target?: {closest?: (selector: string) => {href?: string; target?: string; download?: string} | null};
+        target?: {closest?: (selector: string) => {href?: string; target?: string; download?: string; hasAttribute?: (name: string) => boolean} | null};
     };
     if (click.defaultPrevented || click.button !== 0 || click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return undefined;
 
     const anchor = click.target?.closest?.("a[href]");
-    if (!anchor?.href || anchor.target === "_blank" || anchor.download !== undefined) return undefined;
+    // Real anchors expose download="" even when the attribute is absent.
+    const download = anchor?.hasAttribute ? anchor.hasAttribute("download") : anchor?.download !== undefined;
+    if (!anchor?.href || anchor.target === "_blank" || download) return undefined;
 
     const destination = new URL(anchor.href, environment.window.location.href);
     return destination.origin === environment.window.location.origin ? destination.href : undefined;
