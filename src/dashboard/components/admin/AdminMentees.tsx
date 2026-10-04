@@ -47,6 +47,7 @@ import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminPagination from "./AdminPagination.tsx";
 import WeeklyAvailabilityEditor from "../../../apply/WeeklyAvailabilityEditor.tsx";
 import {defaultWeeklyAvailabilityAnswer} from "../../../apply/weekly-availability.ts";
+import MenteeProfileEditor from "./MenteeProfileEditor.tsx";
 import styles from "./AdminMentees.module.css";
 
 interface AdminMenteesProps {
@@ -581,6 +582,8 @@ const AdminMentees = ({
         <div className={styles.adminMenteesContainer}>
             {menteeRecordId ? (
                 <MenteeProfilePage
+                    profileToken={token}
+                    onProfileChanged={onMenteeChanged}
                     selectedMentee={selectedMentee}
                     getUserName={getUserName}
                     onBack={() => navigate(menteeRoute())}
@@ -973,6 +976,8 @@ const MenteeTable = memo(function MenteeTable({mentees, getUserName, onOpen, aut
 });
 
 interface MenteeProfilePageProps {
+    profileToken: string | null;
+    onProfileChanged: (mentee: AdminMentee) => void;
     selectedMentee: AdminMentee | undefined;
     getUserName: (id?: string, fallback?: string | null) => string;
     onBack: () => void;
@@ -1000,7 +1005,7 @@ interface MenteeProfilePageProps {
     onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
 }
 
-const MenteeProfilePage = ({
+const MenteeProfilePage = ({profileToken, onProfileChanged,
                               selectedMentee,
                               getUserName,
                               onBack,
@@ -1062,6 +1067,7 @@ const MenteeProfilePage = ({
             <AdminToast message={actionError} onDismiss={onDismissActionError}/>
 
             <MenteeProfileOverview mentee={selectedMentee} getUserName={getUserName}/>
+            <MenteeProfileEditor key={selectedMentee.id} mentee={selectedMentee} token={profileToken} onSaved={onProfileChanged}/>
 
             {selectedActionPolicy?.canSchedule ? (
                 <details className={styles.schedulingPanel}>

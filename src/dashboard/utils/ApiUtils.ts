@@ -495,6 +495,12 @@ export class ApiUtils {
         await ApiUtils.ensureOk(response);
     }
 
+    static async updateMenteeProfile(token: string | null, id: number, profile: {region: string; timezone: string; availability: string}): Promise<AdminMentee | undefined> {
+        return ApiUtils.adminJson<AdminMentee>(`${dashboardApiUrl}/admin/mentees/${id}/profile`, token, {
+            method: "PUT", body: JSON.stringify(profile),
+        });
+    }
+
     static async pickupMentee(token: string | null, menteeRecordId: number): Promise<AdminMentee | undefined> {
         return ApiUtils.adminJson<AdminMentee>(`${dashboardApiUrl}/admin/mentees/${menteeRecordId}/pickup`, token, {
             method: "POST"

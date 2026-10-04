@@ -1,0 +1,5 @@
+.editor { padding: 1rem; border: 1px solid var(--border-color, #64748b); border-radius: 12px; }
+.editor fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: .75rem; }
+.editor input { width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid #64748b; border-radius: 6px; background: transparent; color: inherit; }
+.editor button { padding: .65rem 1rem; border-radius: 6px; cursor: pointer; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; }
