@@ -12,4 +12,5 @@ export interface AdminUser {
     canImpersonate: boolean;
     canManageMockQuestions?: boolean;
     canManageApplicationQuestions?: boolean;
+    canManagePilotGuide?: boolean;
 }
