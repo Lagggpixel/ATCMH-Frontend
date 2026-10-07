@@ -46,7 +46,7 @@ async function proxy(request: Request, context: {params: Promise<{path: string[]
   const incoming = new URL(request.url);
   const target = new URL(`/${path.map(encodeURIComponent).join("/")}${incoming.search}`, backendOrigin());
   const headers = new Headers();
-  for (const name of ["accept", "content-type", "if-none-match", "range", "x-csrf-token"]) {
+  for (const name of ["accept", "content-type", "if-match", "if-none-match", "range", "x-csrf-token"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }

@@ -12,8 +12,8 @@
     min-height: 38px;
     border: 0;
     border-radius: 6px;
-    background: var(--accent-color);
-    color: #07111f;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     padding: 8px 12px;
     font: inherit;
     font-weight: 800;
@@ -35,7 +35,7 @@
     display: grid;
     place-items: center;
     padding: 18px;
-    background: rgba(0, 0, 0, 0.56);
+    background: var(--dashboard-backdrop, rgba(0, 0, 0, 0.56));
 }
 
 .adminUserNotesModal {
@@ -88,7 +88,7 @@
     min-width: 0;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     padding: 9px 11px;
     border-radius: 6px;
     font: inherit;
@@ -150,7 +150,7 @@
     min-height: 40px;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     padding: 9px 11px;
     border-radius: 6px;
     font: inherit;
@@ -423,4 +423,17 @@
     .adminUserNotesActionCell {
         min-width: 0;
     }
+}
+
+@media (max-width: 700px) {
+    .adminUserNotesDataTable tr { border-radius: .8rem; }
+    .adminUserNotesDataTable td:first-child { display: block; background: var(--dashboard-surface, #f8fbff) !important; color: var(--dashboard-ink, #10264b); font-weight: 700; text-align: left; }
+    .adminUserNotesDataTable td:first-child::before { display: block; margin-bottom: .25rem; }
+    .adminUserNotesTimeCell time { justify-items: start; }
+    .adminUserNoteCellNote { display: block !important; text-align: left !important; }
+    .adminUserNoteCellNote::before { display: block; margin-bottom: .3rem; }
+    .adminUserNotesActionCell { display: block !important; }
+    .adminUserNotesActionCell::before { display: block; margin-bottom: .5rem; }
+    .adminUserNotesActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .adminUserNotesActions button, .adminUserNotesCreateButton { min-height: 44px; }
 }

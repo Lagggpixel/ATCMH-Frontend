@@ -21,6 +21,7 @@ function identityDetails(input: AttemptAuditIdentity): Record<string, string | n
 export function attemptStartedAuditEvent(input: AttemptAuditIdentity & { startedAt: Date }): DashboardAuditEvent {
   return {
     action: "exam.attempt.started",
+    occurredAt: input.startedAt.getTime(),
     actorId: input.actorDiscordId ?? input.learnerDiscordId,
     targetType: "attempt",
     targetId: input.attemptId,
@@ -45,6 +46,7 @@ export function attemptCompletedAuditEvent(input: AttemptAuditIdentity & {
 }): DashboardAuditEvent {
   return {
     action: input.submissionReason === "timeout" ? "exam.attempt.timed_out" : "exam.attempt.submitted",
+    occurredAt: input.submittedAt.getTime(),
     actorId: input.actorDiscordId ?? input.learnerDiscordId,
     targetType: "attempt",
     targetId: input.attemptId,

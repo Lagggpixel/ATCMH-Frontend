@@ -1,0 +1,382 @@
+.page {
+  container-type: inline-size;
+  container-name: pilot-guide;
+  width: min(100% - 80px, 1320px);
+  margin: 0 auto;
+  padding: 40px 0 56px;
+  color: var(--dashboard-ink, #12264a);
+  font-family: var(--font-site, "Source Sans Pro", sans-serif);
+}
+
+.introduction {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--dashboard-border, #dce3eb);
+  padding-bottom: 22px;
+}
+
+.introductionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+}
+
+.introduction h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3.1vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.introduction > p {
+  margin: 10px 0 0;
+  color: var(--dashboard-muted, #536987);
+  font-size: 1.125rem;
+  line-height: 1.55;
+}
+
+.lastUpdated {
+  margin: 0;
+  color: var(--dashboard-muted, #536987);
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.readerLayout {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+
+.chapterSidebar {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: calc(100dvh - 160px);
+}
+
+:global(.dashboard-product) .chapterSidebar {
+  top: 96px;
+  max-height: calc(100dvh - 120px);
+}
+
+:global(.dashboard-product) .page {
+  width: 100%;
+  padding: 24px 0 0;
+}
+
+.chapterListHeading {
+  margin: 6px 8px 14px;
+  color: var(--dashboard-ink, #12264a);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mobileToggle {
+  display: none;
+}
+
+.mobileSelection {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.chapterNumber {
+  flex: 0 0 auto;
+  min-width: 28px;
+  color: var(--dashboard-muted, #536987);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.toggleChevron {
+  flex: 0 0 auto;
+}
+
+.chapterTabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dashboard-border, #dce3eb) transparent;
+  padding: 2px;
+  margin: -2px;
+}
+
+.chapterTab {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 60px;
+  border: 0;
+  border-left: 4px solid transparent;
+  border-bottom: 1px solid var(--dashboard-border, #dce3eb);
+  background: transparent;
+  padding: 17px 16px;
+  color: var(--dashboard-ink, #12264a);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chapterTab:last-child {
+  border-bottom-color: transparent;
+}
+
+.chapterTab:hover {
+  color: var(--dashboard-link, #0869ee);
+  background: var(--dashboard-selected, #e8f1ff);
+}
+
+.chapterTab[aria-selected="true"] {
+  border-left-color: var(--dashboard-button, #0869ee);
+  border-bottom-color: transparent;
+  border-radius: 4px;
+  background: var(--dashboard-selected, #e8f1ff);
+  color: var(--dashboard-link, #0869ee);
+  font-weight: 700;
+}
+
+.chapterTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chapterTab:focus-visible {
+  outline: 3px solid var(--dashboard-focus, #9bbcff);
+  outline-offset: -4px;
+}
+
+.chapterPosition {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 7px;
+  margin: 24px 8px 0;
+  border-top: 1px solid var(--dashboard-border, #dce3eb);
+  padding-top: 20px;
+  color: var(--dashboard-muted, #536987);
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.progressTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dashboard-border, #dce3eb);
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dashboard-button, #0869ee);
+}
+
+.readingCanvas {
+  min-width: 0;
+  border: 1px solid var(--dashboard-border, #dce3eb);
+  border-radius: 8px;
+  background: var(--dashboard-surface, #fff);
+  padding: 32px;
+}
+
+.chapterContext {
+  margin-bottom: 11px;
+  color: var(--dashboard-muted, #536987);
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.chapterPanel {
+  scroll-margin-top: 100px;
+}
+
+.chapterPanel[hidden] {
+  display: none;
+}
+
+.chapterPanel:focus-visible,
+.mobileToggle:focus-visible,
+.pageNavigation button:focus-visible {
+  outline: 3px solid var(--dashboard-focus, #9bbcff);
+  outline-offset: 4px;
+}
+
+.article {
+  min-width: 0;
+}
+
+.article > h2 {
+  margin: 0 0 25px;
+  color: var(--dashboard-ink, #12264a);
+  font-size: clamp(1.95rem, 3vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.17;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.articleContent {
+  font-size: 1.125rem;
+  overflow-x: auto;
+}
+
+.pageNavigation {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  border-top: 1px solid var(--dashboard-border, #dce3eb);
+  padding-top: 16px;
+}
+
+.pageNavigation button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: calc(50% - 8px);
+  min-height: 44px;
+  border: 1px solid var(--dashboard-border, #dce3eb);
+  border-radius: 6px;
+  padding: 9px 20px;
+  color: var(--dashboard-ink, #12264a);
+  font: inherit;
+  font-size: .95rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.pageNavigation button:only-child {
+  max-width: 100%;
+}
+
+.pageNavigation button > span {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pageNavigation button > svg {
+  flex: 0 0 auto;
+}
+
+.previousButton {
+  background: transparent;
+  text-align: left;
+}
+
+.previousButton:hover {
+  border-color: var(--dashboard-link, #0869ee);
+  background: var(--dashboard-selected, #e8f1ff);
+}
+
+.pageNavigation .nextButton {
+  margin-left: auto;
+  border-color: var(--dashboard-button, #0869ee);
+  background: var(--dashboard-button, #0869ee);
+  color: var(--dashboard-on-button, #fff);
+  text-align: right;
+}
+
+.pageNavigation .nextButton:hover {
+  border-color: var(--dashboard-button-hover, #075cc9);
+  background: var(--dashboard-button-hover, #075cc9);
+}
+
+.navigationLabel {
+  font-size: inherit;
+}
+
+.navigationTitle {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.emptyState {
+  margin: 30px 0;
+  color: var(--dashboard-muted, #536987);
+  font-size: 1.075rem;
+}
+
+@media (min-width: 761px) and (max-width: 1000px) {
+  .page { width: calc(100% - 48px); padding-top: 32px; }
+}
+
+@media (max-width: 760px) {
+  .page { width: calc(100% - 32px); padding: 28px 0 38px; }
+}
+
+@container pilot-guide (min-width: 761px) and (max-width: 1000px) {
+  .readerLayout { grid-template-columns: 224px minmax(0, 1fr); gap: 24px; }
+  .chapterTab { gap: 12px; padding-inline: 12px; }
+  .readingCanvas { padding: 26px; }
+}
+
+@container pilot-guide (max-width: 760px) {
+  .introduction { margin-bottom: 20px; padding-bottom: 22px; }
+  .introductionHeading { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .introduction h1 { font-size: 2.125rem; }
+  .lastUpdated { font-size: .875rem; }
+  .introduction > p { margin-top: 14px; font-size: 1rem; line-height: 1.5; }
+  .readerLayout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .chapterSidebar { position: static; max-height: none; }
+  .chapterListHeading { margin: 0 0 7px; color: var(--dashboard-muted, #536987); font-size: .9375rem; font-weight: 400; }
+  .mobileToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--dashboard-border, #dce3eb);
+    border-radius: 6px;
+    background: var(--dashboard-surface, #fff);
+    padding: 10px 14px;
+    color: var(--dashboard-ink, #12264a);
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mobileSelection > .chapterNumber { min-width: 29px; border-right: 1px solid var(--dashboard-border, #dce3eb); padding-right: 14px; }
+  .mobileToggle[aria-expanded="true"] .toggleChevron { transform: rotate(180deg); }
+  .chapterTabs { max-height: min(55dvh, 420px); margin-top: 8px; border: 1px solid var(--dashboard-border, #dce3eb); border-radius: 6px; background: var(--dashboard-surface, #fff); }
+  .chapterSidebar[data-open="false"] .chapterTabs { display: none; }
+  .chapterTab { gap: 14px; min-height: 48px; padding: 12px 14px; }
+  .chapterPosition { margin: 6px 0 0; border: 0; padding: 0; font-size: .875rem; }
+  .progressTrack { display: none; }
+  .readingCanvas { padding: 20px; }
+  .chapterContext { margin-bottom: 12px; font-size: .9375rem; }
+  .article > h2 { margin-bottom: 21px; font-size: clamp(1.9rem, 5cqi, 2.35rem); }
+  .articleContent { font-size: 1rem; }
+  .pageNavigation { gap: 12px; margin-top: 22px; }
+  .pageNavigation button { max-width: calc(50% - 6px); gap: 8px; padding: 10px 12px; }
+  .pageNavigation button:only-child { max-width: 100%; }
+  .pageNavigation button > span { display: block; }
+  .navigationLabel, .navigationTitle { display: block; }
+  .navigationLabel { font-size: .75rem; }
+  .navigationTitle { font-size: .875rem; }
+}

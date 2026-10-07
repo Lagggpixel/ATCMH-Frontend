@@ -1,6 +1,7 @@
 "use client";
 
 import {usePathname} from "next/navigation";
+import dynamic from "next/dynamic";
 import {Navigate, DashboardNavigationProvider} from "./next-navigation";
 import {resolveDashboardRoute} from "./route-map";
 import {useDashboard} from "./DashboardProvider";
@@ -18,11 +19,15 @@ import AdminAccounts from "./components/admin/AdminAccounts";
 import AdminAltAccounts from "./components/admin/AdminAltAccounts";
 import AdminMockQuestions from "./components/admin/AdminMockQuestions";
 import AdminApplicationQuestions from "./components/admin/AdminApplicationQuestions";
+import AdminHealth from "./components/admin/AdminHealth";
 import DashboardWorkspace from "./DashboardWorkspace";
+
+const AdminPilotGuide = dynamic(() => import("./components/admin/AdminPilotGuide"));
 
 const screenLabels = {
     sessions: "Sessions",
     stats: "Statistics",
+    health: "System health",
     usernotes: "User notes",
     mentees: "Mentees",
     assignments: "Assignments",
@@ -35,9 +40,10 @@ const screenLabels = {
     "alt-accounts": "Alt-account evidence",
     exams: "Exam Center",
     courses: "Course Center",
+    "pilot-guide": "Pilot Guide",
 } as const;
 
-export default function DashboardRoute() {
+export default function DashboardRoute({frontendVersion}: {frontendVersion: string}) {
     const route = resolveDashboardRoute(usePathname());
     const state = useDashboard();
     if (route.screen === "redirect") return <Navigate to={route.destination} replace/>;
@@ -46,7 +52,8 @@ export default function DashboardRoute() {
     let content;
     switch (route.screen) {
         case "sessions": content = <AdminSessions {...common} users={state.users} sessions={state.sessions}/>; break;
-        case "stats": content = <AdminStats {...common} users={state.users} sessions={state.sessions}/>; break;
+        case "stats": content = <AdminStats {...common} users={state.users} token={state.token}/>; break;
+        case "health": content = <AdminHealth loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.auth.session ? state.adminUser : undefined} token={state.token} frontendVersion={frontendVersion}/>; break;
         case "usernotes": content = <AdminUserNotes {...common} users={state.users} userNotes={state.userNotes} token={state.token} onUserNoteChanged={state.onUserNoteChanged}/>; break;
         case "mentees": content = <AdminMentees {...common} accountId={state.auth.session?.accountId} users={state.users} mentees={state.mentees} sessions={state.sessions} userNotes={state.userNotes} assignments={state.assignments} token={state.token} onMenteeChanged={state.onMenteeChanged} onSessionChanged={state.onSessionChanged} onSessionAssignmentSaved={state.onSessionAssignmentSaved}/>; break;
         case "assignments": content = <AdminAssignments {...common} users={state.users} assignments={state.assignments} token={state.token} onAssignmentChanged={state.onAssignmentChanged} onAssignmentDeleted={state.onAssignmentDeleted}/>; break;
@@ -57,6 +64,7 @@ export default function DashboardRoute() {
         case "audit-logs": content = <AdminAuditLogs {...common} users={state.users} token={state.token}/>; break;
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
+        case "pilot-guide": content = <AdminPilotGuide loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.adminUser} token={state.token}/>; break;
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
         case "courses": content = <CourseCenter token={state.token} users={state.users ?? []} view={route.view} courseId={route.params?.courseId}/>; break;
     }

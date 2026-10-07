@@ -3,9 +3,13 @@ import type {DashboardAuthSession} from "../../types/Account.ts";
 import styles from "./AccountPage.module.css";
 import {accountPageState, accountStatusLabel} from "./AccountPageState.ts";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
+import {availableUserName} from "@/src/lib/user-display-name";
+import ProfileAvatar from "@/src/platform/auth/ProfileAvatar";
+import {profileDisplayName} from "@/src/platform/auth/profile-avatar";
 
 interface AccountPageProps {
     session: DashboardAuthSession | null;
+    avatarUrl?: string | null;
     loading: boolean;
     error?: string | null;
     onLogout: (all?: boolean) => Promise<void>;
@@ -13,7 +17,7 @@ interface AccountPageProps {
 
 const identityName = (provider: string) => provider.toLowerCase() === "ifc" ? "Infinite Flight" : "Discord";
 
-export default function AccountPage({session, loading, error, onLogout}: AccountPageProps) {
+export default function AccountPage({session, avatarUrl, loading, error, onLogout}: AccountPageProps) {
     const [params] = useSearchParams();
     const state = accountPageState(session, loading, error, params.get("authError"));
     if (state.kind === "loading") return <main className={styles.accountPage}><p>Restoring your account…</p></main>;
@@ -23,8 +27,10 @@ export default function AccountPage({session, loading, error, onLogout}: Account
     const byProvider = new Map(activeSession.identities.map(identity => [identity.provider.toLowerCase(), identity]));
     return <main className={styles.accountPage}>
         <section className={styles.card}>
-            <p className={styles.eyebrow}>Account {activeSession.accountId}</p>
-            <h1>Your ATCMH account</h1>
+            <div className={styles.profileHeading}>
+                <ProfileAvatar avatarUrl={avatarUrl} displayName={profileDisplayName(activeSession)} size={72}/>
+                <div><p className={styles.eyebrow}>Account {activeSession.accountId}</p><h1>Your ATCMH account</h1></div>
+            </div>
             <dl className={styles.summary}>
                 <div><dt>Status</dt><dd>{accountStatusLabel(activeSession.status)}</dd></div>
                 <div><dt>Session</dt><dd>ATCMH web</dd></div>
@@ -33,7 +39,7 @@ export default function AccountPage({session, loading, error, onLogout}: Account
             <h2>Linked identities</h2>
             <div className={styles.identityGrid}>{["discord", "ifc"].map(provider => {
                 const identity = byProvider.get(provider);
-                return <article className={styles.identity} key={provider}><span>{identityName(provider)}</span>{identity ? <><strong>{identity.displayName || identity.subject}</strong><small>{identity.subject}</small></> : <strong>Not linked</strong>}</article>;
+                return <article className={styles.identity} key={provider}><span>{identityName(provider)}</span>{identity ? <><strong>{availableUserName(identity.displayName) ?? identity.subject}</strong><small>{identity.subject}</small></> : <strong>Not linked</strong>}</article>;
             })}</div>
             <div className={styles.actions}><button type="button" onClick={() => void onLogout(false)}>Log out here</button><button type="button" className={styles.danger} onClick={() => void onLogout(true)}>Log out everywhere</button></div>
         </section>

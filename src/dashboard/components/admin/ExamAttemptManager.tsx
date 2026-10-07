@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "@/src/dashboard/next-navigation";
+import {useNavigate, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {ExamAttemptPage} from "../../types/Exam.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import {useUserLookup} from "../../hooks/useAdminShared.ts";
@@ -16,8 +16,9 @@ const PAGE_SIZE = 25;
 
 const ExamAttemptManager = ({token, users}: ExamAttemptManagerProps) => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const {getUserNameOrFallback} = useUserLookup(users);
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(() => searchParams.get("query") ?? "");
     const [page, setPage] = useState(1);
     const [data, setData] = useState<ExamAttemptPage | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -48,20 +49,20 @@ const ExamAttemptManager = ({token, users}: ExamAttemptManagerProps) => {
 
     return <section className={styles.manager} aria-labelledby="attempts-heading">
         <div className={styles.heading}>
-            <div><p className={styles.eyebrow}>Historical records</p><h2 id="attempts-heading">Attempts</h2></div>
+            <div><h2 id="attempts-heading">Attempts</h2></div>
             <label className={styles.searchField}><span className={styles.visuallyHidden}>Search attempts</span><input type="search" value={query} onChange={event => changeQuery(event.target.value)} placeholder="Search learner, quiz, Discord ID, or code" aria-label="Search attempts"/></label>
         </div>
         {error ? <div className={styles.error} role="alert"><p>{error}</p><button type="button" onClick={() => setReloadKey(key => key + 1)}>Try again</button></div> : null}
         {isLoading ? <p className={styles.loading} aria-live="polite">Loading attempts…</p> : null}
         {!isLoading && !error && data?.attempts.length === 0 ? <p className={styles.empty}>{query ? "No attempts match that search." : "No past attempts are available yet."}</p> : null}
         {!isLoading && !error && data && data.attempts.length > 0 ? <>
-            <p className={styles.resultCount}>{data.total} {data.total === 1 ? "attempt" : "attempts"}</p>
+            <div className={styles.listSurface}><p className={styles.resultCount}>{data.total} {data.total === 1 ? "attempt" : "attempts"}</p><div className={styles.tableHead} aria-hidden="true"><span>Learner</span><span>Quiz</span><span>Result</span><span>Submitted</span><span>Action</span></div>
             <div className={styles.list} aria-label="Past attempts">
                 {data.attempts.map(attempt => {
                     const displayName = getUserNameOrFallback(attempt.studentDiscordId, attempt.studentName);
                     return <article className={styles.row} key={attempt.id}>
-                    <div className={styles.learner}><strong>{displayName}</strong><span>{attempt.studentDiscordId ?? "Legacy attempt"}</span></div>
-                    <div className={styles.quiz}><strong>{attempt.quizTitle}</strong><span>Code {attempt.code}</span></div>
+                    <div className={styles.learner}><strong>{displayName}</strong></div>
+                    <div className={styles.quiz}><strong>{attempt.quizTitle}</strong></div>
                     <div className={styles.result}><strong>{formatAttemptResult(attempt)}</strong><span className={attempt.status === "timed_out" ? styles.timeout : styles.submitted}>{formatAttemptStatus(attempt.status)}</span></div>
                     <time className={styles.submittedAt} dateTime={attempt.submittedAt ?? undefined}>{formatAttemptSubmittedAt(attempt.submittedAt)}</time>
                     <button type="button" className={styles.reviewButton} onClick={() => navigate(`/dashboard/exams/attempts/${attempt.id}`)}>Review</button>
@@ -72,7 +73,7 @@ const ExamAttemptManager = ({token, users}: ExamAttemptManagerProps) => {
                 <button type="button" disabled={page <= 1} onClick={() => setPage(current => current - 1)}>Previous</button>
                 <span>Page {data.page} of {totalPages}</span>
                 <button type="button" disabled={page >= totalPages} onClick={() => setPage(current => current + 1)}>Next</button>
-            </nav> : null}
+            </nav> : null}</div>
         </> : null}
     </section>;
 };

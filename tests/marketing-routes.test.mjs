@@ -30,6 +30,6 @@ test("the root navbar links to Leaderboard and permission-gates Dashboard in the
   const header = readFileSync(new URL("../src/marketing/SiteHeader.tsx", import.meta.url), "utf8");
   assert.match(header, /\{label: "Leaderboard", href: "\/leaderboard"\}/);
   assert.match(header, /<details className="nav-user-menu">/);
-  assert.match(header, /\{showDashboard \? <Link href="\/dashboard">Dashboard<\/Link> : null\}/);
+  assert.match(header, /\{showDashboard \? <AccountLink href="\/dashboard">Dashboard<\/AccountLink> : null\}/);
   assert.equal(existsSync(new URL("../src/app/leaderboard/page.tsx", import.meta.url)), true);
 });

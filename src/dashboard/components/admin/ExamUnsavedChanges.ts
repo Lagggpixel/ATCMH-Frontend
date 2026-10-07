@@ -1,4 +1,4 @@
-export const EXAM_UNSAVED_CHANGES_MESSAGE = "You have unsaved Exam Center changes. Leave and discard them?";
+export const EXAM_UNSAVED_CHANGES_MESSAGE = "Your unsaved changes will be lost if you leave this page.";
 
 const normalizeExamValue = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(normalizeExamValue);
@@ -22,7 +22,6 @@ interface ListenerTarget {
 
 interface ExamUnsavedChangesEnvironment {
     window: ListenerTarget & {
-        confirm(message: string): boolean;
         location: {
             href: string;
             origin: string;
@@ -51,12 +50,14 @@ const isPrimarySameOriginAnchor = (event: unknown, environment: ExamUnsavedChang
         ctrlKey?: boolean;
         shiftKey?: boolean;
         altKey?: boolean;
-        target?: {closest?: (selector: string) => {href?: string; target?: string; download?: string} | null};
+        target?: {closest?: (selector: string) => {href?: string; target?: string; download?: string; hasAttribute?: (name: string) => boolean} | null};
     };
     if (click.defaultPrevented || click.button !== 0 || click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return undefined;
 
     const anchor = click.target?.closest?.("a[href]");
-    if (!anchor?.href || anchor.target === "_blank" || anchor.download !== undefined) return undefined;
+    // Real anchors expose download="" even when the attribute is absent.
+    const download = anchor?.hasAttribute ? anchor.hasAttribute("download") : anchor?.download !== undefined;
+    if (!anchor?.href || anchor.target === "_blank" || download) return undefined;
 
     const destination = new URL(anchor.href, environment.window.location.href);
     return destination.origin === environment.window.location.origin ? destination.href : undefined;
@@ -64,15 +65,17 @@ const isPrimarySameOriginAnchor = (event: unknown, environment: ExamUnsavedChang
 
 export interface ExamUnsavedChangesGuard {
     activate(): void;
-    confirmAndRun(run: () => void): boolean;
+    confirmAndRun(run: () => void): Promise<boolean>;
     disarm(): void;
 }
 
 export const createExamUnsavedChangesGuard = (
-    {isDirty}: {isDirty: () => boolean},
+    {isDirty, confirm}: {isDirty: () => boolean; confirm: () => Promise<boolean>},
     environment: ExamUnsavedChangesEnvironment | undefined = browserEnvironment(),
 ): ExamUnsavedChangesGuard => {
     let armed = false;
+    let pending = false;
+    let restoringHistory = false;
 
     const disarm = () => {
         if (!armed || !environment) return;
@@ -82,12 +85,17 @@ export const createExamUnsavedChangesGuard = (
         environment.window.removeEventListener("popstate", onPopState);
     };
 
-    const confirmAndRun = (run: () => void): boolean => {
+    const confirmAndRun = async (run: () => void): Promise<boolean> => {
         if (!armed || !isDirty()) {
             run();
             return true;
         }
-        if (!environment?.window.confirm(EXAM_UNSAVED_CHANGES_MESSAGE)) return false;
+        if (pending) return false;
+        pending = true;
+        let accepted = false;
+        try { accepted = await confirm(); }
+        finally { pending = false; }
+        if (!accepted || !armed) return false;
         disarm();
         run();
         return true;
@@ -105,17 +113,15 @@ export const createExamUnsavedChangesGuard = (
         const destination = isPrimarySameOriginAnchor(event, environment);
         if (!destination) return;
         (event as {preventDefault(): void}).preventDefault();
-        confirmAndRun(() => environment.window.location.assign(destination));
+        void confirmAndRun(() => environment.window.location.assign(destination));
     };
 
     const onPopState: Listener = () => {
         if (!armed || !isDirty() || !environment) return;
-        if (environment.window.confirm(EXAM_UNSAVED_CHANGES_MESSAGE)) {
-            disarm();
-            environment.window.history.back();
-            return;
-        }
+        if (restoringHistory) { restoringHistory = false; return; }
+        restoringHistory = true;
         environment.window.history.go(1);
+        void confirmAndRun(() => environment.window.history.go(-2));
     };
 
     return {

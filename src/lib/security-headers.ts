@@ -1,13 +1,15 @@
 import { resolvePublicRuntimeConfig, type RuntimeEnvironment } from "./runtime-config";
 
-export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | undefined) {
+export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | undefined, pathname = "") {
   const isProduction = nodeEnv === "production";
   const { dashboardApiUrl } = resolvePublicRuntimeConfig(env, nodeEnv);
+  const guideMedia = ["/pilot-guide", "/dashboard/pilot-guide"].includes(pathname.replace(/\/$/, ""));
   const contentSecurityPolicy = [
     "default-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
-    "frame-src blob:",
+    `frame-src blob:${guideMedia ? " https://www.youtube-nocookie.com" : ""}`,
+    ...(guideMedia ? ["media-src 'self' https:"] : []),
     `form-action 'self' ${dashboardApiUrl}`,
     "object-src blob:",
     `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,

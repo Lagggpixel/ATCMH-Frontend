@@ -2,10 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FlagIcon } from "@phosphor-icons/react/Flag";
+import { ListBulletsIcon } from "@phosphor-icons/react/ListBullets";
 
 import { submitLearnerAttempt } from "./actions";
-import { coordinateAttemptSubmission, remainingSeconds, type AttemptQuestion } from "./attempt-form-model";
+import { coordinateAttemptSubmission, type AttemptQuestion } from "./attempt-form-model";
 import { useAttemptNavigationProtection } from "./useAttemptNavigationProtection";
+import AttemptReview from "./AttemptReview";
 
 interface AttemptFormProps {
   quizId: string;
@@ -17,6 +20,9 @@ interface AttemptFormProps {
 export default function AttemptForm({ deadline, quizId, quizTitle, questions }: AttemptFormProps) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [flags, setFlags] = useState<ReadonlySet<string>>(() => new Set());
   const [pending, setPending] = useState(false);
   const [navigationActive, setNavigationActive] = useState(true);
   const [error, setError] = useState<string>();
@@ -25,6 +31,19 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
   const timeoutAttempted = useRef(false);
   const answersRef = useRef(answers);
   const [csrfToken, setCsrfToken] = useState<string>();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const firstView = useRef(true);
+
+  useEffect(() => {
+    if (firstView.current) { firstView.current = false; return; }
+    headingRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0 });
+  }, [currentIndex, reviewOpen]);
+
+  useEffect(() => {
+    if (error && reviewOpen) errorRef.current?.focus();
+  }, [error, reviewOpen]);
 
   useEffect(() => {
     void fetch("/exams/api/auth/session", { credentials: "include", cache: "no-store" })
@@ -55,6 +74,7 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
 
     setPending(false);
     setError(result.message);
+    setReviewOpen(true);
     return false;
   }, [csrfToken, quizId, router]);
 
@@ -72,7 +92,7 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
     const updateTimer = () => {
       const next = Math.max(0, deadline - Math.floor(Date.now() / 1_000));
       setSecondsLeft(next);
-      if (next === 0 && !timeoutAttempted.current) {
+      if (next === 0 && !timeoutAttempted.current && csrfToken) {
         timeoutAttempted.current = true;
         void submit("timeout");
       }
@@ -80,38 +100,54 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
     updateTimer();
     const timer = window.setInterval(updateTimer, 250);
     return () => window.clearInterval(timer);
-  }, [deadline, submit]);
+  }, [csrfToken, deadline, submit]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void submit("manual");
+    if (reviewOpen) void submit("manual");
+    else setReviewOpen(true);
   };
 
   const timerText = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
+  const currentQuestion = questions[currentIndex];
+  const answeredCount = questions.filter(question => Boolean(answers[question.id])).length;
+  const openQuestion = (index: number) => {
+    setCurrentIndex(index);
+    setReviewOpen(false);
+  };
+  const reviewButton = (className: string) => <button className={`attempt-review-open ${className}`} type="button" disabled={pending} onClick={() => setReviewOpen(true)}><ListBulletsIcon size={20} aria-hidden="true"/>Review answers</button>;
 
   return (
-    <form className={`attempt-form${deadline !== null ? " attempt-form--timed" : ""}${pending ? " attempt-form--pending" : ""}`} onSubmit={handleSubmit}>
+    <form className={`attempt-form ${reviewOpen ? "attempt-form--review" : "attempt-form--question"}${pending ? " attempt-form--pending" : ""}`} onSubmit={handleSubmit} aria-busy={pending}>
       <header className="attempt-header">
-        <div>
+        <div className="attempt-identity">
           <p className="eyebrow">Quiz attempt</p>
           <h1 id="page-title">{quizTitle}</h1>
         </div>
+        {!reviewOpen ? <div className="attempt-progress"><strong>Question {currentIndex + 1} of {questions.length}</strong><progress value={currentIndex + 1} max={Math.max(1, questions.length)} aria-label="Quiz position"/><span>{answeredCount} answered</span></div> : null}
         {deadline !== null ? <p className="attempt-timer" role="timer" aria-live="off"><span>Time remaining</span><strong>{timerText}</strong></p> : null}
+        {!reviewOpen ? reviewButton("attempt-review-open--desktop") : null}
       </header>
 
-      <div className="attempt-questions">
-        {questions.map((question, questionIndex) => (
-          <section className="attempt-question" key={question.id}>
-            <h2 id={`question-${question.id}-title`}><span>Question {questionIndex + 1}</span>{question.prompt}</h2>
-            <div className="attempt-options" role="radiogroup" aria-labelledby={`question-${question.id}-title`}>
-              {question.options.map((option) => (
+      {reviewOpen ? <AttemptReview questions={questions} answers={answers} flags={flags} answeredCount={answeredCount} pending={pending} csrfReady={Boolean(csrfToken)} error={error} errorRef={errorRef} headingRef={headingRef} onQuestion={openQuestion} onReturn={() => setReviewOpen(false)}/> : <div className="attempt-question-panel">
+        {currentQuestion ?
+          <section className="attempt-question" key={currentQuestion.id}>
+            <button className="attempt-flag" type="button" aria-pressed={flags.has(currentQuestion.id)} disabled={pending} onClick={() => setFlags(current => {
+              const next = new Set(current);
+              if (next.has(currentQuestion.id)) next.delete(currentQuestion.id);
+              else next.add(currentQuestion.id);
+              return next;
+            })}><FlagIcon size={20} weight={flags.has(currentQuestion.id) ? "fill" : "regular"} aria-hidden="true"/>{flags.has(currentQuestion.id) ? "Flagged" : "Flag question"}</button>
+            <h2 ref={headingRef} tabIndex={-1} id={`question-${currentQuestion.id}-title`}>{currentQuestion.prompt}</h2>
+            <div className="attempt-options" role="radiogroup" aria-labelledby={`question-${currentQuestion.id}-title`}>
+              {currentQuestion.options.map((option) => (
                 <label className="attempt-option" key={option.id}>
                   <input
-                    checked={answers[question.id] === option.id}
+                    checked={answers[currentQuestion.id] === option.id}
                     disabled={pending}
-                    name={`question-${question.id}`}
+                    name={`question-${currentQuestion.id}`}
                     onChange={() => setAnswers((current) => {
-                      const next = { ...current, [question.id]: option.id };
+                      const next = { ...current, [currentQuestion.id]: option.id };
                       answersRef.current = next;
                       return next;
                     })}
@@ -123,15 +159,16 @@ export default function AttemptForm({ deadline, quizId, quizTitle, questions }: 
               ))}
             </div>
           </section>
-        ))}
-      </div>
+        : null}
 
       <footer className="attempt-submit">
-        {error ? <p className="attempt-error" role="alert">{error}</p> : null}
-        <div className="attempt-submit__action">
-          <button className="button" disabled={pending || !csrfToken} type="submit">{pending ? "Submitting…" : csrfToken ? "Submit quiz" : "Securing session…"}</button>
+        <div className="attempt-submit__action attempt-navigation">
+          <button className="button button--quiet" type="button" disabled={pending || currentIndex === 0} onClick={() => openQuestion(currentIndex - 1)}>Previous</button>
+          <button className="button" type="button" disabled={pending} onClick={() => { if (currentIndex === questions.length - 1) setReviewOpen(true); else openQuestion(currentIndex + 1); }}>{currentIndex === questions.length - 1 ? "Review answers" : "Next question"}</button>
         </div>
+        {currentIndex < questions.length - 1 ? reviewButton("attempt-review-open--mobile") : null}
       </footer>
+      </div>}
     </form>
   );
 }

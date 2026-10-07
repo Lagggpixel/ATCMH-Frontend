@@ -32,6 +32,7 @@ test("contextual login rejects cross-application and malicious destinations", ()
 test("home login links preserve the application and canonical return path", () => {
   assert.equal(homeLoginHref("dashboard", "/dashboard/stats"), "/?login=1&returnTo=%2Fdashboard%2Fstats");
   assert.equal(homeLoginHref("exams", "/exams/quizzes/quiz-1"), "/?login=1&returnTo=%2Fexams%2Fquizzes%2Fquiz-1");
+  assert.equal(homeLoginHref("dashboard", "/pilot-guide"), "/?login=1&returnTo=%2Fpilot-guide");
 });
 
 test("compatibility links preserve only supported auth errors", () => {

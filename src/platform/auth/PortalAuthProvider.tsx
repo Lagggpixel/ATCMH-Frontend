@@ -7,6 +7,7 @@ import {ApiUtils, configureDashboardApiUrl} from "@/src/dashboard/utils/ApiUtils
 
 interface PortalAuthValue {
   session: DashboardAuthSession | null;
+  avatarUrl: string | null;
   adminUser?: AdminUser;
   loading: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ export default function PortalAuthProvider({dashboardApiUrl, children}: {dashboa
   const [adminUser, setAdminUser] = useState<AdminUser>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<{session: DashboardAuthSession; url: string | null} | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -70,6 +72,19 @@ export default function PortalAuthProvider({dashboardApiUrl, children}: {dashboa
     return () => window.clearTimeout(timer);
   }, [session]);
 
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
+    const updateAvatar = () => {
+      void ApiUtils.getAvatarUrl(controller.signal).then(url => {
+        if (!controller.signal.aborted) setAvatar({session, url});
+      }).catch(() => { /* Profile images are optional; keep the account usable. */ });
+    };
+    updateAvatar();
+    const timer = window.setInterval(updateAvatar, 60 * 60 * 1000);
+    return () => {controller.abort(); window.clearInterval(timer);};
+  }, [session]);
+
   const logout = useCallback(async (all = false) => {
     if (!session) return;
     await ApiUtils.logout(session.csrfToken, all);
@@ -77,5 +92,6 @@ export default function PortalAuthProvider({dashboardApiUrl, children}: {dashboa
     setAdminUser(undefined);
   }, [session]);
 
-  return <PortalAuthContext.Provider value={{session, adminUser, loading, error, refresh, logout}}>{children}</PortalAuthContext.Provider>;
+  const avatarUrl = avatar?.session === session ? avatar?.url ?? null : null;
+  return <PortalAuthContext.Provider value={{session, avatarUrl, adminUser, loading, error, refresh, logout}}>{children}</PortalAuthContext.Provider>;
 }

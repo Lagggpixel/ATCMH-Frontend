@@ -44,7 +44,16 @@ test("impersonation outcome names the target account", () => assert.equal(impers
 test("personal account outcomes distinguish restoration, conflicts, and linked identities", () => {
     assert.deepEqual(accountPageState(null, true, null, null), {kind: "loading"});
     assert.deepEqual(accountPageState(null, false, null, "link_conflict"), {kind: "signed-out", authMessage: "These identities are already linked to different accounts. Nothing was changed. Please contact support for review.", error: null});
-    const state = accountPageState({accountId: "7", status: "ACTIVE", application: "dashboard", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "csrf", impersonating: false, identities: [{provider: "discord", subject: "d", displayName: "Pilot"}, {provider: "ifc", subject: "i"}]}, false, null, null);
+    const state = accountPageState({accountId: "7", status: "ACTIVE", application: "web", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "csrf", impersonating: false, identities: [{provider: "discord", subject: "d", displayName: "Pilot"}, {provider: "ifc", subject: "i"}]}, false, null, null);
     assert.deepEqual(state, {kind: "account", accountId: "7", status: "ACTIVE", discord: "Pilot", ifc: "i", expiresAt: "2026-07-14T00:00:00Z"});
+});
+
+test("linked identities with unresolved names show their verified subjects instead", () => {
+    const state = accountPageState({accountId: "7", status: "ACTIVE", application: "web", expiresAt: "2026-07-14T00:00:00Z", csrfToken: "csrf", impersonating: false, identities: [{provider: "discord", subject: "123456789012345678", displayName: "N/A"}, {provider: "ifc", subject: "ifc-42", displayName: "  "}]}, false, null, null);
+    assert.equal(state.kind, "account");
+    if (state.kind === "account") {
+        assert.equal(state.discord, "123456789012345678");
+        assert.equal(state.ifc, "ifc-42");
+    }
 });
 test("real lowercase backend status renders as a user-facing label", () => assert.equal(accountStatusLabel("active"), "Active"));

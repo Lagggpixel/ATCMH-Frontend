@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent} from "react";
 import type {ExamQuizSummary} from "../../types/Exam.ts";
-import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftSection, ManagedCourseSummary} from "../../types/Course.ts";
+import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftGroup, ManagedCourseDraftSection, ManagedCourseSummary} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareCourseImageFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
@@ -9,6 +9,7 @@ import {
     courseDocumentToMarkdown,
     createCourseBlock,
     insertCourseBlock,
+    moveCourseBlock,
     splitTextBlock,
     type CourseBlock,
     type CourseDocumentV1,
@@ -17,6 +18,10 @@ import {
 import {createGroundControlDocument} from "../../../lib/ground-control-course";
 import {stableExamValue} from "./ExamUnsavedChanges.ts";
 import {useExamUnsavedChanges} from "./useExamUnsavedChanges.ts";
+import {orderedCourseDraft} from "./course-editor-order";
+import {courseDraftForSave} from "./course-editor-save";
+import {validateCourseDraftForSave, type CourseDraftIssue} from "./course-editor-validation";
+import {useConfirmation} from "../../../platform/confirmation/ConfirmationProvider.tsx";
 import styles from "./CourseCenter.module.css";
 
 interface CourseEditorProps {
@@ -45,23 +50,33 @@ interface PendingQuestionImage {
 }
 
 const newDocument = (): CourseDocumentV1 => ({version: 1, blocks: [{...createCourseBlock("text"), markdown: "# Section title\n\nWrite the learning material here."}]});
-const newSection = (sortOrder: number): ManagedCourseDraftSection => {
+const newSection = (sortOrder: number, groupId: string): ManagedCourseDraftSection => {
     const document = newDocument();
-    return {title: "", markdown: courseDocumentToMarkdown(document), document, sortOrder};
+    return {id: crypto.randomUUID(), groupId, title: "", markdown: courseDocumentToMarkdown(document), document, sortOrder};
 };
-const newCourse = (): ManagedCourseDraft => ({slug: "", title: "", description: "", isPublished: false, prerequisiteCourseIds: [], sections: [newSection(1)]});
-const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => course ? {
-    id: course.id,
-    slug: course.slug,
-    title: course.title,
-    description: course.description,
-    isPublished: course.isPublished,
-    prerequisiteCourseIds: course.prerequisiteCourseIds ?? [],
-    sections: course.sections.map(section => {
-        const document = section.document ?? courseDocumentFromMarkdown(section.markdown);
-        return {...section, document, markdown: courseDocumentToMarkdown(document)};
-    }),
-} : newCourse();
+const newCourse = (): ManagedCourseDraft => {
+    const id = crypto.randomUUID();
+    return {slug: "", title: "", description: "", isPublished: false, prerequisiteCourseIds: [], navigationMode: "sequential", sectionGroups: [{id, title: "Section 1", sortOrder: 1}], sections: [newSection(1, id)]};
+};
+const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => {
+    if (!course) return newCourse();
+    const groups = course.sectionGroups?.length ? course.sectionGroups : [{id: crypto.randomUUID(), title: course.title, sortOrder: 1}];
+    return {
+        id: course.id,
+        slug: course.slug,
+        title: course.title,
+        description: course.description,
+        isPublished: course.isPublished,
+        prerequisiteCourseIds: course.prerequisiteCourseIds ?? [],
+        navigationMode: course.navigationMode ?? "sequential",
+        sectionGroups: groups,
+        sections: course.sections.map(section => {
+            const document = section.document ?? courseDocumentFromMarkdown(section.markdown);
+            return {...section, groupId: section.groupId ?? groups[0].id, document, markdown: courseDocumentToMarkdown(document)};
+        }),
+    };
+};
+
 
 function documentFor(section: ManagedCourseDraftSection): CourseDocumentV1 {
     return section.document ?? courseDocumentFromMarkdown(section.markdown);
@@ -115,6 +130,7 @@ function updateSectionDocument(draft: ManagedCourseDraft, sectionIndex: number, 
 export default function CourseEditor({course, courses, quizzes, activities = [], token, canPublish, onCancel, onPreview, onDelete, onSaved}: CourseEditorProps) {
     const [initialDraft] = useState<ManagedCourseDraft>(() => asDraft(course));
     const [draft, setDraft] = useState<ManagedCourseDraft>(initialDraft);
+    const [activeSectionId, setActiveSectionId] = useState(initialDraft.sections[0].id);
     const [baseline, setBaseline] = useState<ManagedCourseDraft>(initialDraft);
     const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
     const [pendingPreviews, setPendingPreviews] = useState<Record<string, string>>({});
@@ -127,7 +143,12 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
     const [templateSection, setTemplateSection] = useState<number | null>(null);
     const [templateQuizId, setTemplateQuizId] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [draftIssue, setDraftIssue] = useState<CourseDraftIssue | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const savingRef = useRef(false);
+    const persistedSectionIdsRef = useRef(new Set(course?.sections.map(section => section.id) ?? []));
+    const revisionRef = useRef(course?.updatedAt);
+    const confirm = useConfirmation();
     const previewUrls = useRef<Record<string, string>>({});
     const uploadControllers = useRef<Record<string, AbortController>>({});
     const isDirty = stableExamValue(draft) !== stableExamValue(baseline) || Object.keys(pendingFiles).length > 0 || pendingQuestionImages.length > 0;
@@ -140,6 +161,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         previewUrls.current = {};
         const next = asDraft(course);
         setDraft(next);
+        setActiveSectionId(next.sections[0]?.id);
         setBaseline(next);
         setPendingFiles({});
         setPendingPreviews({});
@@ -147,6 +169,9 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         setUploading({});
         setPendingQuestionImages([]);
         setError(null);
+        setDraftIssue(null);
+        persistedSectionIdsRef.current = new Set(course?.sections.map(section => section.id) ?? []);
+        revisionRef.current = course?.updatedAt;
     }, [course]);
 
     useEffect(() => () => {
@@ -261,6 +286,12 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
     };
 
     const removeBlock = (sectionIndex: number, blockId: string) => {
+        const blocks = documentFor(draft.sections[sectionIndex]).blocks;
+        if (blocks.length < 2 && blocks[0]?.type !== "media") {
+            setDraftIssue({sectionId: draft.sections[sectionIndex].id, blockId,
+                message: "Every subsection needs at least one block. Add another block before removing this one."});
+            return;
+        }
         uploadControllers.current[blockId]?.abort();
         delete uploadControllers.current[blockId];
         const url = previewUrls.current[blockId];
@@ -271,7 +302,10 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         setPendingFiles(current => {const next = {...current}; delete next[blockId]; return next;});
         setPendingPreviews(current => {const next = {...current}; delete next[blockId]; return next;});
         discardPendingQuestionImagesForBlocks([blockId]);
-        updateDocument(sectionIndex, document => ({version: 1, blocks: document.blocks.filter(block => block.id !== blockId)}));
+        updateDocument(sectionIndex, document => {
+            const remaining = document.blocks.filter(block => block.id !== blockId);
+            return {version: 1, blocks: remaining.length ? remaining : [createCourseBlock("text")]};
+        });
     };
 
     const uploadBlock = async (courseId: string, blockId: string, file: File) => {
@@ -388,6 +422,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
             const nextSections = current.sections.map((section, index) => {
                 if (index === source.sectionIndex) {
                     const blocks = documentFor(section).blocks.filter(block => block.id !== source.blockId);
+                    if (blocks.length === 0 && source.sectionIndex !== targetSectionIndex) blocks.push(createCourseBlock("text"));
                     return {...section, document: {version: 1 as const, blocks}, markdown: courseDocumentToMarkdown({version: 1 as const, blocks})};
                 }
                 return section;
@@ -425,7 +460,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         setPendingFiles(current => ({...current, [block.id]: file}));
         setPendingPreviews(current => ({...current, [block.id]: preview}));
         updateBlock(sectionIndex, block.id, current => current.type === "media"
-            ? {...current, kind: nextKind, ...(nextKind === "image" ? {controls: undefined, posterMediaId: undefined} : {controls: current.controls ?? true})}
+            ? {...current, kind: nextKind, alt: current.alt || prepared.name.replace(/\.[^.]+$/, ""), ...(nextKind === "image" ? {controls: undefined, posterMediaId: undefined} : {controls: current.controls ?? true})}
             : current);
         if (draft.id) void uploadBlock(draft.id, block.id, file);
     };
@@ -435,8 +470,29 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         return file ? [{sectionIndex, blockIndex, block, file}] : [];
     }));
 
+    const showIssue = (issue: CourseDraftIssue) => {
+        setDraftIssue(issue);
+        if (issue.sectionId) setActiveSectionId(issue.sectionId);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            const selector = issue.blockId ? `[data-course-block-id="${issue.blockId}"] input, [data-course-block-id="${issue.blockId}"] select, [data-course-block-id="${issue.blockId}"] textarea`
+                : issue.groupId ? `[data-course-group-id="${issue.groupId}"]`
+                    : issue.field ? `[data-course-field="${issue.field}"]` : null;
+            if (selector) {
+                const target = document.querySelector<HTMLElement>(selector);
+                target?.focus();
+                target?.scrollIntoView({block: "center", behavior: "smooth"});
+            }
+        }));
+    };
+
     const save = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (savingRef.current) return;
+        setError(null);
+        setDraftIssue(null);
+        const issue = validateCourseDraftForSave(draft, new Set(Object.keys(pendingFiles)));
+        if (issue) { showIssue(issue); return; }
+        savingRef.current = true;
         setError(null);
         setIsSaving(true);
         try {
@@ -455,16 +511,28 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                 throw new Error("Upload or remove each pending question image before saving.");
             }
             let savedCourse: ManagedCourse;
-            const firstSaved = await ExamsApiUtils.saveCourse(working, token);
+            const firstSaved = await ExamsApiUtils.saveCourse(courseDraftForSave(working, persistedSectionIdsRef.current), token, revisionRef.current);
+            persistedSectionIdsRef.current = new Set(firstSaved.sections.map(section => section.id));
+            revisionRef.current = firstSaved.updatedAt;
             if (descriptors.length || (!draft.id && questionDescriptors.length > 0)) {
                 working = asDraft(firstSaved);
                 setDraft(working);
                 for (const descriptor of descriptors) {
                     const section = working.sections[descriptor.sectionIndex];
                     if (!section) continue;
-                    const restored = insertCourseBlock(documentFor(section), Math.min(descriptor.blockIndex, documentFor(section).blocks.length), descriptor.block);
-                    working = updateSectionDocument(working, descriptor.sectionIndex, restored);
-                    setDraft(working);
+                    working = updateSectionDocument(working, descriptor.sectionIndex,
+                        insertCourseBlock(documentFor(section), Math.min(descriptor.blockIndex, documentFor(section).blocks.length), descriptor.block));
+                }
+                for (const [sectionIndex, section] of draft.sections.entries()) {
+                    if (documentFor(section).blocks.every(block => block.type === "media" && pendingFiles[block.id])) {
+                        const restored = documentFor(working.sections[sectionIndex]);
+                        working = updateSectionDocument(working, sectionIndex, {version: 1, blocks: restored.blocks.filter(block => block.type === "media")});
+                    }
+                }
+                setDraft(working);
+                for (const descriptor of descriptors) {
+                    const section = working.sections[descriptor.sectionIndex];
+                    if (!section) continue;
                     const media = await ExamsApiUtils.uploadCourseMedia(firstSaved.id, descriptor.file, token, percentage => setUploadProgress(current => ({...current, [descriptor.block.id]: percentage})));
                     working = updateSectionDocument(working, descriptor.sectionIndex, {version: 1, blocks: documentFor(working.sections[descriptor.sectionIndex]).blocks.map(block => block.id === descriptor.block.id && block.type === "media" ? {...block, mediaId: media.id, kind: media.contentType.startsWith("video/") ? "video" : "image"} : block)});
                     setDraft(working);
@@ -479,11 +547,13 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                     setDraft(working);
                     discardPendingQuestionImage(image.id);
                 }
-                savedCourse = await ExamsApiUtils.saveCourse(working, token);
+                savedCourse = await ExamsApiUtils.saveCourse(working, token, revisionRef.current);
             } else {
                 savedCourse = firstSaved;
             }
             const next = asDraft(savedCourse);
+            persistedSectionIdsRef.current = new Set(savedCourse.sections.map(section => section.id));
+            revisionRef.current = savedCourse.updatedAt;
             setDraft(next);
             setBaseline(next);
             setPendingFiles({});
@@ -494,16 +564,73 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         } catch (reason) {
             setError(reason instanceof Error ? reason.message : String(reason));
         } finally {
+            savingRef.current = false;
             setIsSaving(false);
         }
     };
     const prerequisiteCourses = courses.filter(candidate => candidate.id !== draft.id);
+
+    const addGroup = () => {
+        const group: ManagedCourseDraftGroup = {id: crypto.randomUUID(), title: `Section ${draft.sectionGroups.length + 1}`, sortOrder: draft.sectionGroups.length + 1};
+        const section = newSection(draft.sections.length + 1, group.id!);
+        setDraft(current => orderedCourseDraft(current, [...current.sectionGroups, group], [...current.sections, section]));
+        setActiveSectionId(section.id);
+    };
+
+    const addSubsection = (groupId: string) => {
+        const section = newSection(draft.sections.length + 1, groupId);
+        setDraft(current => orderedCourseDraft(current, current.sectionGroups, [...current.sections, section]));
+        setActiveSectionId(section.id);
+    };
+
+    const moveGroup = (index: number, direction: -1 | 1) => {
+        const target = index + direction;
+        if (target < 0 || target >= draft.sectionGroups.length) return;
+        setDraft(current => {
+            const groups = [...current.sectionGroups];
+            [groups[index], groups[target]] = [groups[target], groups[index]];
+            return orderedCourseDraft(current, groups);
+        });
+    };
+
+    const moveSubsection = (index: number, direction: -1 | 1) => {
+        const target = index + direction;
+        if (target < 0 || target >= draft.sections.length || draft.sections[index].groupId !== draft.sections[target].groupId) return;
+        setDraft(current => {
+            const sections = [...current.sections];
+            [sections[index], sections[target]] = [sections[target], sections[index]];
+            return orderedCourseDraft(current, current.sectionGroups, sections);
+        });
+    };
+
+    const removeSubsection = async (index: number) => {
+        if (draft.sections.length < 2 || !await confirm({title: `Remove “${draft.sections[index].title || "Untitled subsection"}”?`, message: "This removes the subsection and its content from your draft. Save the course to apply the change.", confirmLabel: "Remove from draft", cancelLabel: "Keep subsection", tone: "danger"})) return;
+        const section = draft.sections[index];
+        discardPendingQuestionImagesForBlocks(documentFor(section).blocks.filter(block => block.type === "check").map(block => block.id));
+        const next = draft.sections.filter((_, itemIndex) => itemIndex !== index);
+        setDraft(current => orderedCourseDraft(current, current.sectionGroups, next));
+        if (activeSectionId === section.id) setActiveSectionId(next[Math.min(index, next.length - 1)].id);
+    };
+
+    const removeGroup = async (groupId: string) => {
+        if (draft.sectionGroups.length < 2) return;
+        const group = draft.sectionGroups.find(item => item.id === groupId);
+        if (!await confirm({title: `Remove “${group?.title}”?`, message: "This removes the section and every subsection inside it from your draft. Save the course to apply the change.", confirmLabel: "Remove from draft", cancelLabel: "Keep section", tone: "danger"})) return;
+        const removedSections = draft.sections.filter(item => item.groupId === groupId);
+        discardPendingQuestionImagesForBlocks(removedSections.flatMap(section => documentFor(section).blocks.filter(block => block.type === "check").map(block => block.id)));
+        const nextGroups = draft.sectionGroups.filter(item => item.id !== groupId);
+        const remaining = draft.sections.filter(item => item.groupId !== groupId);
+        const nextSections = remaining.length ? remaining : [newSection(1, nextGroups[0].id!)];
+        setDraft(current => orderedCourseDraft(current, nextGroups, nextSections));
+        if (!nextSections.some(item => item.id === activeSectionId)) setActiveSectionId(nextSections[0]?.id);
+    };
     return <section className={styles.editor} aria-labelledby="course-editor-heading">
-        <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Back to courses</button></div></div>
-        <p className={styles.description}>Compose each section as a responsive page. Add media from your computer, drop it between any blocks, or paste it at the text caret. MOV uploads are converted to browser-friendly MP4 and HEIC/HEIF uploads to JPEG on the server. Use the up/down buttons for keyboard-accessible block movement.</p>
-        <form onSubmit={event => void save(event)}>
+        <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} disabled={isSaving} onClick={() => void confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} disabled={isSaving} onClick={() => void confirmAndRun(onCancel)}>Back to courses</button></div></div>
+        <form noValidate onSubmit={event => void save(event)}>
             <fieldset disabled={isSaving}>
-                <div className={styles.fieldGrid}><label>Title<input required maxLength={255} value={draft.title} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label><label>Slug<input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={200} value={draft.slug} onChange={event => setDraft(current => ({...current, slug: event.target.value}))}/></label></div>
+                <div className={styles.editorSettings}>
+                <div className={styles.fieldGrid}><label>Title<input data-course-field="title" required maxLength={255} value={draft.title} onChange={event => setDraft(current => ({...current, title: event.target.value}))}/></label><label>Slug<input data-course-field="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={200} value={draft.slug} onChange={event => setDraft(current => ({...current, slug: event.target.value}))}/></label></div>
+                {draftIssue && (!draftIssue.sectionId && !draftIssue.groupId) ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
                 <label>Description<textarea rows={3} maxLength={2000} value={draft.description} onChange={event => setDraft(current => ({...current, description: event.target.value}))}/></label>
                 <label className={styles.check}><input type="checkbox" checked={draft.isPublished} disabled={!canPublish} onChange={event => setDraft(current => ({...current, isPublished: event.target.checked}))}/> Make available to signed-in learners {canPublish ? "" : "(administrator publishing permission required)"}</label>
                 <section className={styles.prerequisitePicker} aria-labelledby="course-prerequisite-heading">
@@ -516,14 +643,31 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                         </label>)}
                     </div>}
                 </section>
+                <label>Navigation mode<select value={draft.navigationMode} onChange={event => setDraft(current => ({...current, navigationMode: event.target.value as ManagedCourseDraft["navigationMode"]}))}><option value="sequential">Sequential · one subsection at a time</option><option value="section_by_section">Section by section · any subsection in the current section</option><option value="free">Free · any subsection in any order</option></select></label>
+                </div>
                 <p className={styles.composerHint}>Choose what to insert from any “Insert here” or “Add at end” button. Insertion bars also accept file drops.</p>
-                <div className={styles.sectionsHeading}><h3>Sections</h3><button type="button" onClick={() => setDraft(current => ({...current, sections: [...current.sections, newSection(current.sections.length + 1)]}))}>Add section</button></div>
+                <div className={styles.sectionsHeading}><h3>Course structure</h3><button type="button" onClick={addGroup}>Add section</button></div>
+                <div className={styles.editorWorkspace}>
+                    <aside className={styles.editorOutline} aria-label="Course structure">
+                        {draft.sectionGroups.map((group, groupIndex) => <div className={styles.editorGroup} key={group.id}>
+                            <div className={styles.editorGroupHeading}><span>Section {groupIndex + 1}</span><div><button type="button" aria-label={`Move ${group.title} section up`} disabled={groupIndex === 0} onClick={() => moveGroup(groupIndex, -1)}>↑</button><button type="button" aria-label={`Move ${group.title} section down`} disabled={groupIndex === draft.sectionGroups.length - 1} onClick={() => moveGroup(groupIndex, 1)}>↓</button>{draft.sectionGroups.length > 1 ? <button type="button" aria-label={`Remove ${group.title} section`} onClick={() => removeGroup(group.id!)}>Remove</button> : null}</div></div>
+                            <label className={styles.editorGroupTitle}>Section title<input data-course-field="group" data-course-group-id={group.id} required maxLength={255} value={group.title} onChange={event => setDraft(current => ({...current, sectionGroups: current.sectionGroups.map(item => item.id === group.id ? {...item, title: event.target.value} : item)}))}/></label>
+                            {draftIssue && draftIssue.groupId === group.id ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
+                            <ol>{draft.sections.map((section, sectionIndex) => section.groupId === group.id ? <li key={section.id}>
+                                <button type="button" className={section.id === activeSectionId ? styles.editorOutlineActive : ""} onClick={() => setActiveSectionId(section.id)}>{section.title || `Untitled subsection ${sectionIndex + 1}`}</button>
+                                <div className={styles.editorSubsectionActions}><button type="button" aria-label={`Move ${section.title || "subsection"} up`} disabled={sectionIndex === 0 || draft.sections[sectionIndex - 1]?.groupId !== group.id} onClick={() => moveSubsection(sectionIndex, -1)}>↑</button><button type="button" aria-label={`Move ${section.title || "subsection"} down`} disabled={sectionIndex === draft.sections.length - 1 || draft.sections[sectionIndex + 1]?.groupId !== group.id} onClick={() => moveSubsection(sectionIndex, 1)}>↓</button><button type="button" aria-label={`Remove ${section.title || "subsection"}`} disabled={draft.sections.length < 2} onClick={() => removeSubsection(sectionIndex)}>×</button></div>
+                            </li> : null)}</ol>
+                            <button type="button" className={styles.editorAddLeaf} onClick={() => addSubsection(group.id!)}>Add subsection</button>
+                        </div>)}
+                    </aside>
                 <div className={styles.sections}>
                     {draft.sections.map((section, sectionIndex) => {
+                        if (section.id !== activeSectionId) return null;
                         const document = documentFor(section);
                         return <article className={styles.sectionCard} key={section.id ?? `new-${sectionIndex}`} onPaste={event => pasteFiles(event, sectionIndex)} onDragOver={event => event.preventDefault()} onDrop={event => { if (event.dataTransfer.files.length) { event.preventDefault(); enqueueFiles(sectionIndex, document.blocks.length, Array.from(event.dataTransfer.files)); } }}>
-                            <div className={styles.sectionCardHeading}><h4>Section {sectionIndex + 1}</h4>{draft.sections.length > 1 ? <button type="button" className={styles.removeButton} onClick={() => {discardPendingQuestionImagesForBlocks(document.blocks.filter(block => block.type === "check").map(block => block.id)); setDraft(current => ({...current, sections: current.sections.filter((_, index) => index !== sectionIndex).map((item, index) => ({...item, sortOrder: index + 1}))}));}}>Remove</button> : null}</div>
-                            <label>Section title<input required maxLength={255} value={section.title} onChange={event => updateSection(sectionIndex, current => ({...current, title: event.target.value}))}/></label>
+                            <div className={styles.sectionCardHeading}><div><span className={styles.eyebrow}>Subsection {sectionIndex + 1}</span><h4>{section.title || "Untitled subsection"}</h4></div>{draft.sections.length > 1 ? <button type="button" className={styles.removeButton} onClick={() => removeSubsection(sectionIndex)}>Remove subsection</button> : null}</div>
+                            <div className={styles.fieldGrid}><label>Subsection title<input data-course-field="section" required maxLength={255} value={section.title} onChange={event => updateSection(sectionIndex, current => ({...current, title: event.target.value}))}/></label><label>Parent section<select value={section.groupId} onChange={event => setDraft(current => orderedCourseDraft(current, current.sectionGroups, current.sections.map(item => item.id === section.id ? {...item, groupId: event.target.value} : item)))}>{draft.sectionGroups.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
+                            {draftIssue && draftIssue.sectionId === section.id && !draftIssue.blockId ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
                             <details className={styles.composerHint}><summary>Ground Control lesson template</summary>
                                 <p>Replace this section with eight practical lessons, traffic diagrams, five ungraded checks and a revision sheet. Choose its final assessment below. Review the result before saving.</p>
                                 <button type="button" onClick={() => {setTemplateSection(sectionIndex); setTemplateQuizId(document.blocks.find(block => block.type === "quiz")?.quizId ?? "");}}>Choose template quiz</button>
@@ -535,8 +679,9 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                             <div className={styles.blockCanvas} aria-label={`Section ${sectionIndex + 1} page composer`}>
                                 {document.blocks.map((block, blockIndex) => <div key={`slot-${block.id}`}>
                                     <div className={styles.insertionZone} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer.files.length) enqueueFiles(sectionIndex, blockIndex, Array.from(event.dataTransfer.files)); else moveBlock(sectionIndex, blockIndex); }}><InsertBlockMenu label="＋ Insert here" onInsert={type => addBlock(sectionIndex, blockIndex, type)}/><span>or drop image/video</span></div>
-                                    <div className={styles.blockCard} draggable onDragStart={(event: DragEvent<HTMLDivElement>) => { event.dataTransfer.effectAllowed = "move"; draggingRef.current = {sectionIndex, blockId: block.id}; setDragging({sectionIndex, blockId: block.id}); }} onDragEnd={() => { draggingRef.current = null; setDragging(null); }}>
-                                        <div className={styles.blockCardHeader}><span className={styles.blockType}>{blockTypeLabel(block)}</span><div className={styles.blockActions}><button type="button" aria-label={`Move ${blockTypeLabel(block)} up`} onClick={() => {draggingRef.current = {sectionIndex, blockId: block.id}; moveBlock(sectionIndex, Math.max(0, blockIndex - 1));}} disabled={blockIndex === 0}>↑</button><button type="button" aria-label={`Move ${blockTypeLabel(block)} down`} onClick={() => {draggingRef.current = {sectionIndex, blockId: block.id}; moveBlock(sectionIndex, blockIndex + 1);}} disabled={blockIndex === document.blocks.length - 1}>↓</button><button type="button" className={styles.removeButton} onClick={() => removeBlock(sectionIndex, block.id)}>Remove</button></div></div>
+                                    <div className={styles.blockCard} data-course-block-id={block.id} draggable onDragStart={(event: DragEvent<HTMLDivElement>) => { event.dataTransfer.effectAllowed = "move"; draggingRef.current = {sectionIndex, blockId: block.id}; setDragging({sectionIndex, blockId: block.id}); }} onDragEnd={() => { draggingRef.current = null; setDragging(null); }}>
+                                        <div className={styles.blockCardHeader}><span className={styles.blockType}>{blockTypeLabel(block)}</span><div className={styles.blockActions}><button type="button" aria-label={`Move ${blockTypeLabel(block)} up`} onClick={() => updateDocument(sectionIndex, current => moveCourseBlock(current, blockIndex, blockIndex - 1))} disabled={blockIndex === 0}>↑</button><button type="button" aria-label={`Move ${blockTypeLabel(block)} down`} onClick={() => updateDocument(sectionIndex, current => moveCourseBlock(current, blockIndex, blockIndex + 1))} disabled={blockIndex === document.blocks.length - 1}>↓</button><button type="button" className={styles.removeButton} onClick={() => removeBlock(sectionIndex, block.id)}>Remove</button></div></div>
+                                        {draftIssue?.blockId === block.id ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
                                         {block.type === "text" ? <label>Text (safe Markdown)<textarea rows={Math.max(4, Math.min(12, block.markdown.split(/\r?\n/).length + 2))} value={block.markdown} onFocus={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onSelect={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onChange={event => { setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart}); updateBlock(sectionIndex, block.id, current => current.type === "text" ? {...current, markdown: event.target.value} : current); }}/></label> : null}
                                         {block.type === "callout" ? <div className={styles.blockFields}><label>Callout tone<select value={block.tone} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, tone: event.target.value as typeof block.tone} : current)}><option value="mandatory">Mandatory</option><option value="recommended">Recommended</option><option value="warning">Warning</option><option value="example">Example</option><option value="mistake">Mistake</option><option value="info">Info</option><option value="command">Command</option><option value="decision">Decision</option><option value="scenario">Scenario</option><option value="rule">Important rule</option><option value="success">Resolution</option></select></label><label>Title<input value={block.title} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, title: event.target.value} : current)}/></label><label>Body<textarea rows={4} value={block.markdown} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, markdown: event.target.value} : current)}/></label></div> : null}
                                         {block.type === "check" ? <div className={styles.blockFields + " " + styles.checkFields}>
@@ -593,9 +738,10 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                         </article>;
                     })}
                 </div>
+                </div>
             </fieldset>
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
-            <div className={styles.footer}>{course && onDelete ? <button type="button" className={styles.removeButton} disabled={isSaving || Object.keys(uploading).length > 0} onClick={() => onDelete(disarm)}>Delete course</button> : null}<button type="button" className={styles.quietButton} onClick={() => confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton}>{isSaving ? "Saving course…" : "Save course"}</button></div>
+            <div className={styles.footer}>{course && onDelete ? <button type="button" className={styles.removeButton} disabled={isSaving || Object.keys(uploading).length > 0} onClick={() => onDelete(disarm)}>Delete course</button> : null}<button type="button" className={styles.quietButton} disabled={isSaving} onClick={() => void confirmAndRun(onCancel)}>Cancel</button><button type="submit" className={styles.saveButton} disabled={isSaving}>{isSaving ? "Saving course…" : "Save course"}</button></div>
         </form>
     </section>;
 }

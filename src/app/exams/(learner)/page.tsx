@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import { listEligibleQuizzes, listPublicQuizzes } from "@/src/lib/exams-repository";
 import { getVerifiedLearnerDiscordSubject } from "@/src/lib/learner-session";
@@ -27,10 +26,8 @@ export default async function LearnerHomePage({ searchParams }: { searchParams: 
         <DashboardExamSessionBootstrap />
         <section className="exam-intro" aria-labelledby="page-title">
           <div>
-            <p className="exam-intro__eyebrow">ATCMH learning</p>
             <h1 id="page-title">Exam Center</h1>
-            <p>Open an available quiz and build the knowledge you need to become a confident Infinite Flight air traffic controller.</p>
-            <Link className="exam-course-link" href="/exams/courses">Browse private courses →</Link>
+            <p>Choose a quiz to begin.</p>
           </div>
         </section>
         <QuizCatalogue {...catalogue} />

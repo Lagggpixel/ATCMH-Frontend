@@ -1,0 +1,9 @@
+# Durable Dashboard audit events
+
+All exam management mutations and learner result submissions now persist their audit event in `atcmh_lms.dashboard_audit_outbox` inside the same transaction. An audit enqueue failure rolls back the mutation. Remote Dashboard downtime does not affect that commit: a Node instrumentation worker replays leased batches every 15 seconds, using stable event IDs and the original event timestamp. Retries back off up to one hour. An expired lease is recoverable after server restart; events are deleted only after Dashboard acknowledges them as inserted or already present.
+
+Attempt starts persist an event before returning a new start cookie. Administrator attempt deletion records safe result metadata and real-actor attribution, excluding answer/review data. Website edits retain their public before/after content. Do not call the raw `deliverDashboardAuditEvent` transport from mutation routes; use `emitDashboardAuditEvent` within `withWriteTransaction`. Nested write helpers reuse the enclosing connection, and reads inside that transaction see its uncommitted writes.
+
+Before deployment, apply the backend's `sql/2026-10-02-audit-outbox.sql`, grant the frontend database user SELECT/INSERT/UPDATE/DELETE on the outbox, and retain `EXAMS_AUDIT_INGEST_URL`/`EXAMS_AUDIT_INGEST_KEY`. Backend ingest must return `503` for storage failure and reserve `409` for verified duplicates. Upgrade the backend before the frontend to retain timestamp support. Monitor pending event count and the oldest `created_at` without exposing payloads. No new frontend filesystem volume is needed.
+
+See `Backend/docs/audit-logging.md` in the ATCMH workspace for the backend's private persistent journal requirement and complete rollout sequence. This change does not apply production migrations or deploy containers.

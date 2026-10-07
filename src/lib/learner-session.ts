@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { introspectCentralSession, sessionTokenFromCookieStore } from "./central-auth";
 import type { LearnerIdentity } from "./learner-identity";
+import {availableUserName} from "./user-display-name";
 
 /** Introspects the opaque central session on every authorization-sensitive read. */
 export async function getVerifiedLearnerIdentity(): Promise<LearnerIdentity | undefined> {
@@ -9,7 +10,7 @@ export async function getVerifiedLearnerIdentity(): Promise<LearnerIdentity | un
   return session ? {
     accountId: session.accountId,
     discordId: session.discordId,
-    displayName: session.discordDisplayName ?? session.discordId,
+    displayName: availableUserName(session.discordDisplayName) ?? session.discordId,
     impersonating: session.impersonating,
     ...(session.impersonating ? { realActorAccountId: session.realActorAccountId, realActorDiscordId: session.realActorDiscordId } : {}),
   } : undefined;

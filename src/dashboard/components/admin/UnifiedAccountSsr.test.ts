@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createServer, type ViteDevServer} from "vite";
+import {fileURLToPath} from "node:url";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 
 let vite: ViteDevServer;
 let MemoryRouter: React.ComponentType<{initialEntries?: string[]; children: React.ReactNode}>;
-const root = new URL("../../../..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../../../..", import.meta.url));
 test.before(async () => {
     vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true}, logLevel: "silent"});
     ({MemoryRouter} = await vite.ssrLoadModule("/src/dashboard/next-navigation.tsx") as {MemoryRouter: typeof MemoryRouter});
@@ -47,49 +48,29 @@ test("account logout controls use explicit high-contrast marketing colors", asyn
 });
 
 test("actual capability navigation includes privileged routes only for capable users", async () => {
-    const {default: AdminNav} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/admin/AdminNav.tsx");
+    const {adminNavigationGroups} = await load<{adminNavigationGroups: (user: any, enabled: boolean) => Array<{items: Array<{path: string}>}>}>("/src/dashboard/components/admin/AdminNavigation.ts");
     const base = {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false};
-    assert.doesNotMatch(inRouter(React.createElement(AdminNav,{adminUser:base}),"/dashboard"), />Accounts</);
-    const privileged = inRouter(React.createElement(AdminNav,{adminUser:{...base,canManageAccounts:true,canReviewAltAccounts:true}}),"/dashboard");
-    assert.match(privileged, />Accounts</); assert.match(privileged, /Alternative Evidence/);
+    const paths = (user: typeof base) => adminNavigationGroups(user, true).flatMap(group => group.items.map(item => item.path));
+    assert.doesNotMatch(paths(base).join(" "), /\/dashboard\/(accounts|alt-accounts|audit-logs)/);
+    assert.deepEqual(paths({...base, canManageAccounts:true, canReviewAltAccounts:true}).filter(path => /accounts/.test(path)), ["/dashboard/accounts", "/dashboard/alt-accounts"]);
 });
 
-test("admin navigation uses category dropdowns with flat assessment placement", async () => {
+test("admin navigation uses click-controlled groups and a mobile drawer layout", async () => {
     const {default: AdminNav} = await load<{default: React.ComponentType<any>}>("/src/dashboard/components/admin/AdminNav.tsx");
     const html = inRouter(React.createElement(AdminNav, {adminUser: {id:"1",username:"Staff",canManageAllAssignments:false,canViewAuditLogs:false,canViewManual:false,canManageAccounts:false,canReviewAltAccounts:false,canViewSensitiveAuditDetails:false,canImpersonate:false}}), "/dashboard");
     const source = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.tsx", import.meta.url), "utf8");
     const css = await (await import("node:fs/promises")).readFile(new URL("./AdminNav.module.css", import.meta.url), "utf8");
-    const triggerLabels = [...html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/g)]
-        .map(([, body]) => body.replace(/<[^>]+>/g, "").trim());
 
     assert.match(html, /<nav[^>]*aria-label="Dashboard sections"/);
-    assert.match(html, /<details[^>]*name="dashboard-navigation"[^>]*adminNavDropdown/);
-    assert.deepEqual(triggerLabels, ["Mentorship", "Assessment", "Administration"]);
-    assert.doesNotMatch(html, />Exams<\/span>|>Courses<\/span>/);
-    assert.match(html, /Course Center/);
-    assert.doesNotMatch(html, /Admin Dashboard|dashboard-icon\.png/);
-    assert.doesNotMatch(css, /position:\s*sticky/);
-    assert.match(css, /\.adminHeader\s*\{[^}]*position:\s*relative/);
-    assert.match(css, /\.adminHeader\s*\{[^}]*border-bottom:/s);
-    assert.match(css, /\.adminNavDropdownSummary\s*\{[^}]*cursor:\s*pointer/s);
+    assert.match(html, /<button[^>]*aria-expanded="false"[^>]*>Mentorship/);
+    assert.match(html, /<button[^>]*aria-expanded="false"[^>]*>Assessment/);
+    assert.match(html, /<button[^>]*aria-expanded="false"[^>]*>Administration/);
+    assert.match(source, /onClick=\{\(\) => setOpenGroup\(expanded \? null : group\.label\)\}/);
+    assert.match(source, /document\.addEventListener\("pointerdown", closeOutside\)/);
+    assert.match(source, /document\.addEventListener\("keydown", closeOnEscape\)/);
+    assert.doesNotMatch(source, /onMouseEnter|onMouseLeave/);
     assert.match(css, /\.adminNavDropdownMenu\s*\{[^}]*position:\s*absolute/s);
-    assert.match(css, /\.adminNavDropdownSection \+ \.adminNavDropdownSection\s*\{[^}]*border-top:/s);
-    assert.match(source, /onMouseEnter=\{openNavDropdownOnHover\}/);
-    assert.match(source, /onMouseLeave=\{closeNavDropdownOnLeave\}/);
-    assert.match(source, /onClick=\{closeNavDropdownOnSelection\}/);
-    assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
-    assert.match(css, /\.adminNavDropdown:hover > \.adminNavDropdownMenu/);
-    assert.match(css, /\.adminNavEmbedded \.adminNavDropdownMenu\s*\{[^}]*top:\s*calc\(100% \+ 0\.75rem\)[^}]*background:\s*var\(--card-solid\)/s);
-    assert.match(css, /(?:^|\n)\.adminNavDropdownMenu\s*\{[^}]*top:\s*calc\(100% \+ 0\.5rem\)[^}]*background:\s*var\(--surface-2-color, var\(--surface-color\)\)/s);
-    assert.match(css, /\.adminNavDropdown:first-child > \.adminNavDropdownMenu\s*\{[^}]*left:\s*0[^}]*transform:\s*none/s);
-    assert.match(css, /\.adminNavDropdown:last-child > \.adminNavDropdownMenu\s*\{[^}]*right:\s*0[^}]*left:\s*auto/s);
-    assert.match(css, /\.adminNavDropdownMenu::before\s*\{[^}]*top:\s*-0\.75rem[^}]*height:\s*0\.75rem/s);
-    assert.doesNotMatch(css, /\.adminNavDropdown::after/);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavDropdown\s*\{[^}]*position:\s*static/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavEmbedded \.adminNavDropdown\s*\{[^}]*flex:\s*1 1 auto/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNav \.adminNavDropdown > \.adminNavDropdownMenu\s*\{[^}]*position:\s*absolute[^}]*right:\s*0[^}]*left:\s*0[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*max-width:\s*100%/s);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.adminNavEmbedded \.adminNavDropdownSummary\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*font-size:\s*clamp\(0\.76rem, 3\.3vw, 0\.88rem\)[^}]*white-space:\s*nowrap/s);
-    assert.doesNotMatch(html, />Mentor<|>Assess<|>Admin</);
+    assert.match(css, /@media \(max-width: 1100px\)[\s\S]*?\.adminNavDropdownMenu\s*\{[^}]*position:\s*static/s);
 });
 
 test("actual confirmation and stale-error views wire commit and cancel callbacks", async () => {

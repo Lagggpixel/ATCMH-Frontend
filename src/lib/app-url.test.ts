@@ -11,7 +11,8 @@ test("marks the canonical URL helper as server-only", () => {
 test("validates the canonical origin and resolves only safe app paths", () => {
   const script = String.raw`
     import assert from "node:assert/strict";
-    import { appUrl, getAppBaseUrl } from "./src/lib/app-url.ts";
+    import module from "./src/lib/app-url.ts";
+    const { appUrl, getAppBaseUrl } = module;
 
     assert.equal(getAppBaseUrl({}).toString(), "http://localhost:3000/");
     assert.throws(() => getAppBaseUrl({ NODE_ENV: "production" }));

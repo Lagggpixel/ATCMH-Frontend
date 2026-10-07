@@ -73,7 +73,7 @@
     box-sizing: border-box;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     padding: 10px 11px;
     font: inherit;
@@ -115,11 +115,11 @@
 .menteeList::-webkit-scrollbar-thumb {
     border: 2px solid var(--surface-2-color);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-color) 78%, var(--surface-3-color));
+    background: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 78%, var(--surface-3-color));
 }
 
 .menteeList::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 /* --- Mentee list items: hover-only borders --- */
@@ -145,7 +145,7 @@
 
 .menteeListItemActive {
     border-color: var(--accent-color);
-    background-color: color-mix(in srgb, var(--accent-color) 18%, var(--surface-2-color));
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 18%, var(--surface-2-color));
 }
 
 .menteeListItem span {
@@ -243,8 +243,8 @@
     padding: 4px 12px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background-color: var(--accent-color);
-    color: #111;
+    background-color: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 700;
@@ -253,7 +253,7 @@
 }
 
 .stateActionButtonRow button:hover {
-    background-color: var(--accent-strong-color);
+    background-color: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
 }
 
@@ -327,7 +327,7 @@
     padding: 10px 12px;
     border: 1px solid var(--error-color);
     border-radius: 6px;
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
     background-color: color-mix(in srgb, var(--error-color) 28%, transparent);
 }
 
@@ -511,8 +511,8 @@
     min-height: 36px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background-color: var(--accent-color);
-    color: #111;
+    background-color: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -530,7 +530,7 @@
 .assignmentToolbarActions button:hover,
 .previewFoldHeader button:hover,
 .copyRow button:hover {
-    background-color: var(--accent-strong-color);
+    background-color: var(--dashboard-button-hover, var(--accent-strong-color));
     border-color: var(--accent-strong-color);
 }
 
@@ -553,7 +553,7 @@
 }
 
 .secondaryButton:hover {
-    color: #111;
+    color: var(--dashboard-on-button, #fff);
 }
 
 .userNotesSection,
@@ -746,7 +746,7 @@
 }
 
 .sessionCancelConfirmation::backdrop {
-    background: rgba(5, 8, 12, 0.72);
+    background: var(--dashboard-backdrop, rgba(5, 8, 12, 0.72));
 }
 
 .sessionCancelConfirmation p {
@@ -810,7 +810,7 @@
     display: grid;
     place-items: center;
     padding: 20px;
-    background-color: rgba(5, 8, 12, 0.72);
+    background-color: var(--dashboard-backdrop, rgba(5, 8, 12, 0.72));
 }
 
 .sessionDetailsOverlay {
@@ -953,7 +953,7 @@
     box-sizing: border-box;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     padding: 10px 11px;
     font: inherit;
@@ -1010,7 +1010,7 @@
 .attendeePool button:hover,
 .attendeeChipSelected {
     border-color: var(--accent-color) !important;
-    background-color: color-mix(in srgb, var(--accent-color) 18%, var(--surface-3-color)) !important;
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 18%, var(--surface-3-color)) !important;
 }
 
 .assignmentSlotBoard {
@@ -1047,7 +1047,7 @@
 
 .assignmentSlotCardSelectable,
 .assignmentSlotCard:hover {
-    background-color: color-mix(in srgb, var(--accent-color) 7%, transparent);
+    background-color: color-mix(in srgb, var(--dashboard-button, var(--accent-color)) 7%, transparent);
 }
 
 .assignmentSlotText {
@@ -1140,7 +1140,7 @@
 .modalBackdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--dashboard-backdrop, rgba(0, 0, 0, 0.5));
     display: grid;
     place-items: center;
     z-index: 1000;
@@ -1170,7 +1170,7 @@
     width: 100%;
     min-height: 80px;
     padding: 8px 12px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 6px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1190,8 +1190,8 @@
     padding: 7px 12px;
     border: 1px solid var(--accent-color);
     border-radius: 6px;
-    background: var(--accent-color);
-    color: #111;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -1199,7 +1199,7 @@
 
 .modalActions button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .modalActions .secondaryButton {
@@ -1215,23 +1215,23 @@
 .modalActions .dangerButton {
     border-color: var(--error-color);
     background: var(--error-color);
-    color: #fff;
+    color: var(--dashboard-on-button, #fff);
 }
 
 .modalActions .dangerButton:hover {
     border-color: var(--danger-text);
-    background: color-mix(in srgb, var(--error-color) 78%, #000);
+    background: color-mix(in srgb, var(--error-color) 78%, var(--dashboard-inset, #000));
 }
 
 .sessionActions .dangerButton {
     border-color: var(--error-color);
-    background: #b42318;
-    color: #fff;
+    background: var(--dashboard-danger-button, #b42318);
+    color: var(--dashboard-on-button, #fff);
 }
 
 .sessionActions .dangerButton:hover {
     border-color: var(--danger-text);
-    background: #912018;
+    background: var(--dashboard-danger-button, #912018);
 }
 
 @media (max-width: 1100px) {
@@ -1650,7 +1650,7 @@
     min-width: 0;
     min-height: 42px;
     padding: 9px 12px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 8px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1703,7 +1703,7 @@
 .autoMatchToggleButton:focus-visible {
     position: relative;
     z-index: 1;
-    outline: 3px solid #9bbcff;
+    outline: 3px solid var(--dashboard-focus, #9bbcff);
     outline-offset: 2px;
 }
 
@@ -1714,8 +1714,8 @@
     place-items: center;
     padding: 0 5px;
     border-radius: 999px;
-    background: var(--accent-color);
-    color: #111;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     font-size: 0.72rem;
 }
 
@@ -1835,7 +1835,7 @@
     min-height: 42px;
     box-sizing: border-box;
     padding: 9px 10px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--dashboard-input-border, var(--border-color));
     border-radius: 8px;
     background: var(--input-bg);
     color: var(--text-color);
@@ -1847,8 +1847,8 @@
     padding: 8px 14px;
     border: 1px solid var(--accent-color);
     border-radius: 8px;
-    background: var(--accent-color);
-    color: #111;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-weight: 750;
@@ -1857,7 +1857,7 @@
 
 .autoMatchForm button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .autoMatchForm button:disabled {
@@ -1922,7 +1922,7 @@
 .tableMenteeButton:focus-visible,
 .tableOpenButton:focus-visible,
 .profileBackButton:focus-visible {
-    outline: 3px solid #9bbcff;
+    outline: 3px solid var(--dashboard-focus, #9bbcff);
     outline-offset: 2px;
 }
 
@@ -2168,10 +2168,130 @@
 
 .profilePage {
     display: grid;
-    gap: 22px;
+    gap: 0;
     min-width: 0;
-    width: min(1080px, 100%);
+    width: min(1264px, 100%);
     margin: 0 auto;
+}
+
+/* The profile overview uses one continuous surface and a readable mobile order. */
+.adminMenteesContainer:has(.profilePage) { padding-top: 20px; }
+.profilePage .profileBreadcrumb { min-height: 24px; margin-bottom: 8px; }
+.profilePage .profileBackButton { padding: 0; min-height: 24px; border: 0; background: transparent; }
+.profilePage .profileHeader { align-items: center; padding-bottom: 24px; border-bottom: 0; }
+.profilePage .profileHeader h2 { font-size: clamp(2rem, 3vw, 2.25rem); line-height: 1.15; overflow-wrap: anywhere; }
+.profilePage .profileActionButtons { align-items: center; flex-wrap: nowrap; }
+.profilePage .profileActionButtons > button,
+.profileActionMenu > summary { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 40px; padding: 9px 17px; white-space: nowrap; }
+.profileActionMenu { position: relative; }
+.profileActionMenu > summary { border: 1px solid var(--border-color); border-radius: 7px; cursor: pointer; font-size: 0.86rem; font-weight: 700; list-style: none; }
+.profileActionMenu > summary::-webkit-details-marker { display: none; }
+.profileActionMenu > summary:hover { background: var(--surface-3-color); }
+.profileActionMenu > summary:focus-visible,
+.schedulingPanel > summary:focus-visible { outline: 3px solid var(--dashboard-focus, var(--accent-color)); outline-offset: 3px; }
+.profileActionPopover { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: 170px; padding: 8px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); box-shadow: var(--panel-shadow); }
+.profileActionPopover button { width: 100%; min-height: 44px; }
+.profileLifecycle { border-bottom: 1px solid var(--border-color); padding: 0 0 10px; }
+.profileLifecycle ol { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 0.45fr; padding: 0; margin: 0; list-style: none; }
+.profileLifecycle li { position: relative; display: grid; align-content: start; gap: 1px; min-width: 0; font-size: 0.84rem; }
+.profileLifecycle li::before { content: ""; position: absolute; top: 10px; left: 20px; right: 0; border-top: 2px solid var(--border-color); }
+.profileLifecycle li:last-child { margin-left: 28px; padding-left: 28px; border-left: 1px dashed var(--border-color); }
+.profileLifecycle li:last-child::before { left: 48px; }
+.profileLifecycle li > svg { position: relative; color: var(--muted-text); background: var(--bg-color); margin-bottom: 1px; }
+.profileLifecycle li[data-current="true"] > svg { color: var(--accent-color); }
+.profileLifecycle li > span { padding-right: 12px; color: var(--muted-text); line-height: 1.45; }
+.profileLifecycle li[data-reached="true"] > span { color: var(--accent-color); }
+.profileOverview { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; padding: 16px 0; border-bottom: 1px solid var(--border-color); }
+.profileOverview h3,
+.profileSectionHeading h3 { margin: 0; font-size: 1.08rem; font-weight: 750; line-height: 1.35; }
+.profileAvailability > p,
+.profileSectionHeading p { margin: 5px 0 0; color: var(--muted-text); font-size: 0.86rem; line-height: 1.5; }
+.profileAvailabilityList { margin: 14px 0 0; }
+.profileAvailabilityList > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 30px; border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent); font-size: 0.86rem; }
+.profileAvailabilityList > div:last-child { border-bottom: 0; }
+.profileAvailabilityList dt { margin: 0; overflow-wrap: anywhere; }
+.profileAvailabilityList dd { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(175px, auto); align-items: center; gap: 20px; margin: 0; }
+.profileAvailabilityList dd > span { font-size: 0.82rem; font-weight: 650; overflow-wrap: anywhere; }
+.availabilityTrack { position: relative; height: 6px; border-bottom: 1px dashed var(--border-color); }
+.availabilityTrack > span { position: absolute; top: 1px; height: 4px; min-width: 2px; border-radius: 4px; background: var(--accent-color); }
+.availabilityTrack > span svg { position: absolute; top: -2px; color: var(--accent-color); }
+.availabilityTrack > span svg:first-child { left: -4px; }
+.availabilityTrack > span svg:last-child { right: -4px; }
+.profileOwnership { border-left: 1px solid var(--border-color); padding-left: 26px; min-width: 0; }
+.profileOwnership dl { display: grid; gap: 23px; margin: 23px 0 0; }
+.profileOwnership dl > div { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 12px; }
+.profileOwnership svg { grid-row: 1 / 3; align-self: center; width: 40px; height: 40px; padding: 9px; border-radius: 50%; color: var(--muted-text); background: var(--surface-2-color); }
+.profileOwnership dt { color: var(--muted-text); font-size: 0.84rem; }
+.profileOwnership dd { margin: 2px 0 0; font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
+.profileTerminationReason { margin-top: 24px; font-size: 0.86rem; overflow-wrap: anywhere; }
+.profileTerminationReason p { margin: 5px 0 0; color: var(--muted-text); }
+.profileTraining { padding: 14px 0; border-bottom: 1px solid var(--border-color); }
+.profileSectionHeading { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.profileSectionHeading > svg { flex-shrink: 0; margin-top: 1px; }
+.profileQuietStatus { margin-left: auto; align-self: center; color: var(--muted-text); font-size: 0.84rem; white-space: nowrap; }
+.profileTraining .sessionsSection { margin-top: 18px; }
+.profileSignupSection { padding: 13px 0; border-bottom: 1px solid var(--border-color); min-width: 0; }
+.profileSignupHeading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 12px; }
+.profileHistoryToggle { display: flex; gap: 5px; align-items: center; flex-shrink: 0; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--accent-color); cursor: pointer; font: inherit; font-size: 0.86rem; font-weight: 650; }
+.profileSignupTableWrap { max-width: 100%; border: 1px solid var(--border-color); border-radius: 5px; overflow: hidden; }
+.profileSignupTable { width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: left; }
+.profileSignupTable th { padding: 8px 12px; color: var(--muted-text); background: var(--surface-3-color); font-size: 0.68rem; font-weight: 750; text-transform: uppercase; }
+.profileSignupTable td { padding: 3px 12px; border-top: 1px solid var(--border-color); background: var(--surface-2-color); }
+.profileSignupTable td:nth-child(1) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.profileSignupTable td:last-child { width: 120px; }
+.profileSignupTable .secondaryButton { width: 100%; min-height: 30px; padding: 3px 12px; }
+.profileSignupTable .sessionStatus { font-size: 0.76rem; padding: 3px 10px; }
+.profilePage .userNotesSection { padding: 14px 0 0; margin-top: 0; }
+.profileEmptyNotes { margin: 6px 0 0 37px; color: var(--muted-text); font-size: 0.86rem; }
+.schedulingPanel { padding: 16px 0; border-bottom: 1px solid var(--border-color); }
+.schedulingPanel > summary { display: flex; align-items: center; gap: 12px; min-height: 32px; cursor: pointer; list-style: none; font-weight: 700; }
+.schedulingPanel > summary::-webkit-details-marker { display: none; }
+.schedulingPanel > summary svg:last-child { margin-left: auto; }
+.schedulingPanel[open] > summary svg:last-child { transform: rotate(180deg); }
+.schedulingPanel .actionPanel { margin-top: 14px; max-width: 640px; }
+.schedulingPanel label { display: grid; gap: 5px; min-width: 0; color: var(--muted-text); font-size: 0.86rem; }
+.schedulingPanel input { width: 100%; }
+
+@media (max-width: 1000px) {
+    .profileOverview { grid-template-columns: minmax(0, 1fr) 220px; gap: 20px; }
+    .profileOwnership { padding-left: 20px; }
+    .profileAvailabilityList dd { grid-template-columns: 1fr; gap: 5px; padding: 8px 0; }
+    .profileAvailabilityList dd > span { order: -1; }
+}
+
+@media (max-width: 620px) {
+    .profilePage .profileBreadcrumb { margin-bottom: 16px; }
+    .profilePage .profileHeader { align-items: stretch; gap: 18px; padding-bottom: 22px; }
+    .profilePage .profileActionButtons { justify-content: start; }
+    .profilePage .profileActionButtons > button { flex: 1; min-height: 44px; }
+    .profileActionMenu { flex: 1; }
+    .profileActionMenu > summary { min-height: 44px; }
+    .profileLifecycle ol { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; }
+    .profileLifecycle li:last-child { margin-left: 0; padding-left: 0; border-left: 0; }
+    .profileLifecycle li:last-child::before { left: 20px; }
+    .profileLifecycle li > span { padding-right: 0; font-size: 0.78rem; }
+    .profileOverview { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 22px 0; }
+    .profileAvailabilityList > div { grid-template-columns: 85px minmax(0, 1fr); gap: 10px; }
+    .profileAvailabilityList dd { gap: 7px; padding: 10px 0; }
+    .profileOwnership { border-left: 0; border-top: 1px solid var(--border-color); padding: 20px 0 0; }
+    .profileOwnership dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin-top: 16px; }
+    .profileOwnership dl > div { grid-template-columns: 24px minmax(0, 1fr); gap: 0 8px; }
+    .profileOwnership svg { width: 24px; height: 24px; padding: 0; background: transparent; }
+    .profileQuietStatus { display: none; }
+    .profileSignupHeading { flex-wrap: wrap; gap: 6px; }
+    .profileHistoryToggle { margin-left: 37px; min-height: 44px; }
+    .profileSignupTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .profileSignupTable,
+    .profileSignupTable tbody { display: block; width: 100%; }
+    .profileSignupTable tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; background: var(--surface-2-color); padding: 12px; gap: 7px 12px; border-bottom: 1px solid var(--border-color); }
+    .profileSignupTable tr:last-child { border-bottom: 0; }
+    .profileSignupTable td { display: block; padding: 0; border: 0; background: transparent; overflow-wrap: anywhere; }
+    .profileSignupTable td:nth-child(1) { grid-column: 1 / -1; white-space: normal; font-size: 0.8rem; color: var(--muted-text); }
+    .profileSignupTable td:nth-child(2) { font-weight: 750; }
+    .profileSignupTable td:nth-child(3) { grid-column: 1; }
+    .profileSignupTable td:nth-child(4) { grid-row: 2; grid-column: 2; }
+    .profileSignupTable td:last-child { grid-row: 3; grid-column: 2; width: auto; text-align: right; }
+    .profileSignupTable .secondaryButton { width: fit-content; min-height: 30px; margin-left: auto; padding: 3px 10px; }
 }
 
 .profileBreadcrumb {
@@ -2228,8 +2348,8 @@
     padding: 7px 13px;
     border: 1px solid var(--accent-color);
     border-radius: 7px;
-    background: var(--accent-color);
-    color: #111;
+    background: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, #fff);
     cursor: pointer;
     font: inherit;
     font-size: 0.86rem;
@@ -2238,7 +2358,7 @@
 
 .profileActionButtons button:hover {
     border-color: var(--accent-strong-color);
-    background: var(--accent-strong-color);
+    background: var(--dashboard-button-hover, var(--accent-strong-color));
 }
 
 .profileActionButtons button:disabled {
@@ -2389,4 +2509,20 @@
     .profilePage .detailGrid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Staff workspace surfaces use the shared light layers. */
+.adminMenteesContainer { max-width: 1360px; }
+.menteesToolbar { gap: 16px; border-color: var(--border-color); background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
+.menteesCardGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr)); gap: 20px; }
+.menteeCard { gap: 18px; padding: 22px; background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
+.menteeCard:hover { background: var(--dashboard-surface, #fff); box-shadow: 0 12px 28px var(--dashboard-shadow-color, #14274014); }
+.profilePage .profileSection { border: 1px solid var(--border-color); border-radius: 11px; background: var(--dashboard-surface, #fff); padding: 20px; box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
+.profileHeader h2 { font-family: var(--font-site); }
+
+@media (max-width: 760px) {
+    .adminMenteesContainer { padding: 16px; }
+    .menteesCardGrid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .menteeCard { padding: 18px; }
+    .profilePage .profileSection { padding: 16px; }
 }

@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 
 export interface DashboardAuditEvent {
   eventId?: string;
+  occurredAt?: number;
   action: `exam.${string}`;
   actorId?: string;
   actorName?: string;
   targetType?: string;
   targetId?: string;
   summary: string;
-  details?: Record<string, string | number | boolean | null>;
+  details?: Record<string, unknown>;
 }
 
 interface AuditEnvironment {
@@ -45,7 +46,7 @@ export function auditEventId(action: string, targetId: string | undefined): stri
  * failed because Dashboard is temporarily unavailable. Callers may provide an
  * operation-specific ID; one-shot learner events retain deterministic IDs.
  */
-export async function emitDashboardAuditEvent(
+export async function deliverDashboardAuditEvent(
   event: DashboardAuditEvent,
   env: AuditEnvironment = {
     EXAMS_AUDIT_INGEST_URL: process.env.EXAMS_AUDIT_INGEST_URL,
@@ -93,4 +94,12 @@ export async function emitDashboardAuditEvent(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Persist first. Inside an application transaction, the event commits with its mutation. */
+export async function emitDashboardAuditEvent(event: DashboardAuditEvent): Promise<boolean> {
+  const { enqueueDashboardAuditEvent } = await import("./dashboard-audit-outbox");
+  try { await enqueueDashboardAuditEvent(event); }
+  catch { throw new Error("Audit persistence is temporarily unavailable"); }
+  return true;
 }

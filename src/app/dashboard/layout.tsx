@@ -3,9 +3,11 @@ import DashboardAccessGate from "@/src/dashboard/DashboardAccessGate";
 import DashboardHeader from "@/src/dashboard/DashboardHeader";
 import DashboardRuntime from "@/src/dashboard/DashboardRuntime";
 import SiteFrame from "@/src/platform/SiteFrame";
+import DashboardThemeProvider from "@/src/dashboard/theme/DashboardThemeProvider";
+import "@/src/dashboard/theme/dashboard-theme.css";
 
 export const dynamic = "force-dynamic";
 
 export default function DashboardLayout({children}: Readonly<{children: ReactNode}>) {
-    return <SiteFrame footer={false} header={<DashboardHeader/>}><DashboardAccessGate><DashboardRuntime>{children}</DashboardRuntime></DashboardAccessGate></SiteFrame>;
+    return <DashboardThemeProvider><SiteFrame theme="light" footer={false} header={<DashboardHeader/>}><DashboardAccessGate><DashboardRuntime>{children}</DashboardRuntime></DashboardAccessGate></SiteFrame></DashboardThemeProvider>;
 }
