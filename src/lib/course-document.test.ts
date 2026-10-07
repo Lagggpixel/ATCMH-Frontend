@@ -91,3 +91,17 @@ test("checks support optional incorrect reasoning without changing legacy checks
     const legacy = validateCourseDocument({version: 1, blocks: [{...check, incorrectExplanation: undefined}]}).blocks[0];
     assert.equal("incorrectExplanation" in legacy, false);
 });
+
+test("knowledge-check images validate strictly, remain media references, and project as standalone directives", () => {
+    const images = [{mediaId, alt: "Runway diagram", caption: "Runway 27"}];
+    const document = validateCourseDocument({version: 1, blocks: [{id: "practice", type: "check", prompt: "Which runway?", options: ["27", "09"], correctOption: 0, explanation: "Check the chart.", images}]});
+    const check = document.blocks[0];
+    assert.equal(check.type, "check");
+    if (check.type === "check") assert.deepEqual(check.images, images);
+    assert.deepEqual(courseDocumentReferences(document), [{type: "image", id: mediaId, kind: "image"}]);
+    assert.ok(courseDocumentToMarkdown(document).includes("{{image:" + mediaId + "}}"));
+
+    for (const invalidImages of [Array.from({length: 9}, () => images[0]), [{...images[0], unexpected: true}], [{...images[0], mediaId: "invalid"}], [{...images[0], alt: "  "}], [{...images[0], caption: "<b>not text</b>"}], "not an array"]) {
+        assert.throws(() => validateCourseDocument({version: 1, blocks: [{id: "practice", type: "check", prompt: "Which runway?", options: ["27", "09"], correctOption: 0, explanation: "Check the chart.", images: invalidImages}]}), CourseDocumentValidationError);
+    }
+});

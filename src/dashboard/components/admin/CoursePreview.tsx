@@ -9,7 +9,19 @@ import styles from "./CourseCenter.module.css";
 export default function CoursePreview({course, quizzes, onEdit}: {course: ManagedCourse; quizzes: ExamQuizSummary[]; onEdit: () => void}) {
     const [selectedId, setSelectedId] = useState<string>();
     const previewCourse: LearnerCourse = {
-        ...course, completedSectionIds: [], takenQuizIds: [], quizProgress: [], activityProgress: [], enrollment: null,
+        id: course.id,
+        slug: course.slug,
+        title: course.title,
+        description: course.description,
+        sectionCount: course.sectionCount,
+        sectionGroups: course.sectionGroups,
+        navigationMode: course.navigationMode,
+        sections: course.sections,
+        completedSectionIds: [],
+        takenQuizIds: [],
+        quizProgress: [],
+        activityProgress: [],
+        enrollment: null,
         activities: course.activities ?? [],
         quizzes: quizzes.map(quiz => ({
             id: quiz.id, title: quiz.title, description: quiz.description ?? "", categoryId: quiz.categoryId ?? "",

@@ -96,6 +96,26 @@
 .privateGate h1 { margin: 0; color: var(--dashboard-ink, #f4f5fb); font-size: 30px; }
 .privateGate p { margin: 14px 0 22px; color: var(--dashboard-muted, #b5bdcf); line-height: 1.55; }
 .privateGate a { display: inline-flex; min-height: 42px; align-items: center; border-radius: 8px; background: var(--dashboard-button, #2563eb); padding: 9px 15px; color: var(--dashboard-on-button, #fff); font-weight: 800; text-decoration: none; }
+.prerequisiteStatus { display: grid; gap: 9px; border-top: 1px solid var(--dashboard-border, #30384d); padding-top: 11px; }
+.prerequisiteHeading { margin: 0; color: var(--dashboard-muted, #d7deeb); font-size: .82rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.prerequisiteList { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.prerequisiteItem { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--dashboard-muted, #b5bdcf); font-size: .88rem; }
+.prerequisiteItem a { color: var(--dashboard-link, #8fdcf5); text-decoration: underline; text-underline-offset: 2px; }
+.prerequisiteComplete, .prerequisiteIncomplete { flex: 0 0 auto; color: var(--dashboard-muted, #9ca9bc); font-size: .78rem; font-weight: 750; }
+.prerequisiteComplete { color: var(--dashboard-success-text, #86d9a6); }
+.unavailablePrerequisites { margin: 0; border-left: 2px solid var(--dashboard-warning-text, #d4a94a); padding-left: 10px; color: var(--dashboard-warning-text, #e1c885); font-size: .84rem; line-height: 1.45; }
+.knowledgeCheckImages { display: grid; gap: 14px; margin: 0 0 18px; }
+.knowledgeCheckImage { min-width: 0; margin: 0; text-align: center; }
+.knowledgeCheckImage img { display: block; max-width: 100%; max-height: 420px; margin: 0 auto; border: 1px solid var(--dashboard-border, #475569); border-radius: 8px; background: var(--dashboard-inset, #050a15); object-fit: contain; }
+.knowledgeCheckImage figcaption { margin-top: 7px; color: var(--dashboard-muted, #cbd5e1); font-size: .86rem; line-height: 1.45; }
+.privateGateLocked { text-align: left; }
+.privateGateLocked p, .privateGateLocked .prerequisiteStatus, .privateGateLocked .prerequisiteItem { text-align: left; }
+.privateGateLocked > .backLink { display: inline-flex; min-height: 0; border-radius: 0; background: transparent; padding: 0; color: var(--dashboard-link, #8fdcf5); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.privateGateLocked .prerequisiteItem { min-width: 0; }
+.privateGateLocked .prerequisiteItem a { display: inline; min-height: 0; flex: 1 1 auto; min-width: 0; border-radius: 0; background: transparent; padding: 0; color: var(--dashboard-link, #8fdcf5); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.privateGateLocked .prerequisiteComplete, .privateGateLocked .prerequisiteIncomplete { white-space: nowrap; }
+.privateGateLocked .unavailablePrerequisites { margin: 0; }
+.privateGateLocked > .backLink:hover, .privateGateLocked > .backLink:focus-visible, .privateGateLocked .prerequisiteItem a:hover, .privateGateLocked .prerequisiteItem a:focus-visible { color: var(--dashboard-focus, #c5f0ff); }
 @media (max-width: 700px) {
   .coursePage { width: min(100% - 32px, 1180px); padding: 24px 0 42px; }
   .sectionHeader { padding: 18px 18px 15px; }
