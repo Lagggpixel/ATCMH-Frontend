@@ -7,7 +7,7 @@ import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import {headerAuthState} from "@/src/platform/auth/header-state";
 import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
-import {canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
+import {canAccessPilotGuide, canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
 import ProfileAvatar from "@/src/platform/auth/ProfileAvatar";
 import {profileDisplayName} from "@/src/platform/auth/profile-avatar";
 
@@ -50,9 +50,11 @@ export function AuthNavigation({showLogin}: {showLogin: boolean}) {
 function NavigationLinks() {
   const pathname = usePathname();
   const {adminUser, loading, error} = usePortalAuth();
-  const links = !loading && !error && canViewAdminPreview(adminUser)
-    ? [...marketingNavLinks, {label: "Courses", href: "/exams/courses"}, {label: "Pilot Guide", href: "/pilot-guide"}]
-    : marketingNavLinks;
+  const links = [
+    ...marketingNavLinks,
+    ...(!loading && !error && canViewAdminPreview(adminUser) ? [{label: "Courses", href: "/exams/courses"}] : []),
+    ...(!loading && !error && canAccessPilotGuide(adminUser) ? [{label: "Pilot Guide", href: "/pilot-guide"}] : []),
+  ];
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, href: string) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

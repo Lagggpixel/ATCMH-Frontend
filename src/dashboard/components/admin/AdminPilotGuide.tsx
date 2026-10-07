@@ -4,7 +4,7 @@ import {useEffect, useState, type FormEvent} from "react";
 import {FileText, Plus, GearSix, Eye, ArrowUp, ArrowDown, Trash, Check, ArrowLeft} from "@phosphor-icons/react";
 import type {AdminUser} from "../../types/AdminUser";
 import type {PilotGuide} from "@/src/learning/pilot-guide";
-import {canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
+import {canAccessPilotGuide} from "@/src/platform/auth/admin-preview-access";
 import {PilotGuideApiUtils, PilotGuideRequestError} from "../../utils/PilotGuideApiUtils";
 import {pilotGuideContentSnapshot} from "@/src/lib/pilot-guide-contract";
 import {sanitizePilotGuideHtml} from "@/src/learning/pilot-guide-html";
@@ -30,7 +30,7 @@ export default function AdminPilotGuide({loaded, loggedIn, adminUser, token}: {l
     const [conflict, setConflict] = useState(false);
     const [saved, setSaved] = useState(false);
     const [reload, setReload] = useState(0);
-    const canEdit = canViewAdminPreview(adminUser);
+    const canEdit = canAccessPilotGuide(adminUser);
     const dirty = !!guide && baseline !== pilotGuideContentSnapshot(guide);
     const confirm = useConfirmation();
     useExamUnsavedChanges({isDirty: dirty});
@@ -83,7 +83,7 @@ export default function AdminPilotGuide({loaded, loggedIn, adminUser, token}: {l
 
     if (!loaded) return <AdminLoadingScreen/>;
     if (!loggedIn) return <AdminLoginScreen/>;
-    if (!canEdit) return <div className={styles.empty}><FileText size={36}/><h2>Pilot Guide administration</h2><p>You need administrator access to edit the pilot guide.</p></div>;
+    if (!canEdit) return <div className={styles.empty}><FileText size={36}/><h2>Pilot Guide administration</h2><p>You need moderator or administrator access to edit the pilot guide.</p></div>;
     if (!guide || !selected) return error ? <div className={styles.empty}><h2>The pilot guide could not be loaded</h2><p role="alert">{error}</p><button className={styles.primary} onClick={() => setReload(value => value + 1)}>Try again</button></div> : <AdminLoadingScreen/>;
     return <section className={styles.page} aria-label="Pilot Guide administration">
         <div className={styles.breadcrumb}>Administration <span aria-hidden="true">›</span> Pilot Guide</div>
