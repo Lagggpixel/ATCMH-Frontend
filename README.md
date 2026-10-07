@@ -1,4 +1,70 @@
 
+### Docker builds on Windows and macOS
+
+The deployment server is Linux x86_64, so release images target `linux/amd64`
+on every development computer. `npm run docker:push` detects the local operating
+system and Node architecture, builds the versioned and `latest` tags, and publishes
+them. Docker chooses native execution or emulation automatically; Apple Silicon
+Macs use AMD64 emulation when building with a local Docker Desktop engine. Windows
+AMD64 computers no longer build an additional ARM64 image.
+
+For a local image build without publication, run `npm run docker:build:windows`
+or `npm run docker:build:mac`. Both commands detect the host automatically, target
+the same server platform, and load the image into local Docker. Node-based scripts
+avoid requiring PowerShell on macOS or Bash on Windows.
+
+Append `-- --dry-run` to any of these npm commands to print the Docker command
+without building or publishing. Docker Desktop must be running for an actual build.
+For frontend development without Docker, use `npm run dev`.
+
+The ATCMH backend keeps `gradlew pushImage` (Windows: `.\gradlew.bat pushImage`;
+macOS: `./gradlew pushImage`). Its image also targets `linux/amd64`, with execution
+or emulation selected automatically by Docker.
+
+### Application region and timezone
+
+Full Mentorship, Mock Practical, and Written Exam Help forms use the same region
+and timezone choices as the legacy Discord DM questionnaire. The website remains
+the recommended application route. Regions are Africa, Asia, Europe, Middle East,
+North America, South America, Oceania, and Other. The timezone dropdown includes
+UTC−12:00 through UTC+14:00 and fractional offsets.
+
+Applicants who do not know their offset can enter their current local time, such
+as `5:30pm` or `17:30`, and confirm a suggested offset. Clock input alone is not
+saved as a timezone. Suggestions use the nearest quarter-hour within eight minutes
+and can offer two offsets when the local date is ambiguous. Applicants should use
+their current offset, including daylight saving where applicable. Saved explicit
+offsets use `UTC±HH:MM`, including `UTC+00:00` for zero. Drafts normalize recognized
+older answers and retain unknown values for the applicant to review.
+
+Both application routes store region, timezone, and weekly UTC availability on
+the mentee record. Dashboard mentee details show the stored region and timezone.
+Deploy the matching backend and apply its additive
+`sql/2026-10-02-mentee-region.sql` migration before starting the updated backend;
+adjust the table prefix to match `MYSQL_PREFIX`. No new frontend environment
+variables are required.
+
+Backend startup recovery fills only missing profile fields, first from submitted
+website workflows matched by both waitlist channel and Discord subject, then from
+bot-authored pinned embeds and up to 100 recent messages in existing mentee
+channels. Populated fields and staff edits are preserved. Legacy IANA timezone
+names remain intact, and historical clock readings are not converted using today's
+UTC clock. Records with no retained workflow or readable embed evidence can remain
+incomplete.
+
+### Live community counts
+
+The home page requests `/api/dashboard/public/community-stats` through the existing
+`DASHBOARD_API_URL` relay on load, every minute while visible, and when returning to
+the tab. Members round down to hundreds; graduates round down to fifties. The hero
+and About cards share the same response. Missing counts display `—`; a failed
+refresh retains the last available count with an unavailable tooltip.
+
+Deploy the backend community statistics route alongside the frontend. It uses the
+existing bot's ATCMH guild and `GRADUATE_ROLE_ID`, requires a connected gateway and
+fully loaded member cache, and returns only aggregate counts. No new Discord
+credentials or database changes are required.
+
 ### Website access evidence
 
 The Next proxy reports each meaningful page/API request to the backend through
@@ -18,3 +84,26 @@ Backend relay calls carry a derived, reporting-only HMAC marker so the frontend'
 egress IP is not mistaken for a visitor. The generic relay never forwards client
 internal headers or supplies the internal service key, and blocks `/internal`.
 Reporting failures are bounded by a timeout and do not block browsing.
+
+### Pilot Guide editing
+
+Administrators can open **Administration → Pilot Guide** at `/dashboard/pilot-guide`.
+The chapter workspace defaults to visual editing, with formatting, links, image
+URLs and YouTube/direct-video URLs. HTML mode is optional. Chapters can be added,
+renamed, reordered and removed; Guide settings controls the title, introduction
+and date displayed to pilots. Preview includes unsaved edits. Save changes updates
+the guide pilots read immediately. Concurrent saves are rejected without losing
+the local draft, and leaving with unsaved changes asks before discarding them.
+
+The reader at `/pilot-guide` and editor use the same backend guide, stored as HTML
+chapters in the application database. Deploy the matching backend after applying
+`Backend/sql/2026-10-02-pilot-guide.sql` (adjust the table prefix to `MYSQL_PREFIX`).
+The migration seeds the supplied five chapters and preserves existing edits when
+replayed. Media is embedded by URL; no additional upload storage or frontend
+environment variables are required. Scripts, unsafe URLs and arbitrary iframe
+hosts are removed on preview and save. Video permissions are restricted to guide
+documents; navigation to the guide loads a new document to apply its media policy.
+
+Local design fixtures are in `design-evidence/learning-pages/mock-backend.mjs`.
+They use invented identities and in-memory edits, with no deployed API access.
+See the fixture header for startup settings and the editor preview URL.

@@ -69,3 +69,10 @@ test("merged identity repair choices only expose archived identities on the merg
     ]), account("2", [{provider: "DISCORD", subject: "target-archived", active: false}]), "discord");
     assert.deepEqual(options.map(option => [option.value, option.accountId]), [["archived", "1"], ["target-archived", "2"]]);
 });
+
+test("merge and archived choices identify accounts by subject when names are unresolved", () => {
+    const source = account("1", [{provider: "discord", subject: "123456789012345678", displayName: "N/A"}]);
+    const target = account("2", [{provider: "discord", subject: "987654321098765432", displayName: " ", active: false}]);
+    assert.deepEqual(mergeIdentityOptions(source, target, "discord").map(option => option.label), ["123456789012345678 — account 1"]);
+    assert.deepEqual(archivedMergeIdentityOptions(source, target, "discord").map(option => option.label), ["987654321098765432 — archived — account 2"]);
+});

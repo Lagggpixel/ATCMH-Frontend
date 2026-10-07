@@ -7,6 +7,7 @@ import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import type {UserNote} from "../../types/UserNote.ts";
 import {formatAdminUtcDate} from "../../utils/AdminDateUtils.ts";
+import {formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
 import AdminToast from "./AdminToast.tsx";
 import {useTableSort} from "../../hooks/useTableSort.ts";
@@ -61,19 +62,13 @@ const AdminUserNotes = ({
         let filteredUserNotes = [...userNotes];
 
         if (filter.staff) {
-            const staffFilter = filter.staff.toLowerCase();
-            filteredUserNotes = filteredUserNotes.filter(userNote => {
-                const staff = usersById.get(userNote.staff);
-                return staff?.username.toLowerCase().includes(staffFilter);
-            });
+            filteredUserNotes = filteredUserNotes.filter(userNote =>
+                matchesUserSearch(userNote.staff, usersById.get(userNote.staff)?.username, filter.staff));
         }
 
         if (filter.user) {
-            const userFilter = filter.user.toLowerCase();
-            filteredUserNotes = filteredUserNotes.filter(userNote => {
-                const user = usersById.get(userNote.user);
-                return user?.username.toLowerCase().includes(userFilter);
-            });
+            filteredUserNotes = filteredUserNotes.filter(userNote =>
+                matchesUserSearch(userNote.user, usersById.get(userNote.user)?.username, filter.user));
         }
 
         if (filter.removed !== "all") {
@@ -87,7 +82,7 @@ const AdminUserNotes = ({
     }, [filter, userNotes, users, usersById]);
 
     const noteRecords = useMemo(() => {
-        const getUserName = (id: string) => usersById.get(id)?.username ?? `User (${id})`;
+        const getUserName = (id: string) => formatUserName(id, usersById.get(id)?.username);
         return displayedUserNotes.map(note => ({
             time: note.time,
             staff: getUserName(note.staff),

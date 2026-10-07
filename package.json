@@ -1,21 +1,33 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "1.7.7",
+  "version": "1.8.14",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "node --import tsx --test",
-    "docker:push": "docker buildx build -f .dockerfile --platform linux/amd64,linux/arm64 -t registry.lagggpixel.com/atcmh-frontend:$npm_package_version -t registry.lagggpixel.com/atcmh-frontend:latest . --push"
+    "docker:push": "node scripts/docker-push.mjs",
+    "docker:build:windows": "node scripts/docker-build-windows.mjs",
+    "docker:build:mac": "node scripts/docker-build-mac.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extension-image": "^3.31.4",
+    "@tiptap/extension-placeholder": "^3.31.4",
+    "@tiptap/extension-table": "^3.31.4",
+    "@tiptap/extension-youtube": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "mysql2": "^3.16.0",
-    "next": "16.2.11",
+    "next": "16.3.6",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "recharts": "^3.1.0",
+    "sanitize-html": "^2.18.0",
     "server-only": "0.0.1",
     "zod": "^3.25.76"
   },
@@ -23,13 +35,14 @@
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "@types/sanitize-html": "^2.16.2",
     "eslint": "9.39.1",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.6",
     "tsx": "4.23.0",
     "typescript": "5.9.3",
     "vite": "8.1.5"
   },
   "overrides": {
-    "postcss": "8.5.16"
+    "postcss": "8.5.28"
   }
 }

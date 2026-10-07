@@ -17,6 +17,7 @@ import {
     visibleApplicationQuestions,
 } from "./application-form-state";
 import WeeklyAvailabilityEditor from "./WeeklyAvailabilityEditor";
+import {RegionInput, TimezoneInput} from "./LocationInputs";
 import styles from "./ApplicationPage.module.css";
 
 const statusCopy: Partial<Record<WebsiteApplicationState["status"], {title: string; detail: string}>> = {
@@ -89,7 +90,7 @@ export default function ApplicationPage() {
                 ? await ApiUtils.submitCurrentApplication(session.csrfToken, applicationType, cleanAnswers)
                 : await ApiUtils.saveCurrentApplication(session.csrfToken, applicationType, cleanAnswers);
             setApplication(next);
-            setAnswers(next.answers ?? cleanAnswers);
+            setAnswers(initializeApplicationAnswers(questions, next.answers ?? cleanAnswers));
             setSaved(!submit);
         } catch (reason) {
             setRequestError(reason instanceof Error ? reason.message : String(reason));
@@ -180,16 +181,27 @@ function AdminBypassNotice() {
 function QuestionField({question, index, value, error, onChange}: {question: ApplicationQuestion; index: number; value: string; error?: string; onChange: (value: string) => void}) {
     const id = `application-${question.key}`;
     const className = question.dependsOnKey ? `${styles.question} ${styles.conditionalQuestion}` : styles.question;
-    return <fieldset className={className} aria-describedby={`${id}-help ${id}-error`}>
-        <legend><span>{String(index + 1).padStart(2, "0")}</span>{question.prompt}</legend>
+    const helpText = question.inputType === "WEEKLY_AVAILABILITY"
+        ? "Times are in UTC. Turn on the days you are available, then choose a start and end time."
+        : question.inputType === "REGION" ? question.helpText || "Choose the broad region where you live. This helps us match you with a mentor."
+            : question.inputType === "TIMEZONE" ? question.helpText || "Choose your current UTC offset, use your browser suggestion, or enter the time on your clock."
+                : question.helpText;
+    const describedBy = [helpText ? `${id}-help` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+    return <fieldset className={className} aria-describedby={describedBy}>
+        <legend id={`${id}-label`}><span>{String(index + 1).padStart(2, "0")}</span>{question.prompt}</legend>
         {question.inputType === "WEEKLY_AVAILABILITY"
             ? <p id={`${id}-help`} className={styles.help}>Times are in UTC. Turn on the days you are available, then choose a start and end time.</p>
-            : question.helpText ? <p id={`${id}-help`} className={styles.help}>{question.helpText}</p> : null}
-        {question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
+            : helpText ? <p id={`${id}-help`} className={styles.help}>{helpText}</p> : null}
+        {question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} aria-describedby={describedBy} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
             : question.inputType === "WEEKLY_AVAILABILITY" ? <WeeklyAvailabilityEditor id={id} value={value} onChange={onChange}/>
+                : question.inputType === "REGION" ? <RegionInput id={id} value={value} describedBy={describedBy} invalid={Boolean(error)} onChange={onChange}/>
+                    : question.inputType === "TIMEZONE" ? <TimezoneInput id={id} value={value} describedBy={describedBy} invalid={Boolean(error)} onChange={onChange}/>
                 : (
                     <input
                         id={id}
+                        aria-labelledby={`${id}-label`}
+                        aria-describedby={describedBy}
+                        aria-invalid={Boolean(error)}
                         type={question.inputType === "POSITIVE_INTEGER" ? "number" : "text"}
                         min={question.inputType === "POSITIVE_INTEGER" ? 1 : undefined}
                         value={value}

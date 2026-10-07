@@ -186,7 +186,7 @@ test("an invalid submission reason rejects before any transaction, write, or aud
   assert.deepEqual(events, []);
 });
 
-test("a valid request submits inside the transaction and emits its audit after commit", async () => {
+test("a valid request persists its result and audit before commit", async () => {
   const events: string[] = [];
   let submittedInput: Parameters<LearnerSubmissionDependencies["submitAttempt"]>[1] | undefined;
   let nowCalls = 0;
@@ -215,7 +215,7 @@ test("a valid request submits inside the transaction and emits its audit after c
   }), input);
 
   assert.deepEqual(result, { attemptId });
-  assert.deepEqual(events, ["transaction-start", "attempt-written", "transaction-committed", "audit-sent"]);
+  assert.deepEqual(events, ["transaction-start", "attempt-written", "audit-sent", "transaction-committed"]);
   assert.equal(submittedInput?.attemptCode, attemptId.replace(/-/g, ""));
   assert.equal(submittedInput?.feedbackMode, "after_submission");
   assert.equal(submittedInput?.submittedAt.toISOString(), "2026-07-11T08:30:00.000Z");
@@ -232,6 +232,7 @@ test("a committed attempt emits the matching manual audit event without answers"
   assert.ok("attemptId" in result);
   assert.deepEqual(events, [{
     action: "exam.attempt.submitted",
+    occurredAt: new Date("2026-07-11T08:30:00.000Z").getTime(),
     actorId: "123456789012345678",
     targetType: "attempt",
     targetId: attemptId,
@@ -404,10 +405,10 @@ test("browser-supplied identity fields are ignored in favor of the verified sess
   assert.equal("studentDiscordId" in input, false);
 });
 
-test("audit delivery rejection does not fail a committed attempt", async () => {
+test("audit persistence failure rejects the attempt before commit", async () => {
   const result = await executeLearnerSubmission(dependencies({
-    sendAttemptAuditEvent: async () => { throw new Error("delivery failed"); },
+    sendAttemptAuditEvent: async () => { throw new Error("outbox unavailable"); },
   }), input);
 
-  assert.deepEqual(result, { attemptId });
+  assert.deepEqual(result, { error: "Unable to submit attempt." });
 });

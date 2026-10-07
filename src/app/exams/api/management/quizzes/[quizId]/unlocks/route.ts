@@ -1,3 +1,4 @@
+import { withWriteTransaction } from "@/src/lib/db";
 import { requireManagementCapability } from "@/src/lib/discord-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { assertManagementWritesEnabled, listQuizUnlocks, setQuizUnlock } from "@/src/lib/management-service";
@@ -22,17 +23,19 @@ export async function PUT(request: Request, { params }: RouteContext) {
   if (actor instanceof Response) return withManagementCors(request, await managementAuthorizationError(actor));
   try {
     assertManagementWritesEnabled();
-    const body = await parseManagementJson(request);
-    if (typeof body.unlocked !== "boolean") {
-      throw new ManagementValidationError("Invalid unlocked", [{ path: "unlocked", message: "expected a boolean" }]);
-    }
-    const quizId = (await params).quizId;
-    const discordId = requiredString(body, "discordId");
-    const userName = optionalString(body, "userName");
-    const update = { quizId, discordId, userName, unlocked: body.unlocked };
-    await setQuizUnlock(update, actor);
-    await emitDashboardAuditEvent(quizUnlockAuditEvent(update, actor));
-    return withManagementCors(request, Response.json({ unlock: { quizId, discordId, userName, unlocked: body.unlocked } }));
+    return await withWriteTransaction(async () => {
+      const body = await parseManagementJson(request);
+      if (typeof body.unlocked !== "boolean") {
+        throw new ManagementValidationError("Invalid unlocked", [{ path: "unlocked", message: "expected a boolean" }]);
+      }
+      const quizId = (await params).quizId;
+      const discordId = requiredString(body, "discordId");
+      const userName = optionalString(body, "userName");
+      const update = { quizId, discordId, userName, unlocked: body.unlocked };
+      await setQuizUnlock(update, actor);
+      await emitDashboardAuditEvent(quizUnlockAuditEvent(update, actor));
+      return withManagementCors(request, Response.json({ unlock: { quizId, discordId, userName, unlocked: body.unlocked } }));
+    });
   } catch (error) {
     return withManagementCors(request, managementError(error));
   }

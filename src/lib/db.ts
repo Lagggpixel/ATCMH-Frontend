@@ -1,4 +1,5 @@
 import mysql, { type Pool, type PoolConnection, type RowDataPacket } from "mysql2/promise";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 type SqlExecuteValue = string | number | bigint | boolean | Date | null | Blob | Buffer | Uint8Array
   | SqlExecuteValue[] | { [key: string]: SqlExecuteValue };
@@ -12,6 +13,14 @@ const readOnlyStatement = /^\s*(?:SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i;
 const lockingClause = /\b(?:FOR\s+UPDATE|LOCK\s+IN\s+SHARE\s+MODE)\b/i;
 let readOnlyPool: Pool | undefined;
 let writePool: Pool | undefined;
+type WriteConnection = Pick<PoolConnection, "execute">;
+const writeContext = new AsyncLocalStorage<{connection: WriteConnection; afterCommit: Array<() => void>}>();
+
+export function afterWriteCommit(callback: () => void) {
+  const context = writeContext.getStore();
+  if (!context) throw new Error("A write transaction is required");
+  context.afterCommit.push(callback);
+}
 
 /** Test seam. Production initialization always comes from MYSQL_* variables. */
 export function setPoolForTests(value: Pool | undefined) {
@@ -93,7 +102,8 @@ export async function queryReadOnly<T extends RowDataPacket[]>(
   if (!isReadOnlySql(sql)) {
     throw new Error("The exams data layer only permits read-only SQL statements");
   }
-  const [rows] = await getReadOnlyPool().execute<T>(sql, values as SqlExecuteValue[]);
+  const connection = writeContext.getStore()?.connection ?? getReadOnlyPool();
+  const [rows] = await connection.execute<T>(sql, values as SqlExecuteValue[]);
   return rows;
 }
 
@@ -126,13 +136,18 @@ export async function withTransaction<T>(fn: (connection: ReadOnlyConnection) =>
  * all callers must validate input and preserve existing canonical LMS IDs.
  */
 export async function withWriteTransaction<T>(fn: (connection: Pick<PoolConnection, "execute">) => Promise<T>): Promise<T> {
+  const existing = writeContext.getStore();
+  if (existing) return fn(existing.connection);
   const connection = await getWritePool().getConnection();
+  const context = {connection: {execute: connection.execute.bind(connection)}, afterCommit: [] as Array<() => void>};
   try {
     await connection.query("START TRANSACTION");
-    const result = await fn({
-      execute: connection.execute.bind(connection),
-    });
+    const result = await writeContext.run(context, () => fn(context.connection));
     await connection.commit();
+    // Delivery happens after commit and outside the transaction context.
+    for (const callback of context.afterCommit) {
+      try { callback(); } catch { console.warn("Post-commit audit delivery remains pending"); }
+    }
     return result;
   } catch (error) {
     await connection.rollback();

@@ -8,6 +8,7 @@ import {useExamUnsavedChanges} from "./useExamUnsavedChanges.ts";
 interface ExamWebsiteManagerProps { token: string; }
 
 const ExamWebsiteManager = ({token}: ExamWebsiteManagerProps) => {
+    const [activeSection, setActiveSection] = useState<"home" | "announcements" | "pages">("home");
     const [content, setContent] = useState<ExamWebsiteContent | null>(null);
     const [baseline, setBaseline] = useState<ExamWebsiteContent | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,7 @@ const ExamWebsiteManager = ({token}: ExamWebsiteManagerProps) => {
             if (active) {
                 setContent(next);
                 setBaseline(next);
+                if (!next.home) setActiveSection("announcements");
             }
         }).catch(reason => {
             if (active) setError(reason instanceof Error ? reason.message : String(reason));
@@ -34,6 +36,15 @@ const ExamWebsiteManager = ({token}: ExamWebsiteManagerProps) => {
         if (!content) return;
         setError(null);
         setSaved(false);
+        if (content.home && (!content.home.title.trim() || !content.home.headerTitle.trim() || !content.home.headerSubtitle.trim())) {
+            setActiveSection("home"); setError("Complete the required Home content fields before saving."); return;
+        }
+        if (content.announcements.some(item => !item.content.trim() || !Number.isFinite(item.sortOrder))) {
+            setActiveSection("announcements"); setError("Complete every announcement message and display order before saving."); return;
+        }
+        if (content.pages.some(page => !/^[a-z0-9-]+$/.test(page.slug) || !page.title.trim() || !page.content.trim())) {
+            setActiveSection("pages"); setError("Complete every page slug, title and content before saving."); return;
+        }
         setIsSaving(true);
         try {
             const savedContent = await ExamsApiUtils.saveWebsiteContent(content, token);
@@ -57,25 +68,25 @@ const ExamWebsiteManager = ({token}: ExamWebsiteManagerProps) => {
     if (!content) return <section className={styles.manager} aria-live="polite"><h2>Website content</h2>{error ? <p className={styles.error} role="alert">{error}</p> : <p>Loading website content…</p>}</section>;
 
     return <section className={styles.manager} aria-labelledby="website-manager-heading">
-        <div className={styles.heading}><div><p className={styles.eyebrow}>Administrator only</p><h2 id="website-manager-heading">Website content</h2></div></div>
-        <p className={styles.description}>Edit structured page content. Scripts, HTML execution, and permission rules stay outside this workspace.</p>
-        <form onSubmit={event => void save(event)}><fieldset disabled={isSaving}>
-            {content.home ? <section className={styles.section}>
+        <div className={styles.heading}><div><h2 id="website-manager-heading">Website content</h2></div></div>
+        <form noValidate onSubmit={event => void save(event)}><fieldset disabled={isSaving} className={styles.workspace}>
+            <nav className={styles.sectionNav} aria-label="Website content sections">{content.home ? <button type="button" aria-current={activeSection === "home" ? "page" : undefined} onClick={() => setActiveSection("home")}>Home content</button> : null}<button type="button" aria-current={activeSection === "announcements" ? "page" : undefined} onClick={() => setActiveSection("announcements")}>Announcements</button><button type="button" aria-current={activeSection === "pages" ? "page" : undefined} onClick={() => setActiveSection("pages")}>Pages</button></nav>
+            {content.home && activeSection === "home" ? <section className={styles.section}>
                 <h3>Home content</h3>
                 <label>Page title<input required value={content.home.title} onChange={event => setContent(current => current?.home ? {...current, home: {...current.home, title: event.target.value}} : current)}/></label>
                 <label>Introduction<textarea rows={3} value={content.home.intro} onChange={event => setContent(current => current?.home ? {...current, home: {...current.home, intro: event.target.value}} : current)}/></label>
                 <label>Header title<input required value={content.home.headerTitle} onChange={event => setContent(current => current?.home ? {...current, home: {...current.home, headerTitle: event.target.value}} : current)}/></label>
                 <label>Header subtitle<input required value={content.home.headerSubtitle} onChange={event => setContent(current => current?.home ? {...current, home: {...current.home, headerSubtitle: event.target.value}} : current)}/></label>
             </section> : null}
-            <section className={styles.section}>
+            {activeSection === "announcements" ? <section className={styles.section}>
                 <div className={styles.sectionHeading}><h3>Announcements</h3><button type="button" onClick={() => setContent(current => current ? {...current, announcements: [...current.announcements, {content: "", sortOrder: current.announcements.length + 1}]} : current)}>Add announcement</button></div>
                 {content.announcements.map((announcement, index) => <article className={styles.card} key={announcement.id ?? index}>
                     <label>Message<textarea required rows={3} value={announcement.content} onChange={event => updateAnnouncement(index, current => ({...current, content: event.target.value}))}/></label>
                     <label>Display order<input required type="number" value={announcement.sortOrder} onChange={event => updateAnnouncement(index, current => ({...current, sortOrder: Number(event.target.value)}))}/></label>
                     <button type="button" className={styles.removeButton} onClick={() => setContent(current => current ? {...current, announcements: current.announcements.filter((_, itemIndex) => itemIndex !== index)} : current)}>Exclude from this save</button>
                 </article>)}
-            </section>
-            <section className={styles.section}>
+            </section> : null}
+            {activeSection === "pages" ? <section className={styles.section}>
                 <div className={styles.sectionHeading}><h3>Pages</h3><button type="button" onClick={() => setContent(current => current ? {...current, pages: [...current.pages, {slug: "", title: "", content: ""}]} : current)}>Add page</button></div>
                 {content.pages.map((page, index) => <article className={styles.card} key={page.id ?? index}>
                     <label>Slug<input required pattern="[a-z0-9-]+" value={page.slug} onChange={event => updatePage(index, current => ({...current, slug: event.target.value}))}/></label>
@@ -83,7 +94,7 @@ const ExamWebsiteManager = ({token}: ExamWebsiteManagerProps) => {
                     <label>Content<textarea required rows={5} value={page.content} onChange={event => updatePage(index, current => ({...current, content: event.target.value}))}/></label>
                     <button type="button" className={styles.removeButton} onClick={() => setContent(current => current ? {...current, pages: current.pages.filter((_, itemIndex) => itemIndex !== index)} : current)}>Exclude from this save</button>
                 </article>)}
-            </section>
+            </section> : null}
         </fieldset>{error ? <p className={styles.error} role="alert">{error}</p> : null}{saved ? <p className={styles.success} role="status">Website content saved.</p> : null}<button type="submit" className={styles.saveButton}>{isSaving ? "Saving…" : "Save website content"}</button></form>
     </section>;
 };

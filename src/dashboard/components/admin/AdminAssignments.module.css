@@ -1,373 +1,112 @@
-.adminAssignmentsContainer {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-    min-height: calc(100dvh - 40px);
+.adminAssignmentsContainer { width: min(100%, 1500px); min-height: calc(100dvh - 72px); margin: 0 auto; padding: clamp(20px, 3vw, 48px); color: var(--dashboard-ink, #10264b); }
+.pageHeader { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.4rem; }
+.pageHeader h1 { margin: 0; color: var(--dashboard-ink, #0d2450); font-family: var(--font-site); font-size: clamp(2.5rem, 4vw, 4rem); line-height: 1.05; letter-spacing: -.035em; }
+.headerActions { display: flex; align-items: center; gap: .8rem; }
+.newButton, .formActions button, .sectionHeader button, .groupHeader button, .slotRow button, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border: 1px solid var(--dashboard-link, #0869ee); border-radius: .55rem; background: var(--dashboard-button, #0869ee); padding: .55rem 1rem; color: var(--dashboard-on-button, #fff); cursor: pointer; font: inherit; font-size: .9rem; font-weight: 700; text-decoration: none; }
+.newButton:hover, .formActions button:hover, .sectionHeader button:hover, .groupHeader button:hover, .slotRow button:hover, .secondaryButton:hover { background: var(--dashboard-button-hover, #075cc9); border-color: var(--dashboard-link, #075cc9); }
+.helpButton { display: inline-flex; align-items: center; min-height: 44px; padding: .45rem .3rem; color: var(--dashboard-link, #0869ee); font-size: .9rem; font-weight: 650; text-decoration: none; }
+.helpButton:hover { text-decoration: underline; }
+.mobileNewLabel { display: none; }
+.assignmentsLayout { display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.assignmentListPanel, .assignmentEditorPanel { min-width: 0; border: 1px solid var(--dashboard-border, #dbe3ee); border-radius: .85rem; background: var(--dashboard-surface, #fff); box-shadow: 0 9px 28px var(--dashboard-shadow-color, rgba(18, 38, 74, .035)); }
+.assignmentListPanel { position: sticky; top: 90px; padding: .8rem; }
+.searchField { display: flex; align-items: center; gap: .55rem; border: 1px solid var(--dashboard-border, #cdd9eb); border-radius: .5rem; background: var(--dashboard-inset, transparent); padding-left: .75rem; color: var(--dashboard-muted, #526f9c); }
+.searchField input { width: 100%; min-width: 0; min-height: 44px; border: 0; border-radius: .5rem; background: var(--dashboard-inset, #fff); padding: .65rem .75rem .65rem 0; color: var(--dashboard-ink, #10264b); font: inherit; font-size: .92rem; }
+.assignmentForm input, .assignmentForm textarea { width: 100%; min-width: 0; border: 1px solid var(--dashboard-input-border, #cdd9eb); border-radius: .5rem; background: var(--dashboard-inset, #fff); padding: .7rem .8rem; color: var(--dashboard-ink, #10264b); font: inherit; font-size: .92rem; }
+.assignmentForm textarea { resize: vertical; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.resultCount { margin: .8rem .15rem .5rem; color: var(--dashboard-muted, #657b99); font-size: .82rem; }
+.assignmentList { max-height: min(68dvh, 820px); overflow-y: auto; overscroll-behavior: contain; }
+.assignmentListItem { position: relative; display: grid; gap: .3rem; width: 100%; min-height: 70px; border: 0; border-top: 1px solid var(--dashboard-border, #e2e8f0); background: var(--dashboard-surface, #fff); padding: .85rem .55rem; color: var(--dashboard-ink, #10264b); cursor: pointer; font: inherit; text-align: left; }
+.listChevron { display: none; }
+.assignmentListItem strong { font-size: .91rem; line-height: 1.3; }
+.assignmentListItem span { color: var(--dashboard-muted, #5d7396); font-size: .79rem; }
+.assignmentListItem:hover, .assignmentListItemActive { background: var(--dashboard-selected, #eaf3ff); }
+.assignmentListItemActive { box-shadow: inset 3px 0 var(--dashboard-shadow-color, #0869ee); }
+.noResults { padding: .5rem; color: var(--dashboard-muted, #5d7396); }
+.assignmentEditorPanel { padding: clamp(1.15rem, 2vw, 2rem); }
+.emptyEditor { display: grid; justify-items: start; gap: .5rem; min-height: 440px; align-content: center; padding: 2rem; }
+.emptyEditor h2 { margin: 0; font-family: var(--font-site); font-size: 2rem; }
+.emptyEditor p { margin: 0 0 .9rem; color: var(--dashboard-muted, #5d7396); }
+.assignmentForm { display: grid; gap: 1.15rem; }
+.editorHeader { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--dashboard-border, #dce3eb); padding-bottom: 1.1rem; }
+.editorHeader h2 { margin: 0 0 .2rem; font-family: var(--font-site); font-size: clamp(1.65rem, 2.4vw, 2.4rem); line-height: 1.15; overflow-wrap: anywhere; }
+.editorHeader p { margin: 0; color: var(--dashboard-muted, #5d7396); font-size: .86rem; }
+.lockedBadge { border-radius: 999px; background: var(--dashboard-warning-bg, #fff4db); padding: .35rem .6rem; color: var(--dashboard-warning-text, #835a0b); font-size: .8rem; white-space: nowrap; }
+.formFieldset { display: grid; gap: .9rem; min-width: 0; margin: 0; border: 0; padding: 0; }
+.formFieldset:disabled { opacity: .7; }
+.basicsHeading, .messageHeading, .sectionHeader h3 { margin: .2rem 0 0; font-family: var(--font-site); font-size: 1.45rem; line-height: 1.2; }
+.messageHeading { margin-top: .35rem; border-top: 1px solid var(--dashboard-border, #dce3eb); padding-top: 1.1rem; }
+.fieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem 1rem; }
+.fieldGrid label span, .slotRow label span { display: block; margin-bottom: .3rem; color: var(--dashboard-muted, #34527d); font-size: .8rem; font-weight: 650; }
+.collapsibleField { border: 1px solid var(--dashboard-border, #dce3eb); border-radius: .5rem; background: var(--dashboard-surface, #fafcff); overflow: hidden; }
+.collapsibleToggle { display: flex; align-items: center; justify-content: space-between; gap: .8rem; width: 100%; min-height: 44px; border: 0; background: transparent; padding: .6rem .8rem; color: var(--dashboard-muted, #244877); cursor: pointer; font: inherit; font-size: .89rem; text-align: left; }
+.collapsibleToggle:hover { background: var(--dashboard-secondary, #edf4ff); }
+.collapsibleToggle span:last-child { color: var(--dashboard-link, #0869ee); font-size: .78rem; }
+.collapsiblePanel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 180ms ease; }
+.collapsibleFieldOpen .collapsiblePanel { grid-template-rows: 1fr; }
+.collapsiblePanelInner { min-height: 0; overflow: hidden; }
+.collapsiblePanelInner textarea { display: block; border-width: 1px 0 0; border-radius: 0; }
+.slotEditor { display: grid; gap: .65rem; margin-top: .3rem; }
+.sectionHeader, .groupHeader, .formActions { display: flex; align-items: center; justify-content: space-between; gap: .7rem; }
+.sectionHeader button, .groupHeader button, .slotRow button, .secondaryButton { min-height: 36px; border-color: var(--dashboard-border, #cdd9eb); background: var(--dashboard-surface, #fff); color: var(--dashboard-link, #075cc9); font-size: .79rem; }
+.sectionHeader button:hover, .groupHeader button:hover, .slotRow button:hover, .secondaryButton:hover { background: var(--dashboard-selected, #eaf3ff); border-color: var(--dashboard-link, #9dc1ef); }
+.groupEditor { display: grid; gap: .55rem; border: 1px solid var(--dashboard-border, #dce3eb); border-radius: .55rem; background: var(--dashboard-surface, #fafcff); padding: .8rem; }
+.groupHeader input { max-width: 220px; }
+.slotRows { display: grid; gap: .55rem; }
+.slotRow { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(170px, 1.5fr) auto; align-items: end; gap: .55rem; }
+.slotRow button { min-width: 70px; }
+.secondaryButton { justify-self: start; }
+.formActions { justify-content: flex-end; border-top: 1px solid var(--dashboard-border, #dce3eb); padding-top: 1rem; }
+.formActions .dangerButton { order: -1; margin-right: auto; border-color: var(--dashboard-danger-text, #e9b9b9); background: var(--dashboard-surface, #fff7f5); color: var(--dashboard-danger-text, #a9373c); }
+.formActions .dangerButton:hover { border-color: var(--dashboard-danger-text, #a9373c); background: var(--dashboard-danger-bg, #fff0ed); }
+.backButton { display: none; }
+.adminAssignmentsContainer button:disabled { cursor: not-allowed; opacity: .55; }
+
+@media (max-width: 1100px) {
+    .assignmentsLayout { grid-template-columns: minmax(235px, 320px) minmax(0, 1fr); }
+    .slotRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }
+    .slotRow button { grid-column: 2; justify-self: end; }
 }
-
-.editorHeader p {
-    margin: 0;
-    color: var(--muted-text);
+@media (max-width: 860px) {
+    .adminAssignmentsContainer { padding: clamp(16px, 4vw, 28px); }
+    .assignmentsLayout { display: block; }
+    .assignmentListPanel { position: static; padding: 0; overflow: hidden; }
+    .searchField { margin: .75rem; }
+    .resultCount { margin: .15rem .8rem .5rem; }
+    .assignmentList { max-height: none; overflow: visible; }
+    .assignmentListItem { min-height: 76px; padding: 1rem 2.8rem 1rem 1rem; }
+    .listChevron { position: absolute; top: 50%; right: 1rem; display: block; transform: translateY(-50%); color: var(--dashboard-muted, #4d6da3); }
+    .assignmentListItem strong { font-family: var(--font-site); font-size: 1.15rem; }
+    .assignmentListItem span { font-size: .9rem; }
+    .assignmentEditorPanel { border: 0; box-shadow: none; background: transparent; padding: 0; }
+    .adminAssignmentsContainer[data-editing="false"] .assignmentEditorPanel, .adminAssignmentsContainer[data-editing="true"] .assignmentListPanel { display: none; }
+    .adminAssignmentsContainer[data-editing="true"] .pageHeader { display: none; }
+    .backButton { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; margin-bottom: 1rem; border: 0; background: transparent; padding: 0; color: var(--dashboard-link, #0869ee); cursor: pointer; font: inherit; font-weight: 650; }
+    .assignmentForm { gap: 1.4rem; }
+    .editorHeader h2 { font-size: clamp(2rem, 6vw, 3rem); }
+    .formFieldset { gap: 1rem; }
+    .adminAssignmentsContainer[data-editing="true"] { padding-bottom: 96px; }
+    .formActions { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; margin: 0; border-top: 1px solid var(--dashboard-border, #dce3eb); background: var(--dashboard-surface, rgba(255,255,255,.97)); padding: .7rem clamp(16px, 4vw, 28px) max(.7rem, env(safe-area-inset-bottom)); box-shadow: 0 -5px 18px var(--dashboard-shadow-color, rgba(18,38,74,.07)); }
+    .formActions button[type="submit"] { flex: 1; min-height: 48px; }
 }
-
-.headerActions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-bottom: 18px;
+@media (max-width: 600px) {
+    .pageHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .25rem .7rem; }
+    .pageHeader h1 { font-size: clamp(2.25rem, 10vw, 3.2rem); }
+    .headerActions { display: contents; }
+    .headerActions .newButton { grid-column: 2; grid-row: 1; min-height: 44px; padding-inline: .8rem; }
+    .headerActions .desktopNewLabel { display: none; }
+    .headerActions .mobileNewLabel { display: inline; }
+    .headerActions .helpButton { grid-column: 1; grid-row: 2; justify-self: start; }
+    .fieldGrid { grid-template-columns: 1fr; gap: .85rem; }
+    .assignmentForm input, .assignmentForm textarea { min-height: 44px; }
+    .editorHeader { padding-bottom: 1.3rem; }
+    .slotRow { grid-template-columns: 1fr; }
+    .slotRow button { grid-column: auto; }
+    .groupHeader { align-items: stretch; }
+    .groupHeader input { max-width: none; }
+    .formActions { flex-wrap: wrap; }
+    .formActions .dangerButton { flex: 0 0 auto; order: 2; }
 }
-
-.newButton,
-.helpButton,
-.formActions button,
-.sectionHeader button,
-.groupHeader button,
-.slotRow button,
-.secondaryButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 38px;
-    padding: 0 14px;
-    border: 1px solid var(--accent-color);
-    border-radius: 6px;
-    background-color: var(--accent-color);
-    color: #111;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 750;
-}
-
-.newButton:hover,
-.helpButton:hover,
-.formActions button:hover,
-.sectionHeader button:hover,
-.groupHeader button:hover,
-.slotRow button:hover,
-.secondaryButton:hover {
-    background-color: var(--accent-strong-color);
-    border-color: var(--accent-strong-color);
-}
-
-.helpButton {
-    min-width: 72px;
-    text-decoration: none;
-}
-
-.assignmentsLayout {
-    display: grid;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-    gap: 18px;
-    align-items: start;
-}
-
-.assignmentListPanel,
-.assignmentEditorPanel {
-    border: 0;
-    border-top: 1px solid var(--border-color);
-    border-radius: 0;
-    background-color: transparent;
-    box-shadow: none;
-}
-
-.assignmentListPanel {
-    position: sticky;
-    top: 20px;
-    padding: 16px;
-}
-
-.panelHeader,
-.editorHeader,
-.sectionHeader,
-.groupHeader,
-.formActions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.panelHeader h2,
-.editorHeader h2,
-.sectionHeader h3 {
-    margin: 0;
-}
-
-.panelHeader h2,
-.sectionHeader h3 {
-    font-size: 1rem;
-}
-
-.panelHeader span {
-    color: var(--muted-text);
-    font-size: 0.84rem;
-}
-
-.assignmentListPanel label,
-.assignmentForm label span {
-    display: block;
-    margin: 12px 0 6px;
-    color: var(--muted-text);
-    font-size: 0.84rem;
-    font-weight: 650;
-}
-
-.assignmentListPanel input,
-.assignmentForm input,
-.assignmentForm textarea {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 10px 11px;
-    font: inherit;
-    font-size: 0.94rem;
-}
-
-.assignmentForm textarea {
-    resize: vertical;
-}
-
-.assignmentList {
-    display: grid;
-    gap: 8px;
-    margin-top: 14px;
-    max-height: calc(100dvh - 250px);
-    overflow: auto;
-}
-
-.assignmentListItem {
-    display: grid;
-    gap: 4px;
-    width: 100%;
-    padding: 11px 12px;
-    text-align: left;
-    border: 1px solid var(--border-color);
-    border-radius: 7px;
-    background-color: var(--surface-2-color);
-    color: var(--text-color);
-    cursor: pointer;
-    font: inherit;
-}
-
-.assignmentListItem:hover,
-.assignmentListItemActive {
-    border-color: var(--accent-color);
-    background-color: color-mix(in srgb, var(--accent-color) 16%, var(--surface-2-color));
-}
-
-.assignmentListItem span {
-    color: var(--muted-text);
-    font-size: 0.84rem;
-}
-
-.assignmentEditorPanel {
-    min-width: 0;
-    padding: 20px;
-}
-
-.assignmentForm {
-    display: grid;
-    gap: 16px;
-}
-
-.formFieldset {
-    display: grid;
-    gap: 14px;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.formFieldset:disabled {
-    opacity: 0.72;
-}
-
-.fieldGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 10px;
-}
-
-.fullField {
-    display: block;
-}
-
-.collapsibleField {
-    display: grid;
-    gap: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--surface-2-color);
-    overflow: hidden;
-}
-
-.collapsibleToggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    min-height: 44px;
-    padding: 0 12px;
-    border: 0;
-    background-color: transparent;
-    color: var(--text-color);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 800;
-    text-align: left;
-}
-
-.collapsibleToggle span:last-child {
-    color: var(--accent-strong-color);
-    font-size: 0.84rem;
-}
-
-.collapsibleToggle:hover {
-    background-color: color-mix(in srgb, var(--accent-color) 8%, transparent);
-}
-
-.collapsiblePanel {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 180ms ease;
-}
-
-.collapsibleFieldOpen .collapsiblePanel {
-    grid-template-rows: 1fr;
-}
-
-.collapsiblePanelInner {
-    min-height: 0;
-    overflow: hidden;
-}
-
-.collapsiblePanelInner textarea {
-    display: block;
-    border-width: 1px 0 0;
-    border-radius: 0;
-}
-
-.slotEditor {
-    display: grid;
-    gap: 12px;
-}
-
-.groupEditor {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--surface-2-color);
-}
-
-.groupHeader {
-    grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.slotRows {
-    display: grid;
-    gap: 8px;
-}
-
-.slotRow {
-    display: grid;
-    grid-template-columns: minmax(160px, 0.85fr) minmax(220px, 1.35fr) auto;
-    gap: 8px;
-    align-items: center;
-}
-
-.secondaryButton {
-    justify-self: start;
-    padding: 0 12px;
-    background-color: transparent;
-    color: var(--accent-strong-color);
-}
-
-.lockedBadge {
-    padding: 4px 10px;
-    border-radius: 999px;
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
-    font-size: 0.84rem;
-    font-weight: 750;
-}
-
-.actionError {
-    padding: 10px 12px;
-    border: 1px solid var(--error-color);
-    border-radius: 6px;
-    color: #fff;
-    background-color: color-mix(in srgb, var(--error-color) 28%, transparent);
-}
-
-.dangerButton {
-    background-color: var(--danger-bg) !important;
-    border-color: color-mix(in srgb, var(--danger-text) 50%, var(--border-color)) !important;
-    color: var(--danger-text) !important;
-}
-
-.formActions {
-    justify-content: flex-end;
-}
-
-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
-@media (max-width: 1000px) {
-    .dashboardHeader,
-    .assignmentsLayout {
-        display: grid;
-        grid-template-columns: 1fr;
-    }
-
-    .assignmentListPanel {
-        position: static;
-    }
-}
-
-@media (max-width: 700px) {
-    .adminAssignmentsContainer {
-        padding: 12px;
-    }
-
-    .assignmentEditorPanel,
-    .assignmentListPanel {
-        padding: 14px;
-    }
-
-    .editorHeader,
-    .groupHeader,
-    .formActions {
-        align-items: stretch;
-        display: grid;
-    }
-
-    .editorHeader button,
-    .groupHeader button,
-    .formActions button,
-    .sectionHeader button,
-    .slotRow button {
-        width: 100%;
-        justify-self: stretch;
-    }
-
-    .slotRow {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .collapsiblePanel {
-        transition: none;
-    }
-}
+@media (max-width: 340px) { .pageHeader h1 { font-size: 2rem; } .headerActions .newButton { font-size: .83rem; } }
+@media (prefers-reduced-motion: reduce) { .collapsiblePanel { transition: none; } }

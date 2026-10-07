@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {ArrowRight} from "@phosphor-icons/react";
 import type { QuizSummary } from "@/src/lib/exams-repository";
 import { filterQuizSummaries, quizCategoryOptions } from "@/src/lib/quiz-catalogue";
 
@@ -11,23 +12,25 @@ interface QuizCatalogueProps {
   unavailable: boolean;
 }
 
-const timeLimitLabel = (seconds: number) => seconds > 0 ? `${Math.ceil(seconds / 60)} min` : "Untimed";
-
 export default function QuizCatalogue({ quizzes, showVisibility, unavailable }: QuizCatalogueProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
   const categories = useMemo(() => quizCategoryOptions(quizzes), [quizzes]);
   const filteredQuizzes = useMemo(
     () => filterQuizSummaries(quizzes, { query, category }),
     [category, query, quizzes],
   );
+  const folders = useMemo(() => categories.map(option => ({
+    ...option,
+    quizzes: filteredQuizzes.filter(quiz => quiz.categoryId === option.id),
+  })).filter(folder => folder.quizzes.length > 0), [categories, filteredQuizzes]);
 
   return (
     <section className="exam-catalogue" aria-labelledby="catalogue-title">
       <div className="exam-catalogue__toolbar">
         <div>
-          <p className="exam-catalogue__eyebrow">Quiz catalogue</p>
-          <h2 id="catalogue-title">Available quizzes</h2>
+          <h2 id="catalogue-title" className="sr-only">Available quizzes</h2>
         </div>
         {!unavailable && quizzes.length > 0 ? (
           <div className="exam-catalogue__filters" role="search" aria-label="Filter quizzes">
@@ -38,7 +41,7 @@ export default function QuizCatalogue({ quizzes, showVisibility, unavailable }: 
             <label>
               <span className="sr-only">Quiz category</span>
               <select value={category} onChange={(event) => setCategory(event.target.value)}>
-                <option value="all">All categories</option>
+                <option value="all">All folders</option>
                 {categories.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
             </label>
@@ -50,24 +53,13 @@ export default function QuizCatalogue({ quizzes, showVisibility, unavailable }: 
       {!unavailable && quizzes.length === 0 ? <p className="exam-catalogue__state">No quizzes are available right now.</p> : null}
       {!unavailable && quizzes.length > 0 && filteredQuizzes.length === 0 ? <p className="exam-catalogue__state">No quizzes match those filters.</p> : null}
 
-      {filteredQuizzes.length > 0 ? (
-        <ul className="exam-quiz-list" aria-live="polite">
-          {filteredQuizzes.map((quiz) => (
-            <li className="exam-quiz-row" key={quiz.id}>
-              <div className="exam-quiz-row__content">
-                <div className="exam-quiz-row__meta">
-                  <span className="exam-quiz-row__category">{quiz.category}</span>
-                  {showVisibility ? <span>{quiz.isPrivate ? "Private" : "Public"}</span> : null}
-                </div>
-                <h3>{quiz.title}</h3>
-                <p>{quiz.description}</p>
-              </div>
-              <p className="exam-quiz-row__time">{timeLimitLabel(quiz.timeLimitSeconds)}</p>
-              <Link className="exam-quiz-row__action" href={`/exams/quizzes/${quiz.id}`}>View quiz</Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {folders.length > 0 ? <div className="exam-folder-list" aria-live="polite">{folders.map((folder, index) => <details className="exam-folder" key={folder.id} open={Boolean(query.trim()) || category !== "all" || (openFolders[folder.id] ?? index === 0)}>
+        <summary onClick={event => { event.preventDefault(); setOpenFolders(current => ({...current, [folder.id]: !(current[folder.id] ?? index === 0)})); }}><span>{folder.label}</span><span className="exam-folder__count">{folder.quizzes.length} {folder.quizzes.length === 1 ? "quiz" : "quizzes"}</span></summary>
+        <ul className="exam-quiz-list">{folder.quizzes.map(quiz => <li className="exam-quiz-row" key={quiz.id}>
+          <div className="exam-quiz-row__content"><h3>{quiz.title}</h3>{quiz.description ? <p>{quiz.description}</p> : null}{showVisibility ? <small>{quiz.isPrivate ? "Private" : "Public"}</small> : null}</div>
+          <Link className="exam-quiz-row__action" href={`/exams/quizzes/${quiz.id}`}>View quiz <ArrowRight size={17} aria-hidden="true"/></Link>
+        </li>)}</ul>
+      </details>)}</div> : null}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {AuditLog, AuditLogFilterMetadata} from "../../types/AuditLog.ts";
 import {formatAdminUtcDate, parseUtcDateTimeInput} from "../../utils/AdminDateUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
+import {formatUserName} from "../../../lib/user-display-name.ts";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminLoginScreen from "./AdminLoginScreen.tsx";
@@ -51,15 +52,14 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
     const [isLoadingAudit, setIsLoadingAudit] = useState(false);
     const [filterMetadata, setFilterMetadata] = useState<AuditLogFilterMetadata | undefined>(undefined);
     const [filters, setFilters] = useState(emptyFilters);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [submittedFilters, setSubmittedFilters] = useState(toSubmittedFilters(emptyFilters));
     const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
 
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
 
-    const getUserName = useCallback((id?: string | null, fallback?: string | null) => {
-        if (id == null) return fallback || "System";
-        return usersById.get(id)?.username ?? fallback ?? `User (${id})`;
-    }, [usersById]);
+    const getUserName = useCallback((id?: string | null, fallback?: string | null) =>
+        formatUserName(id, id == null ? undefined : usersById.get(id)?.username, fallback), [usersById]);
 
     useEffect(() => {
         if (!token || !adminUser?.canViewAuditLogs) {
@@ -114,6 +114,7 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
     const applyFilters = (event: FormEvent) => {
         event.preventDefault();
         setSubmittedFilters(toSubmittedFilters(filters));
+        setFiltersOpen(false);
     };
 
     const clearFilters = () => {
@@ -194,6 +195,8 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
                         {filterMetadata?.actions.map(action => <option key={action} value={action}>{action}</option>)}
                     </select>
                 </label>
+                <button type="button" className={styles.mobileFiltersToggle} aria-expanded={filtersOpen} aria-controls="audit-more-filters" onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "More filters"}</button>
+                <div id="audit-more-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
                 <label>
                     Actor
                     <select name="actorId" value={filters.actorId} onChange={handleFilterChange}>
@@ -230,6 +233,7 @@ const AdminAuditLogs = ({loaded, loggedIn, error, users, adminUser, token}: Admi
                         <option value="all">All</option>
                     </select>
                 </label>
+                </div>
                 <div className={styles.auditFilterActions}>
                     <button type="submit">Apply</button>
                     <button type="button" onClick={clearFilters}>Clear</button>

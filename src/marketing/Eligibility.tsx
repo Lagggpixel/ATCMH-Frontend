@@ -5,6 +5,9 @@ import {ApiUtils, type EligibilityRequirement, type EligibilityResponse} from "@
 import {loginPath} from "@/src/dashboard/utils/AuthSessionUtils";
 import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
+import {CheckIcon} from "@phosphor-icons/react/dist/csr/Check";
+import {XIcon} from "@phosphor-icons/react/dist/csr/X";
+import {WarningCircleIcon} from "@phosphor-icons/react/dist/csr/WarningCircle";
 
 const requirements = [
     "Trust Level 1 on IFC",
@@ -16,7 +19,6 @@ const requirements = [
     "At least 60 days since last Level 2 or 3 Violation",
     "Must be able to access Discord",
     "Must have an active IFC account that is in good standing",
-    "Must not be listed on the IFVARB Blacklist or Watchlist",
 ];
 
 const statusLabel = {pass: "Met", fail: "Not met", manual: "Manual verification required"} as const;
@@ -26,6 +28,7 @@ function RequirementsList({items}: {items?: EligibilityRequirement[]}) {
     return <ul className="check-list eligibility-results">{requirements.map(label => {
         const result = resultByLabel.get(label);
         return <li key={label} className={result ? `eligibility-result eligibility-result-${result.status}` : undefined}>
+            <span className="eligibility-status-icon" aria-hidden="true">{result?.status === "fail" ? <XIcon size={20}/> : result?.status === "manual" ? <WarningCircleIcon size={20}/> : <CheckIcon size={20}/>}</span>
             <span>{label}</span>
             {result ? <small><strong>{statusLabel[result.status]}</strong>{result.detail ? ` — ${result.detail}` : ""}</small> : null}
         </li>;

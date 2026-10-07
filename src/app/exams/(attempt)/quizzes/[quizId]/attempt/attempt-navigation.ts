@@ -10,7 +10,6 @@ export interface AttemptNavigationWindow {
     go(delta: number): void;
     back(): void;
   };
-  confirm(message: string): boolean;
   addEventListener(type: string, listener: (event: any) => void, options?: boolean | AddEventListenerOptions): void;
   removeEventListener(type: string, listener: (event: any) => void, options?: boolean | EventListenerOptions): void;
 }
@@ -20,6 +19,7 @@ export interface AttemptNavigationProtectionOptions {
   quizId: string;
   getAnswers(): Answers;
   onConfirmedNavigation(): Promise<boolean>;
+  confirmNavigation(): Promise<boolean>;
   sendKeepalive?(quizId: string, answers: Answers): boolean;
 }
 
@@ -47,9 +47,16 @@ export function createAttemptNavigationProtection(options: AttemptNavigationProt
   let installed = false;
   let navigating = false;
   let disarmed = false;
+  let confirmationPending = false;
+  let restoringHistory = false;
 
   const completeNavigation = async (navigate: () => void) => {
-    if (navigating || disarmed || !options.window.confirm(ATTEMPT_NAVIGATION_MESSAGE)) return;
+    if (navigating || disarmed || confirmationPending) return;
+    confirmationPending = true;
+    let confirmed = false;
+    try { confirmed = await options.confirmNavigation(); }
+    finally { confirmationPending = false; }
+    if (!confirmed || disarmed) return;
 
     navigating = true;
     try {
@@ -87,8 +94,10 @@ export function createAttemptNavigationProtection(options: AttemptNavigationProt
 
   const onPopState = () => {
     if (disarmed || navigating) return;
+    if (restoringHistory) { restoringHistory = false; return; }
+    restoringHistory = true;
     options.window.history.go(1);
-    void completeNavigation(() => options.window.history.back());
+    void completeNavigation(() => options.window.history.go(-2));
   };
 
   return {

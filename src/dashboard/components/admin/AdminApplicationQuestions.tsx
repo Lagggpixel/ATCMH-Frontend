@@ -26,6 +26,8 @@ const editFields = (question: ApplicationQuestion): ApplicationQuestionUpdate =>
 const inputTypeLabel: Record<ApplicationQuestion["inputType"], string> = {
     YES_NO: "Yes or no",
     TEXT: "Text",
+    REGION: "Region selection",
+    TIMEZONE: "UTC offset selection",
     POSITIVE_INTEGER: "Positive number",
     WEEKLY_AVAILABILITY: "Weekly availability",
 };
@@ -42,6 +44,7 @@ export default function AdminApplicationQuestions({loaded, loggedIn, error, admi
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string>();
     const [saved, setSaved] = useState(false);
+    const [mobileEditing, setMobileEditing] = useState(false);
 
     useEffect(() => {
         if (!loaded || !loggedIn || !adminUser?.canManageApplicationQuestions || !token) return;
@@ -66,6 +69,7 @@ export default function AdminApplicationQuestions({loaded, loggedIn, error, admi
     );
     const selected = questions?.find(question => question.key === selectedKey);
     const select = (question: ApplicationQuestion) => {
+        setMobileEditing(true);
         setSelectedKey(question.key);
         setForm(editFields(question));
         setActionError(undefined);
@@ -97,7 +101,7 @@ export default function AdminApplicationQuestions({loaded, loggedIn, error, admi
     if (!adminUser?.canManageApplicationQuestions) return <AdminErrorScreen header="Forbidden" content="Only Moderators and Super Admins can manage application questions."/>;
     if (!questions) return <AdminLoadingScreen/>;
 
-    return <div className={styles.container}>
+    return <div className={styles.container} data-mobile-editing={mobileEditing}>
         <AdminToast message={actionError} onDismiss={() => setActionError(undefined)}/>
         <header className={styles.pageHeader}>
             <div><h1>Application questions</h1><p>This ordered set is shared by website and Discord applications.</p></div>
@@ -113,6 +117,7 @@ export default function AdminApplicationQuestions({loaded, loggedIn, error, admi
                 </button>)}
             </aside>
             <section className={styles.editorPanel}>
+                <button type="button" className={styles.mobileBack} onClick={() => setMobileEditing(false)}>Back to questions</button>
                 {selected && form ? <form className={styles.form} onSubmit={save}>
                     <div className={styles.editorHeader}><div><p className={styles.key}>Question key</p><h2>{selected.key}</h2></div><span className={styles.type}>{inputTypeLabel[selected.inputType]}</span></div>
                     <dl className={styles.rules}><div><dt>Display rule</dt><dd>{dependencyLabel(selected)}</dd></div><div><dt>Answer format</dt><dd>{inputTypeLabel[selected.inputType]}</dd></div></dl>

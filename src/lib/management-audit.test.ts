@@ -8,6 +8,8 @@ import {
   quizImportedAuditEvent,
   quizSavedAuditEvent,
   quizUnlockAuditEvent,
+  attemptDeletedAuditEvent,
+  websiteSavedAuditEvent,
 } from "./management-audit";
 import type { ManagementActor } from "./permissions";
 
@@ -58,6 +60,26 @@ test("quiz management events name safe metadata without question or answer conte
   assert.equal(events.every(event => event.actorId === actor.discordId), true);
   assert.equal(JSON.stringify(events).includes("SECRET QUESTION"), false);
   assert.equal(JSON.stringify(events).includes("SECRET ANSWER"), false);
+});
+
+test("attempt deletion retains attribution and result context without learner answers", () => {
+  const attempt = {id: "attempt", quizId: "quiz", quizTitle: "Quiz", studentDiscordId: "999", score: 2, total: 3,
+    percentage: 66, submittedAt: "2026-10-02T12:00:00Z", review: {answers: "SECRET ANSWER"}};
+  const deleted = attemptDeletedAuditEvent(attempt as never, {...actor, impersonating: true, impersonatedAccountId: "target"});
+  assert.equal(deleted.action, "exam.attempt.delete");
+  assert.equal(deleted.actorId, actor.discordId);
+  assert.equal(deleted.details?.learnerDiscordId, "999");
+  assert.equal(deleted.details?.impersonatedAccountId, "target");
+  assert.equal(JSON.stringify(deleted).includes("SECRET ANSWER"), false);
+});
+
+test("website edits retain the public content before and after the edit", () => {
+  const before = {home: null, announcements: [], pages: []};
+  const after = {...before, pages: [{id: "page", slug: "about", title: "About", content: "Updated public copy", createdAt: "now", updatedAt: "now"}]};
+  const saved = websiteSavedAuditEvent(before, after, actor);
+  assert.equal(saved.action, "exam.website.update");
+  assert.deepEqual(saved.details?.before, before);
+  assert.deepEqual(saved.details?.after, after);
 });
 
 test("repeatable quiz mutations receive distinct audit ids while imports reuse their idempotency key", () => {

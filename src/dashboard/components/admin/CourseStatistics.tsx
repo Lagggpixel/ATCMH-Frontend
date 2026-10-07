@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import type {CourseStatistics as CourseStatisticsData, ManagedCourse} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
+import {availableUserName, formatUserName} from "../../../lib/user-display-name.ts";
 import styles from "./CourseCenter.module.css";
 
 interface CourseStatisticsProps {
@@ -27,7 +28,7 @@ const formatDuration = (seconds: number | null | undefined) => {
 export default function CourseStatistics({course, users, token, onEdit}: CourseStatisticsProps) {
     const [statistics, setStatistics] = useState<CourseStatisticsData | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const userNames = useMemo(() => new Map(users.map(user => [String(user.id), user.username])), [users]);
+    const userNames = useMemo(() => new Map(users.map(user => [String(user.id), availableUserName(user.username)])), [users]);
     const activityStatistics = statistics?.activities ?? [];
 
     useEffect(() => {
@@ -59,7 +60,7 @@ export default function CourseStatistics({course, users, token, onEdit}: CourseS
                 <article className={styles.statCard}><span>Average view time</span><strong>{statistics.averageViewTimeSeconds === null ? "—" : formatDuration(statistics.averageViewTimeSeconds)}</strong></article>
                 <article className={styles.statCard}><span>Activity pass rate</span><strong>{statistics.activityAttemptedLearnerCount === 0 ? "—" : `${statistics.activityPassRate}%`}</strong></article>
                 <article className={styles.statCard}><span>In progress</span><strong>{statistics.learnersInProgress}</strong></article>
-                <article className={styles.statCard}><span>Completed</span><strong>{statistics.learnersCompleted}</strong></article>
+                <article className={styles.statCard}><span>Completed course</span><strong>{statistics.learnersCompleted}</strong></article>
                 <article className={styles.statCard}><span>Completion rate</span><strong>{statistics.completionRate}%</strong></article>
                 <article className={styles.statCard}><span>Active in 30 days</span><strong>{statistics.activeLearners30d}</strong></article>
                 <article className={styles.statCard}><span>Average completion</span><strong>{statistics.averageCompletionDays === null ? "—" : `${statistics.averageCompletionDays}d`}</strong></article>
@@ -67,11 +68,15 @@ export default function CourseStatistics({course, users, token, onEdit}: CourseS
             <div className={styles.statisticsGrid}>
                 <section className={styles.statisticsPanel} aria-labelledby="course-learners-heading">
                     <div className={styles.panelHeading}><h3 id="course-learners-heading">Learners</h3><span>{statistics.learners.length}</span></div>
-                    {statistics.learners.length === 0 ? <p className={styles.empty}>No learners have opened this course.</p> : <div className={styles.tableWrap}><table><thead><tr><th>Learner</th><th>Status</th><th>Sections</th><th>Viewed</th><th>View time</th><th>Last active</th><th>Completed</th></tr></thead><tbody>{statistics.learners.map(learner => <tr key={learner.userId}><td><strong>{userNames.get(learner.userId) ?? learner.userId}</strong>{userNames.has(learner.userId) ? <small>{learner.userId}</small> : null}</td><td><span className={learner.status === "completed" ? styles.published : styles.draft}>{learner.status === "completed" ? "Completed" : "In progress"}</span></td><td>{learner.completedSectionCount}/{course.sections.length}</td><td>{learner.viewed ? "Yes" : "No"}</td><td>{formatDuration(learner.viewTimeSeconds)}</td><td>{formatDate(learner.lastAccessedAt)}</td><td>{formatDate(learner.completedAt)}</td></tr>)}</tbody></table></div>}
+                    {statistics.learners.length === 0 ? <p className={styles.empty}>No learners have opened this course.</p> : <div className={styles.tableWrap}><table><thead><tr><th>Learner</th><th>Status</th><th>Subsections</th><th>Viewed</th><th>View time</th><th>Last active</th><th>Completed</th></tr></thead><tbody>{statistics.learners.map(learner => <tr key={learner.userId}><td><strong>{formatUserName(learner.userId, userNames.get(learner.userId))}</strong>{userNames.get(learner.userId) ? <small>{learner.userId}</small> : null}</td><td><span className={learner.status === "completed" ? styles.published : styles.draft}>{learner.status === "completed" ? "Completed" : "In progress"}</span></td><td>{learner.completedSectionCount}/{course.sections.length}</td><td>{learner.viewed ? "Yes" : "No"}</td><td>{formatDuration(learner.viewTimeSeconds)}</td><td>{formatDate(learner.lastAccessedAt)}</td><td>{formatDate(learner.completedAt)}</td></tr>)}</tbody></table></div>}
                 </section>
                 <section className={styles.statisticsPanel} aria-labelledby="course-sections-heading">
-                    <div className={styles.panelHeading}><h3 id="course-sections-heading">Section progress</h3><span>{statistics.sections.length}</span></div>
-                    <div className={styles.tableWrap}><table><thead><tr><th>Section</th><th>Completed</th><th>Rate</th></tr></thead><tbody>{statistics.sections.map(section => <tr key={section.sectionId}><td><strong>{section.sortOrder}. {section.title}</strong></td><td>{section.completedCount}/{statistics.totalLearnersStarted}</td><td><div className={styles.meter}><span style={{width: `${section.completionRate}%`}}/></div><small>{section.completionRate}%</small></td></tr>)}</tbody></table></div>
+                    <div className={styles.panelHeading}><h3 id="course-sections-heading">Subsection progress</h3><span>{statistics.sections.length}</span></div>
+                    <div className={styles.tableWrap}><table><thead><tr><th>Section / subsection</th><th>Completed</th><th>Rate</th></tr></thead><tbody>{statistics.sections.map(section => {
+                        const leaf = course.sections.find(item => item.id === section.sectionId);
+                        const parent = course.sectionGroups?.find(item => item.id === leaf?.groupId);
+                        return <tr key={section.sectionId}><td><strong>{section.sortOrder}. {section.title}</strong><small>{parent?.title ?? "Course section"}</small></td><td>{section.completedCount}/{statistics.totalLearnersStarted}</td><td><div className={styles.meter}><span style={{width: `${section.completionRate}%`}}/></div><small>{section.completionRate}%</small></td></tr>;
+                    })}</tbody></table></div>
                 </section>
             </div>
             <section className={styles.statisticsPanel} aria-labelledby="course-checkpoints-heading">

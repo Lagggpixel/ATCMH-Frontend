@@ -58,7 +58,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
         startedAt: new Date(start.startedAt * 1_000),
       }));
     } catch {
-      // Dashboard audit delivery is best effort and must not block a learner from starting.
+      // The remote Dashboard may be offline, but the local durable record is required.
+      return Response.json({error: "Unable to start attempt. Please try again."}, {status: 503});
     }
   }
   return response;

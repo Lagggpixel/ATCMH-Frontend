@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { auditEventId, emitDashboardAuditEvent } from "./dashboard-audit-client";
+import { auditEventId, deliverDashboardAuditEvent } from "./dashboard-audit-client";
 
 const event = {
   action: "exam.attempt.submitted",
@@ -14,7 +14,7 @@ const event = {
 
 test("sends a non-sensitive Exams event to the configured Dashboard ingest endpoint", async () => {
   let request: Request | undefined;
-  const delivered = await emitDashboardAuditEvent(event, {
+  const delivered = await deliverDashboardAuditEvent(event, {
     EXAMS_AUDIT_INGEST_URL: "https://dashboard.example/",
     EXAMS_AUDIT_INGEST_KEY: "audit-secret",
   }, async (input, init) => {
@@ -32,14 +32,14 @@ test("sends a non-sensitive Exams event to the configured Dashboard ingest endpo
 });
 
 test("treats a duplicate event as delivered and skips unconfigured delivery", async () => {
-  const duplicate = await emitDashboardAuditEvent(event, {
+  const duplicate = await deliverDashboardAuditEvent(event, {
     EXAMS_AUDIT_INGEST_URL: "https://dashboard.example",
     EXAMS_AUDIT_INGEST_KEY: "audit-secret",
   }, async () => new Response(null, { status: 409 }));
   assert.equal(duplicate, true);
 
   const warnings: unknown[] = [];
-  const missingConfiguration = await emitDashboardAuditEvent(event, {}, async () => {
+  const missingConfiguration = await deliverDashboardAuditEvent(event, {}, async () => {
     throw new Error("must not fetch");
   }, {warn: (_message, context) => warnings.push(context)});
   assert.equal(missingConfiguration, false);
@@ -53,7 +53,7 @@ test("treats a duplicate event as delivered and skips unconfigured delivery", as
 
 test("bounds a stalled audit request and emits non-sensitive delivery context", async () => {
   const warnings: unknown[] = [];
-  const delivered = await emitDashboardAuditEvent(event, {
+  const delivered = await deliverDashboardAuditEvent(event, {
     EXAMS_AUDIT_INGEST_URL: "https://dashboard.example",
     EXAMS_AUDIT_INGEST_KEY: "audit-secret",
   }, async (_input, init) => new Promise<Response>((_resolve, reject) => {
@@ -78,7 +78,7 @@ test("uses stable UUID event IDs without retaining answer data", () => {
 
 test("preserves an operation-specific event id for repeatable management actions", async () => {
   let body: { eventId?: string } | undefined;
-  await emitDashboardAuditEvent({...event, eventId: "management-operation-1", action: "exam.quiz.update"}, {
+  await deliverDashboardAuditEvent({...event, eventId: "management-operation-1", action: "exam.quiz.update"}, {
     EXAMS_AUDIT_INGEST_URL: "https://dashboard.example",
     EXAMS_AUDIT_INGEST_KEY: "audit-secret",
   }, async (_input, init) => {

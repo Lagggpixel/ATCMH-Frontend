@@ -28,3 +28,23 @@ export interface MockQuestionTemplatePayload {
     modelAnswer: string | null;
     attachments: MockQuestionAttachmentPayload[];
 }
+
+export interface MockQuestionDraft extends MockQuestionTemplatePayload {
+    id?: number;
+}
+
+export interface MockQuestionBank {
+    id: number;
+    name: string;
+    questions: MockQuestionTemplate[];
+}
+
+export type MockQuestionSlot =
+    | {kind: "BANK"; bankId: number; question?: null}
+    | {kind: "MANUAL"; bankId?: null; question: MockQuestionDraft};
+
+export interface MockQuestionWorkflow {
+    revision: number;
+    banks: MockQuestionBank[];
+    sequence: MockQuestionSlot[];
+}

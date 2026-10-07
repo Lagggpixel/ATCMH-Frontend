@@ -1,5 +1,6 @@
 import type {ApplicationQuestion, ApplicationType} from "@/src/dashboard/types/ApplicationQuestion";
 import {defaultWeeklyAvailabilityAnswer, isCanonicalWeeklyAvailability} from "./weekly-availability";
+import {normalizeRegionAnswer, normalizeTimezoneAnswer} from "./location-input";
 
 export const applicationTypes: Array<{value: ApplicationType; label: string; description: string}> = [
     {value: "mentor", label: "Full mentorship", description: "Structured written and practical preparation with a dedicated mentor."},
@@ -12,6 +13,12 @@ export function parseApplicationType(value: string | null): ApplicationType | nu
 }
 
 const normalizedAnswer = (value: string | undefined) => value?.trim().toLowerCase() ?? "";
+
+function canonicalAnswer(question: ApplicationQuestion, value: string): string {
+    if (question.inputType === "REGION") return normalizeRegionAnswer(value) ?? value.trim();
+    if (question.inputType === "TIMEZONE") return normalizeTimezoneAnswer(value) ?? value.trim();
+    return value.trim();
+}
 
 function dependencyMatches(answer: string | undefined, expected: string | null) {
     const actual = normalizedAnswer(answer);
@@ -46,7 +53,7 @@ export function pruneApplicationAnswers(
 ): Record<string, string> {
     return Object.fromEntries(visibleApplicationQuestions(questions, answers)
         .filter(question => answers[question.key] != null)
-        .map(question => [question.key, answers[question.key].trim()]));
+        .map(question => [question.key, canonicalAnswer(question, answers[question.key])]));
 }
 
 export function initializeApplicationAnswers(
@@ -55,6 +62,7 @@ export function initializeApplicationAnswers(
 ): Record<string, string> {
     const initialized = {...answers};
     for (const question of questions) {
+        if (initialized[question.key] != null) initialized[question.key] = canonicalAnswer(question, initialized[question.key]);
         if (question.active && question.inputType === "WEEKLY_AVAILABILITY" && !initialized[question.key]?.trim()) {
             initialized[question.key] = defaultWeeklyAvailabilityAnswer();
         }
@@ -76,6 +84,10 @@ export function validateApplicationAnswers(
             errors[question.key] = "Choose yes or no.";
         } else if (question.inputType === "WEEKLY_AVAILABILITY" && !isCanonicalWeeklyAvailability(value)) {
             errors[question.key] = "Choose valid start and end times for each available day.";
+        } else if (question.inputType === "REGION" && !normalizeRegionAnswer(value)) {
+            errors[question.key] = "Choose a region from the list.";
+        } else if (question.inputType === "TIMEZONE" && !normalizeTimezoneAnswer(value)) {
+            errors[question.key] = "Choose a UTC offset or confirm one from your current time.";
         }
     }
     return errors;

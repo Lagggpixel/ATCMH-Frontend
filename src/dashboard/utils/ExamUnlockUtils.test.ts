@@ -36,6 +36,16 @@ test("matches unlock candidates by partial Discord ID", () => {
     assert.deepEqual(filterUnlockCandidates(users, [], "223456").map(user => user.username), ["GroundCrew"]);
 });
 
+test("locates members with missing names by ID without searching placeholder labels", () => {
+    const unnamed = [
+        {...users[0], username: undefined as unknown as string},
+        {...users[1], username: "N/A"},
+    ];
+    assert.deepEqual(filterUnlockCandidates(unnamed, [], "123456").map(user => user.id), [users[0].id]);
+    assert.deepEqual(filterUnlockCandidates(unnamed, [], "223456").map(user => user.id), [users[1].id]);
+    assert.deepEqual(filterUnlockCandidates(unnamed, [], "N/A"), []);
+});
+
 test("omits users whose Discord IDs are already unlocked", () => {
     const unlocks = [unlock("123456789012345", "TowerPilot")];
     assert.deepEqual(filterUnlockCandidates(users, unlocks, "pilot").map(user => user.id), ["323456789012345"]);

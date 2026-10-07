@@ -1,3 +1,4 @@
+import { withWriteTransaction } from "@/src/lib/db";
 import { requireManagementCapability } from "@/src/lib/discord-auth";
 import { corsPreflight, withManagementCors } from "@/src/lib/management-cors";
 import { managedQuizDto } from "@/src/lib/management-dto";
@@ -12,10 +13,12 @@ export async function PATCH(request: Request, {params}: RouteContext) {
   const actor = await requireManagementCapability(request, "manage-system");
   if (actor instanceof Response) return withManagementCors(request, await managementAuthorizationError(actor));
   try {
-    const body = await parseManagementJson(request);
-    const quiz = await moveManagedQuizCategory((await params).quizId, requiredString(body, "categoryId"), actor);
-    await emitDashboardAuditEvent(quizCategoryMovedAuditEvent(quiz, actor));
-    return withManagementCors(request, Response.json({quiz: managedQuizDto(quiz)}));
+    return await withWriteTransaction(async () => {
+      const body = await parseManagementJson(request);
+      const quiz = await moveManagedQuizCategory((await params).quizId, requiredString(body, "categoryId"), actor);
+      await emitDashboardAuditEvent(quizCategoryMovedAuditEvent(quiz, actor));
+      return withManagementCors(request, Response.json({quiz: managedQuizDto(quiz)}));
+    });
   } catch (error) {
     return withManagementCors(request, managementError(error));
   }

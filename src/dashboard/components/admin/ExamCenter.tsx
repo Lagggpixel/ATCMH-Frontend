@@ -191,7 +191,7 @@ const ExamCenter = ({token, users, view}: ExamCenterProps) => {
             {canAccessView && view === "attempt-review" ? <ExamAttemptReview actor={data.actor} token={token} users={users}/> : null}
             {canAccessView && view === "website" ? <ExamWebsiteManager token={token}/> : null}
             {canAccessView && view === "catalog" ? <>
-                <ExamCatalog quizzes={data.quizzes} revealQuizId={lastSavedQuizId} onEdit={canManageExams ? editQuiz : undefined} categories={data.categories} onCreateCategory={data.actor.canManageAll ? async name => { await createCategory(name); } : undefined} onMoveQuizCategory={data.actor.canManageAll ? moveQuizCategory : undefined}/>
+                <ExamCatalog quizzes={data.quizzes} revealQuizId={lastSavedQuizId} onEdit={canManageExams ? editQuiz : undefined} canUnlock={hasCapability(data.actor, "unlock-learners")} categories={data.categories} onCreateCategory={data.actor.canManageAll ? async name => { await createCategory(name); } : undefined} onMoveQuizCategory={data.actor.canManageAll ? moveQuizCategory : undefined}/>
             </> : null}
         </> : null}
     </main>;

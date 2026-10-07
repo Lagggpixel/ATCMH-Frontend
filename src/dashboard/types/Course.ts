@@ -8,6 +8,21 @@ export interface ManagedCourseSummary {
     isPublished: boolean;
     updatedAt: string;
     sectionCount: number;
+    sectionGroupCount?: number;
+    navigationMode?: CourseNavigationMode;
+}
+
+export type CourseNavigationMode = "sequential" | "section_by_section" | "free";
+
+export interface ManagedCourseSectionGroup {
+    id: string;
+    courseId?: string;
+    title: string;
+    sortOrder: number;
+}
+
+export interface ManagedCourseDraftGroup extends Omit<ManagedCourseSectionGroup, "id"> {
+    id?: string;
 }
 
 export interface CoursePrerequisiteSummary {
@@ -35,6 +50,7 @@ export interface ManagedCourseSection {
     markdown: string;
     document?: CourseDocumentV1 | null;
     sortOrder: number;
+    groupId: string;
     updatedAt?: string;
 }
 
@@ -45,6 +61,7 @@ export interface ManagedCourseDraftSection {
     markdown: string;
     document?: CourseDocumentV1 | null;
     sortOrder: number;
+    groupId?: string;
     updatedAt?: string;
 }
 
@@ -55,11 +72,15 @@ export interface ManagedCourseDraft {
     description: string;
     isPublished: boolean;
     prerequisiteCourseIds: string[];
+    navigationMode: CourseNavigationMode;
+    sectionGroups: ManagedCourseDraftGroup[];
     sections: ManagedCourseDraftSection[];
 }
 
 export interface ManagedCourse extends ManagedCourseSummary {
     prerequisiteCourseIds: string[];
+    navigationMode: CourseNavigationMode;
+    sectionGroups: ManagedCourseSectionGroup[];
     sections: ManagedCourseSection[];
     quizzes?: CourseQuizSummary[];
     activities?: CourseActivity[];
@@ -94,16 +115,16 @@ export interface CourseEnrollment {
     lastSectionId: string | null;
 }
 
-export interface LearnerCourse extends LearnerCourseSummary {
-    sections: ManagedCourseSection[];
-    quizzes: CourseQuizSummary[];
-    activities: CourseActivity[];
-    completedSectionIds: string[];
-    takenQuizIds: string[];
-    quizProgress: CourseQuizProgress[];
-    enrollment: CourseEnrollment | null;
-    activityProgress: CourseActivityProgress[];
-}
+export interface LearnerCourse extends Omit<LearnerCourseSummary, "locked" | "prerequisites" | "hasUnavailablePrerequisites"> { sectionGroups: ManagedCourseSectionGroup[];
+navigationMode: CourseNavigationMode;
+sections: ManagedCourseSection[];
+quizzes: CourseQuizSummary[];
+activities: CourseActivity[];
+completedSectionIds: string[];
+takenQuizIds: string[];
+quizProgress: CourseQuizProgress[];
+enrollment: CourseEnrollment | null;
+activityProgress: CourseActivityProgress[]; }
 
 export interface CourseMediaUpload {
     id: string;

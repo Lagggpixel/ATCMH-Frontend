@@ -14,8 +14,8 @@
 }
 
 .adminErrorContainer button {
-    background-color: var(--accent-color);
-    color: white;
+    background-color: var(--dashboard-button, var(--accent-color));
+    color: var(--dashboard-on-button, white);
     border: none;
     padding: 10px 20px;
     margin-top: 20px;

@@ -2,7 +2,8 @@
 
 import { type MutableRefObject, useEffect, useRef } from "react";
 
-import { createAttemptNavigationProtection, sendAttemptKeepalive } from "./attempt-navigation";
+import { ATTEMPT_NAVIGATION_MESSAGE, createAttemptNavigationProtection, sendAttemptKeepalive } from "./attempt-navigation";
+import {useConfirmation} from "@/src/platform/confirmation/ConfirmationProvider";
 
 interface UseAttemptNavigationProtectionOptions {
   active: boolean;
@@ -20,6 +21,7 @@ export function useAttemptNavigationProtection({
   csrfToken,
 }: UseAttemptNavigationProtectionOptions) {
   const callbackRef = useRef(onConfirmedNavigation);
+  const confirm = useConfirmation();
 
   useEffect(() => {
     callbackRef.current = onConfirmedNavigation;
@@ -33,9 +35,10 @@ export function useAttemptNavigationProtection({
       quizId,
       getAnswers: () => answersRef.current,
       onConfirmedNavigation: () => callbackRef.current(),
+      confirmNavigation: () => confirm({title: "Leave this exam?", message: ATTEMPT_NAVIGATION_MESSAGE, confirmLabel: "Submit and leave", cancelLabel: "Continue exam", tone: "danger"}),
       sendKeepalive: (id, answers) => csrfToken ? sendAttemptKeepalive(id, answers, csrfToken) : false,
     });
     protection.install();
     return () => protection.uninstall();
-  }, [active, answersRef, csrfToken, quizId]);
+  }, [active, answersRef, csrfToken, quizId, confirm]);
 }

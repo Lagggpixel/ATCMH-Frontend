@@ -4,6 +4,8 @@ import type { DashboardAuditEvent } from "./dashboard-audit-client";
 import type { Quiz } from "./exams-repository";
 import type { ManagedCategory, QuizUnlockInput } from "./management-service";
 import type { ManagementActor } from "./permissions";
+import type { ManagementAttemptDetail } from "./management-attempts";
+import type { WebsiteContent } from "./management-service";
 
 function actorDetails(actor: ManagementActor): Record<string, string | boolean | null> {
   return {
@@ -93,5 +95,23 @@ export function quizImportedAuditEvent(
     targetId: quizId,
     summary: "Imported a quiz.",
     details: {quizId},
+  });
+}
+
+export function attemptDeletedAuditEvent(attempt: ManagementAttemptDetail, actor: ManagementActor): DashboardAuditEvent {
+  return event(actor, {
+    action: "exam.attempt.delete", targetType: "attempt", targetId: attempt.id,
+    summary: "Administrator deleted a quiz attempt and its answers.",
+    // Preserve the result's context, never the learner's answers or the review snapshot.
+    details: {quizId: attempt.quizId, quizTitle: attempt.quizTitle, learnerDiscordId: attempt.studentDiscordId,
+      score: attempt.score, total: attempt.total, percentage: attempt.percentage, submittedAt: attempt.submittedAt},
+  });
+}
+
+export function websiteSavedAuditEvent(before: WebsiteContent, after: WebsiteContent, actor: ManagementActor): DashboardAuditEvent {
+  return event(actor, {
+    action: "exam.website.update", targetType: "website", targetId: "website",
+    summary: "Administrator updated website content.",
+    details: {before, after},
   });
 }

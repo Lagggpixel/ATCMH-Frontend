@@ -1,4 +1,12 @@
+html:has(.marketing-product) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+	html:has(.marketing-product) { scroll-behavior: auto; }
+}
+
 @scope (.marketing-product) {
+#about, #services, #eligibility { scroll-margin-top: 100px; }
+.course-header-appearance { margin-left: auto; }
+.site-header:has(.course-header-appearance) .nav-primary-auth { min-width: 44px; }
 :scope {
 	--background: #07101d;
 	--background-soft: #0d1726;
@@ -13,7 +21,7 @@
 	--gold: #facc15;
 	--shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
 	color-scheme: dark;
-	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-family: var(--font-site);
 }
 
 * {
@@ -70,10 +78,11 @@ img {
 	position: sticky;
 }
 
-.brand img {
-	width: auto;
-	height: 2.1rem;
-}
+.brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .7rem; }
+.brand img { width: 42px; height: 42px; object-fit: contain; }
+.light-brand-name { display: grid; gap: 1px; line-height: 1.1; }
+.light-brand-name strong { font-size: 1rem; letter-spacing: .02em; }
+.light-brand-name small { color: var(--muted); font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
 
 .nav-links {
 	display: flex;
@@ -106,7 +115,6 @@ img {
 .nav-user-menu { position: relative; }
 .nav-user-menu summary { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid rgba(148, 163, 184, 0.26); border-radius: 50%; background: rgba(15, 23, 42, 0.62); color: var(--foreground); cursor: pointer; list-style: none; }
 .nav-user-menu summary::-webkit-details-marker { display: none; }
-.nav-user-menu summary svg { width: 1.25rem; height: 1.25rem; fill: currentColor; }
 .nav-user-menu-content { position: absolute; top: calc(100% + 0.55rem); right: 0; display: grid; min-width: 10rem; padding: 0.4rem; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--card-solid); box-shadow: var(--shadow); }
 .nav-user-menu-content a, .nav-user-menu-content button { padding: 0.6rem 0.7rem; border: 0; border-radius: 0.5rem; background: transparent; color: var(--foreground); font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
 .nav-user-menu-content a:hover, .nav-user-menu-content button:hover, .nav-user-menu summary:hover { background: rgba(148, 163, 184, 0.14); }
@@ -227,6 +235,7 @@ img {
 
 .hero {
 	position: relative;
+	isolation: isolate;
 	min-height: 805px;
 	display: grid;
 	place-items: center;
@@ -246,16 +255,13 @@ img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
-	filter: blur(2px);
-	opacity: 0.34;
-	transform: scale(1.05);
+	object-position: center;
 }
 
 .hero-overlay {
 	z-index: -1;
 	background:
-		linear-gradient(to bottom, rgba(9, 15, 28, 0.72), rgba(9, 15, 28, 0.96)),
-		radial-gradient(circle at 50% 42%, rgba(59, 130, 246, 0.1), transparent 34rem);
+		linear-gradient(to bottom, rgba(7, 16, 29, 0.55), rgba(7, 16, 29, 0.60) 60%, rgba(7, 16, 29, 0.94));
 }
 
 .hero-content {
@@ -278,7 +284,7 @@ img {
 .hero p {
 	margin: 0 auto 2.4rem;
 	max-width: 42rem;
-	color: var(--muted);
+	color: #e2e8f0;
 	font-size: clamp(1.05rem, 1.5vw, 1.28rem);
 	line-height: 1.65;
 }
@@ -332,7 +338,7 @@ img {
 }
 
 .hero-stats span {
-	color: var(--muted);
+	color: #e2e8f0;
 	font-size: 0.72rem;
 	font-weight: 700;
 	letter-spacing: 0.18em;
@@ -573,11 +579,11 @@ img {
 	padding-left: 1.8rem;
 }
 
-.check-list li::before {
+.eligibility-status-icon {
 	position: absolute;
 	left: 0;
+	top: 0.15rem;
 	color: var(--primary);
-	content: "✓";
 }
 
 .eligibility-message {
@@ -598,9 +604,9 @@ img {
 	color: var(--muted);
 }
 
-.eligibility-result-pass::before { color: #4ade80; }
-.eligibility-result-fail::before { color: #f87171; content: "×"; }
-.eligibility-result-manual::before { color: #facc15; content: "!"; }
+.eligibility-result-pass .eligibility-status-icon { color: #4ade80; }
+.eligibility-result-fail .eligibility-status-icon { color: #f87171; }
+.eligibility-result-manual .eligibility-status-icon { color: #facc15; }
 
 .dot-list li::before {
 	position: absolute;
@@ -697,11 +703,50 @@ img {
 	background: rgba(15, 23, 42, 0.54);
 }
 
-.unified-product {
+:scope.unified-product {
 	min-height: 100vh;
+	min-height: 100dvh;
 	display: flex;
 	flex-direction: column;
 }
+
+:scope.unified-product.theme-light {
+	--background: #f6f3ee;
+	--background-soft: #fbfaf7;
+	--card: #ffffff;
+	--card-solid: #ffffff;
+	--border: #dce3eb;
+	--foreground: #12264a;
+	--muted: #536987;
+	--primary: #0869ee;
+	--primary-strong: #075cc9;
+	--accent: #0869ee;
+	--shadow: 0 16px 40px rgba(27, 48, 77, 0.12);
+	background: #f6f3ee;
+	color: #12264a;
+	color-scheme: light;
+}
+
+.site-header.is-light {
+	border-bottom-color: #e0e6ed;
+	background: rgba(255, 255, 255, 0.97);
+	box-shadow: 0 2px 14px rgba(21, 45, 76, 0.05);
+	backdrop-filter: blur(16px);
+}
+.site-header.is-light .brand { display: inline-flex; align-items: center; gap: .7rem; color: #10264b; }
+.site-header.is-light .brand img { width: 42px; height: 42px; object-fit: contain; }
+.site-header.is-light .light-brand-name { display: grid; gap: 1px; line-height: 1.1; }
+.site-header.is-light .light-brand-name strong { font-size: 1rem; letter-spacing: .02em; }
+.site-header.is-light .light-brand-name small { color: #526989; font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
+@media (max-width: 380px) { .site-header.is-light .light-brand-name small { display: none; } }
+
+.site-header.is-light .nav-links { color: #536987; }
+.site-header.is-light .nav-links a.is-active { color: #12264a; }
+.site-header.is-light .nav-links a.is-active::after { background: #0869ee; }
+.site-header.is-light .nav-user-menu summary { border-color: #dce3eb; background: #fff; color: #12264a; }
+.site-header.is-light .nav-user-menu-content { background: #fff; }
+.site-header.is-light .mobile-navigation nav { background: #fff; }
+.site-header.is-light .mobile-navigation summary { color: #12264a; }
 
 .unified-product-content {
 	flex: 1;
@@ -903,19 +948,38 @@ img {
 	color: var(--foreground);
 }
 
+@media (min-width: 1081px) and (max-width: 1400px) {
+	.site-header:has(.nav-links a[href="/pilot-guide"]) { gap: 1rem; padding-inline: 1.5rem; }
+	.site-header:has(.nav-links a[href="/pilot-guide"]) .nav-links { gap: 1rem; }
+	.site-header:has(.nav-links a[href="/pilot-guide"]) .nav-primary-auth { min-width: 44px; }
+}
+
 @media (max-width: 1080px) {
-	.nav-links,
-	.nav-primary-auth {
+	.nav-links {
 		display: none;
 	}
 
-	.mobile-navigation {
-		position: relative;
-		display: block;
-		order: 3;
+	.site-header .nav-primary-auth {
+		order: 4;
+		min-width: 2.75rem;
+		flex: 0 0 auto;
 	}
 
-	.mobile-navigation summary {
+	.course-header-appearance { order: 2; }
+	.site-header:has(.course-header-appearance) .mobile-navigation { margin-left: 0; }
+
+	.mobile-navigation {
+		position: static;
+		display: block;
+		order: 3;
+		margin-left: auto;
+		flex: 0 0 auto;
+	}
+
+	.mobile-navigation > summary {
+		display: flex;
+		align-items: center;
+		min-height: 2.75rem;
 		list-style: none;
 		cursor: pointer;
 		font-weight: 750;
@@ -925,8 +989,8 @@ img {
 
 	.mobile-navigation nav {
 		position: absolute;
-		top: calc(100% + 1rem);
-		right: 0;
+		top: calc(100% + 0.5rem);
+		right: 1rem;
 		display: grid;
 		gap: 0.35rem;
 		width: min(20rem, calc(100vw - 2rem));
@@ -939,15 +1003,10 @@ img {
 
 	.mobile-navigation nav > a,
 	.mobile-navigation nav > button,
-	.mobile-navigation .nav-user-menu summary,
 	.mobile-navigation .nav-dropdown summary {
 		padding: 0.65rem 0.75rem;
 	}
 
-	.mobile-navigation .nav-user-menu { width: 100%; }
-	.mobile-navigation .nav-user-menu summary { width: 100%; height: auto; display: block; border-radius: 0.5rem; }
-	.mobile-navigation .nav-user-menu summary svg { vertical-align: middle; }
-	.mobile-navigation .nav-user-menu-content { position: static; margin-top: 0.35rem; }
 	.mobile-navigation .nav-dropdown-menu { position: static; transform: none; margin-top: 0.35rem; }
 
 	.about-grid,
@@ -966,9 +1025,7 @@ img {
 		gap: 1rem;
 	}
 
-	.brand img {
-		height: 2rem;
-	}
+	.brand img { width: 36px; height: 36px; }
 
 	.hero-stats,
 	.about-stats {
@@ -985,5 +1042,7 @@ img {
 		flex-direction: column;
 	}
 }
+
+@media (max-width: 380px) { .light-brand-name small { display: none; } }
 
 }

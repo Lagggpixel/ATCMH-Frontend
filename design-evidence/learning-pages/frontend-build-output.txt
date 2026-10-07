@@ -1,0 +1,76 @@
+
+> atcmh-frontend@1.8.9 build
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.ts took 42ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 910ms
+  Running TypeScript ...
+  Finished TypeScript in 4.2s ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/23) ...
+  Generating static pages using 11 workers (5/23)
+  Generating static pages using 11 workers (11/23)
+  Generating static pages using 11 workers (17/23)
+✓ Generating static pages using 11 workers (23/23) in 257ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /account
+├ ƒ /api/access
+├ ƒ /api/auth/callback
+├ ƒ /api/auth/login
+├ ƒ /api/dashboard/[...path]
+├ ƒ /api/health
+├ ƒ /api/version
+├ ƒ /apply
+├ ƒ /auth
+├ ƒ /consent
+├ ƒ /dashboard/[[...segments]]
+├ ƒ /exams
+├ ƒ /exams/api/auth/callback
+├ ƒ /exams/api/auth/discord/user/callback
+├ ƒ /exams/api/auth/discord/user/login
+├ ƒ /exams/api/auth/discord/user/logout
+├ ƒ /exams/api/auth/discord/user/session
+├ ƒ /exams/api/auth/login
+├ ƒ /exams/api/auth/logout
+├ ƒ /exams/api/auth/logout-all
+├ ƒ /exams/api/auth/session
+├ ƒ /exams/api/management/attempts
+├ ƒ /exams/api/management/attempts/[attemptId]
+├ ƒ /exams/api/management/categories
+├ ƒ /exams/api/management/imports/commit
+├ ƒ /exams/api/management/imports/preview
+├ ƒ /exams/api/management/me
+├ ƒ /exams/api/management/quizzes
+├ ƒ /exams/api/management/quizzes/[quizId]
+├ ƒ /exams/api/management/quizzes/[quizId]/category
+├ ƒ /exams/api/management/quizzes/[quizId]/unlocks
+├ ƒ /exams/api/management/statistics
+├ ƒ /exams/api/management/templates/csv
+├ ƒ /exams/api/management/templates/json
+├ ƒ /exams/api/management/website
+├ ƒ /exams/api/quizzes/[quizId]/attempt/submit
+├ ƒ /exams/api/quizzes/[quizId]/start
+├ ƒ /exams/attempts/[attemptId]
+├ ƒ /exams/courses
+├ ƒ /exams/courses/[courseId]
+├ ƒ /exams/quizzes
+├ ƒ /exams/quizzes/[quizId]
+├ ƒ /exams/quizzes/[quizId]/attempt
+├ ƒ /leaderboard
+├ ƒ /link-results
+├ ƒ /pilot-guide
+├ ƒ /policy
+├ ƒ /terms
+└ ƒ /wraps
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand

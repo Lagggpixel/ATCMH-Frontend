@@ -2,6 +2,7 @@ import type {Session} from "../../types/Session.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
 import {useCallback, useMemo, useState} from "react";
 import {formatAdminUtcDate} from "../../utils/AdminDateUtils.ts";
+import {availableUserName, formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
 import styles from "./AdminSessions.module.css"
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
@@ -33,6 +34,7 @@ const AdminSessions = ({
         cancelled: "all"
     });
     const [attendeesModalSessionId, setAttendeesModalSessionId] = useState<number | null>(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const {name, value} = e.target;
@@ -44,21 +46,17 @@ const AdminSessions = ({
 
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
 
-    const getUserName = useCallback((id: string) => {
-        const user = usersById.get(id);
-        return user ? user.username : `User (${id})`;
-    }, [usersById]);
+    const getUserName = useCallback((id: string) =>
+        formatUserName(id, usersById.get(id)?.username), [usersById]);
 
-    const matchesUserSearch = useCallback((id: string, query: string) => {
-        const normalizedQuery = query.trim().toLowerCase();
-        return `${id} ${getUserName(id)}`.toLowerCase().includes(normalizedQuery);
-    }, [getUserName]);
+    const matchesSessionUser = useCallback((id: string, query: string) =>
+        matchesUserSearch(id, usersById.get(id)?.username, query), [usersById]);
 
     const getAttendeeNames = useCallback((attendeeIds: string[]) => {
         return attendeeIds.map(id => ({
             id,
-            name: usersById.get(id)?.username ?? `ID ${id}`,
-            hasUsername: usersById.has(id)
+            name: formatUserName(id, usersById.get(id)?.username, `ID ${id}`),
+            hasUsername: Boolean(availableUserName(usersById.get(id)?.username))
         }));
     }, [usersById]);
 
@@ -68,16 +66,16 @@ const AdminSessions = ({
         let filteredSessions = [...sessions];
 
         if (filter.mentor) {
-            filteredSessions = filteredSessions.filter(session => matchesUserSearch(session.mentor, filter.mentor));
+            filteredSessions = filteredSessions.filter(session => matchesSessionUser(session.mentor, filter.mentor));
         }
 
         if (filter.mentee) {
-            filteredSessions = filteredSessions.filter(session => matchesUserSearch(session.mentee, filter.mentee));
+            filteredSessions = filteredSessions.filter(session => matchesSessionUser(session.mentee, filter.mentee));
         }
 
         if (filter.attendee) {
             filteredSessions = filteredSessions.filter(session =>
-                session.attendees.some(attendeeId => matchesUserSearch(attendeeId, filter.attendee))
+                session.attendees.some(attendeeId => matchesSessionUser(attendeeId, filter.attendee))
             );
         }
 
@@ -89,7 +87,7 @@ const AdminSessions = ({
         filteredSessions.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
         return filteredSessions;
-    }, [filter, matchesUserSearch, sessions, users]);
+    }, [filter, matchesSessionUser, sessions, users]);
 
     const sessionRecords = useMemo(() => displayedSessions.map(session => ({
         time: session.time,
@@ -140,7 +138,7 @@ const AdminSessions = ({
         <div className={styles.adminSessionsContainer}>
             <div className={styles.adminSessionsControls}>
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="mentor-filter">Filter by Mentor:</label>
+                    <label htmlFor="mentor-filter">Mentor</label>
                     <input
                         id="mentor-filter"
                         type="text"
@@ -151,8 +149,12 @@ const AdminSessions = ({
                     />
                 </div>
 
+                <button type="button" className={styles.mobileFiltersToggle} aria-controls="session-extra-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "Filters"}</button>
+
+                <div id="session-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
+
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="mentee-filter">Filter by Mentee:</label>
+                    <label htmlFor="mentee-filter">Mentee</label>
                     <input
                         id="mentee-filter"
                         type="text"
@@ -164,7 +166,7 @@ const AdminSessions = ({
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="attendee-filter">Filter by Attendee:</label>
+                    <label htmlFor="attendee-filter">Attendee</label>
                     <input
                         id="attendee-filter"
                         type="text"
@@ -176,7 +178,7 @@ const AdminSessions = ({
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
-                    <label htmlFor="cancelled-filter">Status:</label>
+                    <label htmlFor="cancelled-filter">Status</label>
                     <select
                         id="cancelled-filter"
                         name="cancelled"
@@ -188,8 +190,9 @@ const AdminSessions = ({
                         <option value="cancelled">Cancelled Only</option>
                     </select>
                 </div>
+                </div>
             </div>
-            <div className={styles.adminSessionsSessionsCount}>
+            <div className={styles.adminSessionsSessionsCount} role="status">
                 Showing {displayedSessions.length} session{displayedSessions.length !== 1 ? 's' : ''}
             </div>
             <div className={styles.adminSessionsSessionsTable}>

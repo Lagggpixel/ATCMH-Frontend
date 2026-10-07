@@ -4,7 +4,7 @@
 .eyebrow { color: var(--accent-color); font-size: .78rem; font-weight: 800; letter-spacing: .08em; margin: 0 0 4px; text-transform: uppercase; }
 .heading h2 { color: var(--text-color); margin: 0; }
 .heading p:not(.eyebrow) { color: var(--muted-text); margin: 5px 0 0; }
-.deleteButton, .confirmation button { background: transparent; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); cursor: pointer; font: inherit; font-weight: 750; min-height: 40px; padding: 8px 12px; }
+.deleteButton { background: transparent; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); cursor: pointer; font: inherit; font-weight: 750; min-height: 44px; padding: 8px 12px; }
 .deleteButton { border-color: var(--error-color); color: var(--danger-text); }
 .summary { display: grid; gap: 16px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 20px 0 30px; }
 .summary div { min-width: 0; }
@@ -21,14 +21,22 @@
 .incorrect { color: var(--danger-text) !important; }
 .unanswered, .selected { color: var(--warning-text) !important; }
 .unavailable { color: var(--muted-text); margin: 0; padding: 18px 0; }
-.confirmation { background: var(--danger-bg); border-left: 2px solid var(--error-color); margin: 20px 0; padding: 15px; }
-.confirmation h3 { color: var(--danger-text); margin: 0; }
-.confirmation p { color: var(--danger-text); margin: 7px 0 14px; }
-.confirmation div { display: flex; flex-wrap: wrap; gap: 8px; }
-.confirmDelete { background: var(--error-color) !important; border-color: var(--error-color) !important; color: #24110f !important; }
-.confirmation button:disabled { cursor: not-allowed; opacity: .6; }
 .error { background: var(--danger-bg); border-left: 2px solid var(--error-color); color: var(--danger-text); margin: 0 0 16px; padding: 12px; }
 .state { border-top: 1px solid var(--border-color); color: var(--muted-text); margin-top: 18px; padding: 22px 0; }
 .state a { color: var(--accent-strong-color); font-weight: 750; }
 @media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .question dl { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .heading { flex-direction: column; } .summary { grid-template-columns: 1fr; } .question dl { margin-left: 0; } }
+.review { padding: 12px 0 30px; }
+.heading { border: 0; padding: 0; }
+.heading h2 { font-size: clamp(1.55rem, 3vw, 2.15rem); }
+.summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 20px 0 16px; overflow: hidden; border: 1px solid var(--border-color); border-radius: 13px; background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, rgb(18 41 80 / 4%)); }
+.summary div { padding: 17px 20px; border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+.summary div:nth-child(3n) { border-right: 0; }
+.summary div:last-child { border-right: 0; }
+.summary div:nth-last-child(-n + 2) { border-bottom: 0; }
+.summary dt { margin-bottom: 5px; }
+.questions { border: 1px solid var(--border-color); border-radius: 13px; background: var(--dashboard-surface, #fff); padding: 22px; box-shadow: 0 8px 22px var(--dashboard-shadow-color, rgb(18 41 80 / 4%)); }
+.question { padding: 20px 0; }
+.question:last-child { border-bottom: 0; }
+@media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summary div, .summary div:nth-child(3n) { border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); } .summary div:nth-child(even), .summary div:last-child { border-right: 0; } .summary div:last-child { border-bottom: 0; } }
+@media (max-width: 520px) { .summary { grid-template-columns: 1fr; } .summary div, .summary div:nth-child(even) { border-right: 0; } .questions { padding: 17px; } }

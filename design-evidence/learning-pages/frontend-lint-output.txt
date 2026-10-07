@@ -1,0 +1,75 @@
+
+> atcmh-frontend@1.8.9 lint
+> eslint .
+
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\app\exams\(attempt)\quizzes\[quizId]\attempt\attempt-navigation.test.ts
+  15:17  warning  '_state' is defined but never used  @typescript-eslint/no-unused-vars
+  15:34  warning  '_title' is defined but never used  @typescript-eslint/no-unused-vars
+  15:50  warning  '_url' is defined but never used    @typescript-eslint/no-unused-vars
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\app\exams\(learner)\courses\CourseMarkdown.tsx
+  74:76  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\components\admin\AdminAccounts.tsx
+  178:135  warning  Do not use `window.location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\components\admin\AdminAuditLogs.tsx
+  250:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  253:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  256:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  259:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  262:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  265:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\components\admin\AdminSessions.tsx
+  202:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  205:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  208:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  211:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  214:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+  217:25  warning  The attribute aria-sort is not supported by the role button  jsx-a11y/role-supports-aria-props
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\components\admin\CourseEditor.tsx
+  563:293  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  563:480  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\components\consent\ConsentPage.test.ts
+  1:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\next-navigation.tsx
+  32:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/rules-of-hooks')
+  59:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/rules-of-hooks')
+  77:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/rules-of-hooks')
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\dashboard\utils\ExamsApiUtils.ts
+  38:35  warning  '_dashboardCsrf' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\lib\attempt-start-contract.ts
+  60:3  warning  '_nowSeconds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\lib\discord-auth.ts
+  73:3  warning  '_ownerId' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\lib\permissions.ts
+  48:55  warning  '_ownerId' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\link-results\ApplicationIfcLinkResultPage.test.ts
+  1:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\marketing\Home.tsx
+   52:4  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+   88:6  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  156:5  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\marketing\SiteFooter.tsx
+  7:47  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\marketing\SiteHeader.tsx
+  86:75  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Reid\Desktop\Github\InfiniteFlight\ATCMH\Frontend\src\platform\auth\ExamLogoutButton.tsx
+  13:17  warning  Do not use `window.location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+✖ 34 problems (0 errors, 34 warnings)
+  0 errors and 5 warnings potentially fixable with the `--fix` option.
