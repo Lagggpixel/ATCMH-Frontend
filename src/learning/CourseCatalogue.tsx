@@ -38,7 +38,9 @@ export default function CourseCatalogue({courses, unavailable = false}: {courses
                             </ul> : null}
                             {course.hasUnavailablePrerequisites ? <p className={styles.unavailablePrerequisites} role="note">You cannot complete this course because a prerequisite course is private or unavailable. Contact an administrator for access.</p> : null}
                         </div> : null}
-                        <Link className={styles.openCourse} href={"/exams/courses/" + encodeURIComponent(course.id)} aria-label={(course.locked ? "View requirements for " : "Open course: ") + course.title}>{course.locked ? "View requirements" : "Open course"}<ArrowRightIcon size={19}/></Link>
+                        {course.locked
+                            ? <button className={styles.openCourse} type="button" disabled aria-label={"Open course: " + course.title}>Open course<ArrowRightIcon size={19}/></button>
+                            : <Link className={styles.openCourse} href={"/exams/courses/" + encodeURIComponent(course.id)} aria-label={"Open course: " + course.title}>Open course<ArrowRightIcon size={19}/></Link>}
                     </div>
                 </article>)}
             </section>}
