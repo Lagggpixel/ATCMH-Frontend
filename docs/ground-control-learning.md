@@ -25,7 +25,7 @@ Both changes are repository code until deployed and saved through the editors. N
 
 ## Document contract
 
-`check` fields: `id`, `type`, `prompt` (1–2000 characters), `options` (2–6 nonblank strings, each at most 500 characters), `correctOption` (zero-based integer within the option array), `explanation` (1–4000 characters), and optional `incorrectExplanation` (1–4000 nonblank characters when present). Text fields reject HTML and typed directives. Checks have no required flag, passing score, reference, or assessment persistence. Correct and incorrect selections show their own explanatory feedback; legacy checks without `incorrectExplanation` reuse their existing explanation. Feedback is local to the mounted reader and resets with a reload.
+`check` fields: `id`, `type`, `prompt` (1–2000 characters), `options` (2–6 nonblank strings, each at most 500 characters), `correctOption` (zero-based integer within the option array), `explanation` (1–4000 characters), optional `incorrectExplanation` (1–4000 nonblank characters when present), and optional `images` (up to eight `{mediaId, alt, caption?}` entries). Image IDs refer to same-course image assets; alt text is required/nonblank and at most 500 characters, captions optional and at most 1,000. Text fields reject HTML and typed directives. Checks have no required flag, passing score, assessment reference, or assessment persistence. Correct and incorrect selections show their own explanatory feedback; legacy checks without `incorrectExplanation` reuse their existing explanation. Feedback is local to the mounted reader and resets with a reload.
 
 New callout tones: `command`, `decision`, `scenario`, `rule`, `success`.
 
@@ -38,3 +38,13 @@ Runway scenarios follow the Infinite Flight manual: https://infiniteflight.com/g
 The one-page, eight-block structure and design language remain. Pushback and the intersection example teach Give way alongside Hold position. Runway Crossings now uses one schematic plus departure/arrival state tables and one warning. Five checks cover Pushback, Taxi, Conflicts, Progressive Taxi and Crossings.
 
 Navigation includes Quick Revision Sheet, highlights Current using scroll position, and labels prior headings Earlier. These labels do not claim the learner completed or read a block; no progress is persisted.
+
+## Question images and course prerequisites
+
+In an ungraded check, choose **Add images**, enter meaningful alt text and optional captions, and review the previews. New-course images upload when the course is first saved; for an existing course, choose **Upload image** for each staged attachment before **Save course**. Remove an attachment to discard a staged upload or its document reference. Learner and staff preview show the prompt before images/captions and answer choices. Images use existing private course-media routes, and referenced assets cannot be deleted until detached and saved.
+
+Learner images load through the existing same-origin `/api/dashboard/courses/media/:mediaId` proxy, which forwards the authenticated session to the configured Dashboard backend. Staff preview retains the admin media route. No browser-side backend-origin override is required for learner images.
+
+**Required courses** is separate from **Make available to signed-in learners**. It lists all other managed courses, including drafts/private courses, with a warning for prerequisites learners cannot access. Learners must complete every selected prerequisite before accessing the dependent course. Its catalogue card remains visible if published, shows accessible prerequisite completion states/links, and explains when a private or unavailable prerequisite prevents completion without disclosing private course details. Previously completed prerequisites retain credit when made private.
+
+Before deploying these controls, apply `Dashboard-Backend/sql/2026-10-07-course-prerequisites.sql` after the existing course/document migrations and deploy the backend routes/validator before this frontend. Image metadata remains in the existing v1 document; no new upload service or credentials are required.

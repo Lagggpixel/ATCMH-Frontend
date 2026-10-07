@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCourseForLearner } from "@/src/lib/course-api-client";
+import { CourseLockedError, getCourseForLearner } from "@/src/lib/course-api-client";
 import { courseMarkdownReferences, parseCourseMarkdown } from "@/src/lib/course-markdown";
 import { courseDocumentReferences, parseCourseDocument } from "@/src/lib/course-document";
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
@@ -9,6 +9,7 @@ import DashboardExamSessionBootstrap from "../../DashboardExamSessionBootstrap";
 import CourseMarkdown from "../CourseMarkdown";
 import CourseSectionCompletionButton from "../CourseSectionCompletionButton";
 import CourseViewTracker from "../CourseViewTracker";
+import CoursePrerequisiteStatus from "../CoursePrerequisiteStatus";
 import styles from "../CourseReader.module.css";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,19 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const identity = await getVerifiedLearnerIdentity();
   if (!identity) return <main className="learner-main"><div className={styles.coursePage}><DashboardExamSessionBootstrap/><section className={styles.privateGate} aria-labelledby="course-login-title"><p className={styles.eyebrow}>Private learning space</p><h1 id="course-login-title">Sign in to open this course</h1><p>Course material is only available to authenticated ATCMH learners.</p><Link href={homeLoginHref("exams", `/exams/courses/${encodeURIComponent(courseId)}`)}>Sign in</Link></section></div></main>;
 
-  const course = await getCourseForLearner(courseId);
+  let course: Awaited<ReturnType<typeof getCourseForLearner>>;
+  try {
+    course = await getCourseForLearner(courseId);
+  } catch (reason) {
+    if (!(reason instanceof CourseLockedError)) throw reason;
+    return <main className="learner-main"><div className={styles.coursePage}><DashboardExamSessionBootstrap/><section className={styles.privateGate + " " + styles.privateGateLocked} aria-labelledby="course-locked-title">
+      <Link className={styles.backLink} href="/exams/courses">← Back to courses</Link>
+      <p className={styles.eyebrow}>Course</p>
+      <h1 id="course-locked-title">Course is locked</h1>
+      <p>Complete the available prerequisites below before opening this course.</p>
+      <CoursePrerequisiteStatus prerequisites={reason.prerequisites} hasUnavailablePrerequisites={reason.hasUnavailablePrerequisites}/>
+    </section></div></main>;
+  }
   if (!course) notFound();
   const quizzes = new Map(course.quizzes.map((quiz) => [quiz.id, quiz]));
   const completed = new Set(course.completedSectionIds);
@@ -28,7 +41,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
     <div className={styles.coursePage}>
       <header className={styles.courseHeader}>
         <Link className={styles.backLink} href="/exams/courses">← Back to courses</Link>
-        <p className={styles.eyebrow}>Private course</p>
+        <p className={styles.eyebrow}>Course</p>
         <h1>{course.title}</h1>
         <p className={styles.courseDescription}>{course.description}</p>
         <div className={styles.courseMeta}><span>{course.sections.length} {course.sections.length === 1 ? "section" : "sections"}</span><span>·</span><span>{completionCount} completed</span></div>
