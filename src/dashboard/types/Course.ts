@@ -25,6 +25,24 @@ export interface ManagedCourseDraftGroup extends Omit<ManagedCourseSectionGroup,
     id?: string;
 }
 
+export interface CoursePrerequisiteSummary {
+    courseId: string;
+    title: string;
+    slug: string;
+    completed: boolean;
+}
+
+export interface LearnerCourseSummary {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    sectionCount: number;
+    locked: boolean;
+    prerequisites: CoursePrerequisiteSummary[];
+    hasUnavailablePrerequisites: boolean;
+}
+
 export interface ManagedCourseSection {
     id: string;
     courseId: string;
@@ -53,13 +71,14 @@ export interface ManagedCourseDraft {
     title: string;
     description: string;
     isPublished: boolean;
+    prerequisiteCourseIds: string[];
     navigationMode: CourseNavigationMode;
     sectionGroups: ManagedCourseDraftGroup[];
     sections: ManagedCourseDraftSection[];
 }
 
 export interface ManagedCourse extends ManagedCourseSummary {
-    id: string;
+    prerequisiteCourseIds: string[];
     navigationMode: CourseNavigationMode;
     sectionGroups: ManagedCourseSectionGroup[];
     sections: ManagedCourseSection[];
@@ -96,15 +115,16 @@ export interface CourseEnrollment {
     lastSectionId: string | null;
 }
 
-export interface LearnerCourse extends ManagedCourse {
-    completedSectionIds: string[];
-    takenQuizIds: string[];
-    quizProgress: CourseQuizProgress[];
-    enrollment: CourseEnrollment | null;
-    quizzes: CourseQuizSummary[];
-    activities: CourseActivity[];
-    activityProgress: CourseActivityProgress[];
-}
+export interface LearnerCourse extends Omit<LearnerCourseSummary, "locked" | "prerequisites" | "hasUnavailablePrerequisites"> { sectionGroups: ManagedCourseSectionGroup[];
+navigationMode: CourseNavigationMode;
+sections: ManagedCourseSection[];
+quizzes: CourseQuizSummary[];
+activities: CourseActivity[];
+completedSectionIds: string[];
+takenQuizIds: string[];
+quizProgress: CourseQuizProgress[];
+enrollment: CourseEnrollment | null;
+activityProgress: CourseActivityProgress[]; }
 
 export interface CourseMediaUpload {
     id: string;

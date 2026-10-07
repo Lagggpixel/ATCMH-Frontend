@@ -32,3 +32,8 @@ export function isHeicMediaFile(file: File | undefined): boolean {
     const extension = file.name.toLowerCase().split(".").pop() ?? "";
     return extension === "heic" || extension === "heif";
 }
+
+export function prepareCourseImageFile(file: File): File | undefined {
+    const prepared = prepareMediaFile(file);
+    return prepared?.type.startsWith("image/") ? prepared : undefined;
+}

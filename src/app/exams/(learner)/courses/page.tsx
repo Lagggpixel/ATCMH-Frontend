@@ -4,7 +4,7 @@ import { homeLoginHref } from "@/src/platform/auth/login-routing";
 import { getVerifiedLearnerIdentity } from "@/src/lib/learner-session";
 import { listPublishedCourses } from "@/src/lib/course-api-client";
 import CourseCatalogue from "@/src/learning/CourseCatalogue";
-import type {ManagedCourseSummary} from "@/src/dashboard/types/Course";
+import type {LearnerCourseSummary} from "@/src/dashboard/types/Course";
 import DashboardExamSessionBootstrap from "../DashboardExamSessionBootstrap";
 import styles from "./CourseReader.module.css";
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {title: "Courses"};
 
 export default async function CourseCataloguePage() {
   const identity = await getVerifiedLearnerIdentity();
-  let courses: ManagedCourseSummary[] = [];
+  let courses: LearnerCourseSummary[] = [];
   let unavailable = false;
   if (identity) {
     try { courses = await listPublishedCourses(); }

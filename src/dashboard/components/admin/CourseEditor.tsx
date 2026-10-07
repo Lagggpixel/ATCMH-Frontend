@@ -1,9 +1,9 @@
 import {useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent} from "react";
 import type {ExamQuizSummary} from "../../types/Exam.ts";
-import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftSection, ManagedCourseDraftGroup} from "../../types/Course.ts";
+import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftGroup, ManagedCourseDraftSection, ManagedCourseSummary} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
-import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
+import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareCourseImageFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
 import {
     courseDocumentFromMarkdown,
     courseDocumentToMarkdown,
@@ -26,6 +26,7 @@ import styles from "./CourseCenter.module.css";
 
 interface CourseEditorProps {
     course: ManagedCourse | null;
+    courses: ManagedCourseSummary[];
     quizzes: ExamQuizSummary[];
     activities?: CourseActivity[];
     token: string;
@@ -36,6 +37,18 @@ interface CourseEditorProps {
     onSaved: (course: ManagedCourse) => void;
 }
 
+interface PendingQuestionImage {
+    id: string;
+    blockId: string;
+    file: File;
+    previewUrl: string;
+    alt: string;
+    caption: string;
+    progress: number;
+    uploading: boolean;
+    error?: string;
+}
+
 const newDocument = (): CourseDocumentV1 => ({version: 1, blocks: [{...createCourseBlock("text"), markdown: "# Section title\n\nWrite the learning material here."}]});
 const newSection = (sortOrder: number, groupId: string): ManagedCourseDraftSection => {
     const document = newDocument();
@@ -43,7 +56,7 @@ const newSection = (sortOrder: number, groupId: string): ManagedCourseDraftSecti
 };
 const newCourse = (): ManagedCourseDraft => {
     const id = crypto.randomUUID();
-    return {slug: "", title: "", description: "", isPublished: false, navigationMode: "sequential", sectionGroups: [{id, title: "Section 1", sortOrder: 1}], sections: [newSection(1, id)]};
+    return {slug: "", title: "", description: "", isPublished: false, prerequisiteCourseIds: [], navigationMode: "sequential", sectionGroups: [{id, title: "Section 1", sortOrder: 1}], sections: [newSection(1, id)]};
 };
 const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => {
     if (!course) return newCourse();
@@ -54,6 +67,7 @@ const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => {
         title: course.title,
         description: course.description,
         isPublished: course.isPublished,
+        prerequisiteCourseIds: course.prerequisiteCourseIds ?? [],
         navigationMode: course.navigationMode ?? "sequential",
         sectionGroups: groups,
         sections: course.sections.map(section => {
@@ -62,6 +76,7 @@ const asDraft = (course: ManagedCourse | null): ManagedCourseDraft => {
         }),
     };
 };
+
 
 function documentFor(section: ManagedCourseDraftSection): CourseDocumentV1 {
     return section.document ?? courseDocumentFromMarkdown(section.markdown);
@@ -112,7 +127,7 @@ function updateSectionDocument(draft: ManagedCourseDraft, sectionIndex: number, 
     };
 }
 
-export default function CourseEditor({course, quizzes, activities = [], token, canPublish, onCancel, onPreview, onDelete, onSaved}: CourseEditorProps) {
+export default function CourseEditor({course, courses, quizzes, activities = [], token, canPublish, onCancel, onPreview, onDelete, onSaved}: CourseEditorProps) {
     const [initialDraft] = useState<ManagedCourseDraft>(() => asDraft(course));
     const [draft, setDraft] = useState<ManagedCourseDraft>(initialDraft);
     const [activeSectionId, setActiveSectionId] = useState(initialDraft.sections[0].id);
@@ -121,6 +136,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
     const [pendingPreviews, setPendingPreviews] = useState<Record<string, string>>({});
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
     const [uploading, setUploading] = useState<Record<string, boolean>>({});
+    const [pendingQuestionImages, setPendingQuestionImages] = useState<PendingQuestionImage[]>([]);
     const [activeCaret, setActiveCaret] = useState<{sectionIndex: number; blockId: string; offset: number} | null>(null);
     const [, setDragging] = useState<{sectionIndex: number; blockId: string} | null>(null);
     const draggingRef = useRef<{sectionIndex: number; blockId: string} | null>(null);
@@ -135,7 +151,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
     const confirm = useConfirmation();
     const previewUrls = useRef<Record<string, string>>({});
     const uploadControllers = useRef<Record<string, AbortController>>({});
-    const isDirty = stableExamValue(draft) !== stableExamValue(baseline) || Object.keys(pendingFiles).length > 0;
+    const isDirty = stableExamValue(draft) !== stableExamValue(baseline) || Object.keys(pendingFiles).length > 0 || pendingQuestionImages.length > 0;
     const {confirmAndRun, disarm} = useExamUnsavedChanges({isDirty});
 
     useEffect(() => {
@@ -151,6 +167,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         setPendingPreviews({});
         setUploadProgress({});
         setUploading({});
+        setPendingQuestionImages([]);
         setError(null);
         setDraftIssue(null);
         persistedSectionIdsRef.current = new Set(course?.sections.map(section => section.id) ?? []);
@@ -174,6 +191,100 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         updateDocument(sectionIndex, document => ({version: 1, blocks: document.blocks.map(block => block.id === blockId ? update(block) : block)}));
     };
 
+    const questionImageControllerKey = (imageId: string) => "question-image-" + imageId;
+
+    const updatePendingQuestionImage = (imageId: string, update: (image: PendingQuestionImage) => PendingQuestionImage) => {
+        setPendingQuestionImages(current => current.map(image => image.id === imageId ? update(image) : image));
+    };
+
+    const discardPendingQuestionImage = (imageId: string) => {
+        const image = pendingQuestionImages.find(item => item.id === imageId);
+        if (!image) return;
+        const key = questionImageControllerKey(image.id);
+        uploadControllers.current[key]?.abort();
+        delete uploadControllers.current[key];
+        URL.revokeObjectURL(image.previewUrl);
+        delete previewUrls.current[key];
+        setPendingQuestionImages(current => current.filter(item => item.id !== imageId));
+    };
+
+    const discardPendingQuestionImagesForBlocks = (blockIds: string[]) => {
+        const affectedIds = new Set(blockIds);
+        pendingQuestionImages.filter(image => affectedIds.has(image.blockId)).forEach(image => discardPendingQuestionImage(image.id));
+    };
+
+    const stageQuestionImages = (block: Extract<CourseBlock, {type: "check"}>, files: File[]) => {
+        const remaining = 8 - (block.images?.length ?? 0) - pendingQuestionImages.filter(image => image.blockId === block.id).length;
+        if (remaining <= 0) {
+            setError("A knowledge check can include up to 8 images.");
+            return;
+        }
+        const preparedFiles: File[] = [];
+        let rejectedFile = false;
+        for (const file of files) {
+            const prepared = prepareCourseImageFile(file);
+            if (!prepared) rejectedFile = true;
+            else preparedFiles.push(prepared);
+        }
+        const additions = preparedFiles.slice(0, remaining).map(file => {
+            const id = typeof globalThis.crypto?.randomUUID === "function"
+                ? globalThis.crypto.randomUUID()
+                : "question-image-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+            const previewUrl = URL.createObjectURL(file);
+            const key = questionImageControllerKey(id);
+            previewUrls.current[key] = previewUrl;
+            return {id, blockId: block.id, file, previewUrl, alt: "", caption: "", progress: 0, uploading: false} satisfies PendingQuestionImage;
+        });
+        if (additions.length > 0) setPendingQuestionImages(current => [...current, ...additions]);
+        setError(rejectedFile
+            ? "Question images must be JPEG, PNG, HEIC/HEIF, GIF, or WebP files no larger than 50 MB."
+            : preparedFiles.length > remaining ? "A knowledge check can include up to 8 images; extra files were skipped." : null);
+    };
+
+    const addUploadedQuestionImage = (source: ManagedCourseDraft, image: PendingQuestionImage, mediaId: string): ManagedCourseDraft => {
+        const sectionIndex = source.sections.findIndex(section => documentFor(section).blocks.some(block => block.id === image.blockId && block.type === "check"));
+        if (sectionIndex < 0) return source;
+        const sectionDocument = documentFor(source.sections[sectionIndex]);
+        return updateSectionDocument(source, sectionIndex, {
+            version: 1,
+            blocks: sectionDocument.blocks.map(block => block.id === image.blockId && block.type === "check" ? {
+                ...block,
+                images: [...(block.images ?? []), {mediaId, alt: image.alt.trim(), ...(image.caption.trim() ? {caption: image.caption.trim()} : {})}],
+            } : block),
+        });
+    };
+
+    const uploadQuestionImageFile = async (courseId: string, image: PendingQuestionImage) => {
+        const key = questionImageControllerKey(image.id);
+        uploadControllers.current[key]?.abort();
+        const controller = new AbortController();
+        uploadControllers.current[key] = controller;
+        updatePendingQuestionImage(image.id, current => ({...current, uploading: true, progress: 0, error: undefined}));
+        try {
+            const media = await ExamsApiUtils.uploadCourseMedia(courseId, image.file, token, percentage => updatePendingQuestionImage(image.id, current => ({...current, progress: percentage})), controller.signal);
+            if (media.kind === "video" || !media.contentType.startsWith("image/")) throw new Error("Only image media can be attached to a knowledge check.");
+            return media;
+        } catch (reason) {
+            if (!controller.signal.aborted) updatePendingQuestionImage(image.id, current => ({...current, error: reason instanceof Error ? reason.message : String(reason)}));
+            throw reason;
+        } finally {
+            if (uploadControllers.current[key] === controller) {
+                delete uploadControllers.current[key];
+                updatePendingQuestionImage(image.id, current => ({...current, uploading: false}));
+            }
+        }
+    };
+
+    const uploadQuestionImage = async (courseId: string, image: PendingQuestionImage) => {
+        try {
+            const media = await uploadQuestionImageFile(courseId, image);
+            setDraft(current => addUploadedQuestionImage(current, image, media.id));
+            discardPendingQuestionImage(image.id);
+        } catch {
+            // The pending card retains the upload error and can be retried or removed.
+        }
+    };
+
     const removeBlock = (sectionIndex: number, blockId: string) => {
         const blocks = documentFor(draft.sections[sectionIndex]).blocks;
         if (blocks.length < 2 && blocks[0]?.type !== "media") {
@@ -190,6 +301,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         }
         setPendingFiles(current => {const next = {...current}; delete next[blockId]; return next;});
         setPendingPreviews(current => {const next = {...current}; delete next[blockId]; return next;});
+        discardPendingQuestionImagesForBlocks([blockId]);
         updateDocument(sectionIndex, document => {
             const remaining = document.blocks.filter(block => block.id !== blockId);
             return {version: 1, blocks: remaining.length ? remaining : [createCourseBlock("text")]};
@@ -385,6 +497,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
         setIsSaving(true);
         try {
             const descriptors = pendingDescriptors(draft);
+            const questionDescriptors = [...pendingQuestionImages];
             let working: ManagedCourseDraft = {...draft, sections: draft.sections.map(section => {
                 const document = stripPendingMedia(documentFor(section));
                 return {...section, document, markdown: courseDocumentToMarkdown(document)};
@@ -393,12 +506,17 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                 if (Object.values(uploading).some(Boolean)) throw new Error("Wait for media uploads to finish before saving.");
                 throw new Error("Retry the failed media upload before saving.");
             }
+            if (questionDescriptors.length && draft.id) {
+                if (questionDescriptors.some(image => image.uploading)) throw new Error("Wait for question image uploads to finish before saving.");
+                throw new Error("Upload or remove each pending question image before saving.");
+            }
             let savedCourse: ManagedCourse;
             const firstSaved = await ExamsApiUtils.saveCourse(courseDraftForSave(working, persistedSectionIdsRef.current), token, revisionRef.current);
             persistedSectionIdsRef.current = new Set(firstSaved.sections.map(section => section.id));
             revisionRef.current = firstSaved.updatedAt;
-            if (descriptors.length) {
+            if (descriptors.length || (!draft.id && questionDescriptors.length > 0)) {
                 working = asDraft(firstSaved);
+                setDraft(working);
                 for (const descriptor of descriptors) {
                     const section = working.sections[descriptor.sectionIndex];
                     if (!section) continue;
@@ -423,6 +541,12 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                     const preview = previewUrls.current[descriptor.block.id];
                     if (preview) { URL.revokeObjectURL(preview); delete previewUrls.current[descriptor.block.id]; }
                 }
+                for (const image of questionDescriptors) {
+                    const media = await uploadQuestionImageFile(firstSaved.id, image);
+                    working = addUploadedQuestionImage(working, image, media.id);
+                    setDraft(working);
+                    discardPendingQuestionImage(image.id);
+                }
                 savedCourse = await ExamsApiUtils.saveCourse(working, token, revisionRef.current);
             } else {
                 savedCourse = firstSaved;
@@ -434,6 +558,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
             setBaseline(next);
             setPendingFiles({});
             setPendingPreviews({});
+            setPendingQuestionImages([]);
             disarm();
             onSaved(savedCourse);
         } catch (reason) {
@@ -443,6 +568,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
             setIsSaving(false);
         }
     };
+    const prerequisiteCourses = courses.filter(candidate => candidate.id !== draft.id);
 
     const addGroup = () => {
         const group: ManagedCourseDraftGroup = {id: crypto.randomUUID(), title: `Section ${draft.sectionGroups.length + 1}`, sortOrder: draft.sectionGroups.length + 1};
@@ -479,22 +605,25 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
 
     const removeSubsection = async (index: number) => {
         if (draft.sections.length < 2 || !await confirm({title: `Remove “${draft.sections[index].title || "Untitled subsection"}”?`, message: "This removes the subsection and its content from your draft. Save the course to apply the change.", confirmLabel: "Remove from draft", cancelLabel: "Keep subsection", tone: "danger"})) return;
+        const section = draft.sections[index];
+        discardPendingQuestionImagesForBlocks(documentFor(section).blocks.filter(block => block.type === "check").map(block => block.id));
         const next = draft.sections.filter((_, itemIndex) => itemIndex !== index);
         setDraft(current => orderedCourseDraft(current, current.sectionGroups, next));
-        if (activeSectionId === draft.sections[index].id) setActiveSectionId(next[Math.min(index, next.length - 1)].id);
+        if (activeSectionId === section.id) setActiveSectionId(next[Math.min(index, next.length - 1)].id);
     };
 
     const removeGroup = async (groupId: string) => {
         if (draft.sectionGroups.length < 2) return;
         const group = draft.sectionGroups.find(item => item.id === groupId);
         if (!await confirm({title: `Remove “${group?.title}”?`, message: "This removes the section and every subsection inside it from your draft. Save the course to apply the change.", confirmLabel: "Remove from draft", cancelLabel: "Keep section", tone: "danger"})) return;
+        const removedSections = draft.sections.filter(item => item.groupId === groupId);
+        discardPendingQuestionImagesForBlocks(removedSections.flatMap(section => documentFor(section).blocks.filter(block => block.type === "check").map(block => block.id)));
         const nextGroups = draft.sectionGroups.filter(item => item.id !== groupId);
         const remaining = draft.sections.filter(item => item.groupId !== groupId);
         const nextSections = remaining.length ? remaining : [newSection(1, nextGroups[0].id!)];
         setDraft(current => orderedCourseDraft(current, nextGroups, nextSections));
         if (!nextSections.some(item => item.id === activeSectionId)) setActiveSectionId(nextSections[0]?.id);
     };
-
     return <section className={styles.editor} aria-labelledby="course-editor-heading">
         <div className={styles.heading}><div><p className={styles.eyebrow}>{course ? "Edit course" : "New course"}</p><h2 id="course-editor-heading">{draft.title || "Create a course"}</h2></div><div className={styles.headingButtons}>{course && onPreview ? <button type="button" className={styles.quietButton} disabled={isSaving} onClick={() => void confirmAndRun(onPreview)}>Preview</button> : null}<button type="button" className={styles.quietButton} disabled={isSaving} onClick={() => void confirmAndRun(onCancel)}>Back to courses</button></div></div>
         <form noValidate onSubmit={event => void save(event)}>
@@ -504,8 +633,19 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                 {draftIssue && (!draftIssue.sectionId && !draftIssue.groupId) ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
                 <label>Description<textarea rows={3} maxLength={2000} value={draft.description} onChange={event => setDraft(current => ({...current, description: event.target.value}))}/></label>
                 <label className={styles.check}><input type="checkbox" checked={draft.isPublished} disabled={!canPublish} onChange={event => setDraft(current => ({...current, isPublished: event.target.checked}))}/> Make available to signed-in learners {canPublish ? "" : "(administrator publishing permission required)"}</label>
+                <section className={styles.prerequisitePicker} aria-labelledby="course-prerequisite-heading">
+                    <h3 id="course-prerequisite-heading">Required courses</h3>
+                    <p>Choose any managed courses learners must finish first. Draft or private prerequisites stay unavailable until published; learners who already completed one keep their credit.</p>
+                    {prerequisiteCourses.length === 0 ? <p>No other managed courses are available.</p> : <div className={styles.prerequisiteOptions}>
+                        {prerequisiteCourses.map(candidate => <label className={styles.prerequisiteOption} key={candidate.id}>
+                            <input type="checkbox" checked={draft.prerequisiteCourseIds.includes(candidate.id)} onChange={event => setDraft(current => ({...current, prerequisiteCourseIds: event.target.checked ? [...current.prerequisiteCourseIds, candidate.id] : current.prerequisiteCourseIds.filter(id => id !== candidate.id)}))}/>
+                            <span><strong>{candidate.title}</strong>{!candidate.isPublished ? <small className={styles.privatePrerequisiteWarning}>Draft/private — learners cannot access this prerequisite until it is published.</small> : null}</span>
+                        </label>)}
+                    </div>}
+                </section>
                 <label>Navigation mode<select value={draft.navigationMode} onChange={event => setDraft(current => ({...current, navigationMode: event.target.value as ManagedCourseDraft["navigationMode"]}))}><option value="sequential">Sequential · one subsection at a time</option><option value="section_by_section">Section by section · any subsection in the current section</option><option value="free">Free · any subsection in any order</option></select></label>
                 </div>
+                <p className={styles.composerHint}>Choose what to insert from any “Insert here” or “Add at end” button. Insertion bars also accept file drops.</p>
                 <div className={styles.sectionsHeading}><h3>Course structure</h3><button type="button" onClick={addGroup}>Add section</button></div>
                 <div className={styles.editorWorkspace}>
                     <aside className={styles.editorOutline} aria-label="Course structure">
@@ -533,7 +673,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                                 <button type="button" onClick={() => {setTemplateSection(sectionIndex); setTemplateQuizId(document.blocks.find(block => block.type === "quiz")?.quizId ?? "");}}>Choose template quiz</button>
                                 {templateSection === sectionIndex ? <div><label>Final Ground Control quiz<select value={templateQuizId} onChange={event => setTemplateQuizId(event.target.value)}><option value="">Choose a quiz…</option>{quizzes.map(quiz => <option key={quiz.id} value={quiz.id}>{quiz.title}</option>)}</select></label>
                                     <p>This replaces the current section blocks in the unsaved draft, including media and assessment links.</p>
-                                    <button type="button" disabled={!templateQuizId} onClick={() => {updateDocument(sectionIndex, () => createGroundControlDocument(templateQuizId)); setTemplateSection(null);}}>Replace draft section with template</button>
+                                    <button type="button" disabled={!templateQuizId} onClick={() => {discardPendingQuestionImagesForBlocks(document.blocks.filter(block => block.type === "check").map(block => block.id)); updateDocument(sectionIndex, () => createGroundControlDocument(templateQuizId)); setTemplateSection(null);}}>Replace draft section with template</button>
                                     <button type="button" onClick={() => setTemplateSection(null)}>Keep current content</button></div> : null}
                             </details>
                             <div className={styles.blockCanvas} aria-label={`Section ${sectionIndex + 1} page composer`}>
@@ -544,7 +684,7 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                                         {draftIssue?.blockId === block.id ? <p className={styles.error} role="alert">{draftIssue.message}</p> : null}
                                         {block.type === "text" ? <label>Text (safe Markdown)<textarea rows={Math.max(4, Math.min(12, block.markdown.split(/\r?\n/).length + 2))} value={block.markdown} onFocus={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onSelect={event => setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart})} onChange={event => { setActiveCaret({sectionIndex, blockId: block.id, offset: event.currentTarget.selectionStart}); updateBlock(sectionIndex, block.id, current => current.type === "text" ? {...current, markdown: event.target.value} : current); }}/></label> : null}
                                         {block.type === "callout" ? <div className={styles.blockFields}><label>Callout tone<select value={block.tone} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, tone: event.target.value as typeof block.tone} : current)}><option value="mandatory">Mandatory</option><option value="recommended">Recommended</option><option value="warning">Warning</option><option value="example">Example</option><option value="mistake">Mistake</option><option value="info">Info</option><option value="command">Command</option><option value="decision">Decision</option><option value="scenario">Scenario</option><option value="rule">Important rule</option><option value="success">Resolution</option></select></label><label>Title<input value={block.title} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, title: event.target.value} : current)}/></label><label>Body<textarea rows={4} value={block.markdown} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "callout" ? {...current, markdown: event.target.value} : current)}/></label></div> : null}
-                                        {block.type === "check" ? <div className={styles.blockFields}>
+                                        {block.type === "check" ? <div className={styles.blockFields + " " + styles.checkFields}>
                                             <p className={styles.fieldHint}>Ungraded practice with immediate feedback. No attempts or scores are recorded.</p>
                                             <label>Question<textarea required maxLength={2000} value={block.prompt} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, prompt: event.target.value} : current)}/></label>
                                             {block.options.map((option, optionIndex) => <label key={optionIndex}>Option {optionIndex + 1}<input required maxLength={500} value={option} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, options: current.options.map((text, i) => i === optionIndex ? event.target.value : text)} : current)}/></label>)}
@@ -552,6 +692,35 @@ export default function CourseEditor({course, quizzes, activities = [], token, c
                                             <div><button type="button" disabled={block.options.length >= 6} onClick={() => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, options: [...current.options, ""]} : current)}>Add answer option</button><button type="button" disabled={block.options.length <= 2} onClick={() => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, options: current.options.slice(0, -1), correctOption: Math.min(current.correctOption, current.options.length - 2)} : current)}>Remove last option</button></div>
                                             <label>Correct-answer explanation<textarea required maxLength={4000} rows={3} value={block.explanation} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, explanation: event.target.value} : current)}/></label>
                                             <label>Incorrect-answer explanation (optional)<textarea maxLength={4000} rows={3} value={block.incorrectExplanation ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, incorrectExplanation: event.target.value || undefined} : current)}/></label>
+                                            <section className={styles.questionImages} aria-labelledby={"check-images-" + block.id}>
+                                                <div className={styles.questionImagesHeading}>
+                                                    <div><h4 id={"check-images-" + block.id}>Question images · {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length}/8</h4><p>Add up to 8 images. Write meaningful alt text for each image; captions are optional.</p></div>
+                                                    {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length < 8 ? <label className={styles.fileButton}>Add images<input type="file" multiple accept="image/jpeg,image/png,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/gif,image/webp,.heic,.heif" onChange={event => {stageQuestionImages(block, Array.from(event.target.files ?? [])); event.currentTarget.value = "";}}/></label> : <span className={styles.fieldHint}>Image limit reached.</span>}
+                                                </div>
+                                                <div className={styles.questionImageList}>
+                                                    {(block.images ?? []).map((image, imageIndex) => <article className={styles.questionImageCard} key={image.mediaId}>
+                                                        <figure className={styles.questionImagePreview}><img src={ApiUtils.apiOrigin + "/admin/courses/" + encodeURIComponent(draft.id ?? "") + "/media/" + encodeURIComponent(image.mediaId)} alt={image.alt} loading="lazy"/>{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
+                                                        <div className={styles.questionImageDetails}>
+                                                            <label>Alt text<input required maxLength={500} value={image.alt} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).map((item, index) => index === imageIndex ? {...item, alt: event.target.value} : item)} : current)}/></label>
+                                                            <label>Caption (optional)<input maxLength={1000} value={image.caption ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).map((item, index) => index === imageIndex ? {...item, caption: event.target.value || undefined} : item)} : current)}/></label>
+                                                            <div className={styles.questionImageActions}><button type="button" className={styles.removeButton} onClick={() => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).filter((_, index) => index !== imageIndex)} : current)}>Remove image</button></div>
+                                                        </div>
+                                                    </article>)}
+                                                    {pendingQuestionImages.filter(image => image.blockId === block.id).map(image => <article className={styles.questionImageCard} key={image.id}>
+                                                        <figure className={styles.questionImagePreview}>{isHeicMediaFile(image.file) ? <span>HEIC/HEIF image will be converted after upload.</span> : <img src={image.previewUrl} alt={image.alt || "Question image preview"}/>}{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
+                                                        <div className={styles.questionImageDetails}>
+                                                            <label>Alt text<input required maxLength={500} disabled={image.uploading} value={image.alt} onChange={event => updatePendingQuestionImage(image.id, current => ({...current, alt: event.target.value}))}/></label>
+                                                            <label>Caption (optional)<input maxLength={1000} disabled={image.uploading} value={image.caption} onChange={event => updatePendingQuestionImage(image.id, current => ({...current, caption: event.target.value}))}/></label>
+                                                            {image.uploading ? <><progress className={styles.questionImageProgress} max={100} value={image.progress} aria-label={"Uploading " + image.file.name}/><p className={styles.questionImageStatus}>Uploading image… {image.progress}%</p></> : null}
+                                                            {image.error ? <p className={styles.questionImageError} role="alert">{image.error}</p> : null}
+                                                            <div className={styles.questionImageActions}>
+                                                                {draft.id ? <button type="button" disabled={image.uploading || !image.alt.trim()} onClick={() => void uploadQuestionImage(draft.id!, image)}>{image.error ? "Retry upload" : "Upload image"}</button> : <span className={styles.questionImageStatus}>This image uploads when you save the new course.</span>}
+                                                                <button type="button" className={styles.removeButton} onClick={() => discardPendingQuestionImage(image.id)}>{image.uploading ? "Cancel and remove" : "Remove image"}</button>
+                                                            </div>
+                                                        </div>
+                                                    </article>)}
+                                                </div>
+                                            </section>
                                         </div> : null}
                                         {block.type === "diagram" ? <div className={styles.blockFields}>
                                             <label>Diagram ID<input pattern="[a-z0-9][a-z0-9-]{0,79}" value={block.diagramId} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "diagram" ? {...current, diagramId: event.target.value} : current)}/></label>
