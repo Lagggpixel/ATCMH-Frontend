@@ -10,6 +10,24 @@ export interface ManagedCourseSummary {
     sectionCount: number;
 }
 
+export interface CoursePrerequisiteSummary {
+    courseId: string;
+    title: string;
+    slug: string;
+    completed: boolean;
+}
+
+export interface LearnerCourseSummary {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    sectionCount: number;
+    locked: boolean;
+    prerequisites: CoursePrerequisiteSummary[];
+    hasUnavailablePrerequisites: boolean;
+}
+
 export interface ManagedCourseSection {
     id: string;
     courseId: string;
@@ -36,11 +54,12 @@ export interface ManagedCourseDraft {
     title: string;
     description: string;
     isPublished: boolean;
+    prerequisiteCourseIds: string[];
     sections: ManagedCourseDraftSection[];
 }
 
 export interface ManagedCourse extends ManagedCourseSummary {
-    id: string;
+    prerequisiteCourseIds: string[];
     sections: ManagedCourseSection[];
     quizzes?: CourseQuizSummary[];
     activities?: CourseActivity[];
@@ -75,13 +94,14 @@ export interface CourseEnrollment {
     lastSectionId: string | null;
 }
 
-export interface LearnerCourse extends ManagedCourse {
+export interface LearnerCourse extends LearnerCourseSummary {
+    sections: ManagedCourseSection[];
+    quizzes: CourseQuizSummary[];
+    activities: CourseActivity[];
     completedSectionIds: string[];
     takenQuizIds: string[];
     quizProgress: CourseQuizProgress[];
     enrollment: CourseEnrollment | null;
-    quizzes: CourseQuizSummary[];
-    activities: CourseActivity[];
     activityProgress: CourseActivityProgress[];
 }
 

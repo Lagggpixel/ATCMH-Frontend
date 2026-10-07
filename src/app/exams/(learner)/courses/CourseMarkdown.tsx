@@ -50,8 +50,8 @@ interface CourseMarkdownProps {
 
 function mediaSource(courseId: string, mediaId: string, mode: "learner" | "admin") {
   return mode === "admin"
-    ? `${ApiUtils.apiOrigin}/admin/courses/${encodeURIComponent(courseId)}/media/${encodeURIComponent(mediaId)}`
-    : `${ApiUtils.apiOrigin}/courses/media/${encodeURIComponent(mediaId)}`;
+    ? ApiUtils.apiOrigin + "/admin/courses/" + encodeURIComponent(courseId) + "/media/" + encodeURIComponent(mediaId)
+    : "/api/dashboard/courses/media/" + encodeURIComponent(mediaId);
 }
 
 function renderQuiz(courseId: string, block: {quizId: string; required: boolean; passPercent?: number; passPercentage?: number}, quizzes: Map<string, QuizSummary>, quizProgress: CourseQuizProgress[], key: string) {
@@ -98,7 +98,7 @@ export default function CourseMarkdown({courseId, sectionId = courseId, blocks =
   const progressMap = new Map(activityProgress.map(progress => [progress.activityId, progress]));
   const rendered = parsedDocument?.blocks.flatMap((block, index): ReactNode[] => {
     const key = `${sectionId}-document-${index}-${block.id}`;
-    if (block.type === "check") return [<CourseKnowledgeCheck key={`${key}-${JSON.stringify(block)}`} block={block}/>];
+    if (block.type === "check") return [<CourseKnowledgeCheck key={key} block={block} images={(block.images ?? []).map(image => ({...image, src: mediaSource(courseId, image.mediaId, mode)}))}/>];
     if (block.type === "text") return renderLegacy(courseId, parseCourseMarkdownSafe(block.markdown), quizzes, quizProgress, activities, activityProgress, mode, key);
     if (block.type === "media") return block.mediaId ? [renderMedia(courseId, block, mode, key)] : [];
     if (block.type === "quiz") return [renderQuiz(courseId, block, quizzes, quizProgress, key)];
