@@ -595,3 +595,7 @@ application mutation, database migration or deployment occurred. Discord channel
 permissions and live workflow integration remain release verification tasks.
 
 final result: passed
+
+## Careers theme and login release — October 8, 2026
+
+The Careers routes reuse LearningFrame and the shared dashboard palette. The ATCMH Careers label, appearance controls, account controls and flush full-width image were verified on the deployed desktop and phone page. The signed-in action now says Apply now, and server login return validation preserves Careers destinations. Authenticated staff list and default cooldown reads passed. Production builds/TypeScript and targeted lint passed; no tests were added or run. See design-evidence/mentor-applications-redesign/deployment.md for deployment evidence and exact verification limits.
