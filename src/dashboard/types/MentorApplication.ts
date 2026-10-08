@@ -15,6 +15,7 @@ export interface MentorApplicationContext {
     ifcUsername: string;
     discord: string;
     ifatcRank: string;
+    superAdminBypassActive: boolean;
 }
 
 export interface MentorApplicationSubmission {
