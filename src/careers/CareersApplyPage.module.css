@@ -15,6 +15,8 @@
 .primaryButton:disabled { opacity: .65; cursor: wait; }
 .secondaryButton { border: 1px solid var(--dashboard-border); background: var(--dashboard-surface); color: var(--dashboard-ink); }
 .form { display: grid; gap: 1.4rem; }
+.bypassNotice { padding: 1rem 1.1rem; border: 2px solid var(--dashboard-warning-text, #9a6700); border-radius: .85rem; background: var(--dashboard-warning-bg, #fff7df); color: var(--dashboard-warning-text, #805b16); }
+.bypassNotice strong { display: block; font-size: .85rem; font-weight: 750; }
 .accountCard { display: grid; gap: 1.1rem; padding: clamp(1.2rem, 3vw, 1.6rem); border: 1px solid var(--dashboard-border); border-radius: .85rem; background: var(--dashboard-surface); box-shadow: 0 8px 24px rgba(27, 48, 77, .06); }
 .accountCard h2 { margin: 0; color: var(--dashboard-ink); font-size: 1.25rem; }
 .accountCard dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin: 0; }

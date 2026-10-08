@@ -109,6 +109,9 @@ export default function CareersApplyPage() {
                                     <Link className={styles.secondaryButton} href="/careers">Back to Careers</Link>
                                 </section>
                                     : <form className={styles.form} onSubmit={submit}>
+                                        {context.superAdminBypassActive === true && <aside className={styles.bypassNotice} role="status" aria-label="Superadmin eligibility override active">
+                                            <strong>Superadmin override active</strong>
+                                        </aside>}
                                         <section className={styles.accountCard} aria-labelledby="account-heading">
                                             <div><p className={styles.eyebrow}>Signed-in account</p><h2 id="account-heading">Your details</h2></div>
                                             <dl>
