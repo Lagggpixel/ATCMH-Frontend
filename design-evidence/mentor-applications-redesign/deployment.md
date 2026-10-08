@@ -60,3 +60,21 @@ Committed and pushed as `6fe26f5`, built locally with `npm run docker:push` for 
 - An isolated anonymous browser confirmed the live heading, ATCMH Careers branding, Dark mode canvas `#111111` and no page errors. No production application or settings writes were performed. No tests were added or run.
 
 Encrypted stack/Compose snapshots, publication log, guarded helpers and verification receipts are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-careers-heading/private`. Do not reuse published frontend version 1.8.23. The existing `tsconfig.tsbuildinfo` change remains excluded from commits.
+
+## Superadmin mentor override — backend 3.8.23 / frontend 1.8.24
+
+Backend `20c5173` and frontend `797d0e2` were committed, pushed, built locally for `linux/amd64` with the standard Gradle/npm publication commands, and deployed to verified Portainer stack 30 / endpoint 3 with a fresh pull. Only the two image references changed; all 26 environment entries and the remaining Compose configuration were preserved. Required live tables and audit details storage were verified; no migration was needed.
+
+- Backend digest: `sha256:494ca26b24b08415f7f736657315fd3683701ce5e8433402a84cca3e999a673e`.
+- Backend platform image ID: `sha256:dcc4766ac03b9f7b9fb0d0987a5658dcc4f9f7cd692b182bd1864c4a644c8c20`.
+- Backend JAR SHA256: `8827ab336397477f0357b87ef38a2a6c8d75412d687732dea40bf9748badc71a`.
+- Frontend digest: `sha256:dcad516fe6fdcf0a789141650eaaa5bc70398727f16d4a26844288df3b1e609c`.
+- Frontend platform image ID: `sha256:9c847806a6982f0827b4045f499155c3b70103269f66e4db2d71ab4205042989`.
+
+The existing trusted superadmin identity can bypass IFATC, moderator/administrator and existing-mentor role exclusions. Linked accounts, live profile/guild verification, impersonation/CSRF restrictions, duplicate attempts and cooldown checks still apply. The context exposes a server-derived `superAdminBypassActive` flag, and the form shows **Superadmin override active**. Submission rechecks eligibility. The submission audit records the flag, and a separate `mentor_application.eligibility.bypassed` event commits atomically with an overridden application. No schema addition is required.
+
+Verification passed: backend compilation, frontend production build/TypeScript and targeted lint; both live image IDs/digests and backend JAR hash; frontend version 1.8.24; healthy frontend, both containers running with zero restarts; Discord startup ready with zero ERROR markers; affected routes and public questions 200; anonymous eligibility context 401. Initial readiness checking occurred before Discord finished loading; the subsequent check passed without another deployment.
+
+The real signed-in superadmin browser changed from **Unable to apply** to the application form and showed the override notice in Dark mode, with no browser errors. No application was submitted and no notification, decision or cooldown was changed for verification. Earlier fictional desktop/phone previews showed the notice only for the server-authorized fixture and no phone overflow. No tests were added or run.
+
+Encrypted stack/Compose snapshots, build logs, guarded helper and verification receipts are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-mentor-superadmin/private`. Do not reuse published versions 3.8.23 or 1.8.24. Backend is clean; the frontend's pre-existing generated `tsconfig.tsbuildinfo` change remains excluded from commits.
