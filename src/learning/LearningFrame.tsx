@@ -8,7 +8,7 @@ import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
 import {AuthNavigation} from "@/src/marketing/SiteHeader";
 import styles from "./LearningFrame.module.css";
 
-export default function LearningFrame({product, children}: {product: "Courses" | "Pilot Guide"; children: ReactNode}) {
+export default function LearningFrame({product, children}: {product: "Courses" | "Pilot Guide" | "Careers"; children: ReactNode}) {
     return <DashboardThemeProvider><div className={styles.frame} data-learning-product={product}>
         <a className={styles.skipLink} href="#learning-content">Skip to content</a>
         <header className={styles.header}>

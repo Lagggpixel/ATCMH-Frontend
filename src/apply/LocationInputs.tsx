@@ -14,15 +14,16 @@ import styles from "./ApplicationPage.module.css";
 interface LocationInputProps {
     id: string;
     value: string;
+    required?: boolean;
     describedBy?: string;
     invalid: boolean;
     onChange: (value: string) => void;
 }
 
-export function RegionInput({id, value, describedBy, invalid, onChange}: LocationInputProps) {
+export function RegionInput({id, value, required = false, describedBy, invalid, onChange}: LocationInputProps) {
     const selected = normalizeRegionAnswer(value) ?? value;
     const savedCustomAnswer = selected && !applicationRegions.some(region => region === selected);
-    return <select id={id} value={selected} aria-labelledby={`${id}-label`} aria-describedby={describedBy} aria-required="true" aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
+    return <select id={id} value={selected} required={required} aria-labelledby={`${id}-label`} aria-describedby={describedBy} aria-required="true" aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
         <option value="">Choose your region</option>
         {savedCustomAnswer ? <option value={selected}>Saved answer: {selected} — choose a region below</option> : null}
         {applicationRegions.map(region => <option key={region} value={region}>{region}</option>)}
@@ -44,7 +45,7 @@ function browserOffsetMinutes() {
 
 const serverOffsetMinutes = () => null;
 
-export function TimezoneInput({id, value, describedBy, invalid, onChange}: LocationInputProps) {
+export function TimezoneInput({id, value, required = false, describedBy, invalid, onChange}: LocationInputProps) {
     const detectedOffset = useSyncExternalStore(subscribeToBrowserTimezone, browserOffsetMinutes, serverOffsetMinutes);
     const detectedValue = detectedOffset === null ? null : formatUtcOffset(detectedOffset);
     const [clockMode, setClockMode] = useState(false);
@@ -80,7 +81,7 @@ export function TimezoneInput({id, value, describedBy, invalid, onChange}: Locat
     };
 
     return <div className={styles.timezoneInput}>
-        <select id={id} value={selected} aria-labelledby={`${id}-label`} aria-describedby={describedBy} aria-required="true" aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
+        <select id={id} value={selected} required={required} aria-labelledby={`${id}-label`} aria-describedby={describedBy} aria-required="true" aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
             <option value="">Choose your UTC offset</option>
             {savedCustomAnswer ? <option value={selected}>{normalizeTimezoneAnswer(selected) ? selected : `Saved answer: ${selected} — choose an offset below`}</option> : null}
             {commonTimezoneOffsets.map(offset => <option key={offset} value={offset}>{offset}</option>)}

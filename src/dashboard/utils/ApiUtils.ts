@@ -30,6 +30,15 @@ import type {
     DiscordRestartResult,
     WebsiteApplicationState,
 } from "../types/ApplicationQuestion.ts";
+import type {
+    MentorApplicationContext,
+    MentorApplicationDetail,
+    MentorApplicationReceipt,
+    MentorApplicationSubmission,
+    MentorApplicationSummary,
+    MentorApplicationPolicy,
+    MentorAccountSettings,
+} from "../types/MentorApplication.ts";
 
 let dashboardApiUrl = "https://dashboard-api.atcmh.org";
 let consentApiUrl = dashboardApiUrl;
@@ -103,6 +112,76 @@ export class ApiUtils {
         });
         await ApiUtils.ensureOk(response);
         return await ApiUtils.parseJson<ApplicationQuestion[]>(response) ?? [];
+    }
+
+    static async getMentorApplicationContext(): Promise<MentorApplicationContext> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/mentor-applications/context`, null);
+        await ApiUtils.ensureMentorResponse(response);
+        return await ApiUtils.parseJson<MentorApplicationContext>(response) as MentorApplicationContext;
+    }
+
+    static async submitMentorApplication(
+        csrfToken: string,
+        submission: MentorApplicationSubmission,
+    ): Promise<MentorApplicationReceipt> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/mentor-applications`, csrfToken, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(submission),
+        });
+        await ApiUtils.ensureMentorResponse(response);
+        return await ApiUtils.parseJson<MentorApplicationReceipt>(response) as MentorApplicationReceipt;
+    }
+
+    static async getMentorApplications(token: string): Promise<MentorApplicationSummary[]> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/mentor-applications`, token);
+        await ApiUtils.ensureMentorResponse(response);
+        return await ApiUtils.parseJson<MentorApplicationSummary[]>(response) ?? [];
+    }
+
+    static async getMyMentorApplications(): Promise<MentorApplicationDetail[]> {
+        return ApiUtils.mentorRequest<MentorApplicationDetail[]>("/mentor-applications/mine", null);
+    }
+
+    static async getMentorApplicationPolicy(token: string): Promise<MentorApplicationPolicy> {
+        return ApiUtils.mentorRequest<MentorApplicationPolicy>("/admin/mentor-applications/policy", token);
+    }
+    static async getMentorAccountSettings(token: string, accountId: string): Promise<MentorAccountSettings> {
+        return ApiUtils.mentorRequest(`/admin/accounts/${encodeURIComponent(accountId)}/mentor-application`, token);
+    }
+    static async updateMentorAccountSettings(token: string, accountId: string, settings: MentorAccountSettings,
+        waitMonths: number | null, reapplyAt: string | null): Promise<MentorAccountSettings> {
+        return ApiUtils.mentorRequest(`/admin/accounts/${encodeURIComponent(accountId)}/mentor-application`, token, "PUT", {
+            waitMonths, reapplyAt, policyRevision:settings.policy.revision,
+            applicationId:settings.latestApplication?.id ?? null, revision:settings.latestApplication?.revision ?? null,
+        });
+    }
+
+    static async decideMentorApplication(token: string, id: number, status: "APPROVED" | "DENIED", reason: string, revision: number): Promise<MentorApplicationDetail> {
+        return ApiUtils.mentorRequest<MentorApplicationDetail>(`/admin/mentor-applications/${id}/decision`, token, "POST", {status, reason, revision});
+    }
+
+    static async updateMentorApplicationPolicy(token: string, policy: MentorApplicationPolicy, applyToAllDenied: boolean): Promise<MentorApplicationPolicy> {
+        return ApiUtils.mentorRequest<MentorApplicationPolicy>("/admin/mentor-applications/policy", token, "PUT", {...policy, applyToAllDenied});
+    }
+
+    static async updateMentorApplicantWait(token: string, id: number, revision: number, waitMonths: number | null, reapplyAt: string | null): Promise<unknown> {
+        return ApiUtils.mentorRequest(`/admin/mentor-applications/${id}/reapplication`, token, "PUT", {revision, waitMonths, reapplyAt});
+    }
+
+    private static async mentorRequest<T>(path: string, token: string | null, method = "GET", body?: unknown): Promise<T> {
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}${path}`, token, {
+            method, ...(body === undefined ? {} : {headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)}),
+        });
+        await ApiUtils.ensureMentorResponse(response);
+        return await ApiUtils.parseJson<T>(response) as T;
+    }
+
+    static async getMentorApplication(token: string, id: number): Promise<MentorApplicationDetail> {
+        const response = await ApiUtils.fetchWithAuth(
+            `${dashboardApiUrl}/admin/mentor-applications/${encodeURIComponent(id)}`, token);
+        await ApiUtils.ensureMentorResponse(response);
+        return await ApiUtils.parseJson<MentorApplicationDetail>(response) as MentorApplicationDetail;
     }
 
     static async getCurrentApplication(applicationType: ApplicationType): Promise<WebsiteApplicationState> {
@@ -648,6 +727,16 @@ export class ApiUtils {
 
         const details = await ApiUtils.readErrorDetails(response);
         throw new Error(`${response.url} failed with ${response.status} ${response.statusText}${details}`);
+    }
+
+    private static async ensureMentorResponse(response: Response) {
+        if (response.ok) return;
+        let message = "The request could not be completed.";
+        try {
+            const body = await response.json() as {error?: unknown};
+            if (typeof body.error === "string" && body.error.trim()) message = body.error;
+        } catch { /* Keep the user-facing fallback when the response is not JSON. */ }
+        throw new Error(message);
     }
 
     private static async parseJson<T>(response: Response): Promise<T | undefined> {

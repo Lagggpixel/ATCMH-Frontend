@@ -1,0 +1,23 @@
+.page { --mentor-denied:var(--dashboard-danger-text, #a83232); --mentor-success:var(--dashboard-success-text, #237848); max-width:1000px; margin:0 auto; padding:3.5rem 1.5rem 5rem; color:var(--text-color,#102348); }
+.header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.7rem; }
+.eyebrow { margin:0 0 .4rem; color:var(--muted-text,#59677e); font-size:.85rem; }
+.page h1 { margin:0; font-size:2.4rem; letter-spacing:-.035em; line-height:1.2; }
+.header a,.returnLink a { color:var(--dashboard-link); font-size:.95rem; text-underline-offset:4px; }
+.state { padding:2.2rem 2.5rem; background:var(--surface-color,#fff); border:1px solid var(--border-color,#dce3eb); border-radius:10px; }
+.stateHeading { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.stateIcon { display:grid; place-items:center; width:52px; height:52px; border-radius:10px; color:var(--dashboard-link); background:var(--dashboard-selected); }
+.stateIcon[data-status="DENIED"] { color:var(--dashboard-danger-text, #a83232); background:var(--dashboard-danger-bg, #fdf0f0); }.stateIcon[data-status="MENTOR"] { color:var(--dashboard-success-text, #237848); background:var(--dashboard-success-bg, #edf8f0); }
+.state h2 { margin:1.2rem 0 .7rem; font-size:1.75rem; letter-spacing:-.02em; }
+.message { max-width:690px; color:var(--muted-text,#59677e); line-height:1.65; font-size:1.05rem; margin:0; }
+.metadata { display:flex; flex-wrap:wrap; gap:1.4rem 2.6rem; border-top:1px solid var(--border-color,#dce3eb); padding-top:1.2rem; margin:1.5rem 0 0; }
+.metadata dt { color:var(--muted-text,#59677e); font-size:.86rem; margin-bottom:.25rem; }.metadata dd { margin:0; font-size:1rem; overflow-wrap:anywhere; }
+.reason { border-top:1px solid var(--border-color,#dce3eb); padding-top:1.3rem; margin-top:1.5rem; }.reason h3 { font-size:1rem; margin:0 0 .5rem; }.reason p { white-space:pre-wrap; line-height:1.65; color:var(--muted-text,#59677e); margin:0; }
+.primary { display:inline-flex; align-items:center; gap:.65rem; justify-content:center; min-height:44px; background:var(--dashboard-button); color:#fff; padding:.6rem 1.1rem; border:1px solid var(--dashboard-button); border-radius:6px; text-decoration:none; font:inherit; font-weight:600; cursor:pointer; margin-top:1.5rem; }
+.primary:hover { background:var(--dashboard-button-hover); }.primary:focus-visible,.attempt summary:focus-visible { outline:2px solid var(--dashboard-button); outline-offset:4px; }
+.attempts { margin-top:2.5rem; }.attempts > header { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.9rem; }.attempts h2 { font-size:1.3rem; margin:0; }.attempts > header > span { color:var(--muted-text,#59677e); font-size:.9rem; }
+.attempt { background:var(--surface-color,#fff); border:1px solid var(--border-color,#dce3eb); border-radius:8px; margin-bottom:.7rem; }.attempt summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.15rem 1.4rem; cursor:pointer; list-style:none; }.attempt summary::-webkit-details-marker { display:none; }.attempt summary > span:first-child { display:grid; gap:.25rem; }.attempt summary strong { font-size:1rem; }.attempt summary small { color:var(--muted-text,#59677e); font-size:.86rem; }
+.attemptBody { padding:0 1.4rem 1.4rem; border-top:1px solid var(--border-color,#dce3eb); }.attemptBody .metadata { margin:0; border-top:0; }.decisionDate { font-size:.9rem; color:var(--muted-text,#59677e); margin-top:1.3rem; }
+.attemptActions { display:flex; align-items:center; gap:.7rem; }.chevron { color:var(--muted-text,#59677e); }.attempt[open] .chevron { transform:rotate(180deg); }
+.attemptBody > div { margin-top:1.4rem; }
+.returnLink { max-width:1000px; margin:0 auto; padding:.8rem 1.5rem; text-align:right; }.returnLink a { display:inline-flex; gap:.4rem; align-items:center; }
+@media(max-width:600px) { .page { padding:2rem 1rem 3rem; }.header { flex-wrap:wrap; }.page h1 { font-size:1.9rem; }.state { padding:1.4rem; }.state h2 { font-size:1.45rem; }.metadata { gap:1.2rem; }.metadata > div { flex:1 1 40%; }.attempt summary { padding:1rem; }.attemptBody { padding:0 1rem 1rem; } }
