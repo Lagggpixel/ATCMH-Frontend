@@ -48,3 +48,15 @@ Committed and pushed as `a3abe77`, built locally with `npm run docker:push`, and
 - Production build/TypeScript and targeted ESLint passed. No tests were added or run. Screenshots are `careers-theme/live-signed-in-careers.png`, `live-dark-phone.png` and `live-staff-list.png`.
 
 Private encrypted stack/Compose snapshots, build log, guarded deployment helpers and verification receipts are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-careers-auth/private`. Do not reuse published versions 3.8.22, 1.8.21 or 1.8.22, or rerun one-release helpers blindly. The pre-existing generated `tsconfig.tsbuildinfo` modification is preserved and excluded from commits.
+
+## Careers heading — frontend 1.8.23
+
+Committed and pushed as `6fe26f5`, built locally with `npm run docker:push` for `linux/amd64`, and deployed through verified Portainer stack 30 / endpoint 3 with a fresh pull. The role heading now reads **Mentor Applications**. Application status pages already use the shared Courses/Careers appearance provider; the requested pending, next-stage and denied Dark mode previews required no theme code change.
+
+- Frontend digest: `sha256:cfbafd281368449f1891e23497283ed0e9a7b3db0188134fe462b3f257715a8c`.
+- Frontend platform image ID: `sha256:c5765078c68dc8bc08d498ca57f2bc242b64fe2ea8f9f5f968ae4cb6daac11ac`.
+- Only the frontend Compose image reference changed. All 26 environment entries and the remaining configuration were preserved. Backend remains 3.8.22 with its previously verified image and JAR hash.
+- Production build and TypeScript passed. Live version reports 1.8.23; both containers run with zero restarts, frontend health is healthy, backend Discord startup is ready and startup ERROR markers are zero. Published image/digest checks and relevant route/health checks passed.
+- An isolated anonymous browser confirmed the live heading, ATCMH Careers branding, Dark mode canvas `#111111` and no page errors. No production application or settings writes were performed. No tests were added or run.
+
+Encrypted stack/Compose snapshots, publication log, guarded helpers and verification receipts are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-careers-heading/private`. Do not reuse published frontend version 1.8.23. The existing `tsconfig.tsbuildinfo` change remains excluded from commits.
