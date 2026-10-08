@@ -21,7 +21,7 @@ export default function CareersPage({showExpectations = false}: {showExpectation
             <header className={styles.imageFrame}>
                 <Image src="/assets/mentor-applications-airport.png" alt="" fill priority sizes="100vw"/>
                 <div className={styles.intro}>
-                    <h1>Mentor applications</h1>
+                    <h1>Mentor Applications</h1>
                     <p>Mentor applications are currently open! If you have a passion for helping others succeed and believe you would be a good candidate for the position, you are welcome to apply.</p>
                     <span className={styles.rule} aria-hidden="true"/>
                 </div>
