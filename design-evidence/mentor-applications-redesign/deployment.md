@@ -78,3 +78,11 @@ Verification passed: backend compilation, frontend production build/TypeScript a
 The real signed-in superadmin browser changed from **Unable to apply** to the application form and showed the override notice in Dark mode, with no browser errors. No application was submitted and no notification, decision or cooldown was changed for verification. Earlier fictional desktop/phone previews showed the notice only for the server-authorized fixture and no phone overflow. No tests were added or run.
 
 Encrypted stack/Compose snapshots, build logs, guarded helper and verification receipts are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-mentor-superadmin/private`. Do not reuse published versions 3.8.23 or 1.8.24. Backend is clean; the frontend's pre-existing generated `tsconfig.tsbuildinfo` change remains excluded from commits.
+
+## Mentor submission IFC identity width repair — October 8, 2026
+
+Real submission attempts exposed an original schema error: `atcmh_mentor_applications.ifc_user_id` allowed 32 characters, but the linked IFC identifiers are 36-character UUIDs. All 224 active linked IFC identities were 36 characters, including the affected superadmin account. Strict MariaDB storage rejected the insert and the transaction rolled back, leaving zero applications. The route's generic storage error did not expose the underlying database detail.
+
+After verifying stack 30, endpoint 3, the separate `/mariadb` container and application database/prefix, backed up the complete affected table with Windows DPAPI and verified the backup in memory. Applied `Backend/sql/2026-10-08-mentor-ifc-identity-width.sql`, widening the non-null column to `VARCHAR(191)` to match central account identity and profile-cache subjects. The original table-creation migration now also uses 191 for future installations.
+
+Live verification confirmed width 191, NOT NULL, unchanged zero application rows and no active linked IFC identity exceeding the new limit. Backend 3.8.23, frontend 1.8.24 and Compose configuration remain unchanged; no image publication, recreation or restart was needed. No application was submitted on the user's behalf and no tests were added or run. Private encrypted backup, guarded repair helper and receipt are under `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-mentor-ifc-width/private`.
