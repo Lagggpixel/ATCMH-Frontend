@@ -27,6 +27,7 @@
 .applyCopy p { margin: .2rem 0 0; color: var(--dashboard-muted); font-size: .92rem; line-height: 1.45; }
 .primaryButton { display: inline-flex; min-height: 2.8rem; align-items: center; justify-content: center; gap: .5rem; padding: .7rem 1.05rem; border: 1px solid var(--dashboard-button); border-radius: .55rem; background: var(--dashboard-button); color: #fff; font-weight: 750; white-space: nowrap; text-decoration: none; transition: background .16s ease, transform .16s ease; }
 .primaryButton:hover { transform: translateY(-1px); background: var(--dashboard-button-hover); }
+.primaryButton:disabled { opacity: .65; cursor: wait; transform: none; }
 .primaryButton:focus-visible { outline: 3px solid var(--dashboard-focus); outline-offset: 3px; }
 @media (max-width: 680px) {
     .intro { padding: 2.7rem 0; }
