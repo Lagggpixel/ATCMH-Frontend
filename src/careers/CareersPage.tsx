@@ -1,8 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
-import {ArrowRightIcon} from "@phosphor-icons/react/dist/ssr/ArrowRight";
-import {LockKeyIcon} from "@phosphor-icons/react/dist/ssr/LockKey";
 import CareersFrame from "./CareersFrame";
+import CareersApplyAction from "./CareersApplyAction";
 import CareersApplicationGate from "./CareersApplicationStatus";
 import styles from "./CareersPage.module.css";
 
@@ -57,14 +55,7 @@ export default function CareersPage({showExpectations = false}: {showExpectation
                     </li>
                 </ol>
 
-                <div className={styles.applyCard}>
-                    <span className={styles.lock}><LockKeyIcon size={21} weight="bold" aria-hidden="true"/></span>
-                    <div className={styles.applyCopy}>
-                        <h2>Apply to become a mentor</h2>
-                        <p>Sign in to access the mentor application form.</p>
-                    </div>
-                    <Link className={styles.primaryButton} href="/careers/apply">Sign in to apply <ArrowRightIcon size={18} weight="bold" aria-hidden="true"/></Link>
-                </div>
+                <CareersApplyAction/>
             </section>
         </main>
         </CareersApplicationGate>
