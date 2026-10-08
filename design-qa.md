@@ -392,3 +392,206 @@ Container health, versions/digests/JAR, backend startup and signed-in desktop/
 phone checks passed. Details: [mock banks deployment](design-evidence/mock-question-banks/deployment.md).
 
 final result: passed
+
+## 2026-10-08: Careers hero and navigation update
+
+Scope: the existing Careers page and shared marketing navigation. The separate
+mentor-applications administration redesign and example application pictures
+remain pending a fresh Discord sign-in; they are not covered by this pass.
+
+The user's selected airport image now underlays the title and existing intro.
+Careers was removed from the shared desktop/phone header and added to the footer.
+The existing page copy, numbered sections and application access behavior remain.
+
+Source: the live https://www.atcmh.org/careers page before this local update.
+Implementation: http://127.0.0.1:3000/careers. Source and implementation screenshots
+were opened together in the same comparison input, with logged-out light theme
+and the phone menu closed. The final desktop reference was recaptured after its
+responsive image finished loading.
+
+Evidence under `design-evidence/mentor-applications-redesign/`:
+
+- Desktop exact viewport pair: `careers-reference-desktop-viewport.jpg` and
+  `careers-desktop-viewport.jpg`, both 1280 x 720 at density 1.
+- Phone exact viewport pair: `careers-reference-mobile-viewport.jpg` and
+  `careers-mobile-viewport.jpg`, both 390 x 844 at density 1.
+- Full-page desktop pair: `careers-reference-desktop.jpg` (1264 x 1793) and
+  `careers-desktop.jpg` (1264 x 1602).
+- Full-page phone pair: `careers-reference-mobile.jpg` (374 x 2027) and
+  `careers-mobile.jpg` (374 x 2076).
+
+The browser full-page capture crops its scrollbar gutter; exact viewport clips
+were also used to judge header and hero geometry. Layout, typography, title and
+intro contrast, crop quality, spacing, original copy, sections and footer were
+reviewed. The combined hero and relocated Careers link are intentional user
+changes. Header and hero text are legible at viewport size, and the footer link
+is legible in the full-page evidence, so no further focused crops were needed.
+There are no unresolved P0/P1/P2 findings in this scope. The local Next developer
+indicator is preview tooling and is not part of the production page.
+
+Interaction checks: the phone menu opens/closes and omits Careers; the footer
+links to `/careers`; the application sign-in action is retained. At 390 px the
+document and body widths are 375 px with no horizontal overflow. A fresh phone
+preview reported no browser console errors. No real application was submitted.
+
+Targeted ESLint passed with zero errors and two existing image-element warnings.
+TypeScript passed against active source using an ignored temporary config that
+excludes archived release snapshots under `build/`. No tests were added or run.
+Changes are local; no image publication or deployment was performed.
+
+final result: passed
+
+### 2026-10-08 follow-up: full-width Careers image
+
+Applied the user's requested geometry correction: the image spans the full
+available width, has square edges, and begins directly beneath the header on
+desktop and phone. Removed the main top padding and phone override; the image
+`sizes` hint is now `100vw`.
+
+Actual browser screenshots: `design-evidence/mentor-applications-redesign/careers-full-width-desktop.jpg`
+(1280 x 720) and `careers-full-width-mobile.jpg` (390 x 844). Both were opened
+for visual review. In both views the hero x position is 0 and its top equals the
+header bottom, 76.25 px. Hero width matches available document width within
+subpixel rounding (1264.67 / 1265 px desktop; 374.67 / 375 px phone). Document
+scroll width equals client width; no horizontal overflow. The title remains
+readable over the image. No tests were added or run for this styling correction.
+Changes remain local and have not been deployed. Administration scope remains
+pending the previously recorded sign-in requirement.
+
+final result: passed
+
+### Deployment follow-through: Careers frontend 1.8.20
+
+Published locally for linux/amd64 and deployed through Portainer to stack 30,
+endpoint 3, with a fresh pull. All 26 environment entries and all Compose content
+except the frontend image reference were preserved. Backend stays at 3.8.21;
+its image and JAR hashes match the preceding release. Both containers run with
+zero restarts, frontend health is healthy, Discord is ready and startup logs have
+zero ERROR markers. Live version is 1.8.20; health and affected routes return 200.
+
+Live desktop and phone screenshots: `design-evidence/mentor-applications-redesign/careers-live-desktop.jpg`
+and `careers-live-mobile.jpg`. The live hero has x=0, spans the document width and
+starts at the header bottom (76.25 px), with no horizontal overflow at 1280px and
+390px. Header has no Careers link; the footer retains it. The browser console
+reported no errors. The desktop capture was saved after the responsive image
+finished rendering. Production Docker build and TypeScript passed. No new tests,
+database changes or application submissions were performed. Administration
+redesign and example mockups remain outside this release scope.
+
+Private release receipts: `C:/Users/Reid/Documents/Codex/2026-10-08/atcmh-careers-hero/private`.
+
+final result: passed
+
+## 2026-10-08: Mentor application decisions and selected administration design
+
+Scope: selected Product Design direction 3, revised to distinguish approval for
+the next selection stage from confirmation of the Discord Mentor role. This
+pass implements the application reader, decisions, reapplication settings,
+applicant status and attempt history. It does not deploy these changes.
+
+Reference: `C:/Users/Reid/.codex/generated_images/01a118f5-db02-7231-8bc8-905d6a861885/exec-2e4d39da-ee0b-4447-907f-bd311d97b0ac.png`
+(1487 x 1058). The existing signed-in ATCMH administration page supplied the
+brand, Source Sans Pro typography, navigation, palette and control conventions.
+Implementation prototype: http://127.0.0.1:4320/ using the actual components and
+fictional applications in an ignored local fixture. Production authorization is
+unchanged by that fixture.
+
+Evidence is in `design-evidence/mentor-applications-redesign/decisions/`.
+The reference and `admin-reader-desktop.jpg` were opened together in one image
+comparison input after the final layout changes. CSS viewport was 1487 x 1058;
+the browser's density-normalized JPEG is 1472 x 1047. Comparison accounted for
+this uniform scale rather than treating it as a layout mismatch. Phone CSS
+viewport was 390 x 844, with final viewport JPEGs 375 x 812. Full-page captures
+can reposition the sticky header, so final history evidence uses a scrolled
+viewport rather than the misleading full-page capture.
+
+Initial findings and repairs:
+
+- P1: the first reader used two enclosed cards and a narrow maximum width.
+  Removed those containers and used the reference's open, full-width reader,
+  approximately 28.8% metadata column, single vertical divider and ruled rows.
+- P2: answer typography and management controls were too small. Increased
+  body/headings, restored Source Sans Pro and matched the reference hierarchy.
+- P2: phone application header links ran together; changed to a wrapping flex
+  row with a gap. Added chevrons to applicant history disclosures, space between
+  attempt metadata and answers, and legible timezone helper colors on light.
+
+Final comparison: navigation, column proportions, text hierarchy, spacing,
+dividers, status colors, original question wording and controls match the
+selected direction. The reference's fictional disclaimer is fixture-only and
+is not production copy. Answer length and initials differ because they are
+example content. Empty reasons disable decisions, and confirmation explicitly
+states approval only advances selection; these are intentional behavior changes.
+The reference and final screenshots were legible at the reviewed sizes, so
+additional focused crops were unnecessary. No new image asset was needed.
+
+Phone layout stacks identity and answers, keeps two-column identity fields and
+full-width decision actions. No horizontal document overflow was observed;
+the latest desktop observation had clientWidth=scrollWidth=1487. Dark staff and
+light applicant views, pending/next-stage/denied/mentor statuses, history,
+decision confirmation and global/individual wait dialogs were inspected with
+fictional data. Browser console error observations were empty. These inspections
+do not exercise the live database or real decisions.
+
+Backend compileJava, frontend production build with TypeScript, targeted ESLint
+and git diff --check passed. Archived release snapshots under build are now
+excluded from the frontend TypeScript project. No tests were added or run.
+No production application, Discord role, database or deployment was changed.
+The new SQL migration requires a private backup and application before starting
+the updated backend. Production integration remains to be verified at release.
+
+No unresolved P0/P1/P2 visual findings remain in this local scope.
+
+final result: passed
+
+## 2026-10-08 follow-up: Attendance, list spacing and Accounts cooldown
+
+Applied the user's scoped changes to the selected design: removed the exact
+mentor-appointment sentence; added all-time and last-30-day attendance to the
+staff reader; added top padding to the staff list; added cooldown visibility and
+editing to Accounts Overview. Brand assets, Source Sans Pro, navigation,
+palette, answer layout and existing selection semantics remain consistent.
+
+Reference: the preceding approved reader/list implementation screenshots in
+`design-evidence/mentor-applications-redesign/decisions/`. The earlier reader
+and current `follow-up/staff-application.jpg` were opened together in one image
+comparison input. The preceding list and `follow-up/staff-list.jpg` were also
+opened together. Both used the same dark theme, fictional applicants and closed
+controls. Desktop CSS viewport was 1487 x 1058; normalized viewport JPEGs are
+1472 x 1047. The full current reader is 1472 x 1242 and was inspected separately
+to include the extended metadata column. Added attendance and list top spacing
+are intentional differences requested by the user.
+
+Final screenshots are under `design-evidence/mentor-applications-redesign/follow-up/`:
+
+- `staff-list.jpg`: padded desktop list.
+- `staff-application-full.jpg`: individual review including attendance and wait.
+- `applicant-next-stage.jpg`: revised applicant copy.
+- `accounts-cooldown.jpg`: saved individual cooldown and exact UTC deadline.
+- `accounts-cooldown-editor.jpg`: the shared wait/date editor in Accounts.
+- `staff-list-phone.jpg` and `staff-application-phone.jpg`: responsive views.
+
+The reader preserves its open two-column layout and ruled responses; attendance
+uses a compact pair of labeled values within the metadata column. Phone identity
+and attendance remain two columns before the stacked answers. At CSS 390 x 844,
+the final phone JPEGs are 375 x 812; observed clientWidth=scrollWidth=375 and
+scrollY=0 on the final reader capture. No horizontal overflow. Accounts uses its
+existing panel and the established accessible native dialog. Labels, dates,
+status colors, focus, fonts and button spacing were visually inspected. All
+reviewed content was legible, so no extra focused crops were required.
+
+With fictional fixture data, editing the account override from default three
+months to two updated the displayed deadline from 8 January 2027 to 8 December 2026.
+The application link opened application #3 directly. The applicant next-stage
+page shows the revised copy. No browser console errors were reported. There
+were no new P0/P1/P2 visual findings requiring another layout iteration.
+
+Frontend production build/TypeScript and backend offline compileJava passed.
+Targeted ESLint reported zero errors and one pre-existing AdminAccounts internal
+navigation warning. Initial restricted Gradle/cache and Java resource-access
+attempts failed; compilation succeeded through the normal local Gradle cache
+after build access approval. No tests were added or run. No real notification,
+application mutation, database migration or deployment occurred. Discord channel
+permissions and live workflow integration remain release verification tasks.
+
+final result: passed

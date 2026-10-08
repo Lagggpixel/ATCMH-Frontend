@@ -727,6 +727,10 @@ img {
 	color-scheme: light;
 }
 
+:scope.unified-product.theme-light .site-footer {
+	background: #fbfaf7;
+}
+
 .site-header.is-light {
 	border-bottom-color: #e0e6ed;
 	background: rgba(255, 255, 255, 0.97);
