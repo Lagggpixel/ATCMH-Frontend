@@ -1049,25 +1049,29 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                 <span aria-hidden="true">/</span>
                 <span>Mentee profile</span>
             </div>
-            <header className={styles.profileHeader}>
-                <div className={styles.profileIdentity}>
-                    <div className={styles.profileTitleRow}>
-                        <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
-                        <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
-                    </div>
-                    <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
-                </div>
-                <div className={styles.profileActionButtons}>
-                    {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
-                    {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}>Pass</button> : null}
-                    {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
-                </div>
-            </header>
+            <MenteeProfileEditor key={selectedMentee.id} mentee={selectedMentee} token={profileToken} onSaved={onProfileChanged} triggerClassName={styles.profileEditButton}>
+                {editProfileButton => <>
+                    <header className={styles.profileHeader}>
+                        <div className={styles.profileIdentity}>
+                            <div className={styles.profileTitleRow}>
+                                <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
+                                <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
+                            </div>
+                            <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
+                        </div>
+                        <div className={styles.profileActionButtons}>
+                            {editProfileButton}
+                            {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
+                            {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}>Pass</button> : null}
+                            {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
+                        </div>
+                    </header>
 
-            <AdminToast message={actionError} onDismiss={onDismissActionError}/>
+                    <AdminToast message={actionError} onDismiss={onDismissActionError}/>
 
-            <MenteeProfileOverview mentee={selectedMentee} getUserName={getUserName}/>
-            <MenteeProfileEditor key={selectedMentee.id} mentee={selectedMentee} token={profileToken} onSaved={onProfileChanged}/>
+                    <MenteeProfileOverview mentee={selectedMentee} getUserName={getUserName}/>
+                </>}
+            </MenteeProfileEditor>
 
             {selectedActionPolicy?.canSchedule ? (
                 <details className={styles.schedulingPanel}>
@@ -1382,7 +1386,7 @@ const SessionSection = ({
                         className={`${styles.sessionsTable} ${editable ? styles.sessionsTableEditable : styles.sessionsTableReadonly}`}>
                         <thead>
                         <tr>
-                            <th>Time</th>
+                            <th scope="col">Time (UTC)</th>
                             <th>Mentor</th>
                             <th>Airport</th>
                             <th>Pilots</th>
@@ -1394,7 +1398,7 @@ const SessionSection = ({
                         <tbody>
                         {sessions.map(session => (
                             <tr key={session.id} className={session.cancelled ? styles.cancelledSession : undefined}>
-                                <td data-label="Time">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
+                                <td data-label="Time (UTC)">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
                                 <td data-label="Mentor">{getUserName(session.mentor)}</td>
                                 <td data-label="Airport">{session.airport || "Not set"}</td>
                                 <td data-label="Pilots">{formatPilotCount(session)}</td>
@@ -1515,7 +1519,7 @@ const AttendedSessionSection = ({
             <div className={styles.profileSignupHeading}>
                 <div className={styles.profileSectionHeading}>
                     <CalendarBlank size={23} aria-hidden="true"/>
-                    <div><h3>{title}</h3><p>Pilot support sign-ups ({sessions.length} total). These records do not independently verify attendance.</p></div>
+                    <h3>{title}</h3>
                 </div>
                 {sessions.length > 4 ? <button type="button" className={styles.profileHistoryToggle} aria-expanded={showAll} aria-controls="mentee-signup-history" onClick={() => setShowAll(value => !value)}>
                     {showAll ? "Show fewer" : `View all ${sessions.length}`}<CaretRight size={15} aria-hidden="true"/>
