@@ -21,16 +21,16 @@ test("mock question navigation follows its dedicated server capability", () => {
 
 test("dashboard navigation keeps mentorship, assessment, and administration grouped without nested assessment labels", () => {
     const groups = adminNavigationGroups(user({canManageMockQuestions: true, canManageApplicationQuestions: true, canManageAccounts: true, canReviewAltAccounts: true, canViewAuditLogs: true}), true);
-    assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Administration"]);
+    assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Applications", "Administration"]);
     assert.deepEqual(groups.map(group => group.items.map(item => item.label)), [
         ["Mentees", "Assignments", "Sessions", "User Notes", "Mentor Manual"],
-        ["Mock Questions", "Application Questions", "Exam Center", "Course Center"],
+        ["Mock Questions", "Exam Center", "Course Center"],
+        ["Application Questions"],
         ["Statistics", "Accounts", "Alternative Evidence", "Audit Logs"],
     ]);
     assert.deepEqual(groups[1].sections.map(section => section.label), [undefined]);
     assert.deepEqual(groups[1].sections[0].items, [
         {path: "/dashboard/mock-questions", label: "Mock Questions"},
-        {path: "/dashboard/application-questions", label: "Application Questions"},
         {path: "/dashboard/exams", label: "Exam Center"},
         {path: "/dashboard/courses", label: "Course Center"},
     ]);
