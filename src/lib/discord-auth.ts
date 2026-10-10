@@ -11,7 +11,7 @@ import {
 import { allowedMutationOrigins } from "./browser-session";
 
 const managementCapabilities = new Set<ManagementCapability>([
-  "manage-exams", "manage-courses", "import-exams", "unlock-learners", "review-attempts",
+  "manage-exams", "manage-courses", "preview-courses", "import-exams", "unlock-learners", "review-attempts",
   "publish-exams", "manage-taxonomy", "manage-system",
 ]);
 

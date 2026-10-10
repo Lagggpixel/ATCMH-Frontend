@@ -39,6 +39,11 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
     ]);
 });
 
+test("mentor Assessment navigation includes the Course Center", () => {
+    const assessment = adminNavigationGroups(user({role: "staff"}), true).find(group => group.label === "Assessment");
+    assert.ok(assessment?.items.some(item => item.path === "/dashboard/courses"));
+});
+
 test("impersonation outcome names the target account", () => assert.equal(impersonationBannerText("42"), "Impersonating account 42"));
 
 test("personal account outcomes distinguish restoration, conflicts, and linked identities", () => {
