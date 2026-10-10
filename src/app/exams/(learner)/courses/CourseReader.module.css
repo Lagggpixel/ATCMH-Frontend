@@ -323,9 +323,9 @@
 }
 
 /* Shared preview and learner reading workspace. */
-.readerShell { min-height: calc(100dvh - 76px); padding: 0; background: var(--course-reading, #fff); }
-.readerWorkspace { display: grid; grid-template-columns: clamp(280px, 25vw, 370px) minmax(0, 1fr); gap: 0; width: 100%; max-width: none; margin: 0; padding: 0; min-height: calc(100dvh - 76px); }
-.desktopOutline { position: sticky; top: 76px; height: calc(100dvh - 76px); max-height: none; align-self: start; display: flex; flex-direction: column; border: 0; border-right: 1px solid var(--dashboard-border); border-radius: 0; background: var(--dashboard-secondary); box-shadow: none; }
+.readerShell { height: calc(100dvh - 72px); min-height: 0; overflow: hidden; padding: 0; background: var(--course-reading, #fff); }
+.readerWorkspace { display: grid; grid-template-columns: clamp(280px, 25vw, 370px) minmax(0, 1fr); gap: 0; width: 100%; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; }
+.desktopOutline { position: sticky; top: 72px; height: 100%; max-height: none; align-self: start; display: flex; flex-direction: column; border: 0; border-right: 1px solid var(--dashboard-border); border-radius: 0; background: var(--dashboard-secondary); box-shadow: none; }
 .outlineCourse { padding: 28px 28px 20px 52px; }
 .courseBack { display: flex; align-items: center; gap: 8px; margin-left: -22px; color: var(--dashboard-ink); text-decoration: none; }
 .courseBack span { overflow-wrap: anywhere; font-size: 1.35rem; font-weight: 750; line-height: 1.25; }
@@ -352,8 +352,8 @@
 .outlineLocked { color: var(--dashboard-muted); opacity: .65; }
 .outlineMark { width: 16px; height: 16px; margin-top: 2px; border: 0; border-radius: 50%; background: var(--dashboard-secondary); color: var(--dashboard-muted); }
 .outlineGroup li :is(a:hover, button:hover, .outlineCurrent) .outlineMark { background: var(--dashboard-selected); color: var(--dashboard-link); }
-.readerMain { width: 100%; max-width: 1240px; min-width: 0; margin: 0 auto; padding: 40px 40px 38px; }
-.readerMain .section { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+.readerMain { width: 100%; max-width: none; min-width: 0; height: 100%; margin: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: 40px 40px 38px; }
+.readerMain .section { width: 100%; max-width: 1160px; min-height: 0; margin: 0 auto; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
 .readerMain .sectionHeader { display: flex; align-items: flex-start; gap: 20px; padding: 0; border: 0; background: transparent; }
 .sectionHeader > div:first-child { min-width: 0; flex: 1; }
 .readerMain .sectionHeader h2 { margin: 0; overflow-wrap: anywhere; font-size: clamp(1.9rem, 2.8vw, 2.65rem); font-weight: 750; line-height: 1.15; letter-spacing: -.02em; }
@@ -432,7 +432,8 @@
   .lessonPosition .progressTrack { width: 80px; }
 }
 @media (max-width: 900px) {
-  .readerWorkspace { display: flex; flex-direction: column; align-items: stretch; }
+  .readerShell { height: auto; min-height: calc(100dvh - 72px); overflow: visible; }
+  .readerWorkspace { display: flex; flex-direction: column; align-items: stretch; height: auto; min-height: calc(100dvh - 72px); }
   .desktopOutline { display: none; }
   .mobileCourseHeading { display: block; width: 100%; background: var(--dashboard-secondary); border-bottom: 1px solid var(--dashboard-border); }
   .mobileCourseHeading .outlineCourse { padding: 20px 28px 15px; }
@@ -440,7 +441,7 @@
   .mobileCourseHeading .outlineProgress { max-width: 380px; }
   .mobileOutlineButton { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: calc(100% - 48px); min-height: 44px; margin: 18px 24px 0; padding: 10px 14px; border: 1px solid var(--dashboard-border); border-radius: 8px; background: var(--dashboard-secondary); color: var(--dashboard-ink); font: inherit; }
   .mobileOutlineButton > span { display: flex; align-items: center; gap: 10px; color: var(--dashboard-muted); }
-  .readerMain { padding: 26px 24px 38px; }
+  .readerMain { height: auto; overflow: visible; padding: 26px 24px 38px; }
   .outlineDialog { position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--dashboard-ink); }
   .outlineDialog::backdrop { background: rgb(0 0 0 / 45%); }
   .outlineDialogPanel { display: flex; flex-direction: column; width: min(100%, 390px); height: 100dvh; margin-left: auto; background: var(--dashboard-secondary); }

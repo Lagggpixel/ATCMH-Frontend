@@ -14,6 +14,7 @@ import CourseCatalog from "./CourseCatalog.tsx";
 import {canAccessCourseCenterView, type CourseCenterView} from "./CourseCenterAccess.ts";
 import CourseDeleteDialog from "./CourseDeleteDialog.tsx";
 import CourseEditor from "./CourseEditor.tsx";
+import CourseLoadingState from "./CourseLoadingState.tsx";
 import CoursePreview from "./CoursePreview.tsx";
 import CourseStatistics from "./CourseStatistics.tsx";
 import styles from "./CourseCenter.module.css";
@@ -129,17 +130,17 @@ export default function CourseCenter({users, token, view, courseId}: CourseCente
 
     if (!token) return <AdminLoginScreen/>;
 
-    return <section className={`${styles.center} ${view === "course-preview" ? styles.readerCenter : ""}`} aria-labelledby={headingId}>
+    return <section className={`${styles.center} ${view === "course-preview" ? styles.readerCenter : ""}`} data-course-center aria-labelledby={headingId}>
         {canManage && view !== "courses" && view !== "course-preview" ? <nav className={styles.nav} aria-label="Course Center sections"><NavLink end to="/dashboard/courses" className={({isActive}) => isActive ? styles.active : undefined}>Courses</NavLink>{courseId ? <NavLink to={`/dashboard/courses/${courseId}/preview`} className={({isActive}) => isActive ? styles.active : undefined}>Preview</NavLink> : null}{courseId ? <NavLink to={`/dashboard/courses/${courseId}/stats`} className={({isActive}) => isActive ? styles.active : undefined}>Statistics</NavLink> : null}<NavLink to="/dashboard/courses/new" className={({isActive}) => isActive ? styles.active : undefined}>New course</NavLink></nav> : null}
         {notice ? <p className={styles.state} role="status">{notice}</p> : null}
         {deletion ? <CourseDeleteDialog course={deletion.course} onCancel={() => setDeletion(null)} onConfirm={deleteSelected}/> : null}
         {data && !canAccessView ? <section className={styles.state} role="alert"><h2>Access denied</h2><p>You do not have access to this Course Center workspace.</p><Link to="/dashboard/courses">Back to Course Center</Link></section> : null}
-        {courses === null && !error ? <p className={styles.state} aria-live="polite">Loading Course Center…</p> : null}
+        {courses === null && !error ? <CourseLoadingState kind={view === "course-preview" ? "preview" : "center"} headingId={headingId}/> : null}
         {error ? <section className={styles.state} role="alert"><h2>{authError ? "Your ATCMH session expired" : "Course Center is unavailable"}</h2><p>{error}</p>{authError ? <a href={EXAMS_LOGIN_URL}>Sign in to ATCMH</a> : null}<button type="button" onClick={refresh}>Try again</button></section> : null}
         {courses && data && canAccessView && view === "courses" ? <><div className={styles.headingActions}><div><p className={styles.eyebrow}>{canManage ? "Course management" : "Course previews"}</p><h2 id="course-center-heading">Courses</h2><p className={styles.description}>{canManage ? "Manage lessons, preview content, and track learner progress." : "Browse courses and preview lessons. Previewing does not record learner progress."}</p></div>{canManage ? <button type="button" className={styles.createButton} onClick={() => navigate("/dashboard/courses/new")}>Create course</button> : null}</div><CourseCatalog courses={courses} onEdit={canManage ? selected => navigate(`/dashboard/courses/${selected.id}/edit`) : undefined} onPreview={showPreview} onStatistics={canManage ? showStatistics : undefined} onDelete={canManage ? selected => setDeletion({course: selected}) : undefined}/></> : null}
         {courses && data && canAccessView && view === "course-create" ? <CourseEditor course={null} courses={courses} quizzes={data.quizzes} activities={[]} token={token} canPublish={data.actor.canManageAll || data.actor.capabilities.includes("publish-exams")} onCancel={showCatalog} onSaved={saved}/> : null}
         {courses && data && canAccessView && view === "course-edit" ? course ? <CourseEditor course={course} courses={courses} quizzes={data.quizzes} activities={course.activities ?? []} token={token} canPublish={data.actor.canManageAll || data.actor.capabilities.includes("publish-exams")} onCancel={showCatalog} onDelete={onDeleted => setDeletion({course, onDeleted})} onPreview={() => navigate(`/dashboard/courses/${course.id}/preview`)} onSaved={saved}/> : <p className={styles.state} aria-live="polite">Loading course editor…</p> : null}
-        {courses && data && canAccessView && view === "course-preview" ? course ? <CoursePreview course={course} quizzes={data.quizzes} onEdit={canManage ? () => navigate(`/dashboard/courses/${course.id}/edit`) : undefined}/> : <p className={styles.state} aria-live="polite">Loading course preview…</p> : null}
+        {courses && data && canAccessView && view === "course-preview" ? course ? <CoursePreview course={course} quizzes={data.quizzes} onEdit={canManage ? () => navigate(`/dashboard/courses/${course.id}/edit`) : undefined}/> : <CourseLoadingState kind="preview" headingId={headingId}/> : null}
         {courses && data && canAccessView && view === "course-stats" ? course ? <CourseStatistics course={course} users={users} token={token} onEdit={() => navigate(`/dashboard/courses/${course.id}/edit`)}/> : <p className={styles.state} aria-live="polite">Loading course statistics…</p> : null}
     </section>;
 }
