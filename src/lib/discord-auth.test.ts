@@ -76,6 +76,17 @@ test("mentor and administrator capabilities are derived from the introspected Di
   assert.equal(admin.canManageAll, true);
 });
 
+test("centralized mentor course preview permission is accepted without course management", async () => {
+  globalThis.fetch = authFetch(["manage-exams", "preview-courses"]);
+  const preview = await requireManagementCapability(request(), "preview-courses");
+  assert.ok(!(preview instanceof Response));
+  assert.equal(preview.canManageAll, false);
+  assert.ok(!preview.capabilities.includes("manage-courses"));
+  const edit = await requireManagementCapability(request(), "manage-courses");
+  assert.ok(edit instanceof Response);
+  assert.equal(edit.status, 403);
+});
+
 test("centralized capability lookup authenticates as an internal service", async () => {
   let capabilityHeaders: Headers | undefined;
   globalThis.fetch = async (input, init) => {

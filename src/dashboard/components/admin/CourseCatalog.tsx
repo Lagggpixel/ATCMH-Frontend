@@ -5,10 +5,10 @@ import styles from "./CourseCenter.module.css";
 
 interface CourseCatalogProps {
     courses: ManagedCourseSummary[];
-    onEdit: (course: ManagedCourseSummary) => void;
+    onEdit?: (course: ManagedCourseSummary) => void;
     onPreview: (course: ManagedCourseSummary) => void;
-    onStatistics: (course: ManagedCourseSummary) => void;
-    onDelete: (course: ManagedCourseSummary) => void;
+    onStatistics?: (course: ManagedCourseSummary) => void;
+    onDelete?: (course: ManagedCourseSummary) => void;
 }
 
 export default function CourseCatalog({courses, onEdit, onPreview, onStatistics, onDelete}: CourseCatalogProps) {
@@ -37,15 +37,15 @@ export default function CourseCatalog({courses, onEdit, onPreview, onStatistics,
                     <p>{course.description || "No description added."}</p>
                 </div>
                 <div className={styles.courseCardFooter}>
-                    <div className={styles.courseActions}><button type="button" className={styles.createButton} onClick={() => onEdit(course)}>Edit course</button><button type="button" className={`${styles.quietButton} ${styles.desktopAction}`} onClick={() => onPreview(course)}>Preview</button><button type="button" className={`${styles.quietButton} ${styles.desktopAction}`} onClick={() => onStatistics(course)}>Statistics</button></div>
-                    <details className={styles.courseMenu}>
+                    <div className={styles.courseActions}>{onEdit ? <button type="button" className={styles.createButton} onClick={() => onEdit(course)}>Edit course</button> : null}<button type="button" className={onEdit ? `${styles.quietButton} ${styles.desktopAction}` : styles.createButton} onClick={() => onPreview(course)}>Preview</button>{onStatistics ? <button type="button" className={`${styles.quietButton} ${styles.desktopAction}`} onClick={() => onStatistics(course)}>Statistics</button> : null}</div>
+                    {onEdit || onStatistics || onDelete ? <details className={styles.courseMenu}>
                         <summary aria-label={`More actions for ${course.title}`}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
                         <div className={styles.courseMenuPanel}>
                             <button type="button" className={styles.mobileMenuAction} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onPreview(course);}}>Preview</button>
-                            <button type="button" className={styles.mobileMenuAction} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onStatistics(course);}}>Statistics</button>
-                            <button type="button" className={styles.courseDelete} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onDelete(course);}}>Delete course</button>
+                            {onStatistics ? <button type="button" className={styles.mobileMenuAction} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onStatistics(course);}}>Statistics</button> : null}
+                            {onDelete ? <button type="button" className={styles.courseDelete} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onDelete(course);}}>Delete course</button> : null}
                         </div>
-                    </details>
+                    </details> : null}
                 </div>
             </article>)}
         </div>}
