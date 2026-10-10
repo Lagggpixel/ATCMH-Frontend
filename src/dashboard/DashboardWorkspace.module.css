@@ -4,6 +4,10 @@
     min-height: calc(100dvh - 40px);
 }
 
+.workspace:has([data-course-page]) {
+    min-height: 0;
+}
+
 .screenLabel {
     position: absolute;
     width: 1px;

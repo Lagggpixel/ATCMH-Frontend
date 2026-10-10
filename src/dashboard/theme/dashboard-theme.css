@@ -140,3 +140,32 @@ html[data-dashboard-theme="dark"] body:has(.dashboard-theme) { background: #1111
 }
 
 .dashboard-theme .dashboard-product:has([data-course-page]) { overflow-x: clip; overflow-y: visible; }
+
+/* Let the site header take its rendered height; course screens fill the space below it. */
+.dashboard-theme:has([data-course-loading]) { height: 100dvh; }
+.dashboard-theme:has([data-course-loading]) .unified-product { height: 100%; min-height: 0; }
+.dashboard-theme:has([data-course-loading]) .site-header { flex-shrink: 0; }
+.dashboard-theme:has([data-course-loading]) .unified-product-content,
+.dashboard-theme:has([data-course-loading]) .dashboard-product,
+.dashboard-theme:has([data-course-loading]) [data-dashboard-workspace],
+.dashboard-theme:has([data-course-loading]) [data-course-center] { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+
+@media (min-width: 901px) {
+    .dashboard-theme:has([data-course-page]) { height: 100dvh; }
+    .dashboard-theme:has([data-course-page]) .unified-product { height: 100%; min-height: 0; }
+    .dashboard-theme:has([data-course-page]) .site-header { flex-shrink: 0; }
+    .dashboard-theme:has([data-course-page]) .unified-product-content,
+    .dashboard-theme:has([data-course-page]) .dashboard-product,
+    .dashboard-theme:has([data-course-page]) [data-dashboard-workspace],
+    .dashboard-theme:has([data-course-page]) [data-course-center] { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .dashboard-theme:has([data-course-page]) [data-course-page] { flex: 1; min-height: 0; }
+    .dashboard-theme:has([data-course-page]) [data-course-page]:not([data-course-loading]) { height: auto; }
+}
+@media (max-width: 900px) {
+    .dashboard-theme:has([data-course-page]:not([data-course-loading])) .unified-product-content,
+    .dashboard-theme:has([data-course-page]:not([data-course-loading])) .dashboard-product,
+    .dashboard-theme:has([data-course-page]:not([data-course-loading])) [data-dashboard-workspace],
+    .dashboard-theme:has([data-course-page]:not([data-course-loading])) [data-course-center] { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .dashboard-theme [data-course-page]:not([data-course-loading]),
+    .dashboard-theme [data-course-page]:not([data-course-loading]) > div { flex: 1; height: auto; min-height: 0; }
+}
