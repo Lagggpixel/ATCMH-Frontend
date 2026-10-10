@@ -344,14 +344,14 @@
 .groupCaret { position: absolute; right: 3px; bottom: 13px; transition: transform .15s; }
 .outlineGroup[open] .groupCaret { transform: rotate(180deg); }
 .outlineGroup ol { gap: 5px; }
-.outlineGroup li { position: relative; }
-.outlineGroup li + li::before { content: ''; position: absolute; z-index: 0; left: 18px; top: -15px; height: 28px; border-left: 1px solid var(--dashboard-border); }
+.outlineGroup li { --outline-marker-center: 19px; position: relative; }
+.outlineGroup li:not(:last-child)::before { content: ''; position: absolute; z-index: 0; left: 18px; top: var(--outline-marker-center); bottom: calc(-5px - var(--outline-marker-center)); border-left: 1px solid var(--dashboard-border); }
 .outlineGroup li a, .outlineGroup li button, .outlineLocked { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; min-height: 39px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dashboard-ink); text-align: left; font: inherit; font-size: .96rem; line-height: 1.35; text-decoration: none; }
 .outlineGroup li button { cursor: pointer; }
 .outlineGroup li a:hover, .outlineGroup li button:hover, .outlineGroup li .outlineCurrent { background: var(--dashboard-selected); color: var(--dashboard-link); }
 .outlineLocked { color: var(--dashboard-muted); opacity: .65; }
-.outlineMark { width: 16px; height: 16px; margin-top: 2px; border: 0; border-radius: 0; background: var(--dashboard-secondary); color: var(--dashboard-muted); }
-.outlineCurrent .outlineMark { background: var(--dashboard-selected); color: var(--dashboard-link); }
+.outlineMark { width: 16px; height: 16px; margin-top: 2px; border: 0; border-radius: 50%; background: var(--dashboard-secondary); color: var(--dashboard-muted); }
+.outlineGroup li :is(a:hover, button:hover, .outlineCurrent) .outlineMark { background: var(--dashboard-selected); color: var(--dashboard-link); }
 .readerMain { width: 100%; max-width: 1240px; min-width: 0; margin: 0 auto; padding: 40px 40px 38px; }
 .readerMain .section { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
 .readerMain .sectionHeader { display: flex; align-items: flex-start; gap: 20px; padding: 0; border: 0; background: transparent; }
@@ -447,6 +447,7 @@
   .outlineHeading { padding: 20px 24px; border-bottom: 1px solid var(--dashboard-border); }
   .outlineHeading button { min-width: 44px; min-height: 44px; border: 1px solid var(--dashboard-border); border-radius: 8px; background: var(--dashboard-surface); color: var(--dashboard-ink); }
   .outlineDialog .outlineNav { padding: 8px 20px 30px; }
+  .outlineDialog li { --outline-marker-center: 21px; }
   .outlineDialog li :is(a, button, .outlineLocked) { min-height: 44px; padding-block: 11px; }
 }
 @media (max-width: 600px) {
