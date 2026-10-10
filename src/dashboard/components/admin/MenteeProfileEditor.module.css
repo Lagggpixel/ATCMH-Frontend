@@ -1,5 +1,35 @@
-.editor { padding: 1rem; border: 1px solid var(--border-color, #64748b); border-radius: 12px; }
-.editor fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: .75rem; }
-.editor input { width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid #64748b; border-radius: 6px; background: transparent; color: inherit; }
-.editor button { padding: .65rem 1rem; border-radius: 6px; cursor: pointer; }
-.actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.editor {
+    width: min(760px, calc(100% - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid var(--border-color, #64748b);
+    border-radius: 12px;
+    background: var(--surface-color, #fff);
+    color: var(--text-color, #1e293b);
+    box-shadow: var(--panel-shadow, 0 24px 80px #0004);
+    overflow: hidden;
+}
+.editor::backdrop { background: var(--dashboard-backdrop, rgba(5, 8, 12, .72)); }
+.form { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
+.header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
+.header h2 { margin: 0; font-size: 1.25rem; }
+.body { min-height: 0; overflow-y: auto; }
+.editor .fields { border: 0; padding: 20px; margin: 0; min-width: 0; display: grid; gap: .75rem; }
+.description { margin: 0 0 .25rem; color: var(--muted-text, inherit); font-size: .875rem; }
+.fields h4 { margin: .5rem 0 0; }
+.editor input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid var(--border-color, #64748b); border-radius: 6px; background: transparent; color: inherit; }
+.editor select { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem; border: 1px solid var(--border-color, #64748b); border-radius: 6px; background: var(--surface-color, #fff); color: inherit; font: inherit; }
+.editor button { padding: .65rem 1rem; border: 1px solid var(--border-color, #64748b); background: transparent; color: inherit; border-radius: 6px; cursor: pointer; }
+.editor button:disabled { cursor: wait; opacity: .6; }
+.editor .closeButton { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; font-size: 1.5rem; }
+.actions { display: flex; flex-shrink: 0; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; padding: 16px 20px; border-top: 1px solid var(--border-color); }
+.editor .saveButton { background: var(--primary-color, #2563eb); border-color: transparent; color: #fff; }
+@media (max-width: 620px) {
+    .editor { width: calc(100% - 16px); max-height: calc(100dvh - 16px); border-radius: 10px; }
+    .form { max-height: calc(100dvh - 18px); }
+    .header, .actions { padding: 12px; }
+    .editor .fields { padding: 16px 12px; }
+    .actions button { flex: 1; }
+}
