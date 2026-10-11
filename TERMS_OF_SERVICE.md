@@ -1,7 +1,7 @@
 # ATCMH Terms of Service
 
 Effective date: July 10, 2026
-Last updated: July 14, 2026
+Last updated: October 11, 2026
 
 These Terms of Service govern use of the ATCMH Discord bot, Dashboard and Exams Center, public attendance pages, and related mentorship tools (the "Service"). To log in to the Dashboard or Exams Center, you must affirmatively agree to these Terms of Service and acknowledge the Privacy Policy. Using the bot or other Service features also means that you agree to these terms.
 
@@ -83,6 +83,14 @@ Security, authentication, account-link, policy-acceptance, and audit records may
 You retain responsibility for content you submit through Discord conversations, forms, commands, modals, and dashboard fields. By submitting content, you allow ATCMH to use it for operating mentorship, attendance, moderation, support, audit, and administrative workflows.
 
 Staff may preserve transcripts or records of certain mentee channels when closing them. Do not submit private or sensitive information that is not required for the mentorship process.
+
+## 7.1 ATCMH ATC Trainer
+
+The trainer is an independently presented ATCMH practice tool for IFATC-related skills. It is not affiliated with, endorsed by or operated by Infinite Flight. Infinite Flight and IFATC names identify the training context; their use does not grant rights in Infinite Flight software, assets, interfaces or training materials.
+
+Use it only for simulated practice. Motion, weather, final guides and instructor routes are simplified exercise information, not live operational data or navigation charts. It does not certify controller status or replace current official training requirements. Scenario authors must use fictional content and have permission to use any submitted material; do not upload copied manuals, confidential exams, extracted software assets or unnecessary personal information.
+
+Sessions, assignments and attempts are saved under the Privacy Policy's simulator schedule. Ending a session closes access and archives its recording and attempt in Replays; it does not erase history. Replays and attempt history have no automatic expiry, subject to the Privacy Policy and deletion rights. Optional speech defaults on, and the browser remembers your on/off choice for your account and role. Automatic voices are local; an online voice requires explicit per-tab permission and selection and may process radio text through the browser's speech provider. No microphone or audio recording is provided.
 
 ## 8. Third-Party Platforms
 

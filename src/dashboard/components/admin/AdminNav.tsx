@@ -11,15 +11,16 @@ interface AdminNavProps {
     adminUser?: AdminUser;
     embedded?: boolean;
     onNavigate?: () => void;
+    simulatorEnabled?: boolean;
 }
 
 const EXAM_CENTER_ENABLED = true;
 
-const AdminNav = ({adminUser, embedded = false, onNavigate}: AdminNavProps) => {
+const AdminNav = ({adminUser, embedded = false, onNavigate, simulatorEnabled = false}: AdminNavProps) => {
     const location = useLocation();
     const [openGroup, setOpenGroup] = useState<string | null>(null);
     const navigationRef = useRef<HTMLElement>(null);
-    const navGroups = adminNavigationGroups(adminUser, EXAM_CENTER_ENABLED);
+    const navGroups = adminNavigationGroups(adminUser, EXAM_CENTER_ENABLED, simulatorEnabled);
 
     useEffect(() => {
         const closeOutside = (event: PointerEvent) => {

@@ -26,6 +26,9 @@ export function safeLoginReturnTo(application: LoginApplication, value: string |
   return path === "/" || path === "/account" || path === "/apply" || path.startsWith("/apply?")
     || path === "/careers" || path.startsWith("/careers/")
     || path === "/leaderboard" || path === "/pilot-guide" || path === "/dashboard" || path.startsWith("/dashboard/")
+    || /^\/simulator\/(mentee|staff)(\/[0-9a-f-]{36})?$/i.test(path)
+    || /^\/simulator\/scenarios(?:\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.test(path)
+    || path === "/simulator/assignments" || path === "/simulator/mentee/assignments"
     || path === "/exams" || path.startsWith("/exams/") ? value : fallback;
 }
 

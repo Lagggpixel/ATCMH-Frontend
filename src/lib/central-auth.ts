@@ -40,6 +40,7 @@ export interface CentralSession {
   accountId: string;
   discordId: string;
   discordDisplayName?: string;
+  displayName?: string;
   expiresAt: string;
   impersonating: boolean;
   realActorAccountId?: string;
@@ -76,7 +77,7 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
       || parsed.pathname === "/apply" || parsed.pathname.startsWith("/apply?") || parsed.pathname === "/pilot-guide"
       || parsed.pathname === "/careers" || parsed.pathname.startsWith("/careers/")
       || parsed.pathname === "/leaderboard" || parsed.pathname === "/dashboard"
-      || parsed.pathname.startsWith("/dashboard/") || parsed.pathname === "/exams"
+      || parsed.pathname.startsWith("/dashboard/") || /^\/simulator\/(mentee|staff)(\/[0-9a-f-]{36})?$/i.test(parsed.pathname) || parsed.pathname === "/exams"
       || parsed.pathname.startsWith("/exams/");
     return parsed.origin === PRIVATE_RETURN_ORIGIN && allowed
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`
@@ -148,6 +149,9 @@ function validSession(value: unknown): CentralSession | undefined {
     discordId: session.discordId,
     ...(typeof session.discordDisplayName === "string" && session.discordDisplayName.trim()
       ? { discordDisplayName: session.discordDisplayName.trim().slice(0, 80) }
+      : {}),
+    ...(typeof session.displayName === "string" && session.displayName.trim()
+      ? { displayName: session.displayName.trim().slice(0, 128) }
       : {}),
     expiresAt: session.expiresAt,
     impersonating: session.impersonating,

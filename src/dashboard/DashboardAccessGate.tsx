@@ -20,6 +20,6 @@ export default function DashboardAccessGate({children}: {children: ReactNode}) {
 
   if (loading || !session) return <main className="platform-state"><span className="platform-spinner"/><p>Checking Dashboard access…</p></main>;
   if (error) return <main className="platform-state"><p className="platform-eyebrow">Dashboard unavailable</p><h1>We could not verify your permissions</h1><p>Try again shortly or return to the home page.</p><Link className="platform-button" href="/">Return home</Link></main>;
-  if (!adminUser) return <main className="platform-state"><p className="platform-eyebrow">403 · Access denied</p><h1>This account cannot access the Dashboard</h1><p>Your account is signed in, but it does not have an authorized staff role.</p><Link className="platform-button" href="/">Return home</Link></main>;
+  if (!adminUser || adminUser.canAccessDashboard === false) return <main className="platform-state"><p className="platform-eyebrow">403 · Access denied</p><h1>This account cannot access the Dashboard</h1><p>Your account is signed in, but it does not have an authorized staff role.</p><Link className="platform-button" href={adminUser?.canAccessSimulator ? "/simulator/staff" : "/"}>{adminUser?.canAccessSimulator ? "Open simulator" : "Return home"}</Link></main>;
   return children;
 }

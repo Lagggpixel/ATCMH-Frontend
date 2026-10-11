@@ -1,0 +1,14 @@
+{
+  "documents": [
+    {
+      "file": "TERMS_OF_SERVICE.md",
+      "version": "2026-10-11",
+      "sha256": "2fa824e3209b85ae2ae8481f88f7ff13c98e12f5cdc116a7a45dd688d60516ce"
+    },
+    {
+      "file": "PRIVACY.md",
+      "version": "2026-10-11",
+      "sha256": "a6079684e40e40908cfe38a4e4fab1950c82abb32eb347315dd61c8cd9963d9c"
+    }
+  ]
+}

@@ -1,0 +1,599 @@
+{
+  "auditDate": "2026-10-10",
+  "createdAtUtc": "2026-10-10T15:16:54.531Z",
+  "packageVersion": "1.8.47",
+  "scope": "Static working checkout; preserved release source comparison. No live container or production data access.",
+  "preservedReleaseSource": "build/simulator-autoreadback-release/source",
+  "comparisons": [
+    {
+      "path": "src/simulator/catalog.ts",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/MessagePanel.tsx",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/Simulator.tsx",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/Simulator.module.css",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/Scope.tsx",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/AtisPanel.tsx",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/model.ts",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/engine.ts",
+      "matchesPreservedRelease": false
+    },
+    {
+      "path": "src/simulator/scenario-engine.ts",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/radio-audio.ts",
+      "matchesPreservedRelease": true
+    },
+    {
+      "path": "src/simulator/data/egph.json",
+      "matchesPreservedRelease": true
+    }
+  ],
+  "menus": [
+    {
+      "frequency": "ground",
+      "airborne": false,
+      "roots": [
+        "Taxi to...",
+        "Progressive Taxi",
+        "Continue Taxi",
+        "Hold short...",
+        "Cross Runway...",
+        "Give way to...",
+        "Hold Position",
+        "Pushback Approved",
+        "Tow Approved",
+        "Misc. Messages",
+        "Contact Other Frequency",
+        "Ask for Intentions",
+        "Roger",
+        "Wilco",
+        "Stand by",
+        "Broadcast Message",
+        "Unable",
+        "Correction"
+      ],
+      "leaves": 64,
+      "unavailableLeaves": 47,
+      "executableLeaves": 17
+    },
+    {
+      "frequency": "ground",
+      "airborne": true,
+      "roots": [
+        "Misc. Messages",
+        "Contact Other Frequency",
+        "Ask for Intentions",
+        "Roger",
+        "Wilco",
+        "Stand by",
+        "Broadcast Message",
+        "Unable",
+        "Correction"
+      ],
+      "leaves": 36,
+      "unavailableLeaves": 33,
+      "executableLeaves": 3
+    },
+    {
+      "frequency": "tower",
+      "airborne": false,
+      "roots": [
+        "Cleared for Takeoff",
+        "Cancel Takeoff Clearance",
+        "Hold Short",
+        "Line up and Wait",
+        "Back Taxi",
+        "Exit runway",
+        "Misc. Messages",
+        "Respond to Transition",
+        "Departure Sequencing...",
+        "Progressive Taxi",
+        "Continue Taxi",
+        "Cross Runway...",
+        "Hold Position",
+        "Contact Other Frequency",
+        "Ask for Intentions",
+        "Roger",
+        "Wilco",
+        "Stand by",
+        "Broadcast Message",
+        "Unable",
+        "Correction"
+      ],
+      "leaves": 90,
+      "unavailableLeaves": 65,
+      "executableLeaves": 25
+    },
+    {
+      "frequency": "tower",
+      "airborne": true,
+      "roots": [
+        "Cleared to Land / for the Option",
+        "Sequencing...",
+        "Pattern Instructions",
+        "Go Around",
+        "Exit runway",
+        "Respond to Go Around",
+        "Request 360",
+        "Approve Departure Request",
+        "Misc. Messages",
+        "Respond to Transition",
+        "Contact Other Frequency",
+        "Ask for Intentions",
+        "Roger",
+        "Wilco",
+        "Stand by",
+        "Broadcast Message",
+        "Unable",
+        "Correction"
+      ],
+      "leaves": 813,
+      "unavailableLeaves": 58,
+      "executableLeaves": 755
+    }
+  ],
+  "uniqueUnavailableLeafLabels": [
+    "Aircraft ahead",
+    "Aircraft exiting runway",
+    "Aircraft on your left",
+    "Aircraft on your right",
+    "Aircraft too large",
+    "Already Clr to Lnd",
+    "Already cleared to cross",
+    "Amend FPL with SID",
+    "Ask for Intentions",
+    "Back Taxi",
+    "Broadcast Message",
+    "Cancel Landing Clearance",
+    "Cancel Takeoff Clearance",
+    "Check ATIS",
+    "Check Runway",
+    "Check User Guide",
+    "Continue inbound",
+    "Continue straight ahead",
+    "Continue taxi at your discretion",
+    "Correction",
+    "Descend to pattern altitude",
+    "Don't cut in line",
+    "Duplicate Frequency change",
+    "Duplicate messages",
+    "East",
+    "Exit Runway",
+    "Expect Progressive Taxi Instructions",
+    "Expedite",
+    "Expedite, Traffic on Base",
+    "Expedite, Traffic on Final",
+    "Fly Runway Heading",
+    "Follow Aircraft Ahead",
+    "Follow instructions (Report)",
+    "Follow instructions (Simple)",
+    "Freq busy be patient",
+    "I'm sorry",
+    "Left",
+    "Line up and Wait",
+    "Maintain safe distance",
+    "Make 180",
+    "Make Left Traffic",
+    "Make Right Traffic",
+    "No Light Aircraft",
+    "No int. dept",
+    "No more pattern work. Land or divert.",
+    "No pattern work",
+    "North",
+    "Not Cleared on Runway",
+    "Not a taxiway",
+    "Pattern full",
+    "Please Expedite",
+    "Request Immediate Takeoff",
+    "Respond to Transition",
+    "Right",
+    "Roger",
+    "Send",
+    "South",
+    "Stand by",
+    "Stay on frequency",
+    "Straight Out (1000ft)",
+    "Straight Out (3000ft)",
+    "Straight Out (5000ft)",
+    "Taxi through grass",
+    "Thank you",
+    "Thank you, good day",
+    "Tow Approved",
+    "Traffic Alert",
+    "Turn left next taxiway",
+    "Turn right next taxiway",
+    "Unable",
+    "Unable, Divert",
+    "Wait clearance Bfr Ldg",
+    "Wait clearance Bfr Tkf",
+    "Wait clrnc bfr crssng RWY",
+    "Wait for Clearance",
+    "West",
+    "Wilco",
+    "You're welcome"
+  ],
+  "executableMenuInstructionTypes": [
+    "cross",
+    "extend",
+    "frequency",
+    "go-around",
+    "hold-short",
+    "land",
+    "pattern",
+    "pushback",
+    "sequence",
+    "stop",
+    "takeoff",
+    "taxi"
+  ],
+  "map": {
+    "features": 161,
+    "sourceDate": "2026-10-09",
+    "verifiedReimportMatchesExceptSourceDate": true,
+    "verificationMethod": "Python executed importer prefix in memory against build/simulator-osm.xml, build/simulator-airports.csv, build/simulator-runways.csv; compared dictionaries excluding sourceDate; no transformed output written.",
+    "inputHashes": [
+      {
+        "path": "build/simulator-osm.xml",
+        "sha256": "f8ef3ac58bfcd7b2f7f4b1e576e91db88ad291c420d61288546ab902298a3c2a"
+      },
+      {
+        "path": "build/simulator-airports.csv",
+        "sha256": "0673f846680d703dd4ff81b6c1f557ddf09eb73df164c3ea98623fdd72545333"
+      },
+      {
+        "path": "build/simulator-runways.csv",
+        "sha256": "19269d990f0dfad188aa3c3559405de870eec28afe91ce9d3f398deee68d11c1"
+      }
+    ]
+  },
+  "sourceHashes": [
+    {
+      "path": "../Backend/src/main/java/me/reid/auth/RequiredPolicyRegistry.java",
+      "sha256": "38e841562fccd578516b1424c6034db43f1029af373ce4b0233c7fdc6776536a"
+    },
+    {
+      "path": "PRIVACY.md",
+      "sha256": "5e6f3f907e6f34eb792f9630c7350c50ce0436bc30f8a0a8f6c3d12ae5e5d60a"
+    },
+    {
+      "path": "TERMS_OF_SERVICE.md",
+      "sha256": "78bb03bee5d6d9fd19cdbabdff56f873e5798a5eebf0786b165c94696effa522"
+    },
+    {
+      "path": "package.json",
+      "sha256": "eb7ad632196b2178809c4d6379749e1791db91f7319572cd91d0c8ea619d2b37"
+    },
+    {
+      "path": "public/simulator/fonts/B612Mono-OFL.txt",
+      "sha256": "a815f65bc72d90494b01842d3171f7cb0f9f935e023d9cc260904d221ef1064a"
+    },
+    {
+      "path": "public/simulator/fonts/B612Mono-Regular.ttf",
+      "sha256": "b98cb96cc8a6206dae08c063d60902df7e6d40f86139ebdb97256704253c9c69"
+    },
+    {
+      "path": "public/simulator/fonts/FiraSans-OFL.txt",
+      "sha256": "8f24842e9174beda18a556c2ae7d54f5dc444340c19a3a9ef77e23bca366adbd"
+    },
+    {
+      "path": "public/simulator/fonts/FiraSans-Regular.ttf",
+      "sha256": "c29556a2719bf613ef3d5e070e40d903a8965d9c081beca1375dc1e6e0f93c23"
+    },
+    {
+      "path": "scripts/import-simulator-data.py",
+      "sha256": "29756a6945f0931fff266e46a2992b01810a4f22a569c38bcca0b4a197c59c9b"
+    },
+    {
+      "path": "src/lib/central-auth.ts",
+      "sha256": "dcda0400d80eb1d4238458f57b8ef1f3f3de54c7ab04f1deb0e19cb7df5fb56e"
+    },
+    {
+      "path": "src/app/api/simulator/sessions/[id]/[operation]/route.ts",
+      "sha256": "e24b293ae791edc102f6433bedb5e8b8d74cc5ae51a4e38b051d666cd6ad548a"
+    },
+    {
+      "path": "src/app/api/simulator/sessions/[id]/route.ts",
+      "sha256": "7c38161ca3d8a23fb9c3b5fc535fd13ffb63b8d5122338feb58ce5e0f67290a0"
+    },
+    {
+      "path": "src/app/api/simulator/sessions/route.ts",
+      "sha256": "fc5703aa2a25986add79941fe35665d914e9f27bf17021f86b027c899c6822d4"
+    },
+    {
+      "path": "src/app/api/simulator/training/[resource]/[id]/route.ts",
+      "sha256": "53fa8d1bd37d6837ca344aaf361a01051c6627062196f72d9cf2c8d055dbcf44"
+    },
+    {
+      "path": "src/app/api/simulator/training/[resource]/route.ts",
+      "sha256": "6b6f79748429e8772e919e7b6c042f73e759a80c811a8b44dd1bf7bfdb1b6782"
+    },
+    {
+      "path": "src/app/simulator/assignments/page.tsx",
+      "sha256": "9732b7bccc26ff56a5a7570cfe02c4757864ccb9d418cadec0de5b96ce5dcacc"
+    },
+    {
+      "path": "src/app/simulator/layout.tsx",
+      "sha256": "1724680c6ee7e84c3049117e1ab58b6c2c2860701b82910414759fd241ba74b9"
+    },
+    {
+      "path": "src/app/simulator/mentee/[id]/page.tsx",
+      "sha256": "95325e6ab1d3ae86a8f5194b34148843e0bf0618ce9b0bb313fb2819bc9bacea"
+    },
+    {
+      "path": "src/app/simulator/mentee/assignments/page.tsx",
+      "sha256": "2e6fc918db199f5f89ac1c2a2e121d19413500690489bb50a3a34ad1aa2224ac"
+    },
+    {
+      "path": "src/app/simulator/mentee/page.tsx",
+      "sha256": "f1838ad16b3dc26b0e35822ea32ebf8a6f5de5ae108d32ecb32a12c4c87d1dfb"
+    },
+    {
+      "path": "src/app/simulator/scenarios/[id]/page.tsx",
+      "sha256": "2f2f7ef98d6034c6cfba468b94b93a4aae701714753c2dd54511706bf9016f7f"
+    },
+    {
+      "path": "src/app/simulator/scenarios/page.tsx",
+      "sha256": "ec2413340f385cfcde8559d6401262901e694e16a926651a70edd24420e3948f"
+    },
+    {
+      "path": "src/app/simulator/staff/[id]/page.tsx",
+      "sha256": "19d028b55a6351f06a15304df311db2d18a0affd83b966901c1633abbbf3d31e"
+    },
+    {
+      "path": "src/app/simulator/staff/page.tsx",
+      "sha256": "2729c3cb02b8d6484246011016a84da97a9d94fdd8464142179f1be61141661e"
+    },
+    {
+      "path": "src/simulator/AtisPanel.tsx",
+      "sha256": "41d800f63275df972506375ed92aa7d554a3c7418b050f43d665d26977d40021"
+    },
+    {
+      "path": "src/simulator/LiveScenarioPanel.tsx",
+      "sha256": "0538a24f3e0983b44e8176c6ef68bcf3255e35498200b5df832740b80f032b6a"
+    },
+    {
+      "path": "src/simulator/MessagePanel.tsx",
+      "sha256": "2406c4d8e97b4a313bf7f8ac0481e916c4c11eb3811fca8864025935904a7c6f"
+    },
+    {
+      "path": "src/simulator/README.md",
+      "sha256": "9f7c36564be66859e28bb310d12a449c17153ba4e290549f310ef4c52c68f829"
+    },
+    {
+      "path": "src/simulator/RadioAudio.tsx",
+      "sha256": "ebc4a3b3370169359c1b16375fa6a853937ef8be806737b395b750fb6f60a627"
+    },
+    {
+      "path": "src/simulator/ScenarioEditor.tsx",
+      "sha256": "30bc7296616ac52e95cf54820546fc5ad074cd09ee9802c1d0e7b282f0964d38"
+    },
+    {
+      "path": "src/simulator/ScenarioEventEditor.tsx",
+      "sha256": "5126520b33eede6e252a207d938f082adb17bbff221f2dd7969ee6d8fd65ca74"
+    },
+    {
+      "path": "src/simulator/Scope.tsx",
+      "sha256": "f715d472831e017408f24e7283769b6712dfd0f09b78c8bba9ce70276d1b0e0d"
+    },
+    {
+      "path": "src/simulator/SessionAccess.tsx",
+      "sha256": "fea1d15e30d2fa8b64eaaadf650bb4ef3af399580fcf16d59672ac8845e415a0"
+    },
+    {
+      "path": "src/simulator/SessionJoin.tsx",
+      "sha256": "ea747dfcabfce15a59c6b10272c11a502455e05f2d18e5b19546432285177cfb"
+    },
+    {
+      "path": "src/simulator/SessionPicker.tsx",
+      "sha256": "94e2f8e64b4b6ba3e5137ccb10b31760d51b62ece47088823ebe833853099d0e"
+    },
+    {
+      "path": "src/simulator/Sessions.module.css",
+      "sha256": "51c0f3d693917f438e1910432e132f92a5d85e0ded723b28152de876248ceb51"
+    },
+    {
+      "path": "src/simulator/Simulator.module.css",
+      "sha256": "d0e3d1429b668861300810dc494d5800b15f666868030928d02834325fbd2e78"
+    },
+    {
+      "path": "src/simulator/Simulator.tsx",
+      "sha256": "b4a3879c0e07e69157b570a45bf5509c199b56faf0e7e3566f3c8ae0d1ec5b5a"
+    },
+    {
+      "path": "src/simulator/StaffPanel.tsx",
+      "sha256": "898384c560c379f4620817892b5d4ae8cf236de8c6867735a9ffa61cf98ddac2"
+    },
+    {
+      "path": "src/simulator/Training.module.css",
+      "sha256": "44d23d18ac36c622f06a3e151a5e01b8107a2638c0668368ac6a9fb8d21dbebf"
+    },
+    {
+      "path": "src/simulator/TrainingLibrary.tsx",
+      "sha256": "efb69aa61607e24d4186206e1812021bef7dd805482c5da822fa72b8160a95a2"
+    },
+    {
+      "path": "src/simulator/access.test.ts",
+      "sha256": "1852e13945c73cad740bd6eed065693254cec571c00ad3dedcc73aa9e13ed948"
+    },
+    {
+      "path": "src/simulator/auto-readback.test.ts",
+      "sha256": "e2f9d5edcab22331f7494862e5a0dc63d9d94897d9dab05558655abbccaba82a"
+    },
+    {
+      "path": "src/simulator/catalog.ts",
+      "sha256": "9aa3677f5121b1afdb1a725d3de996f1c1447605e98c18984465e0a788a7fcf3"
+    },
+    {
+      "path": "src/simulator/data/egph.json",
+      "sha256": "a25cc9c83e047d15e568c1f83025a18b2d1e342bbc99898fad8dd2ea073c2d23"
+    },
+    {
+      "path": "src/simulator/engine.test.ts",
+      "sha256": "4129d560e41b609a74bc5f3426beac859eb1b0e39d3e1f7bfb3e12c59a636ce8"
+    },
+    {
+      "path": "src/simulator/engine.ts",
+      "sha256": "50712bac96b715ee783fed8d801677156178255a0ae1cab1a3ba4c1fe0c6d6b9"
+    },
+    {
+      "path": "src/simulator/feature.ts",
+      "sha256": "394da76607aee7de1a1fbf4b0020a27d01f71009ed8b3423804c8e2869fd22a4"
+    },
+    {
+      "path": "src/simulator/frequency-state.test.ts",
+      "sha256": "5a2a6502dd64179eb091e7763a69495fe1b1ca55a78f163d88d5b73e1e04be12"
+    },
+    {
+      "path": "src/simulator/model.ts",
+      "sha256": "da4616f5b115573169dfccafc9bb656c2e1ed6a7860c529ec3225a57db2d555f"
+    },
+    {
+      "path": "src/simulator/navigation.test.ts",
+      "sha256": "39c12316d25d6c5c4bd66656d1f9ea14f67a2db0bc776424ca81f233d6d5b372"
+    },
+    {
+      "path": "src/simulator/pattern-spacing.test.ts",
+      "sha256": "2d791574088bb432e6a915a5b8b7a016343a5dab266b5e342b42f2d81af69155"
+    },
+    {
+      "path": "src/simulator/protocol.ts",
+      "sha256": "0c576d394b7a1f9191a1e9e0eae5c1a723f68f854ad843af4129d4dfc7acfc20"
+    },
+    {
+      "path": "src/simulator/radio-audio.test.ts",
+      "sha256": "e4a776050c3356c55143f2e125e643863c8698e175d962a2ba39687c4a35aa17"
+    },
+    {
+      "path": "src/simulator/radio-audio.ts",
+      "sha256": "d58e5a5354cfc4ca6c08843ac6a74aad0f6971195bd8e138aed167459ee51658"
+    },
+    {
+      "path": "src/simulator/scenario-engine.test.ts",
+      "sha256": "c6cb95a19d4f5229a3bc5d701fd61baa5c5d846eaec0240394f0e0cc394c95e3"
+    },
+    {
+      "path": "src/simulator/scenario-engine.ts",
+      "sha256": "3e9b58d3936794b2e8d9086c10bd7b54a0ee57f518136eafdb64e4241a246994"
+    },
+    {
+      "path": "src/simulator/scenario-session.test.ts",
+      "sha256": "1174054c5b348872f8b0b0ec388e9c62f57865ea5f9056894e3097facc1762c3"
+    },
+    {
+      "path": "src/simulator/scenarios.ts",
+      "sha256": "28dc9938b6a9aa109267dff3478160b7518a5cb6581e1e310f5433ca369e26d4"
+    },
+    {
+      "path": "src/simulator/sequencing.test.ts",
+      "sha256": "dbda79eddf025d6a95d3d61bfcb761cd4e07b141acb232970fe5f1e4a7fc5c34"
+    },
+    {
+      "path": "src/simulator/server/session-api.ts",
+      "sha256": "5a99db5b45a74922879c89901d54b163d5a49a86293adcb8ef3be495d6441256"
+    },
+    {
+      "path": "src/simulator/server/session-auth.ts",
+      "sha256": "7ffa798e885a192b882ae5df3020aceab2d4f5189e529f569c32a23afb72c2c2"
+    },
+    {
+      "path": "src/simulator/server/session-service.ts",
+      "sha256": "7a60a17dae86bcbaa3d405bb95e4c0a72541d947e2ee6910e4781f915577c7fe"
+    },
+    {
+      "path": "src/simulator/server/session-store.ts",
+      "sha256": "a8c28ebc2a485684879391bdf76e61603cdd581f1547612f3f9c3a8676f40cb9"
+    },
+    {
+      "path": "src/simulator/server/training-api.ts",
+      "sha256": "d0f7eb8ba4614c80f7532da5478cd0119681d950bab26114d0f75730519a794c"
+    },
+    {
+      "path": "src/simulator/server/training-service.ts",
+      "sha256": "f460c03551ea0a27cd6666ef5b4533c20b814de72da3ff1235fa8e8969116c4a"
+    },
+    {
+      "path": "src/simulator/session-api.test.ts",
+      "sha256": "40d387aa2a4daf0fa71c3c24b4189506a37e5a0e63590ccd65ee50a6276fac4c"
+    },
+    {
+      "path": "src/simulator/session-auth.test.ts",
+      "sha256": "886e322e4630b53bda8f7c4e7c78d932d442cf9ded2d935ceabb55bf02b76e28"
+    },
+    {
+      "path": "src/simulator/session-service.test.ts",
+      "sha256": "c745a92fa882a9351a29bc755b4e2e8ae794c9531033e06cfd6bdf821d3b443c"
+    },
+    {
+      "path": "src/simulator/session-test-store.ts",
+      "sha256": "f34bf11002847cb6cf41ea83c802dd6854dfdc0f840ce815afbf34762645d601"
+    },
+    {
+      "path": "src/simulator/sessions.ts",
+      "sha256": "7bffe339599604f668101344d37ac83c1a522da785beed08040baecc3c638b93"
+    },
+    {
+      "path": "src/simulator/shared-transport.test.ts",
+      "sha256": "828c4e43c7857b60a9f0189829958566ca97705cb10bce798652c0a698dbd266"
+    },
+    {
+      "path": "src/simulator/shared-transport.ts",
+      "sha256": "6c128d35707138daac90b20e779a29dba55d14beec4490cf74a6780054ea441c"
+    },
+    {
+      "path": "src/simulator/staff-preferences.test.ts",
+      "sha256": "67ab2bc8c50d80492af687fe35d46a2dfabcef3f57d9b8beb1e2d86783b768f7"
+    },
+    {
+      "path": "src/simulator/taxi-routing.test.ts",
+      "sha256": "e8706e4a361c199bc0dd1fb75a0eade2a5dc5615e6e32f6c592d313b131df922"
+    },
+    {
+      "path": "src/simulator/taxi-routing.ts",
+      "sha256": "42a5db4a6a04f7e3176759dcee1bea4fb5d677a831e844aa1fa71deecabc29d0"
+    },
+    {
+      "path": "src/simulator/training-api.test.ts",
+      "sha256": "178293c93f550867310b7502473a6f97410f09c32d988c0fcd79d5057add90ad"
+    },
+    {
+      "path": "src/simulator/training-service.test.ts",
+      "sha256": "fb18e4008e9a9b8c5969d554613181b600798d47a230da2f90389edcefb733b8"
+    }
+  ],
+  "limitations": [
+    "No comparison to Infinite Flight proprietary source/binary or original UI screenshots.",
+    "No separate Infinite Flight EULA or historical permission records obtained.",
+    "Production third-party notice retention and complete dependency licensing not audited.",
+    "No jurisdiction-specific legal opinion, patent clearance or general security audit."
+  ],
+  "auditReportSha256": "81e6571a34dd1dc40198b1bb3cfe1692a07e7d75a63c8b3f27dc1300e3309790",
+  "validation": {
+    "localLinksExist": true,
+    "sourceHashesUnchangedAtValidation": true,
+    "findings": 8,
+    "menuInstructionTypes": 12,
+    "mapFeatures": 161
+  }
+}

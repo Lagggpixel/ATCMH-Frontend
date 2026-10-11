@@ -10,7 +10,7 @@ const source = (filename: string) => readFileSync(join(appDirectory, filename), 
 test("dashboard layout keeps the gated runtime mounted across child route changes", () => {
     const layout = source("layout.tsx");
 
-    assert.match(layout, /<SiteFrame theme="light" footer=\{false\} header=\{<DashboardHeader\/>\}>\s*<DashboardAccessGate>\s*<DashboardRuntime>\{children\}<\/DashboardRuntime>/);
+    assert.match(layout, /<SiteFrame theme="light" footer=\{false\} header=\{<DashboardHeader simulatorEnabled=\{simulatorEnabled\(\{SIMULATOR_ENABLED: process.env.SIMULATOR_ENABLED\}\)\}\/>\}>\s*<DashboardAccessGate>\s*<DashboardRuntime>\{children\}<\/DashboardRuntime>/);
     assert.match(layout, /import DashboardHeader from "@\/src\/dashboard\/DashboardHeader"/);
     assert.match(layout, /export const dynamic = "force-dynamic"/);
 });
@@ -28,10 +28,10 @@ test("dashboard replaces the public header contents without losing its shared tr
     const header = readFileSync(join(appDirectory, "../../dashboard/DashboardHeader.tsx"), "utf8");
     const headerStyles = readFileSync(join(appDirectory, "../../dashboard/DashboardHeader.module.css"), "utf8");
 
-    assert.match(layout, /header=\{<DashboardHeader\/>\}/);
+    assert.match(layout, /header=\{<DashboardHeader simulatorEnabled=\{simulatorEnabled\(\{SIMULATOR_ENABLED: process.env.SIMULATOR_ENABLED\}\)\}\/>\}/);
     assert.match(header, /site-header is-scrolled is-solid is-light/);
     assert.match(header, /ATCMH Home/);
-    assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded onNavigate=\{\(\) => setMenuOpen\(false\)\}\/>/);
+    assert.match(header, /<AdminNav adminUser=\{adminUser\} embedded onNavigate=\{\(\) => setMenuOpen\(false\)\} simulatorEnabled=\{simulatorEnabled\}\/>/);
     assert.match(header, /role=\{menuOpen \? "dialog" : undefined\} aria-modal=\{menuOpen \? "true" : undefined\}/);
     assert.match(header, /className=\{styles\.drawerBackdrop\}/);
     assert.match(header, /<AuthNavigation showLogin=\{false\}\/>/);
