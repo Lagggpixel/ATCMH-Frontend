@@ -80,9 +80,9 @@ export class SessionService {
     this.staff(actor);
     const now = this.now(), id = this.uuid();
     let exercise = imported ? {...restoreExercise(imported), id} : initialExercise(id);
-    const preference = await this.store.autoReadback(actor.accountId);
-    if (preference !== undefined && preference !== !!exercise.autoReadback)
-      exercise = applyEnvelope(exercise, {id: this.uuid(), time: now, action: {kind: "auto-readback", enabled: preference}}).state;
+    // Every new session starts automatic, including imported/scenario exercises.
+    // Rejoining an existing session still retains its explicit staff choice.
+    exercise = applyEnvelope(exercise, {id: this.uuid(), time: now, action: {kind: "auto-readback", enabled: true}}).state;
     const record: SessionRecord = {id, ownerId: actor.accountId, ownerName: actor.displayName, title, createdAt: now, updatedAt: now,
       tickAt: now, contentRevision: 0, exercise, staff: null, mentee: null, ...(scenario ? {scenario} : {})};
     await this.store.create(record);
@@ -118,8 +118,6 @@ export class SessionService {
       if (record.scenario && envelope.action.kind === "reset") throw new SessionError("scenario-reset", "Use Restart attempt to restore the published scenario.", 409);
       const result = applyEnvelope(record.exercise, {...envelope, time: now});
       if (result.error) throw new SessionError("invalid-command", result.error, 422);
-      if (result.state !== record.exercise && envelope.action.kind === "auto-readback")
-        await this.store.saveAutoReadback(actor.accountId, envelope.action.enabled, now);
       if (result.state !== record.exercise) record.contentRevision++;
       record.exercise = result.state; record.updatedAt = now;
       if (record.scenario && envelope.action.kind === "play") {

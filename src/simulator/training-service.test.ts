@@ -105,12 +105,12 @@ test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff 
     const sessions = new SessionService(sqlSessionStore), control = randomUUID();
     await sessions.join(staff, sessionId, "staff", control);
     await sessions.dispatch(staff, sessionId, "staff", control, {id: randomUUID(), time: 0, action: {kind: "auto-readback", enabled: true}});
-    assert.equal(db.tables.preferences[0].auto_readback, 1);
-    // Preference and exercise writes commit together; a failed snapshot write rolls both back.
+    assert.equal(db.tables.preferences.length, 0);
+    // A failed snapshot write must preserve the session's existing setting.
     db.failSessionUpdate = true;
     await assert.rejects(sessions.dispatch(staff, sessionId, "staff", control, {id: randomUUID(), time: 0, action: {kind: "auto-readback", enabled: false}}), /Simulated session update/);
     db.failSessionUpdate = false;
-    assert.equal(db.tables.preferences[0].auto_readback, 1);
+    assert.equal(db.tables.preferences.length, 0);
     assert.equal((await sessions.frame(staff, sessionId, "staff", control)).exercise.autoReadback, true);
     await assert.rejects(service.restart(other, sessionId, firstAttempt), /Another staff/);
     await assert.rejects(service.finish(other, sessionId, "blocked", firstAttempt), /Another staff/);

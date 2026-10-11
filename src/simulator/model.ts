@@ -122,12 +122,11 @@ export const METAR = `Simulated EGPH · Wind ${EXERCISE_WEATHER.windDirection}°
 export const emptyAtis = (): Atis => ({letter: "ALPHA", departures: ["24"], arrivals: ["24"], expectations: [], remarks: [], notams: [], procedures: []});
 export const aircraftColor = (aircraft: Aircraft, frequency: Frequency | "all") => aircraft.color ?? ((frequency === "all" ? aircraft.frequency === "ground" || aircraft.frequency === "tower" : aircraft.frequency === frequency) ? "#80dce8" : "#808080");
 export const stripRunway = (aircraft: Aircraft) => aircraft.runway ?? aircraft.lastRunway ?? "----";
-export const unreadMessages = (exercise: Exercise, aircraftId: string, frequency?: Frequency) => exercise.messages.filter(m => m.aircraftId === aircraftId && m.sender === "pilot" && m.read === false && (!frequency || m.frequency === frequency)).length;
-/** Match the unread counters on the strips currently available on each channel. */
+export const unreadMessages = (exercise: Exercise, aircraftId: string, frequency?: Frequency) => exercise.messages.filter(m => m.aircraftId === aircraftId && m.sender === "pilot" && !m.commandId && m.read === false && (!frequency || m.frequency === frequency)).length;
+/** Requests stay active after opening the log, until the controller responds. */
 export function frequencyPendingRequests(exercise: Exercise): Record<Frequency, number> {
   const counts = {ground: 0, tower: 0, atis: 0};
-  const tuned = new Map(exercise.aircraft.map(a => [a.id, a.frequency]));
-  for (const m of exercise.messages) if (m.sender === "pilot" && m.read === false && tuned.get(m.aircraftId) === m.frequency) counts[m.frequency]++;
+  for (const a of exercise.aircraft) if (a.frequency && pendingPilotMessage(exercise, a.id, a.frequency)) counts[a.frequency]++;
   return counts;
 }
 /** A reply to the latest command consumes its pending batch, never exposes older commands. */

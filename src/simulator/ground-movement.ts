@@ -181,11 +181,11 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
   const turningSpeed = maximum * Math.max(0, Math.cos(angle * radians));
   // A target must remain outside our turning circle. This bounds curvature even
   // in the last centimetres, so a tiny heading error cannot cause endless orbits.
-  const steeringSpeed = stopping || a.arrivalExit ? gap * 3600 * GROUND.turnRate * radians / Math.max(.01, 2 * Math.sin(Math.abs(angle) * radians)) : Infinity;
+  const steeringSpeed = gap * 3600 * GROUND.turnRate * radians / Math.max(.01, 2 * Math.sin(Math.abs(angle) * radians));
   const stoppingSpeed = stopping ? Math.min(Math.sqrt(2 * DEFAULTS.acceleration * 3600 * gap), steeringSpeed) : Infinity;
   a.speed = approach(a.speed, Math.min(a.targetSpeed, maximum, turningSpeed, stoppingSpeed, guidance.speedLimit), DEFAULTS.acceleration * dt);
-  a.speed = Math.min(a.speed, steeringSpeed);
-  const stride = Math.min(a.speed / 3600 * dt, guidance.travelLimit, stopping ? gap : Infinity);
+  a.speed = Math.min(a.speed, steeringSpeed, turningSpeed);
+  const stride = Math.min(a.speed / 3600 * dt, guidance.travelLimit, gap);
   const course = (a.heading + turn / 2) * radians;
   a.position = {x: a.position.x + Math.sin(course) * stride * (reverse ? -1 : 1), y: a.position.y + Math.cos(course) * stride * (reverse ? -1 : 1)};
   a.heading = (a.heading + turn + 360) % 360;
