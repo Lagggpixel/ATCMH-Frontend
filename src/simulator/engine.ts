@@ -70,7 +70,7 @@ export function initialExercise(id = "egph-local"): Exercise {
   const second = newAircraft("demo-ground", false);
   const taxiway = AIRPORT.features.find(f => f.kind === "taxiway" && f.points.length >= 3);
   if (taxiway) { second.position = {...taxiway.points[0]}; second.taxiPath = taxiway.points.map((p, i) => ({...p, hold: i === taxiway.points.length - 2})); }
-  return {schema: 1, id, revision: 0, elapsed: 0, running: false, pausedByStaff: false, autoReadback: false, aircraft: [first, second], messages: [], processed: [], atis: emptyAtis(), publishedAtis: "ATIS UNAVAILABLE", publishedDraft: null};
+  return {schema: 1, id, revision: 0, elapsed: 0, running: false, pausedByStaff: false, autoReadback: true, aircraft: [first, second], messages: [], processed: [], atis: emptyAtis(), publishedAtis: "ATIS UNAVAILABLE", publishedDraft: null};
 }
 /** Upgrade old snapshots once: the last pending pilot messages were the only unread ones. */
 
@@ -411,7 +411,7 @@ export function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exer
         if (command.instruction.type !== "frequency") aircraft!.lastRunway = aircraft!.runway ?? aircraft!.lastRunway;
       }
       if (command?.instruction?.type === "frequency" && command.instruction.frequency === null && !/^Unable/i.test(pilotText)) {command.acknowledged = true; break;}
-      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, commandId: action.replyTo, read: false, ...(action.request ? {request: action.request, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, commandId: action.replyTo, read: !!action.replyTo, ...(action.request ? {request: action.request, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
     }
     case "command": {
       const c = action.command;

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, AIRPORT, applyEnvelope, distance, initialExercise, newAircraft, predictAircraft, validateAssignment} from "./engine";
-import {GROUND, planPushback} from "./ground-movement";
+import {GROUND, moveGround, planPushback} from "./ground-movement";
+import {planTaxiRoute} from "./taxi-routing";
 import {standPlacement} from "./scenarios";
 import {exerciseSchema} from "./protocol";
 import {pilotRequests, pilotRequestText, resolvePilotRequest} from "./catalog";
@@ -10,6 +11,32 @@ import type {Aircraft, Exercise} from "./model";
 const taxi = (id: string, x: number, y = 0): Aircraft => ({...newAircraft(id, false), position: {x, y}, heading: 90, targetHeading: 90, mode: "taxi", speed: 15, targetSpeed: 15, taxiPath: [{x: 1, y: 0}], taxiIndex: 0});
 const exercise = (aircraft: Aircraft[]): Exercise => ({...initialExercise(), aircraft, running: true});
 const turn = (a: number, b: number) => Math.abs((b - a + 540) % 360 - 180);
+
+test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting intermediate waypoints", () => {
+  let completed = 0;
+  for (const feature of AIRPORT.features.filter(f => f.kind === "parking_position" || f.name === "S" || f.name === "G")) {
+    for (const runway of ["24", "06"] as const) {
+      const position = feature.points.at(-1)!;
+      const route = planTaxiRoute(AIRPORT, position, runway); if (!route.path) continue;
+      const a = {...taxi(feature.id, position.x, position.y), taxiPath: route.path};
+      let index = 0, held = false, rotation = 0;
+      const label = `${feature.name}/${runway}`;
+      for (let frame = 0; frame < 36000 && !held; frame++) {
+        const oldIndex = index, oldPosition = {...a.position}, oldHeading = a.heading;
+        ({index, held} = moveGround(a, route.path, index, .05, false, {speedLimit: Infinity, travelLimit: Infinity}));
+        assert.ok(distance(oldPosition, a.position) <= 15 / 3600 * .05 + 1e-7, `${label}: no teleporting`);
+        assert.ok(turn(oldHeading, a.heading) <= GROUND.turnRate * .05 + 1e-7, `${label}: bounded turn rate`);
+        rotation += turn(oldHeading, a.heading);
+        assert.ok(rotation < 360, `${label}: orbiting waypoint ${oldIndex} (${rotation} degrees)`);
+        if (index !== oldIndex) rotation = 0;
+      }
+      assert.equal(held, true, `${label}: reaches the final hold`);
+      assert.deepEqual(a.position, {x: route.path.at(-1)!.x, y: route.path.at(-1)!.y});
+      completed++;
+    }
+  }
+  assert.equal(completed, 172);
+});
 
 test("taxi traffic stops with an 83m gap and resumes when the route clears, on either frequency", () => {
   const leader = {...taxi("leader", .12), mode: "parked" as const, speed: 0, targetSpeed: 0, frequency: "tower" as const};

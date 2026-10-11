@@ -6,7 +6,7 @@ export default function AutomaticHelp() {
   const dialog = useRef<HTMLDialogElement>(null);
   return <><button className={styles.automaticHelpButton} aria-label="About Automatic mode" onClick={() => dialog.current?.showModal()}>?</button>
     <dialog ref={dialog} className={styles.automaticHelp} aria-labelledby="automatic-help-title" onKeyDown={e => {if (e.key === "Escape") e.stopPropagation();}}><h2 id="automatic-help-title">Automatic</h2>
-      <p>Applies to all aircraft. Your preference is remembered across sessions and devices.</p>
+      <p>Applies to all aircraft. Every new session starts with Automatic on. Staff can turn it off for that session; reconnecting preserves that choice.</p>
       <ul><li>Reads back and follows valid controller instructions after 1.5 exercise seconds. Invalid assignments receive an Unable response.</li>
         <li>Requests taxi after pushback, using the aircraft’s taxi intention and latest published ATIS.</li>
         <li>After Contact Tower when ready, changes to Tower at the departure holding point and requests departure from the assigned taxi runway. Pattern work adds “remaining in the pattern”.</li>

@@ -117,7 +117,7 @@ test("line up and wait reaches the threshold, aligns and stays stopped until tak
 
 test("runway exits follow mapped connectors on the requested side and stop clear of both runway ends", () => {
   for (const runway of ["24", "06"] as const) for (const side of ["left", "right", "any"] as const) {
-    let state = running(); const a = state.aircraft[1], g = runwayGeometry(runway);
+    let state = {...running(), autoReadback: false}; const a = state.aircraft[1], g = runwayGeometry(runway);
     a.position = {x: g.threshold.x + g.vector.x * .1, y: g.threshold.y + g.vector.y * .1};
     a.runway = runway; a.heading = g.heading; a.targetHeading = g.heading; a.frequency = "tower";
     const route = runwayExitRoute(a, side);

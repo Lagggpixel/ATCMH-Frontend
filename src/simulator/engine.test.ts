@@ -95,7 +95,7 @@ test("pause and fixed substeps preserve deterministic positions", () => {
 test("queued commands and plain readbacks do not change aircraft instructions", () => {
   let state = initialExercise(); const action: Action = {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "Turn base", command: {type: "pattern", leg: "base"}};
   state = act(state, action, "command-1"); const duplicate = act(state, action, "command-1"); assert.equal(duplicate, state); assert.equal(state.messages.length, 1);
-  state = act(state, {kind: "pilot", aircraftId: "demo-air", text: "Turning base", replyTo: "command-1"}); assert.equal(state.aircraft[0].leg, "final"); assert.equal(state.aircraft[0].pending, 1);
+  state = act(state, {kind: "pilot", aircraftId: "demo-air", text: "Turning base", replyTo: "command-1"}); assert.equal(state.aircraft[0].leg, "final"); assert.equal(state.aircraft[0].pending, 0);
   const replay = applyEnvelope(state, {id: "second-reply", time: 1, action: {kind: "pilot", aircraftId: "demo-air", text: "Turning base", replyTo: "command-1"}}); assert.match(replay.error!, /answered/);
   state = act(state, {kind: "read", aircraftId: "demo-air"}); assert.equal(state.aircraft[0].pending, 0);
 });
@@ -147,7 +147,7 @@ test("readback and assign executes its stored instruction once and survives wire
   assert.equal(queued.aircraft[0].leg, "final");
   const response: Action = {kind: "pilot", aircraftId: "demo-air", text: "Turning base", replyTo: "queued-turn", assign: true};
   const assigned = act(queued, response, "assignment");
-  assert.equal(assigned.aircraft[0].leg, "base"); assert.equal(assigned.aircraft[0].pending, 1);
+  assert.equal(assigned.aircraft[0].leg, "base"); assert.equal(assigned.aircraft[0].pending, 0);
   assert.equal(act(assigned, response, "assignment"), assigned);
   assert.match(applyEnvelope(assigned, {id: "second-assignment", time: 1, action: response}).error!, /answered/);
 });

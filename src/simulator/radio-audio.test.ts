@@ -69,7 +69,7 @@ test("explicit audio choice survives remounts without persisting online consent 
   assert.equal(enabled.getSnapshot().allowOnline, false);
   assert.equal(enabled.getSnapshot().voice, "");
   enabled.say("New message"); h.played.at(-1)!.error();
-  assert.equal(enabled.getSnapshot().enabled, false);
+  assert.equal(enabled.getSnapshot().enabled, true);
   assert.equal(saved, true); // A browser failure is not a user mute choice.
   closeEnabled(); h.close();
 });
@@ -145,10 +145,33 @@ test("ATIS history and muted/offline publications never replay on recovery", () 
   h.player.observe({...state, publishedAtis: "Edinburgh information CHARLIE."}, true, "tower");
   assert.equal(h.played.length, 0); h.close();
 });
-test("voice failures disable audio with a recoverable explanation", () => {
+test("autoplay failures preserve enabled audio and retry the queued message on the next interaction", () => {
   const h = harness(); h.enable(); h.observe([message("one"), message("two")]); h.played[0].error();
-  assert.equal(h.player.getSnapshot().enabled, false); assert.match(h.player.getSnapshot().error, /enable radio audio again/);
-  h.played[0].end(); assert.equal(h.played.length, 1); h.close();
+  assert.equal(h.player.getSnapshot().enabled, true); assert.match(h.player.getSnapshot().error, /Click or press a key/);
+  h.played[0].end(); assert.equal(h.played.length, 1);
+  h.observe([message("one"), message("two"), message("three")]); assert.equal(h.played.length, 1, "snapshots do not endlessly retry blocked speech");
+  h.player.activate(); assert.equal(h.played.length, 2); assert.equal(h.played[1].text, h.played[0].text);
+  assert.equal(h.player.getSnapshot().error, "");
+  h.played[1].end(); h.played[2].end(); assert.equal(h.played.length, 4);
+  h.close();
+});
+
+test("asynchronous device voices automatically start queued speech without toggling audio", () => {
+  const h = harness(); let ready = false;
+  h.output.voices = () => ready ? [{id: "local", name: "English", language: "en-GB", local: true}] : [];
+  h.voiceChange(); h.observe([message("early"), message("second")]);
+  assert.equal(h.played.length, 0); assert.equal(h.player.getSnapshot().enabled, true);
+  h.player.activate(); assert.equal(h.played.length, 0);
+  ready = true; h.voiceChange(); assert.equal(h.played.length, 1);
+  h.played[0].end(); assert.equal(h.played.length, 2);
+  h.close();
+});
+
+test("explicit mute while autoplay is blocked discards speech and prevents interaction-based retries", () => {
+  const h = harness(); h.observe([message("blocked")]); h.played[0].error();
+  h.player.setEnabled(false); h.player.activate(); h.voiceChange();
+  assert.equal(h.player.getSnapshot().enabled, false); assert.equal(h.played.length, 1);
+  h.close();
 });
 test("unsupported browser cannot enable speech; unmount stops active playback", () => {
   const player = new RadioAudio(); const stop = player.start(null); player.setEnabled(true); assert.equal(player.getSnapshot().enabled, false); stop();

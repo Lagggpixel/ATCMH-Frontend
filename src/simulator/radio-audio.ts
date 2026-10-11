@@ -41,6 +41,7 @@ export class RadioAudio {
   private queue: string[] = [];
   private generation = 0;
   private paused = false;
+  private waitingForRetry = false;
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.state;
   getServerSnapshot = () => INITIAL_STATE;
@@ -49,7 +50,7 @@ export class RadioAudio {
     this.output = output;
     this.preference = preference;
     this.update({available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
-    const refresh = () => this.update({voices: output?.voices() ?? []});
+    const refresh = () => {this.update({voices: output?.voices() ?? []}); this.next();};
     const unsubscribe = output?.onVoicesChanged(refresh);
     refresh();
     return () => {unsubscribe?.(); this.stop(); this.output = null; this.previous = null; this.seen.clear();};
@@ -80,6 +81,13 @@ export class RadioAudio {
     // Speak directly from the click gesture to unlock browser audio playback.
     if (this.state.enabled) this.say("Radio audio enabled.");
   }
+  /** Retry blocked autoplay from the next simulator interaction, without changing
+   * the user's saved audio choice or requiring an off/on toggle. */
+  activate = () => {
+    if (!this.state.enabled) return;
+    this.waitingForRetry = false;
+    this.next();
+  };
   setSettings(settings: Partial<VoiceSettings>) {
     if (settings.voice !== undefined || settings.allowOnline !== undefined) this.stop();
     this.update({allowOnline: settings.allowOnline ?? this.state.allowOnline, voice: settings.allowOnline === false ? "" : settings.voice ?? this.state.voice, rate: Math.min(1.5, Math.max(0.7, settings.rate ?? this.state.rate)), volume: Math.min(1, Math.max(0, settings.volume ?? this.state.volume))});
@@ -89,18 +97,22 @@ export class RadioAudio {
     this.queue.push(aviationSpeech(text)); this.next();
   }
   stop() {
-    this.generation++; this.queue = [];
+    this.generation++; this.queue = []; this.waitingForRetry = false;
     if (this.state.speaking) this.output?.cancel();
     if (this.state.speaking) this.update({speaking: ""});
   }
   private next() {
-    if (!this.output || !this.state.enabled || this.paused || this.state.speaking || !this.queue.length) return;
+    if (!this.output || !this.state.enabled || this.paused || this.waitingForRetry || this.state.speaking || !this.queue.length) return;
+    // Device voices often arrive asynchronously, after the first radio frame.
+    if (!this.state.voices.length) return;
     const text = this.queue.shift()!;
     const generation = this.generation;
     this.update({speaking: text, error: ""});
     const error = () => {
       if (generation !== this.generation) return;
-      this.stop(); this.update({enabled: false, error: "Voice playback failed or no permitted local voice is available. Install a local English voice or explicitly choose an online voice, then enable radio audio again."});
+      this.generation++; this.output?.cancel();
+      this.queue.unshift(text); this.waitingForRetry = true;
+      this.update({speaking: "", error: "Voice playback is waiting. Click or press a key in the simulator to retry. If needed, select an available voice in Voice settings."});
     };
     const {voice, rate, volume, allowOnline} = this.state;
     try {this.output.speak(text, {voice, rate, volume, allowOnline}, () => {
@@ -127,6 +139,7 @@ export function browserSpeechOutput(): SpeechOutput | null {
       utterance.rate = settings.rate; utterance.volume = settings.volume;
       utterance.onend = () => {utterance = null; end();};
       utterance.onerror = () => {utterance = null; error();};
+      if (synth.paused) synth.resume();
       synth.speak(utterance);
     },
     cancel: () => {

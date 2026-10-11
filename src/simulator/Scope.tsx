@@ -22,9 +22,9 @@ const bounds = {left: Math.min(...airportPoints.map(p => p.x)), right: Math.max(
 const airportCamera = (width: number, height: number, unified: boolean) => unified
   ? {center: {x: (bounds.left + bounds.right) / 2, y: (bounds.bottom + bounds.top) / 2}, scale: Math.min(width * .9 / (bounds.right - bounds.left), height * .84 / (bounds.top - bounds.bottom))}
   : {center: {x: 0, y: 0}, scale: width / 1.8};
-interface Props {aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
+interface Props {pendingAircraft?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
-export default function Scope({aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context}: Props) {
+export default function Scope({pendingAircraft, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context}: Props) {
   const aircraft = useRadarAircraft(snapshot, running, autoReadback);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -173,7 +173,7 @@ export default function Scope({aircraft: snapshot, running, autoReadback = false
       const p = project(a.position); if (p.x < -50 || p.x > size.width + 50 || p.y < -50 || p.y > size.height + 50) return null;
       const color = aircraftColor(a, frequency);
       return <div key={a.id} className={styles.aircraftPosition} style={{left: p.x, top: p.y, color}}>
-        <button aria-label={`Select ${a.callsign}`} className={`${styles.aircraft} ${selected === a.id ? styles.selectedAircraft : ""}`} onClick={() => {onSelect(a.id); setPopup(null);}}><Airplane size={25} weight="fill" style={{transform: `rotate(${a.heading}deg)`}}/></button>
+        <button aria-label={`Select ${a.callsign}`} className={`${styles.aircraft} ${selected === a.id ? styles.selectedAircraft : ""}`} onClick={() => {onSelect(a.id); setPopup(null);}}><Airplane size={25} weight="fill" className={pendingAircraft?.includes(a.id) ? styles.pendingAircraft : undefined} style={{transform: `rotate(${a.heading}deg)`}}/></button>
         {aircraftTagVisible(a, frequency, selected) ? <button className={`${styles.aircraftTag} ${a.tag === "left" || (a.tag === "auto" && p.x > size.width * .7) ? styles.leftTag : ""}`} onClick={() => onSelect(a.id)}><span>{a.callsign}</span><span>{Math.round(a.altitude / 100)} {Math.round(a.speed)}KT {Math.round(distance(a.position, {x: 0, y: 0}))}NM</span></button> : null}
         {selected === a.id && context ? <div className={`${styles.contextAnchor} ${p.x > size.width * 0.6 ? styles.contextLeft : ""}`} style={p.y > size.height * 0.5 ? {top: "auto", bottom: 26} : undefined}>{context(a)}</div> : null}
       </div>;

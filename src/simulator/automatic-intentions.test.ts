@@ -181,7 +181,7 @@ test("scenario overhead conditions respect Automatic and fire once without dupli
   const definition = scenarioFromExercise(stateOf([a]), "Overhead");
   definition.events = [{id: "overhead", title: "Overhead touch and go", trigger: {type: "condition", condition: {type: "overhead", aircraftKey: "aircraft-1", radius: 1}, delay: 0}, actions: [{type: "request", aircraftKey: "aircraft-1", requestId: "inbound-option", runway: "24"}]}];
   const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(definition), "test", randomUUID());
-  let state = assign({...exercise, running: true}, {type: "transition", altitude: 1500});
+  let state = assign({...exercise, running: true, autoReadback: false}, {type: "transition", altitude: 1500});
   state = advanceScenario(state, runtime, .1, 1000).exercise;
   assert.equal(state.messages.length, 0); assert.equal(runtime.events.overhead.status, "scheduled");
   state.autoReadback = true;

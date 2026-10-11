@@ -17,14 +17,14 @@ const command = (state: Exercise, aircraftId = "demo-ground", instruction: Extra
 const placeAtStand = (state: Exercise) => {Object.assign(state.aircraft[1], standPlacement(AIRPORT.features.find(f => f.kind === "parking_position")!.id)); return state;};
 const enabled = () => send(send(placeAtStand(initialExercise()), {kind: "auto-readback", enabled: true}), {kind: "play"});
 
-test("global automation waits 1.5 seconds and assigns each aircraft once with unread readbacks", () => {
+test("global automation waits 1.5 seconds and assigns each aircraft once without counting readbacks as requests", () => {
   let state = command(command(enabled()), "demo-air", {type: "extend", leg: "downwind"});
   const original = state;
   state = tick(state, 1.4); assert.equal(state.messages.length, 2); assert.equal(state.aircraft[1].holding, false);
   state = tick(state, .1); assert.equal(state.messages.length, 4); assert.equal(state.aircraft[1].holding, true);
   assert.equal(state.aircraft[0].extended, true);
   assert.equal(state.messages[2].text, "hold position, Speedbird 124");
-  for (const a of state.aircraft) {assert.equal(a.pending, 1); assert.equal(pendingCommands(state, a.id).length, 0);}
+  for (const a of state.aircraft) {assert.equal(a.pending, 0); assert.equal(pendingCommands(state, a.id).length, 0);}
   assert.equal(tick(state, 2).messages.length, 4); assert.equal(original.messages.length, 2);
 });
 

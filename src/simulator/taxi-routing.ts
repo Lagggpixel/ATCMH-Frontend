@@ -97,7 +97,7 @@ function routeToNodes(source: TaxiGraph, position: Point, goals: number[], hold:
 }
 /** Choose a reachable mapped stand, excluding occupied destinations. */
 
-export function planParkingRoute(airport: Airport, position: Point, standId?: string, occupied: Point[] = []) {
+export function planParkingRoute(airport: Airport, position: Point, standId?: string, occupied: Point[] = []): ReturnType<typeof routeToNodes> {
   const graph = buildTaxiGraph(airport);
   const stands = airport.features.filter(f => f.kind === "parking_position" && f.points.length > 1 && (!standId || f.id === standId));
   const goals = stands.flatMap(stand => {
