@@ -46,7 +46,7 @@ test('legal pages use the shared shell while Discord and legal links remain in t
 test('terms describe the current consent and central authentication model', () => {
 	const terms = readFileSync(path.join(projectRoot, 'TERMS_OF_SERVICE.md'), 'utf8')
 
-	assert.match(terms, /Last updated: July 14, 2026/)
+	assert.match(terms, /Last updated: October 11, 2026/)
 	assert.match(terms, /Dashboard and Exams Center/i)
 	assert.match(terms, /central[^.]*opaque session/i)
 	assert.match(terms, /login IP address/i)

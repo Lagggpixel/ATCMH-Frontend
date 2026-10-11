@@ -1,0 +1,500 @@
+@font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face {font-family:"Simulator Mono";src:url("/simulator/fonts/B612Mono-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+.simulator {position:fixed;inset:0;display:grid;grid-template-columns:5.85% minmax(0,1fr) 23.4%;padding:0 1.7% 2.2%;grid-template-rows:40px minmax(0,1fr);background:#000;color:#eee;font:clamp(14px,1.15vw,21px)/1.25 "Simulator Fira",sans-serif;isolation:isolate;overflow:hidden;color-scheme:dark}
+.simulator * {box-sizing:border-box}
+.simulator button,.simulator input,.simulator select {font:inherit}
+.simulator button {border:0;border-radius:0;background:transparent;color:inherit;cursor:pointer;text-align:left;padding:10px}
+.simulator button:hover {background:#202020}
+.simulator button:focus-visible,.simulator a:focus-visible,.simulator input:focus-visible,.simulator select:focus-visible {outline:2px solid #80dce8;outline-offset:-2px}
+.simulator button:disabled {opacity:.36;cursor:default}
+.simulator input,.simulator select {min-width:0;background:#111;color:#eee;border:1px solid #666;border-radius:0;padding:6px;accent-color:#d7d7d7}
+.simulator a {color:#b7d8e8;text-decoration:none}
+.sidebar {grid-column:1;grid-row:1/3;display:grid;grid-template-rows:repeat(5,1fr);position:relative;text-align:center;z-index:2;background:#000}
+.sidebar>span,.sidebar>button {display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;text-align:center}
+.sidebar>button {line-height:1.25;overflow-wrap:normal}
+.sidebar .activeFrequency {color:#ee9d00}
+.exit {position:absolute;bottom:5px;left:12px;font-size:10px;color:#737373!important}
+.topBanner {grid-column:2/4;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 12px 0 2px;white-space:nowrap;overflow:hidden;font-size:clamp(13px,1.05vw,21px);background:black;z-index:3}
+.topBanner>span:first-child {color:#91e98d;overflow:hidden;text-overflow:ellipsis}
+.topBanner>span:last-child {font-family:"Simulator Mono",monospace;flex-shrink:0}
+.scope {grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000}
+.mapSurface {position:absolute;inset:0;touch-action:none;cursor:grab}
+.mapSurface:active {cursor:grabbing}
+.mapCanvas {width:100%;height:100%;display:block}
+.trafficCanvas {position:absolute;inset:0;pointer-events:none}
+.taxiRouteOverlay {position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
+.taxiWaypoint {pointer-events:all;cursor:grab;outline:none}
+.taxiWaypoint:active {cursor:grabbing}
+.taxiWaypoint:focus-visible {stroke:#fff;stroke-width:3}
+.pathLegend {position:absolute;bottom:26px;left:12px;padding:8px 10px;background:#101518e8;border:1px solid #34434b;color:#d6e2e7;font-size:11px;line-height:1.6;pointer-events:none}
+.scopeButtons {position:absolute;right:5px;bottom:26px;display:grid;width:clamp(46px,3.8vw,72px);border:1px solid #aaa;background:#090909;z-index:5}
+.scopeButtons button {height:clamp(46px,3.8vw,72px);border-bottom:1px solid #aaa;display:flex;align-items:center;justify-content:center;padding:0}
+.scopeButtons button:last-child {border-bottom:0}
+.airportMarker {position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;padding:0!important;color:#298aff!important;z-index:2}
+.airportMarker>span {position:absolute;bottom:34px;left:-10px;white-space:nowrap;color:#91e98d;font-size:clamp(12px,1vw,19px)}
+.airportMarker small {font-size:9px;background:#91e98d;color:#254222;padding:1px 2px;border-radius:2px}
+.airportMarker i {position:absolute;left:10px;top:10px;width:10px;height:10px;background:#91e98d;border-radius:50%;pointer-events:none}
+.runwayTag {position:absolute;background:black;border:1px solid;transform:translate(-50%,-50%);font-size:clamp(12px,1vw,19px);font-weight:bold;padding:0 3px;pointer-events:none;z-index:3;border-radius:2px}
+.aircraftPosition {position:absolute;width:0;height:0;z-index:4}
+.aircraft {transform:translate(-50%,-50%);position:absolute;padding:0!important;width:30px;height:30px;display:grid;place-items:center;color:inherit!important}
+.selectedAircraft {outline:1px solid currentColor;border-radius:50%!important}
+.aircraftTag {position:absolute;bottom:25px;left:28px;white-space:nowrap;font-size:clamp(11px,.9vw,17px)!important;padding:2px!important;color:inherit!important;text-shadow:0 1px 2px black;text-align:left}
+.aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:currentColor;transform:rotate(-35deg);transform-origin:right}
+.aircraftTag span {display:block}
+.leftTag {left:auto;right:28px;text-align:right!important}
+.leftTag:before {left:100%;right:auto;transform:rotate(35deg);transform-origin:left}
+.contextAnchor {position:absolute;left:24px;top:26px;z-index:10;color:white;width:230px}
+.contextLeft {left:auto;right:24px}
+.aircraftMenu {background:#050505;border:1px solid #242424;border-radius:5px;box-shadow:0 4px 20px #0009;max-height:54vh;overflow:auto;padding:12px 0}
+.aircraftMenu button {display:block;width:100%;font-size:15px;padding:12px 18px}
+.optionsMenu {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 5px);bottom:26px;width:clamp(290px,25.8vw,490px);background:#030303;border:1px solid #171717;border-radius:6px;padding:12px 8px;z-index:10;box-shadow:0 8px 20px #0008;max-height:calc(100% - 40px);overflow:auto}
+.optionsMenu button {display:flex;align-items:center;gap:12px;width:100%;padding:clamp(10px,1.15vw,22px) 10px;min-height:42px;font-size:clamp(14px,1vw,19px)}
+.optionsMenu button>span:first-child {min-width:19px;text-align:center}
+.optionsMenu .arrow {margin-left:auto;color:#03a9d6}
+.airportPopup {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#030303;border:1px solid #222;border-radius:6px;padding:18px;display:flex;align-items:center;gap:16px;z-index:10;font-size:14px;min-width:350px}
+.airportPopup em {font-style:normal;color:#91e98d;background:#161616;padding:2px;font-size:12px}
+.airportPopup>button {background:#eee;color:#111;padding:5px;border-radius:3px;margin-left:auto}
+.procedurePanel {position:absolute;left:0;top:0;bottom:0;z-index:9;background:#000;width:280px;display:flex;flex-direction:column;border-right:1px solid #222;font-size:clamp(14px,.95vw,18px)}
+.procedurePanel header {display:flex;align-items:center;justify-content:space-between;padding:5px 4px 5px 10px}
+.procedurePanel>div {flex:1;overflow-y:auto}
+.procedurePanel label {display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid #161616;cursor:pointer}
+.procedurePanel label>span:first-child {flex:1}
+.procedurePanel label>span:nth-child(2) {color:white}
+.procedurePanel input[type=checkbox] {width:17px;height:17px}
+.procedurePanel footer {padding:8px 4px}
+.procedurePanel footer label {border:0}
+.procedurePanel footer input {width:140px}
+.procedurePanel footer>button {border:1px solid #aaa;width:100px;text-align:center}
+.attribution {position:absolute;bottom:2px;left:5px;font-size:9px;color:#777!important;z-index:2}
+.nearbyAirport {position:absolute;left:12%;top:15%;color:#999!important;font-size:13px!important}
+.wind {position:absolute;left:20px;bottom:30px;padding:12px;background:#111b;font-family:"Simulator Mono",monospace;font-size:12px;line-height:1.6;pointer-events:none}
+.editHint {position:absolute;top:12px;left:12px;right:80px;text-align:center;background:#1d252add;padding:8px;font-size:13px;color:#d4e5ef;pointer-events:none}
+.rightPanel {grid-column:3;grid-row:2;display:grid;min-height:0;overflow:hidden;background:#000}
+.strips {overflow-y:auto;min-height:0}
+.strip {display:grid;grid-template-columns:minmax(0,1fr) 64px;min-height:77px;background:#000;border-bottom:1px solid #222}
+.stripBody {display:grid;grid-template-columns:minmax(0,1fr) 62px;grid-template-rows:1fr 1fr;gap:8px 4px;font-size:clamp(14px,1vw,19px)!important;min-width:0;padding:10px 4px!important}
+.stripBody>span:first-child {overflow-wrap:anywhere}
+.quickFrequency {display:flex;flex-direction:column;gap:4px;text-align:left;font-size:10px;color:#93a1aa}
+.quickFrequency select {font-size:12px!important;width:160px;padding:5px!important}
+.stripBody>span:nth-child(2),.stripBody>span:nth-child(4) {text-align:center}
+.atcButton {position:relative;padding:8px 2px!important;text-align:center!important;font-size:clamp(12px,1vw,19px)!important}
+.atcButton i {position:absolute;bottom:8px;right:8px;width:10px;height:10px;border-radius:50%}
+.activePilot {background:#91e98d}
+.inactivePilot {border:2px solid #eeb45f}
+.selectedStrip {background:#1a1a1a}
+.otherFrequency {color:#888}
+.reminder {outline:2px solid #91e98d;outline-offset:-2px}
+.splitter {appearance:none;height:8px!important;padding:0!important;margin:0!important;width:100%;border:0!important;background:#222!important;cursor:ns-resize}
+.splitter::-webkit-slider-thumb {appearance:none;height:8px;width:30px;background:#888}
+.messageLog {min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:safe flex-end;font-size:clamp(14px,1.16vw,20px);padding:0 4px 3px 0;overflow-wrap:anywhere}
+.messageLog>div {padding:3px 0;border-bottom:1px solid #333;background:#151515}
+.messageLog>div:nth-child(even) {background:#000}
+.controllerMessage {color:#91e98d}
+.pilotMessage {color:#bd8fa9}
+.offFrequencyMessage {color:#858585}
+.exerciseContents {display:contents}
+.pauseScreen {position:fixed;inset:0;z-index:120;background:#303236;color:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
+.pauseScreen>svg {color:#c7c9cc;margin-bottom:26px}
+.pauseScreen>p {font-family:"Simulator Mono",monospace;letter-spacing:.16em;font-size:12px;color:#c7c9cc;margin:0 0 16px}
+.pauseScreen>h1 {font-size:clamp(24px,3vw,36px);font-weight:400;line-height:1.25;margin:0 0 14px;outline:none;max-width:600px}
+.pauseScreen>span {font-size:16px;color:#c7c9cc;line-height:1.5}
+.pauseScreen>a {margin-top:36px;padding:12px 22px;border:1px solid #8d9095;color:#f5f5f5;font-size:14px}
+.pauseScreen>a:hover {background:#414449}
+.extendedPanel {position:absolute;z-index:12;right:0;top:40px;bottom:0;width:min(490px,45vw);background:#000;border-left:1px solid #555;display:flex;flex-direction:column;padding:8px;font-size:clamp(12px,1vw,19px)}
+.extendedPanel header {display:flex;justify-content:space-between;align-items:center;padding:5px;min-height:50px;font-size:17px}
+.extendedPanel header small {display:block;font-family:"Simulator Mono",monospace;font-size:11px;margin-top:6px}
+.messageEntries {overflow:auto;min-height:0;flex:1}
+.messageEntries button {display:flex;gap:12px;align-items:center;min-height:48px;width:100%;background:#252525;border-bottom:3px solid black;text-transform:uppercase;font-size:14px}
+.messageEntries button>span {color:#777;font-family:"Simulator Mono",monospace;font-size:11px}
+.messageEntries b {margin-left:auto}
+.messageEntries small {display:block;color:#c4a580;font-size:11px;margin-top:6px;text-transform:none}
+.messageEntries .sendLabel {font-size:11px;font-weight:400;color:#bdbdbd}
+.messageEntries button.suggestedCommand {color:#c5f467}
+.messageEntries button.suggestedCommand>span,.messageEntries button.suggestedCommand .sendLabel {color:inherit}
+.backButton {color:#94c2dc!important;background:#161616!important}
+.compose {padding:12px;background:#181818;min-height:120px}
+.compose p {margin:0 0 10px;color:#91e98d}
+.compose small {display:block;color:#c4a580;margin-bottom:10px}
+.compose button {border:1px solid #888;width:100%;text-align:center;background:#292929}
+.extendedPanel>.messageLog {flex:0 0 23%;margin-top:6px}
+.atis {grid-column:2/4;grid-row:2;position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden;font-size:clamp(14px,1.05vw,20px)}
+.atisToolbar {display:flex;align-items:center;gap:6px;min-height:clamp(46px,3.8vw,72px);border-bottom:1px solid #333}
+.atisToolbar>span:first-child {flex:1}
+.atisToolbar>button {height:54px;border:1px solid #333;min-width:90px;text-align:center;background:#171717}
+.atisGrid {display:grid;grid-template-columns:10% 45% 45%;flex:1;min-height:0;overflow:auto}
+.atisGrid>section {min-width:0}
+.atis h2 {font-size:inherit;font-weight:400;padding:10px 3px;background:#161616;border-bottom:1px solid #333;margin:0 0 6px}
+.runwayChoices {display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 5px}
+.runwayChoices button {text-align:center;min-height:clamp(66px,4.3vw,82px);border:1px solid #555;padding:6px;background:#121212}
+.runwayChoices .headwind {color:#91e98d}
+.runwayChoices .crosswind {color:#e8b257}
+.runwayChoices .tailwind {color:#e62727}
+.tileChoices {display:flex;flex-wrap:wrap;gap:5px;padding:0 5px clamp(40px,3.5vw,67px)}
+.tileChoices button {min-height:clamp(66px,4.3vw,82px);flex:0 0 calc(20% - 5px);min-width:85px;background:#121212;border:1px solid #555;text-align:center;padding:8px;font-size:clamp(12px,1vw,19px)}
+.atis button[aria-pressed=true] {border-color:#fff}
+.atisGrid>section:last-child .tileChoices button {flex:0 0 120px}
+.procedureChoices {display:flex;flex-wrap:wrap;gap:5px;padding:0 5px}
+.procedureChoices button {width:clamp(70px,4.3vw,82px);min-height:clamp(65px,4.3vw,82px);border:1px solid #555;text-align:center;padding:4px;font-size:clamp(13px,1vw,19px)}
+.frequencySummary {display:flex;align-items:center;justify-content:center;min-height:50%;padding:12px;text-align:center}
+.atisPublished {padding:18px 5px;min-height:65px;max-height:140px;overflow:auto;border-top:1px solid #333;font-size:14px}
+.letterMenu {position:absolute;right:95px;top:0;bottom:5px;z-index:12;width:220px;background:#000;border:1px solid #555;overflow:auto;border-radius:5px;padding:12px 5px}
+.letterMenu button {display:flex;align-items:center;gap:15px;width:100%;min-height:50px;padding:12px 15px}
+.letterMenu button span {width:18px}
+.utility {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;background:#080808;border:1px solid #555;box-shadow:0 0 0 100vmax #0008;padding:16px;width:min(440px,80vw);font-size:16px;max-height:80vh;overflow:auto}
+.utility header {display:flex;align-items:center;justify-content:space-between;font-size:20px;border-bottom:1px solid #333;margin-bottom:15px}
+.utility dl {display:grid;grid-template-columns:1fr 1.5fr;gap:12px}
+.utility dt {color:#888}
+.utility dd {margin:0}
+.utility form {display:grid;gap:12px}
+.utility form label {display:flex;gap:12px;align-items:center}
+.utility form button {border:1px solid #aaa;text-align:center}
+.colorChoices {display:grid;gap:5px}
+.colorChoices button {border-bottom:1px solid #222}
+.connectionBanner {position:absolute;bottom:30px;left:20%;padding:14px 20px;background:#171717eb;border:1px solid #555;z-index:6;font-size:14px;text-align:center;max-width:55%}
+.connectionBanner span {display:block;font-size:12px;margin-top:5px;color:#aaa}
+.error {position:absolute;left:50%;top:48px;transform:translateX(-50%);background:#482323;border:1px solid #e58686;z-index:30;max-width:70%;padding:10px 40px 10px 16px;font-size:14px}
+.error button {position:absolute;right:0;top:0}
+.rotatePrompt {display:none}
+.access {position:fixed;inset:0;background:#000;color:#eee;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Simulator Fira",sans-serif;padding:30px;text-align:center}
+.access h1,.access p {margin:0}
+.access a {color:#91e98d;border:1px solid #777;padding:10px 20px;text-decoration:none}
+@media(max-width:1200px) {
+  .simulator {grid-template-columns:82px minmax(0,1fr) 255px;grid-template-rows:32px minmax(0,1fr)}
+  .topBanner {gap:10px;font-size:12px}
+  .topBanner>span:last-child {font-size:11px}
+  .stripBody {font-size:14px!important;grid-template-columns:minmax(0,1fr) 45px}
+  .strip {grid-template-columns:minmax(0,1fr) 55px;min-height:68px}
+  .atcButton {font-size:12px!important}
+  .scopeButtons {width:46px}
+  .scopeButtons button {height:46px}
+  .optionsMenu {width:290px;right:52px}
+  .optionsMenu button {padding:10px;font-size:14px;min-height:36px}
+  .extendedPanel {top:32px;width:390px}
+  .atisGrid {grid-template-columns:15% 50% 35%}
+  .tileChoices {padding-bottom:20px}
+  .tileChoices button {min-width:72px;font-size:12px}
+}
+@media(max-width:900px),(max-height:550px) {
+  .rotatePrompt {display:flex;position:absolute;inset:0;z-index:100;background:#000;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:30px}
+  .rotatePrompt h1 {font-weight:400}
+}
+/* Staff workspace: a unified scope with contextual controls beneath it. */
+.staffSimulator {padding:0;grid-template-columns:254px minmax(0,1fr);grid-template-rows:42px minmax(0,1fr) 238px;font-size:14px;background:#101315;color:#e8edf2;--staff-border:#303639;--staff-muted:#a3adb7;--staff-blue:#159de9}
+.staffSimulator button,.staffSimulator a,.staffSimulator input,.staffSimulator select {font-size:14px}
+.staffSimulator button {border-radius:3px}
+.staffSimulator button:focus-visible,.staffSimulator a:focus-visible,.staffSimulator summary:focus-visible {outline:2px solid #73ccff;outline-offset:2px}
+.staffSimulator button:disabled {opacity:.38;cursor:not-allowed}
+.staffToolbar {grid-row:1;grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--staff-border);min-width:0;background:#101315}
+.staffToolbar>a:first-child {font-weight:500;letter-spacing:.04em;color:#eef4f9;text-decoration:none}
+.staffTitle {color:#66717a;white-space:nowrap}
+.staffTitle>span {margin-left:10px;color:var(--staff-muted)}
+.exerciseStatus {margin-left:auto;color:#d9e0e6;display:flex;gap:10px;align-items:center;font-size:13px;min-width:0}
+.exerciseStatus time {font-family:"Simulator Mono",monospace;font-size:12px;white-space:nowrap}
+.staffToolbar button,.staffToolbar .openMentee {display:flex;gap:8px;align-items:center;padding:5px 14px;border-left:1px solid var(--staff-border);border-radius:0;text-decoration:none;white-space:nowrap}
+.staffToolbar svg {width:19px;height:19px;flex-shrink:0}
+.staffToolbar .playButton {color:#88dc83}
+.trafficRoster {grid-row:2;grid-column:1;min-height:0;overflow:auto;border-right:1px solid var(--staff-border);background:#101315;display:flex;flex-direction:column}
+.trafficRoster>header {display:flex;align-items:center;justify-content:space-between;padding:17px 14px 14px;gap:5px}
+.trafficRoster h1 {font-size:20px;font-weight:500;margin:0;white-space:nowrap}
+.trafficRoster h1 small {font-size:12px;color:#818d96;font-weight:400;margin-left:3px}
+.trafficRoster>header button {display:flex;align-items:center;gap:5px;padding:5px 0;font-size:12px;white-space:nowrap}
+.trafficRoster>header svg {width:17px;height:17px}
+.trafficRoster .autoReadback {display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;margin:0 7px 12px;padding:10px;border:1px solid #38434b;background:#171b1e}
+.autoReadback>span:first-child {display:grid;gap:4px;min-width:0}
+.autoReadback strong {font-size:12px;font-weight:500}
+.autoReadback small {font-size:10px;line-height:1.4;color:#aebeca}
+.autoReadbackSwitch {width:30px;height:18px;padding:2px;flex-shrink:0;border:1px solid #697782;border-radius:10px;background:#30383e}
+.autoReadbackSwitch::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:#d6e0e8}
+.autoReadback[aria-checked=true] {border-color:#4da9d4;background:#152a38}
+.autoReadback[aria-checked=true] .autoReadbackSwitch {background:#1677a4;border-color:#73ccff}
+.autoReadback[aria-checked=true] .autoReadbackSwitch::after {transform:translateX(12px);background:#fff}
+.trafficList {display:grid;gap:7px;padding:0 7px}
+.trafficCard {position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:6px;width:100%;border:1px solid #292e32;background:#171b1e;padding:11px 13px;text-align:left;min-height:78px}
+.trafficCard>span {min-width:0;display:flex;flex-direction:column;gap:3px}
+.trafficCard strong {font-weight:500;overflow-wrap:anywhere}
+.trafficCard small {font-size:12px;color:#c0cbd4;white-space:normal;overflow-wrap:anywhere}
+.trafficCard>span:first-child small {color:#9eacb7}
+.trafficCard b {font-weight:400;font-size:12px}
+.trafficCard .airPhase {color:#8ed5ff}
+.trafficCard .groundPhase {color:#e7b565}
+.selectedTraffic {background:#152a38;border-color:#4da9d4;box-shadow:inset 2px 0 #36b9fc}
+.trafficCard em {grid-column:1/-1;font-size:11px;font-style:normal;color:#e8bf7b;margin-top:3px}
+.trafficRoster footer {margin-top:auto;padding:18px 14px;color:#84939e;font-size:11px;line-height:1.7}
+.trafficRoster footer span {display:block}
+.addAircraft {margin:0 8px 10px;padding:12px;display:grid;gap:10px;background:#1b2227;border:1px solid #37434b;border-radius:4px}
+.addAircraft label {display:grid;gap:6px;font-size:12px;color:var(--staff-muted)}
+.addAircraft button {border:1px solid #424d55;padding:6px!important;font-size:12px!important}
+.staffSimulator .scopeButtons {width:42px;bottom:10px;right:10px;gap:4px;display:flex;flex-direction:column}
+.staffSimulator .scopeButtons button {height:40px;background:#101315;border:1px solid #343b40;border-radius:3px;padding:8px}
+.staffSimulator .scopeButtons svg {width:24px;height:24px}
+.staffPanel {grid-row:3;grid-column:1/-1;display:grid;grid-template-columns:330px minmax(0,1fr);min-height:0;min-width:0;border-top:1px solid var(--staff-border);background:#111517;padding:0 8px 8px}
+.aircraftNavigation {border-right:1px solid var(--staff-border);padding:12px 12px 0;overflow:auto;min-width:0}
+.aircraftNavigation header {display:flex;justify-content:space-between;gap:10px;margin:0 3px 10px;min-height:39px;font-size:12px}
+.aircraftNavigation header>div {display:grid;gap:3px;min-width:0}
+.aircraftNavigation strong {font-size:17px;font-weight:500;overflow-wrap:anywhere}
+.aircraftNavigation small {font-size:12px;color:#aebeca}
+.aircraftNavigation nav {display:grid;gap:0}
+.aircraftNavigation nav button {display:flex;align-items:center;gap:10px;text-align:left;padding:4px 12px;color:#afbfcb;font-size:13px;height:28px;border-left:3px solid transparent}
+.aircraftNavigation nav svg {width:20px;height:20px}
+.aircraftNavigation nav button[aria-current] {background:#162b39;color:#80d1ff;border-left-color:#36b9fc}
+.controlContent {overflow:auto;min-height:0;min-width:0;padding:14px 18px 8px 26px}
+.staffSimulator .controlContent>.messageLog {height:100%;display:block;font-size:13px;line-height:1.5;padding:0;--trainer-surface:#111517;--trainer-border:#303639;--trainer-muted:#a3adb7}
+.staffSimulator .messageLog>div {padding:8px 10px;border-bottom:1px solid #303639;background:#171d21}
+.staffSimulator .messageLog>div:nth-child(even) {background:#111517}
+.staffSimulator .controllerMessage {color:#a4e5c1}
+.staffSimulator .pilotMessage {color:#a6dcea}
+.controlFields {border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}
+.controlFields label {display:grid;gap:5px;color:var(--staff-muted);font-size:12px;min-width:0}
+.controlFields input,.controlFields select,.addAircraft select {width:100%;min-width:0;height:34px;min-height:34px;padding:6px 10px;border:1px solid #4b5257;border-radius:3px;background:#101315;color:#e8edf2;font-size:14px;color-scheme:dark}
+.controlFields button {background:#242a2f;border:1px solid #424a50;padding:7px 12px;text-align:center;font-size:13px;min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.staffSimulator .primaryButton {background:#0c8dda;color:#fff;border-color:#269ce0}
+.controlFields button[aria-pressed=true] {background:#163345;border-color:#3ba9e6;color:#92d6ff}
+.controlFields h2 {font-size:12px;font-weight:400;color:var(--staff-muted);margin:0 0 7px}
+.controlFields h2 small {margin-left:6px;color:#d0dae1;font-size:11px}
+.requestFields {display:grid;grid-template-columns:minmax(0,1.5fr) minmax(100px,.65fr) minmax(0,1fr);gap:22px}
+.requestPreview {display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:18px;align-items:end}
+.requestPreview>label {display:flex;align-items:center;gap:18px;white-space:nowrap}
+.controlFields output {display:block;border:1px solid #4b5257;border-radius:3px;background:#101315;padding:8px 10px;color:#e3eaf0;min-width:0;overflow-wrap:anywhere;font-size:14px;flex:1}
+.requestPreview>button {height:40px}
+.controllerResponse {border-top:1px solid var(--staff-border);padding-top:11px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end}
+.responseButtons {display:flex;gap:7px}
+.responseButtons button {min-height:35px;padding:7px 14px}
+.controlHint {font-size:11px;color:#8e9da9;margin:0;line-height:1.5}
+.arrivalExpectations {border:1px solid #34444e;border-radius:6px;padding:12px;font-size:12px;color:#bfcbd3}
+.arrivalExpectations strong {font-size:12px;color:#dbe4eb}
+.arrivalExpectations ol {margin:8px 0 0;padding-left:20px;line-height:1.8}
+.otherResponse {font-size:12px;color:#a3b6c3}
+.otherResponse summary {cursor:pointer;width:fit-content}
+.otherResponse>div {margin-top:10px}
+.buttonRow {display:flex;gap:7px}
+.buttonRow>* {flex:1;min-width:0}
+.flightLayout {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;align-items:start}
+.patternControls {min-width:0;display:grid;gap:22px}
+.controlFields .patternControls>h2 {font-size:21px;color:#eef3f6;font-weight:600;margin:0;padding-bottom:12px;border-bottom:1px solid #45535d}
+.flightGrid {display:grid;grid-template-columns:.7fr 1fr 1fr;gap:12px;align-items:end}
+.patternLeg h3 {font-size:14px;font-weight:500;margin:0 0 10px;color:#dbe5eb}
+.staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:42px minmax(180px,1fr) min(460px,55vh)}
+.legButtons {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
+.controlFields .legButtons button {font-size:13px;padding:8px 4px;text-transform:capitalize;min-height:43px;border-radius:0}
+.legButtons button+button {border-left:0}
+.legButtons button[aria-pressed=true] {position:relative;outline:1px solid #53c8e7;outline-offset:-1px}
+.numberCommand {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px}
+.flightActions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.controlFields .flightActions button {min-height:43px;font-size:14px;white-space:normal}
+.controlFields .allowLanding {background:#27b8dc;border-color:#58d0ec;color:#06171c}
+.controlFields .cancelLanding {background:#17382c;border-color:#6bba94;color:#b2e6ca}
+.controlFields .goAround {border-color:#b98d3a;color:#efc375;background:#1c1d1c}
+.flightStatus {font-size:12px;color:#a3b5c2;margin:0;line-height:1.5}
+.flightOverrides {border-left:1px solid #45535d;padding-left:24px;min-width:0}
+.headingControls {border-top:1px solid #45535d;padding-top:12px;margin-top:14px}
+.controlFields .headingControls h2 {font-size:14px;font-weight:500;color:#dbe5eb;margin:0 0 8px}
+.headingControls .numberCommand {grid-template-columns:minmax(0,1fr) 140px}
+.headingControls .numberCommand label {grid-template-columns:auto minmax(70px,1fr);align-items:center;gap:12px}
+.controlContent {container-type:inline-size}
+@container(max-width:760px) {
+  .flightLayout {grid-template-columns:1fr;gap:24px}
+  .flightOverrides {border-left:0;padding-left:0;border-top:1px solid #45535d;padding-top:18px}
+}
+.routeGrid {display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:20px}
+.routeGrid>section {display:flex;flex-direction:column;gap:9px;min-width:0}
+.routeGrid .buttonRow {flex-wrap:wrap}
+.routeGrid button {font-size:12px;padding:7px 8px;white-space:normal}
+.controlFields .checkLabel {display:flex;align-items:center;gap:8px;flex-direction:row;font-size:11px}
+.controlFields .checkLabel input {width:15px;height:15px;min-height:15px;accent-color:var(--staff-blue)}
+.detailsGrid {display:grid;grid-template-columns:1.4fr .8fr 1.2fr 1fr;gap:18px}
+.detailsFooter {display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:15px;border-top:1px solid var(--staff-border);padding-top:14px}
+.controlFields .removeButton {color:#f2a8a1;border-color:#663d3a;background:#251b1b}
+.staffEmpty {height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#aab9c4;text-align:center;font-size:14px}
+.staffEmpty p {font-size:12px;margin:0}
+@media(max-width:1200px) {
+  .staffSimulator {grid-template-columns:220px minmax(0,1fr);grid-template-rows:42px minmax(0,1fr) 250px}
+  .staffPanel {grid-template-columns:270px minmax(0,1fr)}
+  .controlContent {padding:12px 14px}
+  .aircraftNavigation header {font-size:11px;gap:6px}
+  .aircraftNavigation strong {font-size:15px}
+  .aircraftNavigation small {font-size:11px}
+  .trafficRoster>header {padding:14px 10px}
+  .trafficRoster h1 {font-size:18px}
+  .trafficCard {padding:10px 9px;gap:4px}
+  .trafficCard strong {font-size:13px}
+  .trafficCard small {font-size:11px}
+  .requestFields {gap:14px}
+  .requestPreview {grid-template-columns:minmax(0,1fr) 130px;gap:10px}
+  .requestPreview>label {display:grid;gap:5px}
+  .responseButtons button {padding:7px 9px;font-size:12px}
+  .controllerResponse {gap:9px}
+  .flightGrid,.routeGrid,.detailsGrid {gap:10px}
+}
+.staffSimulator .trafficCard {border:1px solid #292e32;background:#171b1e;text-align:left;padding:11px 13px}
+.staffSimulator .selectedTraffic {background:#152a38;border-color:#4da9d4}
+.staffSimulator .trafficCard:hover {background:#1a2a34;border-color:#4da9d4}
+.staffSimulator .trafficCard strong {font-size:15px}
+.staffSimulator .controlContent {scrollbar-width:thin;scrollbar-color:#45535c transparent}
+.staffSimulator .scopeButtons {border:0;background:transparent}
+.staffSimulator button.primaryButton:hover {background:#147fbd;border-color:#63c7ff}
+.routeError {color:#f0aaa0;font-size:11px;margin:0;line-height:1.5}
+.exerciseStatus>span {max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resetBackdrop {position:fixed;inset:0;z-index:40;background:#000b;display:flex;align-items:center;justify-content:center}
+.resetDialog {width:390px;background:#151c21;border:1px solid #4b5964;border-radius:6px;padding:24px;box-shadow:0 12px 50px #0009}
+.resetDialog h2 {font-size:20px;margin:0 0 12px;font-weight:500}
+.resetDialog p {font-size:14px;color:#bac7d0;line-height:1.5;margin:0 0 24px}
+.resetDialog>div {display:flex;justify-content:flex-end;gap:10px}
+.staffToolbar .resetDialog button {border:1px solid #4b5964;border-radius:3px;padding:8px 14px}
+@media(max-width:1200px) {.staffSimulator .trafficCard strong {font-size:13px}}
+/* Per-tab radio playback, kept out of the radar and traffic controls. */
+.topBanner {overflow:visible;position:relative;z-index:25}
+.topBanner>span:first-child {min-width:0;flex:1}
+.staffToolbar {position:relative;z-index:25}
+.radioAudio {display:flex;align-items:center;flex-shrink:0;gap:2px;font-size:12px;white-space:nowrap}
+.radioAudio .audioToggle,.radioAudio .audioSettingsToggle {padding:5px 8px;border:1px solid #39434b;border-radius:3px;font-size:12px;display:flex;align-items:center;gap:6px;min-height:28px;white-space:nowrap}
+.audioToggle svg {width:17px;height:17px;flex-shrink:0}
+.audioToggle[aria-pressed=true] {color:#91e98d;border-color:#557653}
+.audioSettings {position:fixed;right:20px;top:48px;z-index:45;width:min(350px,calc(100vw - 40px));max-height:calc(100dvh - 70px);overflow:auto;white-space:normal;background:#111719;border:1px solid #4b5964;box-shadow:0 10px 35px #000b;padding:16px;font:14px/1.4 "Simulator Fira",sans-serif;color:#e8edf2}
+.audioSettings header {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.audioSettings header button {font-size:20px!important;line-height:1;padding:4px 8px!important;border:0!important}
+.audioSettings p {font-size:12px;color:#aebeca;margin:10px 0;line-height:1.5}
+.audioSettings label {display:block;font-size:12px;margin:14px 0}
+.audioSettings output {float:right;font-family:"Simulator Mono",monospace}
+.audioSettings input,.audioSettings select {display:block;width:100%;margin-top:6px;font-size:13px!important}
+.audioSettings input[type=range] {padding:0;cursor:pointer}
+.audioSettings>div:not(.audioStatus) {display:flex;flex-wrap:wrap;gap:6px}
+.radioAudio .audioSettings button {border:1px solid #4b5964;padding:6px 9px;font-size:12px;display:inline-flex;justify-content:center;white-space:normal}
+.audioStatus {border-top:1px solid #39434b;padding-top:10px;margin-top:10px;color:#91e98d;font-size:12px;overflow-wrap:anywhere}
+.audioError {position:fixed;top:48px;right:20px;padding:8px 12px;background:#482323;color:#f1b5b5;font-size:12px;white-space:normal}
+.utility {z-index:30}
+@media(max-width:1200px) {
+  .staffToolbar {gap:6px;padding:0 10px}
+  .staffToolbar>button,.staffToolbar .openMentee {padding:5px 9px;font-size:12px}
+  .staffToolbar .staffTitle>span {margin-left:5px}
+  .topBanner .audioToggle>span {display:none}
+}
+@media(max-width:1000px) {.staffTitle>span {display:none}}
+.followingRing {position:absolute; width:44px; height:44px; border:2px solid #fff; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:4;}
+/* Original ATCMH chrome: horizontal frequencies and a task/preview inspector.
+   Neutral aviation colours are shared conventions; assets and layout remain ours. */
+.menteeSimulator {
+  --trainer-surface:#181c20;
+  --trainer-raised:#20262b;
+  --trainer-border:#414c54;
+  --trainer-muted:#b3bfc8;
+  --trainer-accent:#27c9d6;
+  --trainer-selected:#17343a;
+  padding:0;grid-template-columns:132px minmax(0,1fr) 400px;
+  grid-template-rows:64px minmax(0,1fr);
+  background:#0e1114;color:#e6edf2;font-size:15px;
+  scrollbar-color:#52616c var(--trainer-surface);scrollbar-width:thin;
+}
+.menteeSimulator button:focus-visible,.menteeSimulator a:focus-visible,.menteeSimulator input:focus-visible,.menteeSimulator select:focus-visible {outline:2px solid var(--trainer-accent);outline-offset:-3px}
+.menteeSimulator button:hover {background:#29333a}
+.menteeSimulator .topBanner {grid-column:2/-1;grid-row:1;padding:8px 20px;background:#12171b;gap:16px;white-space:normal;border-bottom:1px solid #303a42;font-size:14px}
+.menteeSimulator .topBanner>span:first-child {color:#9de69f;line-height:1.4}
+.topBanner small {display:block;margin-top:3px;color:#b3bfc8;font-size:12px;line-height:1.4}
+.menteeSimulator .topBanner small a {color:#6cdeea;text-decoration:underline;text-underline-offset:3px}
+.menteeSimulator .topBanner>span:last-child {font-size:12px;color:#c0ccd5}
+.menteeSimulator .radioAudio button {min-height:32px;padding:6px 10px;background:var(--trainer-surface);border-color:var(--trainer-border)}
+.menteeSimulator .sidebar {grid-column:1;grid-row:1/-1;display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:18px 10px;background:var(--trainer-surface);border-right:1px solid var(--trainer-border)}
+.trainerBrand {display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 26px;white-space:nowrap}
+.trainerBrand strong {font-size:20px;letter-spacing:.04em;color:var(--trainer-accent)}
+.trainerBrand>span {font-size:12px;color:#c4cfd7}
+.menteeSimulator .sidebar>button {display:flex;flex-direction:column;gap:8px;min-height:88px;border-radius:3px;border:1px solid var(--trainer-border);font-size:13px;padding:12px 6px;background:#151b20}
+.frequencyValue {font:12px/1.3 "Simulator Mono",monospace;color:#c0ccd5}
+.menteeSimulator .sidebar .activeFrequency {background:var(--trainer-selected);color:#6ce5ed;border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent)}
+.activeFrequency .frequencyValue {color:inherit}
+.menteeSimulator .sidebar .exit {position:static;font-size:13px;color:#cbd6de!important;margin-top:auto;padding:10px 14px;border:1px solid var(--trainer-border);border-radius:3px}
+.menteeSimulator .scope {grid-column:2;grid-row:2}
+.menteeSimulator .scopeButtons {width:42px;right:10px;bottom:28px;border-color:var(--trainer-border);background:var(--trainer-surface)}
+.menteeSimulator .scopeButtons button {height:42px;border-color:var(--trainer-border)}
+.menteeSimulator .scopeButtons svg {width:23px;height:23px}
+.menteeSimulator .rightPanel {grid-column:3;grid-row:2;background:var(--trainer-surface);padding:0 16px 12px;border-left:1px solid var(--trainer-border)}
+.menteeSimulator .strips {padding-bottom:12px}
+.stripsHeader {position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;background:var(--trainer-surface);border-bottom:1px solid var(--trainer-border);z-index:1;margin-bottom:10px}
+.stripsHeader h2 {font-size:14px;font-weight:400;margin:0}
+.stripsHeader>span {font:12px "Simulator Mono",monospace;color:var(--trainer-muted)}
+.menteeSimulator .strip {display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:6px;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:8px;margin:0 0 8px;min-height:84px}
+.menteeSimulator .stripBody {width:100%;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:7px 10px;padding:4px!important;font-size:14px!important}
+.menteeSimulator .stripBody>span:first-child {font-size:15px;color:#edf3f7}
+.menteeSimulator .stripBody>span:nth-child(2) {font:12px "Simulator Mono",monospace}
+.menteeSimulator .stripBody>span:nth-child(2)::before {content:"RWY ";font-size:10px;color:var(--trainer-muted)}
+.menteeSimulator .stripBody>span:nth-child(3) {font-size:12px;color:var(--trainer-muted)}
+.menteeSimulator .strip .atcButton {border-left:1px solid var(--trainer-border);font-size:12px!important;padding:8px!important;text-align:center!important;border-radius:0;color:#6ce5ed}
+.menteeSimulator .atcButton i {bottom:8px;right:8px;width:6px;height:6px}
+.menteeSimulator .selectedStrip {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 2px 0 var(--trainer-accent)}
+.menteeSimulator .splitter {background:#303a42!important;margin:0 0 6px!important}
+.menteeSimulator .messageLog {display:block;font-size:14px;line-height:1.5;padding:0;min-height:0}
+.messageLogTitle {position:sticky;top:0;z-index:1;background:var(--trainer-surface);font-size:13px;font-weight:400;color:#d9e3e9;padding:12px 0;margin:0;border-bottom:1px solid var(--trainer-border)}
+.menteeSimulator .messageLog>div {background:transparent;padding:12px 0;border-bottom:1px solid #303a42}
+.menteeSimulator .messageLog>div:nth-child(even) {background:transparent}
+.messageMeta {display:flex;gap:12px;justify-content:space-between;font-size:10px;color:var(--trainer-muted);line-height:1.5}
+.messageMeta time {font-family:"Simulator Mono",monospace;white-space:nowrap}
+.messageLog p {margin:5px 0 0}
+.menteeSimulator .controllerMessage {color:#a4e5c1}
+.menteeSimulator .pilotMessage {color:#a6dcea}
+.menteeSimulator .offFrequencyMessage {color:#a2adb6}
+.emptyMessages {padding:20px 0;color:var(--trainer-muted);font-size:13px}
+.menteeSimulator .commandPanel {position:relative;grid-column:3;grid-row:2;top:auto;right:auto;bottom:auto;width:auto;min-width:0;min-height:0;padding:0 20px 16px;background:var(--trainer-surface);border-left:1px solid var(--trainer-border);box-shadow:none;overflow:auto;z-index:12}
+.commandPanel header {position:sticky;top:0;z-index:2;flex-shrink:0;background:var(--trainer-surface);padding:18px 0 16px;border-bottom:1px solid var(--trainer-border);font-size:21px;align-items:flex-start}
+.commandPanel header small {font-size:11px;line-height:1.6;letter-spacing:.02em;color:var(--trainer-muted)}
+.commandPanel header button {padding:2px;color:#bac7d1}
+.commandForm {display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0 0;flex-shrink:0}
+.commandForm>label {display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c4cfd7}
+.commandForm>label:only-of-type {grid-column:1/-1}
+.commandForm select {width:100%;min-height:40px;border-radius:3px;border-color:var(--trainer-border);background:#20262b;font-size:14px;padding:8px 10px}
+.taskChoices {grid-column:1/-1;border:0;border-bottom:1px solid var(--trainer-border);padding:0 0 18px;margin:0;min-width:0}
+.taskChoices legend {padding:0 0 10px;font-size:13px;color:#d9e3e9}
+.taskChoices>div {display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.menteeSimulator .taskChoices button {position:relative;min-height:42px;border:1px solid var(--trainer-border);border-radius:3px;padding:9px 11px;font-size:13px;line-height:1.4;background:var(--trainer-raised);text-align:left;overflow-wrap:anywhere}
+.menteeSimulator .taskChoices button[aria-pressed=true] {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent);color:#d7fbff}
+.commandPreview {grid-column:1/-1;border-top:1px solid var(--trainer-border);padding:16px 0 18px;line-height:1.6;font-size:14px}
+.commandPreview>strong {font-size:13px;font-weight:400;color:#d9e3e9}
+.commandPreview p {margin:10px 0;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:10px 12px;overflow-wrap:anywhere}
+.commandPreview small {display:block;margin:8px 0;color:#f5c88c;font-size:12px}
+.menteeSimulator .commandPreview button {display:flex;justify-content:center;align-items:center;gap:8px;background:var(--trainer-accent);border:1px solid var(--trainer-accent);border-radius:3px;width:100%;min-height:44px;text-align:center;color:#07282d;font-size:14px}
+.menteeSimulator .commandPreview button:hover:not(:disabled) {background:#6ce5ed}
+.commandPanel>.messageLog {flex:1 0 140px;overflow-y:auto;border-top:1px solid var(--trainer-border)}
+.pilotReply {flex-shrink:0;padding:12px;margin:0 0 10px;border:1px solid var(--trainer-border);background:var(--trainer-raised);font-size:13px}
+.pilotReply p {margin:0;line-height:1.5}
+.withdrawnMessage {display:block;font-size:11px;color:var(--trainer-muted);margin-top:4px}
+.menteeSimulator .attribution {font-size:11px;color:#c4d4dd!important;background:#12171b;padding:4px 8px;bottom:5px;left:8px;border-radius:3px}
+.menteeSimulator .airportPopup {background:var(--trainer-surface);border-color:var(--trainer-border);line-height:1.5;max-width:440px;min-width:300px}
+.menteeSimulator .airportPopup p {font-size:13px;color:var(--trainer-muted)}
+.trainingAtis {grid-column:2/-1;grid-row:2;overflow:auto;padding:24px 32px;background:#11161a;gap:20px}
+.trainingAtis>header {display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:1px solid var(--trainer-border);padding-bottom:16px}
+.trainingAtis h1 {font-size:22px;margin:0;font-weight:400}
+.trainingAtis p {font-size:14px;color:var(--trainer-muted);line-height:1.5}
+.trainingAtis>label {display:flex;gap:16px;align-items:center;font-size:14px}
+.trainingAtis>label select {width:180px;min-height:40px;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:8px 10px;font-size:14px}
+.menteeSimulator .trainingAtis button {padding:12px 24px;min-height:44px;border:1px solid var(--trainer-accent);border-radius:3px;background:var(--trainer-accent);color:#07282d;font-size:14px}
+.atisFields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.atisFields fieldset {border:1px solid var(--trainer-border);border-radius:3px;padding:12px 16px;background:var(--trainer-surface);min-width:0}
+.atisFields legend {font-size:14px;color:#6ce5ed;padding:0 6px}
+.atisFields label {display:flex;align-items:center;gap:10px;margin:12px 0;font-size:14px;line-height:1.5}
+.atisFields input[type=checkbox] {width:17px;height:17px;accent-color:var(--trainer-accent);flex-shrink:0}
+.trainingAtis .atisPublished {flex:none;white-space:pre-wrap;padding:16px;background:var(--trainer-surface);border:1px solid var(--trainer-border);border-radius:3px;min-height:100px;overflow:visible;font-size:14px;line-height:1.7}
+.trainingAtis h2 {background:none;border:0;padding:0;font-size:13px;color:#d9e3e9;margin-bottom:14px}
+@media(max-width:1100px) {
+  .menteeSimulator {grid-template-columns:112px minmax(0,1fr) 350px;grid-template-rows:72px minmax(0,1fr)}
+  .menteeSimulator .topBanner {padding:8px 12px;gap:10px;font-size:13px}
+  .menteeSimulator .topBanner>span:last-child {font-size:10px}
+  .menteeSimulator .sidebar {gap:8px;padding:14px 8px}
+  .trainerBrand {gap:10px}.trainerBrand strong {font-size:18px}.trainerBrand>span {font-size:13px}
+  .menteeSimulator .sidebar>button {padding:10px 6px;gap:8px;font-size:12px}
+  .frequencyValue {font-size:11px}
+  .menteeSimulator .commandPanel {padding:0 14px 14px}
+  .commandPanel header {padding:14px 0 12px;font-size:19px}
+  .commandForm {gap:12px;margin-top:14px}
+  .taskChoices {padding-bottom:14px}
+  .menteeSimulator .taskChoices button {min-height:40px;padding:8px;font-size:12px}
+  .atisFields {grid-template-columns:1fr 1fr}
+}
+.pathLegend {bottom:40px}
+.automaticHelpButton { border-radius: 50%; width: 1.65rem; height: 1.65rem; margin: .25rem .75rem; font-weight: 700; }
+.automaticHelp { max-width: 38rem; width: calc(100vw - 3rem); max-height: 80vh; overflow: auto; padding: 1.5rem; border: 1px solid #405065; border-radius: .75rem; background: #111b28; color: #e1e8f0; }
+.automaticHelp::backdrop { background: #0009; }
+.automaticHelp li { margin-block: .6rem; line-height: 1.5; }
+.automaticHelp p { line-height: 1.5; }
+.controlFields [aria-label="Aircraft intentions"] { display: grid; gap: 1rem; }
+
+.automaticRow { display: flex; align-items: center; gap: .4rem; margin: 0 7px 12px; }
+.trafficRoster .automaticRow .autoReadback { margin: 0; flex: 1; min-width: 0; }
+.staffSimulator .automaticHelpButton { display: inline-grid; place-items: center; flex-shrink: 0; border: 1px solid #94a5b5; border-radius: 50%; width: 1.5rem; height: 1.5rem; margin: 0; color: #dce7ee; }
+.staffSimulator .automaticHelp > button { border: 1px solid #94a5b5; border-radius: .25rem; padding: .4rem .8rem; }

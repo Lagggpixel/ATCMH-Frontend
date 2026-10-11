@@ -1,7 +1,7 @@
 Privacy Policy for ATC Mentorship Hub
 
 Effective date: July 10, 2026
-Last updated: July 14, 2026
+Last updated: October 11, 2026
 Website: https://www.atcmh.org/
 Discord bot: ATCMH Bot
 Operator: ATC Mentorship Hub, operated by Wanbin Cao
@@ -173,11 +173,17 @@ We may disclose information if we reasonably believe it is necessary to:
 - investigate abuse, security incidents, or misconduct;
 - enforce platform rules, terms, or community policies.
 
+## 5.5 ATCMH ATC Trainer and optional speech
+
+The trainer saves account-linked session snapshots (aircraft state, radio text and exercise progress), authored scenario drafts and published revisions, assignments, attempt timing/status/results, instructor feedback and saved staff auto-readback preferences. These support resuming exercises, mentor review, progression and appeals. Instructors and assigned learners have role-limited access; private instructor notes are not sent to the learner. Use fictional callsigns and events and avoid personal or sensitive information in scenarios or transmissions.
+
+Ending a live session closes its link and archives its attempt; it does not erase assignment or attempt history. The trainer has no microphone input or audio recording. Radio speech defaults on and uses local English voices automatically. Your audio on/off choice is stored in this browser for your account and role; it is not synchronized to other devices. If you explicitly allow online speech and select an online voice in that tab, radio text may be sent by your browser to its speech provider under that provider's policies. You can withdraw this choice by unchecking online speech or muting audio; text training remains available. Online speech permission and voice selection are not saved across tabs. ATCMH does not operate a separate speech API or retain your per-tab voice choice.
+
 # 6. Data Retention
 
 We retain personal information for as long as it is reasonably necessary to operate ATCMH, maintain mentorship records and exam history, protect the integrity of the programme, investigate abuse, resolve disputes, and comply with legal, safety, or platform obligations.
 
-At present, ATCMH does not apply a fixed automatic deletion period to mentorship, training, exam, progression, or administrative records. These records may be retained indefinitely while ATCMH continues to operate, because they are used to maintain accurate mentorship history, prevent repeated abuse, support staff decisions, and preserve programme integrity.
+Except for the simulator schedule below, ATCMH does not currently apply a fixed automatic deletion period to other mentorship, training, exam, progression, or administrative records. These records may be retained indefinitely while ATCMH continues to operate, because they are used to maintain accurate mentorship history, prevent repeated abuse, support staff decisions, and preserve programme integrity.
 
 We may retain:
 
@@ -193,6 +199,19 @@ We may retain:
 Where information is no longer required in an identifiable form, we may delete, anonymise, or restrict access to it.
 
 You may request deletion of your personal information as described in Section 7. Some information may be retained after a deletion request where retention is necessary for security, anti-abuse, audit integrity, unresolved disputes, legal obligations, or accurate historical mentorship records.
+
+## 6.1 Simulator-specific schedule
+
+The following operating schedule applies to ATCMH ATC Trainer records. It is implemented by private maintenance, not by the End session button:
+
+- Live session links close after 90 days without activity; occupied sessions are excluded. Before closing a link, its recording and final snapshot are archived for later review.
+- Session replays, aircraft movement, radio/ATIS text, participant identities, full attempt results, message/event details and instructor feedback are retained permanently while ATCMH operates, to support ongoing training review. They have no automatic expiry. Older attempts may contain only a final snapshot or assessment summary where movement was never recorded or details were previously removed. No microphone or audio recording is stored.
+- Assessment summaries (account and assignment identifiers, scenario revision, timing, status and elapsed duration) and assignments also have no automatic expiry. These and replays are personal records accessible only to authorized simulator users; permanent storage does not remove your deletion rights.
+- Unused staff auto-readback preferences expire after 365 days without a change and with no saved staff session. Per-tab audio settings are not saved by ATCMH.
+- Authored scenarios and immutable revisions remain teaching resources for reuse. Authors must use fictional content. Identifying content in drafts, revisions, notes or copied runtime results is reviewed and removed or redacted in response to a valid deletion request; revision history does not create an exemption from deletion rights.
+- The operational target for simulator personal data backups is 30-day rotation. Deleted data may remain in restricted backups until rotation. Approved erasures and expiry maintenance must be reapplied before restored data is made available. The maintenance implementation does not itself configure external backups.
+
+Where a specific legal obligation or unresolved dispute justifies an exception, staff must document its scope, reason and review deadline. Requests may be made using Section 7; staff verify the account, review necessary exceptions, erase scoped learner assignments, attempts, replays and related live sessions, and separately review authored content and records in other ATCMH systems. Ending a session is not a deletion request.
 
 # 7. Data Deletion Requests
 

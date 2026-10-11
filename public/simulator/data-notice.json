@@ -1,0 +1,12 @@
+{
+  "title": "ATCMH EGPH derived airport geometry",
+  "data": "/simulator/data/egph.json",
+  "copyright": "© OpenStreetMap contributors",
+  "license": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "attribution": "https://www.openstreetmap.org/copyright",
+  "osmExtract": "https://api.openstreetmap.org/api/0.6/map?bbox=-3.405,55.935,-3.335,55.968",
+  "bounds": [-3.405, 55.935, -3.335, 55.968],
+  "supportingData": ["https://davidmegginson.github.io/ourairports-data/airports.csv", "https://davidmegginson.github.io/ourairports-data/runways.csv"],
+  "supportingLicense": "OurAirports public domain",
+  "transformation": "Local XML/CSV importer selects aeroway features, retains OSM way IDs, projects latitude/longitude to nautical miles east/north of the airport origin and rounds coordinates to 5 decimal places. Import date and origin are in the downloaded data."
+}

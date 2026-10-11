@@ -1,0 +1,339 @@
+{
+  "date": "2026-10-10",
+  "deployed": false,
+  "frontendTests": {
+    "passed": 728,
+    "skipped": 3,
+    "failed": 0
+  },
+  "backendAuthTests": {
+    "passed": 150,
+    "failed": 0
+  },
+  "files": [
+    {
+      "path": "Frontend/src/simulator/access.test.ts",
+      "sha256": "1852e13945c73cad740bd6eed065693254cec571c00ad3dedcc73aa9e13ed948"
+    },
+    {
+      "path": "Frontend/src/simulator/AtisPanel.tsx",
+      "sha256": "ca4758ad3d25ecfba6284a93cb51ce6ab5eac4284739fc9d46d99711091cc7b3"
+    },
+    {
+      "path": "Frontend/src/simulator/auto-readback.test.ts",
+      "sha256": "e2f9d5edcab22331f7494862e5a0dc63d9d94897d9dab05558655abbccaba82a"
+    },
+    {
+      "path": "Frontend/src/simulator/catalog.ts",
+      "sha256": "3c918a830cc4d9aeb23ea3fa5b447688ee6dc5cd01944d7fdf84a9af6ab59dca"
+    },
+    {
+      "path": "Frontend/src/simulator/engine.test.ts",
+      "sha256": "768a0ea1d38d9957fc61ff701d3868a655ffb679c17de57480e75e8b9ff6e826"
+    },
+    {
+      "path": "Frontend/src/simulator/engine.ts",
+      "sha256": "2796c2f56a0e9bd92b5a6407dad7ccf01af77db91a88fc0ce90561e99c1c18ac"
+    },
+    {
+      "path": "Frontend/src/simulator/feature.ts",
+      "sha256": "394da76607aee7de1a1fbf4b0020a27d01f71009ed8b3423804c8e2869fd22a4"
+    },
+    {
+      "path": "Frontend/src/simulator/frequency-state.test.ts",
+      "sha256": "5a2a6502dd64179eb091e7763a69495fe1b1ca55a78f163d88d5b73e1e04be12"
+    },
+    {
+      "path": "Frontend/src/simulator/legal-compatibility.test.ts",
+      "sha256": "e5a82332e745060d0a19c2eb0ed942f8cff3f54a5c717d60af6e9d80f2e1c3fe"
+    },
+    {
+      "path": "Frontend/src/simulator/LiveScenarioPanel.tsx",
+      "sha256": "0538a24f3e0983b44e8176c6ef68bcf3255e35498200b5df832740b80f032b6a"
+    },
+    {
+      "path": "Frontend/src/simulator/MessagePanel.tsx",
+      "sha256": "f4f8bb0b81ba56b20f7c0b37c85670cff23664c376100a3f3a63d805d6fcc8fc"
+    },
+    {
+      "path": "Frontend/src/simulator/model.ts",
+      "sha256": "11c44cc548e566e3c860d00f59f5a91d5796230dbb67da3288dcaa81d23b82b8"
+    },
+    {
+      "path": "Frontend/src/simulator/navigation.test.ts",
+      "sha256": "fdab3396719f63ff58f1c8f121d89dbd68577bf0b3206dd4ee9cbc6af58fc6e8"
+    },
+    {
+      "path": "Frontend/src/simulator/pattern-spacing.test.ts",
+      "sha256": "2d791574088bb432e6a915a5b8b7a016343a5dab266b5e342b42f2d81af69155"
+    },
+    {
+      "path": "Frontend/src/simulator/protocol.ts",
+      "sha256": "b8d88c5a1f96bee1d0c86af6b50eb75ee8e4c29a0eb4116bf7ed620242628f30"
+    },
+    {
+      "path": "Frontend/src/simulator/radio-audio.test.ts",
+      "sha256": "f32f71855895976505d2e9e1f30a2cdc78de98e17f7cc227473f292580917cda"
+    },
+    {
+      "path": "Frontend/src/simulator/radio-audio.ts",
+      "sha256": "2284f5f49e94034378909bf1c29faf0d478f4b0d388326b39b1ee08fd76fadfe"
+    },
+    {
+      "path": "Frontend/src/simulator/RadioAudio.tsx",
+      "sha256": "6e79bf20a59c84a782ca922d054ae9875ed84cefa5731491904fb2a09b4b4aa0"
+    },
+    {
+      "path": "Frontend/src/simulator/README.md",
+      "sha256": "33fbd12c2ee7968aed1deceb2cd479ca4f8349f66706f75d4e4301d6112195b4"
+    },
+    {
+      "path": "Frontend/src/simulator/retention.test.ts",
+      "sha256": "cbd43ae5f61eff16d9d27b0867f758cb39ea0feb925cdd2176f2065c2b2e8200"
+    },
+    {
+      "path": "Frontend/src/simulator/scenario-engine.test.ts",
+      "sha256": "c6cb95a19d4f5229a3bc5d701fd61baa5c5d846eaec0240394f0e0cc394c95e3"
+    },
+    {
+      "path": "Frontend/src/simulator/scenario-engine.ts",
+      "sha256": "c5477ccb25d873b3ba9c01ef57107b9cbcbc409c58cf35b02cfdfe5f578c88b7"
+    },
+    {
+      "path": "Frontend/src/simulator/scenario-session.test.ts",
+      "sha256": "1174054c5b348872f8b0b0ec388e9c62f57865ea5f9056894e3097facc1762c3"
+    },
+    {
+      "path": "Frontend/src/simulator/ScenarioEditor.tsx",
+      "sha256": "294b3e8caca62e839ae7b7fc407bdb49007ae7ac8fbccdd380e05ba3606fe435"
+    },
+    {
+      "path": "Frontend/src/simulator/ScenarioEventEditor.tsx",
+      "sha256": "d159ce89c0dc90768976b4861cfb45f0697a0e138bb04675d0f0012c083e88eb"
+    },
+    {
+      "path": "Frontend/src/simulator/scenarios.ts",
+      "sha256": "2e441956b0058091ba9f3db918a90f84b96f846a7857adfea996dc22bdc52b8b"
+    },
+    {
+      "path": "Frontend/src/simulator/Scope.tsx",
+      "sha256": "b1888fca56867ee9d8e1ba01944119a0570b8daaf59de808c606900d0cd2c9ea"
+    },
+    {
+      "path": "Frontend/src/simulator/sequencing.test.ts",
+      "sha256": "dbda79eddf025d6a95d3d61bfcb761cd4e07b141acb232970fe5f1e4a7fc5c34"
+    },
+    {
+      "path": "Frontend/src/simulator/session-api.test.ts",
+      "sha256": "40d387aa2a4daf0fa71c3c24b4189506a37e5a0e63590ccd65ee50a6276fac4c"
+    },
+    {
+      "path": "Frontend/src/simulator/session-auth.test.ts",
+      "sha256": "886e322e4630b53bda8f7c4e7c78d932d442cf9ded2d935ceabb55bf02b76e28"
+    },
+    {
+      "path": "Frontend/src/simulator/session-service.test.ts",
+      "sha256": "c745a92fa882a9351a29bc755b4e2e8ae794c9531033e06cfd6bdf821d3b443c"
+    },
+    {
+      "path": "Frontend/src/simulator/session-test-store.ts",
+      "sha256": "f34bf11002847cb6cf41ea83c802dd6854dfdc0f840ce815afbf34762645d601"
+    },
+    {
+      "path": "Frontend/src/simulator/SessionAccess.tsx",
+      "sha256": "77c4f1d6391aac48868b6bb70bcf06732528cd9593b8039538572deb01f22b5d"
+    },
+    {
+      "path": "Frontend/src/simulator/SessionJoin.tsx",
+      "sha256": "ea747dfcabfce15a59c6b10272c11a502455e05f2d18e5b19546432285177cfb"
+    },
+    {
+      "path": "Frontend/src/simulator/SessionPicker.tsx",
+      "sha256": "d4c1fa60e7b76c15573c5e2517910a8da400166a8a413a022971d07a1962c1cd"
+    },
+    {
+      "path": "Frontend/src/simulator/Sessions.module.css",
+      "sha256": "51c0f3d693917f438e1910432e132f92a5d85e0ded723b28152de876248ceb51"
+    },
+    {
+      "path": "Frontend/src/simulator/sessions.ts",
+      "sha256": "7bffe339599604f668101344d37ac83c1a522da785beed08040baecc3c638b93"
+    },
+    {
+      "path": "Frontend/src/simulator/shared-transport.test.ts",
+      "sha256": "828c4e43c7857b60a9f0189829958566ca97705cb10bce798652c0a698dbd266"
+    },
+    {
+      "path": "Frontend/src/simulator/shared-transport.ts",
+      "sha256": "6c128d35707138daac90b20e779a29dba55d14beec4490cf74a6780054ea441c"
+    },
+    {
+      "path": "Frontend/src/simulator/Simulator.module.css",
+      "sha256": "572f872ac59385146325604122b0f245e8a9dfc2ee8219365d72948562fa1f3a"
+    },
+    {
+      "path": "Frontend/src/simulator/Simulator.tsx",
+      "sha256": "28881d1ece80822aca2ff8ddc45ba4624a8298d76ab4f74938a705bab40826f3"
+    },
+    {
+      "path": "Frontend/src/simulator/staff-preferences.test.ts",
+      "sha256": "67ab2bc8c50d80492af687fe35d46a2dfabcef3f57d9b8beb1e2d86783b768f7"
+    },
+    {
+      "path": "Frontend/src/simulator/StaffPanel.tsx",
+      "sha256": "32bb9b557ece3b606ef1fd4a7fd73b773dcda23c31afe32a01c4ea6ea4952541"
+    },
+    {
+      "path": "Frontend/src/simulator/taxi-routing.test.ts",
+      "sha256": "af2ec13471d073e1d70b4af88270cb514d4ca878ef966bb092008bc0ee06b259"
+    },
+    {
+      "path": "Frontend/src/simulator/taxi-routing.ts",
+      "sha256": "42a5db4a6a04f7e3176759dcee1bea4fb5d677a831e844aa1fa71deecabc29d0"
+    },
+    {
+      "path": "Frontend/src/simulator/TrainerNotice.tsx",
+      "sha256": "b477cae21a0bef1f8afcefd52897a4573fd07455faa296d016b1ca39cae61e2b"
+    },
+    {
+      "path": "Frontend/src/simulator/training-api.test.ts",
+      "sha256": "178293c93f550867310b7502473a6f97410f09c32d988c0fcd79d5057add90ad"
+    },
+    {
+      "path": "Frontend/src/simulator/training-service.test.ts",
+      "sha256": "fb18e4008e9a9b8c5969d554613181b600798d47a230da2f90389edcefb733b8"
+    },
+    {
+      "path": "Frontend/src/simulator/Training.module.css",
+      "sha256": "44d23d18ac36c622f06a3e151a5e01b8107a2638c0668368ac6a9fb8d21dbebf"
+    },
+    {
+      "path": "Frontend/src/simulator/TrainingLibrary.tsx",
+      "sha256": "cd14379a9bcb517893bc5198da405a64ad468040b664dcd0481b0685aac62c83"
+    },
+    {
+      "path": "Frontend/src/simulator/data/egph.json",
+      "sha256": "a25cc9c83e047d15e568c1f83025a18b2d1e342bbc99898fad8dd2ea073c2d23"
+    },
+    {
+      "path": "Frontend/src/simulator/server/retention.ts",
+      "sha256": "0a61037007944c52a2b17154907e84aed9464d38c7c2298f0a8cdbdaa4e11ae4"
+    },
+    {
+      "path": "Frontend/src/simulator/server/session-api.ts",
+      "sha256": "5a99db5b45a74922879c89901d54b163d5a49a86293adcb8ef3be495d6441256"
+    },
+    {
+      "path": "Frontend/src/simulator/server/session-auth.ts",
+      "sha256": "7ffa798e885a192b882ae5df3020aceab2d4f5189e529f569c32a23afb72c2c2"
+    },
+    {
+      "path": "Frontend/src/simulator/server/session-service.ts",
+      "sha256": "7a60a17dae86bcbaa3d405bb95e4c0a72541d947e2ee6910e4781f915577c7fe"
+    },
+    {
+      "path": "Frontend/src/simulator/server/session-store.ts",
+      "sha256": "a8c28ebc2a485684879391bdf76e61603cdd581f1547612f3f9c3a8676f40cb9"
+    },
+    {
+      "path": "Frontend/src/simulator/server/training-api.ts",
+      "sha256": "d0f7eb8ba4614c80f7532da5478cd0119681d950bab26114d0f75730519a794c"
+    },
+    {
+      "path": "Frontend/src/simulator/server/training-service.ts",
+      "sha256": "f460c03551ea0a27cd6666ef5b4533c20b814de72da3ff1235fa8e8969116c4a"
+    },
+    {
+      "path": "Frontend/src/app/simulator/layout.tsx",
+      "sha256": "b2fb9dc9d71ca825814ed637c3c5e31c7ad6d236dfd3e1ba3abe60c49deba907"
+    },
+    {
+      "path": "Frontend/src/app/simulator/about/About.module.css",
+      "sha256": "4586ccaa23831e41152ca2ef8043a6bfff2c7e0987b55c4d1a60aecf4a80de0a"
+    },
+    {
+      "path": "Frontend/src/app/simulator/about/page.tsx",
+      "sha256": "26854ce99df31999150f39066c513b7087036dc9ed9ae5b8570b14e3f29d393b"
+    },
+    {
+      "path": "Frontend/src/app/simulator/assignments/page.tsx",
+      "sha256": "9732b7bccc26ff56a5a7570cfe02c4757864ccb9d418cadec0de5b96ce5dcacc"
+    },
+    {
+      "path": "Frontend/src/app/simulator/mentee/page.tsx",
+      "sha256": "f1838ad16b3dc26b0e35822ea32ebf8a6f5de5ae108d32ecb32a12c4c87d1dfb"
+    },
+    {
+      "path": "Frontend/src/app/simulator/scenarios/page.tsx",
+      "sha256": "ec2413340f385cfcde8559d6401262901e694e16a926651a70edd24420e3948f"
+    },
+    {
+      "path": "Frontend/src/app/simulator/staff/page.tsx",
+      "sha256": "2729c3cb02b8d6484246011016a84da97a9d94fdd8464142179f1be61141661e"
+    },
+    {
+      "path": "Frontend/src/app/simulator/staff/[id]/page.tsx",
+      "sha256": "19d028b55a6351f06a15304df311db2d18a0affd83b966901c1633abbbf3d31e"
+    },
+    {
+      "path": "Frontend/src/app/simulator/scenarios/[id]/page.tsx",
+      "sha256": "2f2f7ef98d6034c6cfba468b94b93a4aae701714753c2dd54511706bf9016f7f"
+    },
+    {
+      "path": "Frontend/src/app/simulator/mentee/assignments/page.tsx",
+      "sha256": "2e6fc918db199f5f89ac1c2a2e121d19413500690489bb50a3a34ad1aa2224ac"
+    },
+    {
+      "path": "Frontend/src/app/simulator/mentee/[id]/page.tsx",
+      "sha256": "95325e6ab1d3ae86a8f5194b34148843e0bf0618ce9b0bb313fb2819bc9bacea"
+    },
+    {
+      "path": "Frontend/src/app/simulator/data/egph.json/route.ts",
+      "sha256": "ff44326f4d537a3674077ddc635420b63b0fe8bd0763bfd0d06df54ace5d172f"
+    },
+    {
+      "path": "Frontend/PRIVACY.md",
+      "sha256": "6ce576ee7894372fe525a8fa9e18cf8ae124ac066b4b08f77c9c47dfc8d46052"
+    },
+    {
+      "path": "Frontend/TERMS_OF_SERVICE.md",
+      "sha256": "752a941031e8bf3329632a73129ffcf24c4a8134df0d6ca2e8ffd944a177f5a8"
+    },
+    {
+      "path": "Frontend/.gitattributes",
+      "sha256": "1085f74ef0d65ee58129883efcb55947c2e71b46e3d9e7c1df8a88ae4ba666ab"
+    },
+    {
+      "path": "Frontend/scripts/simulator-retention.ts",
+      "sha256": "f0ede0ab05a9d0808222345d1ca16570f8af50bbfb9297fcee15f5bf59bd0162"
+    },
+    {
+      "path": "Frontend/public/simulator/data-notice.json",
+      "sha256": "78883153044d5b3cae15c7dbba3ab2d9db069c10b3f644c4de0524a075ed9faa"
+    },
+    {
+      "path": "Frontend/public/simulator/Phosphor-MIT.txt",
+      "sha256": "6918b72504641180600cbbd4a86b0dfa9dfccf788775694325b71b9a029f6eb4"
+    },
+    {
+      "path": "Frontend/docs/simulator-policy-receipt.json",
+      "sha256": "7d32dbdf3793260140206c6ee7aff1167df4b17abc1ddfd30eabdb7969485f00"
+    },
+    {
+      "path": "Frontend/docs/simulator-sources.md",
+      "sha256": "c503abab4c969525452688bd53eed9301529e965cf3ef09c3f4f90c68370b495"
+    },
+    {
+      "path": "Frontend/docs/simulator-retention.md",
+      "sha256": "e775c32c5d36750c1eb01ef1a819574c1386bac6ebc4f811343bbc32e63bf717"
+    },
+    {
+      "path": "Backend/src/main/java/me/reid/auth/RequiredPolicyRegistry.java",
+      "sha256": "865f36ad5bccb09cb282cacbf40e73581f17383df3d3f02e0b5b8ea794b5746a"
+    },
+    {
+      "path": "Backend/src/test/java/me/reid/auth/RequiredPolicyRegistryTest.java",
+      "sha256": "b6243d2338e6176992d6f8ad1d78704fda3a3fb33f9b063b923bd896b60d6e39"
+    }
+  ]
+}

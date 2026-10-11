@@ -41,7 +41,7 @@ function UserMenu({showDashboard, showWraps, onLogout}: {showDashboard: boolean;
 
 export function AuthNavigation({showLogin}: {showLogin: boolean}) {
   const {session, adminUser, loading, error, logout} = usePortalAuth();
-  const state = headerAuthState({loading, hasSession: Boolean(session), hasAdminPermission: Boolean(adminUser), dashboardUnavailable: Boolean(error)});
+  const state = headerAuthState({loading, hasSession: Boolean(session), hasAdminPermission: Boolean(adminUser && adminUser.canAccessDashboard !== false), dashboardUnavailable: Boolean(error)});
   if (state === "loading") return <span className="nav-auth-loading" aria-label="Checking account"/>;
   if (state === "signed-out" || state === "unavailable") return showLogin ? <Link className="nav-login" href={homeLoginHref("dashboard", "/")}>Login</Link> : null;
   return <UserMenu showDashboard={state === "admin"} showWraps={adminUser?.role === "super_admin" && session?.impersonating === false} onLogout={() => void logout(false)}/>;

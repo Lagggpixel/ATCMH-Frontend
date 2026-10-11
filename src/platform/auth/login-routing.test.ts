@@ -35,6 +35,11 @@ test("home login links preserve the application and canonical return path", () =
   assert.equal(homeLoginHref("dashboard", "/pilot-guide"), "/?login=1&returnTo=%2Fpilot-guide");
 });
 
+test("simulator login returns to the exact supported views only", () => {
+  for (const path of ["/simulator/mentee", "/simulator/staff", "/simulator/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/simulator/staff/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
+  for (const path of ["/simulatorish", "/simulator/admin", "/simulator/staff/../mentee", "/simulator%2fstaff"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
+});
+
 test("compatibility links preserve only supported auth errors", () => {
   assert.equal(homeLoginHref("dashboard", "/account", "consent_expired"), "/?login=1&returnTo=%2Faccount&authError=consent_expired");
   assert.equal(homeLoginHref("dashboard", "/account", "stack trace <script>"), "/?login=1&returnTo=%2Faccount");

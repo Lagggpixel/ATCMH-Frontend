@@ -10,7 +10,7 @@ import AdminNav from "./components/admin/AdminNav";
 import styles from "./DashboardHeader.module.css";
 import AppearanceMenu from "./theme/AppearanceMenu";
 
-export default function DashboardHeader() {
+export default function DashboardHeader({simulatorEnabled = false}: {simulatorEnabled?: boolean}) {
     // Leaving the guide loads a document with the destination's media policy.
     const HomeLink = usePathname() === "/dashboard/pilot-guide" ? "a" : Link;
     const {adminUser} = usePortalAuth();
@@ -54,7 +54,7 @@ export default function DashboardHeader() {
                 </HomeLink>
                 <button ref={closeButton} type="button" onClick={() => {setMenuOpen(false); menuButton.current?.focus();}}>Close</button>
             </div>
-            {adminUser ? <AdminNav adminUser={adminUser} embedded onNavigate={() => setMenuOpen(false)}/> : null}
+            {adminUser ? <AdminNav adminUser={adminUser} embedded onNavigate={() => setMenuOpen(false)} simulatorEnabled={simulatorEnabled}/> : null}
         </div>
         {adminUser ? <button ref={menuButton} type="button" className={styles.mobileMenuButton} aria-controls="dashboard-sections" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>Menu</button> : null}
         <div className={styles.siteActions}>

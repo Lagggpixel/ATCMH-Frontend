@@ -1,0 +1,4 @@
+
+# Policy consent hashes cover canonical UTF-8 files with LF line endings.
+PRIVACY.md text eol=lf
+TERMS_OF_SERVICE.md text eol=lf

@@ -1,6 +1,7 @@
 import type {AdminUser} from "../../types/AdminUser.ts";
 import {canViewHealth} from "../../utils/HealthUtils.ts";
 import {canAccessPilotGuide} from "../../../platform/auth/admin-preview-access";
+import {canAccessStaffSimulator} from "../../../simulator/feature";
 
 export interface AdminNavigationItem {
     path: string;
@@ -23,7 +24,7 @@ const navigationGroup = (label: string, sections: AdminNavigationSection[]): Adm
     return {label, sections: visibleSections, items: visibleSections.flatMap(section => section.items)};
 };
 
-export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCenterEnabled: boolean): AdminNavigationGroup[] => [
+export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCenterEnabled: boolean, simulatorEnabled = false): AdminNavigationGroup[] => [
     navigationGroup("Mentorship", [{
         items: [
             {path: "/dashboard/mentees", label: "Mentees"},
@@ -36,6 +37,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
     navigationGroup("Assessment", [{
         items: [
             ...(adminUser?.canManageMockQuestions ? [{path: "/dashboard/mock-questions", label: "Mock Questions"}] : []),
+            ...(simulatorEnabled && canAccessStaffSimulator(adminUser) ? [{path: "/simulator/staff", label: "ATC Simulator"}] : []),
             ...(examCenterEnabled ? [
                 {path: "/dashboard/exams", label: "Exam Center"},
                 {path: "/dashboard/courses", label: "Course Center"},
@@ -58,7 +60,9 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
             ...(adminUser?.canViewAuditLogs ? [{path: "/dashboard/audit-logs", label: "Audit Logs"}] : []),
         ],
     }]),
-].filter(group => group.items.length > 0);
+].map(group => adminUser?.canAccessDashboard === false
+    ? {...group, items: group.items.filter(item => item.path === "/simulator/staff"), sections: group.sections.map(section => ({...section, items: section.items.filter(item => item.path === "/simulator/staff")}))}
+    : group).filter(group => group.items.length > 0);
 
 export const adminNavigationItems = (adminUser: AdminUser | undefined, examCenterEnabled: boolean) =>
     adminNavigationGroups(adminUser, examCenterEnabled).flatMap(group => group.items);
