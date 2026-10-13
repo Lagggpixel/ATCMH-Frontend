@@ -9,6 +9,7 @@ import type {SessionRecord} from "./session-service";
 // Small connection surface also permits the operator's retention transaction to archive first.
 export interface ReplayConnection {execute(sql: string, values: (string | number | null)[]): Promise<[unknown, unknown]>}
 interface ReplayRow extends RowDataPacket {
+  airport?: string | null; airport_data_version?: string | null; training_station?: string | null;
   id: string; session_id: string; attempt_id: string | null; owner_id: string; owner_name: string | null; title: string;
   started_at: number; ended_at: number | null; status: string; duration: number; sequence_no: number;
   content_revision: number; initial_state: string; last_state: string; participants: string; partial: number; feedback?: string;
@@ -24,7 +25,7 @@ function participants(record: SessionRecord, previous: ReplayParticipant[] = [])
   return result;
 }
 function summary(row: ReplayRow): ReplaySummary {
-  return {id: row.id, sessionId: row.session_id, title: row.title, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined,
+  return {airport: row.airport ?? "EGPH", airportDataVersion: row.airport_data_version ?? undefined, trainingStation: row.training_station ?? undefined, id: row.id, sessionId: row.session_id, title: row.title, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined,
     startedAt: Number(row.started_at), endedAt: Number(row.ended_at), duration: Number(row.duration), status: row.status,
     participants: JSON.parse(row.participants), partial: !!row.partial, kind: "recording", feedback: row.feedback || undefined};
 }
@@ -70,7 +71,7 @@ export async function listReplays(offset: number) {
   // Independent bounded queries merged by completion time include surviving pre-recording attempts.
   const limit = offset + 51;
   const [recordings, legacy] = await Promise.all([
-    queryReadOnly<ReplayRow[]>(`SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback FROM simulator_replays WHERE ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT ${limit}`),
+    queryReadOnly<ReplayRow[]>(`SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')) AS training_station FROM simulator_replays WHERE ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT ${limit}`),
     queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.status<>'active' AND NOT EXISTS (SELECT 1 FROM simulator_replays p WHERE p.attempt_id=a.id) ORDER BY a.finished_at DESC,a.id DESC LIMIT ${limit}`),
   ]);
   const all = [...recordings.map(summary), ...legacy.map(legacySummary)].sort((a, b) => b.endedAt - a.endedAt || b.id.localeCompare(a.id));
@@ -83,7 +84,8 @@ export async function readReplay(id: string, after: number): Promise<ReplayDetai
     if (!old[0]) throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);
     return {replay: legacySummary(old[0]), initial: old[0].result ? exerciseSchema.parse(JSON.parse(old[0].result).exercise) : null, frames: [], next: null};
   }
-  const row = rows[0];
+  const row = rows[0], initial = exerciseSchema.parse(JSON.parse(row.initial_state));
+  row.airport = initial.airport; row.airport_data_version = initial.airportDataVersion; row.training_station = initial.trainingStation;
   const frames = await queryReadOnly<(RowDataPacket & {sequence_no: number; at_seconds: number; delta: string; interpolate: number})[]>("SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no LIMIT 500", [id, after]);
   const result: ReplayFrame[] = frames.map(f => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate}));
   const last = result.at(-1)?.sequence ?? after;

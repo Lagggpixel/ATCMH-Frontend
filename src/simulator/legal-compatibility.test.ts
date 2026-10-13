@@ -4,7 +4,7 @@ import {createHash} from "node:crypto";
 import {readFileSync, existsSync} from "node:fs";
 import {resolve} from "node:path";
 import {commandTasks, instructionText, pilotRequests, resolvePilotRequest, REQUEST_IDS} from "./catalog";
-import {initialExercise, newAircraft, atisText} from "./engine";
+import {initialExercise, newAircraft, atisText, engineFor} from "./engine";
 import {createScenarioExercise, blankScenario, seedFromAircraft, scenarioSchema} from "./scenarios";
 import {advanceScenario} from "./scenario-engine";
 import {exerciseSchema, instructionSchema} from "./protocol";
@@ -16,10 +16,13 @@ test("every stable request and exact legacy label executes the same scenario wit
   for (const id of REQUEST_IDS) {
     const request = resolvePilotRequest({requestId: id})!;
     for (const legacy of [true, false]) {
-      const a = newAircraft("seed", request.phase !== "ground" && !["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id));
+      const radar = ["check-in", "request-approach", "missed-approach"].includes(id);
+      const base = {...blankScenario(), ...(radar ? {trainingStation: "EGPH:approach"} : {})};
+      const a = (radar ? engineFor(base).newAircraft : newAircraft)("seed", request.phase !== "ground" && !["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id));
       a.frequency = ["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id) ? "ground" : "tower";
       if (id === "frequency-change") a.frequency = "ground";
-      const definition = {...blankScenario(), aircraft: [{key: "target", initial: true, seed: seedFromAircraft(a)}], events: [{id: "request", title: "Request", trigger: {type: "time" as const, at: 0}, actions: [{type: "request" as const, aircraftKey: "target", runway: "06" as const, ...(legacy ? {label: request.legacyLabel} : {requestId: id, label: "Display text can change"})}]}]};
+      if (radar) a.frequency = "approach";
+      const definition = {...base, aircraft: [{key: "target", initial: true, seed: seedFromAircraft(a)}], events: [{id: "request", title: "Request", trigger: {type: "time" as const, at: 0}, actions: [{type: "request" as const, aircraftKey: "target", runway: "06" as const, ...(legacy ? {label: request.legacyLabel} : {requestId: id, label: "Display text can change"})}]}]};
       const before = JSON.stringify(definition);
       const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(definition), "session", "generation");
       exercise.running = true;

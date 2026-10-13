@@ -56,6 +56,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
             ...(canAccessPilotGuide(adminUser) ? [{path: "/dashboard/pilot-guide", label: "Pilot Guide"}] : []),
             ...(canViewHealth(adminUser) ? [{path: "/dashboard/health", label: "System Health"}] : []),
             ...(adminUser?.canManageAccounts ? [{path: "/dashboard/accounts", label: "Accounts"}] : []),
+            ...(adminUser?.role === "super_admin" && adminUser.canManageRoles ? [{path: "/dashboard/roles", label: "Roles"}] : []),
             ...(adminUser?.canReviewAltAccounts ? [{path: "/dashboard/alt-accounts", label: "Alternative Evidence"}] : []),
             ...(adminUser?.canViewAuditLogs ? [{path: "/dashboard/audit-logs", label: "Audit Logs"}] : []),
         ],

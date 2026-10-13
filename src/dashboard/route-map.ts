@@ -4,7 +4,7 @@ export type DashboardCourseView = "courses" | "course-create" | "course-edit" | 
 export type DashboardRoute =
     | {screen: "redirect"; destination: string}
     | {screen: "mentees"; params?: {menteeRecordId: string}}
-    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "health" | "manual" | "mock-questions" | "application-questions" | "mentor-applications" | "assignment-guide" | "audit-logs" | "accounts" | "alt-accounts" | "pilot-guide"}
+    | {screen: "assignments" | "sessions" | "usernotes" | "stats" | "health" | "manual" | "mock-questions" | "application-questions" | "mentor-applications" | "assignment-guide" | "audit-logs" | "accounts" | "roles" | "alt-accounts" | "pilot-guide"}
     | {screen: "exams"; view: DashboardExamView; params?: {examId?: string; attemptId?: string}}
     | {screen: "courses"; view: DashboardCourseView; params?: {courseId?: string}}
     | {screen: "not-found"};
@@ -34,7 +34,7 @@ export function resolveDashboardRoute(pathname: string): DashboardRoute {
     if (parts[0] === "mentees") return parts[1] ? {screen: "mentees", params: {menteeRecordId: parts[1]}} : {screen: "mentees"};
     const direct = new Map<string, DashboardRoute["screen"]>([
         ["assignments", "assignments"], ["sessions", "sessions"], ["usernotes", "usernotes"], ["stats", "stats"],
-        ["manual", "manual"], ["audit-logs", "audit-logs"], ["accounts", "accounts"], ["alt-accounts", "alt-accounts"],
+        ["manual", "manual"], ["audit-logs", "audit-logs"], ["accounts", "accounts"], ["roles", "roles"], ["alt-accounts", "alt-accounts"],
         ["mock-questions", "mock-questions"],
         ["application-questions", "application-questions"],
         ["mentor-applications", "mentor-applications"],

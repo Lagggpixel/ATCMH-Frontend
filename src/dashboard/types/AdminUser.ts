@@ -16,4 +16,5 @@ export interface AdminUser {
     canManagePilotGuide?: boolean;
     canAccessSimulator?: boolean;
     canAccessDashboard?: boolean;
+    canManageRoles?: boolean;
 }

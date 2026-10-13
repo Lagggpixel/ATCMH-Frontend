@@ -41,6 +41,9 @@
 .aircraftTag {position:absolute;bottom:25px;left:28px;white-space:nowrap;font-size:clamp(11px,.9vw,17px)!important;padding:2px!important;color:inherit!important;text-shadow:0 1px 2px black;text-align:left}
 .aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:currentColor;transform:rotate(-35deg);transform-origin:right}
 .aircraftTag span {display:block}
+.aircraftTag {touch-action:none}
+.rotatedTag:before {display:none}
+.tagLeader {position:absolute;overflow:visible;pointer-events:none}
 .leftTag {left:auto;right:28px;text-align:right!important}
 .leftTag:before {left:100%;right:auto;transform:rotate(35deg);transform-origin:left}
 .contextAnchor {position:absolute;left:24px;top:26px;z-index:10;color:white;width:230px}
@@ -401,15 +404,14 @@
 .menteeSimulator .sidebar .activeFrequency {background:var(--trainer-selected);color:#6ce5ed;border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent)}
 .activeFrequency .frequencyValue {color:inherit}
 /* A single, slow pulse ties the channel, radar target and Commands control together. */
-.simulator button.pendingRequest {animation:pendingRequestPulse 1.6s ease-in-out infinite;border-radius:3px;color:#101820!important}
-.pendingAircraft {animation:pendingAircraftPulse 1.6s ease-in-out infinite}
+.simulator button.pendingRequest {animation:pendingRequestPulse 1.6s steps(1,end) infinite;border-radius:3px}
+.pendingAircraft {animation:pendingAircraftPulse 1.6s steps(1,end) infinite}
 @keyframes pendingAircraftPulse {
   0%,100% {fill:currentColor}
   50% {fill:#FFF600}
 }
 @keyframes pendingRequestPulse {
-  0%,100% {background-color:rgb(255 246 0 / 60%)}
-  50% {background-color:#FFF600}
+  50% {background-color:#FFF600;color:#101820}
 }
 @media (prefers-reduced-motion:reduce) {
   .simulator button.pendingRequest {animation:none;background-color:#FFF600!important;color:#101820!important}
@@ -513,3 +515,15 @@
 .trafficRoster .automaticRow .autoReadback { margin: 0; flex: 1; min-width: 0; }
 .staffSimulator .automaticHelpButton { display: inline-grid; place-items: center; flex-shrink: 0; border: 1px solid #94a5b5; border-radius: 50%; width: 1.5rem; height: 1.5rem; margin: 0; color: #dce7ee; }
 .staffSimulator .automaticHelp > button { border: 1px solid #94a5b5; border-radius: .25rem; padding: .4rem .8rem; }
+
+/* Airborne controller popups and previews. */
+.vectorOverlay {position:absolute;inset:0;pointer-events:none;z-index:6;font:14px "Simulator Mono",monospace}
+.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;min-width:190px;padding:8px 10px;border:1px solid #92979c55;border-radius:3px;background:#555b63d9;color:#fff;font:14px/1.5 "Simulator Mono",monospace;box-shadow:0 2px 8px #0005}
+.vectorPreviewBox span {display:block;white-space:nowrap}
+.radarQuick {min-width:200px;max-height:55vh;overflow:auto;padding:4px 0}
+.altitudeChoices {max-height:38vh;overflow:auto;overscroll-behavior:contain}
+.radarQuick p {padding:8px 12px;font-size:12px;color:#ff9999}
+.aircraft {touch-action:none}
+.bustingRing {position:absolute;left:-24px;top:-24px;width:48px;height:48px;border:3px solid #ff4242;border-radius:50%;pointer-events:none;z-index:3}
+.bustingTag {position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);display:grid;gap:2px;color:#ff4242;background:#101619e8;font-size:12px;white-space:nowrap;padding:2px 4px}
+.terrainUnavailable {position:absolute;bottom:28px;left:12px;color:#ffb276;background:#101619e8;padding:3px 6px;font-size:11px;pointer-events:none}

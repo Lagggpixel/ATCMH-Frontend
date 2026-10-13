@@ -1,8 +1,9 @@
-import {arrivalNumber} from "./engine";
+import {engineFor} from "./engine";
 import type {Aircraft, Exercise} from "./model";
 
 /** Mentor-only observation of transmitted replies; never gates or suggests mentee commands. */
 export function arrivalWorkflow(exercise: Exercise, aircraft: Aircraft) {
+  const {arrivalNumber} = engineFor(exercise);
   const messages = exercise.messages.filter(m => m.aircraftId === aircraft.id);
   const requestIndex = messages.findLastIndex(m => m.sender === "pilot" && !!m.request);
   const request = messages[requestIndex];

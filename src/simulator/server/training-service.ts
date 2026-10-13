@@ -6,20 +6,23 @@ import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
 import {availableControl, SessionService, type Actor} from "./session-service";
 
-interface ScenarioRow extends RowDataPacket {id: string; owner_id: string; owner_name: string | null; version: number; published_revision: number; updated_at: number; draft: string}
+interface ScenarioRow extends RowDataPacket {id: string; owner_id: string; owner_name: string | null; version: number; published_revision: number; updated_at: number; draft: string; published_definition?: string | null}
 interface RevisionRow extends RowDataPacket {definition: string}
 interface AssignmentRow extends RowDataPacket {id: string; owner_id: string; owner_name: string | null; learner_id: string; scenario_id: string; revision: number; due_at: number | null; max_attempts: number; definition: string}
 interface AttemptRow extends RowDataPacket {id: string; session_id: string; started_at: number; finished_at: number | null; status: AttemptSummary["status"]; feedback: string; elapsed: number}
 const unavailable = () => new SessionError("not-found", "This scenario or assignment is unavailable.", 404);
 function staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
-const scenarioRecord = (r: ScenarioRow): ScenarioRecord => ({id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: scenarioSchema.parse(JSON.parse(r.draft))});
+const scenarioRecord = (r: ScenarioRow): ScenarioRecord => {
+  const published = r.published_definition ? scenarioSchema.parse(JSON.parse(r.published_definition)) : undefined;
+  return {id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: scenarioSchema.parse(JSON.parse(r.draft)), ...(published ? {published: {title: published.title, airport: published.airport, airportDataVersion: published.airportDataVersion, trainingStation: published.trainingStation}} : {})};
+};
 const attemptSummary = (r: AttemptRow): AttemptSummary => ({id: r.id, sessionId: r.session_id, startedAt: Number(r.started_at), finishedAt: r.finished_at === null ? null : Number(r.finished_at), status: r.status, feedback: r.feedback, elapsed: Number(r.elapsed)});
 
 /** Authoring/assignment mutations share the existing SQL transaction context with sessions. */
 export class TrainingService {
   async scenarios(actor: Actor) {
     staff(actor);
-    return (await queryReadOnly<ScenarioRow[]>("SELECT * FROM simulator_scenarios ORDER BY updated_at DESC")).map(scenarioRecord);
+    return (await queryReadOnly<ScenarioRow[]>("SELECT s.*,r.definition AS published_definition FROM simulator_scenarios s LEFT JOIN simulator_scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.published_revision ORDER BY s.updated_at DESC")).map(scenarioRecord);
   }
   async scenario(actor: Actor, id: string) {
     staff(actor);
@@ -33,6 +36,8 @@ export class TrainingService {
         const [rows] = await connection.execute<ScenarioRow[]>("SELECT * FROM simulator_scenarios WHERE id=? FOR UPDATE", [id]);
         if (!rows[0]) throw unavailable();
         if (rows[0].version !== version) throw new SessionError("revision-conflict", "This draft changed in another page. Reload before saving.", 409);
+        const previous = scenarioSchema.parse(JSON.parse(rows[0].draft));
+        if (previous.airport !== draft.airport && (previous.aircraft.length || previous.events.length || draft.aircraft.length || draft.events.length)) throw new SessionError("invalid-scenario", "Clear traffic and events before changing the airport, or create a new scenario.", 400);
         await connection.execute("UPDATE simulator_scenarios SET draft=?,version=version+1,updated_at=? WHERE id=?", [JSON.stringify(draft), Date.now(), id]);
       } else {
         id = randomUUID();
@@ -67,7 +72,7 @@ export class TrainingService {
     const attempts = rows.length ? await queryReadOnly<(AttemptRow & {assignment_id: string})[]>(`SELECT t.* FROM simulator_attempts t JOIN simulator_assignments a ON a.id=t.assignment_id ${actor.staff ? "" : "WHERE a.learner_id=?"} ORDER BY t.started_at`, actor.staff ? [] : [actor.accountId]) : [];
     for (const row of rows) {
       const definition = scenarioSchema.parse(JSON.parse(row.definition));
-      result.push({id: row.id, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, learnerId: row.learner_id, scenarioId: row.scenario_id, revision: row.revision, title: definition.title, briefing: definition.briefing, dueAt: row.due_at === null ? null : Number(row.due_at), maxAttempts: row.max_attempts, attempts: attempts.filter(t => t.assignment_id === row.id).map(attemptSummary)});
+      result.push({airport: definition.airport, airportDataVersion: definition.airportDataVersion, trainingStation: definition.trainingStation, id: row.id, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, learnerId: row.learner_id, scenarioId: row.scenario_id, revision: row.revision, title: definition.title, briefing: definition.briefing, dueAt: row.due_at === null ? null : Number(row.due_at), maxAttempts: row.max_attempts, attempts: attempts.filter(t => t.assignment_id === row.id).map(attemptSummary)});
     }
     return result;
   }

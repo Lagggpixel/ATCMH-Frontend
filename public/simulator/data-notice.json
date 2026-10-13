@@ -1,12 +1,161 @@
 {
-  "title": "ATCMH EGPH derived airport geometry",
+  "title": "ATCMH derived airport geometry",
   "data": "/simulator/data/egph.json",
-  "copyright": "© OpenStreetMap contributors",
+  "copyright": "\u00a9 OpenStreetMap contributors",
   "license": "https://opendatacommons.org/licenses/odbl/1-0/",
   "attribution": "https://www.openstreetmap.org/copyright",
   "osmExtract": "https://api.openstreetmap.org/api/0.6/map?bbox=-3.405,55.935,-3.335,55.968",
-  "bounds": [-3.405, 55.935, -3.335, 55.968],
-  "supportingData": ["https://davidmegginson.github.io/ourairports-data/airports.csv", "https://davidmegginson.github.io/ourairports-data/runways.csv"],
+  "bounds": [
+    -3.405,
+    55.935,
+    -3.335,
+    55.968
+  ],
+  "supportingData": [
+    "https://davidmegginson.github.io/ourairports-data/airports.csv",
+    "https://davidmegginson.github.io/ourairports-data/runways.csv"
+  ],
   "supportingLicense": "OurAirports public domain",
-  "transformation": "Local XML/CSV importer selects aeroway features, retains OSM way IDs, projects latitude/longitude to nautical miles east/north of the airport origin and rounds coordinates to 5 decimal places. Import date and origin are in the downloaded data."
+  "transformation": "Local XML/CSV importer selects aeroway features, retains OSM way IDs, projects latitude/longitude to nautical miles east/north of the airport origin and rounds coordinates to 5 decimal places. Import date and origin are in the downloaded data. New snapshots include all open OurAirports runway pairs with L/R/C identifiers and true headings. Closed runways are omitted. OSM map tiles are merged by element ID; incomplete extracts are rejected. Oriented parking-position ways are retained for ground spawning. SHA-256 source hashes and a content version are recorded. MHz values are not inferred from map data.",
+  "airports": [
+    {
+      "icao": "EGPH",
+      "data": "/simulator/data/egph.json",
+      "bounds": [
+        -3.405,
+        55.935,
+        -3.335,
+        55.968
+      ],
+      "osmExtract": "https://api.openstreetmap.org/api/0.6/map?bbox=-3.405,55.935,-3.335,55.968"
+    },
+    {
+      "icao": "EGLL",
+      "data": "/simulator/data/egll.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "d7ede30f598ef663f1b07361cc52010ca0f3fbc35de401f4be4bc74f9dd6e565",
+      "sources": {
+        "osmSha256": "5b9960287dad2c603e9919275667a84b378a168878006aed396538b22dbafd03",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        -0.501439,
+        51.45278,
+        -0.42122699999999996,
+        51.489681
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-0.501439,51.45278,-0.481386,51.489681",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-0.481386,51.45278,-0.461333,51.489681",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-0.461333,51.45278,-0.42122699999999996,51.489681"
+      ]
+    },
+    {
+      "icao": "KBHM",
+      "data": "/simulator/data/kbhm.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "d8cd867d9600e01e1c3bd7b7377a32be107b9bfa6d4f6a255630539d7114040c",
+      "sources": {
+        "osmSha256": "327c88bdc60aafdec963b56fc86f509df2dd407b8215002d93f1a06530637e4b",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        -86.783599,
+        33.541699,
+        -86.732499,
+        33.5852
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-86.783599,33.541699,-86.732499,33.5852"
+      ]
+    },
+    {
+      "icao": "CYUL",
+      "data": "/simulator/data/cyul.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "10b159bdc3d9ee0a19ad81aa601560638aac14933ebb79f92466215d995da262",
+      "sources": {
+        "osmSha256": "ff277fc19a2e1d0f475d00f791af51fee1b8855131b05e25ac1cfd48122cb5e1",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        -73.7770146484375,
+        45.44566067504883,
+        -73.70401104736328,
+        45.4952763671875
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-73.7770146484375,45.44566067504883,-73.74051284790039,45.4952763671875",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-73.74051284790039,45.44566067504883,-73.70401104736328,45.4952763671875"
+      ]
+    },
+    {
+      "icao": "ROAH",
+      "data": "/simulator/data/roah.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "4f9adf03a26dbcf7541e2ecbf9e523de5f04a01a9594b100afdf79019e2cc2eb",
+      "sources": {
+        "osmSha256": "2281745c03d5963cf44202e303a8b5a307530f93b7b5e299746e83c856e887d2",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        127.62000378417969,
+        26.166699493408203,
+        127.65800372314453,
+        26.221299087524415
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=127.62000378417969,26.166699493408203,127.65800372314453,26.221299087524415"
+      ]
+    },
+    {
+      "icao": "KDAL",
+      "data": "/simulator/data/kdal.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "793e3052dcae882d3e12af870d726244cd7f0864afb1b9e08e052d82f3b195fc",
+      "sources": {
+        "osmSha256": "22df05c6563e208014d4ba646513bdcc212b2bba4f895fd38e4d714a4d0d77ff",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        -96.8755025024414,
+        32.82199963378906,
+        -96.82710369873047,
+        32.8692998046875
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-96.8755025024414,32.82199963378906,-96.85130310058594,32.84564971923828",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-96.8755025024414,32.84564971923828,-96.85130310058594,32.8692998046875",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-96.85130310058594,32.82199963378906,-96.82710369873047,32.84564971923828",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-96.85130310058594,32.84564971923828,-96.82710369873047,32.8692998046875"
+      ]
+    },
+    {
+      "icao": "SBBR",
+      "data": "/simulator/data/sbbr.json",
+      "sourceDate": "2026-10-11",
+      "dataVersion": "612815f1c5e1d58724df60b6ac34c011a27f103ba2af2453547e131f90d2eb04",
+      "sources": {
+        "osmSha256": "f11445f973d28c620b9c5965559c6adbeab96e5345eb2a425197b201a0df354d",
+        "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+      },
+      "bounds": [
+        -47.951998626708985,
+        -15.89270011138916,
+        -47.885701263427734,
+        -15.849700057983398
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-47.951998626708985,-15.89270011138916,-47.91884994506836,-15.849700057983398",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-47.91884994506836,-15.89270011138916,-47.885701263427734,-15.87120008468628",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-47.91884994506836,-15.87120008468628,-47.885701263427734,-15.849700057983398"
+      ]
+    }
+  ]
 }

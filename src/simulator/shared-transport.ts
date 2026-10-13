@@ -17,7 +17,7 @@ export class SharedSession {
   private listeners = new Set<() => void>();
   private manageEvent: ((eventId: string, decision: "run" | "retry" | "skip") => void) | null = null;
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
-  private send: ((action: Action) => void) | null = null;
+  private send: ((action: Action) => Promise<boolean>) | null = null;
   constructor(private role: SessionRole, private id: string, private csrf: string) {}
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.view;
@@ -25,8 +25,8 @@ export class SharedSession {
   private update(patch: Partial<SharedSessionView>) {this.view = {...this.view, ...patch}; this.listeners.forEach(listener => listener());}
   clearError = () => this.update({error: null});
   dispatch = (action: Action) => {
-    if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return;}
-    this.send(action);
+    if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return Promise.resolve(false);}
+    return this.send(action);
   };
   start(): () => void {
     let stopped = false, claimed = false, timer: ReturnType<typeof setTimeout> | undefined;
@@ -45,9 +45,10 @@ export class SharedSession {
     let commands = Promise.resolve();
     this.send = action => {
       const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
+      let sent = false;
       commands = commands.then(async () => {
         for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
-          try {await post("commands", {envelope}); return;}
+          try {await post("commands", {envelope}); sent = true; return;}
           catch (reason) {
             const error = reason as Error & {status?: number};
             if (error.status && error.status < 500 || attempt === 2) {
@@ -57,6 +58,7 @@ export class SharedSession {
           }
         }
       });
+      return commands.then(() => sent);
     };
     this.manageEvent = (eventId, decision) => {
       if (!this.view.connected || this.role !== "staff") return;

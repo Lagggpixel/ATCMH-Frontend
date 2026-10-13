@@ -6,7 +6,8 @@ import {TrainingService} from "./server/training-service";
 import {SessionService} from "./server/session-service";
 import {sqlSessionStore} from "./server/session-store";
 import {blankScenario, seedFromAircraft} from "./scenarios";
-import {newAircraft} from "./engine";
+import {newAircraft, engineFor} from "./engine";
+import {airportList} from "./airports";
 import {randomUUID} from "node:crypto";
 import {readReplay} from "./server/replay-store";
 import {ReplayTimeline} from "./replays";
@@ -47,6 +48,7 @@ class Database {
     }
     if (sql.startsWith("SELECT SEQUENCE_NO,AT_SECONDS,DELTA,INTERPOLATE")) return select(t.frames.filter(r=>r.replay_id===v[0] && Number(r.sequence_no)>Number(v[1])).sort((a,b)=>Number(a.sequence_no)-Number(b.sequence_no)).slice(0,500));
     if (sql.startsWith("INSERT INTO SIMULATOR_SCENARIOS")) t.scenarios.push({id: v[0], owner_id: v[1], version: 1, published_revision: 0, updated_at: v[2], draft: v[3], owner_name: v[4]});
+    else if (sql.startsWith("SELECT S.*,R.DEFINITION AS PUBLISHED_DEFINITION")) return select(t.scenarios.map(s => ({...s,published_definition:t.revisions.find(r => r.scenario_id === s.id && r.revision === s.published_revision)?.definition ?? null})));
     else if (sql.startsWith("SELECT * FROM SIMULATOR_SCENARIOS")) return select(t.scenarios.filter(r => sql.includes("WHERE ID=?") ? r.id === v[0] : true));
     else if (sql.startsWith("UPDATE SIMULATOR_SCENARIOS SET DRAFT")) {const r = t.scenarios.find(r => r.id === v[2])!; Object.assign(r, {draft: v[0], version: Number(r.version) + 1, updated_at: v[1]});}
     else if (sql.startsWith("UPDATE SIMULATOR_SCENARIOS SET PUBLISHED")) {const r = t.scenarios.find(r => r.id === v[2])!; Object.assign(r, {published_revision: v[0], version: Number(r.version) + 1, updated_at: v[1]});}
@@ -79,6 +81,39 @@ class Database {
     return [{affectedRows: 1}, []];
   }
 }
+test("all airports persist through publish, pinned assignment, launch, restart and replay", async () => {
+  const db = new Database(), pool = db as unknown as Pool; setPoolForTests(pool); setWritePoolForTests(pool);
+  const service = new TrainingService(), staff = {accountId: "10001", staff: true}, student = {accountId: "10002", staff: false};
+  try {
+    for (const airport of airportList) {
+      const definition = blankScenario({airport: airport.icao});
+      definition.aircraft = [{key: "air", initial: true, seed: seedFromAircraft(engineFor(definition).newAircraft("air", true))}];
+      let scenario = await service.save(staff, definition);
+      scenario = await service.publish(staff, scenario.id, scenario.version);
+      const assignment = await service.assign(staff, {scenarioId: scenario.id, revision: 1, learnerId: student.accountId, dueAt: null, maxAttempts: 3});
+      scenario = await service.save(staff, {...definition, trainingStation: `${airport.icao}:tower`}, scenario.id, scenario.version);
+      assert.equal((await service.scenarios(staff)).find(s => s.id === scenario.id)!.published!.trainingStation, `${airport.icao}:local`);
+      scenario = await service.publish(staff, scenario.id, scenario.version);
+      const latest = await service.launchScenario(staff, scenario.id, 2);
+      const sessions = new SessionService(sqlSessionStore), token = randomUUID();
+      assert.equal((await sessions.join(staff, latest.sessionId, "staff", token)).exercise.trainingStation, `${airport.icao}:tower`);
+      const started = await service.startAssignment(staff, assignment.id), seat = randomUUID();
+      const joined = await sessions.join(staff, started.sessionId, "staff", seat);
+      assert.equal(joined.exercise.airport, airport.icao); assert.equal(joined.exercise.trainingStation, `${airport.icao}:local`);
+      assert.equal(joined.exercise.airportDataVersion, airport.dataVersion);
+      await service.restart(staff, started.sessionId, joined.scenario!.attemptId!);
+      const resumed = await sessions.frame(staff, started.sessionId, "staff", seat);
+      assert.equal(resumed.exercise.trainingStation, `${airport.icao}:local`); assert.equal(resumed.exercise.airportDataVersion, airport.dataVersion);
+      await service.finish(staff, started.sessionId, "Training complete", resumed.scenario!.attemptId!);
+      const replay = await readReplay(resumed.scenario!.attemptId!, 0);
+      assert.equal(replay.initial!.airport, airport.icao); assert.equal(replay.replay.trainingStation, `${airport.icao}:local`);
+      assert.equal((await service.assignments(student)).find(a => a.id === assignment.id)!.airport, airport.icao);
+      const foreign = blankScenario({airport: airport.icao === "EGPH" ? "EGLL" : "EGPH"});
+      await assert.rejects(service.save(staff, foreign, scenario.id, scenario.version), /Clear traffic/);
+    }
+  } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
+});
+
 test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff and preserves attempts", async () => {
   const db = new Database(), pool = db as unknown as Pool; setPoolForTests(pool); setWritePoolForTests(pool);
   const service = new TrainingService(), staff = {accountId: "10001", staff: true, displayName: "Mentor One"}, student = {accountId: "10002", staff: false}, other = {accountId: "10003", staff: true};

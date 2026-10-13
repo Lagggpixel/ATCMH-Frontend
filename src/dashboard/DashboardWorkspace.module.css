@@ -8,6 +8,10 @@
     min-height: 0;
 }
 
+.workspace:has([data-roles-page]) {
+    min-height: calc(100dvh - 78px);
+}
+
 .screenLabel {
     position: absolute;
     width: 1px;

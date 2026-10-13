@@ -36,7 +36,7 @@ export function planPushback(airport: Airport, a: Aircraft, tail: "north" | "eas
   return best ? {path: [best.join, best.end]} : {error: "No mapped taxiway behind this aircraft. Check its stand position and nose direction before assigning pushback."};
 }
 
-const onGround = (a: Aircraft) => a.active && a.altitude < 1000 && ["parked", "pushback", "taxi", "lineup", "rollout", "takeoff"].includes(a.mode);
+const onGround = (a: Aircraft, elevation: number) => a.active && a.altitude < elevation + 1000 && ["parked", "pushback", "taxi", "lineup", "rollout", "takeoff"].includes(a.mode);
 const remainingPath = (a: Aircraft) => [a.position, ...(a.mode === "pushback" ? a.pushback?.path.slice(a.pushback.index) ?? [] : a.taxiPath.slice(a.taxiIndex))];
 function followsRoute(a: Aircraft, b: Aircraft) {
   const path = remainingPath(a), leader = remainingPath(b), next = leader.find(p => distance(p, b.position) > 1e-7);
@@ -75,12 +75,12 @@ export function groundConflict(a: Aircraft, b: Aircraft): {own: number; other: n
 }
 /** Reserve a junction until the winner has passed it. Braking/turn speeds cannot
  * swap priority each frame. Predictions reserve on their own copies only. */
-export function resolveGroundPriorities(traffic: Aircraft[]) {
+export function resolveGroundPriorities(traffic: Aircraft[], elevation = 0) {
   for (const a of traffic) if (a.groundYield) {
     const other = traffic.find(b => b.id === a.groundYield!.aircraftId);
-    if (!other || !onGround(other) || !groundConflict(a, other) && distance(other.position, a.groundYield.point) > GROUND.spacing) delete a.groundYield;
+    if (!other || !onGround(other, elevation) || !groundConflict(a, other) && distance(other.position, a.groundYield.point) > GROUND.spacing) delete a.groundYield;
   }
-  const sorted = [...traffic].filter(a => onGround(a) && !a.holding && ["taxi", "pushback", "lineup"].includes(a.mode)).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const sorted = [...traffic].filter(a => onGround(a, elevation) && !a.holding && ["taxi", "pushback", "lineup"].includes(a.mode)).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (let i = 0; i < sorted.length; i++) for (let j = i + 1; j < sorted.length; j++) {
     const a = sorted[i], b = sorted[j], conflict = groundConflict(a, b);
     if (!conflict) continue;
@@ -92,12 +92,12 @@ export function resolveGroundPriorities(traffic: Aircraft[]) {
 export interface GroundGuidance {speedLimit: number; travelLimit: number}
 /** Distance along the upcoming route, rather than heading alone, also sees traffic
  * around a bend. No radio frequency or roster ordering affects the spacing. */
-export function groundGuidance(a: Aircraft, traffic: Aircraft[]): GroundGuidance {
+export function groundGuidance(a: Aircraft, traffic: Aircraft[], elevation = 0): GroundGuidance {
   let speedLimit = Infinity, travelLimit = Infinity;
   if (!a.active || !["pushback", "taxi", "lineup"].includes(a.mode)) return {speedLimit, travelLimit};
   const path = a.mode === "pushback" ? a.pushback?.path.slice(a.pushback.index) ?? [] : a.taxiPath.slice(a.taxiIndex);
   for (const other of traffic) {
-    if (other.id === a.id || !onGround(other) || Math.abs(other.altitude - a.altitude) > 50) continue;
+    if (other.id === a.id || !onGround(other, elevation) || Math.abs(other.altitude - a.altitude) > 50) continue;
     const conflict = !other.holding && ["taxi", "pushback", "lineup"].includes(other.mode) ? groundConflict(a, other) : undefined;
     const yielding = a.giveWay?.aircraftId === other.id;
     if (yielding || conflict) {
