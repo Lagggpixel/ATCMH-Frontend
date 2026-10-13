@@ -14,6 +14,8 @@ export interface Session {
     messageId?: string;
 
     cancelled: boolean;
+    retainAttendance?: boolean;
+    trainingOutcome?: "UNKNOWN" | "HELD" | "INTERRUPTED" | "NOT_HELD";
 
     attendees: string[];
     hasAssignment?: boolean;

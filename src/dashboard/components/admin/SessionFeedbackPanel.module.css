@@ -1,0 +1,12 @@
+.panel {grid-column: 1 / -1; min-width: 0; color: inherit;}
+.heading {display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; margin-bottom: .75rem;}
+.heading h3 {margin: 0;}
+.availability {color: var(--muted-text); font-size: .9rem;}
+.context {margin-block: .75rem;}
+.ratings {width: 100%; border-collapse: collapse; text-align: left;}
+.ratings caption {text-align: left; font-weight: 600; margin-bottom: .5rem;}
+.ratings th, .ratings td {padding: .6rem .4rem; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); overflow-wrap: anywhere;}
+.actions {display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem;}
+.panel button {color: inherit; background: transparent; border: 1px solid currentColor; padding: .5rem .75rem; border-radius: .4rem; cursor: pointer;}
+.panel button:disabled {opacity: .6; cursor: wait;}
+@media (max-width: 480px) {.ratings th, .ratings td {font-size: .85rem; padding: .6rem .2rem;} .ratings th {width: 42%;}}

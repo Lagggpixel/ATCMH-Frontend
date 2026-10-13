@@ -68,6 +68,23 @@ export interface EligibilityResponse {
 }
 
 export class ApiUtils {
+    static getRecentTrainingFeedback(menteeId: number, signal?: AbortSignal) {
+        return ApiUtils.adminJson<import("../types/SessionFeedback").RecentFeedback[]>(`${dashboardApiUrl}/admin/mentees/${menteeId}/recent-feedback`, null,
+            {method: "GET", cache: "no-store", signal});
+    }
+    static getSessionFeedback(id: number, signal?: AbortSignal) {
+        return ApiUtils.adminJson<import("../types/SessionFeedback").SavedSessionFeedback>(`${dashboardApiUrl}/admin/sessions/${id}/feedback`, null,
+            {method: "GET", cache: "no-store", signal});
+    }
+
+    static generateSessionFeedback(id: number, token: string | null, force: boolean) {
+        return ApiUtils.adminJson<import("../types/SessionFeedback").SavedSessionFeedback>(`${dashboardApiUrl}/admin/sessions/${id}/feedback?forceRefresh=${force}`, token,
+            {method: "POST"});
+    }
+
+    static markSessionNotHeld(id: number, token: string | null) {
+        return ApiUtils.adminJson<Session>(`${dashboardApiUrl}/admin/sessions/${id}/not-held`, token, {method: "POST"});
+    }
 
     static async getHealth(signal: AbortSignal): Promise<BotHealth> {
         const response = await fetch(`${dashboardApiUrl}/admin/health`, {
