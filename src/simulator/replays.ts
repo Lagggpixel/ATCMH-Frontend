@@ -2,6 +2,7 @@ import type {Aircraft, Exercise} from "./model";
 
 export interface ReplayParticipant {accountId: string; name?: string; role: "staff" | "mentee"}
 export interface ReplaySummary {
+  airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; sessionId: string; title: string; ownerId: string; ownerName?: string;
   startedAt: number; endedAt: number; duration: number; status: string;
   participants: ReplayParticipant[]; kind: "recording" | "snapshot" | "unavailable"; partial: boolean; feedback?: string;

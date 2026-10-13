@@ -5,6 +5,7 @@ import type {Envelope, Exercise} from "../model";
 import {SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
+import {AIRPORT_IDS, getAirport} from "../airports";
 
 export interface Actor {accountId: string; staff: boolean; displayName?: string}
 export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string}
@@ -28,7 +29,7 @@ export function availableControl(record: SessionRecord, actor: Actor, now: numbe
     throw new SessionError("seat-occupied", "Another staff member is controlling this session. Wait until they leave before changing the attempt or ending it.", 409);
 }
 export function summary(record: SessionRecord, now: number): SessionSummary {
-  return {id: record.id, ownerId: record.ownerId, ownerName: record.ownerName, title: record.title, createdAt: record.createdAt, updatedAt: record.updatedAt,
+  return {id: record.id, airport: record.exercise.airport ?? "EGPH", airportDataVersion: record.exercise.airportDataVersion, trainingStation: record.exercise.trainingStation, ownerId: record.ownerId, ownerName: record.ownerName, title: record.title, createdAt: record.createdAt, updatedAt: record.updatedAt,
     ...(record.staff && record.staff.expiresAt > now ? {staffId: record.staff.accountId, staffName: record.staff.displayName} : {}),
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now,
@@ -69,9 +70,9 @@ export class SessionService {
   }
   list(actor: Actor) {this.staff(actor); return this.store.list(this.now());}
   async resolveCode(actor: Actor, code: string) {
-    const match = /^EGPH-([0-9a-f]{8})$/i.exec(code);
-    if (!match) throw new SessionError("invalid-code", "Enter a valid session code or mentee link.", 400);
-    const records = await this.store.findCode(match[1].toLowerCase());
+    const match = /^([A-Z0-9]{4})-([0-9a-f]{8})$/i.exec(code);
+    if (!match || !(AIRPORT_IDS as readonly string[]).includes(match[1].toUpperCase())) throw new SessionError("invalid-code", "Enter a valid session code or mentee link.", 400);
+    const records = (await this.store.findCode(match[2].toLowerCase())).filter(record => getAirport(record.exercise).icao === match[1].toUpperCase());
     if (records.length !== 1) throw new SessionError("not-found", "This code is unavailable. Ask your trainer for the mentee link.", 404);
     this.learner(records[0], actor, "mentee");
     return {sessionId: records[0].id};
@@ -112,7 +113,8 @@ export class SessionService {
   dispatch(actor: Actor, id: string, role: SessionRole, token: string, envelope: Envelope) {
     return this.store.transaction(id, async record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
-      if (role === "mentee" && !menteeActionAllowed(envelope.action)) throw new SessionError("forbidden", "This action is available only on the control page.", 403);
+      if (role === "mentee" && !menteeActionAllowed(envelope.action, record.exercise)) throw new SessionError("forbidden", "This action is unavailable for this training mode or frequency.", 403);
+      if (role === "mentee" && record.exercise.pausedByStaff) throw new SessionError("paused", "Staff has paused this exercise.", 409);
       this.tick(record, now);
       if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Start another attempt from assignments.", 409);
       if (record.scenario && envelope.action.kind === "reset") throw new SessionError("scenario-reset", "Use Restart attempt to restore the published scenario.", 409);

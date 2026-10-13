@@ -1,0 +1,66 @@
+import type {Aircraft, RadarSpeedInstruction} from "./model";
+
+/** Simplified trainer envelopes, not certified performance data. Unknown types
+ * retain instructor control rather than assuming an airliner envelope. */
+export function aircraftSpeedLimits(type: string): {min: number; max: number; mach?: number} | undefined {
+  const id = type.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (/^(A31[89]|A32[01]|A20N|A21N)$/.test(id)) return {min: 135, max: 340, mach: .82};
+  if (/^(B73[0-9]|B3[789]M|B737MAX[789])$/.test(id)) return {min: 135, max: 340, mach: .82};
+  if (/^(A33[0-9]|A34[0-9]|A35[0-9]|A38[0-9]|B74[0-9]|B77[0-9W]|B78[0-9X])$/.test(id)) return {min: 150, max: 360, mach: .9};
+  if (/^(E1[79][05]|E29[05]|CRJ[279]|CRJX)$/.test(id)) return {min: 125, max: 320, mach: .82};
+  if (/^(AT[47][25]|DH8[ABCD])$/.test(id)) return {min: 90, max: 275, mach: .6};
+  if (/^(C15[02]|C172)$/.test(id)) return {min: 60, max: 160};
+  if (/^(C182|SR22)$/.test(id)) return {min: 70, max: 200};
+}
+
+export const KNOT_SPEEDS_LOW = Array.from({length: 16}, (_, i) => 100 + i * 10);
+export const KNOT_SPEEDS_HIGH = Array.from({length: 10}, (_, i) => 250 + i * 10);
+export const MACH_SPEEDS = Array.from({length: 26}, (_, i) => (65 + i) / 100);
+export const speedLabel = (unit: "knots" | "mach", value: number) => unit === "mach" ? `Mach ${value.toFixed(2)}` : `${value}kts`;
+export function validRadarSpeed(c: RadarSpeedInstruction) {
+  if (c.mode === "maintain") return c.until === undefined && ["exact", "minimum", "maximum"].includes(c.relation ?? "") && (c.unit === "knots" ? [...KNOT_SPEEDS_LOW, ...KNOT_SPEEDS_HIGH].includes(c.value!) : c.unit === "mach" && MACH_SPEEDS.includes(c.value!));
+  if (c.mode === "approach") return c.unit === undefined && c.relation === undefined && [[160, 4], [170, 5], [180, 6]].some(([speed, miles]) => c.value === speed && c.until === miles);
+  return ["discretion", "slowest", "best-forward", "follow"].includes(c.mode) && c.value === undefined && c.unit === undefined && c.relation === undefined && c.until === undefined;
+}
+/** Simulator conversion to true knots, using standard-atmosphere temperature.
+ * The existing motion model treats its single speed as knots, without a wind/IAS model. */
+export const machKnots = (mach: number, altitude: number) => mach * 661.4786 * Math.sqrt(Math.max(216.65, 288.15 - .0065 * altitude * .3048) / 288.15);
+const digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+const spokenMach = (value: number) => `Mach point ${value.toFixed(2).slice(2).split("").map(digit => digits[Number(digit)]).join(" ")}`;
+export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
+  if (c.mode === "maintain") {
+    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
+    const value = c.unit === "mach" ? spokenMach(c.value!) : `${c.value}kts`;
+    if (c.relation === "minimum") return `maintain ${value} or greater`;
+    if (c.relation === "maximum") return `do not exceed ${value}`;
+    return Math.abs(target - a.speed) < .5 ? `maintain ${value}` : `${target > a.speed ? "increase" : "decrease"} speed ${value}`;
+  }
+  if (c.mode === "approach") return `maintain ${String(c.value).split("").map(digit => digits[Number(digit)]).join(" ")} knots until ${digits[c.until!]} miles final`;
+  return {discretion: "speed at your discretion", slowest: "maintain slowest practical speed", "best-forward": "maintain best forward speed", follow: "adjust speed to follow aircraft ahead"}[c.mode];
+}
+export function assignRadarSpeed(a: Aircraft, c: RadarSpeedInstruction) {
+  if (c.mode === "discretion") {delete a.radar!.speed; a.speedMode = "auto"; a.targetSpeed = a.radar!.station === "center" ? 450 : 250; return;}
+  a.radar!.speed = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed;
+  updateRadarSpeed(a, []);
+}
+export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance?: number) {
+  const c = a.radar?.speed;
+  if (!c) return;
+  if (c.mode === "approach" && finalDistance !== undefined && finalDistance <= c.until!) {
+    delete a.radar!.speed; a.speedMode = "auto"; a.targetSpeed = finalDistance <= 2 ? 135 : finalDistance <= 5 ? 160 : 180; return;
+  }
+  if (c.mode === "maintain") {
+    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
+    a.targetSpeed = c.relation === "minimum" ? Math.max(a.targetSpeed, target) : c.relation === "maximum" ? Math.min(a.targetSpeed, target) : target;
+  } else if (c.mode === "approach") a.targetSpeed = c.value!;
+  else if (c.mode === "slowest") a.targetSpeed = 135;
+  else if (c.mode === "best-forward") a.targetSpeed = a.radar!.station === "center" ? 450 : 340;
+  else if (c.mode === "follow") {
+    const radians = a.heading * Math.PI / 180;
+    const ahead = traffic.filter(other => other.id !== a.id && other.active && other.radar && other.frequency === a.frequency && Math.abs(other.altitude - a.altitude) <= 1000 && Math.cos((other.heading - a.heading) * Math.PI / 180) > Math.SQRT1_2).map(other => {
+      const dx = other.position.x - a.position.x, dy = other.position.y - a.position.y;
+      return {other, along: dx * Math.sin(radians) + dy * Math.cos(radians), lateral: Math.abs(dx * Math.cos(radians) - dy * Math.sin(radians))};
+    }).filter(item => item.along > 0 && item.along <= 20 && item.lateral <= 2).sort((a, b) => a.along - b.along)[0];
+    if (ahead) a.targetSpeed = Math.max(135, Math.min(a.radar!.station === "center" ? 600 : 340, ahead.other.speed + (ahead.along - 3) * 10));
+  }
+}

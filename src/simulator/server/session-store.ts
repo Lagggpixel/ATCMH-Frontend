@@ -7,6 +7,7 @@ import {availableControl, type Seat, type SessionRecord, type SessionStore} from
 import {recordReplay} from "./replay-store";
 
 interface SessionRow extends RowDataPacket {
+  airport?: string | null; airport_data_version?: string | null; training_station?: string | null;
   id: string; owner_id: string; owner_name: string | null; title: string; created_at: number; updated_at: number;
   tick_at: number; content_revision: number; snapshot: string; staff_seat: string | null; mentee_seat: string | null; scenario_runtime?: string | null;
 }
@@ -31,11 +32,11 @@ export const sqlSessionStore: SessionStore = {
     });
   },
   async list(now) {
-    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat FROM simulator_sessions ORDER BY updated_at DESC");
+    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station FROM simulator_sessions ORDER BY updated_at DESC");
     return rows.map(row => {
       const staff = row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null;
       const mentee = row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null;
-      return {id: row.id, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, title: row.title, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at),
+      return {id: row.id, airport: row.airport ?? "EGPH", airportDataVersion: row.airport_data_version ?? undefined, trainingStation: row.training_station ?? undefined, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, title: row.title, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at),
         ...(staff && staff.expiresAt > now ? {staffId: staff.accountId, staffName: staff.displayName} : {}),
         ...(mentee && mentee.expiresAt > now ? {menteeId: mentee.accountId, menteeName: mentee.displayName} : {}),
         staffOccupied: !!staff && staff.expiresAt > now, menteeOccupied: !!mentee && mentee.expiresAt > now} satisfies SessionSummary;

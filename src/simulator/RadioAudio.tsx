@@ -1,4 +1,5 @@
 "use client";
+import {airportCallsign, getAirport, defaultRunway} from "./airports";
 import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
 import {SpeakerSlash} from "@phosphor-icons/react/dist/csr/SpeakerSlash";
@@ -31,7 +32,7 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
         <label>Voice<select value={audio.voice} onChange={e => player.setSettings({voice: e.target.value})}><option value="">Automatic local English voice</option>{audio.voices.filter(v => v.local || audio.allowOnline).map(v => <option key={v.id} value={v.id}>{v.name} · {v.language}{v.local ? "" : " (online)"}</option>)}</select></label>
         <label>Speaking speed <output>{audio.rate.toFixed(1)}×</output><input aria-label="Speaking speed" type="range" min="0.7" max="1.5" step="0.1" value={audio.rate} onChange={e => player.setSettings({rate: Number(e.target.value)})}/></label>
         <label>Voice volume <output>{Math.round(audio.volume * 100)}%</output><input aria-label="Voice volume" type="range" min="0" max="1" step="0.1" value={audio.volume} onChange={e => player.setSettings({volume: Number(e.target.value)})}/></label>
-        <div><button disabled={!audio.enabled} onClick={() => player.say("Edinburgh Ground, Easy five seven one, ready to taxi. Runway 24.")}>Test voice</button><button disabled={!audio.enabled || !lastMessage || !connected} onClick={() => {if (lastMessage) player.say(radioMessageText(lastMessage));}}>Replay last message</button><button disabled={!audio.speaking} onClick={() => player.stop()}>Stop speaking</button></div>
+        <div><button disabled={!audio.enabled} onClick={() => player.say(`${airportCallsign(getAirport(exercise))} Ground, Easy five seven one, ready to taxi. Runway ${defaultRunway(getAirport(exercise))}.`)}>Test voice</button><button disabled={!audio.enabled || !lastMessage || !connected} onClick={() => {if (lastMessage) player.say(radioMessageText(lastMessage));}}>Replay last message</button><button disabled={!audio.speaking} onClick={() => player.stop()}>Stop speaking</button></div>
         {scope === "atis" ? <button disabled={!audio.enabled || exercise.publishedAtis === "ATIS UNAVAILABLE"} onClick={() => player.say(exercise.publishedAtis)}>Read published ATIS</button> : null}
         <p>Audio defaults on. Your on/off choice is remembered for this account and role in this browser. Available voices depend on your device; online voices require permission and selection in each tab. If your browser blocks automatic playback, clicking or pressing a key in the simulator retries it.</p>
       </>}

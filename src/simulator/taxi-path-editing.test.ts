@@ -1,3 +1,4 @@
+import {MAX_TAXI_POINTS} from "./model";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, applyEnvelope, initialExercise, restoreExercise} from "./engine";
@@ -100,8 +101,8 @@ test("invalid points, route limits and airborne edits are rejected without chang
   state.aircraft[1].mode = "pattern";
   assert.match(edit(state, {kind: "move", index: 1, point: {x: .1, y: 0}}).error!, /not following a taxi route/);
   state.aircraft[1].mode = "taxi";
-  state.aircraft[1].taxiPath = Array.from({length: 200}, (_, i) => ({x: i / 1000, y: 0}));
-  assert.match(edit(state, {kind: "insert", index: 1, point: {x: .001, y: .001}}).error!, /200 waypoints/);
+  state.aircraft[1].taxiPath = Array.from({length: MAX_TAXI_POINTS}, (_, i) => ({x: i / 1000, y: 0}));
+  assert.match(edit(state, {kind: "insert", index: 1, point: {x: .001, y: .001}}).error!, new RegExp(`${MAX_TAXI_POINTS} waypoints`));
   assert.equal(edit(state, {kind: "move", index: 1, point: {x: .001, y: .001}}).error, undefined);
 });
 

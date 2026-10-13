@@ -1,5 +1,7 @@
-import {advance, applyEnvelope, distance, validateAssignment} from "./engine";
-import {pilotRequests, pilotRequestText, resolvePilotRequest} from "./catalog";
+import {engineFor, distance} from "./engine";
+import {getAirport} from "./airports";
+import {catalogFor} from "./catalog";
+
 import type {Exercise, Action} from "./model";
 import {materializeAircraft, type ScenarioRuntime, type ScenarioEvent} from "./scenarios";
 
@@ -10,6 +12,8 @@ function conditionMet(event: ScenarioEvent, exercise: Exercise, runtime: Scenari
   const a = exercise.aircraft.find(a => a.id === runtime.aircraftIds[c.aircraftKey]);
   if (!a) return false;
   switch (c.type) {
+    case "altitude": return Math.abs(a.altitude - c.altitude) <= 25;
+    case "radar": return c.state === "captured" ? !!a.radar?.captured : c.state === "missed" ? a.radar?.navigation === "missed" : c.state === "transferred" ? !!a.radar?.transferred : !!a.radar && a.flightPlan.length > 0 && a.radar.routeIndex >= a.flightPlan.length;
     case "overhead": return !!exercise.autoReadback && a.mode === "heading" && a.transitionAltitude !== undefined && distance(a.position, {x: 0, y: 0}) <= c.radius;
     case "frequency": return a.frequency === c.frequency;
     case "hold": return a.holding && ["taxi", "lineup"].includes(a.mode);
@@ -20,6 +24,8 @@ function conditionMet(event: ScenarioEvent, exercise: Exercise, runtime: Scenari
 /** Atomic event batch: either every aircraft/message/action commits or none does. */
 
 export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntime, eventId: string, now: number): Exercise {
+  const {validateAssignment, applyEnvelope} = engineFor(runtime.definition);
+  const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(getAirport(runtime.definition));
   const event = runtime.definition.events.find(e => e.id === eventId), state = runtime.events[eventId];
   if (!event || !state || ["completed", "skipped"].includes(state.status) || runtime.finished) return exercise;
   let next = exercise;
@@ -42,7 +48,7 @@ export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntim
         else {
           const request = resolvePilotRequest(spec);
           const legacyCircuitEntry = request?.id === "pattern-entry" && aircraft.frequency === "tower";
-          if (!request || !legacyCircuitEntry && !pilotRequests(aircraft).some(r => r.id === request.id) || !["ground", "tower"].includes(aircraft.frequency ?? "")) throw new Error("This pilot request is unavailable on the aircraft's current frequency.");
+          if (!request || !legacyCircuitEntry && !pilotRequests(aircraft).some(r => r.id === request.id) || !["ground", "tower", "approach", "center"].includes(aircraft.frequency ?? "")) throw new Error("This pilot request is unavailable on the aircraft's current frequency.");
           const groundRequest = request.phase === "ground";
           if (groundRequest && !["parked", "taxi", "lineup", "rollout"].includes(aircraft.mode)) throw new Error("This request requires ground traffic.");
           if (request.phase === "airborne" && !["heading", "pattern", "go-around"].includes(aircraft.mode)) throw new Error("Inbound requests require airborne traffic.");
@@ -82,6 +88,7 @@ function fireDue(exercise: Exercise, runtime: ScenarioRuntime, now: number): Exe
 /** Simulation-time scheduling only. No browser timers and no offline catch-up. */
 
 export function advanceScenario(exercise: Exercise, runtime: ScenarioRuntime, seconds: number, now: number): {exercise: Exercise; changed: boolean} {
+  const {advance} = engineFor(runtime.definition);
   if (!exercise.running || runtime.finished) return {exercise, changed: false};
   const before = JSON.stringify(runtime.events);
   runtime.started = true;

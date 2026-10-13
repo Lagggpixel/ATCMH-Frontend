@@ -16,7 +16,7 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `connect-src 'self' ${dashboardApiUrl}`,
+    `connect-src 'self' ${dashboardApiUrl}${/^\/simulator(?:\/|$)/.test(pathname) ? " https://terrain.infinitehorizon.app" : ""}`,
     ...(isProduction ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 

@@ -12,7 +12,7 @@ export default function SessionJoin() {
   return <SessionAccess role="mentee" returnTo="/simulator/mentee">{() => <SessionNotice title="Join your training session"><Link href="/simulator/mentee/assignments">My simulator assignments →</Link><p>Open the mentee link from your staff member, or enter the session code below.</p><form onSubmit={async e => {
     e.preventDefault(); let id = value.trim();
     try {if (id.startsWith("http")) {const url = new URL(id); if (url.origin !== window.location.origin) throw new Error(); id = url.pathname.split("/").at(-1) ?? "";}} catch {setError("Enter a mentee link from this website."); return;}
-    if (/^EGPH-[0-9a-f]{8}$/i.test(id)) {
+    if (/^[A-Z0-9]{4}-[0-9a-f]{8}$/i.test(id)) {
       setBusy(true); setError("");
       try {const data = await fetch(`/api/simulator/sessions?code=${encodeURIComponent(id)}`, {cache: "no-store"}).then(sessionJson); router.push(sessionPath("mentee", data.sessionId));}
       catch (reason) {setError((reason as Error).message);} finally {setBusy(false);}

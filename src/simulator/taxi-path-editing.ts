@@ -1,3 +1,4 @@
+import {MAX_TAXI_POINTS} from "./model";
 import type {Aircraft, Point, TaxiPoint} from "./model";
 
 export type TaxiPathEdit = {kind: "insert" | "move"; index: number; point: Point};
@@ -41,10 +42,10 @@ export function editedTaxiPath(path: TaxiPoint[], edit: TaxiPathEdit): TaxiPoint
 export function applyTaxiPathEdit(a: Aircraft, expectedPath: TaxiPoint[], edit: TaxiPathEdit): string | undefined {
   const {path, index} = taxiPathState(a);
   if (!taxiPathEditable(a)) return "This aircraft is not following a taxi route.";
-  if (path.length !== expectedPath.length || path.some((p, i) => p.x !== expectedPath[i].x || p.y !== expectedPath[i].y || !!p.hold !== !!expectedPath[i].hold)) return "The taxi route changed while you were dragging. Try again on the current route.";
+  if (path.length !== expectedPath.length || path.some((p, i) => p.x !== expectedPath[i].x || p.y !== expectedPath[i].y || !!p.hold !== !!expectedPath[i].hold || p.runway !== expectedPath[i].runway)) return "The taxi route changed while you were dragging. Try again on the current route.";
   if (!Number.isInteger(edit.index) || edit.index < index || edit.index >= path.length || reachedHold(a, edit.index)) return "This waypoint has already been reached. Edit the remaining taxi route.";
   if (![edit.point.x, edit.point.y].every(n => Number.isFinite(n) && Math.abs(n) <= 2000)) return "Place the waypoint within the exercise area.";
-  if (edit.kind === "insert" && path.length >= 200) return "A taxi route supports up to 200 waypoints.";
+  if (edit.kind === "insert" && path.length >= MAX_TAXI_POINTS) return `A taxi route supports up to ${MAX_TAXI_POINTS} waypoints.`;
   const updated = editedTaxiPath(path, edit);
   if (a.runwayExit) a.runwayExit = updated;
   else {

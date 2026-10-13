@@ -8,6 +8,7 @@ import {TrainingNav} from "./TrainingLibrary";
 import {sessionJson} from "./shared-transport";
 import {ReplayTimeline, type ReplayDetail, type ReplayFrame, type ReplaySummary} from "./replays";
 import {timeLabel} from "./scenarios";
+import {getAirport, environmentLabel, trainingMode} from "./airports";
 import Scope from "./Scope";
 import {MessageLog} from "./MessagePanel";
 import legacyStyles from "./Training.module.css";
@@ -57,7 +58,7 @@ function Library({id}: {id?: string}) {
       <div className={styles.heading}><div><h1>{detail?.replay.title ?? (id ? "Session replay" : "Replays")}</h1><p>Completed sessions stay saved permanently. Review aircraft movement, radio messages and ATIS without changing the session.</p></div></div>
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
       {loading ? <p role="status">Loading {id ? "recording" : "replays"}…</p> : detail ? <Playback key={detail.replay.id} detail={detail}/> : !id ? <>
-        {replays.length ? <div className={styles.rows}>{replays.map(r => <article key={r.id}><div><Link href={`/simulator/replays/${r.id}`}><h2>{r.title}</h2></Link><People replay={r} themed/><p>{date(r.endedAt)} · {timeLabel(r.duration)} · {r.status}</p><small className={libraryStyles.status}>{r.kind === "recording" ? r.partial ? "Partial recording" : "Recorded session" : r.kind === "snapshot" ? "Final snapshot · Movement was not recorded" : "Summary only · Earlier details are unavailable"}</small></div><Link className={styles.primary} href={`/simulator/replays/${r.id}`}>{r.kind === "recording" ? "Watch replay" : "Review attempt"}</Link></article>)}</div> : <section className={styles.empty}><h2>No completed sessions yet</h2><p>Finish an attempt or end a session to save it here. Closing a page keeps the live session available under Sessions.</p></section>}
+        {replays.length ? <div className={styles.rows}>{replays.map(r => <article key={r.id}><div><Link href={`/simulator/replays/${r.id}`}><h2>{r.title}</h2></Link><People replay={r} themed/><p>{environmentLabel(r)} · {date(r.endedAt)} · {timeLabel(r.duration)} · {r.status}</p><small className={libraryStyles.status}>{r.kind === "recording" ? r.partial ? "Partial recording" : "Recorded session" : r.kind === "snapshot" ? "Final snapshot · Movement was not recorded" : "Summary only · Earlier details are unavailable"}</small></div><Link className={styles.primary} href={`/simulator/replays/${r.id}`}>{r.kind === "recording" ? "Watch replay" : "Review attempt"}</Link></article>)}</div> : <section className={styles.empty}><h2>No completed sessions yet</h2><p>Finish an attempt or end a session to save it here. Closing a page keeps the live session available under Sessions.</p></section>}
         <nav className={libraryStyles.pagination} aria-label="Replay pages"><button disabled={offset === 0} onClick={() => {setLoading(true); setError(""); setOffset(Math.max(0, offset - 50));}}>Previous</button><span>Page {Math.floor(offset / 50) + 1}</span><button disabled={next === null} onClick={() => {if (next !== null) {setLoading(true); setError(""); setOffset(next);}}}>Next</button></nav>
       </> : null}
       {!id ? <footer className={libraryStyles.libraryFooter}><TrainerNotice/><p>Completed sessions and previous attempts stay saved. Replays are read only.</p></footer> : null}
@@ -92,6 +93,6 @@ function Playback({detail}: {detail: ReplayDetail}) {
       <output aria-label="Replay time">{timeLabel(time)} / {timeLabel(replay.duration)}</output>
       <label>Speed<select aria-label="Playback speed" value={speed} onChange={e => setSpeed(Number(e.target.value))}>{[.5, 1, 2, 4].map(value => <option key={value} value={value}>{value}×</option>)}</select></label>
     </div> : null}
-    {exercise ? <><div className={replayStyles.workspace}><div className={replayStyles.scope}><Scope aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div><aside><MessageLog messages={exercise.messages} frequency="all" title="Recorded radio messages"/></aside></div><section className={replayStyles.atis}><h2>Broadcast ATIS</h2><p>{exercise.publishedAtis || "No ATIS broadcast at this point."}</p></section></> : null}
+    {exercise ? <><div className={replayStyles.workspace}><div className={replayStyles.scope}><Scope radarEnvironment={exercise.radarEnvironment} radarMode={trainingMode(exercise) === "local" ? undefined : trainingMode(exercise) as "approach" | "center"} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div><aside><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></aside></div><section className={replayStyles.atis}><h2>Broadcast ATIS</h2><p>{exercise.publishedAtis || "No ATIS broadcast at this point."}</p></section></> : null}
   </section>;
 }

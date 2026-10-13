@@ -16,6 +16,7 @@ import AdminManual from "./components/admin/AdminManual";
 import ExamCenter from "./components/admin/ExamCenter";
 import CourseCenter from "./components/admin/CourseCenter";
 import AdminAccounts from "./components/admin/AdminAccounts";
+import AdminRoles from "./components/admin/AdminRoles";
 import AdminAltAccounts from "./components/admin/AdminAltAccounts";
 import AdminMockQuestions from "./components/admin/AdminMockQuestions";
 import AdminApplicationQuestions from "./components/admin/AdminApplicationQuestions";
@@ -39,6 +40,7 @@ const screenLabels = {
     "mentor-applications": "Mentor applications",
     "audit-logs": "Audit logs",
     accounts: "Accounts",
+    roles: "Roles",
     "alt-accounts": "Alt-account evidence",
     exams: "Exam Center",
     courses: "Course Center",
@@ -66,6 +68,7 @@ export default function DashboardRoute({frontendVersion}: {frontendVersion: stri
         case "mentor-applications": content = <AdminMentorApplications {...common} token={state.token}/>; break;
         case "audit-logs": content = <AdminAuditLogs {...common} users={state.users} token={state.token}/>; break;
         case "accounts": content = <AdminAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded} onSessionChanged={state.auth.refresh}/>; break;
+        case "roles": content = <AdminRoles/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
         case "pilot-guide": content = <AdminPilotGuide loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.adminUser} token={state.token}/>; break;
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;

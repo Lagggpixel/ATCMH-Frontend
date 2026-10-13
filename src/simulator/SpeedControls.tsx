@@ -1,8 +1,9 @@
 "use client";
 import {useState} from "react";
 import {ArrowRight} from "@phosphor-icons/react/dist/csr/ArrowRight";
-import {speedProfile} from "./engine";
-import {SPEED_PHASES, type Aircraft, type SpeedPhase, type SpeedTargets} from "./model";
+import {engineFor} from "./engine";
+import {defaultAirport} from "./airports";
+import {SPEED_PHASES, type Airport, type Aircraft, type SpeedPhase, type SpeedTargets} from "./model";
 import styles from "./SpeedControls.module.css";
 
 function PhaseInput({phase, value, onChange}: {phase: typeof SPEED_PHASES[number]; value: number | null | undefined; onChange: (value: number | null) => void}) {
@@ -31,7 +32,8 @@ export function SpeedTargetsEditor({targets, activePhase, onChange, compact = fa
   </div>;
 }
 
-export default function SpeedControls({aircraft: a, onEdit, onSpeed}: {aircraft: Aircraft; onEdit: (patch: Partial<Aircraft>) => void; onSpeed: (value: number) => void}) {
+export default function SpeedControls({airport = defaultAirport, aircraft: a, onEdit, onSpeed}: {airport?: Airport; aircraft: Aircraft; onEdit: (patch: Partial<Aircraft>) => void; onSpeed: (value: number) => void}) {
+  const {speedProfile} = engineFor({airport: airport.icao});
   const [draft, setDraft] = useState<string | null>(null);
   const manual = a.speedMode === "manual";
   const semi = Object.values(a.speedTargets ?? {}).some(value => value != null);
