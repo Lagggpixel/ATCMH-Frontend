@@ -27,7 +27,8 @@ export default function AdminPagination({
     className,
     variant = "default",
 }: AdminPaginationProps) {
-    if (totalPages <= 1) return null;
+    // Keep page-size controls available even when a filter leaves only one page.
+    if (totalPages <= 1 && !onItemsPerPageChange) return null;
 
     const paginationClassName = [
         styles.paginationBar,
@@ -40,7 +41,7 @@ export default function AdminPagination({
             <div className={styles.paginationInfo}>
                 {totalItems != null && (
                     <span>
-                        {page * itemsPerPage + 1}–{Math.min((page + 1) * itemsPerPage, totalItems)} of {totalItems}
+                        {totalItems === 0 ? 0 : page * itemsPerPage + 1}–{Math.min((page + 1) * itemsPerPage, totalItems)} of {totalItems}
                     </span>
                 )}
                 <span>Page {page + 1} of {totalPages}</span>

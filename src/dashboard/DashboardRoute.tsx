@@ -55,7 +55,7 @@ export default function DashboardRoute({frontendVersion}: {frontendVersion: stri
     const common = {loaded: state.loaded, loggedIn: state.token != null, error: state.error, adminUser: state.adminUser};
     let content;
     switch (route.screen) {
-        case "sessions": content = <AdminSessions {...common} users={state.users} sessions={state.sessions}/>; break;
+        case "sessions": content = <AdminSessions {...common} accountId={state.auth.session?.accountId} users={state.users} sessions={state.sessions}/>; break;
         case "stats": content = <AdminStats {...common} users={state.users} token={state.token}/>; break;
         case "health": content = <AdminHealth loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.auth.session ? state.adminUser : undefined} token={state.token} frontendVersion={frontendVersion}/>; break;
         case "usernotes": content = <AdminUserNotes {...common} users={state.users} userNotes={state.userNotes} token={state.token} onUserNoteChanged={state.onUserNoteChanged}/>; break;

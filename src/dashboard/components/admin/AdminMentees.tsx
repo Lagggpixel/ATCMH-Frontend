@@ -22,10 +22,11 @@ import {usePagination, type PaginationResult} from "../../hooks/usePagination.ts
 import {
     formatAdminUtcDate,
     formatIfcDisplay,
-    generateHalfHourUtcDateTimeSuggestions,
     parseUtcDateTimeInput,
 } from "../../utils/AdminDateUtils.ts";
 import {createSessionEditForm, toSessionUpdatePayload, type SessionEditForm} from "../../utils/SessionEditForm.ts";
+import {generateHalfHourLocalSuggestions, downloadSessionCalendar} from "../../utils/SessionTime.ts";
+import SessionTimeDisplay, {SessionTimePreview} from "./SessionTimeDisplay";
 import {getMenteeActionPolicy} from "../../utils/AdminMenteeActionPolicy.ts";
 import {getMenteeAvailabilityRows, getMenteeLifecycle} from "../../utils/MenteeProfileUtils.ts";
 import {
@@ -391,7 +392,7 @@ const AdminMentees = ({
             .filter(note => note.user === selectedMentee.mentee)
             .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     }, [selectedMentee, userNotes]);
-    const sessionTimeSuggestions = useMemo(() => generateHalfHourUtcDateTimeSuggestions(), []);
+    const sessionTimeSuggestions = useMemo(() => generateHalfHourLocalSuggestions(), []);
 
     const selectedMenteeHasMentor = selectedMentee ? getAssignedMentorId(selectedMentee) != null : false;
     const selectedActionPolicy = selectedMentee
@@ -1087,6 +1088,7 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                             <span>Session time (your local time)</span>
                             <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
                             <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
+                            <SessionTimePreview value={sessionForm.time}/>
                         </label>
                         <button type="submit" disabled={busyAction === "schedule"}>Schedule session</button>
                     </form>
@@ -1398,7 +1400,7 @@ const SessionSection = ({
                         <tbody>
                         {sessions.map(session => (
                             <tr key={session.id} className={session.cancelled ? styles.cancelledSession : undefined}>
-                                <td data-label="Time (UTC)">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
+                                <td data-label="Time (UTC)"><SessionTimeDisplay value={session.time}/></td>
                                 <td data-label="Mentor">{getUserName(session.mentor)}</td>
                                 <td data-label="Airport">{session.airport || "Not set"}</td>
                                 <td data-label="Pilots">{formatPilotCount(session)}</td>
@@ -1543,7 +1545,7 @@ const AttendedSessionSection = ({
                         <tbody>
                         {visibleSessions.map(session => (
                             <tr key={session.id}>
-                                <td data-label="Date (UTC)">{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</td>
+                                <td data-label="Date (UTC)"><SessionTimeDisplay value={session.time}/></td>
                                 <td data-label="Airport">{session.airport || "Not set"}</td>
                                 <td data-label="Mentor">{getUserName(session.mentor)}</td>
                                 <td data-label="Recorded status">
@@ -1699,7 +1701,8 @@ const SessionDetailsModal = ({
                 <header className={styles.sessionDetailsHeader}>
                     <div>
                         <h2 id={`session-details-${session.id}`}>Session Details</h2>
-                        <p>{formatAdminUtcDate(session.time, {showUtcSuffix: false})}</p>
+                        <SessionTimeDisplay value={session.time}/>
+                        <button type="button" className={styles.secondaryButton} onClick={() => downloadSessionCalendar(session, {mentor: getUserName(session.mentor), mentee: getUserName(session.mentee)})}>Add to calendar</button>
                     </div>
                     <button type="button" className={styles.secondaryButton} onClick={onClose}>Close</button>
                 </header>
@@ -1748,7 +1751,7 @@ const SessionDetailsModal = ({
                                 />
                             </label>
                             <label>
-                                <span>Session time</span>
+                                <span>Session time (your local time)</span>
                                 <input
                                     type="datetime-local"
                                     list={`session-time-suggestions-${session.id}`}
@@ -1764,6 +1767,7 @@ const SessionDetailsModal = ({
                                         <option key={value} value={value}/>
                                     ))}
                                 </datalist>
+                                <SessionTimePreview value={editForm.time}/>
                             </label>
                             <div className={styles.sessionEditActions}>
                                 <span>{editState}</span>

@@ -45,6 +45,14 @@
   line-height: 1.4;
 }
 
+.search { display: grid; gap: 8px; margin-bottom: 24px; }
+.search label { font-size: .9rem; font-weight: 650; }
+.search input { box-sizing: border-box; width: min(100%, 520px); min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--dashboard-border, #dce3eb); border-radius: 7px; background: var(--dashboard-surface, #fff); color: var(--dashboard-ink, #12264a); font: inherit; }
+.searchResults { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.searchResults p { width: 100%; margin: 4px 0; color: var(--dashboard-muted, #536987); }
+.searchResults button { min-height: 44px; border: 1px solid var(--dashboard-border, #dce3eb); border-radius: 7px; background: var(--dashboard-surface, #fff); color: var(--dashboard-link, #075ee8); padding: 8px 12px; font: inherit; cursor: pointer; }
+.search input:focus-visible, .searchResults button:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 2px; }
+
 .readerLayout {
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr);

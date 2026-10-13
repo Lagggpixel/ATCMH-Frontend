@@ -1,0 +1,17 @@
+.toolbar { display: flex; justify-content: flex-end; max-width: 1360px; margin: 0 auto; padding: 12px clamp(16px, 3vw, 40px) 0; }
+.trigger, .dialog header button { min-height: 40px; border: 1px solid var(--border-color, #dce3eb); border-radius: 7px; background: var(--surface-color, #fff); color: var(--text-color, #18345c); padding: 8px 12px; font: inherit; cursor: pointer; }
+.trigger { display: flex; gap: 16px; align-items: center; }
+.trigger kbd { color: var(--muted-text, #667d9b); font-size: .75rem; }
+.dialog:global(.dashboard-product) { width: min(620px, calc(100vw - 32px)); min-height: 0; max-height: min(720px, calc(100dvh - 40px)); box-sizing: border-box; overflow: auto; margin: auto; padding: 22px; border: 1px solid var(--border-color, #dce3eb); border-radius: 12px; background: var(--surface-color, #fff); color: var(--text-color, #18345c); box-shadow: 0 24px 80px #0005; }
+.dialog::backdrop { background: #0c1838a6; }
+.dialog header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
+.dialog h2 { margin: 0; font-size: 1.25rem; }
+.dialog label { display: block; margin-bottom: 8px; font-size: .9rem; }
+.dialog input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; border: 1px solid var(--border-color, #dce3eb); border-radius: 7px; background: var(--input-bg, #fff); color: inherit; padding: 10px; font: inherit; }
+.hint { color: var(--muted-text, #667d9b); font-size: .82rem; margin: 12px 0; }
+.results { list-style: none; margin: 0; padding: 0; max-height: 390px; overflow-y: auto; }
+.results a { display: grid; gap: 4px; box-sizing: border-box; width: 100%; text-align: left; padding: 12px; border: 0; border-radius: 7px; background: transparent; color: inherit; cursor: pointer; font: inherit; overflow-wrap: anywhere; text-decoration: none; }
+.results li[aria-selected="true"] a, .results a:hover { background: var(--dashboard-selected, #e9f2ff); }
+.results small, .kind { color: var(--muted-text, #667d9b); font-size: .8rem; }
+.trigger:focus-visible, .dialog button:focus-visible, .dialog input:focus-visible { outline: 3px solid var(--accent-color, #075ee8); outline-offset: 2px; }
+@media (max-width: 480px) { .dialog { padding: 16px; } .trigger kbd { display: none; } }
