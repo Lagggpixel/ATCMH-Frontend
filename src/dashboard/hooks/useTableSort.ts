@@ -8,12 +8,14 @@ export interface TableSortState {
 export function useTableSort<T extends Record<string, unknown>>(
     initialColumn: string,
     initialDirection: 'asc' | 'desc',
-    data: T[]
+    data: T[],
+    controlled?: {state: TableSortState; onChange: (state: TableSortState) => void},
 ): { sortState: TableSortState; sortedData: T[]; handleSort: (column: string) => void } {
-    const [sortState, setSortState] = useState<TableSortState>({
+    const [localSortState, setSortState] = useState<TableSortState>({
         column: initialColumn,
         direction: initialDirection,
     });
+    const sortState = controlled?.state ?? localSortState;
 
     const sortedData = useMemo(() => {
         const {column, direction} = sortState;
@@ -33,6 +35,10 @@ export function useTableSort<T extends Record<string, unknown>>(
     }, [data, sortState]);
 
     const handleSort = (column: string) => {
+        if (controlled) {
+            controlled.onChange({column, direction: sortState.column === column && sortState.direction === "desc" ? "asc" : "desc"});
+            return;
+        }
         setSortState(prev => ({
             column,
             direction: prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc',

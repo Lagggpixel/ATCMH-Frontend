@@ -1,6 +1,7 @@
 "use client";
 
-import {useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent} from "react";
+import {useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent} from "react";
+import {pilotGuidePositionKey, resolvePilotGuideChapter, pilotGuideChapterHash} from "./pilot-guide-position";
 import {ArrowLeftIcon} from "@phosphor-icons/react/ArrowLeft";
 import {ArrowRightIcon} from "@phosphor-icons/react/ArrowRight";
 import {CaretDownIcon} from "@phosphor-icons/react/CaretDown";
@@ -12,6 +13,7 @@ import styles from "./PilotGuideReader.module.css";
 export type PilotGuideReaderProps = {
   guide: PilotGuide;
   initialChapterId?: string;
+  rememberPosition?: boolean;
 };
 
 function lastUpdatedLabel(value: string): string {
@@ -20,10 +22,11 @@ function lastUpdatedLabel(value: string): string {
   return new Intl.DateTimeFormat("en-US", {month: "long", day: "numeric", year: "numeric", timeZone: "UTC"}).format(date);
 }
 
-export default function PilotGuideReader({guide, initialChapterId}: PilotGuideReaderProps) {
+export default function PilotGuideReader({guide, initialChapterId, rememberPosition = true}: PilotGuideReaderProps) {
   const chapters = guide.chapters;
   const [selectedId, setSelectedId] = useState(() => initialChapterId ?? chapters[0]?.id ?? "");
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const mobileToggle = useRef<HTMLButtonElement>(null);
   const focusChapterList = useRef(false);
   const chapterTabs = useRef<HTMLDivElement>(null);
@@ -36,6 +39,41 @@ export default function PilotGuideReader({guide, initialChapterId}: PilotGuideRe
   const previous = chapters[selectedIndex - 1];
   const next = chapters[selectedIndex + 1];
   const selectedHtml = useMemo(() => sanitizePilotGuideHtml(selected?.html ?? ""), [selected?.html]);
+  const searchResults = useMemo(() => {
+    const words = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    return chapters.filter(chapter => {
+      const text = new DOMParser().parseFromString(sanitizePilotGuideHtml(chapter.html), "text/html").body.textContent ?? "";
+      const searchable = `${chapter.title} ${text}`.toLocaleLowerCase();
+      return words.every(word => searchable.includes(word));
+    });
+  }, [chapters, search]);
+
+  useEffect(() => {
+    if (!rememberPosition) return;
+    const restore = () => {
+      let saved: unknown;
+      try { saved = JSON.parse(window.localStorage.getItem(pilotGuidePositionKey) ?? "null"); } catch { /* Optional browser preference. */ }
+      const chapterId = resolvePilotGuideChapter(chapters.map(chapter => chapter.id), window.location.hash, saved, initialChapterId);
+      setSelectedId(chapterId);
+      if (chapterId) {
+        try {window.localStorage.setItem(pilotGuidePositionKey, JSON.stringify(chapterId));} catch { /* Optional browser preference. */ }
+        if (window.location.hash !== pilotGuideChapterHash(chapterId)) window.history.replaceState(null, "", pilotGuideChapterHash(chapterId));
+      }
+    };
+    restore();
+    window.addEventListener("hashchange", restore);
+    window.addEventListener("popstate", restore);
+    return () => {window.removeEventListener("hashchange", restore); window.removeEventListener("popstate", restore);};
+  }, [chapters, initialChapterId, rememberPosition]);
+
+  function selectChapter(chapterId: string) {
+    setSelectedId(chapterId);
+    if (!rememberPosition) return;
+    try { window.localStorage.setItem(pilotGuidePositionKey, JSON.stringify(chapterId)); } catch { /* Reading still works without storage. */ }
+    const hash = pilotGuideChapterHash(chapterId);
+    if (window.location.hash !== hash) window.history.pushState(null, "", hash);
+  }
 
   useLayoutEffect(() => {
     const container = chapterTabs.current;
@@ -81,7 +119,7 @@ export default function PilotGuideReader({guide, initialChapterId}: PilotGuideRe
     }
     revealChapter.current = true;
     setChaptersOpen(false);
-    setSelectedId(chapterId);
+    selectChapter(chapterId);
   }
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -98,7 +136,7 @@ export default function PilotGuideReader({guide, initialChapterId}: PilotGuideRe
     else if (event.key === "End") target = chapters.length - 1;
     else return;
     event.preventDefault();
-    setSelectedId(chapters[target].id);
+    selectChapter(chapters[target].id);
     tabs.current[target]?.focus({preventScroll: true});
   }
 
@@ -123,6 +161,15 @@ export default function PilotGuideReader({guide, initialChapterId}: PilotGuideRe
       </div>
       <p>{guide.introduction}</p>
     </header>
+
+    <div className={styles.search}>
+      <label htmlFor={`${id}-search`}>Search all chapters</label>
+      <input id={`${id}-search`} type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a topic or phrase"/>
+      {search.trim() ? <div className={styles.searchResults}>
+        <p role="status">{searchResults.length ? `${searchResults.length} matching chapter${searchResults.length === 1 ? "" : "s"}` : "No matching chapters. Try another topic."}</p>
+        {searchResults.map(chapter => <button type="button" key={chapter.id} onClick={() => {setSearch(""); navigateToChapter(chapter.id);}}>{chapter.title}</button>)}
+      </div> : null}
+    </div>
 
     {selected ? <div className={styles.readerLayout}>
       <aside className={styles.chapterSidebar} aria-label="Guide outline" data-open={chaptersOpen}>

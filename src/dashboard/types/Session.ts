@@ -5,7 +5,8 @@ export interface Session {
     mentor: string;
     mentee: string;
 
-    time: string;
+    // The backend serializes epoch milliseconds; older fixtures and payloads use ISO strings.
+    time: string | number;
 
     airport: string ;
     pilots: number;

@@ -13,8 +13,11 @@ export interface PaginationResult<T> {
 }
 
 export function usePagination<T>(items: T[], itemsPerPage: number = 25): PaginationResult<T> {
-    const [page, setPage] = useState(0);
+    const [requestedPage, setPage] = useState(0);
     const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
+    const page = Math.min(requestedPage, totalPages - 1);
+    // Keep the stored page valid too, so widening a filter cannot resurrect an old page.
+    if (requestedPage !== page) setPage(page);
     const paginatedItems = useMemo(
         () => items.slice(page * itemsPerPage, (page + 1) * itemsPerPage),
         [items, page, itemsPerPage],

@@ -1,4 +1,30 @@
 
+### Dashboard conveniences
+
+Sessions remember filters, sorting and page size in this browser, separately for
+each signed-in account. Use My sessions, Upcoming/Past and the inclusive UTC date
+range to narrow the list, or Clear filters to start again. Pagination remains valid
+when results shrink, and page-size controls stay available for a single page.
+
+Session lists and details show both UTC and the browser's local time. Scheduling
+and editing accept local time, offer local half-hour suggestions and preview the
+UTC equivalent before saving. Times that fall in a daylight-saving clock gap are
+rejected. Add to calendar downloads an `.ics` file with the exact UTC start time;
+the event has no specified duration because sessions do not record one. Downloads
+are snapshots; later session changes require a new download.
+
+Use Quick search or Ctrl+K / Cmd+K anywhere in the dashboard to find a permitted
+section, mentee or session by name, Discord/IFC ID, airport or session number.
+Arrow keys select a result, Enter opens it and Escape closes the search. Search
+uses already authorized dashboard data and respects unsaved-editor navigation
+prompts. A direct session result temporarily overrides saved filters; Return to
+saved filters restores the previous view.
+
+The Pilot Guide remembers the last chapter in this browser, supports shareable
+`#chapter=...` links and searches text across all chapters. A chapter link takes
+precedence over the saved chapter. Editor previews do not change the reader's
+saved position. Reading and filtering still work when browser storage is blocked.
+
 ### Docker builds on Windows and macOS
 
 The deployment server is Linux x86_64, so release images target `linux/amd64`

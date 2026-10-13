@@ -1,6 +1,12 @@
 import type {Session} from "../../types/Session.ts";
 import type {AtcmhUser} from "../../types/AtcmhUser.ts";
-import {useCallback, useMemo, useState} from "react";
+import type {AdminUser} from "../../types/AdminUser.ts";
+import {useCallback, useEffect, useMemo, useState} from "react";
+import {useSearchParams, useNavigate} from "../../next-navigation";
+import {useBrowserPreference} from "../../hooks/useBrowserPreference";
+import {defaultSessionPreferences, defaultSessionFilters, parseSessionPreferences} from "../../utils/SessionPreferences";
+import {downloadSessionCalendar} from "../../utils/SessionTime";
+import SessionTimeDisplay from "./SessionTimeDisplay";
 import {formatAdminUtcDate} from "../../utils/AdminDateUtils.ts";
 import {availableUserName, formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
 import styles from "./AdminSessions.module.css"
@@ -18,6 +24,8 @@ interface AdminSessionStatsProps {
     error: string | undefined;
     sessions: Session[] | undefined;
     users: AtcmhUser[] | undefined;
+    adminUser?: AdminUser;
+    accountId?: string;
 }
 
 const AdminSessions = ({
@@ -25,23 +33,28 @@ const AdminSessions = ({
                            loggedIn,
                        error,
                        sessions,
-                       users
+                       users,
+                       adminUser,
+                       accountId,
                    }: AdminSessionStatsProps) => {
-    const [filter, setFilter] = useState({
-        mentor: "",
-        mentee: "",
-        attendee: "",
-        cancelled: "all"
-    });
+    const preferenceOwner = accountId ?? adminUser?.id;
+    const [preferences, setPreferences] = useBrowserPreference(
+        loggedIn && preferenceOwner ? `atcmh:sessions:v1:${preferenceOwner}` : null,
+        defaultSessionPreferences, parseSessionPreferences,
+    );
+    const filter = preferences.filter;
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const selectedSessionId = searchParams.get("session");
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {const timer = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(timer);}, []);
     const [attendeesModalSessionId, setAttendeesModalSessionId] = useState<number | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const {name, value} = e.target;
-        setFilter(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setPreferences(prev => ({...prev, filter: {...prev.filter, [name]: value}}));
+        pagination.reset();
     };
 
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
@@ -64,6 +77,13 @@ const AdminSessions = ({
         if (!sessions || !users) return [];
 
         let filteredSessions = [...sessions];
+        if (selectedSessionId) return filteredSessions.filter(session => String(session.id) === selectedSessionId);
+
+        if (filter.mine) filteredSessions = filteredSessions.filter(session => session.mentor === adminUser?.id);
+        if (filter.period !== "all") filteredSessions = filteredSessions.filter(session =>
+            filter.period === "upcoming" ? new Date(session.time).getTime() >= now : new Date(session.time).getTime() < now);
+        if (filter.from) filteredSessions = filteredSessions.filter(session => new Date(session.time).getTime() >= Date.parse(`${filter.from}T00:00:00Z`));
+        if (filter.to) filteredSessions = filteredSessions.filter(session => new Date(session.time).getTime() < Date.parse(`${filter.to}T00:00:00Z`) + 86_400_000);
 
         if (filter.mentor) {
             filteredSessions = filteredSessions.filter(session => matchesSessionUser(session.mentor, filter.mentor));
@@ -87,7 +107,7 @@ const AdminSessions = ({
         filteredSessions.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
         return filteredSessions;
-    }, [filter, matchesSessionUser, sessions, users]);
+    }, [filter, matchesSessionUser, sessions, users, selectedSessionId, adminUser?.id, now]);
 
     const sessionRecords = useMemo(() => displayedSessions.map(session => ({
         time: session.time,
@@ -100,17 +120,16 @@ const AdminSessions = ({
         id: session.id,
     })), [displayedSessions, getUserName]);
 
-    const [currentPage, setCurrentPage] = useState(25);
-
     const {sortState, sortedData, handleSort} = useTableSort(
         "time",
         "desc",
-        sessionRecords
+        sessionRecords,
+        {state: preferences.sort, onChange: sort => {setPreferences(prev => ({...prev, sort})); pagination.reset();}},
     );
 
-    const pagination = usePagination(sortedData, currentPage);
+    const pagination = usePagination(sortedData, preferences.pageSize);
     const handlePageSizeChange = (newPerPage: number) => {
-        setCurrentPage(newPerPage);
+        setPreferences(prev => ({...prev, pageSize: newPerPage}));
         pagination.reset();
     };
 
@@ -136,6 +155,7 @@ const AdminSessions = ({
 
     return (
         <div className={styles.adminSessionsContainer}>
+            {selectedSessionId ? <p role="status">Showing session #{selectedSessionId}. <button type="button" onClick={() => {navigate("/dashboard/sessions", {replace: true}); pagination.reset();}}>Return to saved filters</button></p> : null}
             <div className={styles.adminSessionsControls}>
                 <div className={styles.adminSessionsFilterControl}>
                     <label htmlFor="mentor-filter">Mentor</label>
@@ -186,12 +206,31 @@ const AdminSessions = ({
                         onChange={handleFilterChange}
                     >
                         <option value="all">All Sessions</option>
-                        <option value="active">Running Only</option>
+                        <option value="active">Not cancelled</option>
                         <option value="cancelled">Cancelled Only</option>
                     </select>
                 </div>
+                <div className={styles.adminSessionsFilterControl}>
+                    <label htmlFor="session-period">When</label>
+                    <select id="session-period" name="period" value={filter.period} onChange={handleFilterChange}>
+                        <option value="all">All dates</option><option value="upcoming">Upcoming</option><option value="past">Past</option>
+                    </select>
+                </div>
+                <div className={styles.adminSessionsFilterControl}>
+                    <label htmlFor="session-from">From (UTC)</label>
+                    <input id="session-from" type="date" name="from" value={filter.from} onChange={handleFilterChange}/>
+                </div>
+                <div className={styles.adminSessionsFilterControl}>
+                    <label htmlFor="session-to">Through (UTC)</label>
+                    <input id="session-to" type="date" name="to" min={filter.from || undefined} value={filter.to} onChange={handleFilterChange}/>
+                </div>
+                <div className={styles.filterActions}>
+                    <label><input type="checkbox" checked={filter.mine} disabled={!adminUser?.id} onChange={event => {setPreferences(prev => ({...prev, filter: {...prev.filter, mine: event.target.checked}})); pagination.reset();}}/> My sessions</label>
+                    <button type="button" onClick={() => {setPreferences(prev => ({...prev, filter: defaultSessionFilters})); pagination.reset();}}>Clear filters</button>
+                </div>
                 </div>
             </div>
+            {filter.from && filter.to && filter.from > filter.to ? <p role="alert">The end date must be on or after the start date.</p> : null}
             <div className={styles.adminSessionsSessionsCount} role="status">
                 Showing {displayedSessions.length} session{displayedSessions.length !== 1 ? 's' : ''}
             </div>
@@ -199,23 +238,35 @@ const AdminSessions = ({
                 <table className={styles.adminSessionsDataTable}>
                     <thead>
                     <tr>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("time")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("time");}}} aria-sort={sortState.column==="time" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="time" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("time")}>
+                                Time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("mentor")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("mentor");}}} aria-sort={sortState.column==="mentor" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Mentor <span className={`${styles.sortIndicator} ${sortState.column==="mentor" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentor" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="mentor" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("mentor")}>
+                                Mentor <span className={`${styles.sortIndicator} ${sortState.column==="mentor" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentor" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("mentee")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("mentee");}}} aria-sort={sortState.column==="mentee" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Mentee <span className={`${styles.sortIndicator} ${sortState.column==="mentee" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentee" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="mentee" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("mentee")}>
+                                Mentee <span className={`${styles.sortIndicator} ${sortState.column==="mentee" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentee" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("airport")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("airport");}}} aria-sort={sortState.column==="airport" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Airport <span className={`${styles.sortIndicator} ${sortState.column==="airport" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="airport" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="airport" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("airport")}>
+                                Airport <span className={`${styles.sortIndicator} ${sortState.column==="airport" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="airport" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("pilots")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("pilots");}}} aria-sort={sortState.column==="pilots" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Pilot <span className={`${styles.sortIndicator} ${sortState.column==="pilots" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="pilots" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="pilots" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("pilots")}>
+                                Pilot <span className={`${styles.sortIndicator} ${sortState.column==="pilots" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="pilots" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
-                        <th scope="col" role="button" tabIndex={0} onClick={() => handleSort("cancelled")} onKeyDown={(e) => {if(e.key==="Enter"||e.key===" "){e.preventDefault();handleSort("cancelled");}}} aria-sort={sortState.column==="cancelled" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
-                            Status <span className={`${styles.sortIndicator} ${sortState.column==="cancelled" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="cancelled" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                        <th scope="col" aria-sort={sortState.column==="cancelled" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
+                            <button type="button" className={styles.sortButton} onClick={() => handleSort("cancelled")}>
+                                Status <span className={`${styles.sortIndicator} ${sortState.column==="cancelled" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="cancelled" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                            </button>
                         </th>
                         <th scope="col">Attendees</th>
                         <th scope="col">View</th>
@@ -227,7 +278,7 @@ const AdminSessions = ({
                         if (!session) return null;
                         return (
                         <tr key={session.id} className={session.cancelled ? styles.cancelled : undefined}>
-                            <td className={styles.adminSessionTimeCell} data-label="Time">{formatAdminUtcDate(session.time)}</td>
+                            <td className={styles.adminSessionTimeCell} data-label="Time"><SessionTimeDisplay value={session.time}/><button type="button" className={styles.calendarButton} onClick={() => downloadSessionCalendar(session, {mentor: record.mentor, mentee: record.mentee})} aria-label={`Add session ${session.id} to calendar`}>Add to calendar</button></td>
                             <td data-label="Mentor">{record.mentor}</td>
                             <td data-label="Mentee">{record.mentee}</td>
                             <td data-label="Airport">{record.airport}</td>
@@ -236,7 +287,7 @@ const AdminSessions = ({
                                 {record.cancelled ? (
                                     <span className={styles.adminCancelledBadge}>Cancelled</span>
                                 ) : (
-                                    <span className={styles.adminActiveBadge}>Running</span>
+                                    <span className={styles.adminActiveBadge}>{new Date(session.time).getTime() >= now ? "Upcoming" : "Past"}</span>
                                 )}
                             </td>
                             <td data-label="Attendees">

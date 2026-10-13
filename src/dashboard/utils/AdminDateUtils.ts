@@ -24,7 +24,13 @@ export const parseUtcDateTimeInput = (value: string) => {
     const [, year, month, day, hour, minute, second = "0"] = match;
     // Interpret the input as local wall-clock time (datetime-local behavior),
     // then convert to UTC for storage/transmission.
-    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)).toISOString();
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1
+        || date.getDate() !== Number(day) || date.getHours() !== Number(hour)
+        || date.getMinutes() !== Number(minute) || date.getSeconds() !== Number(second)) {
+        throw new Error("Enter a valid local time. This time may not exist because the clocks change.");
+    }
+    return date.toISOString();
 };
 
 export const parseZuluDateTimeInput = (value: string) => {
