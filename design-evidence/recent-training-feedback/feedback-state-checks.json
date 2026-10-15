@@ -1,0 +1,58 @@
+[
+  {
+    "state": "rubrics",
+    "openRows": 1,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nAirport & session\nDate (UTC)\nFeedback\nSBBR\n· #4008\n30 Sept 2026, 15:30\nSaved feedback\nController performance for session #4008\nCATEGORY\tASSESSMENT\nGround clearances\t\nCorrectly handled\n\nLanding clearances\t\nMostly incorrectly handled\n\nSequence\t\nCorrectly handled\n\nGo-arounds\t\nNot assessed\n\nPushback\t\nMostly correctly handled\n\nUWC\t\nIncorrect\n\nCancel takeoff\t\nNot assessed\nSession summary\n\nThe session covered ground instructions, landing clearances and traffic sequencing. Radio calls were clear, with inconsistent timing on landing clearances.\n\nView session\nOpen assignment thread\n(opens in a new tab)\nKVNY\n· #4003\n29 Sept 2026, 19:30\nSaved feedback\nROAH\n· #4001\n29 Sept 2026, 14:30\nNo saved feedback yet",
+    "visibleCategories": 7
+  },
+  {
+    "state": "pending",
+    "openRows": 1,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nAirport & session\nDate (UTC)\nFeedback\nSBBR\n· #4008\n30 Sept 2026, 15:30\nFeedback pending\nSession summary\n\nFeedback is pending. A saved summary is not available yet.\n\nView session\nKVNY\n· #4003\n29 Sept 2026, 19:30\nFeedback unavailable\nROAH\n· #4001\n29 Sept 2026, 14:30\nFeedback unavailable",
+    "visibleCategories": 0
+  },
+  {
+    "state": "not-held",
+    "openRows": 1,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nAirport & session\nDate (UTC)\nFeedback\nSBBR\n· #4008\n30 Sept 2026, 15:30\nSaved feedback\nSession summary\n\nThe session covered ground instructions, landing clearances and traffic sequencing. Radio calls were clear, with inconsistent timing on landing clearances.\n\nTraining did not run. No performance grade is assigned.\n\nView session\nOpen assignment thread\n(opens in a new tab)\nKVNY\n· #4003\n29 Sept 2026, 19:30\nSaved feedback\nROAH\n· #4001\n29 Sept 2026, 14:30\nNo saved feedback yet",
+    "visibleCategories": 0
+  },
+  {
+    "state": "empty",
+    "openRows": 0,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nNo completed training sessions recorded yet.",
+    "visibleCategories": 0
+  },
+  {
+    "state": "loading",
+    "openRows": 0,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nLoading saved feedback…",
+    "visibleCategories": 0
+  },
+  {
+    "state": "error",
+    "openRows": 0,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nSaved recent feedback could not be loaded.",
+    "visibleCategories": 0
+  },
+  {
+    "state": "missing",
+    "openRows": 1,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nAirport & session\nDate (UTC)\nFeedback\nSBBR\n· #4008\n30 Sept 2026, 15:30\nNo saved feedback yet\nSession summary\n\nNo saved feedback yet.\n\nView session\nKVNY\n· #4003\n29 Sept 2026, 19:30\nNo saved feedback yet\nROAH\n· #4001\n29 Sept 2026, 14:30\nNo saved feedback yet",
+    "visibleCategories": 0
+  },
+  {
+    "state": "saved",
+    "openRows": 1,
+    "overflow": false,
+    "text": "Recent training feedback\n\nLatest five recorded completed sessions in this mentorship.\n\nAirport & session\nDate (UTC)\nFeedback\nSBBR\n· #4008\n30 Sept 2026, 15:30\nSaved feedback\nController performance for session #4008\nCATEGORY\tASSESSMENT\nGround clearances\t\nCorrectly handled\n\nLanding clearances\t\nMostly incorrectly handled\n\nSequence\t\nCorrectly handled\n\nGo-arounds\t\nNot assessed\nSession summary\n\nThe session covered ground instructions, landing clearances and traffic sequencing. Radio calls were clear, with inconsistent timing on landing clearances.\n\nView session\nOpen assignment thread\n(opens in a new tab)\nKVNY\n· #4003\n29 Sept 2026, 19:30\nSaved feedback\nROAH\n· #4001\n29 Sept 2026, 14:30\nNo saved feedback yet",
+    "visibleCategories": 4
+  }
+]

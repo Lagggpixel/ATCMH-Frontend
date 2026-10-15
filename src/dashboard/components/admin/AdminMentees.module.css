@@ -906,18 +906,7 @@
     appearance: none;
 }
 
-.sessionEditActions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    grid-column: 1 / -1;
-}
 
-.sessionEditActions span {
-    color: var(--success-text);
-    font-weight: 700;
-}
 
 .assignmentGeneratorStack {
     display: grid;
@@ -1413,13 +1402,7 @@
         max-width: 100%;
     }
 
-    .sessionEditActions {
-        justify-content: stretch;
-    }
 
-    .sessionEditActions button {
-        width: 100%;
-    }
 
     .utcDateTimeLabel input[type="datetime-local"] {
         font-size: 0.86rem;
@@ -2614,4 +2597,77 @@
     .menteesCardGrid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
     .menteeCard { padding: 18px; }
     .profilePage .profileSection { padding: 16px; }
+}
+
+/* Mentee session dialog: keep navigation and actions outside the scrolling body. */
+.sessionDetailsModal {
+    display: flex;
+    flex-direction: column;
+    width: min(800px, 100%);
+    height: min(720px, calc(100dvh - 40px));
+    overflow: hidden;
+    text-align: left;
+}
+.sessionDetailsModal .sessionDetailsHeader {
+    position: static;
+    display: flex;
+    flex-shrink: 0;
+    align-items: flex-start;
+    padding: 22px 24px 18px;
+    gap: 16px;
+}
+.sessionDetailsHeader > div {min-width: 0; flex: 1;}
+.sessionDetailsHeader .sessionEyebrow {margin: 0 0 5px; font-size: .75rem; font-weight: 650; text-transform: uppercase;}
+.sessionDetailsHeader h2 {margin-bottom: 8px; font-size: 1.65rem; line-height: 1.2;}
+.sessionStatus {flex-shrink: 0; margin-top: 6px; padding: 5px 10px; border: 1px solid var(--border-color); border-radius: 999px; font-size: .8rem;}
+.sessionStatus[data-cancelled="true"] {color: var(--danger-text); background: var(--danger-bg);}
+.sessionDetailsHeader .sessionCloseIcon {display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted-text);}
+.sessionTabs {display: flex; flex-shrink: 0; gap: 8px; margin: 0 24px; border-bottom: 1px solid var(--border-color);}
+.sessionTabs button {min-height: 44px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted-text); font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer;}
+.sessionTabs button[aria-selected="true"] {border-bottom-color: var(--accent-color); color: var(--accent-color);}
+.sessionDetailsContent {flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 24px;}
+.sessionDetailsContent [hidden] {display: none;}
+.sessionDetailsContent .sessionDetailsGrid {grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; padding: 0 0 20px;}
+.sessionDetailsGrid .detailItem {padding: 0; border: 0;}
+.sessionDetailsGrid .detailItem strong {font-size: .9rem; overflow-wrap: anywhere;}
+.sessionDetailsContent .sessionDetailsBlock {padding: 0; gap: 14px;}
+.sessionDetailsContent .sessionDetailsBlock + .sessionDetailsBlock {margin-top: 24px;}
+.sessionDetailsContent .sessionEditForm {grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start;}
+.sessionEditForm label:last-child {grid-column: 1 / -1;}
+.sessionDetailsContent input {min-height: 44px;}
+.sessionDetailsContent .attendeeItem {padding: 12px 0; border-bottom: 1px solid var(--border-color);}
+.sessionDetailsContent .attendeeItem button {min-height: 44px; padding-inline: 12px;}
+.sessionDetailsContent .sessionActions button {min-height: 44px;}
+.sessionDetailsContent p {line-height: 1.6;}
+.sessionDetailsFooter {display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border-color);}
+.sessionFooterActions {display: flex; align-items: center; justify-content: flex-end; gap: 10px;}
+.sessionDetailsFooter button {min-height: 44px; padding: 10px 14px; border: 1px solid var(--accent-color); border-radius: 6px; background: var(--dashboard-button, var(--accent-color)); color: var(--dashboard-on-button, #fff); font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer;}
+.sessionDetailsFooter .secondaryButton {border-color: var(--border-color); background: transparent; color: var(--text-color);}
+.sessionDetailsFooter .dangerButton {border-color: var(--error-color); background: transparent; color: var(--danger-text);}
+.sessionDetailsFooter button:hover:not(:disabled) {filter: brightness(1.15);}
+.sessionDetailsModal button:disabled {opacity: .55; cursor: not-allowed;}
+.sessionDetailsModal button:focus-visible, .sessionDetailsModal [role="tabpanel"]:focus-visible {outline: 2px solid var(--accent-color); outline-offset: 3px;}
+.sessionSaveStatus {color: var(--success-text); font-size: .85rem;}
+@media (max-width: 620px) {
+    .sessionDetailsModal {height: calc(100dvh - 20px);}
+    .sessionDetailsModal .sessionDetailsHeader {padding: 16px; gap: 8px; flex-wrap: wrap;}
+    .sessionDetailsHeader > div {flex-basis: calc(100% - 52px);}
+    .sessionDetailsHeader h2 {font-size: 1.35rem;}
+    .sessionDetailsHeader .sessionStatus {order: 3; margin-top: 0;}
+    .sessionTabs {margin-inline: 16px; gap: 0;}
+    .sessionTabs button {flex: 1; padding-inline: 8px; font-size: .85rem;}
+    .sessionDetailsContent {padding: 18px 16px;}
+    .sessionDetailsContent .sessionDetailsGrid {grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;}
+    .sessionDetailsContent .sessionActions form {grid-template-columns: minmax(0, 1fr) auto;}
+    .sessionDetailsFooter {padding: 12px 16px; flex-wrap: wrap;}
+    .sessionFooterActions {flex: 1; flex-wrap: wrap;}
+    .sessionDetailsFooter button {padding-inline: 10px;}
+    .sessionSaveStatus:empty {display: none;}
+}
+@media (max-height: 500px) {
+    .sessionDetailsModal .sessionDetailsHeader {padding-block: 10px;}
+    .sessionDetailsHeader .sessionEyebrow {display: none;}
+    .sessionDetailsHeader h2 {font-size: 1.2rem; margin-bottom: 4px;}
+    .sessionDetailsContent {padding-block: 12px;}
+    .sessionDetailsFooter {padding-block: 10px;}
 }

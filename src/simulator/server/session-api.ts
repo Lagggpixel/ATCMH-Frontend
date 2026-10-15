@@ -23,9 +23,8 @@ export function createSessionApi(store: SessionStore, authorize = authorizeSessi
 const service = new SessionService(store);
 async function sessionCollection(request: Request) {
   try {
-    const code = new URL(request.url).searchParams.get("code");
-    if (request.method === "GET" && code !== null) return Response.json(await service.resolveCode(await authorize(request, false), code), {headers: noStore});
     const actor = await authorize(request, true);
+    if (new URL(request.url).searchParams.has("code")) throw new SessionError("not-found", "Joining by code is no longer available. Open the session link from Sessions.", 404);
     if (request.method === "GET") return Response.json({sessions: await service.list(actor)}, {headers: noStore});
     throw new SessionError("scenario-required", "Choose a published scenario to create a training session.", 409);
   } catch (error) {return sessionFailure(error);}
@@ -65,7 +64,7 @@ async function stream(request: Request, id: string) {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
           if (frame.contentRevision !== contentRevision) {
-            send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario, briefing: frame.briefing}); contentRevision = frame.contentRevision;
+            send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
             const {id, revision, elapsed, aircraft, running} = frame.exercise;
             send({type: "motion", state: {id, revision, elapsed, aircraft, running}, session: frame.session});

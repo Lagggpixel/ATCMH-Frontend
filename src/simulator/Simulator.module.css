@@ -18,6 +18,10 @@
 .topBanner>span:first-child {color:#91e98d;overflow:hidden;text-overflow:ellipsis}
 .topBanner>span:last-child {font-family:"Simulator Mono",monospace;flex-shrink:0}
 .scope {grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000}
+.scope :is(.airportMarker,.aircraft,.aircraftTag),.scope :is(.airportMarker,.aircraft,.aircraftTag):hover {background:transparent!important;border:0!important;box-shadow:none;min-height:0;font-weight:400}
+.scope .aircraftTag {display:block;line-height:1.25;border-radius:0}
+.scope .airportMarker {display:grid;place-items:center;border-radius:0}
+.scope :is(.airportMarker,.aircraft,.aircraftTag):focus-visible {outline:2px solid #80dce8;outline-offset:2px}
 .mapSurface {position:absolute;inset:0;touch-action:none;cursor:grab}
 .mapSurface:active {cursor:grabbing}
 .mapCanvas {width:100%;height:100%;display:block}
@@ -30,14 +34,30 @@
 .scopeButtons {position:absolute;right:5px;bottom:26px;display:grid;width:clamp(46px,3.8vw,72px);border:1px solid #aaa;background:#090909;z-index:5}
 .scopeButtons button {height:clamp(46px,3.8vw,72px);border-bottom:1px solid #aaa;display:flex;align-items:center;justify-content:center;padding:0}
 .scopeButtons button:last-child {border-bottom:0}
+.scope .scopeButtons button {background:#101315;color:#e8edf2;border:0;border-bottom:1px solid #343b40;border-radius:0;min-height:0;padding:0}
+.scope .scopeButtons button:last-child {border-bottom:0}
+.scope .scopeButtons button:hover {background:#253039}
+.scope .optionsMenu button {background:transparent;color:#e8edf2;border:0;border-radius:0;font-weight:400}
+.scope .optionsMenu button:hover {background:#253039}
 .airportMarker {position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;padding:0!important;color:#298aff!important;z-index:2}
 .airportMarker>span {position:absolute;bottom:34px;left:-10px;white-space:nowrap;color:#91e98d;font-size:clamp(12px,1vw,19px)}
 .airportMarker small {font-size:9px;background:#91e98d;color:#254222;padding:1px 2px;border-radius:2px}
 .airportMarker i {position:absolute;left:10px;top:10px;width:10px;height:10px;background:#91e98d;border-radius:50%;pointer-events:none}
 .runwayTag {position:absolute;background:black;border:1px solid;transform:translate(-50%,-50%);font-size:clamp(12px,1vw,19px);font-weight:bold;padding:0 3px;pointer-events:none;z-index:3;border-radius:2px}
 .aircraftPosition {position:absolute;width:0;height:0;z-index:4}
+.scope .gateTarget {position:absolute;z-index:3;width:22px;height:22px;padding:0;border:0!important;background:transparent!important;transform:translate(-50%,-50%);display:grid;place-items:center;cursor:pointer}
+.gateTarget span {width:7px;height:7px;border-radius:50%;background:#499cff;box-shadow:0 0 0 1px #112744}
+.gateTarget[aria-pressed="true"] span,.gateTarget:hover span,.gateTarget:focus-visible span {box-shadow:0 0 0 4px #499cff44}
+.gateTarget.hoveredGate span {width:11px;height:11px;background:#9bcaff;box-shadow:0 0 0 6px #499cff55}
+.gateTarget:focus-visible {outline:2px solid #9bcaff;outline-offset:2px;border-radius:50%}
+.gatePlacementHint {position:absolute;z-index:6;top:16px;left:50%;transform:translateX(-50%);padding:9px 14px;background:#102133;color:#c8e2ff;border:1px solid #375f87;border-radius:4px;font-size:13px;pointer-events:none}
 .aircraft {transform:translate(-50%,-50%);position:absolute;padding:0!important;width:30px;height:30px;display:grid;place-items:center;color:inherit!important}
+.simulator .aircraft:hover {background:transparent}
+.aircraft:hover svg {filter:brightness(1.3)}
 .selectedAircraft {outline:1px solid currentColor;border-radius:50%!important}
+.giveWayTarget {position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:2px dashed #f5b64b;border-radius:50%;pointer-events:none;z-index:2;animation:giveWayPulse 1.4s ease-in-out infinite}
+@keyframes giveWayPulse {50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce) {.giveWayTarget{animation:none}}
 .aircraftTag {position:absolute;bottom:25px;left:28px;white-space:nowrap;font-size:clamp(11px,.9vw,17px)!important;padding:2px!important;color:inherit!important;text-shadow:0 1px 2px black;text-align:left}
 .aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:currentColor;transform:rotate(-35deg);transform-origin:right}
 .aircraftTag span {display:block}
@@ -448,7 +468,7 @@
 .menteeSimulator .pilotMessage {color:#a6dcea}
 .menteeSimulator .offFrequencyMessage {color:#a2adb6}
 .emptyMessages {padding:20px 0;color:var(--trainer-muted);font-size:13px}
-.menteeSimulator .commandPanel {position:relative;grid-column:3;grid-row:2;top:auto;right:auto;bottom:auto;width:auto;min-width:0;min-height:0;padding:0 20px 16px;background:var(--trainer-surface);border-left:1px solid var(--trainer-border);box-shadow:none;overflow:auto;z-index:12}
+.menteeSimulator .commandPanel {position:relative;grid-column:3;grid-row:2;top:auto;right:auto;bottom:auto;width:auto;min-width:0;min-height:0;padding:0 20px 16px;background:var(--trainer-surface);border-left:1px solid var(--trainer-border);box-shadow:none;overflow:hidden;z-index:12}
 .commandPanel header {position:sticky;top:0;z-index:2;flex-shrink:0;background:var(--trainer-surface);padding:18px 0 16px;border-bottom:1px solid var(--trainer-border);font-size:21px;align-items:flex-start}
 .commandPanel header small {font-size:11px;line-height:1.6;letter-spacing:.02em;color:var(--trainer-muted)}
 .commandPanel header button {padding:2px;color:#bac7d1}
@@ -467,7 +487,8 @@
 .commandPreview small {display:block;margin:8px 0;color:#f5c88c;font-size:12px}
 .menteeSimulator .commandPreview button {display:flex;justify-content:center;align-items:center;gap:8px;background:var(--trainer-accent);border:1px solid var(--trainer-accent);border-radius:3px;width:100%;min-height:44px;text-align:center;color:#07282d;font-size:14px}
 .menteeSimulator .commandPreview button:hover:not(:disabled) {background:#6ce5ed}
-.commandPanel>.messageLog {flex:1 0 140px;overflow-y:auto;border-top:1px solid var(--trainer-border)}
+.commandPanel>.messageLog {flex:0 0 20%;overflow-y:auto;border-top:1px solid var(--trainer-border)}
+.commandPanel>.messageEntries {flex:1 1 80%}
 .pilotReply {flex-shrink:0;padding:12px;margin:0 0 10px;border:1px solid var(--trainer-border);background:var(--trainer-raised);font-size:13px}
 .pilotReply p {margin:0;line-height:1.5}
 .withdrawnMessage {display:block;font-size:11px;color:var(--trainer-muted);margin-top:4px}
@@ -513,7 +534,7 @@
 
 .automaticRow { display: flex; align-items: center; gap: .4rem; margin: 0 7px 12px; }
 .trafficRoster .automaticRow .autoReadback { margin: 0; flex: 1; min-width: 0; }
-.staffSimulator .automaticHelpButton { display: inline-grid; place-items: center; flex-shrink: 0; border: 1px solid #94a5b5; border-radius: 50%; width: 1.5rem; height: 1.5rem; margin: 0; color: #dce7ee; }
+.staffSimulator .automaticHelpButton { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #94a5b5; border-radius: 50%; width: 1.5rem; height: 1.5rem; margin: 0; padding: 0; line-height: 1; color: #dce7ee; }
 .staffSimulator .automaticHelp > button { border: 1px solid #94a5b5; border-radius: .25rem; padding: .4rem .8rem; }
 
 /* Airborne controller popups and previews. */
@@ -523,7 +544,12 @@
 .radarQuick {min-width:200px;max-height:55vh;overflow:auto;padding:4px 0}
 .altitudeChoices {max-height:38vh;overflow:auto;overscroll-behavior:contain}
 .radarQuick p {padding:8px 12px;font-size:12px;color:#ff9999}
+.radarQuick button:has(.colorSwatch) {display:flex;align-items:center;gap:10px}
+.colorSwatch {width:14px;height:14px;border:1px solid #eee;border-radius:50%;flex:none}
 .aircraft {touch-action:none}
 .bustingRing {position:absolute;left:-24px;top:-24px;width:48px;height:48px;border:3px solid #ff4242;border-radius:50%;pointer-events:none;z-index:3}
 .bustingTag {position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);display:grid;gap:2px;color:#ff4242;background:#101619e8;font-size:12px;white-space:nowrap;padding:2px 4px}
 .terrainUnavailable {position:absolute;bottom:28px;left:12px;color:#ffb276;background:#101619e8;padding:3px 6px;font-size:11px;pointer-events:none}
+
+.gateAircraft {cursor:grab!important;touch-action:none}
+.gateAircraft:active {cursor:grabbing!important}

@@ -7,7 +7,7 @@ import {blankScenario, createScenarioExercise, scenarioFromExercise, scenarioSch
 
 function fixture(): ScenarioDefinition {
   const ground = newAircraft("ground", false), air = newAircraft("air", true); air.mode = "heading"; air.heading = air.targetHeading = 90;
-  return {...blankScenario(), title: "Ground and inbound", instructorNotes: "Hidden assessment hint", briefing: "Control both frequencies", aircraft: [{key: "ground", initial: true, seed: seedFromAircraft(ground)}, {key: "air", initial: false, seed: seedFromAircraft(air)}], events: [
+  return {...blankScenario(), title: "Ground and inbound", instructorNotes: "Hidden assessment hint", aircraft: [{key: "ground", initial: true, seed: seedFromAircraft(ground)}, {key: "air", initial: false, seed: seedFromAircraft(air)}], events: [
     {id: "pushback", title: "Request pushback", trigger: {type: "time", at: 0}, actions: [{type: "request", aircraftKey: "ground", label: "Request pushback", runway: "24"}]},
     {id: "arrival", title: "Arrival", trigger: {type: "time", at: 2}, actions: [{type: "spawn", aircraftKey: "air"}, {type: "request", aircraftKey: "air", label: "Inbound for landing", runway: "24"}]},
   ]};

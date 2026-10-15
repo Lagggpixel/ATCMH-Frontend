@@ -384,3 +384,163 @@ Browser-rendered live evidence: `C:/Users/Reid/.codex/visualizations/2026/10/11/
 No production scenario Save/Publish, session creation, or controller action was used for browser verification. Temporary viewport override was reset; the existing user tab was returned to the scenario library. No new actionable P0/P1/P2 findings. Release receipts and encrypted backups are in sibling `private`; frozen source/helpers are under ignored `Frontend/build/airport-release`.
 
 final result: passed
+## Recent training feedback redesign (2026-10-14)
+
+Source visual truth: `design-evidence/recent-training-feedback/selected-design.png`, the user's selected second direction revised to replace next-session recommendations with the saved descriptive Session summary. Built-in ImageGen produced the revised target from the selected image; no generated raster assets are used in the component itself.
+
+Implementation: actual `src/dashboard/components/admin/RecentTrainingFeedback.tsx` and its scoped CSS, rendered through the ignored Vite harness `build/feedback-redesign`. Preview: http://127.0.0.1:4173/. All records and summaries in the harness are illustrative fixtures. The existing saved-feedback read is stubbed locally; no live session/attendance changes or feedback generation occurred.
+
+### Evidence and normalization
+
+- Source is 1586 x 992 pixels; resized proportionally to 1280 pixels wide before comparison. Desktop CSS viewport 1280 x 800, DPR 1. Full-page implementation screenshot is `feedback-desktop.jpg`; `feedback-preview.jpg` is the 1280 x 900 viewport handoff. The section alone is compared, excluding the illustrative harness controls and surrounding navigation.
+- `feedback-comparison-before.png` and `feedback-comparison-after.png` each place the normalized source and rendered section together in a single comparison input. Both were inspected directly; the final source/implementation comparison has no actionable P0/P1/P2 mismatch.
+- `feedback-comparison-focus.png` compares readable category labels, rating rows, Session summary and links. Source and implementation use the same saved example text, selected first session, four sample rows and dark theme.
+- `feedback-phone.jpg`: CSS 390 x 844, DPR 1, Dark. `feedback-phone-light.jpg`: same viewport, Light with eight historical categories. Native phone viewport inspection verified the summary above ratings, readable 16px body, 44px link targets and complete table. The full-page screenshot contains additional off-screen content; ordinary viewport captures were also inspected to avoid judging a scaled full-page image.
+- Additional checks at CSS widths 320, 768 and 1024 all had document scrollWidth no greater than the viewport. Details retained readable wrapping and all categories. See `feedback-responsive-checks.json`.
+
+### Comparison history
+
+1. Initial implementation: P2 heading hierarchy was too quiet (20px) and rating rows were too tall relative to the selected design. Evidence: `feedback-desktop-before.jpg` in the chat visualization directory and `feedback-comparison-before.png`.
+2. Fixed title to 24px desktop, reduced table row padding from 9px to 4px, and tightened disclosure row padding/minimum height. Shortened the description to the completed-session scope; per-session interrupted/not-held notices retain relevant context. Recaptured and compared in `feedback-comparison-after.png` and `feedback-comparison-focus.png`.
+3. Final comparison: no actionable P0/P1/P2 findings. The slightly more spacious link area and semantic rating-dot colors are acceptable differences consistent with the existing product tokens.
+
+### Required fidelity surfaces
+
+- Fonts/typography: the existing bundled Source Sans Pro is retained. Body text 16px, category text approximately 15px, desktop title 24px. Text wraps without truncation. Phone heading uses the existing compact scale.
+- Spacing/layout: selected expandable ledger, aligned airport/date/status columns, category table left and summary right, thin row separators, no nested cards. On phones the summary appears first and ratings follow. Header and neighboring profile sections remain outside this change.
+- Colors/tokens: existing `--bg-color`, `--text-color`, `--muted-text`, `--border-color`, `--accent-color` and semantic success/warning/error colors work in Light and Dark. Written ratings accompany decorative dots.
+- Assets: directly imported existing Phosphor icon library; no custom-drawn imagery or invented branding. The preview's supplied ATCMH logo is contextual only; production header is untouched.
+- Copy: Session summary displays only `summary.overview.text`, exactly once. No next-session recommendation is synthesized or rendered. Seven/eight categories render dynamically. No provider, source-message count, confidence or cache metadata is exposed. Dates/times are explicit UTC, matching the backend's Instant serialization.
+
+### Behavior and validation
+
+- Keyboard Enter/Space and click expand/collapse correctly; only one session is open at a time. Opening another row retained one saved-feedback read and zero writes.
+- First available saved feedback opens initially; otherwise the first session opens. Missing, pending, unavailable, empty, loading and read-error states were checked. Not-held feedback displays its descriptive summary with no performance grades.
+- Existing session navigation route and validated Discord assignment-thread links are preserved. Malformed links are omitted; saved text is escaped.
+- Both seven-category new feedback and eight-category historical feedback were exercised. Browser warnings/errors: none.
+- 14 focused tests passed, covering the actual rendered list, UTC rollover, dynamic rubric rows, safe links, not-held grading and read-only API contract, plus existing mentee/session UI checks. TypeScript and scoped ESLint passed. Production build passed; final build after visual spacing edits is recorded in the chat.
+
+### Open questions and follow-up polish
+
+No blocking questions. Production feedback may be longer than the illustrative text; the component wraps it without truncation. No deployment or publication is part of this redesign request.
+
+### Implementation checklist
+
+- [x] Implement the selected expandable ledger and the user's summary correction.
+- [x] Preserve saved feedback API semantics and existing data.
+- [x] Verify full/focused visual comparisons, phone themes, responsive states and keyboard interaction.
+- [x] Keep the local preview available for review.
+
+final result: passed
+
+
+## Session view popup - option 1 (2026-10-14)
+
+final result: passed
+
+The session popup implementation and its comparison history are recorded in [session-popup/design-qa.md](design-evidence/session-popup/design-qa.md). Desktop 1487 x 1058, phone 390 x 844, landscape 844 x 390; cancellation tested with intercepted synthetic requests only. Earlier QA records above are preserved.
+
+# Sessions table and filters — option 3 (2026-10-14)
+
+final result: passed
+
+Selected visual: `design-evidence/sessions-redesign/reference.png`, the third displayed generated image (`exec-780b4903-1174-45f4-8ecc-8de4f76bc9b3.png`).
+Implementation: `design-evidence/sessions-redesign/desktop.png` and `phone.png`.
+Full-view comparison: `design-evidence/sessions-redesign/comparison.png`.
+Focused table comparison: `design-evidence/sessions-redesign/table-comparison.png`.
+
+## Scope and normalization
+
+The actual AdminSessions component and shared theme/styles run in an ignored Vite harness with synthetic sessions. The harness supplies surrounding header context; production authentication, navigation, APIs and session details are preserved. No production writes or deployment were performed.
+
+Reference pixels: 1487 × 1058. Desktop CSS viewport: 1440 × 1024, browser PNG: 1425 × 1013. Both are normalized to 1440 × 1024 for the combined full-view and focused comparison. Phone CSS viewport: 390 × 844. Tablet CSS viewport: 1024 × 768. The browser viewport override was reset after verification.
+
+## Findings and repairs
+
+- P2 fixed: automatic table sizing allowed a long display name to consume the mentee column and squeeze other columns. Explicit column proportions now wrap long names while keeping dates, status and actions readable. The final full-view and focused comparisons show the correction.
+- P2 fixed: phone grid alignment stretched Upcoming/Past badges across the value column. Badges now align to the end at their natural width; the final phone capture shows the correction (77px badge within a 341px row).
+- P2 fixed: relative font sizes inherited the dashboard's smaller root baseline. Explicit 14px table/filter text, 13px headings/badges and 12px secondary text restore readable sizing. Date/time has a stronger weight and the filter title is 18px.
+- Accepted: ISO UTC date text and localized secondary text retain the existing shared formatter. Mock weekday errors and contradictory status/date combinations were not copied into application behavior.
+- Accepted: existing page sizes, saved ordering and session records determine visible rows and footer location. The reference has eight illustrative rows; verification uses 32 records and the existing 10/25/50/100 options.
+- Accepted: header/account/quick-search UI remains owned by the existing dashboard; it is outside this table/filter redesign.
+
+## Fidelity surfaces
+
+- Typography: existing site font, readable 14px core text, quieter secondary dates, stronger UTC date/time, sentence-case sortable headings.
+- Spacing/layout: 240px filter track, 24px gap, vertical divider, eight-column table, compact text actions and flat pagination. Tablet keeps table scrolling inside its container; phone uses labeled cards and collapsible filters.
+- Colors/tokens: shared Light/Dark tokens; identical neutral row backgrounds including cancelled sessions. Cancellation uses a neutral badge; upcoming uses blue and past uses green. No red row style or cancellation row class remains.
+- Assets: existing brand asset and Phosphor search/sort/filter icons. No generated illustration or replacement brand assets were needed.
+- Copy/content: all existing filter capabilities retained. Not held displays Attendance retained separately; results count is visible and announced. Existing detail/feedback/cancellation behavior is preserved.
+
+## Interaction and technical verification
+
+- Mentor, mentee and attendee searches; empty result; clear filters; cancelled-only status; past period; My sessions; inclusive UTC date range (four sessions on 13 October); sorting; next page; page size; restored mentor/status/page size after reload.
+- Session details open/close and attendees tab, using synthetic records and mocked saved feedback. No session outcome changes were submitted.
+- Phone filters open/close, active count, matching cards and natural-width badges. No horizontal page overflow at 1440, 1024 or 390px. The 1024px table scrolls within its container.
+- Light theme verified; all rows share rgb(248,250,252). Dark rows share rgb(32,32,32). Browser error console is empty.
+- Seven focused tests pass. TypeScript and scoped ESLint pass. Vite preview production build and full Next.js production build pass. The Next build required execution outside the Windows filesystem sandbox after a compiler access-denied error.
+
+No outstanding actionable P0/P1/P2 findings. Follow-up polish: final shell verification after a user-authorized release.
+
+
+## Mentee session popup repair — 2026-10-14
+
+Final result: passed
+
+Scope: the screenshot showed the older SessionDetailsModal on the mentee profile. This repair reuses the current Sessions dialog's visual language while preserving the mentee-specific edit, attendee and cancellation callbacks. No production data was changed and nothing was deployed.
+
+Evidence: [before/after](design-evidence/mentee-session-popup/comparison.png), [desktop](design-evidence/mentee-session-popup/after-desktop.png), [phone](design-evidence/mentee-session-popup/after-phone.png), [short landscape](design-evidence/mentee-session-popup/after-landscape.png), [light](design-evidence/mentee-session-popup/after-light.png), [saved feedback on phone](design-evidence/mentee-session-popup/feedback-phone.png).
+
+The original and final screenshots use the same synthetic record, dark theme, open popup and 1266 × 721 CSS viewport. The comparison shows both captures together; the scrollbar disappears after the body-scroll lock, accounting for the native capture width difference. Phone verification uses 390 × 844 and short landscape uses 844 × 390. No real names, feedback or production writes were used in the preview.
+
+- P2 fixed: feedback previously touched the modal edge; all tab content now shares a consistent inset.
+- P2 fixed: the long, single scrolling form buried attendees and cancellation. Details, Feedback and Attendees tabs separate those tasks; the header, tabs and action footer stay visible while only the body scrolls.
+- P2 fixed: the edit form's three narrow columns squeezed the datetime input and its explanation. Airport and requested pilots share a row; session time has a full-width row.
+- P2 fixed: phone close control initially sat between the title and status. It now sits at the upper right with the status below the title/time.
+- Existing typography, neutral surfaces, borders, accent colors and Phosphor icons are retained. No new image assets were needed.
+
+Verified: arrow-key tab selection, unsaved airport retention across tabs, one saved-feedback read across tab switches, successful synthetic save preserving pilots and the original UTC instant, attendee add/remove, cancellation dismissal and failed-cancellation recovery, nested Escape, focus trapping/restoration, body-scroll restoration, cancelled read-only state, loading/unavailable/ready feedback, Light/Dark themes and no horizontal overflow. Browser error console is empty. The footer remains in view at 844 × 390 while the body scrolls (148px visible body, 372px content).
+
+All 14 focused tests pass; source TypeScript and scoped ESLint pass. The standard project-wide TypeScript command is independently blocked by a generated Next.js exam submit-route check rejecting the unrelated submitKeepaliveAttempt export. That route was not changed for this popup repair. No production build/deployment was requested or performed.
+
+No outstanding actionable P0/P1/P2 popup findings. The localhost preview uses the real component with synthetic API responses and is available at http://127.0.0.1:4331/?state=ready.
+
+
+### Release verification — 26.10.1
+
+Published and deployed the popup repair on 2026-10-14. Production frontend build/TypeScript now passes after moving the existing exam submission helper to a sibling module; all 961 frozen frontend tests pass apart from three existing skips, and ESLint has zero errors. Image digest/platform identity and live health/version checks passed. Local visual QA above remains the popup interaction evidence; the new live browser check reached the signed-in homepage but the popup check was interrupted. No production edit, cancellation, attendee or feedback-generation action was submitted. Session/link/AI-result fingerprints remain unchanged. Final popup QA result: passed.
+
+
+## Scenario aircraft inspector — selected option 2 (2026-10-14)
+
+**Source visual truth:** Frontend/design-evidence/scenario-gates/selected-option-2.png, the second generated image displayed in this chat (exec-f5c8909a-f6f0-46ff-b52a-1525713e507a.png).
+
+**Implementation:** src/simulator/ScenarioAircraftInspector.tsx and its CSS module, integrated into the existing ScenarioEditor. Local preview: http://127.0.0.1:4355/?fixture=ground&rev=2. The harness uses synthetic records and blocks writes; production was not contacted.
+
+**Evidence and normalization:** source and final implementation both 1487 × 1058 pixels at a 1487 × 1058 CSS viewport, density 1, dark theme, EGPH local training, Easy 100/A320 selected at Gate 210, Setup active, advanced fields collapsed. Final screenshot: design-evidence/scenario-gates/sidebar-option-2-final.png. Full-view comparison: sidebar-final-comparison.png. Focused inspector comparison: sidebar-final-detail.png. Both combined images were opened for review. The saved state and creator label in the final synthetic fixture are incidental context; aircraft and inspector state match the reference. Additional 1024 × 768 layout evidence: sidebar-tablet.png, with no horizontal overflow and a visible fixed footer.
+
+**Comparison history:** initial combined images sidebar-initial-comparison.png and sidebar-initial-detail.png exposed a P2 density mismatch: the inspector was 360px wide, body controls 14px/40px and header 23px. Increased width to 388px, primary controls to 16px/44px, header to 26px, then refined section gaps and removed the unused stable scrollbar gutter. Recaptured and reviewed the combined final images. No outstanding actionable P0/P1/P2 visual findings.
+
+**Required fidelity surfaces:**
+- Typography: retains the existing Simulator Fira font. The selected-aircraft heading, subdued type/frequency line, cyan active tab and grouped form hierarchy follow option 2. Desktop fields use 16px and compact tablet fields use 14px. The generated mock's optical weight varies slightly; this is P3 polish, not a substituted brand font.
+- Spacing/layout: 388px desktop inspector with paired fields, clear section dividers, collapsed advanced fields, independently scrolling panels and persistent header/tabs/remove action. Existing editor timeline and full-height inspector grid remain intact. Smaller landscapes retain controls and body scrolling.
+- Colors/tokens: existing navy #10181e surface, #0b141b controls, pale blue text, cyan active underline and restrained red removal action. Focus outlines and selected drawing controls remain visible.
+- Assets: real Phosphor Info, Trash, ArrowClockwise and CaretRight icons, existing licensed fonts and existing mapped airport rendering. No raster UI or fabricated airport drawing was introduced; all supported gates are displayed from the real dataset.
+- Copy/content: Setup/Intentions/Routes labels, identity/frequency/appears fields, gate hint and Advanced initial state match the selected hierarchy. The existing free-text aircraft type remains editable; Reverse is a functional 180-degree action rather than the mock's unsupported Off menu. Heading display rounds to whole degrees while preserving stored precision until an edit. No assignments or briefings return.
+
+**Interaction checks:** keyboard ArrowRight/Home tab navigation; callsign changes retained across panels; departure and full-stop changes retained; final IAS 170 committed on blur and retained; taxi waypoint drawing and count; tab switches clear drawing mode and restore gate dots; scheduled spawn added/removed through Appears; advanced ground/airborne behavior changes enable speed fields and hide/restore gate dots; Test opens rehearsal without validation errors and Back to editor retains edits. The previous gate verification covers map drag, off-target cancellation, keyboard gate selection and closest-dot click behavior across the same Scope integration. All 349 simulator tests pass; targeted ESLint, TypeScript and production build pass.
+
+**Browser limitation:** clicking the unchanged native Remove aircraft confirmation stalled in-app browser input. The tool returned no actionable dialog handle; dismissal, subsequent tablet tab interactions and a new interactive radar check were not completed. No aircraft was confirmed removed and no production save occurred. A text request to dismiss the prompt remains pending. Final visual captures use explicitly staged synthetic fixtures, not a claim that input recovered. Console error checks before the stall and on the final fixture were empty.
+
+**Implementation checklist:** completed tabbed layout, preserved all aircraft controls, accessible tab roles/keyboard navigation, clear gate placement, drawing-state cleanup, isolated styling, build/tests and final side-by-side comparison. No deployment or version change requested.
+
+**Follow-up polish:** optional optical typography tuning against the generated raster; repeat the unchanged removal confirmation and radar interaction checks once browser input is available.
+
+final result: passed
+
+
+## Replay library option 1 — 2026-10-14
+
+final result: passed
+
+See [replay library QA](design-evidence/replays-redesign/design-qa.md) for the selected visual target, responsive screenshots, filter verification and validation limits. Existing reports above are preserved.

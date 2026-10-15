@@ -178,6 +178,7 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
   const invalid = validateInstruction(a, command, frequency); if (invalid) return invalid;
   const ground = a.mode === "pushback" || a.mode === "parked" || a.mode === "taxi" || a.mode === "lineup" || a.mode === "rollout";
   if (command.type === "frequency" && command.whenReady && (command.frequency !== "tower" || !ground)) return "Contact Tower when ready requires ground traffic and Tower as the destination.";
+  if (command.type === "taxi" && command.contactTowerWhenReady && (!command.runway || command.destination === "parking")) return "Contact Tower when ready requires taxi to a runway.";
   if (["give-way", "pushback", "taxi", "stop", "hold-short", "cross", "takeoff", "lineup", "exit-runway"].includes(command.type) && !ground) return "This instruction requires ground traffic.";
   if (["land", "cancel-landing", "go-around", "pattern", "extend", "heading", "transition", "departure"].includes(command.type) && (ground || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1)) return "This instruction requires airborne traffic.";
   if (command.type === "pushback" && a.mode !== "parked") return "Stop the aircraft before assigning pushback.";
@@ -305,7 +306,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
       a.pushback = {path: planPushback(AIRPORT, a, c.tail).path!, index: 0};
       a.mode = "pushback"; a.holding = false; a.targetSpeed = GROUND.pushbackSpeed; break;
     }
-    case "give-way": a.giveWay = {aircraftId: c.aircraftId, description: c.description}; break;
+    case "give-way": if (c.aircraftId) a.giveWay = {aircraftId: c.aircraftId, description: c.description}; else delete a.giveWay; break;
     case "taxi":
       if (arrivalParking) {
         if (a.arrivalExit) a.arrivalExit = {...a.arrivalExit, instruction: "parking"};
@@ -320,7 +321,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
         if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null;}
         a.intentions = {...intentionsOf(a), taxi: "parking"};
       }
-      if (c.runway) {a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway; const route = planTaxiRoute(AIRPORT, a.position, c.runway); if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}} a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
+      if (c.runway) {a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway; if (c.contactTowerWhenReady) a.contactTowerAtHold = true; else delete a.contactTowerAtHold; const route = planTaxiRoute(AIRPORT, a.position, c.runway); if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}} a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "stop": a.holding = true; a.targetSpeed = 0; break;
     case "hold-short": a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "cross": a.releasedHold = a.taxiIndex; a.holding = false; a.mode = "taxi"; a.targetSpeed = DEFAULTS.taxiSpeed; break;
@@ -378,13 +379,15 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
   }
   if ((action.kind === "command" || action.kind === "maneuver") && action.command.type === "give-way") {
     const targetId = action.command.aircraftId;
-    const target = next.aircraft.find(a => a.id === targetId);
-    if (!target || !target.active || target.id === aircraft!.id || target.altitude >= AIRPORT.elevation + 1000 || !["parked", "pushback", "taxi", "lineup", "rollout"].includes(target.mode)) return {state, error: "Choose another active ground aircraft to give way to."};
-    let leader: Aircraft | undefined = target;
-    const visited = new Set([aircraft!.id]);
-    while (leader) {
-      if (visited.has(leader.id)) return {state, error: "This would create a circular Give way instruction. Cancel the previous yield with Continue Taxi first."};
-      visited.add(leader.id); const nextId: string | undefined = leader.giveWay?.aircraftId; leader = next.aircraft.find(a => a.id === nextId);
+    if (targetId) {
+      const target = next.aircraft.find(a => a.id === targetId);
+      if (!target || !target.active || target.id === aircraft!.id || target.altitude >= AIRPORT.elevation + 1000 || !["parked", "pushback", "taxi", "lineup", "rollout"].includes(target.mode)) return {state, error: "Choose another active ground aircraft to give way to."};
+      let leader: Aircraft | undefined = target;
+      const visited = new Set([aircraft!.id]);
+      while (leader) {
+        if (visited.has(leader.id)) return {state, error: "This would create a circular Give way instruction. Cancel the previous yield with Continue Taxi first."};
+        visited.add(leader.id); const nextId: string | undefined = leader.giveWay?.aircraftId; leader = next.aircraft.find(a => a.id === nextId);
+      }
     }
   }
   if (action.kind === "command" || action.kind === "maneuver") {

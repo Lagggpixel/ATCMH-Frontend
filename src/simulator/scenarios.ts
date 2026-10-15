@@ -41,7 +41,7 @@ export const eventSchema = z.object({id: key, title: z.string().trim().min(1).ma
 
 export const scenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
   radarEnvironment: radarEnvironmentSchema.optional(),
-  title: z.string().trim().min(1).max(80), briefing: z.string().max(6000), instructorNotes: z.string().max(6000),
+  title: z.string().trim().min(1).max(80), instructorNotes: z.string().max(6000),
   aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(50), events: z.array(eventSchema).max(200),
 }).superRefine((value, ctx) => {
   const keys = new Set(value.aircraft.map(a => a.key)), events = new Set(value.events.map(e => e.id));
@@ -101,29 +101,25 @@ export type EventState = {status: "scheduled" | "waiting" | "completed" | "block
 
 export interface ScenarioRuntime {
   definition: ScenarioDefinition; generation: string; aircraftIds: Record<string, string>; events: Record<string, EventState>;
-  started: boolean; finished: boolean; feedback?: string; assignmentId?: string; attemptId?: string; learnerId?: string; scenarioId?: string; revision?: number;
+  started: boolean; finished: boolean; feedback?: string; attemptId?: string; scenarioId?: string; revision?: number;
 }
 
 export const scenarioRuntimeSchema = z.object({definition: scenarioSchema, generation: z.string().uuid(), aircraftIds: z.record(z.string()),
   events: z.record(z.object({status: z.enum(["scheduled", "waiting", "completed", "blocked", "skipped"]), conditionAt: z.number().finite().min(0).max(1e12).optional(), completedAt: z.number().finite().min(0).max(1e12).optional(), error: z.string().optional()})),
-  started: z.boolean(), finished: z.boolean(), feedback: z.string().max(6000).optional(), assignmentId: z.string().uuid().optional(), attemptId: z.string().uuid().optional(), learnerId: z.string().optional(), scenarioId: z.string().uuid().optional(), revision: z.number().int().positive().optional()});
+  started: z.boolean(), finished: z.boolean(), feedback: z.string().max(6000).optional(), attemptId: z.string().uuid().optional(), scenarioId: z.string().uuid().optional(), revision: z.number().int().positive().optional()});
 
 export interface ScenarioRecord {id: string; ownerId: string; ownerName?: string; version: number; publishedRevision: number; updatedAt: number; draft: ScenarioDefinition; published?: {title: string} & AirportSelection}
 
-export interface AssignmentSummary {airport?: string; airportDataVersion?: string; trainingStation?: string; id: string; ownerId: string; ownerName?: string; learnerId: string; scenarioId: string; revision: number; title: string; briefing: string; dueAt: number | null; maxAttempts: number; attempts: AttemptSummary[]}
-
-export interface AttemptSummary {id: string; sessionId: string; startedAt: number; finishedAt: number | null; status: "active" | "finished" | "restarted" | "ended"; feedback: string; elapsed: number}
-
-export interface ScenarioStaffView {title: string; instructorNotes: string; assignmentId?: string; attemptId?: string; finished: boolean; events: (ScenarioEvent & EventState)[]}
+export interface ScenarioStaffView {title: string; instructorNotes: string; attemptId?: string; finished: boolean; events: (ScenarioEvent & EventState)[]}
 
 export const scenarioStaffView = (runtime: ScenarioRuntime): ScenarioStaffView => ({title: runtime.definition.title, instructorNotes: runtime.definition.instructorNotes,
-  assignmentId: runtime.assignmentId, attemptId: runtime.attemptId, finished: runtime.finished, events: runtime.definition.events.map(e => ({...e, ...runtime.events[e.id]}))});
+  attemptId: runtime.attemptId, finished: runtime.finished, events: runtime.definition.events.map(e => ({...e, ...runtime.events[e.id]}))});
 
 export function seedFromAircraft(a: Aircraft) {return seedSchema.parse(a);}
 
 export function scenarioFromExercise(exercise: Exercise, title: string): ScenarioDefinition {
   const airport = getAirport(exercise);
-  return {schema: 2, ...airportSelection(airport), trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, briefing: "", instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
+  return {schema: 2, ...airportSelection(airport), trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
 }
 
 export const blankScenario = (selection: AirportSelection = {}): ScenarioDefinition => scenarioFromExercise({...engineFor(selection).initialExercise(), ...(selection.trainingStation ? {trainingStation: selection.trainingStation} : {}), aircraft: []}, "Untitled scenario");

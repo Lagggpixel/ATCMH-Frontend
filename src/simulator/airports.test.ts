@@ -12,7 +12,6 @@ import {groundGuidance} from "./ground-movement";
 import {ReplayTimeline, replayDelta} from "./replays";
 import {SessionService} from "./server/session-service";
 import {MemoryStore} from "./session-test-store";
-import {sessionCode} from "./sessions";
 import type {Action} from "./model";
 
 const send = (action: Action) => ({id: randomUUID(), time: 0, action});
@@ -131,16 +130,13 @@ test("legacy schema-1 EGPH snapshots remain readable without modifying stored in
   assert.equal(createScenarioExercise(scenarioSchema.parse(scenario), "legacy", randomUUID()).exercise.airport, "EGPH");
 });
 
-test("concurrent airports survive seat reclaim and session codes resolve only their airport", async () => {
+test("concurrent airports survive seat reclaim", async () => {
   const store = new MemoryStore(), service = new SessionService(store, () => 1000), actor = {accountId: "mentor", staff: true};
   const rows = await Promise.all(airportList.map(airport => service.create(actor, airport.icao, createScenarioExercise(blankScenario({airport: airport.icao, trainingStation: `${airport.icao}:tower`}), "pending", randomUUID()).exercise)));
   for (const row of rows) {
-    assert.equal((await service.resolveCode(actor, sessionCode(row.id, row.airport))).sessionId, row.id);
     const token = randomUUID(); const joined = await service.join(actor, row.id, "staff", token);
     await service.dispatch(actor, row.id, "staff", token, send({kind: "play"})); await service.leave(actor, row.id, "staff", token);
     const resumed = await new SessionService(store, () => 1000).join(actor, row.id, "staff", randomUUID());
     assert.equal(resumed.exercise.airport, joined.exercise.airport); assert.equal(resumed.exercise.trainingStation, `${row.airport}:tower`);
-    const wrong = row.airport === "EGPH" ? "EGLL" : "EGPH";
-    await assert.rejects(service.resolveCode(actor, sessionCode(row.id, wrong)), /unavailable/);
   }
 });

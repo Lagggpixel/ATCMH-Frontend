@@ -5,7 +5,6 @@ import type {Envelope, Exercise} from "../model";
 import {SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
-import {AIRPORT_IDS, getAirport} from "../airports";
 
 export interface Actor {accountId: string; staff: boolean; displayName?: string}
 export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string}
@@ -16,7 +15,6 @@ export interface SessionRecord {
   scenario?: ScenarioRuntime;
 }
 export interface SessionStore {
-  findCode(prefix: string): Promise<SessionRecord[]>;
   autoReadback(accountId: string): Promise<boolean | undefined>;
   saveAutoReadback(accountId: string, enabled: boolean, now: number): Promise<void>;
   list(now: number): Promise<SessionSummary[]>;
@@ -33,26 +31,21 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.staff && record.staff.expiresAt > now ? {staffId: record.staff.accountId, staffName: record.staff.displayName} : {}),
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now,
-    ...(record.scenario ? {scenario: {title: record.scenario.definition.title, assignmentId: record.scenario.assignmentId, finished: record.scenario.finished}} : {})};
+    ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {})};
 }
 export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionRole, token: string, now: number) {
     if (role === "staff") this.staff(actor);
-    this.learner(record, actor, role);
     const seat = record[role];
     if (!seat || seat.token !== token || seat.accountId !== actor.accountId || seat.expiresAt <= now)
       throw new SessionError("seat-lost", "This page no longer holds its seat. Return to the session and join again.", 409);
     seat.expiresAt = now + SESSION_LEASE_MS;
   }
-  private learner(record: SessionRecord, actor: Actor, role: SessionRole) {
-    if (role === "mentee" && record.scenario?.learnerId && record.scenario.learnerId !== actor.accountId)
-      throw new SessionError("forbidden", "This exercise is assigned to a different mentee.", 403);
-  }
   private view(record: SessionRecord, role: SessionRole, now: number) {
     return {session: summary(record, now), exercise: record.exercise, contentRevision: record.contentRevision,
-      ...(record.scenario ? {briefing: record.scenario.definition.briefing, ...(role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})} : {})};
+      ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }
   private tick(record: SessionRecord, now: number) {
     const occupied = [record.staff, record.mentee].some(seat => seat && seat.expiresAt > now);
@@ -69,14 +62,6 @@ export class SessionService {
     record.tickAt = now;
   }
   list(actor: Actor) {this.staff(actor); return this.store.list(this.now());}
-  async resolveCode(actor: Actor, code: string) {
-    const match = /^([A-Z0-9]{4})-([0-9a-f]{8})$/i.exec(code);
-    if (!match || !(AIRPORT_IDS as readonly string[]).includes(match[1].toUpperCase())) throw new SessionError("invalid-code", "Enter a valid session code or mentee link.", 400);
-    const records = (await this.store.findCode(match[2].toLowerCase())).filter(record => getAirport(record.exercise).icao === match[1].toUpperCase());
-    if (records.length !== 1) throw new SessionError("not-found", "This code is unavailable. Ask your trainer for the mentee link.", 404);
-    this.learner(records[0], actor, "mentee");
-    return {sessionId: records[0].id};
-  }
   async create(actor: Actor, title: string, imported?: Exercise, scenario?: ScenarioRuntime) {
     this.staff(actor);
     const now = this.now(), id = this.uuid();
@@ -92,7 +77,6 @@ export class SessionService {
   join(actor: Actor, id: string, role: SessionRole, token: string) {
     return this.store.transaction(id, record => {
       if (role === "staff") this.staff(actor);
-      this.learner(record, actor, role);
       const now = this.now(), current = record[role];
       if (current && current.expiresAt > now && (current.token !== token || current.accountId !== actor.accountId))
         throw new SessionError("seat-occupied", `The ${role === "staff" ? "control" : "mentee"} page is already open. Close the existing page before joining here.`, 409);
@@ -116,7 +100,7 @@ export class SessionService {
       if (role === "mentee" && !menteeActionAllowed(envelope.action, record.exercise)) throw new SessionError("forbidden", "This action is unavailable for this training mode or frequency.", 403);
       if (role === "mentee" && record.exercise.pausedByStaff) throw new SessionError("paused", "Staff has paused this exercise.", 409);
       this.tick(record, now);
-      if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Start another attempt from assignments.", 409);
+      if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
       if (record.scenario && envelope.action.kind === "reset") throw new SessionError("scenario-reset", "Use Restart attempt to restore the published scenario.", 409);
       const result = applyEnvelope(record.exercise, {...envelope, time: now});
       if (result.error) throw new SessionError("invalid-command", result.error, 422);

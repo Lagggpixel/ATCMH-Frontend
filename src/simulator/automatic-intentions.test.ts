@@ -59,7 +59,18 @@ test("Give way overrides junction priority, resumes after traffic clears, and pr
   for (let i = 0; i < 1500; i++) state = advance(state, .05);
   assert.ok(state.aircraft[0].position.x > .14);
   const menu = messageMenu("ground", a, [a, b]).find(m => m.label === "Give way to...")!;
-  assert.equal(menu.children![1].children![0].instruction?.type, "give-way");
+  assert.deepEqual(menu.children![2].instruction, {type: "give-way", aircraftId: b.id, description: "aircraft on your right"});
+  assert.equal(menu.children![0].children?.[0].instruction?.type, "give-way");
+  assert.equal(menu.children![0].children?.[0].children, undefined);
+  assert.equal(messageMenu("ground", a, [a]).find(m => m.label === "Give way to...")?.children?.[1].children, undefined);
+});
+
+test("Give way wording still sends when no traffic can be identified", () => {
+  const aircraft = taxi("a", 0, 0, 90, [{x: .1, y: 0}]);
+  const command: Instruction = {type: "give-way", description: "aircraft ahead"};
+  const state = act(stateOf([aircraft], false), {kind: "command", aircraftId: aircraft.id, frequency: "ground", command, text: instructionText(aircraft, command)});
+  assert.equal(state.messages.at(-1)?.text, `${aircraft.callsign}, give way to aircraft ahead`);
+  assert.equal(state.aircraft[0].giveWay, undefined);
 });
 
 test("parking requests use mapped, unoccupied stand destinations and do not grant clearance", () => {
@@ -91,9 +102,7 @@ test("pushback completion requests taxi once with the latest published ATIS, onl
 test("Tower when ready waits for an assigned departure hold and requests the actual taxi runway once", () => {
   const stand = AIRPORT.features.find(f => f.kind === "parking_position" && f.points.length > 1)!;
   const a = {...newAircraft("a", false), ...standPlacement(stand.id)!};
-  let state = assign(stateOf([a]), {type: "taxi", runway: "06"});
-  assert.equal(state.aircraft[0].contactTowerAtHold, undefined);
-  state = assign(state, {type: "frequency", frequency: "tower", whenReady: true});
+  let state = assign(stateOf([a]), {type: "taxi", runway: "06", contactTowerWhenReady: true});
   assert.equal(state.aircraft[0].frequency, "ground");
   const hold = state.aircraft[0].taxiPath.at(-1)!;
   Object.assign(state.aircraft[0], {position: {...hold}, taxiIndex: state.aircraft[0].taxiPath.length - 1, holding: true, speed: 0});

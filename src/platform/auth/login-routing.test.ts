@@ -36,7 +36,9 @@ test("home login links preserve the application and canonical return path", () =
 });
 
 test("simulator login returns to the exact supported views only", () => {
-  for (const path of ["/simulator/mentee", "/simulator/staff", "/simulator/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/simulator/staff/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
+  for (const path of ["/simulator", "/simulator/about", "/simulator/replays", "/simulator/replays/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
+  for (const path of ["/simulator/replays/not-a-replay", "/simulator/replays/../staff", "/simulator/replaysish"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
+  for (const path of ["/simulator/staff", "/simulator/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/simulator/staff/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
   for (const path of ["/simulatorish", "/simulator/admin", "/simulator/staff/../mentee", "/simulator%2fstaff"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
 });
 

@@ -29,7 +29,7 @@ export async function maintainSimulatorRecords(connection: RetentionConnection, 
   }
   return {expiredSessions: sessions.length, clearedAttemptDetails: 0, expiredPreferences: preferences.length, apply};
 }
-/** Operator-reviewed learner erasure; never deletes another learner's or an author's scenarios. */
+/** Operator-reviewed learner erasure, including legacy assignments; never deletes author scenarios. */
 export async function eraseSimulatorLearner(connection: RetentionConnection, accountId: string, apply = false) {
   if (!/^[a-zA-Z0-9_-]{1,32}$/.test(accountId)) throw new Error("Invalid account identifier");
   const assignments = await candidates(connection, "SELECT id FROM simulator_assignments WHERE learner_id=? FOR UPDATE", [accountId]);

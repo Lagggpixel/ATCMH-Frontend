@@ -6,7 +6,6 @@ export class MemoryStore implements SessionStore {
   async autoReadback(accountId: string) {return this.preferences.get(accountId);}
   async saveAutoReadback(accountId: string, enabled: boolean) {this.preferences.set(accountId, enabled);}
   private queue = Promise.resolve();
-  async findCode(prefix: string) {return [...this.records.values()].filter(r => r.id.startsWith(prefix)).slice(0, 2);}
   async list(now: number) {return [...this.records.values()].map(r => summary(r, now));}
   async create(record: SessionRecord) {this.records.set(record.id, structuredClone(record));}
   transaction<T>(id: string, run: (record: SessionRecord) => T | Promise<T>): Promise<T> {

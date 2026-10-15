@@ -10,11 +10,10 @@ const contextText = {
     HELD: "Training occurred. Ratings reflect the available documented performance.",
     INTERRUPTED: "Training stopped early. Tasks prevented by the interruption are not assessed.",
     NOT_HELD: "The thread reports that training did not run. No performance grade is assigned.",
-    UNKNOWN: "The session outcome is unclear. Missing evidence is not treated as failure.",
 };
 
-export default function SessionFeedbackPanel({sessionId, canGenerate = false, canMarkNotHeld = false, token = null, outcome, onOutcomeChanged}: {
-    sessionId: number; canGenerate?: boolean; canMarkNotHeld?: boolean; token?: string | null; outcome?: string; onOutcomeChanged?: (session: Session) => void;
+export default function SessionFeedbackPanel({sessionId, canGenerate = false, canMarkNotHeld = false, token = null, outcome, onOutcomeChanged, hideHeading = false}: {
+    sessionId: number; canGenerate?: boolean; canMarkNotHeld?: boolean; token?: string | null; outcome?: string; onOutcomeChanged?: (session: Session) => void; hideHeading?: boolean;
 }) {
     const [saved, setSaved] = useState<SavedSessionFeedback>();
     const [loadFailed, setLoadFailed] = useState(false);
@@ -54,13 +53,13 @@ export default function SessionFeedbackPanel({sessionId, canGenerate = false, ca
     const review = saved?.status === "READY" ? saved.data : undefined;
     const assessment = retained || outcome === "NOT_HELD" ? undefined : review?.summary.assessment;
     return <section className={styles.panel} aria-labelledby={`session-feedback-${sessionId}`}>
-        <div className={styles.heading}>
-            <h3 id={`session-feedback-${sessionId}`}>Summarized feedback</h3>
+        <div className={hideHeading ? styles.quietHeading : styles.heading}>
+            <h3 id={`session-feedback-${sessionId}`} className={hideHeading ? styles.srOnly : undefined}>Summarized feedback</h3>
             {!review ? <span className={styles.availability} role="status">{!saved && !loadFailed ? "Loading…" : "Unavailable"}</span> : null}
         </div>
         {retained ? <p role="status">Marked not held. Recorded attendance is retained.</p> : null}
         {error ? <p role="alert">{error}</p> : null}
-        {assessment ? <p className={styles.context}><strong>Session context</strong><br/>{contextText[assessment.context]}</p> : null}
+        {assessment && assessment.context !== "UNKNOWN" ? <p className={styles.context}><strong>Session context</strong><br/>{contextText[assessment.context]}</p> : null}
         {review ? <>
             <p>{review.summary.overview.text}</p>
             {assessment ? <table className={styles.ratings}><caption>Controller performance</caption><thead><tr><th scope="col">Category</th><th scope="col">Assessment</th></tr></thead>

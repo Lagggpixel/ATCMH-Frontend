@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { submitKeepaliveAttempt } from "./route";
+import { submitKeepaliveAttempt } from "./submit-keepalive";
 
 const quizId = "c2a07cd2-3e2e-482e-b2ee-9d5c6fec6bc4";
 const trustedOrigin = "https://www.atcmh.org";

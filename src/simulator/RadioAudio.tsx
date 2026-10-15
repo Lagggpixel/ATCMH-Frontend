@@ -26,7 +26,6 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
     <button ref={settingsButton} className={styles.audioSettingsToggle} aria-label="Radio voice settings" aria-expanded={open} onClick={() => setOpen(!open)}>Voice</button>
     {open ? <section className={styles.audioSettings} aria-label="Radio voice settings" onKeyDown={e => {if (e.key === "Escape") {e.stopPropagation(); close();}}}>
       <header><strong>Radio voice</strong><button aria-label="Close radio voice settings" onClick={close}>×</button></header>
-      <p>New controller and pilot messages on Ground and Tower, plus published ATIS. Switching frequencies keeps audio playing. Audio applies to this tab.</p>
       {!audio.available ? <p>Voice playback is unavailable in this browser.</p> : <>
         <label><input type="checkbox" checked={Boolean(audio.allowOnline)} onChange={e => player.setSettings({allowOnline: e.target.checked})}/>Allow online voices to send radio text to my browser’s speech provider in this tab</label>
         <label>Voice<select value={audio.voice} onChange={e => player.setSettings({voice: e.target.value})}><option value="">Automatic local English voice</option>{audio.voices.filter(v => v.local || audio.allowOnline).map(v => <option key={v.id} value={v.id}>{v.name} · {v.language}{v.local ? "" : " (online)"}</option>)}</select></label>
@@ -34,10 +33,9 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
         <label>Voice volume <output>{Math.round(audio.volume * 100)}%</output><input aria-label="Voice volume" type="range" min="0" max="1" step="0.1" value={audio.volume} onChange={e => player.setSettings({volume: Number(e.target.value)})}/></label>
         <div><button disabled={!audio.enabled} onClick={() => player.say(`${airportCallsign(getAirport(exercise))} Ground, Easy five seven one, ready to taxi. Runway ${defaultRunway(getAirport(exercise))}.`)}>Test voice</button><button disabled={!audio.enabled || !lastMessage || !connected} onClick={() => {if (lastMessage) player.say(radioMessageText(lastMessage));}}>Replay last message</button><button disabled={!audio.speaking} onClick={() => player.stop()}>Stop speaking</button></div>
         {scope === "atis" ? <button disabled={!audio.enabled || exercise.publishedAtis === "ATIS UNAVAILABLE"} onClick={() => player.say(exercise.publishedAtis)}>Read published ATIS</button> : null}
-        <p>Audio defaults on. Your on/off choice is remembered for this account and role in this browser. Available voices depend on your device; online voices require permission and selection in each tab. If your browser blocks automatic playback, clicking or pressing a key in the simulator retries it.</p>
       </>}
       <div role="status" className={styles.audioStatus}>{audio.error || (audio.speaking ? `Speaking: ${audio.speaking}` : audio.enabled ? "Ready for new messages" : "Audio muted")}</div>
     </section> : null}
-    {audio.error && !open ? <span className={styles.audioError} role="status">Click or press a key to start audio. Voice has more options.</span> : null}
+    {audio.error && !open ? <span className={styles.audioError} role="status">Click or press a key to start audio.</span> : null}
   </div>;
 }
