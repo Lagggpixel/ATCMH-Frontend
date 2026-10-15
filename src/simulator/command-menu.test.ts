@@ -15,6 +15,10 @@ test("restored Ground menu keeps distinct runway, parking, hold and pushback ins
   const taxi = find(entries, "Taxi to...", "Runway 06", "Send").instruction!;
   assert.deepEqual(taxi, {type: "taxi", runway: "06"});
   assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06");
+  const taxiWithContact = find(entries, "Taxi to...", "Runway 06", "Contact Tower when ready").instruction!;
+  assert.deepEqual(taxiWithContact, {type: "taxi", runway: "06", contactTowerWhenReady: true});
+  assert.equal(instructionText(a, taxiWithContact), "Easy 571, taxi to runway 06, contact Edinburgh Tower when ready");
+  assert.ok(!find(entries, "Contact Other Frequency").children?.some(entry => entry.label.includes("when ready")));
   assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to Parking/);
   assert.match(instructionText(a, find(entries, "Continue Taxi").instruction!), /continue taxi/);
   assert.deepEqual(find(entries, "Pushback Approved", "Tail to the West").instruction, {type: "pushback", tail: "west"});
@@ -32,6 +36,16 @@ test("Tower restores landing, option, pattern turn and departure choices with ex
   assert.deepEqual(find(entries, "Go Around", "Make Right Traffic").instruction, {type: "go-around", hand: "right"});
   assert.deepEqual(find(messageMenu("tower", newAircraft("ground", false)), "Cleared for Takeoff", "Runway 06", "Make Left Traffic").instruction,
     {type: "takeoff", runway: "06", hand: "left"});
+});
+
+test("Give way sends from the direction or runway choice and guesses only matching traffic", () => {
+  const source = {...newAircraft("source", false), heading: 90, position: {x: 0, y: 0}};
+  const exiting = {...newAircraft("exiting", false), mode: "rollout" as const, runway: "24" as const, position: {x: .1, y: 0}};
+  const right = {...newAircraft("right", false), mode: "taxi" as const, position: {x: 0, y: -.1}};
+  const entries = messageMenu("ground", source, [source, exiting, right]);
+  assert.deepEqual(find(entries, "Give way to...", "Aircraft exiting runway", "Runway 24").instruction, {type: "give-way", aircraftId: exiting.id, description: "aircraft exiting runway 24"});
+  assert.deepEqual(find(entries, "Give way to...", "Aircraft on your right").instruction, {type: "give-way", aircraftId: right.id, description: "aircraft on your right"});
+  assert.deepEqual(find(messageMenu("ground", source, [source]), "Give way to...", "Aircraft ahead").instruction, {type: "give-way", aircraftId: undefined, description: "aircraft ahead"});
 });
 
 test("ATIS adapts selected legacy options without mutating archived source data", () => {

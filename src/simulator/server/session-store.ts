@@ -18,10 +18,6 @@ export function decodeSession(row: SessionRow): SessionRecord {
     staff: row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null, mentee: row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null};
 }
 export const sqlSessionStore: SessionStore = {
-  async findCode(prefix) {
-    const rows = await queryReadOnly<SessionRow[]>("SELECT * FROM simulator_sessions WHERE id LIKE ? LIMIT 2", [`${prefix}%`]);
-    return rows.map(decodeSession);
-  },
   async autoReadback(accountId) {
     const rows = await queryReadOnly<(RowDataPacket & {auto_readback: number})[]>("SELECT auto_readback FROM simulator_staff_preferences WHERE account_id=?", [accountId]);
     return rows[0] ? rows[0].auto_readback === 1 : undefined;

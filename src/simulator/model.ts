@@ -114,8 +114,8 @@ export type Instruction =
   | {type: "exit-runway"; side: "left" | "right" | "any"; expedite?: boolean; traffic?: "final" | "base"}
   | {type: "lineup"; runway?: Runway}
   | {type: "pushback"; tail: "north" | "east" | "south" | "west"}
-  | {type: "give-way"; aircraftId: string; description: string}
-  | {type: "taxi"; runway?: Runway; destination?: "runway" | "parking" | "continue"}
+  | {type: "give-way"; aircraftId?: string; description: string}
+  | {type: "taxi"; runway?: Runway; destination?: "runway" | "parking" | "continue"; contactTowerWhenReady?: boolean}
   | {type: "takeoff"; hand?: "left" | "right"; runway?: Runway}
   | {type: "stop"}
   | {type: "hold-short" | "cross"; runway?: Runway}

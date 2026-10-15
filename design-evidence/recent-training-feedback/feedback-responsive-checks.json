@@ -1,0 +1,23 @@
+[
+  {
+    "bodyWidth": 305,
+    "overflow": false,
+    "summaryWidth": 256.66668701171875,
+    "tableWidth": 256.66668701171875,
+    "width": 320
+  },
+  {
+    "bodyWidth": 753,
+    "overflow": false,
+    "summaryWidth": 275.75,
+    "tableWidth": 328.25,
+    "width": 768
+  },
+  {
+    "bodyWidth": 1009,
+    "overflow": false,
+    "summaryWidth": 385.84375,
+    "tableWidth": 458.15625,
+    "width": 1024
+  }
+]

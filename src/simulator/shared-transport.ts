@@ -4,7 +4,7 @@ import {exerciseSchema, motionSchema} from "./protocol";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionRole, SessionSummary} from "./sessions";
 
-export interface SharedSessionView {scenario?: ScenarioStaffView; briefing?: string; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
+export interface SharedSessionView {scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
 const INITIAL: SharedSessionView = {exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
@@ -70,7 +70,7 @@ export class SharedSession {
       if (value.type === "snapshot") {
         const exercise = exerciseSchema.parse(value.exercise);
         if (exercise.id !== this.id) throw new Error("Received a frame for another session.");
-        this.update({exercise, scenario: value.scenario, briefing: value.briefing, connected: true, owner: this.role === "staff", session: value.session, status: "Session connected", fatal: null});
+        this.update({exercise, scenario: value.scenario, connected: true, owner: this.role === "staff", session: value.session, status: "Session connected", fatal: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);
         if (motion.id === this.id && motion.revision >= this.view.exercise.revision)

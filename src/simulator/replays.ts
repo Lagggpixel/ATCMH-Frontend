@@ -7,6 +7,11 @@ export interface ReplaySummary {
   startedAt: number; endedAt: number; duration: number; status: string;
   participants: ReplayParticipant[]; kind: "recording" | "snapshot" | "unavailable"; partial: boolean; feedback?: string;
 }
+export const canPlayReplay = (replay: ReplaySummary) => replay.kind === "recording" && replay.duration > 0;
+export const recordingLabel = (replay: ReplaySummary) => replay.kind === "recording"
+  ? replay.duration <= 0 ? "No elapsed time" : replay.partial ? "Partial recording" : "Recorded session"
+  : replay.kind === "snapshot" ? "Final snapshot" : "Summary only";
+
 export interface ReplayDelta {
   state: Partial<Omit<Exercise, "aircraft">>;
   aircraft: {id: string; value?: Partial<Aircraft>; unset?: (keyof Aircraft)[]; remove?: true}[];

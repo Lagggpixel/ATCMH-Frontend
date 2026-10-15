@@ -67,12 +67,38 @@ function legacySummary(row: LegacyRow): ReplaySummary {
     participants: [{role: "staff", accountId: row.owner_id}, ...(row.learner_id ? [{role: "mentee" as const, accountId: row.learner_id}] : [])], kind: row.result ? "snapshot" : "unavailable", partial: true, feedback: row.feedback || undefined};
 }
 const legacySelect = "SELECT a.*,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.definition,'$.title')),'Previous training attempt') AS title FROM simulator_attempts a LEFT JOIN simulator_scenario_revisions r ON r.scenario_id=a.scenario_id AND r.revision=a.revision";
-export async function listReplays(offset: number) {
+export interface ReplayFilters {mentorId?: string; search?: string; airport?: string; recordedOn?: number}
+export async function listReplays(offset: number, filters: ReplayFilters = {}) {
   // Independent bounded queries merged by completion time include surviving pre-recording attempts.
   const limit = offset + 51;
+  const recordedWhere: string[] = [], legacyWhere: string[] = [];
+  const recordedValues: (string | number)[] = [], legacyValues: (string | number)[] = [];
+  if (filters.recordedOn !== undefined) {
+    recordedWhere.push("ended_at>=? AND ended_at<?");
+    legacyWhere.push("a.finished_at>=? AND a.finished_at<?");
+    recordedValues.push(filters.recordedOn, filters.recordedOn + 86_400_000);
+    legacyValues.push(filters.recordedOn, filters.recordedOn + 86_400_000);
+  }
+  if (filters.mentorId) {
+    // Match a single historical staff participant, not the creator or a mentee seat.
+    recordedWhere.push("JSON_CONTAINS(participants, ?) = 1");
+    recordedValues.push(JSON.stringify({role: "staff", accountId: filters.mentorId}));
+    legacyWhere.push("a.owner_id=?"); legacyValues.push(filters.mentorId);
+  }
+  if (filters.airport) {
+    recordedWhere.push("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')),'EGPH')=?"); recordedValues.push(filters.airport);
+    // Legacy summaries have always used the original EGPH environment.
+    legacyWhere.push("?='EGPH'"); legacyValues.push(filters.airport);
+  }
+  if (filters.search) {
+    recordedWhere.push("LOCATE(LOWER(?),LOWER(CONCAT_WS(' ',title,participants,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')),'EGPH'))))>0"); recordedValues.push(filters.search);
+    legacyWhere.push("LOCATE(LOWER(?),LOWER(CONCAT_WS(' ',JSON_UNQUOTE(JSON_EXTRACT(r.definition,'$.title')),a.owner_id,a.learner_id,'EGPH')))>0"); legacyValues.push(filters.search);
+  }
+  const recordedClause = recordedWhere.length ? ` AND ${recordedWhere.join(" AND ")}` : "";
+  const legacyClause = legacyWhere.length ? ` AND ${legacyWhere.join(" AND ")}` : "";
   const [recordings, legacy] = await Promise.all([
-    queryReadOnly<ReplayRow[]>(`SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')) AS training_station FROM simulator_replays WHERE ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT ${limit}`),
-    queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.status<>'active' AND NOT EXISTS (SELECT 1 FROM simulator_replays p WHERE p.attempt_id=a.id) ORDER BY a.finished_at DESC,a.id DESC LIMIT ${limit}`),
+    queryReadOnly<ReplayRow[]>(`SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')) AS training_station FROM simulator_replays WHERE ended_at IS NOT NULL${recordedClause} ORDER BY ended_at DESC,id DESC LIMIT ${limit}`, recordedValues),
+    queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.status<>'active' AND NOT EXISTS (SELECT 1 FROM simulator_replays p WHERE p.attempt_id=a.id)${legacyClause} ORDER BY a.finished_at DESC,a.id DESC LIMIT ${limit}`, legacyValues),
   ]);
   const all = [...recordings.map(summary), ...legacy.map(legacySummary)].sort((a, b) => b.endedAt - a.endedAt || b.id.localeCompare(a.id));
   return {replays: all.slice(offset, offset + 50), next: all.length > offset + 50 ? offset + 50 : null};

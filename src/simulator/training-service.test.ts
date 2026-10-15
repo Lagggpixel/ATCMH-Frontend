@@ -16,7 +16,7 @@ type Row = Record<string, unknown>;
 type Tables = Record<string, Row[]>;
 /** Transactional SQL test double; does not connect to application databases. */
 class Database {
-  tables: Tables = {scenarios: [], revisions: [], assignments: [], attempts: [], sessions: [], preferences: [], replays: [], frames: []};
+  tables: Tables = {scenarios: [], revisions: [], attempts: [], sessions: [], preferences: [], replays: [], frames: []};
   failAttemptInsert = false;
   failSessionUpdate = false;
   failReplayInsert = false;
@@ -54,16 +54,9 @@ class Database {
     else if (sql.startsWith("UPDATE SIMULATOR_SCENARIOS SET PUBLISHED")) {const r = t.scenarios.find(r => r.id === v[2])!; Object.assign(r, {published_revision: v[0], version: Number(r.version) + 1, updated_at: v[1]});}
     else if (sql.startsWith("INSERT INTO SIMULATOR_SCENARIO_REVISIONS")) t.revisions.push({scenario_id: v[0], revision: v[1], created_at: v[2], definition: v[3]});
     else if (sql.startsWith("SELECT DEFINITION FROM SIMULATOR_SCENARIO_REVISIONS")) return select(t.revisions.filter(r => r.scenario_id === v[0] && r.revision === v[1]));
-    else if (sql.startsWith("INSERT INTO SIMULATOR_ASSIGNMENTS")) t.assignments.push({id: v[0], owner_id: v[1], learner_id: v[2], scenario_id: v[3], revision: v[4], due_at: v[5], max_attempts: v[6], created_at: v[7], owner_name: v[8]});
-    else if (sql.startsWith("SELECT A.*,R.DEFINITION FROM SIMULATOR_ASSIGNMENTS")) {
-      const rows = t.assignments.filter(r => sql.includes("A.ID=?") ? r.id === v[0] : !sql.includes("A.LEARNER_ID=?") || r.learner_id === v[0]);
-      return select(rows.map(a => ({...a, definition: t.revisions.find(r => r.scenario_id === a.scenario_id && r.revision === a.revision)!.definition})));
-    } else if (sql.startsWith("SELECT * FROM SIMULATOR_ASSIGNMENTS")) return select(t.assignments.filter(r => r.id === v[0]));
-    else if (sql.startsWith("SELECT T.* FROM SIMULATOR_ATTEMPTS")) return select(t.attempts.filter(r => t.assignments.some(a => a.id === r.assignment_id && (!sql.includes("A.LEARNER_ID=?") || a.learner_id === v[0]))));
-    else if (sql.startsWith("SELECT * FROM SIMULATOR_ATTEMPTS")) return select(t.attempts.filter(r => r.assignment_id === v[0]));
-    else if (sql.startsWith("INSERT INTO SIMULATOR_ATTEMPTS")) {
+   else if (sql.startsWith("INSERT INTO SIMULATOR_ATTEMPTS")) {
       if (this.failAttemptInsert) throw new Error("Simulated attempt insert failure");
-      t.attempts.push({id: v[0], assignment_id: v[1], owner_id: v[2], learner_id: v[3], scenario_id: v[4], revision: v[5], session_id: v[6], started_at: v[7], finished_at: null, status: "active", feedback: "", elapsed: 0, result: null});
+      t.attempts.push({id: v[0], owner_id: v[1], scenario_id: v[2], revision: v[3], session_id: v[4], started_at: v[5], finished_at: null, status: "active", feedback: "", elapsed: 0, result: null});
     } else if (sql.startsWith("UPDATE SIMULATOR_ATTEMPTS")) {
       const finished = sql.includes("STATUS='FINISHED'"), r = t.attempts.find(r => r.id === v[finished ? 4 : 3]);
       if (r?.status === "active") Object.assign(r, {status: finished ? "finished" : sql.includes("STATUS='RESTARTED'") ? "restarted" : "ended", finished_at: v[0], feedback: finished ? v[1] : r.feedback, elapsed: v[finished ? 2 : 1], result: v[finished ? 3 : 2]});
@@ -81,23 +74,22 @@ class Database {
     return [{affectedRows: 1}, []];
   }
 }
-test("all airports persist through publish, pinned assignment, launch, restart and replay", async () => {
+test("all airports persist through publish, pinned revision, launch, restart and replay", async () => {
   const db = new Database(), pool = db as unknown as Pool; setPoolForTests(pool); setWritePoolForTests(pool);
-  const service = new TrainingService(), staff = {accountId: "10001", staff: true}, student = {accountId: "10002", staff: false};
+  const service = new TrainingService(), staff = {accountId: "10001", staff: true};
   try {
     for (const airport of airportList) {
       const definition = blankScenario({airport: airport.icao});
       definition.aircraft = [{key: "air", initial: true, seed: seedFromAircraft(engineFor(definition).newAircraft("air", true))}];
       let scenario = await service.save(staff, definition);
       scenario = await service.publish(staff, scenario.id, scenario.version);
-      const assignment = await service.assign(staff, {scenarioId: scenario.id, revision: 1, learnerId: student.accountId, dueAt: null, maxAttempts: 3});
       scenario = await service.save(staff, {...definition, trainingStation: `${airport.icao}:tower`}, scenario.id, scenario.version);
       assert.equal((await service.scenarios(staff)).find(s => s.id === scenario.id)!.published!.trainingStation, `${airport.icao}:local`);
       scenario = await service.publish(staff, scenario.id, scenario.version);
       const latest = await service.launchScenario(staff, scenario.id, 2);
       const sessions = new SessionService(sqlSessionStore), token = randomUUID();
       assert.equal((await sessions.join(staff, latest.sessionId, "staff", token)).exercise.trainingStation, `${airport.icao}:tower`);
-      const started = await service.startAssignment(staff, assignment.id), seat = randomUUID();
+      const started = await service.launchScenario(staff, scenario.id, 1), seat = randomUUID();
       const joined = await sessions.join(staff, started.sessionId, "staff", seat);
       assert.equal(joined.exercise.airport, airport.icao); assert.equal(joined.exercise.trainingStation, `${airport.icao}:local`);
       assert.equal(joined.exercise.airportDataVersion, airport.dataVersion);
@@ -107,14 +99,13 @@ test("all airports persist through publish, pinned assignment, launch, restart a
       await service.finish(staff, started.sessionId, "Training complete", resumed.scenario!.attemptId!);
       const replay = await readReplay(resumed.scenario!.attemptId!, 0);
       assert.equal(replay.initial!.airport, airport.icao); assert.equal(replay.replay.trainingStation, `${airport.icao}:local`);
-      assert.equal((await service.assignments(student)).find(a => a.id === assignment.id)!.airport, airport.icao);
       const foreign = blankScenario({airport: airport.icao === "EGPH" ? "EGLL" : "EGPH"});
       await assert.rejects(service.save(staff, foreign, scenario.id, scenario.version), /Clear traffic/);
     }
   } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
 });
 
-test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff and preserves attempts", async () => {
+test("scenario SQL lifecycle is atomic, pinned, shared between staff and preserves attempts", async () => {
   const db = new Database(), pool = db as unknown as Pool; setPoolForTests(pool); setWritePoolForTests(pool);
   const service = new TrainingService(), staff = {accountId: "10001", staff: true, displayName: "Mentor One"}, student = {accountId: "10002", staff: false}, other = {accountId: "10003", staff: true};
   try {
@@ -126,17 +117,13 @@ test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff 
     await assert.rejects(service.scenario(student, scenario.id), /Moderator/);
     await assert.rejects(service.save(staff, definition, scenario.id, 0), /another page/);
     scenario = await service.publish(staff, scenario.id, scenario.version);
-    const assignment = await service.assign(staff, {scenarioId: scenario.id, revision: 1, learnerId: student.accountId, maxAttempts: 2, dueAt: null});
     scenario = await service.save(other, {...definition, title: "Edited"}, scenario.id, scenario.version);
     scenario = await service.publish(other, scenario.id, scenario.version);
     assert.equal(scenario.ownerId, staff.accountId);
     assert.equal(scenario.ownerName, "Mentor One");
-    const assigned = (await service.assignments(student))[0]; assert.equal(assigned.title, "Original"); assert.equal(assigned.revision, 1);
-    assert.equal((await service.assignments({accountId: "99999", staff: false})).length, 0);
-    assert.equal((await service.assignments(other))[0].ownerName, "Mentor One");
-    const starts = await Promise.all([service.startAssignment(other, assignment.id), service.startAssignment(staff, assignment.id)]);
-    assert.equal(starts[0].sessionId, starts[1].sessionId); assert.equal(db.tables.attempts.length, 1);
-    const sessionId = starts[0].sessionId, firstAttempt = String(db.tables.attempts[0].id);
+    const started = await service.launchScenario(other, scenario.id, 1);
+    assert.equal(db.tables.attempts.length, 1);
+    const sessionId = started.sessionId, firstAttempt = String(db.tables.attempts[0].id);
     const sessions = new SessionService(sqlSessionStore), control = randomUUID();
     await sessions.join(staff, sessionId, "staff", control);
     await sessions.dispatch(staff, sessionId, "staff", control, {id: randomUUID(), time: 0, action: {kind: "auto-readback", enabled: true}});
@@ -157,19 +144,18 @@ test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff 
     assert.equal(db.tables.attempts[0].status, "restarted"); assert.ok(db.tables.attempts[0].result);
     assert.equal(db.tables.attempts.length, 2);
     await assert.rejects(service.finish(other, sessionId, "stale feedback", firstAttempt), /already been restarted/);
-    await assert.rejects(service.restart(other, sessionId, String(db.tables.attempts[1].id)), /all permitted/);
-    const secondAttempt = String(db.tables.attempts[1].id);
+    await service.restart(other, sessionId, String(db.tables.attempts[1].id));
+    assert.equal(db.tables.attempts.length, 3, "restarts have no assignment attempt cap");
+    const secondAttempt = String(db.tables.attempts[2].id);
     await service.finish(other, sessionId, "Good frequency transfer", secondAttempt);
-    assert.equal(db.tables.attempts[1].status, "finished"); assert.equal(db.tables.attempts[1].feedback, "Good frequency transfer");
+    assert.equal(db.tables.attempts[2].status, "finished"); assert.equal(db.tables.attempts[2].feedback, "Good frequency transfer");
     await service.finish(other, sessionId, "duplicate cannot overwrite", secondAttempt);
-    assert.equal(db.tables.attempts[1].feedback, "Good frequency transfer");
+    assert.equal(db.tables.attempts[2].feedback, "Good frequency transfer");
     await sessions.end(other, sessionId); assert.equal(db.tables.sessions.length, 0);
-    assert.equal((await service.assignments(student))[0].attempts.length, 2);
-    await assert.rejects(service.startAssignment(staff, assignment.id), /all permitted/);
     // A failed attempt insert rolls back the session created in the same transaction.
     db.failAttemptInsert = true;
     await assert.rejects(service.launchScenario(staff, scenario.id, 2), /Simulated/);
-    assert.equal(db.tables.sessions.length, 0); assert.equal(db.tables.attempts.length, 2); assert.equal(db.tables.replays.length, 2);
+    assert.equal(db.tables.sessions.length, 0); assert.equal(db.tables.attempts.length, 3); assert.equal(db.tables.replays.length, 3);
     db.failAttemptInsert = false;
     const adHoc = await new SessionService(sqlSessionStore).create(staff, "Ad hoc");
     const token = randomUUID(); await new SessionService(sqlSessionStore).join(staff, adHoc.id, "staff", token);
@@ -179,7 +165,7 @@ test("scenario/assignment SQL lifecycle is atomic, pinned, shared between staff 
   } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
 });
 
-test("creating a session from a published scenario binds an optional mentee and isolates each session", async () => {
+test("published scenario sessions accept mentee links and isolate each session", async () => {
   const db = new Database(); setPoolForTests(db as unknown as Pool); setWritePoolForTests(db as unknown as Pool);
   const staff = {accountId: "10001", staff: true, displayName: "Mentor One"}, learner = {accountId: "10002", staff: false};
   try {
@@ -187,10 +173,9 @@ test("creating a session from a published scenario binds an optional mentee and 
     let scenario = await service.save(staff, {...blankScenario(), title: "Premade ground", aircraft: [{key: "ground", initial: true, seed: seedFromAircraft(newAircraft("seed", false))}]});
     await assert.rejects(service.launchScenario(staff, scenario.id, 1), /unavailable/);
     scenario = await service.publish(staff, scenario.id, scenario.version);
-    const first = await service.launchScenario(staff, scenario.id, 1, learner.accountId);
+    const first = await service.launchScenario(staff, scenario.id, 1);
     const second = await service.launchScenario(staff, scenario.id, 1);
     assert.notEqual(first.sessionId, second.sessionId);
-    await assert.rejects(sessions.join({accountId: "10003", staff: false}, first.sessionId, "mentee", randomUUID()), /different mentee/);
     const view = await sessions.join(learner, first.sessionId, "mentee", randomUUID());
     assert.equal(view.exercise.running, false);
     assert.equal(view.exercise.aircraft.length, 1);

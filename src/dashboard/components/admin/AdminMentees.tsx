@@ -9,6 +9,7 @@ import {NoteIcon as Note} from "@phosphor-icons/react/Note";
 import {UserIcon as User} from "@phosphor-icons/react/User";
 import {UserPlusIcon as UserPlus} from "@phosphor-icons/react/UserPlus";
 import {UsersIcon as Users} from "@phosphor-icons/react/Users";
+import {XIcon as X} from "@phosphor-icons/react/X";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee} from "../../types/AdminMentee.ts";
 import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../../types/AutoMatchCandidate.ts";
@@ -25,7 +26,7 @@ import {
     parseUtcDateTimeInput,
 } from "../../utils/AdminDateUtils.ts";
 import {createSessionEditForm, toSessionUpdatePayload, type SessionEditForm} from "../../utils/SessionEditForm.ts";
-import {generateHalfHourLocalSuggestions, downloadSessionCalendar} from "../../utils/SessionTime.ts";
+import {generateHalfHourLocalSuggestions} from "../../utils/SessionTime.ts";
 import SessionTimeDisplay, {SessionTimePreview} from "./SessionTimeDisplay";
 import {getMenteeActionPolicy} from "../../utils/AdminMenteeActionPolicy.ts";
 import {getMenteeAvailabilityRows, getMenteeLifecycle} from "../../utils/MenteeProfileUtils.ts";
@@ -49,6 +50,8 @@ import AdminPagination from "./AdminPagination.tsx";
 import WeeklyAvailabilityEditor from "../../../apply/WeeklyAvailabilityEditor.tsx";
 import {defaultWeeklyAvailabilityAnswer} from "../../../apply/weekly-availability.ts";
 import MenteeProfileEditor from "./MenteeProfileEditor.tsx";
+import SessionFeedbackPanel from "./SessionFeedbackPanel";
+import RecentTrainingFeedback from "./RecentTrainingFeedback";
 import styles from "./AdminMentees.module.css";
 
 interface AdminMenteesProps {
@@ -1136,6 +1139,7 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                 onOpenAssignmentGenerator={onOpenAssignmentGenerator}
                 />) : null}
             </section>
+            <RecentTrainingFeedback menteeRecordId={selectedMentee.id}/>
             <AttendedSessionSection
                 title="Session sign-up history"
                 sessions={attendedSessions}
@@ -1646,7 +1650,15 @@ const SessionDetailsModal = ({
                                  onCancelSession,
                                  onClose
                              }: SessionDetailsModalProps) => {
-    const dialogRef = useMenteeDialogFocus(onClose);
+    const dialogRef = useMenteeDialogFocus(() => { if (!busyAction) onClose(); });
+    const [activeTab, setActiveTab] = useState("details");
+    const tabs = ["details", "feedback", "attendees"] as const;
+
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = previousOverflow; };
+    }, []);
     const sessionEditable = editable && !session.cancelled;
     const [editForm, setEditForm] = useState(() => createSessionEditForm(session));
     const [editState, setEditState] = useState("");
@@ -1700,120 +1712,150 @@ const SessionDetailsModal = ({
                  aria-labelledby={`session-details-${session.id}`}>
                 <header className={styles.sessionDetailsHeader}>
                     <div>
-                        <h2 id={`session-details-${session.id}`}>Session Details</h2>
+                        <p className={styles.sessionEyebrow}>Session #{session.id}</p>
+                        <h2 id={`session-details-${session.id}`}>Session details</h2>
                         <SessionTimeDisplay value={session.time}/>
-                        <button type="button" className={styles.secondaryButton} onClick={() => downloadSessionCalendar(session, {mentor: getUserName(session.mentor), mentee: getUserName(session.mentee)})}>Add to calendar</button>
                     </div>
-                    <button type="button" className={styles.secondaryButton} onClick={onClose}>Close</button>
+                    <span className={styles.sessionStatus} data-cancelled={session.cancelled}>{session.cancelled ? "Cancelled" : "Scheduled"}</span>
+                    <button type="button" className={styles.sessionCloseIcon} onClick={onClose} disabled={Boolean(busyAction)} aria-label="Close session details"><X size={20}/></button>
                 </header>
 
-                <section className={styles.sessionDetailsGrid} aria-label="Session details">
-                    <DetailItem label="Mentor" value={getUserName(session.mentor)}/>
-                    <DetailItem label="Mentee" value={getUserName(session.mentee)}/>
-                    <DetailItem label="Airport" value={session.airport || "Not set"}/>
-                    <DetailItem label="Pilots" value={formatPilotCount(session)}/>
-                    <DetailItem label="Assignment" value={session.hasAssignment ? "Sent" : "Not sent"}/>
-                    <div className={styles.detailItem}>
-                        <span>Status</span>
-                        <strong>{session.cancelled ? "Cancelled" : "Scheduled"}</strong>
+                <div className={styles.sessionTabs} role="tablist" aria-label="Session sections">
+                    {tabs.map(tab => (
+                        <button key={tab} type="button" role="tab" id={`session-${session.id}-tab-${tab}`}
+                                aria-controls={`session-${session.id}-panel-${tab}`} aria-selected={activeTab === tab}
+                                tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)}
+                                onKeyDown={event => {
+                                    const index = tabs.indexOf(tab);
+                                    const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
+                                        : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
+                                        : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : undefined;
+                                    if (next === undefined) return;
+                                    event.preventDefault();
+                                    setActiveTab(tabs[next]);
+                                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+                                }}>
+                            {tab === "details" ? "Details" : tab === "feedback" ? "Feedback" : `Attendees (${session.attendees.length})`}
+                        </button>
+                    ))}
+                </div>
+                <div className={styles.sessionDetailsContent}>
+                    <div role="tabpanel" id={`session-${session.id}-panel-details`} aria-labelledby={`session-${session.id}-tab-details`} hidden={activeTab !== "details"} tabIndex={0}>
+                        <section className={styles.sessionDetailsGrid} aria-label="Session summary">
+                            <DetailItem label="Mentor" value={getUserName(session.mentor)}/>
+                            <DetailItem label="Mentee" value={getUserName(session.mentee)}/>
+                            <DetailItem label="Airport" value={session.airport || "Not set"}/>
+                            <DetailItem label="Pilots" value={formatPilotCount(session)}/>
+                            <DetailItem label="Assignment" value={session.hasAssignment ? "Sent" : "Not sent"}/>
+                            {session.messageId ? <DetailItem label="Message ID" value={session.messageId}/> : null}
+                        </section>
+
+                        {sessionEditable ? (
+                            <section className={styles.sessionDetailsBlock}>
+                                <h3>Edit Session</h3>
+                                <form id={`session-edit-${session.id}`} className={styles.sessionEditForm} onSubmit={submitSessionUpdate}>
+                                    <label>
+                                        <span>Airport</span>
+                                        <input
+                                            value={editForm.airport}
+                                            onChange={event => {
+                                                setEditForm(prev => ({...prev, airport: event.target.value.toUpperCase()}));
+                                                setEditState("");
+                                            }}
+                                            maxLength={5}
+                                            required
+                                        />
+                                    </label>
+                                    <label>
+                                        <span>Requested pilots</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="99"
+                                            value={editForm.pilots}
+                                            onChange={event => {
+                                                setEditForm(prev => ({...prev, pilots: event.target.value}));
+                                                setEditState("");
+                                            }}
+                                            required
+                                        />
+                                    </label>
+                                    <label>
+                                        <span>Session time (your local time)</span>
+                                        <input
+                                            type="datetime-local"
+                                            list={`session-time-suggestions-${session.id}`}
+                                            value={editForm.time}
+                                            onChange={event => {
+                                                setEditForm(prev => ({...prev, time: event.target.value}));
+                                                setEditState("");
+                                            }}
+                                            required
+                                        />
+                                        <datalist id={`session-time-suggestions-${session.id}`}>
+                                            {sessionTimeSuggestions.map(value => (
+                                                <option key={value} value={value}/>
+                                            ))}
+                                        </datalist>
+                                        <SessionTimePreview value={editForm.time}/>
+                                    </label>
+                                </form>
+                            </section>
+                        ) : null}
+
                     </div>
-                    {session.messageId ? <DetailItem label="Message ID" value={session.messageId}/> : null}
-                </section>
-
-                {sessionEditable ? (
-                    <section className={styles.sessionDetailsBlock}>
-                        <h3>Edit Session</h3>
-                        <form className={styles.sessionEditForm} onSubmit={submitSessionUpdate}>
-                            <label>
-                                <span>Airport</span>
-                                <input
-                                    value={editForm.airport}
-                                    onChange={event => {
-                                        setEditForm(prev => ({...prev, airport: event.target.value.toUpperCase()}));
-                                        setEditState("");
-                                    }}
-                                    maxLength={5}
-                                    required
-                                />
-                            </label>
-                            <label>
-                                <span>Requested pilots</span>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="99"
-                                    value={editForm.pilots}
-                                    onChange={event => {
-                                        setEditForm(prev => ({...prev, pilots: event.target.value}));
-                                        setEditState("");
-                                    }}
-                                    required
-                                />
-                            </label>
-                            <label>
-                                <span>Session time (your local time)</span>
-                                <input
-                                    type="datetime-local"
-                                    list={`session-time-suggestions-${session.id}`}
-                                    value={editForm.time}
-                                    onChange={event => {
-                                        setEditForm(prev => ({...prev, time: event.target.value}));
-                                        setEditState("");
-                                    }}
-                                    required
-                                />
-                                <datalist id={`session-time-suggestions-${session.id}`}>
-                                    {sessionTimeSuggestions.map(value => (
-                                        <option key={value} value={value}/>
+                    <div role="tabpanel" id={`session-${session.id}-panel-feedback`} aria-labelledby={`session-${session.id}-tab-feedback`} hidden={activeTab !== "feedback"} tabIndex={0}>
+                        <SessionFeedbackPanel sessionId={session.id} outcome={session.trainingOutcome}/>
+                    </div>
+                    <div role="tabpanel" id={`session-${session.id}-panel-attendees`} aria-labelledby={`session-${session.id}-tab-attendees`} hidden={activeTab !== "attendees"} tabIndex={0}>
+                        <section className={styles.sessionDetailsBlock}>
+                            <h3>Attendees</h3>
+                            {session.attendees.length === 0 ? (
+                                <p className={styles.emptyState}>No attendees added.</p>
+                            ) : (
+                                <div className={styles.attendeesList}>
+                                    {session.attendees.map(attendeeId => (
+                                        <span key={attendeeId} className={styles.attendeeItem}>
+                                            {getUserName(attendeeId)}
+                                            {sessionEditable ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onRemoveAttendee(attendeeId)}
+                                                    disabled={Boolean(busyAction)}
+                                                    aria-label={`Remove ${getUserName(attendeeId)}`}
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
+                                        </span>
                                     ))}
-                                </datalist>
-                                <SessionTimePreview value={editForm.time}/>
-                            </label>
-                            <div className={styles.sessionEditActions}>
-                                <span>{editState}</span>
-                                <button type="submit" disabled={Boolean(busyAction)}>Save Changes</button>
-                            </div>
-                        </form>
-                    </section>
-                ) : null}
+                                </div>
+                            )}
+                        </section>
 
-                <section className={styles.sessionDetailsBlock}>
-                    <h3>Attendees</h3>
-                    {session.attendees.length === 0 ? (
-                        <p className={styles.emptyState}>No attendees added.</p>
-                    ) : (
-                        <div className={styles.attendeesList}>
-                            {session.attendees.map(attendeeId => (
-                                <span key={attendeeId} className={styles.attendeeItem}>
-                                    {getUserName(attendeeId)}
-                                    {sessionEditable ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => onRemoveAttendee(attendeeId)}
-                                            disabled={Boolean(busyAction)}
-                                            aria-label={`Remove ${getUserName(attendeeId)}`}
-                                        >
-                                            Remove
-                                        </button>
-                                    ) : null}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </section>
+                        {sessionEditable ? (
+                            <section className={styles.sessionDetailsBlock}>
+                                <h3>Add attendee</h3>
+                                <div className={styles.sessionActions}>
+                                    <form onSubmit={onAddAttendee}>
+                                        <input
+                                            value={attendeeInput}
+                                            onChange={event => onAttendeeInputChange(event.target.value)}
+                                            placeholder="Attendee Discord ID"
+                                            aria-label="Attendee Discord ID"
+                                            required
+                                        />
+                                        <button type="submit" disabled={Boolean(busyAction)}>Add</button>
+                                    </form>
 
-                {sessionEditable ? (
-                    <section className={styles.sessionDetailsBlock}>
-                        <h3>Actions</h3>
-                        <div className={styles.sessionActions}>
-                            <form onSubmit={onAddAttendee}>
-                                <input
-                                    value={attendeeInput}
-                                    onChange={event => onAttendeeInputChange(event.target.value)}
-                                    placeholder="Attendee Discord ID"
-                                />
-                                <button type="submit" disabled={Boolean(busyAction)}>Add</button>
-                            </form>
+                                </div>
+                            </section>
+                        ) : null}
+                    </div>
+                </div>
+                <footer className={styles.sessionDetailsFooter}>
+                    <div>{sessionEditable ? (
+                        <>
                             <button
                                 ref={cancelSessionButton}
                                 type="button"
@@ -1864,9 +1906,14 @@ const SessionDetailsModal = ({
                                     </div>
                                 </dialog>
                             ) : null}
-                        </div>
-                    </section>
-                ) : null}
+                        </>
+                    ) : null}</div>
+                    <div className={styles.sessionFooterActions}>
+                        <span role="status" className={styles.sessionSaveStatus}>{editState}</span>
+                        <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={Boolean(busyAction)}>Close</button>
+                        {sessionEditable && activeTab === "details" ? <button type="submit" form={`session-edit-${session.id}`} disabled={Boolean(busyAction)}>Save Changes</button> : null}
+                    </div>
+                </footer>
             </div>
         </div>
     );

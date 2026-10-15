@@ -3,18 +3,34 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {MemoryStore} from "./session-test-store";
 import {SessionService} from "./server/session-service";
-import {createScenarioExercise, blankScenario, seedFromAircraft} from "./scenarios";
+import {createScenarioExercise, blankScenario, seedFromAircraft, scenarioRuntimeSchema} from "./scenarios";
 import {newAircraft} from "./engine";
-test("shared scenario clocks, private payloads, account binding and reconnect are authoritative", async () => {
+test("legacy sessions discard removed assignment and briefing fields while preserving scenario state", async () => {
+  const setup = createScenarioExercise(blankScenario(), "pending", randomUUID());
+  const legacy = {...setup.runtime, assignmentId: randomUUID(), learnerId: "previous-learner",
+    definition: {...setup.runtime.definition, briefing: "Old mentee briefing"}};
+  const runtime = scenarioRuntimeSchema.parse(legacy);
+  assert.equal("assignmentId" in runtime, false);
+  assert.equal("learnerId" in runtime, false);
+  assert.equal("briefing" in runtime.definition, false);
+  assert.equal(runtime.generation, legacy.generation);
+  assert.deepEqual(runtime.events, legacy.events);
+  const service = new SessionService(new MemoryStore());
+  const session = await service.create({accountId: "mentor", staff: true}, "Legacy scenario", setup.exercise, runtime);
+  const mentee = {accountId: "another-learner", staff: false};
+  const joined = await service.join(mentee, session.id, "mentee", randomUUID());
+  assert.equal("briefing" in joined, false);
+  assert.equal("assignmentId" in joined.session.scenario!, false);
+});
+test("shared scenario clocks, private payloads, shared access and reconnect are authoritative", async () => {
   const store = new MemoryStore(); let now = 10000;
   const service = new SessionService(store, () => now), staff = {accountId: "10001", staff: true}, mentee = {accountId: "10002", staff: false};
-  const source = {...blankScenario(), briefing: "Public briefing", instructorNotes: "Secret notes", aircraft: [{key: "easy", initial: true, seed: seedFromAircraft(newAircraft("easy", false))}], events: [{id: "request", title: "Hidden future event", trigger: {type: "time" as const, at: 1}, actions: [{type: "request" as const, aircraftKey: "easy", label: "Request pushback", runway: "24" as const}]}]};
-  const setup = createScenarioExercise(source, "pending", randomUUID()); setup.runtime.learnerId = mentee.accountId;
+  const source = {...blankScenario(), instructorNotes: "Secret notes", aircraft: [{key: "easy", initial: true, seed: seedFromAircraft(newAircraft("easy", false))}], events: [{id: "request", title: "Hidden future event", trigger: {type: "time" as const, at: 1}, actions: [{type: "request" as const, aircraftKey: "easy", label: "Request pushback", runway: "24" as const}]}]};
+  const setup = createScenarioExercise(source, "pending", randomUUID());
   const session = await service.create(staff, "Scenario", setup.exercise, setup.runtime), token = randomUUID(), student = randomUUID();
   await service.join(staff, session.id, "staff", token);
-  await assert.rejects(service.join({accountId: "99999", staff: false}, session.id, "mentee", student), /different mentee/);
   const joined = await service.join(mentee, session.id, "mentee", student);
-  assert.equal(joined.briefing, "Public briefing"); assert.equal("scenario" in joined, false);
+  assert.equal("briefing" in joined, false); assert.equal("scenario" in joined, false);
   assert.equal(JSON.stringify(joined).includes("Secret notes"), false); assert.equal(JSON.stringify(joined).includes("Hidden future event"), false);
   await service.dispatch(staff, session.id, "staff", token, {id: randomUUID(), time: now, action: {kind: "play"}});
   now += 1100; const frame = await service.frame(mentee, session.id, "mentee", student);

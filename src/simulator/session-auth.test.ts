@@ -36,7 +36,7 @@ test("every simulator seat enforces staff/admin/tester access, central sign-in, 
     const headers = new Headers(request().headers);
     headers.set("x-simulator-role", "mentee"); headers.set("x-simulator-seat", seat);
     assert.equal((await api.sessionOperation(new Request(request(), {headers}), id, "stream")).status, 403);
-    assert.equal((await createTrainingApi()(request(), "assignments")).status, 403);
+    assert.equal((await createTrainingApi()(request(), "scenarios")).status, 403);
 
     tester = true;
     assert.deepEqual(await authorizeSessionRequest(request("POST"), true), {accountId: "101", staff: true});

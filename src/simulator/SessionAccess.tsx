@@ -8,8 +8,8 @@ import {canAccessStaffSimulator} from "./feature";
 import type {SessionRole} from "./sessions";
 import styles from "./Sessions.module.css";
 
-export function SessionNotice({title, children, embedded = false}: {title: string; children: ReactNode; embedded?: boolean}) {
-  return <main className={`${styles.notice} ${embedded ? styles.embeddedNotice : ""}`}>{!embedded ? <Link href="/" className={styles.brand}>ATCMH <span>/ ATC Trainer</span></Link> : null}<section><h1>{title}</h1><TrainerNotice/>{children}</section></main>;
+export function SessionNotice({title, children, embedded = false}: {title: string; children?: ReactNode; embedded?: boolean}) {
+  return <main className={`${styles.notice} ${embedded ? styles.embeddedNotice : ""}`}>{!embedded ? <Link href="/" className={styles.brand}>ATCMH <span>/ ATC Trainer</span></Link> : null}<section><h1>{title}</h1>{children}</section><footer><TrainerNotice/></footer></main>;
 }
 export default function SessionAccess({returnTo, children, embedded = false}: {role: SessionRole; returnTo: string; children: (csrf: string, accountId: string) => ReactNode; embedded?: boolean}) {
   const {session, adminUser, loading, error} = usePortalAuth();
@@ -23,10 +23,10 @@ export default function SessionAccess({returnTo, children, embedded = false}: {r
     }).catch(reason => {if (!controller.signal.aborted) setFailure(reason.message);});
     return () => controller.abort();
   }, [session]);
-  if (loading) return <SessionNotice embedded={embedded} title="Checking access…"><p>Your saved sessions will be ready shortly.</p></SessionNotice>;
-  if (!session) return <SessionNotice embedded={embedded} title="Join the ATC simulator"><p>Sign in to open your training session.</p><Link className={styles.primary} href={homeLoginHref("dashboard", returnTo)}>Sign in</Link></SessionNotice>;
+  if (loading) return <SessionNotice embedded={embedded} title="Checking access…"/>;
+  if (!session) return <SessionNotice embedded={embedded} title="Join the ATC simulator"><Link className={styles.primary} href={homeLoginHref("dashboard", returnTo)}>Sign in</Link></SessionNotice>;
   if (error || !canAccessStaffSimulator(adminUser)) return <SessionNotice embedded={embedded} title="Simulator access required"><p>{error || "The simulator is available to staff, administrators and Simulator Testers."}</p><Link href="/">Return home</Link></SessionNotice>;
   if (failure) return <SessionNotice embedded={embedded} title="Could not verify sign-in"><p>{failure}</p><button onClick={() => window.location.reload()}>Try again</button></SessionNotice>;
-  if (!csrf) return <SessionNotice embedded={embedded} title="Opening simulator…"><p>Verifying your session.</p></SessionNotice>;
+  if (!csrf) return <SessionNotice embedded={embedded} title="Opening simulator…"/>;
   return children(csrf, session.accountId);
 }

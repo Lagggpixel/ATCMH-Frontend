@@ -5,10 +5,8 @@ import {useCallback, useEffect, useMemo, useState} from "react";
 import {useSearchParams, useNavigate} from "../../next-navigation";
 import {useBrowserPreference} from "../../hooks/useBrowserPreference";
 import {defaultSessionPreferences, defaultSessionFilters, parseSessionPreferences} from "../../utils/SessionPreferences";
-import {downloadSessionCalendar} from "../../utils/SessionTime";
 import SessionTimeDisplay from "./SessionTimeDisplay";
-import {formatAdminUtcDate} from "../../utils/AdminDateUtils.ts";
-import {availableUserName, formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
+import {formatUserName, matchesUserSearch} from "../../../lib/user-display-name.ts";
 import styles from "./AdminSessions.module.css"
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AdminErrorScreen from "./AdminErrorScreen.tsx";
@@ -17,6 +15,10 @@ import AdminLoginScreen from "./AdminLoginScreen.tsx";
 import {useTableSort} from "../../hooks/useTableSort.ts";
 import {usePagination} from "../../hooks/usePagination.ts";
 import AdminPagination from "./AdminPagination.tsx";
+import SessionViewDialog from "./SessionViewDialog";
+import {ApiUtils} from "../../utils/ApiUtils";
+import type {AdminMentee} from "../../types/AdminMentee";
+import {CaretDown, CaretUp, MagnifyingGlass, SlidersHorizontal} from "@phosphor-icons/react";
 
 interface AdminSessionStatsProps {
     loaded: boolean;
@@ -26,6 +28,9 @@ interface AdminSessionStatsProps {
     users: AtcmhUser[] | undefined;
     adminUser?: AdminUser;
     accountId?: string;
+    token?: string | null;
+    mentees?: AdminMentee[];
+    onSessionChanged?: (menteeRecordId: number, session: Session) => void;
 }
 
 const AdminSessions = ({
@@ -36,6 +41,9 @@ const AdminSessions = ({
                        users,
                        adminUser,
                        accountId,
+                       token,
+                       mentees,
+                       onSessionChanged,
                    }: AdminSessionStatsProps) => {
     const preferenceOwner = accountId ?? adminUser?.id;
     const [preferences, setPreferences] = useBrowserPreference(
@@ -49,7 +57,9 @@ const AdminSessions = ({
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {const timer = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(timer);}, []);
     const [attendeesModalSessionId, setAttendeesModalSessionId] = useState<number | null>(null);
+    const [outcomes, setOutcomes] = useState<Record<number, Session>>({});
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const activeFilterCount = Object.entries(filter).filter(([key, value]) => value !== defaultSessionFilters[key as keyof typeof defaultSessionFilters]).length;
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const {name, value} = e.target;
@@ -65,18 +75,10 @@ const AdminSessions = ({
     const matchesSessionUser = useCallback((id: string, query: string) =>
         matchesUserSearch(id, usersById.get(id)?.username, query), [usersById]);
 
-    const getAttendeeNames = useCallback((attendeeIds: string[]) => {
-        return attendeeIds.map(id => ({
-            id,
-            name: formatUserName(id, usersById.get(id)?.username, `ID ${id}`),
-            hasUsername: Boolean(availableUserName(usersById.get(id)?.username))
-        }));
-    }, [usersById]);
-
     const displayedSessions = useMemo(() => {
         if (!sessions || !users) return [];
 
-        let filteredSessions = [...sessions];
+        let filteredSessions = sessions.map(session => outcomes[session.id] ?? session);
         if (selectedSessionId) return filteredSessions.filter(session => String(session.id) === selectedSessionId);
 
         if (filter.mine) filteredSessions = filteredSessions.filter(session => session.mentor === adminUser?.id);
@@ -107,7 +109,7 @@ const AdminSessions = ({
         filteredSessions.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
         return filteredSessions;
-    }, [filter, matchesSessionUser, sessions, users, selectedSessionId, adminUser?.id, now]);
+    }, [filter, matchesSessionUser, sessions, users, selectedSessionId, adminUser?.id, now, outcomes]);
 
     const sessionRecords = useMemo(() => displayedSessions.map(session => ({
         time: session.time,
@@ -134,8 +136,17 @@ const AdminSessions = ({
     };
 
     const attendeesModalSession = useMemo(() => {
-        return sessions?.find(session => session.id === attendeesModalSessionId);
-    }, [attendeesModalSessionId, sessions]);
+        return attendeesModalSessionId ? outcomes[attendeesModalSessionId] ?? sessions?.find(session => session.id === attendeesModalSessionId) : undefined;
+    }, [attendeesModalSessionId, sessions, outcomes]);
+
+    // Match the session's mentorship attempt, rather than guessing from a Discord user ID.
+    const sessionMentee = attendeesModalSession ? mentees?.filter(mentee =>
+        mentee.mentee === attendeesModalSession.mentee && mentee.sessions.some(session => session.id === attendeesModalSession.id)) : [];
+    const menteeRecordId = sessionMentee?.length === 1 ? sessionMentee[0].id : undefined;
+    const handleSessionChanged = (session: Session) => {
+        setOutcomes(previous => ({...previous, [session.id]: session}));
+        if (menteeRecordId !== undefined) onSessionChanged?.(menteeRecordId, session);
+    };
 
     if (!loggedIn) {
         return <AdminLoginScreen/>
@@ -156,9 +167,21 @@ const AdminSessions = ({
     return (
         <div className={styles.adminSessionsContainer}>
             {selectedSessionId ? <p role="status">Showing session #{selectedSessionId}. <button type="button" onClick={() => {navigate("/dashboard/sessions", {replace: true}); pagination.reset();}}>Return to saved filters</button></p> : null}
-            <div className={styles.adminSessionsControls}>
+            <div className={styles.sessionsLayout}>
+            <aside className={styles.adminSessionsControls} aria-label="Session filters">
+                <div className={styles.filtersHeading}>
+                    <h2>Filters</h2>
+                    <button type="button" className={styles.mobileFiltersToggle} aria-controls="session-extra-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)}>
+                        <SlidersHorizontal size={18} aria-hidden="true"/> {filtersOpen ? "Hide filters" : "Show filters"}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                    </button>
+                </div>
+                <div id="session-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
+                <fieldset disabled={Boolean(selectedSessionId)} className={styles.filtersFields}>
+                <legend className={styles.srOnly}>Filter sessions</legend>
                 <div className={styles.adminSessionsFilterControl}>
                     <label htmlFor="mentor-filter">Mentor</label>
+                    <div className={styles.searchInput}>
+                    <MagnifyingGlass size={18} aria-hidden="true"/>
                     <input
                         id="mentor-filter"
                         type="text"
@@ -167,14 +190,13 @@ const AdminSessions = ({
                         value={filter.mentor}
                         onChange={handleFilterChange}
                     />
+                    </div>
                 </div>
-
-                <button type="button" className={styles.mobileFiltersToggle} aria-controls="session-extra-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)}>{filtersOpen ? "Hide filters" : "Filters"}</button>
-
-                <div id="session-extra-filters" className={styles.secondaryFilters} data-open={filtersOpen}>
 
                 <div className={styles.adminSessionsFilterControl}>
                     <label htmlFor="mentee-filter">Mentee</label>
+                    <div className={styles.searchInput}>
+                    <MagnifyingGlass size={18} aria-hidden="true"/>
                     <input
                         id="mentee-filter"
                         type="text"
@@ -183,10 +205,13 @@ const AdminSessions = ({
                         value={filter.mentee}
                         onChange={handleFilterChange}
                     />
+                    </div>
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
                     <label htmlFor="attendee-filter">Attendee</label>
+                    <div className={styles.searchInput}>
+                    <MagnifyingGlass size={18} aria-hidden="true"/>
                     <input
                         id="attendee-filter"
                         type="text"
@@ -195,6 +220,7 @@ const AdminSessions = ({
                         value={filter.attendee}
                         onChange={handleFilterChange}
                     />
+                    </div>
                 </div>
 
                 <div className={styles.adminSessionsFilterControl}>
@@ -205,9 +231,9 @@ const AdminSessions = ({
                         value={filter.cancelled}
                         onChange={handleFilterChange}
                     >
-                        <option value="all">All Sessions</option>
+                        <option value="all">All sessions</option>
                         <option value="active">Not cancelled</option>
-                        <option value="cancelled">Cancelled Only</option>
+                        <option value="cancelled">Cancelled only</option>
                     </select>
                 </div>
                 <div className={styles.adminSessionsFilterControl}>
@@ -228,48 +254,51 @@ const AdminSessions = ({
                     <label><input type="checkbox" checked={filter.mine} disabled={!adminUser?.id} onChange={event => {setPreferences(prev => ({...prev, filter: {...prev.filter, mine: event.target.checked}})); pagination.reset();}}/> My sessions</label>
                     <button type="button" onClick={() => {setPreferences(prev => ({...prev, filter: defaultSessionFilters})); pagination.reset();}}>Clear filters</button>
                 </div>
+                </fieldset>
                 </div>
-            </div>
+            </aside>
+            <section className={styles.sessionsResults} aria-label="Sessions">
             {filter.from && filter.to && filter.from > filter.to ? <p role="alert">The end date must be on or after the start date.</p> : null}
             <div className={styles.adminSessionsSessionsCount} role="status">
-                Showing {displayedSessions.length} session{displayedSessions.length !== 1 ? 's' : ''}
+                {displayedSessions.length.toLocaleString()} session{displayedSessions.length !== 1 ? 's' : ''} found
             </div>
             <div className={styles.adminSessionsSessionsTable}>
                 <table className={styles.adminSessionsDataTable}>
+                    <caption className={styles.srOnly}>Mentorship sessions. Sort using the column headings or open a session to view details.</caption>
                     <thead>
                     <tr>
                         <th scope="col" aria-sort={sortState.column==="time" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("time")}>
-                                Time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Date &amp; time <span className={`${styles.sortIndicator} ${sortState.column==="time" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="time" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col" aria-sort={sortState.column==="mentor" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("mentor")}>
-                                Mentor <span className={`${styles.sortIndicator} ${sortState.column==="mentor" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentor" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Mentor <span className={`${styles.sortIndicator} ${sortState.column==="mentor" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentor" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col" aria-sort={sortState.column==="mentee" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("mentee")}>
-                                Mentee <span className={`${styles.sortIndicator} ${sortState.column==="mentee" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentee" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Mentee <span className={`${styles.sortIndicator} ${sortState.column==="mentee" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="mentee" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col" aria-sort={sortState.column==="airport" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("airport")}>
-                                Airport <span className={`${styles.sortIndicator} ${sortState.column==="airport" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="airport" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Airport <span className={`${styles.sortIndicator} ${sortState.column==="airport" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="airport" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col" aria-sort={sortState.column==="pilots" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("pilots")}>
-                                Pilot <span className={`${styles.sortIndicator} ${sortState.column==="pilots" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="pilots" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Pilots <span className={`${styles.sortIndicator} ${sortState.column==="pilots" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="pilots" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col" aria-sort={sortState.column==="cancelled" ? (sortState.direction==="asc"?"ascending":"descending") : "none"}>
                             <button type="button" className={styles.sortButton} onClick={() => handleSort("cancelled")}>
-                                Status <span className={`${styles.sortIndicator} ${sortState.column==="cancelled" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="cancelled" ? (sortState.direction==="asc"?"▲":"▼") : "▲"}</span>
+                                Status <span className={`${styles.sortIndicator} ${sortState.column==="cancelled" ? styles.active : ""}`} aria-hidden="true">{sortState.column==="cancelled" && sortState.direction==="desc" ? <CaretDown size={12} weight="fill"/> : <CaretUp size={12} weight="fill"/>}</span>
                             </button>
                         </th>
                         <th scope="col">Attendees</th>
-                        <th scope="col">View</th>
+                        <th scope="col">Details</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -277,34 +306,31 @@ const AdminSessions = ({
                         const session = displayedSessions.find(s => s.id === record.id);
                         if (!session) return null;
                         return (
-                        <tr key={session.id} className={session.cancelled ? styles.cancelled : undefined}>
-                            <td className={styles.adminSessionTimeCell} data-label="Time"><SessionTimeDisplay value={session.time}/><button type="button" className={styles.calendarButton} onClick={() => downloadSessionCalendar(session, {mentor: record.mentor, mentee: record.mentee})} aria-label={`Add session ${session.id} to calendar`}>Add to calendar</button></td>
+                        <tr key={session.id}>
+                            <td className={styles.adminSessionTimeCell} data-label="Date & time"><SessionTimeDisplay value={session.time}/></td>
                             <td data-label="Mentor">{record.mentor}</td>
                             <td data-label="Mentee">{record.mentee}</td>
                             <td data-label="Airport">{record.airport}</td>
-                            <td data-label="Pilot">{record.pilots}</td>
+                            <td data-label="Pilots">{record.pilots}</td>
                             <td data-label="Status">
                                 {record.cancelled ? (
-                                    <span className={styles.adminCancelledBadge}>Cancelled</span>
+                                    <span><span className={styles.adminCancelledBadge}>{session.retainAttendance ? "Not held" : "Cancelled"}</span>{session.retainAttendance ? <small className={styles.statusNote}>Attendance retained</small> : null}</span>
                                 ) : (
-                                    <span className={styles.adminActiveBadge}>{new Date(session.time).getTime() >= now ? "Upcoming" : "Past"}</span>
+                                    <span className={new Date(session.time).getTime() >= now ? styles.adminUpcomingBadge : styles.adminActiveBadge}>{new Date(session.time).getTime() >= now ? "Upcoming" : "Past"}</span>
                                 )}
                             </td>
                             <td data-label="Attendees">
                                 {record.attendees}
                             </td>
-                            <td data-label="View">
-                                {session.attendees.length > 0 ? (
+                            <td data-label="Details">
                                     <button
                                         type="button"
                                         className={styles.adminAttendeesViewButton}
+                                        aria-label={`View details for session ${session.id}`}
                                         onClick={() => setAttendeesModalSessionId(session.id)}
                                     >
-                                        View
+                                        View details
                                     </button>
-                                ) : (
-                                    <span className={styles.adminAttendeesUnavailable}>-</span>
-                                )}
                             </td>
                         </tr>
                     );}).filter(Boolean) : (
@@ -321,45 +347,16 @@ const AdminSessions = ({
                 {...pagination}
                 totalItems={sortedData.length}
                 onItemsPerPageChange={handlePageSizeChange}
-                className={styles.adminSessionsFlushPagination}
+                className={styles.sessionsPagination}
             />
-            {attendeesModalSession ? (
-                <div className={styles.adminAttendeesModalOverlay} role="presentation">
-                    <div
-                        className={styles.adminAttendeesModal}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="attendees-modal-title"
-                    >
-                        <div className={styles.adminAttendeesModalHeader}>
-                            <div>
-                                <h2 id="attendees-modal-title">Session Attendees</h2>
-                                <p>
-                                    {formatAdminUtcDate(attendeesModalSession.time)} - {attendeesModalSession.airport}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                className={styles.adminAttendeesCloseButton}
-                                onClick={() => setAttendeesModalSessionId(null)}
-                                aria-label="Close attendees popup"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <div className={styles.adminAttendeesDetails}>
-                            {getAttendeeNames(attendeesModalSession.attendees).map((attendee, index) => (
-                                <div key={`${attendee.id}-${index}`} className={styles.adminAttendeeDetailItem}>
-                                    <span className={styles.adminAttendeeName}>{attendee.name}</span>
-                                    {!attendee.hasUsername ? (
-                                        <span className={styles.adminAttendeeId}>Discord username unavailable</span>
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            </section>
+            </div>
+            {attendeesModalSession ? <SessionViewDialog
+                key={attendeesModalSession.id} session={attendeesModalSession} getUserName={getUserName}
+                canGenerate={adminUser?.role === "super_admin"} token={token}
+                onClose={() => setAttendeesModalSessionId(null)} onSessionChanged={handleSessionChanged}
+                onCancelSession={menteeRecordId !== undefined ? () => ApiUtils.cancelMenteeSession(token ?? null, menteeRecordId, attendeesModalSession.id) : undefined}
+            /> : null}
         </div>
     );
 }

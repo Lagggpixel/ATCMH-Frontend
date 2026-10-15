@@ -4,7 +4,7 @@ export interface SessionSummary {
   id: string; title: string; createdAt: number; updatedAt: number;
   ownerId?: string; ownerName?: string; staffId?: string; staffName?: string; menteeId?: string; menteeName?: string;
   staffOccupied: boolean; menteeOccupied: boolean;
-  scenario?: {title: string; assignmentId?: string; finished: boolean};
+  scenario?: {title: string; finished: boolean};
 }
 export const sessionCode = (id: string, airport = "EGPH") => `${airport}-${id.slice(0, 8).toUpperCase()}`;
 export const sessionPath = (role: SessionRole, id: string) => `/simulator/${role}/${id}`;

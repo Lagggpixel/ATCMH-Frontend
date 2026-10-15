@@ -1,2 +1,3 @@
-import SessionJoin from "@/src/simulator/SessionJoin";
-export default function MenteeSimulatorPage() {return <SessionJoin/>;}
+import {redirect} from "next/navigation";
+
+export default function MenteeSimulatorPage() {redirect("/simulator/staff");}

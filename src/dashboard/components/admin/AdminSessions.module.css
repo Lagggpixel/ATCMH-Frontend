@@ -1,404 +1,104 @@
-.adminSessionsContainer {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-    min-height: calc(100dvh - 40px);
-    position: relative;
-}
-
-.adminSessionsControls {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(180px, 1fr));
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 0 0 14px;
-    border: 0;
-    border-bottom: 1px solid var(--border-color);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.adminSessionsFilterControl {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
-}
-
-.adminSessionsFilterControl label {
-    color: var(--muted-text);
-    font-size: 0.82rem;
-    font-weight: 700;
-}
-
+.adminSessionsContainer { max-width: 1600px; margin: 0 auto; padding: 20px clamp(16px, 3vw, 40px) 40px; color: var(--text-color); }
+.sessionsLayout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
+.adminSessionsControls { padding: 16px 24px 24px 0; border-right: 1px solid var(--border-color); }
+.filtersHeading h2 { margin: 0 0 22px; font-size: 18px; font-weight: 700; }
+.filtersFields { display: grid; gap: 20px; padding: 0; margin: 0; border: 0; min-width: 0; }
+.filtersFields:disabled { opacity: .55; }
+.mobileFiltersToggle { display: none; }
+.adminSessionsFilterControl { display: grid; gap: 8px; min-width: 0; }
+.adminSessionsFilterControl label { font-size: 14px; font-weight: 650; }
 .adminSessionsFilterControl input,
-.adminSessionsFilterControl select {
-    width: 100%;
-    min-width: 0;
-    min-height: 40px;
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    border: 1px solid var(--dashboard-input-border, var(--border-color));
-    padding: 9px 11px;
-    border-radius: 6px;
-    font: inherit;
-}
-
-.adminSessionsFilterControl input:focus,
-.adminSessionsFilterControl select:focus {
-    outline: 2px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
-    border-color: var(--accent-color);
-}
-
-.adminSessionsSessionsCount {
-    margin: 0 0 12px;
-    color: var(--muted-text);
-    font-size: 0.9rem;
-    text-align: right;
-}
-
+.adminSessionsFilterControl select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--dashboard-input-border, var(--border-color)); border-radius: 6px; background: var(--dashboard-inset, var(--surface-2-color)); color: var(--text-color); padding: 10px; font: inherit; font-size: 14px; }
+.adminSessionsFilterControl input::placeholder { color: var(--muted-text); opacity: .8; }
+.searchInput { position: relative; min-width: 0; }
+.searchInput svg { position: absolute; inset: 13px auto auto 11px; color: var(--muted-text); pointer-events: none; }
+.searchInput input { padding-left: 36px; }
+.adminSessionsContainer :is(input, select, button):focus-visible { outline: 2px solid var(--dashboard-focus, var(--accent-color)); outline-offset: 3px; }
+.filterActions { display: grid; justify-items: start; gap: 18px; padding-top: 4px; }
+.filterActions label { display: flex; align-items: center; gap: 9px; min-height: 32px; font-size: 14px; cursor: pointer; }
+.filterActions input { width: 16px; height: 16px; accent-color: var(--dashboard-button, var(--accent-color)); }
+.filterActions button { min-height: 40px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--dashboard-secondary, var(--surface-2-color)); color: var(--text-color); padding: 8px 13px; font: inherit; font-size: 14px; cursor: pointer; }
+.filterActions button:hover { border-color: var(--accent-color); }
+.sessionsResults { min-width: 0; }
+.adminSessionsSessionsCount { margin: 0 0 14px; color: var(--muted-text); font-size: 14px; }
 .adminSessionsSessionsTable {
     width: 100%;
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
-    overscroll-behavior-inline: contain;
     -webkit-overflow-scrolling: touch;
-    background-color: transparent;
-    box-shadow: none;
-}
-
-.adminSessionsDataTable {
-    border-collapse: collapse;
-    width: 100%;
-    min-width: 1040px;
-}
-
-.sortButton { border: 0; background: transparent; color: inherit; font: inherit; text-transform: inherit; text-align: left; cursor: pointer; padding: 0; min-height: 28px; }
-.sortButton:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 4px; }
-
-.adminSessionsDataTable th[role="button"] {
-    cursor: pointer;
-    user-select: none;
-}
-
-.adminSessionsDataTable th[role="button"]:hover {
-    color: var(--text-color);
-}
-
-.adminSessionsDataTable th .sortIndicator {
-    margin-inline-start: 4px;
-    font-size: 0.7rem;
-    opacity: 0.4;
-}
-
-.adminSessionsDataTable th .sortIndicator.active {
-    opacity: 1;
-}
-
-.adminSessionsDataTable th {
-    background-color: var(--surface-3-color);
-    color: var(--muted-text);
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    padding: 13px 14px;
-    text-align: left;
-    text-transform: uppercase;
-}
-
-.adminSessionsDataTable td {
-    background-color: var(--surface-color);
-    border-top: 1px solid var(--border-color);
-    padding: 13px 14px;
-    text-align: left;
-    vertical-align: middle;
-}
-
-.adminSessionsDataTable tbody tr:nth-child(even) td {
-    background-color: var(--surface-2-color);
-}
-
-.adminSessionsDataTable tbody tr.cancelled td {
-    background-color: var(--danger-bg);
-}
-
-.adminSessionTimeCell {
-    white-space: nowrap;
-}
-
-.adminSessionTimeCell small { color: var(--muted-text); margin-top: 4px; font-weight: 400; }
-.calendarButton, .filterActions button { min-height: 36px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color); color: var(--text-color); padding: 6px 10px; cursor: pointer; font: inherit; font-size: .82rem; }
-.calendarButton { display: block; margin-top: 8px; }
-.filterActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.filterActions label { display: flex; align-items: center; gap: 6px; }
-.calendarButton:focus-visible, .filterActions button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
-
-.adminCancelledBadge,
-.adminActiveBadge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 800;
-}
-
-.adminCancelledBadge {
-    background-color: var(--danger-bg);
-    color: var(--danger-text);
-}
-
-.adminActiveBadge {
-    background-color: var(--success-bg);
-    color: var(--success-text);
-}
-
-.adminAttendeesViewButton,
-.adminAttendeesCloseButton {
-    min-height: 26px;
+    overscroll-behavior-inline: contain;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background-color: var(--surface-3-color);
-    color: var(--text-color);
-    padding: 4px 10px;
-    cursor: pointer;
-    font: inherit;
-    font-weight: 700;
-    vertical-align: middle;
+    border-radius: 7px;
+    background: var(--dashboard-secondary, var(--surface-2-color));
 }
-
-.adminAttendeesViewButton:hover,
-.adminAttendeesCloseButton:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-}
-
-.adminAttendeesUnavailable {
-    color: var(--muted-text);
-}
-
-.adminAttendeesModalOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background-color: var(--dashboard-backdrop, rgba(5, 10, 18, 0.72));
-}
-
-.adminAttendeesModal {
-    width: min(720px, 100%);
-    max-height: min(680px, calc(100dvh - 48px));
-    overflow: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--surface-color);
-    box-shadow: 0 24px 80px var(--dashboard-shadow-color, rgba(0, 0, 0, 0.5));
-}
-
-.adminAttendeesModalHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 20px 22px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.adminAttendeesModalHeader h2 {
-    margin: 0 0 6px;
-    color: var(--text-color);
-    font-size: 1.2rem;
-}
-
-.adminAttendeesModalHeader p {
-    margin: 0;
-    color: var(--muted-text);
-    font-size: 0.92rem;
-}
-
-.adminAttendeesDetails {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 8px;
-    padding: 18px 22px 22px;
-    text-align: left;
-}
-
-.adminAttendeeDetailItem {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 9px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background-color: var(--surface-2-color);
-}
-
-.adminAttendeeName {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.adminAttendeeId {
-    color: var(--muted-text);
-    white-space: nowrap;
-}
-
-.adminSessionsNoResults {
-    padding: 24px;
-    text-align: center;
-    background-color: var(--surface-color);
-    color: var(--muted-text);
-}
-
-/* --- Flush pagination: merges with table below --- */
-.adminSessionsFlushPagination .paginationBar {
-    border-top: none;
-    border-radius: 0;
-    margin-top: 0;
-}
-
+.adminSessionsDataTable { border-collapse: collapse; width: 100%; min-width: 900px; table-layout: fixed; font-size: 14px; }
+.adminSessionsDataTable th:first-child { width: 22%; }
+.adminSessionsDataTable th:nth-child(2) { width: 12%; }
+.adminSessionsDataTable th:nth-child(3) { width: 13%; }
+.adminSessionsDataTable th:nth-child(4) { width: 8%; }
+.adminSessionsDataTable th:nth-child(5) { width: 7%; }
+.adminSessionsDataTable th:nth-child(6) { width: 17%; }
+.adminSessionsDataTable th:nth-child(7) { width: 10%; }
+.adminSessionsDataTable th:last-child { width: 11%; }
+.adminSessionsDataTable th { padding: 14px 16px; background: var(--dashboard-surface, var(--surface-color)); color: var(--muted-text); font-size: 13px; font-weight: 650; text-align: left; white-space: nowrap; }
+.sortButton { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 0; min-height: 28px; cursor: pointer; }
+.sortButton:hover { color: var(--accent-color); }
+.sortIndicator { display: inline-flex; opacity: .4; }
+.sortIndicator.active { color: var(--dashboard-link, var(--accent-color)); opacity: 1; }
+.adminSessionsDataTable td { padding: 16px; border-top: 1px solid var(--border-color); background: var(--dashboard-secondary, var(--surface-2-color)); text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+.adminSessionsDataTable tbody tr:hover td { background: var(--dashboard-surface, var(--surface-color)); }
+.adminSessionsDataTable :is(th, td):nth-child(5), .adminSessionsDataTable :is(th, td):nth-child(7) { text-align: center; font-variant-numeric: tabular-nums; }
+.adminSessionsDataTable td:nth-child(4) { font-variant-numeric: tabular-nums; font-weight: 550; }
+.adminSessionsDataTable :is(th, td):last-child { white-space: nowrap; text-align: right; }
+.adminSessionTimeCell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adminSessionTimeCell time { font-weight: 600; }
+.adminSessionTimeCell small { margin-top: 5px; color: var(--muted-text); font-size: 12px; }
+.adminCancelledBadge, .adminActiveBadge, .adminUpcomingBadge { display: inline-flex; align-items: center; justify-self: end; min-height: 28px; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.adminCancelledBadge { background: var(--surface-3-color); color: var(--muted-text); }
+.adminActiveBadge { background: var(--success-bg); color: var(--success-text); }
+.adminUpcomingBadge { background: var(--info-bg); color: var(--info-text); }
+.statusNote { display: block; margin-top: 6px; font-size: 12px; color: var(--muted-text); white-space: nowrap; }
+.adminAttendeesViewButton { border: 0; border-radius: 4px; background: transparent; color: var(--dashboard-link, var(--accent-color)); font: inherit; font-weight: 650; min-height: 32px; padding: 4px 0; cursor: pointer; }
+.adminAttendeesViewButton:hover { text-decoration: underline; text-underline-offset: 3px; }
+.adminSessionsDataTable .adminSessionsNoResults { padding: 48px 24px; text-align: center; color: var(--muted-text); white-space: normal; }
+.adminSessionsContainer .sessionsPagination { margin-top: 16px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; gap: 16px; }
+.sessionsPagination > :last-child { order: -1; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 1100px) {
-    .adminSessionsControls {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    .sessionsLayout { grid-template-columns: 210px minmax(0, 1fr); gap: 20px; }
+    .adminSessionsControls { padding-right: 20px; }
 }
-
 @media (max-width: 700px) {
-    .adminSessionsContainer {
-        padding: 12px;
-    }
-
-    .adminSessionsContainer h1 {
-        margin-bottom: 14px;
-    }
-
-    .adminSessionsControls {
-        grid-template-columns: 1fr;
-        padding: 12px;
-    }
-
-    .adminSessionsSessionsCount {
-        text-align: left;
-    }
-
-    .adminSessionsSessionsTable {
-        border: 0;
-        border-radius: 0;
-        overflow: visible;
-        background: transparent;
-        box-shadow: none;
-    }
-
+    .adminSessionsContainer { padding: 12px 16px 32px; }
+    .sessionsLayout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .adminSessionsControls { border-right: 0; border-bottom: 1px solid var(--border-color); padding: 0 0 16px; }
+    .filtersHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .filtersHeading h2 { margin: 0; }
+    .mobileFiltersToggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; background: var(--dashboard-secondary, var(--surface-2-color)); color: var(--text-color); cursor: pointer; font: inherit; font-size: 14px; }
+    .mobileFiltersToggle[aria-expanded="true"] { background: var(--dashboard-selected); border-color: var(--accent-color); }
+    .secondaryFilters { display: none; padding-top: 20px; }
+    .secondaryFilters[data-open="true"] { display: block; }
+    .filtersFields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .adminSessionsFilterControl:nth-of-type(-n+3), .filterActions { grid-column: 1 / -1; }
+    .filterActions { display: flex; align-items: center; justify-content: space-between; }
+    .filterActions label { min-height: 44px; }
+    .adminSessionsSessionsTable { overflow: visible; border: 0; border-radius: 0; background: transparent; }
     .adminSessionsDataTable,
     .adminSessionsDataTable tbody,
     .adminSessionsDataTable tr,
-    .adminSessionsDataTable td {
-        display: block;
-        width: 100%;
-        min-width: 0;
-    }
-
-    .adminSessionsDataTable thead {
-        display: none;
-    }
-
-    .adminSessionsDataTable tr {
-        margin-bottom: 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        overflow: hidden;
-        background-color: var(--surface-color);
-        box-shadow: var(--panel-shadow);
-    }
-
-    .adminSessionsDataTable td {
-        display: grid;
-        grid-template-columns: minmax(90px, 35%) minmax(0, 1fr);
-        gap: 12px;
-        border-top: 1px solid var(--border-color);
-        padding: 11px 12px;
-        background-color: var(--surface-color);
-        text-align: right;
-        overflow-wrap: anywhere;
-    }
-
-    .adminSessionsDataTable td:first-child {
-        border-top: 0;
-    }
-
-    .adminSessionsDataTable td::before {
-        content: attr(data-label);
-        color: var(--muted-text);
-        font-size: 0.78rem;
-        font-weight: 800;
-        text-align: left;
-        text-transform: uppercase;
-    }
-
-    .adminSessionTimeCell {
-        white-space: normal;
-    }
-
-    .adminAttendeesModalOverlay {
-        align-items: flex-end;
-        padding: 10px;
-    }
-
-    .adminAttendeesModalHeader {
-        display: grid;
-        padding: 16px;
-    }
-
-    .adminAttendeesDetails {
-        grid-template-columns: 1fr;
-        padding: 14px 16px 16px;
-    }
-
-    .adminAttendeeDetailItem {
-        display: grid;
-        gap: 4px;
-    }
-
-    .adminAttendeeId {
-        white-space: normal;
-    }
-}
-
-@media (max-width: 700px) {
-    .adminSessionsDataTable tr { border-radius: .8rem; }
-    .adminSessionsDataTable td:first-child { display: block; border-bottom: 1px solid var(--border-color); background: var(--dashboard-surface, #f8fbff) !important; color: var(--dashboard-ink, #10264b); font-weight: 700; text-align: left; }
-    .adminSessionsDataTable td:first-child::before { display: block; margin-bottom: .2rem; }
-    .adminSessionsDataTable td { gap: .5rem; }
-    .adminSessionsDataTable td:last-child { display: flex; justify-content: flex-end; }
-    .adminSessionsDataTable td:last-child::before { margin-right: auto; }
-    .adminAttendeesViewButton, .adminAttendeesCloseButton { min-height: 44px; }
-}
-
-.adminSessionsContainer { max-width: 1360px; padding: clamp(20px, 3vw, 40px); }
-.adminSessionsControls { align-items: end; gap: 16px; margin-bottom: 20px; padding: 20px; border: 1px solid var(--border-color); border-radius: 11px; background: var(--dashboard-surface, #fff); }
-.secondaryFilters { display: contents; }
-.mobileFiltersToggle { display: none; }
-.adminSessionsFilterControl input, .adminSessionsFilterControl select { min-height: 44px; border-radius: 7px; background: var(--dashboard-inset, #fff); }
-.adminSessionsSessionsCount { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-.adminSessionsSessionsTable { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border-color); border-radius: 11px; background: var(--dashboard-surface, #fff); box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
-.adminSessionsDataTable th { background: var(--dashboard-secondary, #f1f5f9); }
-.adminSessionsDataTable td, .adminSessionsDataTable tbody tr:nth-child(even) td { background: var(--dashboard-surface, #fff); }
-.adminSessionsDataTable tbody tr:hover td { background: var(--dashboard-surface, #f8fbff); }
-
-@media (max-width: 700px) {
-    .adminSessionsContainer { padding: 16px; }
-    .adminSessionsControls { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; padding: 15px; }
-    .mobileFiltersToggle { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: 7px; background: var(--dashboard-secondary, #f8fafc); padding: 8px 13px; color: var(--text-color); cursor: pointer; font: inherit; font-size: .88rem; font-weight: 750; }
-    .mobileFiltersToggle[aria-expanded="true"] { border-color: var(--dashboard-link, #a9c8ee); background: var(--dashboard-selected, #e8f1ff); }
-    .secondaryFilters { display: none; grid-column: 1 / -1; gap: 12px; padding-top: 5px; }
-    .secondaryFilters[data-open="true"] { display: grid; }
-    .adminSessionsSessionsTable { border: 0; background: transparent; box-shadow: none; }
-    .adminSessionsDataTable tr { border-radius: 9px; box-shadow: 0 8px 22px var(--dashboard-shadow-color, #1427400a); }
-    .adminSessionsDataTable td, .adminSessionsDataTable tbody tr:nth-child(even) td { background: var(--dashboard-surface, #fff); }
+    .adminSessionsDataTable td { display: block; width: 100%; min-width: 0; }
+    .adminSessionsDataTable thead { display: none; }
+    .adminSessionsDataTable tr { margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 7px; overflow: hidden; }
+    .adminSessionsDataTable td { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; padding: 11px 14px; text-align: right; }
+    .adminSessionsDataTable td::before { content: attr(data-label); font-size: 13px; font-weight: 600; color: var(--muted-text); text-align: left; }
+    .adminSessionsDataTable td:first-child { border-top: 0; }
+    .adminSessionsDataTable :is(th, td):nth-child(5), .adminSessionsDataTable :is(th, td):nth-child(7) { text-align: right; }
+    .adminSessionsDataTable td:last-child { display: flex; align-items: center; justify-content: space-between; }
+    .adminSessionTimeCell { white-space: normal; }
+    .adminSessionsDataTable .adminSessionsNoResults { display: block; padding: 32px 20px; text-align: center; }
+    .adminSessionsNoResults::before { display: none; }
+    .adminAttendeesViewButton { min-height: 44px; }
+    .statusNote { white-space: normal; }
+    .sessionsPagination > :last-child { order: 0; }
 }

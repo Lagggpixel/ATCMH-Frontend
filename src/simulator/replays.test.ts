@@ -2,12 +2,55 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {initialExercise, newAircraft} from "./engine";
-import {applyReplayDelta, replayDelta, replayState, ReplayTimeline, type ReplayFrame} from "./replays";
+import {applyReplayDelta, replayDelta, replayState, ReplayTimeline, canPlayReplay, recordingLabel, type ReplayFrame, type ReplaySummary} from "./replays";
 import {createReplayApi} from "./server/replay-api";
 import {SessionError} from "./sessions";
 import {setPoolForTests} from "../lib/db";
 import type {Pool} from "mysql2/promise";
 import {listReplays, readReplay} from "./server/replay-store";
+
+test("empty recordings remain reviewable without being advertised as playable", () => {
+  const replay = {kind: "recording", duration: 0, partial: false} as ReplaySummary;
+  assert.equal(canPlayReplay(replay), false);
+  assert.equal(recordingLabel(replay), "No elapsed time");
+  assert.equal(canPlayReplay({...replay, duration: 1}), true);
+  assert.equal(recordingLabel({...replay, duration: 1, partial: true}), "Partial recording");
+  assert.equal(canPlayReplay({...replay, kind: "snapshot", duration: 100}), false);
+  assert.equal(recordingLabel({...replay, kind: "unavailable"}), "Summary only");
+});
+
+test("replay date filters validate calendar dates and use UTC regardless of the viewer timezone", async () => {
+  let reads = 0;
+  const api = createReplayApi(async () => ({accountId: "mentor", staff: true}), async (offset, filters) => {
+    reads++;
+    assert.equal(offset, 0);
+    assert.deepEqual(filters, {mentorId: "mentor", search: "Kai", airport: "EGPH", recordedOn: Date.UTC(2026, 9, 14)});
+    return {replays: [], next: null};
+  });
+  assert.equal((await api(new Request("https://example.com/api/simulator/replays?date=2026-10-14&scope=mine&q=Kai&airport=EGPH"))).status, 200);
+  for (const date of ["2026-02-30", "14/10/2026", "invalid"]) {
+    assert.equal((await api(new Request(`https://example.com/api/simulator/replays?date=${date}`))).status, 400);
+  }
+  assert.equal(reads, 1);
+});
+
+test("date and participant filters apply to both recorded and older sessions before pagination", async () => {
+  const calls: {sql: string; values: unknown[]}[] = [];
+  setPoolForTests({execute: async (sql: string, values: unknown[]) => {calls.push({sql, values}); return [[], []];}} as unknown as Pool);
+  try {
+    const start = Date.UTC(2026, 9, 14);
+    await listReplays(50, {recordedOn: start, mentorId: "mentor", search: "Kai", airport: "EGPH"});
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].sql, /ended_at>=\? AND ended_at<\?/);
+    assert.match(calls[1].sql, /a.finished_at>=\? AND a.finished_at<\?/);
+    for (const call of calls) {
+      assert.deepEqual(call.values.slice(0, 2), [start, start + 86_400_000]);
+      assert.match(call.sql, /LIMIT 101/);
+      assert.ok(call.values.includes("Kai"));
+      assert.ok(call.values.includes("EGPH"));
+    }
+  } finally {setPoolForTests(undefined);}
+});
 
 test("replay deltas round trip commands, radio/ATIS, additions, removals and cleared optional fields", () => {
   const before = replayState(initialExercise(randomUUID()));
@@ -71,5 +114,33 @@ test("replay reader paginates recorded frames and exposes surviving legacy snaps
     const legacy = await readReplay(oldId, 0); assert.deepEqual(legacy.initial, exercise); assert.equal(legacy.replay.feedback, "Review"); assert.equal(legacy.frames.length, 0);
     assert.equal((await readReplay(missingId, 0)).initial, null);
     await assert.rejects(readReplay(randomUUID(), 0), /unavailable/);
+  } finally {setPoolForTests(undefined);}
+});
+
+test("my replay filter uses the authenticated account, validates filters and retains pagination", async () => {
+  const calls: unknown[] = [];
+  const api = createReplayApi(async () => ({accountId: "signed-in-mentor", staff: true}), async (offset, filters) => {
+    calls.push({offset, filters}); return {replays: [], next: null};
+  });
+  assert.equal((await api(new Request("https://example.com/api/simulator/replays?scope=mine&mentorId=someone-else&offset=50&q=Alex&airport=KDAL"))).status, 200);
+  assert.deepEqual(calls, [{offset: 50, filters: {mentorId: "signed-in-mentor", search: "Alex", airport: "KDAL", recordedOn: undefined}}]);
+  for (const query of ["scope=other", "airport=INVALID", `q=${"x".repeat(101)}`]) assert.equal((await api(new Request(`https://example.com/api/simulator/replays?${query}`))).status, 400);
+  assert.equal(calls.length, 1);
+  await api(new Request("https://example.com/api/simulator/replays"));
+  assert.deepEqual(calls[1], {offset: 0, filters: {mentorId: undefined, search: "", airport: "", recordedOn: undefined}});
+});
+
+test("replay filters bind historical staff identity and search before both source limits", async () => {
+  const queries: {sql: string; values: unknown[]}[] = [];
+  setPoolForTests({async execute(sql: string, values: unknown[] = []) {queries.push({sql, values}); return [[], []];}} as unknown as Pool);
+  try {
+    await listReplays(50, {mentorId: "mentor-id", search: "50%_'", airport: "KDAL"});
+    const [recorded, legacy] = queries;
+    assert.match(recorded.sql, /JSON_CONTAINS\(participants, \?\) = 1.*ORDER BY.*LIMIT 101/);
+    assert.deepEqual(JSON.parse(recorded.values[0] as string), {role: "staff", accountId: "mentor-id"});
+    assert.deepEqual(recorded.values.slice(1), ["KDAL", "50%_'"]);
+    assert.match(legacy.sql, /a.owner_id=\?.*ORDER BY.*LIMIT 101/);
+    assert.deepEqual(legacy.values, ["mentor-id", "KDAL", "50%_'"]);
+    assert.ok(queries.every(query => !query.sql.includes("mentor-id") && !query.sql.includes("50%_'")));
   } finally {setPoolForTests(undefined);}
 });
