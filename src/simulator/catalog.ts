@@ -1,4 +1,4 @@
-import {EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message} from "./model";
+import {EXERCISE_WEATHER, patternLegLabel, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message} from "./model";
 import {defaultAirport, defaultRunway, runwayEnds, airportCallsign, frequenciesFor} from "./airports";
 import type {RadarEnvironment} from "./model";
 import {ALTITUDES, altitudeLabel, checkInTransmission, radarEnvironmentFor, radarInstructionText, roundedHeadingInstruction} from "./radar";
@@ -42,9 +42,9 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
     case "transition": text = `Transition approved at or above ${instruction.altitude} feet`; break;
     case "departure": text = `departure to the ${instruction.direction} approved`; break;
     case "lineup": text = `Runway ${runway}, line up and wait`; break;
-    case "exit-runway": text = `exit runway${instruction.side === "any" ? " when able" : " to the " + instruction.side}${instruction.expedite ? ", expedite" : ""}${instruction.traffic ? ", traffic on " + instruction.traffic : ""}`; break;
+    case "exit-runway": text = `${instruction.side === "any" ? "exit runway when able" : "when able turn " + instruction.side}, contact ground on the taxiway${instruction.expedite ? ", expedite" : ""}${instruction.traffic ? ", traffic on " + instruction.traffic : ""}`; break;
     case "pushback": text = `pushback approved, tail to the ${instruction.tail}`; break;
-    case "taxi": text = instruction.destination === "parking" ? "taxi to Parking, at your discretion" : instruction.destination === "continue" || (!instruction.destination && !instruction.runway) ? "continue taxi" : `taxi to runway ${runway}${instruction.contactTowerWhenReady ? `, contact ${FREQUENCIES.tower.name} when ready` : ""}`; break;
+    case "taxi": text = instruction.destination === "parking" ? "taxi to Parking, at your discretion" : instruction.destination === "continue" || (!instruction.destination && !instruction.runway) ? "continue taxi" : `taxi to runway ${runway}${instruction.contactTowerWhenReady !== false ? ", contact tower when ready" : ""}`; break;
     case "give-way": text = `give way to ${instruction.description}`; break;
     case "stop": text = "hold position"; break;
     case "hold-short": text = `hold short of runway ${runway}`; break;
@@ -220,7 +220,7 @@ function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message
   const phrase = request.text.slice(request.text.indexOf(",") + 1).trim();
   const requestId = request.request?.id ?? (
     /^(?:ready for|requesting) pushback\b/i.test(phrase) ? "pushback" :
-    /^requesting runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "runway-change" :
+    /^requesting (?:change to )?runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "runway-change" :
     /^(?:requesting to|ready to) cross runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "cross-runway" :
     /^going around\.?$/i.test(phrase) ? "go-around" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
   const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Go Around", transition: "Respond to Transition"};
@@ -247,7 +247,7 @@ const REQUESTS: PilotRequest[] = [
   {id: "cross-runway", label: "Request runway crossing", legacyLabel: "Ready to cross runway", text: "requesting to cross", runway: true, phase: "ground"},
   {id: "frequency-change", label: "Frequency Change", legacyLabel: "Request frequency change", text: "requesting frequency change"},
   {id: "inbound-land", label: "Request Landing", legacyLabel: "Inbound for landing", text: "inbound for landing", runway: true, phase: "airborne"},
-  {id: "inbound-option", label: "Request the Option", legacyLabel: "Inbound for touch and go", text: "inbound, requesting the option", runway: true, phase: "airborne"},
+  {id: "inbound-option", label: "Request the Option", legacyLabel: "Inbound for touch and go", text: "inbound for touch and go", runway: true, phase: "airborne"},
   {id: "departure", label: "Request Takeoff", legacyLabel: "Ready for departure", text: "ready for departure from", runway: true, phase: "ground"},
   {id: "departure-direction", label: "Request Departure", legacyLabel: "Request departure to direction", text: "requesting departure to the", phase: "airborne"},
   {id: "pattern-entry", label: "Request Pattern Entry", legacyLabel: "Request pattern entry", text: "requesting pattern entry for", runway: true},
@@ -285,6 +285,8 @@ function pilotRequestText(a: Aircraft, request: PilotRequest, runway: Runway, re
     return `${a.callsign} is ${Math.round(nm * 10) / 10} miles to the ${direction} of ${airportCallsign(airport)} at ${Math.round(a.altitude)} feet, requesting transition`;
   }
   if (request.id === "pushback") return `${a.callsign}, ready for pushback${atis}`;
+  if (request.id === "inbound-option") return `${positionDescription(a, airport)}, inbound for touch and go${atis}`;
+  if (request.id === "runway-change") return `${a.callsign}, requesting change to runway ${runway}`;
   if (request.id === "taxi-runway") return `${a.callsign}, ready to taxi${options.includeRunway === false ? "" : ` to runway ${runway}`}${atis}`;
   if (request.id === "departure-direction") return `${a.callsign}, requesting departure to the ${options.direction ?? "north"}`;
   return `${a.callsign}, ${request.text}${request.runway ? ` runway ${runway}` : ""}${request.id === "departure" && remainingInPattern ? ", remaining in the pattern" : ""}`;
@@ -301,3 +303,14 @@ export function catalogFor(airport: Airport = defaultAirport, environment?: Rada
  return catalog;
 }
 export const {instructionText, commandTasks, messageMenu, requestMessageMenu, contextMenu, resolvePilotRequest, pilotRequests, pilotRequestText} = catalogFor();
+
+export function positionDescription(a: Aircraft, airport: Airport): string {
+  const degrees = (Math.atan2(a.position.x, a.position.y) * 180 / Math.PI + 360) % 360;
+  const direction = ["north", "north east", "east", "south east", "south", "south west", "west", "north west"][Math.round(degrees / 45) % 8];
+  return `${a.callsign} is ${Math.round(Math.hypot(a.position.x, a.position.y) * 10) / 10} nautical miles to the ${direction} of ${airport.icao} at ${Math.round(a.altitude)} feet`;
+}
+
+export function positionReportText(a: Aircraft, airport: Airport): string {
+  const position = a.mode === "pattern" && a.runway ? `${a.callsign} is on ${patternLegLabel(a)} ${a.runway}` : positionDescription(a, airport);
+  return `${position}, ${a.landing === "touch-and-go" ? "touch and go" : "full stop"}`;
+}

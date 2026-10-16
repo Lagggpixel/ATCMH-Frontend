@@ -4,22 +4,27 @@ import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
 import {SpeakerSlash} from "@phosphor-icons/react/dist/csr/SpeakerSlash";
 import {RadioAudio as RadioPlayer, browserAudioPreference, browserSpeechOutput, radioMessageText} from "./radio-audio";
+import {browserCollisionSound, CollisionAudio} from "./collision-audio";
 import type {Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
 
 export default function RadioAudio({exercise, connected, scope, accountId, role, paused = false}: {exercise: Exercise; connected: boolean; scope: Frequency | "all"; accountId: string; role: "staff" | "mentee"; paused?: boolean}) {
   const [player] = useState(() => new RadioPlayer());
+  const [collisionSound] = useState(browserCollisionSound);
+  const [impacts] = useState(() => new CollisionAudio(collisionSound));
   const audio = useSyncExternalStore(player.subscribe, player.getSnapshot, player.getServerSnapshot);
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const close = () => {setOpen(false); settingsButton.current?.focus();};
   useEffect(() => player.start(browserSpeechOutput(), browserAudioPreference(accountId, role)), [player, accountId, role]);
   useEffect(() => {
-    window.addEventListener("pointerdown", player.activate);
-    window.addEventListener("keydown", player.activate);
-    return () => {window.removeEventListener("pointerdown", player.activate); window.removeEventListener("keydown", player.activate);};
-  }, [player]);
+    const activate = () => {player.activate(); collisionSound.activate();};
+    window.addEventListener("pointerdown", activate);
+    window.addEventListener("keydown", activate);
+    return () => {window.removeEventListener("pointerdown", activate); window.removeEventListener("keydown", activate); collisionSound.close();};
+  }, [player, collisionSound]);
   useEffect(() => {player.observe(exercise, connected, scope, paused);}, [player, exercise, connected, scope, paused]);
+  useEffect(() => {impacts.observe(exercise, connected, audio.enabled, paused, audio.volume);}, [impacts, exercise, connected, audio.enabled, paused, audio.volume]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);
   return <div className={styles.radioAudio}>
     <button className={styles.audioToggle} aria-label={audio.enabled ? "Mute radio audio" : "Enable radio audio"} aria-pressed={audio.enabled} disabled={!audio.available} title={audio.available ? "Read new radio messages aloud in this tab" : "Voice playback unavailable in this browser"} onClick={() => player.setEnabled(!audio.enabled)}>{audio.enabled ? <SpeakerHigh/> : <SpeakerSlash/>}<span>Audio {audio.enabled ? "on" : "off"}</span></button>

@@ -63,7 +63,7 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
   for (const [command, expected] of [
     [{type: "cross", runway: "06"}, "Crossing runway 06"],
     [{type: "hold-short", runway: "06"}, "Holding short runway 06"],
-    [{type: "taxi", runway: "24"}, "taxi to runway 24"],
+    [{type: "taxi", runway: "24"}, "Taxi to runway 24, contact tower when ready"],
     [{type: "frequency", frequency: "tower"}, "Contacting Edinburgh Tower on 118.70"],
   ] as const) {
     let state = active(); const a = state.aircraft[1];

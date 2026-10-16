@@ -52,10 +52,12 @@ export class SessionService {
     const gap = (now - record.tickAt) / 1000;
     // No offline catch-up: the saved scenario resumes where the last page left it.
     if (occupied && gap > 0 && gap <= 2) {
+      const collision = record.exercise.collisions?.at(-1)?.id;
       if (record.scenario) {
         const result = advanceScenario(record.exercise, record.scenario, gap, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
       } else record.exercise = advance(record.exercise, gap);
+      if (record.exercise.collisions?.at(-1)?.id !== collision) record.contentRevision++;
       const replied = autoReadbacks(record.exercise, now, this.uuid);
       if (replied !== record.exercise) {record.exercise = replied; record.contentRevision++;}
     }

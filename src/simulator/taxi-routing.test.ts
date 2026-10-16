@@ -38,7 +38,7 @@ test("taxi-to-runway assignment calculates a route and simulated traffic stops s
   assert.equal(assigned.error, undefined); state = assigned.state; state.running = true; state.autoReadback = true;
   for (let i = 0; i < 600; i++) state = advance(state, 1);
   const traffic = state.aircraft[1]; assert.equal(traffic.runway, "06"); assert.equal(traffic.holding, true); assert.equal(traffic.speed, 0);
-  assert.equal(traffic.frequency, "ground"); assert.equal(traffic.contactTowerAtHold, undefined);
+  assert.equal(traffic.frequency, "tower"); assert.equal(traffic.contactTowerAtHold, undefined);
   assert.ok(gap(traffic.position, traffic.taxiPath.at(-1)!) < 1e-7);
 });
 
@@ -46,15 +46,15 @@ test("runway taxi command and automatic readback retain the requested instructio
   let state = initialExercise(); state.autoReadback = true; state.running = true;
   const a = state.aircraft[1], command = {type: "taxi", destination: "runway", runway: "24"} as const;
   const text = instructionText(a, command);
-  assert.equal(text, "Easy 571, taxi to runway 24");
+  assert.equal(text, "Easy 571, taxi to runway 24, contact tower when ready");
   state = applyEnvelope(state, {id: "taxi", time: 1, action: {kind: "command", aircraftId: a.id, command, frequency: "ground", text}}).state;
   assert.equal(state.aircraft[1].contactTowerAtHold, undefined);
   state = autoReadbacks(advance(state, 1.5), 2, () => "readback");
   const reply = state.messages.at(-1)!;
-  assert.equal(reply.text, "taxi to runway 24, Easy 571");
+  assert.equal(reply.text, "Taxi to runway 24, contact tower when ready, Easy 571");
   assert.equal(reply.text, readbackText(a.callsign, text));
-  assert.equal(radioMessageText(reply), "taxi to Runway two four, Easy 571");
-  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, undefined);
+  assert.equal(radioMessageText(reply), "Taxi to Runway two four, contact tower when ready, Easy 571");
+  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, true);
 });
 
 test("handover waits for the final hold, survives snapshot recovery, and is never predicted early", () => {

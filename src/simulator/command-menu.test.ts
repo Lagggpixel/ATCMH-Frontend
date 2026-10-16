@@ -14,10 +14,10 @@ test("restored Ground menu keeps distinct runway, parking, hold and pushback ins
   const a = newAircraft("ground", false), entries = messageMenu("ground", a);
   const taxi = find(entries, "Taxi to...", "Runway 06", "Send").instruction!;
   assert.deepEqual(taxi, {type: "taxi", runway: "06"});
-  assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06");
+  assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06, contact tower when ready");
   const taxiWithContact = find(entries, "Taxi to...", "Runway 06", "Contact Tower when ready").instruction!;
   assert.deepEqual(taxiWithContact, {type: "taxi", runway: "06", contactTowerWhenReady: true});
-  assert.equal(instructionText(a, taxiWithContact), "Easy 571, taxi to runway 06, contact Edinburgh Tower when ready");
+  assert.equal(instructionText(a, taxiWithContact), "Easy 571, taxi to runway 06, contact tower when ready");
   assert.ok(!find(entries, "Contact Other Frequency").children?.some(entry => entry.label.includes("when ready")));
   assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to Parking/);
   assert.match(instructionText(a, find(entries, "Continue Taxi").instruction!), /continue taxi/);

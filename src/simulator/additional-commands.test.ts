@@ -97,7 +97,7 @@ test("departing and transitioning traffic cannot keep another aircraft extending
   }
 });
 
-test("line up and wait reaches the threshold, aligns and stays stopped until takeoff is assigned", () => {
+test("line up and wait reaches the mapped runway entry, aligns and stays stopped until takeoff is assigned", () => {
   for (const runway of ["24", "06"] as const) {
     let state = running(); const g = runwayGeometry(runway), a = state.aircraft[1];
     const graph = buildTaxiGraph(AIRPORT), hold = [...graph.holds].sort((x, y) => distance(graph.points[x], g.threshold) - distance(graph.points[y], g.threshold))[0];
@@ -107,7 +107,7 @@ test("line up and wait reaches the threshold, aligns and stays stopped until tak
     const waiting = state.aircraft[1];
     assert.equal(waiting.mode, "lineup"); assert.equal(waiting.holding, true);
     assert.equal(waiting.speed, 0); assert.equal(waiting.altitude, AIRPORT.elevation);
-    assert.equal(distance(waiting.position, g.threshold), 0); assert.equal(waiting.heading, g.heading);
+    assert.deepEqual(waiting.position, waiting.taxiPath.at(-1)); assert.equal(waiting.heading, g.heading);
     assert.deepEqual(tick({...state, running: false}, 60), {...state, running: false});
     state = assign(state, {type: "takeoff", runway});
     state = tick(state, 85);

@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Airplane} from "@phosphor-icons/react/dist/csr/Airplane";
 import {Gear} from "@phosphor-icons/react/dist/csr/Gear";
 import {MagnifyingGlassPlus} from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
@@ -23,9 +23,10 @@ export function trafficVisible(a: Aircraft, filter: string) {
   if (filter === "none") return true;
   return filter === "below15" ? a.altitude >= 15000 : a.altitude <= Number(filter);
 }
-interface Props {gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
+export interface ScopeCamera {center: Point; scale: number}
+interface Props {savedCamera?: ScopeCamera; onCameraChange?: (camera: ScopeCamera) => void; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
-export default function Scope({airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
+export default function Scope({savedCamera, onCameraChange, airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
   const AIRPORT = airport, METAR = simulatedMetar(airport);
   const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment}), [airport, radarEnvironment]);
   const airportCamera = useMemo(() => {
@@ -74,9 +75,16 @@ export default function Scope({airport = defaultAirport, radarEnvironment, radar
   const [routeDraft, setRouteDraft] = useState<RouteDrag | null>(null);
   const [routeHover, setRouteHover] = useState<TaxiPathEdit | undefined>();
   const [routeNode, setRouteNode] = useState<{aircraftId: string; index: number} | null>(null);
-  const fitted = useRef(false);
+  const fitted = useRef(!!savedCamera);
   const [size, setSize] = useState({width: 1000, height: 800});
-  const [camera, setCamera] = useState({center: {x: 0, y: 0}, scale: 300});
+  const [localCamera, setCameraState] = useState<ScopeCamera>(() => savedCamera ?? {center: {x: 0, y: 0}, scale: 300});
+  const camera = savedCamera ?? (onCameraChange ? airportCamera(size.width, size.height, frequency === "all") : localCamera);
+  const cameraRef = useRef(camera);
+  useEffect(() => {cameraRef.current = camera;}, [camera]);
+  const setCamera = useCallback((update: ScopeCamera | ((camera: ScopeCamera) => ScopeCamera)) => {
+    const next = typeof update === "function" ? update(cameraRef.current) : update;
+    cameraRef.current = next; setCameraState(next); onCameraChange?.(next);
+  }, [onCameraChange]);
   const [options, setOptions] = useState(initialOptions);
   const [popup, setPopup] = useState<"options" | "hide" | "airport" | null>(null);
   useEffect(() => {
@@ -99,7 +107,7 @@ export default function Scope({airport = defaultAirport, radarEnvironment, radar
     const wheel = (event: WheelEvent) => {event.preventDefault(); if (routeDrag.current || vectorDrag.current || gateDrag.current) return; setCamera(c => ({...c, scale: Math.max(minimumScale, Math.min(1800, c.scale * Math.exp(-event.deltaY * 0.0015)))}));};
     node.addEventListener("wheel", wheel, {passive: false});
     return () => {resize.disconnect(); node.removeEventListener("wheel", wheel);};
-  }, [frequency, airportCamera, minimumScale]);
+  }, [frequency, airportCamera, minimumScale, setCamera]);
   useEffect(() => {
     const node = canvas.current;
     if (!node) return;
