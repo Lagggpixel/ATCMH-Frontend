@@ -1,5 +1,5 @@
 import {planTaxiRoute, planParkingRoute} from "./taxi-routing";
-import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, type GroundGuidance} from "./ground-movement";
+import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, groundCollisionGroups, type GroundGuidance} from "./ground-movement";
 import {currentAtisOptions} from "./atis-options";
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {assignRadar, checkInTransmission, moveRadar, radarAircraft, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
@@ -7,7 +7,7 @@ import {automaticRadarUnable} from "./radar-safety";
 import {assignRadarSpeed} from "./radar-speed";
 
 import {defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
-import {catalogFor} from "./catalog";
+import {catalogFor, positionReportText} from "./catalog";
 import {DEFAULTS, intentionsOf, EXERCISE_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, patternLegLabel, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type Frequency, type Instruction, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
 
 
@@ -181,7 +181,8 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
   if (command.type === "taxi" && command.contactTowerWhenReady && (!command.runway || command.destination === "parking")) return "Contact Tower when ready requires taxi to a runway.";
   if (["give-way", "pushback", "taxi", "stop", "hold-short", "cross", "takeoff", "lineup", "exit-runway"].includes(command.type) && !ground) return "This instruction requires ground traffic.";
   if (["land", "cancel-landing", "go-around", "pattern", "extend", "heading", "transition", "departure"].includes(command.type) && (ground || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1)) return "This instruction requires airborne traffic.";
-  if (command.type === "pushback" && a.mode !== "parked") return "Stop the aircraft before assigning pushback.";
+  if (command.type === "pushback" && a.mode !== "parked" && !(a.mode === "pushback" && a.holding && a.speed <= 1)) return "Stop the aircraft before assigning pushback.";
+  if (command.type === "pushback" && a.mode === "pushback" && a.pushback && (!a.pushback.tail || a.pushback.tail === command.tail)) return null;
   if (command.type === "pushback") return planPushback(AIRPORT, a, command.tail).error ?? null;
   if (command.type === "taxi" && command.runway) return planTaxiRoute(AIRPORT, a.position, command.runway).error ?? null;
   if (command.type === "taxi" && command.destination === "parking" && (a.mode === "rollout" || a.arrivalExit)) return a.runwayExit || a.arrivalExit ? null : runwayExitRoute(a, "any").error ?? null;
@@ -202,9 +203,15 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
 function departureRoute(a: Aircraft, runway: Runway) {
   const g = runwayGeometry(runway), q = runwayCoordinates(a.position, g);
   if (Math.abs(q.lateral) < .012 && q.along >= -.02 && q.along <= distance(g.threshold, g.departure)) {
-    // This prototype uses full-length departures. Back-taxi an intersection
-    // placement before accelerating, rather than rotating beyond the runway end.
-    return {path: [a.position, add(g.threshold, g.vector, Math.max(0, q.along)), g.threshold]};
+    return departureEntry([a.position], Math.max(0, q.along), g);
+  }
+  // Preserve an explicitly assigned intersection hold instead of routing to a
+  // different departure access point near the threshold.
+  const hold = a.taxiPath.at(-1);
+  if (hold && (hold.hold || a.mode === "parked" && a.speed <= 1) && a.taxiIndex >= a.taxiPath.length - 1 && departureHoldMatches(a, hold, runway) && distance(a.position, hold) < .005) {
+    const entry = runwayCoordinates(hold, g);
+    if (entry.along >= 0 && entry.along < distance(g.threshold, g.departure) && Math.abs(entry.lateral) <= .1)
+      return departureEntry([a.position], entry.along, g);
   }
   // A cleared departure may enter from a nearby mapped hold-short point, or taxi
   // there along A*. It never starts its takeoff roll from a stand or taxiway.
@@ -213,7 +220,16 @@ function departureRoute(a: Aircraft, runway: Runway) {
   const points = route.path ?? [a.position];
   if (route.path?.some(point => point.hold && point.runway)) return {error: "Taxi to the departure hold and clear intermediate runway crossings before lining up."};
   const entry = runwayCoordinates(points[points.length - 1], g);
-  return {path: [...points.map(p => ({x: p.x, y: p.y})), add(g.threshold, g.vector, Math.max(0, entry.along)), g.threshold]};
+  return departureEntry(points.map(p => ({x: p.x, y: p.y})), Math.max(0, entry.along), g);
+}
+
+function departureEntry(path: Point[], along: number, g: ReturnType<typeof runwayGeometry>): {path?: Point[]; error?: string} {
+  // Use the engine's own acceleration/rotation model to reject an intersection
+  // with insufficient runway, rather than silently changing its departure point.
+  const remaining = distance(g.threshold, g.departure) - along;
+  const required = DEFAULTS.rotationSpeed ** 2 / (2 * DEFAULTS.acceleration * 3600) + .05;
+  if (remaining < required) return {error: "Insufficient runway remaining for this intersection departure. Choose an earlier intersection or full length."};
+  return {path: [...path, add(g.threshold, g.vector, along)]};
 }
 
 function runwayCoordinates(p: Point, g: ReturnType<typeof runwayGeometry>) {
@@ -303,7 +319,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   if (c.type !== "pushback" && !["stop", "speed", "frequency", "runway", "outcome"].includes(c.type)) a.pushback = undefined;
   switch (c.type) {
     case "pushback": {
-      a.pushback = {path: planPushback(AIRPORT, a, c.tail).path!, index: 0};
+      if (a.mode !== "pushback" || !a.pushback || a.pushback.tail && a.pushback.tail !== c.tail) a.pushback = {path: planPushback(AIRPORT, a, c.tail).path!, index: 0, tail: c.tail};
       a.mode = "pushback"; a.holding = false; a.targetSpeed = GROUND.pushbackSpeed; break;
     }
     case "give-way": if (c.aircraftId) a.giveWay = {aircraftId: c.aircraftId, description: c.description}; else delete a.giveWay; break;
@@ -321,7 +337,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
         if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null;}
         a.intentions = {...intentionsOf(a), taxi: "parking"};
       }
-      if (c.runway) {a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway; if (c.contactTowerWhenReady) a.contactTowerAtHold = true; else delete a.contactTowerAtHold; const route = planTaxiRoute(AIRPORT, a.position, c.runway); if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}} a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
+      if (c.runway) {a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway; if (c.contactTowerWhenReady !== false) a.contactTowerAtHold = true; else delete a.contactTowerAtHold; const route = planTaxiRoute(AIRPORT, a.position, c.runway); if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}} a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "stop": a.holding = true; a.targetSpeed = 0; break;
     case "hold-short": a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "cross": a.releasedHold = a.taxiIndex; a.holding = false; a.mode = "taxi"; a.targetSpeed = DEFAULTS.taxiSpeed; break;
@@ -345,7 +361,10 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
         a.frequency = c.frequency;
         if (a.radar) {a.radar.transferred = c.frequency !== a.radar.station; if (!a.radar.transferred) a.radar.report = "check-in";}
         if (c.frequency === "ground" && a.parkingAfterContact) {a.arrivalRequest = "taxi-parking"; delete a.parkingAfterContact;}
-        if (c.frequency === "tower" && atDepartureHold(a)) a.automaticRequest = "departure";
+        if (c.frequency === "tower" && ["parked", "taxi", "lineup"].includes(a.mode)) {
+          a.towerCheckInPending = true;
+          if (atDepartureHold(a)) a.automaticRequest = "departure";
+        } else delete a.towerCheckInPending;
       }
       break;
     case "outcome": a.landing = c.outcome; break;
@@ -412,11 +431,19 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       }
       break;
     }
+    case "all-full-stop":
+      for (const a of next.aircraft) {a.landing = "full-stop"; delete a.optionHand; if (a.automaticRequest === "inbound-option") a.automaticRequest = "inbound-land";}
+      break;
+    case "report-position": {
+      if (!aircraft!.active || aircraft!.frequency !== "tower" || !["pattern", "heading", "go-around"].includes(aircraft!.mode)) return {state, error: "Position reports require airborne traffic on Tower."};
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: "tower", sender: "pilot", text: positionReportText(aircraft!, AIRPORT), read: false});
+      break;
+    }
     case "spawn": if (next.aircraft.length >= 50) return {state, error: "This exercise supports up to 50 aircraft."}; if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."}; next.aircraft.push(action.aircraft); break;
     case "remove": next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); break;
     case "taxi-path": {const error = applyTaxiPathEdit(aircraft!, action.path, action.edit); if (error) return {state, error}; break;}
     case "edit":
-      if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) delete aircraft!.arrivalRequest;
+      if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.arrivalRequest; delete aircraft!.towerCheckInPending;}
       if (["runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.arrivalExit; delete aircraft!.runwayExit;}
       if (action.patch.clearedToLand === false || action.patch.runway && action.patch.runway !== aircraft!.runway) clearLanding(aircraft!); if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) delete aircraft!.contactTowerAtHold; if (action.patch.runway && action.patch.runway !== aircraft!.runway || action.patch.hand && action.patch.hand !== aircraft!.hand) aircraft!.patternFinalDistance = undefined; if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.groundYield; delete aircraft!.giveWay; delete aircraft!.automaticRequest; delete aircraft!.parkingAfterContact;}
       Object.assign(aircraft!, action.patch);
@@ -507,6 +534,7 @@ function readbackText(callsign: string, text: string, instruction?: Instruction)
   if (instruction?.type === "cross") phrase = phrase.replace(/^cross /i, "Crossing ");
   if (instruction?.type === "hold-short") phrase = phrase.replace(/^hold short(?: of)? /i, "Holding short ");
   if (instruction?.type === "give-way") phrase = phrase.replace(/^give way to /i, "Giving way to ").replace(/on your /gi, "on my ");
+  phrase = phrase.replace(/^taxi /i, "Taxi ");
   if (instruction?.type === "taxi" && instruction.destination === "parking") phrase = phrase.replace(/at your discretion/i, "at my discretion");
   if (instruction?.type === "frequency" && instruction.frequency && !instruction.whenReady) phrase = phrase.replace(/^contact /i, "Contacting ");
   return `${phrase}, ${callsign}`;
@@ -534,10 +562,10 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
     }
   }
   for (const a of next.aircraft.filter(a => a.automaticRequest)) {
-    const request = a.automaticRequest;
-    const id = request === "taxi" ? intentionsOf(a).taxi === "parking" ? "taxi-parking" : "taxi-runway" : request === "departure" ? "departure" : "inbound-option";
+    const request = a.automaticRequest!;
+    const id = request === "taxi" ? intentionsOf(a).taxi === "parking" ? "taxi-parking" : "taxi-runway" : request === "departure" ? "departure" : request;
     const valid = request === "taxi" ? a.mode === "parked" && a.frequency === "ground" : request === "departure" ? atDepartureHold(a) && a.frequency === "tower" : a.mode === "heading" && a.frequency === "tower";
-    next = structuredClone(next); delete next.aircraft.find(other => other.id === a.id)!.automaticRequest; next.revision++;
+    next = structuredClone(next); const reporting = next.aircraft.find(other => other.id === a.id)!; delete reporting.automaticRequest; if (request === "departure") delete reporting.towerCheckInPending; next.revision++;
     const pending = a.frequency ? pendingPilotMessage(next, a.id, a.frequency) : undefined;
     const instruction = pendingCommands(next, a.id).at(-1)?.instruction;
     const alreadyCleared = request === "taxi" && instruction?.type === "taxi" || request === "departure" && (instruction?.type === "takeoff" || instruction?.type === "lineup");
@@ -570,6 +598,50 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
 const NEXT_LEG: Record<Leg, Leg> = {upwind: "crosswind", crosswind: "downwind", downwind: "base", base: "final", final: "upwind"};
 const turnLead = (a: Aircraft) => Math.max(.12, a.speed / 3600 / (DEFAULTS.turnRate * radians));
 interface SequenceGuidance {extendDownwind: boolean; speedLimit?: number}
+/** Estimate threshold time using the same IAS stages and acceleration as flight.
+ * Using the current downwind speed for the whole approach both releases fast
+ * followers too early and overextends slow followers. */
+function approachSeconds(a: Aircraft, joiningBase = false) {
+  const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), q = runwayCoordinates(a.position, g);
+  const finalDistance = a.leg === "final" ? Math.max(0, -q.along)
+    : Math.max(defaultBaseDistance(a), a.patternFinalDistance ?? 0, -q.along + (joiningBase ? turnLead(a) : 0));
+  const stages: [number, number][] = [];
+  if (a.leg !== "final") {
+    const radius = turnLead(a);
+    // A joining aircraft still has the downwind-to-base turn ahead of it.
+    const base = Math.max(0, Math.abs(q.lateral) + (joiningBase ? Math.PI - 2 : -.4) * radius);
+    stages.push([base, a.speedTargets?.base ?? 180]);
+  }
+  stages.push([Math.max(0, finalDistance - 4.5), a.speedTargets?.final ?? 180],
+    [Math.max(0, Math.min(finalDistance, 4.5) - 2), a.speedTargets?.final ?? 160],
+    [Math.min(finalDistance, 2), a.speedTargets?.vref ?? 135]);
+  let speed = Math.max(1, a.speed), seconds = 0;
+  for (const [nm, target] of stages) {
+    if (a.speedMode === "manual") {seconds += nm * 3600 / Math.max(1, Math.min(a.speed, a.targetSpeed)); continue;}
+    const acceleration = Math.sign(target - speed) * DEFAULTS.acceleration;
+    const changing = Math.abs(target - speed) / DEFAULTS.acceleration;
+    const changeDistance = (speed + target) / 2 * changing / 3600;
+    if (nm < changeDistance && acceleration) {
+      const endSpeed = Math.sqrt(Math.max(1, speed ** 2 + 2 * acceleration * nm * 3600));
+      seconds += (endSpeed - speed) / acceleration; speed = endSpeed;
+    } else {seconds += changing + (nm - changeDistance) * 3600 / Math.max(1, target); speed = target;}
+  }
+  return seconds;
+}
+/** Before releasing the base turn, check the actual shared flight model through
+ * final capture. Threshold ETA alone misses the closing gap during the turn. */
+function finalJoinSeparated(a: Aircraft, leader: Aircraft) {
+  const own = motionCopy(a), ahead = motionCopy(leader), circuit = ahead.circuit ?? 0;
+  const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), unlimited = {speedLimit: Infinity, travelLimit: Infinity};
+  for (let t = 0; t < 300; t += .5) {
+    move(own, .5, {extendDownwind: false}, unlimited, false, []);
+    move(ahead, .5, {extendDownwind: false}, unlimited, false, []);
+    const ownAlong = runwayCoordinates(own.position, g).along, leaderAlong = runwayCoordinates(ahead.position, g).along;
+    if ((ahead.circuit ?? 0) !== circuit) return ownAlong <= -DEFAULTS.sequenceDistance;
+    if (own.leg === "final" && leaderAlong - ownAlong < DEFAULTS.sequenceDistance) return false;
+  }
+  return false;
+}
 /** Compare arrival times at the shared final, including traffic on the opposite hand.
  * Wait for the predecessor to turn base: its own downwind may still be extended.
  * Underestimate our turn distance and overestimate theirs to leave a spacing margin. */
@@ -579,25 +651,37 @@ function sequenceGuidance(a: Aircraft, aircraft: Aircraft[]): SequenceGuidance {
   if (a.mode !== "pattern" || !following || a.sequence?.departure) return {extendDownwind: false};
   const established = following.mode === "pattern" && ["base", "final"].includes(following.leg) && !following.extended;
   if (!established) return {extendDownwind: a.leg === "downwind"};
-  const leaderSpeed = Math.max(1, Math.min(following.speed, following.targetSpeed));
-  const spacing = Math.max(DEFAULTS.sequenceSeconds, DEFAULTS.sequenceDistance * 3600 / leaderSpeed);
-  const leaderSeconds = arrivalDistance(following) * 3600 / leaderSpeed;
+  const finalSpeed = (a: Aircraft) => a.speedMode === "manual" ? Math.min(a.speed, a.targetSpeed) : a.speedTargets?.vref ?? 135;
+  const spacing = Math.max(DEFAULTS.sequenceSeconds, DEFAULTS.sequenceDistance * 3600 / Math.max(1, Math.min(finalSpeed(a), finalSpeed(following))));
+  const leaderSeconds = approachSeconds(following);
   if (a.leg === "downwind") {
-    const finalDistance = Math.max(defaultBaseDistance(a), a.patternFinalDistance ?? 0, -runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).along + turnLead(a));
-    const remaining = Math.max(0, DEFAULTS.patternWidth + finalDistance - 2 * turnLead(a));
-    const ownSeconds = remaining * 3600 / Math.max(1, a.speed, a.targetSpeed);
-    return {extendDownwind: ownSeconds < leaderSeconds + spacing};
+    const ownSeconds = approachSeconds(a, true);
+    if (ownSeconds < leaderSeconds + spacing) return {extendDownwind: true};
+    const q = runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY));
+    return {extendDownwind: -q.along >= defaultBaseDistance(a) - turnLead(a) && !finalJoinSeparated(a, following)};
   }
   if (a.leg === "base" || a.leg === "final") {
     const remaining = Math.max(0, arrivalDistance(a) - (a.leg === "base" ? 2 * turnLead(a) : 0));
     const minimum = a.speedMode === "manual" ? DEFAULTS.minimumPatternSpeed : speedProfile(a).minimum;
-    return {extendDownwind: false, speedLimit: Math.max(minimum, remaining * 3600 / (leaderSeconds + spacing))};
+    const delay = leaderSeconds + spacing;
+    return {extendDownwind: false, speedLimit: approachSeconds(a) >= delay ? undefined : Math.max(minimum, remaining * 3600 / delay)};
   }
   return {extendDownwind: false};
 }
 
+function departureHoldMatches(a: Aircraft, hold: {runway?: Runway}, runway = a.departureRunway ?? a.runway) {
+  return !hold.runway || airportRunways(AIRPORT).some(pair => pair.ends.some(end => end.id === runway) && pair.ends.some(end => end.id === hold.runway));
+}
+
 function atDepartureHold(a: Aircraft) {
-  return a.mode === "taxi" && a.holding && a.taxiIndex === a.taxiPath.length - 1 && !!a.taxiPath[a.taxiIndex]?.hold && distance(a.position, a.taxiPath[a.taxiIndex]) < 1e-7;
+  const hold = a.taxiPath[a.taxiIndex] ?? a.taxiPath.at(-1);
+  if (!hold || !departureHoldMatches(a, hold) || a.speed > 1 || a.taxiIndex < a.taxiPath.length - 1 || distance(a.position, hold) >= .005) return false;
+  if (hold.hold) return ["taxi", "parked", "lineup"].includes(a.mode) && a.holding;
+  // Hand-drawn paths may end without a hold flag. Only a completed runway-taxi
+  // route beside the assigned runway counts as ready, never a parking stand.
+  const g = runwayGeometry(a.departureRunway ?? a.runway ?? DEFAULT_RUNWAY), q = runwayCoordinates(a.position, g);
+  return a.mode === "parked" && a.taxiIndex >= a.taxiPath.length && intentionsOf(a).taxi === "runway"
+    && q.along >= 0 && q.along < distance(g.threshold, g.departure) && Math.abs(q.lateral) <= .1;
 }
 
 function stepTraffic(aircraft: Aircraft[], dt: number, autoGoAround = false) {
@@ -634,20 +718,32 @@ function advance(state: Exercise, seconds: number): Exercise {
         if (!target || !target.active || target.altitude >= AIRPORT.elevation + 1000 || !groundConflict(a, target) && distance(a.position, target.position) > GROUND.spacing) delete a.giveWay;
       }
       if (state.autoReadback && a.transitionOverheadArmed && a.mode === "heading" && a.frequency === "tower" && distance(a.position, {x: 0, y: 0}) <= (intentionsOf(a).overheadRadius ?? 1)) {
-        delete a.transitionOverheadArmed; a.landing = "touch-and-go"; a.automaticRequest = "inbound-option";
+        delete a.transitionOverheadArmed; a.automaticRequest = a.landing === "touch-and-go" ? "inbound-option" : "inbound-land";
       }
     }
     // Frequency changes are authoritative, never made by rendering predictions.
     for (const a of next.aircraft) if (state.autoReadback && a.contactTowerAtHold && atDepartureHold(a)) {
-      if (a.frequency === "ground") {a.frequency = "tower"; a.automaticRequest = "departure";}
+      if (a.frequency === "ground") {a.frequency = "tower"; a.towerCheckInPending = true;}
       delete a.contactTowerAtHold;
     }
+    for (const a of next.aircraft) if (state.autoReadback && a.towerCheckInPending && a.frequency === "tower" && atDepartureHold(a)) a.automaticRequest = "departure";
     for (const a of next.aircraft) if (a.arrivalExit && !a.runwayExit && ["taxi", "parked"].includes(a.mode) && Math.abs(runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).lateral) >= .06 - 1e-7) {
       a.intentions = {...intentionsOf(a), taxi: "parking"};
       if (state.autoReadback && ["parking", "exit-runway"].includes(a.arrivalExit.instruction) && (a.frequency === "tower" || a.frequency === "ground")) {a.frequency = "ground"; a.arrivalRequest = "taxi-parking";}
       else if (state.autoReadback && a.arrivalExit.instruction === "automatic") {if (a.frequency === "tower") a.arrivalRequest = "frequency-change"; else if (a.frequency === "ground") a.arrivalRequest = "taxi-parking";}
       delete a.arrivalExit;
       a.targetSpeed = a.mode === "taxi" ? DEFAULTS.taxiSpeed : 0;
+    }
+    const collisions = groundCollisionGroups(next.aircraft, AIRPORT.elevation);
+    for (const [index, group] of collisions.entries()) {
+      const event = {id: `collision:${next.revision}:${(next.elapsed + dt).toFixed(3)}:${index}`, elapsed: next.elapsed + dt,
+        aircraft: group.map(a => ({id: a.id, callsign: a.callsign})),
+        position: {x: group.reduce((sum, a) => sum + a.position.x, 0) / group.length, y: group.reduce((sum, a) => sum + a.position.y, 0) / group.length}};
+      next.collisions = [...(next.collisions ?? []), event].slice(-300);
+    }
+    if (collisions.length) {
+      const removed = new Set(collisions.flat().map(a => a.id));
+      next.aircraft = next.aircraft.filter(a => !removed.has(a.id));
     }
     next.elapsed += dt; remaining -= dt;
     for (const a of next.aircraft) if (!a.trail.length || next.elapsed - (a.trail.at(-1)!.time ?? -Infinity) >= DEFAULTS.trailInterval - 1e-8) a.trail = [...a.trail, {...a.position, time: next.elapsed}];

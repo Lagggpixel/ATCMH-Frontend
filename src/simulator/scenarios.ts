@@ -1,4 +1,5 @@
 import {REQUEST_IDS} from "./catalog";
+import {standPoints} from "./stand-geometry";
 import {z} from "zod";
 import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema} from "./protocol";
 import {radarEnvironmentFor} from "./radar";
@@ -173,7 +174,8 @@ export const normalizeScenario = (definition: ScenarioDefinition): ScenarioDefin
 export function standPlacement(id: string, reverse = false, AIRPORT: Airport = defaultAirport): {position: Point; heading: number} | undefined {
   const stand = AIRPORT.features.find(f => f.id === id && f.kind === "parking_position");
   if (!stand || stand.points.length < 2) return;
-  const [a, b] = reverse ? [stand.points.at(-1)!, stand.points[0]] : [stand.points[0], stand.points.at(-1)!];
+  const points = standPoints(AIRPORT, stand);
+  const [a, b] = reverse ? [points.at(-1)!, points[0]] : [points[0], points.at(-1)!];
   return {position: {...b}, heading: (Math.atan2(b.x - a.x, b.y - a.y) * 180 / Math.PI + 360) % 360};
 }
 

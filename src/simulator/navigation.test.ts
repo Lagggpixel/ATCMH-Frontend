@@ -62,18 +62,12 @@ test("option choices preserve current traffic until touchdown then fly the reque
   assert.equal(state.aircraft[0].hand, "right"); assert.equal(state.aircraft[0].optionHand, undefined);
 });
 
-test("an aircraft placed near the runway departure end back-taxis before its takeoff roll", () => {
-  let state = initialExercise(); const a = state.aircraft[1], g = runwayGeometry();
+test("an intersection with insufficient runway is rejected without silently back-taxiing", () => {
+  const state = initialExercise(), a = state.aircraft[1], g = runwayGeometry();
   a.frequency = "tower"; a.position = {x: g.departure.x - g.vector.x * .15, y: g.departure.y - g.vector.y * .15};
-  state = act(state, {kind: "maneuver", aircraftId: a.id, command: {type: "takeoff", runway: "24"}});
-  state.running = true; let rolled = false, rotated = false;
-  for (let i = 0; i < 500 && !rotated; i++) {
-    state = advance(state, 1); const plane = state.aircraft[1], q = local(plane.position, "24");
-    if (plane.mode === "takeoff" && !rolled) {rolled = true; assert.ok(q.along < .01, "roll starts at threshold");}
-    if (rolled && plane.altitude <= AIRPORT.elevation + 1) assert.ok(q.along < distance(g.threshold, g.departure), "roll stays on runway");
-    rotated = plane.altitude > AIRPORT.elevation + 1;
-  }
-  assert.ok(rolled && rotated);
+  const result = applyEnvelope(state, {id: "short-intersection", time: 0, action: {kind: "maneuver", aircraftId: a.id, command: {type: "takeoff", runway: "24"}}});
+  assert.match(result.error!, /Insufficient runway remaining/);
+  assert.equal(result.state, state);
 });
 
 test("sequencing resolves the preceding arrival and survives readbacks/reload", () => {

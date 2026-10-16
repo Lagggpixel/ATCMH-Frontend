@@ -172,7 +172,7 @@ test("assignment revalidates routes and logs a frequency-change readback on the 
 test("pilot requests carry their chosen runway without changing the assigned runway", () => {
   const a = newAircraft("a", true);
   const request = pilotRequests(a).find(r => r.id === "runway-change")!;
-  assert.equal(pilotRequestText(a, request, "06"), "Speedbird 124, requesting runway 06"); assert.equal(a.runway, "24");
+  assert.equal(pilotRequestText(a, request, "06"), "Speedbird 124, requesting change to runway 06"); assert.equal(a.runway, "24");
   a.frequency = "ground"; a.mode = "parked";
   assert.equal(pilotRequestText(a, pilotRequests(a)[1], "06"), "Speedbird 124, ready to taxi to runway 06");
   assert.equal(pilotRequestText(a, pilotRequests(a)[0], "06"), "Speedbird 124, ready for pushback");

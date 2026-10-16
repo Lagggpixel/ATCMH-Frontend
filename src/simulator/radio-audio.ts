@@ -24,7 +24,8 @@ export function browserAudioPreference(accountId: string, role: "staff" | "mente
 const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const digits = (value: string) => [...value].map(n => DIGITS[Number(n)]).join(" ");
 export function aviationSpeech(text: string): string {
-  return text.replace(/\brunway (\d{2})([LRC])?\b/gi, (_, number: string, side: string | undefined) => `Runway ${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
+  return text.replace(/(\bon (?:left |right )?(?:final|base|downwind|crosswind|upwind) )(\d{2})([LRC])?\b/gi, (_, leg: string, number: string, side: string | undefined) => `${leg}${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
+    .replace(/\brunway (\d{2})([LRC])?\b/gi, (_, number: string, side: string | undefined) => `Runway ${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
     .replace(/\b(\d{3})\.(\d{2,3})\b/g, (_, whole: string, fraction: string) => `${digits(whole)} decimal ${digits(fraction)}`);
 }
 export const radioMessageText = (message: Message) => aviationSpeech(message.text);
