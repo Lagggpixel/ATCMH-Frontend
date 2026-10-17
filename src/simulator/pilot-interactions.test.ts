@@ -76,6 +76,24 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
   }
 });
 
+test("parking taxi readbacks contain only the instruction and callsign", () => {
+  const command: Instruction = {type: "taxi", destination: "parking"};
+  const expected = "Taxi to parking, Speedbird 104.";
+  for (const automatic of [false, true]) {
+    let state = active(); state.autoReadback = automatic;
+    const a = state.aircraft[1]; a.callsign = "Speedbird 104";
+    state = send(state, command, a.id);
+    const clearance = state.messages.at(-1)!;
+    assert.equal(clearance.text, "Speedbird 104, taxi to Parking, at your discretion");
+    assert.equal(readbackText(a.callsign, clearance.text, command), expected);
+    assert.equal(readbackText(a.callsign, "Speedbird 104, taxi to parking at your descretion", command), expected);
+    state = automatic ? tick(state) : act(state, {kind: "pilot", aircraftId: a.id, replyTo: clearance.id, assign: true, text: readbackText(a.callsign, clearance.text, command)});
+    assert.equal(state.messages.at(-1)!.text, expected);
+    assert.equal(state.messages.at(-1)!.frequency, "ground");
+    assert.equal(state.aircraft[1].mode, "taxi");
+  }
+});
+
 test("takeoff readbacks omit wind and retain the runway, traffic hand and callsign", () => {
   for (const hand of [undefined, "right", "left"] as const) {
     let state = active(); const a = state.aircraft[1]; a.frequency = "tower";

@@ -536,7 +536,7 @@ function readbackText(callsign: string, text: string, instruction?: Instruction)
   if (instruction?.type === "hold-short") phrase = phrase.replace(/^hold short(?: of)? /i, "Holding short ");
   if (instruction?.type === "give-way") phrase = phrase.replace(/^give way to /i, "Giving way to ").replace(/on your /gi, "on my ");
   phrase = phrase.replace(/^taxi /i, "Taxi ");
-  if (instruction?.type === "taxi" && instruction.destination === "parking") phrase = phrase.replace(/at your discretion/i, "at my discretion");
+  if (instruction?.type === "taxi" && instruction.destination === "parking") return `Taxi to parking, ${callsign}.`;
   if (instruction?.type === "frequency" && instruction.frequency && !instruction.whenReady) phrase = phrase.replace(/^contact /i, "Contacting ");
   if (instruction?.type === "frequency" && instruction.frequency === null) phrase = "Frequency change approved, good day";
   return `${phrase}, ${callsign}`;

@@ -259,7 +259,7 @@ Scenario authors can choose **Request Transition at Start**, assign a transition
 
 | Staff request / situation | Pilot transmission | Mentee command buttons | Controller transmission | Pilot readback |
 | --- | --- | --- | --- | --- |
-| Request Taxi to Parking | Easy 201, requesting taxi to parking | Taxi to... → Parking | Easy 201, taxi to Parking, at your discretion | taxi to Parking, at my discretion, Easy 201 |
+| Request Taxi to Parking | Easy 201, requesting taxi to parking | Taxi to... → Parking | Easy 201, taxi to Parking, at your discretion | Taxi to parking, Easy 201. |
 | Request Transition | Easy 201 is 5 miles to the north east of Edinburgh at 1500 feet, requesting transition | Green Approve transition → 500ft … 10000ft; original Respond to Transition has the same choices | Easy 201, Transition approved at or above 1500 feet | Transition approved at or above 1500 feet, Easy 201 |
 | Ground traffic needs priority | Staff may send an ordinary pilot message | Give way to... → Aircraft exiting runway / Aircraft on your left / Aircraft on your right / Aircraft ahead → callsign | Easy 201, give way to United 4 on your left | Giving way to United 4 on my left, Easy 201 |
 | At departure hold after deferred Tower contact | Ready-for-departure request for the assigned taxi runway, optionally remaining in the pattern | Existing takeoff and traffic commands | Existing clearance phraseology | Existing clearance readback |
