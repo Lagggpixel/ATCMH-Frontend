@@ -140,7 +140,7 @@ test("touch-and-go traffic stays on the runway and starts another takeoff", () =
 
 test("Tower offers parking and arrival automation state is server-owned in the protocol", () => {
   const a = rollout().aircraft[0];
-  assert.ok(messageMenu("tower", a).some(m => m.instruction?.type === "taxi" && m.instruction.destination === "parking"));
+  assert.ok(!messageMenu("tower", a).some(m => m.instruction?.type === "taxi" && m.instruction.destination === "parking"));
   for (const patch of [{arrivalExit: {instruction: "parking", speed: 35}}, {arrivalRequest: "taxi-parking"}]) {
     assert.equal(envelopeSchema.safeParse({id: "edit", time: 1, action: {kind: "edit", aircraftId: a.id, patch}}).success, false);
   }

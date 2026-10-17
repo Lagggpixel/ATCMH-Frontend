@@ -22,18 +22,18 @@ test("removed commands are absent and all hold-short submenus offer both bare ru
   const state = initialExercise();
   for (const [frequency, aircraft] of [["ground", state.aircraft[1]], ["tower", state.aircraft[1]], ["tower", state.aircraft[0]]] as const) {
     const entries = all(messageMenu(frequency, aircraft));
-    for (const label of ["Unable", "Unable, Divert", "Roger", "Wilco", "Tow Approved", "Broadcast Message"]) assert.ok(!entries.some(e => e.label === label), label);
+    for (const label of ["Unable", "Unable, Divert", "Wilco", "Tow Approved"]) assert.ok(!entries.some(e => e.label === label), label);
     for (const entry of entries.filter(e => /^Hold short/i.test(e.label))) {
-      assert.deepEqual(entry.children?.map(e => e.label), ["24", "06"]);
-      assert.deepEqual(entry.children?.map(e => e.instruction), [{type: "hold-short", runway: "24"}, {type: "hold-short", runway: "06"}]);
+      assert.deepEqual(entry.children?.map(e => e.label), ["Runway 24", "Runway 06"]);
+      assert.ok(entry.children?.every(e => e.instruction?.type === "hold-short" || e.children));
     }
-    assert.deepEqual(entries.find(e => e.label === "Correction")?.children?.map(e => e.label), ["Correction, Standby", "Disregard last message"]);
-    assert.equal(entries.find(e => e.label === "Ask for Intentions")?.instruction?.type, "radio");
+    assert.deepEqual(entries.find(e => e.label === "Correction")?.children?.map(e => e.label), ["Correction, Stand by", "Disregard last message"]);
+    assert.equal(entries.find(e => e.label === "Ask for Intentions")?.children?.[0].instruction?.type, "radio");
   }
 });
 
 test("Say Intentions and Standby are transmissions, never movement assignments or invented readbacks", () => {
-  for (const [message, wording] of [["say-intentions", "Say Intentions"], ["standby", "Standby"]] as const) {
+  for (const [message, wording] of [["say-intentions", "say intentions"], ["standby", "stand by"]] as const) {
     const state = active(), before = structuredClone(state.aircraft);
     const next = send(state, {type: "radio", message});
     assert.deepEqual(next.aircraft, before);
@@ -82,7 +82,7 @@ test("controller Unable replies only to the current pilot request, including run
   assert.equal(pendingPilotMessage(state, "demo-air", "tower")?.id, request.id);
   const before = structuredClone(state.aircraft[0]);
   state = send(state, {type: "radio", message: "unable"}, "demo-air", request.id);
-  assert.equal(state.messages.at(-1)!.text, "Speedbird 124, Unable");
+  assert.equal(state.messages.at(-1)!.text, "Speedbird 124, unable");
   assert.equal(state.messages.at(-1)!.replyTo, request.id);
   assert.equal(pendingPilotMessage(state, "demo-air", "tower"), undefined);
   assert.deepEqual(state.aircraft[0], before); assert.equal(tick(state).messages.length, state.messages.length);

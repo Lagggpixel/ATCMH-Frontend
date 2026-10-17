@@ -106,7 +106,13 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
       if (!fitted.current) {fitted.current = true; setCamera(airportCamera(width, entry.contentRect.height, frequency === "all"));}
     });
     resize.observe(node);
-    const wheel = (event: WheelEvent) => {event.preventDefault(); if (routeDrag.current || vectorDrag.current || gateDrag.current) return; setCamera(c => ({...c, scale: Math.max(minimumScale, Math.min(1800, c.scale * Math.exp(-event.deltaY * 0.0015)))}));};
+    const wheel = (event: WheelEvent) => {
+      // Popup lists use native scrolling; only wheel events over the map zoom it.
+      if (event.target instanceof Element && event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, .${styles.airportPopup}, .${styles.scopeButtons}`)) return;
+      event.preventDefault();
+      if (routeDrag.current || vectorDrag.current || gateDrag.current) return;
+      setCamera(c => ({...c, scale: Math.max(minimumScale, Math.min(1800, c.scale * Math.exp(-event.deltaY * 0.0015)))}));
+    };
     node.addEventListener("wheel", wheel, {passive: false});
     return () => {resize.disconnect(); node.removeEventListener("wheel", wheel);};
   }, [frequency, airportCamera, minimumScale, setCamera]);

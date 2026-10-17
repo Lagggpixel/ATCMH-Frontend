@@ -38,8 +38,8 @@ test("airborne directional departure requests and mentee approvals cover all fou
     const command: Instruction = {type: "departure", direction};
     assert.ok(menteeActionAllowed({kind: "command", aircraftId: "demo-air", command, frequency: "tower", text: ""}));
     state = tick(send(state, command));
-    assert.equal(state.messages[1].text, `Easy 201, departure to the ${direction} approved`);
-    assert.equal(state.messages[2].text, `departure to the ${direction} approved, Easy 201`);
+    assert.equal(state.messages[1].text, `Easy 201, departure to the ${direction} is approved`);
+    assert.equal(state.messages.length, 2, "departure approval has no dedicated pilot readback");
     assert.equal(state.aircraft[0].targetHeading, heading); assert.equal(state.aircraft[0].leavingCircuit, true);
   }
   assert.ok(!pilotRequests(initialExercise().aircraft[1]).some(r => r.id === "departure-direction"));
@@ -63,7 +63,7 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
   for (const [command, expected] of [
     [{type: "cross", runway: "06"}, "Crossing runway 06"],
     [{type: "hold-short", runway: "06"}, "Holding short runway 06"],
-    [{type: "taxi", runway: "24"}, "Taxi to runway 24, contact tower when ready"],
+    [{type: "taxi", runway: "24"}, "Taxi to runway 24"],
     [{type: "frequency", frequency: "tower"}, "Contacting Edinburgh Tower on 118.70"],
   ] as const) {
     let state = active(); const a = state.aircraft[1];
@@ -78,13 +78,13 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
 
 test("parking taxi readbacks contain only the instruction and callsign", () => {
   const command: Instruction = {type: "taxi", destination: "parking"};
-  const expected = "Taxi to parking, Speedbird 104.";
+  const expected = "Taxi to parking, Speedbird 104";
   for (const automatic of [false, true]) {
     let state = active(); state.autoReadback = automatic;
     const a = state.aircraft[1]; a.callsign = "Speedbird 104";
     state = send(state, command, a.id);
     const clearance = state.messages.at(-1)!;
-    assert.equal(clearance.text, "Speedbird 104, taxi to Parking, at your discretion");
+    assert.equal(clearance.text, "Speedbird 104, taxi to parking, at your discretion");
     assert.equal(readbackText(a.callsign, clearance.text, command), expected);
     assert.equal(readbackText(a.callsign, "Speedbird 104, taxi to parking at your descretion", command), expected);
     state = automatic ? tick(state) : act(state, {kind: "pilot", aircraftId: a.id, replyTo: clearance.id, assign: true, text: readbackText(a.callsign, clearance.text, command)});
@@ -99,8 +99,8 @@ test("takeoff readbacks omit wind and retain the runway, traffic hand and callsi
     let state = active(); const a = state.aircraft[1]; a.frequency = "tower";
     const command: Instruction = {type: "takeoff", runway: "24", ...(hand ? {hand} : {})};
     const clearance = instructionText(a, command);
-    assert.match(clearance, /^Easy 571, wind 240 at 10, Runway 24, cleared for takeoff/);
-    const expected = `Runway 24, cleared for takeoff${hand ? `, make ${hand} traffic` : ""}, Easy 571`;
+    assert.match(clearance, /^Easy 571, wind 240 at 10, runway 24, cleared for takeoff/);
+    const expected = "Cleared for takeoff, runway 24, Easy 571";
     assert.equal(readbackText(a.callsign, clearance, command), expected);
     assert.equal(readbackText(a.callsign, `Runway 24, cleared for takeoff${hand ? `, make ${hand} traffic` : ""}`, command), expected);
     state = tick(send(state, command, a.id));
@@ -120,7 +120,7 @@ test("Stay on frequency stays silent; frequency release replies once on the orig
   state = tick(state, 1.4); assert.equal(state.aircraft[0].frequency, "tower"); assert.equal(state.messages.length, 2);
   state = tick(state, .1);
   assert.equal(state.aircraft[0].frequency, null); assert.equal(state.messages.length, 3);
-  assert.equal(state.messages.at(-1)!.text, "Frequency change approved, good day, Speedbird 124");
+  assert.equal(state.messages.at(-1)!.text, "Frequency change approved Speedbird 124, good day!");
   assert.equal(state.messages.at(-1)!.frequency, "tower");
   assert.equal(state.messages.at(-1)!.commandId, commandId);
   assert.equal(state.messages.at(-1)!.read, true);
@@ -132,7 +132,7 @@ test("manual frequency release permits readback and assignment, while Unable ret
   for (const assign of [false, true]) {
     let state = send({...active(), autoReadback: false}, {type: "frequency", frequency: null});
     const commandId = state.messages.at(-1)!.id;
-    state = act(state, {kind: "pilot", aircraftId: "demo-air", replyTo: commandId, assign, text: "Frequency change approved, good day, Speedbird 124"});
+    state = act(state, {kind: "pilot", aircraftId: "demo-air", replyTo: commandId, assign, text: "Frequency change approved Speedbird 124, good day!"});
     assert.equal(state.messages.length, 2);
     assert.equal(state.messages.at(-1)!.frequency, "tower");
     assert.equal(state.aircraft[0].frequency, assign ? null : "tower");
@@ -149,11 +149,11 @@ test("staff Go Around starts a manoeuvre; each mentee response reads back and ex
     state = request(state, {id: "go-around", runway: "24"});
     assert.equal(state.messages[0].text, "Easy 201, going around");
     assert.equal(state.aircraft[0].mode, "go-around"); assert.equal(state.aircraft[0].clearedToLand, false);
-    const command = messageMenu("tower", state.aircraft[0]).find(e => e.label === "Respond to Go Around")!.children!.find(e => e.label === label)!.instruction!;
+    const command = messageMenu("tower", state.aircraft[0], [], state.messages[0]).find(e => e.label === "Respond to Go Around")!.children!.find(e => e.label === label)!.children!.find(e => e.label === "Runway 24")!.instruction!;
     state = tick(send(state, command));
     const phrase = label === "Fly Runway Heading" ? "fly runway heading" : label === "Make Right Traffic" ? "make right traffic" : "make left traffic";
-    assert.equal(state.messages[1].text, `Easy 201, go around, ${phrase} runway 24`);
-    assert.equal(state.messages[2].text, `go around, ${phrase} runway 24, Easy 201`);
+    assert.equal(state.messages[1].text, `Easy 201, roger, ${phrase} runway 24`);
+    assert.equal(state.messages[2].text, "Roger, Easy 201");
     assert.equal(state.aircraft[0].circuit, 1, "the controller response does not start another circuit");
     for (let i = 0; i < 120; i++) state = advance(state, 5);
     if (label === "Fly Runway Heading") {assert.equal(state.aircraft[0].mode, "go-around"); assert.equal(state.aircraft[0].targetHeading, runwayGeometry().heading);}
@@ -199,7 +199,7 @@ test("runway changes, cancellation and circuit wrap revoke both permissions; lat
   let state = send(threshold(true), {type: "land", option: true});
   state = tick(state);
   assert.equal(state.aircraft[0].clearedToLand, false);
-  assert.match(state.messages.at(-1)!.text, /previous circuit/);
+  assert.equal(state.messages.at(-1)!.text, "Unable, Speedbird 124");
 });
 
 test("scheduled directional requests preserve choices; scheduled go-around has the same staff behavior", () => {

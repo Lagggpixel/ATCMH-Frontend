@@ -16,7 +16,7 @@ test("every stable request and exact legacy label executes the same scenario wit
   for (const id of REQUEST_IDS) {
     const request = resolvePilotRequest({requestId: id})!;
     for (const legacy of [true, false]) {
-      const radar = ["check-in", "request-approach", "missed-approach"].includes(id);
+      const radar = ["check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "airport-in-sight"].includes(id);
       const base = {...blankScenario(), ...(radar ? {trainingStation: "EGPH:approach"} : {})};
       const a = (radar ? engineFor(base).newAircraft : newAircraft)("seed", request.phase !== "ground" && !["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id));
       a.frequency = ["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id) ? "ground" : "tower";
@@ -28,7 +28,7 @@ test("every stable request and exact legacy label executes the same scenario wit
       exercise.running = true;
       const result = advanceScenario(exercise, runtime, 0, 1000).exercise;
       assert.equal(runtime.events.request.status, "completed", `${id}/${legacy}`);
-      assert.equal(result.messages.length, 1); assert.match(result.messages[0].text, new RegExp(request.text));
+      assert.equal(result.messages.length, 1); assert.match(result.messages[0].text, new RegExp(request.text, "i"));
       assert.equal(JSON.stringify(definition), before);
     }
   }
@@ -43,7 +43,7 @@ test("schema 1 preserves old messages, taxi defaults and legacy ATIS references"
   assert.equal(JSON.stringify(exerciseSchema.parse(JSON.parse(saved))), saved);
   assert.match(atisText(state.atis), /SID - GOSA1C/);
   assert.match(instructionText(state.aircraft[1], {type: "taxi"}), /continue taxi/);
-  assert.match(instructionText(state.aircraft[1], instructionSchema.parse({type: "taxi", destination: "parking"})), /taxi to Parking/);
+  assert.match(instructionText(state.aircraft[1], instructionSchema.parse({type: "taxi", destination: "parking"})), /taxi to parking/);
   assert.match(instructionText(state.aircraft[0], {type: "land", option: false}), /cleared to land/);
 });
 

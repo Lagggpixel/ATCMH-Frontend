@@ -492,6 +492,7 @@
 .commandPanel>.messageEntries {flex:1 1 80%}
 .pilotReply {flex-shrink:0;padding:12px;margin:0 0 10px;border:1px solid var(--trainer-border);background:var(--trainer-raised);font-size:13px}
 .pilotReply p {margin:0;line-height:1.5}
+.unableReason {color:#a3adb7}
 .withdrawnMessage {display:block;font-size:11px;color:var(--trainer-muted);margin-top:4px}
 .menteeSimulator .attribution {font-size:11px;color:#c4d4dd!important;background:#12171b;padding:4px 8px;bottom:5px;left:8px;border-radius:3px}
 .menteeSimulator .airportPopup {background:var(--trainer-surface);border-color:var(--trainer-border);line-height:1.5;max-width:440px;min-width:300px}

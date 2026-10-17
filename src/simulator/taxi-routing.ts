@@ -37,7 +37,7 @@ export function buildTaxiGraph(airport: Airport): TaxiGraph {
   for (const segment of segments) {
     for (const area of areas) {
       const a = area.local(segment.a), b = area.local(segment.b);
-      for (const [axis, values] of [["x", [-TAXI_ROUTING.runwayEndMargin, area.length + TAXI_ROUTING.runwayEndMargin]], ["y", [-TAXI_ROUTING.holdDistance, TAXI_ROUTING.holdDistance]]] as const) {
+      for (const [axis, values] of [["x", [-TAXI_ROUTING.runwayEndMargin, area.length + TAXI_ROUTING.runwayEndMargin]], ["y", [-TAXI_ROUTING.holdDistance, 0, TAXI_ROUTING.holdDistance]]] as const) {
         const delta = b[axis] - a[axis];
         if (Math.abs(delta) > 1e-12) for (const value of values) {const t = (value - a[axis]) / delta; if (t > 0 && t < 1) segment.cuts.push(t);}
       }
@@ -94,7 +94,7 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
   return routeToNodes(source, position, goals, true, blocked, pair.id, airport);
 }
 
-function routeToNodes(source: TaxiGraph, position: Point, goals: number[], hold: boolean, blocked: Point[] = [], forbidden?: string, airport?: Airport): {path: TaxiPoint[]; distance: number; error?: undefined} | {error: string; path?: undefined; distance?: undefined} {
+export function routeToNodes(source: TaxiGraph, position: Point, goals: number[], hold: boolean, blocked: Point[] = [], forbidden?: string, airport?: Airport): {path: TaxiPoint[]; distance: number; error?: undefined} | {error: string; path?: undefined; distance?: undefined} {
   const graph: TaxiGraph = {points: [...source.points], edges: source.edges.map(edges => edges.filter(edge => (!forbidden || !edge.protectedBy?.includes(forbidden)) && (edge.protectedBy?.length ?? 0) < 2)), holds: source.holds};
   let nearest: {from: number; to: number; point: Point; gap: number} | undefined;
   graph.edges.forEach((edges, from) => edges.forEach(({to}) => {if (to < from) return; const a = graph.points[from], b = graph.points[to], dx = b.x - a.x, dy = b.y - a.y; const t = Math.max(0, Math.min(1, ((position.x - a.x) * dx + (position.y - a.y) * dy) / (dx * dx + dy * dy))); const point = interpolate(a, b, t), gap = distance(position, point); if (!nearest || gap < nearest.gap) nearest = {from, to, point, gap};}));

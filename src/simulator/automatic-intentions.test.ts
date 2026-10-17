@@ -121,9 +121,9 @@ test("transition has live position wording and a first green shortcut sharing th
   const menu = requestMessageMenu("tower", a, state.messages[0]);
   assert.equal(menu[0].label, "Approve transition"); assert.equal(menu[0].suggested, true);
   assert.deepEqual(menu[0].children, menu.find(m => m.label === "Respond to Transition")!.children);
-  assert.deepEqual(menu[0].children!.map(m => m.label), Array.from({length: 20}, (_, i) => `${(i + 1) * 500}ft`));
+  assert.deepEqual(menu[0].children!.flatMap(m => m.children ?? []).map(m => m.label), [...Array.from({length: 18}, (_, i) => String(1000 + i * 500)), ...Array.from({length: 8}, (_, i) => String(10000 + i * 1000)), ...Array.from({length: 43}, (_, i) => `FL${180 + i * 10}`)]);
   state = act(state, {kind: "command", aircraftId: a.id, frequency: "tower", text: instructionText(a, {type: "transition", altitude: 1500}), command: {type: "transition", altitude: 1500}, replyTo: state.messages[0].id});
-  state = tick(state, 1.5); assert.equal(state.aircraft[0].mode, "heading"); assert.match(state.messages.at(-1)!.text, /Transition approved at or above 1500 feet, Easy 201/);
+  state = tick(state, 1.5); assert.equal(state.aircraft[0].mode, "heading"); assert.match(state.messages.at(-1)!.text, /Transition approved at 1500 feet, Easy 201/);
 });
 
 test("overhead transition intent requests the option once without entering the pattern or granting landing", () => {

@@ -1,5 +1,5 @@
 "use client";
-import {memo, useLayoutEffect, useRef, useState} from "react";
+import {memo, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {X} from "@phosphor-icons/react/dist/csr/X";
 import {catalogFor, type MenuEntry} from "./catalog";
 import {validateControllerMessage} from "./engine";
@@ -9,7 +9,7 @@ import type {Instruction} from "./model";
 import RadarVectorComposer from "./RadarVectorComposer";
 import styles from "./Simulator.module.css";
 
-export const MessageLog = memo(function MessageLog({airport = defaultAirport, messages: allMessages, frequency, aircraftId, title = "Message log"}: {airport?: Airport; messages: Exercise["messages"]; frequency: Frequency | "all"; aircraftId?: string; title?: string}) {
+export const MessageLog = memo(function MessageLog({airport = defaultAirport, messages: allMessages, frequency, aircraftId, title = "Message log", showUnableReasons = false}: {airport?: Airport; messages: Exercise["messages"]; frequency: Frequency | "all"; aircraftId?: string; title?: string; showUnableReasons?: boolean}) {
   const FREQUENCIES = frequenciesFor(airport);
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -46,15 +46,33 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
     if (following.current && log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [allMessages, aircraftId]);
   const messages = allMessages.filter(m => !aircraftId || m.aircraftId === aircraftId);
-  return <div ref={log} className={styles.messageLog} role="log" aria-label={title} tabIndex={0}><h2 className={styles.messageLogTitle}>{title}</h2>{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{m.text}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}</p></div>) : <p className={styles.emptyMessages}>No messages yet</p>}</div>;
+  return <div ref={log} className={styles.messageLog} role="log" aria-label={title} tabIndex={0}><h2 className={styles.messageLogTitle}>{title}</h2>{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{m.text}{showUnableReasons && m.sender === "pilot" && m.unableReason ? <span className={styles.unableReason}> [{m.unableReason}]</span> : null}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}</p></div>) : <p className={styles.emptyMessages}>No messages yet</p>}</div>;
 });
 export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action) => void | Promise<boolean>; onClose: () => void}) {
   const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment);
   const [pathLabels, setPath] = useState<string[]>([]);
   const [input, setInput] = useState("");
+  const [dialog, setDialog] = useState<"voice" | null>(null);
+  const voiceDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {if (dialog === "voice") voiceDialog.current?.showModal();}, [dialog]);
+  const [recording, setRecording] = useState(false), [recordingUrl, setRecordingUrl] = useState("");
+  const [recordError, setRecordError] = useState("");
+  const recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null);
+  useEffect(() => () => {if (recorder.current?.state === "recording") recorder.current.stop(); stream.current?.getTracks().forEach(track => track.stop());}, []);
+  useEffect(() => () => {if (recordingUrl) URL.revokeObjectURL(recordingUrl);}, [recordingUrl]);
+  const record = async () => {
+    if (recording) {recorder.current?.stop(); setRecording(false); return;}
+    try {
+      stream.current = await navigator.mediaDevices.getUserMedia({audio: true});
+      const next = new MediaRecorder(stream.current), chunks: BlobPart[] = [];
+      next.ondataavailable = event => chunks.push(event.data);
+      next.onstop = () => {setRecordingUrl(URL.createObjectURL(new Blob(chunks, {type: next.mimeType}))); stream.current?.getTracks().forEach(track => track.stop());};
+      recorder.current = next; next.start(); setRecording(true); setRecordError("");
+    } catch {setRecordError("Microphone unavailable. You can enter and review the message below.");}
+  };
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
   const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
-  const root = requestMessageMenu(frequency, aircraft, pilotMessage, exercise.aircraft);
+  const root = requestMessageMenu(frequency, aircraft, pilotMessage, exercise.aircraft, exercise.messages);
   const path: MenuEntry[] = [];
   for (const label of pathLabels) {
     const entry = (path.at(-1)?.children ?? root).find(item => item.label === label);
@@ -68,18 +86,33 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;
   return <section className={`${styles.extendedPanel} ${styles.commandPanel}`} aria-label={`${aircraft.callsign} messages`}>
     <header><div>{aircraft.callsign}<small>{aircraft.type} · {Math.round(aircraft.altitude).toLocaleString()}ft · {Math.round(aircraft.heading)}° · {Math.round(aircraft.speed)}KT</small></div><button aria-label="Close aircraft messages" onClick={onClose}><X size={24}/></button></header>
+    {dialog === "voice" ? <dialog ref={voiceDialog} aria-label="Voice Message" className={styles.compose} onCancel={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>
+      <p>Record and review your training message. Enter the reviewed transcript to transmit it in this exercise.</p>
+      <button disabled={!connected} onClick={() => void record()}>{recording ? "Stop recording" : "Record"}</button>
+      {recordingUrl ? <audio controls src={recordingUrl}/> : null}
+      <label>Reviewed message<textarea maxLength={256} value={input} onChange={event => setInput(event.target.value)}/></label>
+      {recordError ? <p role="alert">{recordError}</p> : null}
+      <button disabled={!connected || recording || !input.trim()} onClick={async () => {const command: Instruction = {type: "atc", action: "voice", text: input.trim()}; const sent = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}); if (sent !== false) {setDialog(null); setInput("");}}}>SEND</button>
+      <button onClick={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>Cancel</button>
+    </dialog> : null}
     {entry?.input ? <form className={styles.compose} onSubmit={event => {event.preventDefault(); const command = entry.input === "heading" ? {type: "vector" as const, heading: Math.round(Number(input) / 10) * 10 % 360} : {type: "speed" as const, value: Number(input)}; if (!input || validateControllerMessage(exercise, aircraft, command, frequency)) return; dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}); setPath([]); setInput("");}}><label>{entry.input === "heading" ? "Heading (°)" : "Speed (knots)"}<input autoFocus type="number" required min={entry.input === "heading" ? 0 : 80} max={entry.input === "heading" ? 360 : 600} step={entry.input === "heading" ? 10 : 1} value={input} onChange={e => setInput(e.target.value)}/></label><button type="submit" disabled={!connected || !input}>Send</button></form> : null}
     {vector ? <RadarVectorComposer initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
       const result = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})});
       if (result !== false) {setVector(null); setPath([]);} return result !== false;
     }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries}>{path.length ? <button onClick={() => {setPath(path.map(item => item.label).slice(0, -1)); setInput("");}}><span>‹</span><div>Back</div></button> : null}{entries.map((item, i) => {
-      const direct = !item.children && Boolean(item.instruction) && !item.composeVector;
+      const direct = !item.children && (Boolean(item.instruction) || item.resend) && !item.composeVector;
       const blocked = item.note ?? (item.instruction ? validateControllerMessage(exercise, aircraft, item.instruction, frequency, pilotMessage?.id) : null);
-      return <button key={`${i}-${item.label}`} className={item.suggested ? styles.suggestedCommand : undefined} disabled={(direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-label={direct ? `Send ${item.label}` : undefined} onClick={() => {
-        if (item.composeVector && item.instruction?.type === "vector") setVector(item.instruction);
+      return <button key={`${i}-${item.label}`} style={item.label === "Misc. Messages" || path[0]?.label === "Misc. Messages" ? undefined : {textTransform: "none"}} className={item.suggested ? styles.suggestedCommand : undefined} disabled={Boolean(item.note) || (direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-label={direct ? `Send ${item.label}` : undefined} onClick={() => {
+        if (item.dialog === "voice") {setDialog("voice"); setInput("");}
+        else if (item.resend) {
+          const previous = exercise.messages.filter(m => m.aircraftId === aircraft.id && m.sender === "controller" && m.frequency === frequency && m.instruction).at(-1);
+          if (previous?.instruction) dispatch({kind: "command", aircraftId: aircraft.id, command: previous.instruction, frequency, text: previous.text, resendOf: previous.id});
+          setPath([]);
+        }
+        else if (item.composeVector && item.instruction?.type === "vector") setVector(item.instruction);
         else if (direct && item.instruction) {
           const command = item.instruction;
-          dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})}); setPath([]);
+          dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}); setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.label), item.label]);}
       }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && item.label !== "Send" ? <b className={styles.sendLabel}>Send</b> : null}</button>;

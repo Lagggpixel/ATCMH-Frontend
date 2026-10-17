@@ -1,4 +1,5 @@
 "use client";
+import RouteSetup from "./RouteSetup";
 import {useState} from "react";
 import {getAirport} from "./airports";
 import {engineFor} from "./engine";
@@ -11,8 +12,9 @@ export function RadarSeedControls({aircraft: a, environment, onEdit}: {aircraft:
   return <section aria-label="Radar navigation setup"><h3>Radar navigation</h3>
     <label>Initial guidance<select value={r.navigation} onChange={e => onEdit({radar: {...r, navigation: e.target.value as "heading" | "route", routeIndex: 0, cleared: undefined, captured: false}})}><option value="heading">Fly heading</option><option value="route" disabled={!a.flightPlan.length}>Follow route</option>{!["heading", "route"].includes(r.navigation) ? <option value={r.navigation}>{r.navigation}</option> : null}</select></label>
     <label>Expected approach<select value={r.expected ?? ""} onChange={e => onEdit({radar: {...r, expected: e.target.value || undefined, cleared: undefined, captured: false}})}><option value="">None</option>{environment.approaches.map(p => <option key={p.id} value={p.id}>{p.type.toUpperCase()} · Runway {p.runway}</option>)}</select></label>
+    <label>Arrival STAR<input maxLength={100} value={a.arrivalProcedure ?? ""} onChange={event => onEdit({arrivalProcedure: event.target.value.trim() || undefined})} placeholder="Optional procedure name"/></label>
     <label>Append fix to route<select value="" onChange={e => {const fix = environment.fixes.find(p => p.id === e.target.value); if (fix) onEdit({flightPlan: [...a.flightPlan, {...fix.point}]});}}><option value="">Choose fix</option>{environment.fixes.map(f => <option key={f.id} value={f.id}>{f.id}</option>)}</select></label>
-    <ol>{a.flightPlan.map((point, index) => <li key={index}>Waypoint {index + 1}: {point.x.toFixed(1)} E, {point.y.toFixed(1)} N <button type="button" onClick={() => onEdit({flightPlan: a.flightPlan.filter((_, i) => i !== index), radar: {...r, routeIndex: 0}})}>Remove</button></li>)}</ol>
+    <RouteSetup aircraft={a} onEdit={onEdit}/>
     <label><input type="checkbox" checked={r.report === "check-in"} onChange={e => onEdit({radar: {...r, report: e.target.checked ? "check-in" : undefined}})}/>Check in automatically at Start/spawn</label>
   </section>;
 }

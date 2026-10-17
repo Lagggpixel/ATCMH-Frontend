@@ -24,7 +24,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
     const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: mode, command: c, text: "untrusted wording"}});
     assert.equal(result.error, undefined); state = result.state;
     assert.equal(state.messages.at(-1)!.text, `Speedbird 1, ${phrase}`);
-    const readback = phrase.replace(/^turn /, "Turning ");
+    const readback = phrase.replace(/^turn /, "Turn ");
     assert.equal(engineFor(state).readbackText(a.callsign, state.messages.at(-1)!.text, c), `${readback}, Speedbird 1`);
     assert.equal(engineFor(state).readbackText(a.callsign, `Speedbird 1, ${phrase}, climb and maintain 6000`, {...c, altitude: {unit: "feet", value: 6000}}), `${readback}, climb and maintain 6000, Speedbird 1`);
     state = autoReadbacks(advance(state, 1.5), 1500, randomUUID);

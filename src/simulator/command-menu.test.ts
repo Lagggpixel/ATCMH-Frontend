@@ -12,22 +12,22 @@ const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
 
 test("restored Ground menu keeps distinct runway, parking, hold and pushback instructions", () => {
   const a = newAircraft("ground", false), entries = messageMenu("ground", a);
-  const taxi = find(entries, "Taxi to...", "Runway 06", "Send").instruction!;
+  const taxi = find(entries, "Taxi to...", "Runway 06").instruction!;
   assert.deepEqual(taxi, {type: "taxi", runway: "06", contactTowerWhenReady: true});
   assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06, contact tower when ready");
   for (const runway of find(entries, "Taxi to...").children!.filter(entry => entry.label.startsWith("Runway "))) {
-    assert.deepEqual(runway.children?.map(entry => entry.label), ["Send"]);
-    assert.equal(find(runway.children!, "Send").instruction?.type, "taxi");
+    assert.equal(runway.children, undefined);
+    assert.equal(runway.instruction?.type, "taxi");
   }
-  const taxi24 = find(entries, "Taxi to...", "Runway 24", "Send").instruction!;
+  const taxi24 = find(entries, "Taxi to...", "Runway 24").instruction!;
   assert.deepEqual(taxi24, {type: "taxi", runway: "24", contactTowerWhenReady: true});
   assert.equal(instructionText(a, taxi24), "Easy 571, taxi to runway 24, contact tower when ready");
   assert.ok(!find(entries, "Contact Other Frequency").children?.some(entry => entry.label.includes("when ready")));
-  assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to Parking/);
+  assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to parking/);
   assert.match(instructionText(a, find(entries, "Continue Taxi").instruction!), /continue taxi/);
   assert.deepEqual(find(entries, "Pushback Approved", "Tail to the West").instruction, {type: "pushback", tail: "west"});
   assert.equal(find(entries, "Hold Position").instruction?.type, "stop");
-  assert.match(find(entries, "Progressive Taxi").note!, /Not simulated/);
+  assert.equal(find(entries, "Progressive Taxi", "Turn left next taxiway").instruction?.type, "atc");
   assert.deepEqual(messageMenu("atis", a), []);
 });
 
@@ -37,8 +37,8 @@ test("Tower restores landing, option, pattern turn and departure choices with ex
     {type: "land", runway: "24", number: 2, option: true, hand: "left"});
   const turn = find(entries, "Pattern Instructions", "Turn base");
   assert.equal(instructionText(a, turn.instruction!, [turn]), "Speedbird 124, turn base");
-  assert.deepEqual(find(entries, "Go Around", "Make Right Traffic").instruction, {type: "go-around", hand: "right"});
-  assert.deepEqual(find(messageMenu("tower", newAircraft("ground", false)), "Cleared for Takeoff", "Runway 06", "Make Left Traffic").instruction,
+  assert.deepEqual(find(entries, "Go Around", "Make Right Traffic", "Runway 24").instruction, {type: "go-around", hand: "right", runway: "24"});
+  assert.deepEqual(find(messageMenu("tower", newAircraft("ground", false)), "Cleared for Takeoff", "Runway 06", "Make Left Traffic", "Send").instruction,
     {type: "takeoff", runway: "06", hand: "left"});
 });
 

@@ -1,12 +1,14 @@
+import type {ReferenceInstruction, AtcManeuver} from "./reference-commands";
 export const MAX_TAXI_POINTS = 600;
 export type Frequency = "ground" | "tower" | "atis" | "approach" | "center";
 export type Altitude = {unit: "feet" | "flight-level"; value: number};
 export type ApproachType = "ils" | "gps" | "visual";
-export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
+export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
 export interface RadarApproach {id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
-export interface RadarEnvironment {version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
+export interface RadarEnvironment {airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"}
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
+export type RoutePoint = Point & {altitude?: number; speed?: number};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";
@@ -59,19 +61,32 @@ export interface Aircraft {
   transitionAltitude?: number; // Minimum altitude for a straight-through transition, feet MSL.
   leavingCircuit?: boolean; // Departures/transitions are not arrival sequencing targets.
   runwayExit?: TaxiPoint[]; // Mapped exit, entered after slowing on the runway.
-  arrivalExit?: {instruction: "automatic" | "exit-runway" | "parking"; speed: 15 | 35};
+  arrivalExit?: {instruction: "automatic" | "exit-runway" | "parking"; speed: 15 | 25 | 35; followOn?: boolean};
   arrivalRequest?: "frequency-change" | "taxi-parking"; // Delivered once by the authoritative radio tick.
-  flightPlan: Point[]; trail: TrailPoint[]; pending: number; active: boolean;
+  flightPlan: RoutePoint[]; trail: TrailPoint[]; pending: number; active: boolean;
   color: string | null; tag: "auto" | "default" | "left" | "right"; tagAngle?: number;
   reminderAt: number | null;
   sequence?: TrafficSequence; optionHand?: "left" | "right"; circuit?: number;
   pushback?: {path: Point[]; index: number; tail?: Direction};
   patternFinalDistance?: number; // Extended base/final geometry for this circuit, in NM.
   radar?: RadarState;
+  atcManeuver?: AtcManeuver;
+  backTaxi?: {lineup: boolean; contactGround: boolean};
+  arrivalProcedure?: string;
+  destination?: {name: string; point: Point} | null;
+  diversionDestination?: {name: string; point: Point} | null;
+  routeNavigation?: {index: number; descending?: boolean};
+  starDescent?: boolean;
+  reportAirportInSight?: boolean;
+  speedInstruction?: RadarSpeedInstruction;
+  expedited?: boolean;
+  followGroundId?: string;
 }
 export interface Message {
   id: string; aircraftId: string; time: number; frequency: Frequency;
-  sender: "controller" | "pilot"; text: string; commandId?: string; instruction?: Instruction; read?: boolean;
+  sender: "controller" | "pilot"; text: string;
+  unableReason?: string; // Mentor-only explanation; never part of the radio transmission.
+  commandId?: string; instruction?: Instruction; read?: boolean;
   autoReadbackAt?: number; // Exercise seconds; freezes while paused.
   replyTo?: string; retractedBy?: string; // Controller reply / withdrawn controller transmission.
   clearanceCircuit?: number;
@@ -87,6 +102,7 @@ export interface Exercise {
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean;
   autoReadback?: boolean;
+  bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
   radarEnvironment?: RadarEnvironment;
   aircraft: Aircraft[]; messages: Message[]; processed: string[];
   collisions?: {id: string; elapsed: number; aircraft: {id: string; callsign: string}[]; position: Point}[];
@@ -105,34 +121,35 @@ export type Action =
   | {kind: "atis"; draft: Atis}
   | {kind: "publish-atis"}
   | {kind: "pilot"; aircraftId: string; text: string; replyTo?: string; assign?: boolean; request?: PilotRequestSelection}
-  | {kind: "command"; aircraftId: string; command: Instruction; frequency: Frequency; text: string; replyTo?: string}
+  | {kind: "command"; aircraftId: string; command: Instruction; frequency: Frequency; text: string; replyTo?: string; resendOf?: string}
   | {kind: "maneuver"; aircraftId: string; command: Instruction};
 export type Instruction =
+  | ReferenceInstruction
   | RadarSpeedInstruction
-  | {type: "vector"; heading?: number; altitude?: Altitude; approachId?: string}
-  | {type: "expect-approach"; approachId: string | null; vectors?: boolean; runway?: string}
-  | {type: "missed-approach"; altitude: Altitude}
-  | {type: "route"; index: number}
-  | {type: "radio"; message: "say-intentions" | "standby" | "correction-standby" | "disregard" | "unable" | "misc"; text?: string}
+  | {type: "vector"; heading?: number; altitude?: Altitude; approachId?: string; standalone?: boolean; interceptAltitude?: number}
+  | {type: "expect-approach"; approachId: string | null; vectors?: boolean; navigation?: "filed" | "vectors"; runway?: string}
+  | {type: "missed-approach"; altitude: Altitude; heading?: number; fromAltitude?: number}
+  | {type: "route"; index: number; altitude?: Altitude; name?: string}
+  | {type: "radio"; message: "say-intentions" | "standby" | "correction-standby" | "disregard" | "unable" | "misc" | "roger" | "wilco"; text?: string}
   | {type: "transition"; altitude: number}
   | {type: "departure"; direction: "north" | "east" | "south" | "west"}
-  | {type: "exit-runway"; side: "left" | "right" | "any"; expedite?: boolean; traffic?: "final" | "base"}
+  | {type: "exit-runway"; side: "left" | "right" | "any"; expedite?: boolean; traffic?: "final" | "base"; crossRunway?: string; holdShort?: string}
   | {type: "lineup"; runway?: Runway}
-  | {type: "pushback"; tail: "north" | "east" | "south" | "west"}
+  | {type: "pushback"; tail?: "north" | "east" | "south" | "west"; runway?: string}
   | {type: "give-way"; aircraftId?: string; description: string}
   | {type: "taxi"; runway?: Runway; destination?: "runway" | "parking" | "continue"; contactTowerWhenReady?: boolean}
-  | {type: "takeoff"; hand?: "left" | "right"; runway?: Runway}
+  | {type: "takeoff"; hand?: "left" | "right"; runway?: Runway; immediate?: boolean; straightOut?: number; unablePattern?: boolean}
   | {type: "stop"}
-  | {type: "hold-short" | "cross"; runway?: Runway}
+  | {type: "hold-short" | "cross"; runway?: Runway; expedite?: boolean; ground?: boolean; departure?: boolean}
   | {type: "land"; runway?: Runway; hand?: "left" | "right"; option?: boolean; number?: number; followingId?: string}
-  | {type: "go-around"; hand?: "left" | "right"; runway?: Runway; runwayHeading?: boolean}
+  | {type: "go-around"; hand?: "left" | "right"; runway?: Runway; runwayHeading?: boolean; response?: boolean}
   | {type: "cancel-landing"}
   | {type: "pattern"; leg: Leg; hand?: "left" | "right"; runway?: Runway; sequence?: TrafficSequence}
-  | {type: "sequence"; number: number; traffic?: string; followingId?: string; departure?: boolean}
+  | {type: "sequence"; number: number; traffic?: string; followingId?: string; departure?: boolean; pattern?: boolean; cancelLanding?: boolean}
   | {type: "extend"; leg: "upwind" | "downwind"}
   | {type: "heading" | "speed"; value: number}
   | {type: "runway"; runway: Runway}
-  | {type: "frequency"; frequency: Frequency | null; whenReady?: boolean}
+  | {type: "frequency"; frequency: Frequency | null; whenReady?: boolean; from?: Frequency}
   | {type: "outcome"; outcome: Aircraft["landing"]};
 export interface Envelope {id: string; action: Action; time: number}
 export type Direction = "north" | "east" | "south" | "west";
@@ -152,18 +169,23 @@ export function frequencyPendingRequests(exercise: Exercise): Record<Frequency, 
   return counts;
 }
 /** A reply to the latest command consumes its pending batch, never exposes older commands. */
+export function commandHasReadback(c?: Instruction) {
+  return c?.type !== "radio" && !(c?.type === "departure") && !(c?.type === "atc" && ["radar-contact", "deny-entry", "emergency", "broadcast", "guard", "bookmark", "report", "voice"].includes(c.action));
+}
+
 export function pendingCommands(exercise: Exercise, aircraftId: string): Message[] {
   const messages = exercise.messages.filter(m => m.aircraftId === aircraftId);
   const answered = new Set(messages.filter(m => m.sender === "pilot" && m.commandId).map(m => m.commandId));
   let cutoff = -1;
-  for (let i = 0; i < messages.length; i++) if (messages[i].sender === "controller" && messages[i].instruction?.type !== "radio" && (answered.has(messages[i].id) || messages[i].retractedBy || messages[i].acknowledged)) cutoff = i;
-  return messages.slice(cutoff + 1).filter(m => m.sender === "controller" && m.instruction?.type !== "radio");
+  for (let i = 0; i < messages.length; i++) if (messages[i].sender === "controller" && commandHasReadback(messages[i].instruction) && (answered.has(messages[i].id) || messages[i].retractedBy || messages[i].acknowledged)) cutoff = i;
+  return messages.slice(cutoff + 1).filter(m => m.sender === "controller" && commandHasReadback(m.instruction));
 }
 /** Contextual controller replies target the latest unanswered pilot transmission. */
 export function pendingPilotMessage(exercise: Exercise, aircraftId: string, frequency: Frequency): Message | undefined {
   for (const message of exercise.messages.filter(m => m.aircraftId === aircraftId && m.frequency === frequency).reverse()) {
     if (message.sender === "pilot") return message.commandId ? undefined : message;
     if (message.retractedBy) continue;
+    if (message.instruction?.type === "atc" && ["broadcast", "guard", "bookmark", "voice", "report"].includes(message.instruction.action)) continue;
     if (message.instruction?.type === "radio" && ["standby", "correction-standby"].includes(message.instruction.message)) continue;
     return undefined;
   }

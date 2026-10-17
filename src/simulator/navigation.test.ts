@@ -54,7 +54,7 @@ test("option choices preserve current traffic until touchdown then fly the reque
   a.position = {...g.threshold}; a.altitude = AIRPORT.elevation; a.speed = 140;
   const task = commandTasks("tower", a).find(t => t.id === "land")!;
   const entry = {instruction: {...task.command, runway: "24", number: 2, option: true, hand: "right"} as Instruction};
-  assert.match(instructionText(a, entry.instruction!), /number 2, Runway 24, cleared for the option, after the option, make right traffic/);
+  assert.match(instructionText(a, entry.instruction!), /number 2, runway 24, cleared for the option, after the option, make right traffic/);
   state = act(state, {kind: "command", aircraftId: a.id, frequency: "tower", command: entry.instruction!, text: "Option"});
   state = act(state, {kind: "pilot", aircraftId: a.id, replyTo: state.messages.at(-1)!.id, assign: true, text: "Readback"});
   assert.equal(state.aircraft[0].hand, "left"); assert.equal(state.aircraft[0].optionHand, "right");

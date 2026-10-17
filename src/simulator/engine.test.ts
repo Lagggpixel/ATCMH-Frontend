@@ -130,7 +130,7 @@ test("go-around follows runway heading while climbing before resuming its patter
 
 test("composed operational messages omit menu breadcrumbs and Send labels", () => {
   const a = newAircraft("a", true);
-  assert.equal(instructionText(a, {type: "land", option: true}), "Speedbird 124, wind 240 at 10, Runway 24, cleared for the option");
+  assert.equal(instructionText(a, {type: "land", option: true}), "Speedbird 124, wind 240 at 10, runway 24, cleared for the option");
   assert.equal(instructionText(a, {type: "frequency", frequency: "ground"}), "Speedbird 124, contact Edinburgh Ground on 121.75");
 });
 test("wire validation rejects invalid values and mentee staff-only actions", () => {
