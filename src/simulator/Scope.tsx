@@ -16,18 +16,19 @@ import {editedTaxiPath, hitTaxiPath, remainingTaxiPath, taxiPathEditable, taxiPa
 import styles from "./Simulator.module.css";
 import {approachGuide} from "./approach-guides";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
+import {scopeFollowTarget} from "./scope-overlays";
 export interface ScopeOptions {taxiways: boolean; approaches: boolean; trails: boolean; frequencyTrails: boolean; filter: string}
 export const initialOptions: ScopeOptions = {taxiways: true, approaches: true, trails: true, frequencyTrails: true, filter: "none"};
-const optionRows: [keyof ScopeOptions, string][] = [["taxiways", "Airport surface"], ["approaches", "Approach cones (11 NM)"], ["trails", "Flight history"], ["frequencyTrails", "Limit history to selected frequency"]];
 const runwayWindColors = {headwind: "#91e98d", crosswind: "#e8b257", tailwind: "#ff3434"};
+const optionRows: [keyof ScopeOptions, string][] = [["taxiways", "Airport surface"], ["approaches", "Approach cones (11 NM)"], ["trails", "Flight history"], ["frequencyTrails", "Limit history to selected frequency"]];
 export function trafficVisible(a: Aircraft, filter: string) {
   if (filter === "none") return true;
   return filter === "below15" ? a.altitude >= 15000 : a.altitude <= Number(filter);
 }
 export interface ScopeCamera {center: Point; scale: number}
-interface Props {savedCamera?: ScopeCamera; onCameraChange?: (camera: ScopeCamera) => void; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
+interface Props {savedCamera?: ScopeCamera; onCameraChange?: (camera: ScopeCamera) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
-export default function Scope({savedCamera, onCameraChange, airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
+export default function Scope({savedCamera, onCameraChange, showProjectedPaths = true, airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
   const AIRPORT = airport, METAR = simulatedMetar(airport);
   const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment}), [airport, radarEnvironment]);
   const airportCamera = useMemo(() => {
@@ -152,9 +153,9 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
   const routeHandle = routeEditable && routeState && nodeIndex !== undefined && nodeIndex >= routeState.index ? routeState.path[nodeIndex] : undefined;
   const projection = useMemo(() => {
     const a = snapshot.find(a => a.id === selected);
-    return a && frequency === "all" && remainingTaxiPath(a).length < 2 ? projectedPath(a, 120, snapshot, autoReadback) : [];
-  }, [snapshot, selected, frequency, autoReadback, projectedPath]);
-  const following = frequency === "all" && selectedAircraft ? followedAircraft(selectedAircraft, aircraft) : undefined;
+    return a && showProjectedPaths && frequency === "all" && remainingTaxiPath(a).length < 2 ? projectedPath(a, 120, snapshot, autoReadback) : [];
+  }, [snapshot, selected, frequency, autoReadback, projectedPath, showProjectedPaths]);
+  const following = frequency === "all" ? scopeFollowTarget(snapshot, aircraft, selected, followedAircraft) : undefined;
   useEffect(() => {
     const node = trafficCanvas.current; if (!node) return;
     const ratio = window.devicePixelRatio || 1;
@@ -172,7 +173,7 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
       if (options.trails && (frequency === "all" || !options.frequencyTrails || a.frequency === frequency)) path([...a.trail, a.position], "#808080", 1, true);
       if (!(a.id === selected && taxiLine.length > 1)) path(headingProjection(a), "#dedede", 1.5);
       if (a.id === selected) path(a.flightPlan, "#dedede", 1.5);
-      if (a.id === selected && frequency === "all" && taxiLine.length < 2) {
+      if (showProjectedPaths && a.id === selected && frequency === "all" && taxiLine.length < 2) {
         if (["pattern", "takeoff", "lineup", "go-around"].includes(a.mode) || a.landing === "touch-and-go" && a.mode === "rollout") {
           path(patternOutline(a), "#64b4d2", 1.5);
           path(patternOutline({...a, hand: a.hand === "left" ? "right" : "left"}), "#5d7078", 1, true);
@@ -180,7 +181,7 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
         path(projection, "#f3cf83", 2.5);
       }
     }
-  }, [aircraft, camera, size, options, selected, frequency, projection, taxiLine.length, headingProjection, patternOutline]);
+  }, [aircraft, camera, size, options, selected, frequency, projection, taxiLine.length, headingProjection, patternOutline, showProjectedPaths]);
   const pointAt = (event: React.PointerEvent): Point => {const bounds = event.currentTarget.getBoundingClientRect(); return {x: camera.center.x + (event.clientX - bounds.left - size.width / 2) / camera.scale, y: camera.center.y - (event.clientY - bounds.top - size.height / 2) / camera.scale};};
   const vectorPoint = (event: {clientX: number; clientY: number}): Point => {const bounds = container.current!.getBoundingClientRect(); return {x: camera.center.x + (event.clientX - bounds.left - size.width / 2) / camera.scale, y: camera.center.y - (event.clientY - bounds.top - size.height / 2) / camera.scale};};
   const vectorAircraft = vectorDraft && aircraft.find(a => a.id === vectorDraft.aircraftId);
@@ -284,7 +285,7 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
       </div>;
     })}
     {following && trafficVisible(following, options.filter) ? <span role="img" aria-label={`Traffic to follow: ${following.callsign}`} className={styles.followingRing} style={{left: project(following.position).x, top: project(following.position).y}}/> : null}
-    {selectedAircraft && frequency === "all" ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route{routeEditable ? <><br/>Drag the green line to reshape · drag a waypoint to move it</> : null}</> : <>Projected path · {selectedAircraft.mode}<br/>{["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
+    {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route{routeEditable ? <><br/>Drag the green line to reshape · drag a waypoint to move it</> : null}</> : <>Projected path · {selectedAircraft.mode}<br/>{["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>{editMode === "taxi-preview" ? "Taxi route · drag the green line to adjust" : editMode === "taxi" ? "Click to extend route · drag the line or a waypoint to reshape" : editMode === "flightPlan" ? "Click to add flight-plan waypoint" : "Click to reposition selected aircraft"}</div> : null}
     <div className={styles.scopeButtons}>
       <button aria-label="Scope options" aria-expanded={popup === "options"} onClick={() => setPopup(popup === "options" ? null : "options")}><Gear size={32} weight="fill"/></button>
