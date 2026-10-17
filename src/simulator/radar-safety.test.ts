@@ -41,7 +41,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: automatic Una
     // Keep Center's high initial altitude below this clearance's glide path.
     initial.aircraft[0].altitude = 5000;
     const state = transmit(initial, command), a = state.aircraft[0];
-    assert.match(state.messages.at(-1)!.text, /^Unable, Already cleared for approach/);
+    assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 1$/);
     assert.equal(a.radar!.cleared, before.radar!.cleared); assert.equal(a.radar!.targetAltitude, before.radar!.targetAltitude); assert.equal(a.targetHeading, before.targetHeading); assert.equal(a.targetSpeed, before.targetSpeed);
     assert.equal(autoReadbacks(state, 2000, randomUUID).messages.length, state.messages.length);
   }
@@ -52,7 +52,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: automatic Una
 test("automatic speed refusals use aircraft type and restriction semantics, including Mach", () => {
   const a = fixture().aircraft[0];
   const state = transmit(fixture(), {type: "radar-speed", mode: "maintain", unit: "knots", value: 100, relation: "exact"});
-  assert.match(state.messages.at(-1)!.text, /^Unable, Speed outside aircraft limits/); assert.equal(state.aircraft[0].targetSpeed, 250);
+  assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 1$/); assert.equal(state.aircraft[0].targetSpeed, 250);
   assert.ok(automaticRadarUnable(a, {type: "speed", value: 350}));
   assert.ok(automaticRadarUnable(a, {type: "radar-speed", mode: "maintain", unit: "knots", value: 100, relation: "maximum"}));
   assert.equal(automaticRadarUnable(a, {type: "radar-speed", mode: "maintain", unit: "knots", value: 100, relation: "minimum"}), null);
@@ -63,7 +63,7 @@ test("automatic speed refusals use aircraft type and restriction semantics, incl
 });
 test("missed approach is Unable without clearance; automatic off preserves manual control", () => {
   const command: Instruction = {type: "missed-approach", altitude: {unit: "feet", value: 6000}};
-  const state = transmit(fixture(), command); assert.match(state.messages.at(-1)!.text, /^Unable, Not cleared for approach/); assert.equal(state.aircraft[0].radar!.navigation, "heading");
+  const state = transmit(fixture(), command); assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 1$/); assert.equal(state.aircraft[0].radar!.navigation, "heading");
   let manual = fixture(); manual.autoReadback = false; manual = transmit(manual, {type: "speed", value: 100}); assert.equal(manual.messages.length, 1);
   manual = act(manual, {kind: "pilot", aircraftId: manual.aircraft[0].id, replyTo: manual.messages[0].id, text: "Readback", assign: true}); assert.equal(manual.aircraft[0].targetSpeed, 100);
   const a = clear(fixture()).aircraft[0]; assert.equal(automaticRadarUnable(a, command), null);

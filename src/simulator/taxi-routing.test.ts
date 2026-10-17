@@ -42,10 +42,10 @@ test("taxi-to-runway assignment calculates a route and simulated traffic stops s
   assert.ok(gap(traffic.position, traffic.taxiPath.at(-1)!) < 1e-7);
 });
 
-test("Taxi to Runway 24 Send reads back and queues the Tower handover", () => {
+test("Taxi to Runway 24 reads back and queues the Tower handover", () => {
   let state = initialExercise(); state.autoReadback = true; state.running = true;
   const a = state.aircraft[1];
-  const command = messageMenu("ground", a).find(entry => entry.label === "Taxi to...")!.children!.find(entry => entry.label === "Runway 24")!.children!.find(entry => entry.label === "Send")!.instruction!;
+  const command = messageMenu("ground", a).find(entry => entry.label === "Taxi to...")!.children!.find(entry => entry.label === "Runway 24")!.instruction!;
   assert.deepEqual(command, {type: "taxi", runway: "24", contactTowerWhenReady: true});
   const text = instructionText(a, command);
   assert.equal(text, "Easy 571, taxi to runway 24, contact tower when ready");
@@ -53,9 +53,9 @@ test("Taxi to Runway 24 Send reads back and queues the Tower handover", () => {
   assert.equal(state.aircraft[1].contactTowerAtHold, undefined);
   state = autoReadbacks(advance(state, 1.5), 2, () => "readback");
   const reply = state.messages.at(-1)!;
-  assert.equal(reply.text, "Taxi to runway 24, contact tower when ready, Easy 571");
-  assert.equal(reply.text, readbackText(a.callsign, text));
-  assert.equal(radioMessageText(reply), "Taxi to Runway two four, contact tower when ready, Easy 571");
+  assert.equal(reply.text, "Taxi to runway 24, Easy 571");
+  assert.equal(reply.text, readbackText(a.callsign, text, command));
+  assert.equal(radioMessageText(reply), "Taxi to Runway two four, Easy 571");
   assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, true);
 });
 

@@ -118,10 +118,10 @@ test("all heading instructions round consistently in transmissions, readbacks an
   assert.equal(assign(local, {type: "heading", value: 224}).aircraft[0].targetHeading, 220);
 });
 
-test("altitude picker contains exactly the confirmed 77 values and rejects gaps", () => {
-  assert.equal(ALTITUDES.length, 77);
-  assert.equal(altitudeLabel(ALTITUDES[0]), "1000"); assert.equal(altitudeLabel(ALTITUDES[33]), "17500");
-  assert.equal(altitudeLabel(ALTITUDES[34]), "FL180"); assert.equal(altitudeLabel(ALTITUDES[76]), "FL600");
+test("altitude picker contains the reference 69 values and rejects gaps", () => {
+  assert.equal(ALTITUDES.length, 69);
+  assert.equal(altitudeLabel(ALTITUDES[0]), "1000"); assert.equal(altitudeLabel(ALTITUDES[25]), "17000");
+  assert.equal(altitudeLabel(ALTITUDES[26]), "FL180"); assert.equal(altitudeLabel(ALTITUDES[68]), "FL600");
   for (const altitude of ALTITUDES) assert.ok(altitudeSchema.safeParse(altitude).success);
   for (const value of [{unit: "feet", value: 18000}, {unit: "feet", value: 1250}, {unit: "flight-level", value: 185}, {unit: "feet", value: NaN}]) assert.equal(altitudeSchema.safeParse(value).success, false);
   assert.equal(altitudeFeet({unit: "flight-level", value: 330}), 33000);
@@ -193,9 +193,9 @@ test("radar vectors remove approach eligibility; Unable responses grant no clear
   state = assign(state, {type: "expect-approach", approachId: null, vectors: true});
   assert.equal(state.aircraft[0].radar!.expected, undefined); assert.equal(state.aircraft[0].radar!.cleared, undefined);
   const menu = catalogFor(getAirport(state), state.radarEnvironment).messageMenu("approach", state.aircraft[0]);
-  assert.deepEqual(menu.map(e => e.label), ["Vectoring Instructions", "Request Speed", "Expect approach ...", "Contact Other Frequency", "Ask for intentions", "Missed approach instructions"]);
-  assert.deepEqual(menu[2].children!.map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach", "Radar Vectors", "Unable to provide services", "Unable (outside of service area)"]);
-  for (const entry of menu[2].children!.slice(-2)) assert.equal(entry.instruction!.type, "radio");
+  assert.ok(menu.some(e => e.label === "Request Hold")); assert.ok(!menu.some(e => e.label === "Clear for Approach"));
+  assert.deepEqual(menu[2].children!.map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach", "Radar Vectors", "Unable (Outside of Coverage Area)", "Unable at this time", "Outside Airspace"]);
+  for (const entry of menu[2].children!.slice(-3)) assert.equal(entry.children![0].instruction!.type, "atc");
 });
 test("altitude-only preserves heading and route; Center keeps assigned speed", () => {
   let state = exercise("center"); state.aircraft[0].flightPlan = [{x: 10, y: 10}, {x: 20, y: 0}];
@@ -259,7 +259,7 @@ test("resume route retains progress after a vector, while direct-to chooses an e
 test("transferred radar traffic keeps radar pilot requests and cannot switch into circuit movement", () => {
   let state = assign(exercise(), {type: "frequency", frequency: "tower"});
   const requests = catalogFor(getAirport(state), state.radarEnvironment).pilotRequests(state.aircraft[0]);
-  assert.deepEqual(requests.map(r => r.id), ["check-in", "request-approach", "missed-approach", "frequency-change"]);
+  assert.deepEqual(requests.map(r => r.id), ["check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight"]);
   const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: "a", command: {type: "pattern", leg: "downwind"}}});
   assert.match(result.error!, /unavailable/); assert.equal(result.state, state);
   state = send(state, {kind: "pilot", aircraftId: "a", text: "", request: {id: "missed-approach", runway: defaultRunway(getAirport(state))}});

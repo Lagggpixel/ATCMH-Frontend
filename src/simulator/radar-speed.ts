@@ -14,13 +14,13 @@ export function aircraftSpeedLimits(type: string): {min: number; max: number; ma
 }
 
 export const KNOT_SPEEDS_LOW = Array.from({length: 16}, (_, i) => 100 + i * 10);
-export const KNOT_SPEEDS_HIGH = Array.from({length: 10}, (_, i) => 250 + i * 10);
-export const MACH_SPEEDS = Array.from({length: 26}, (_, i) => (65 + i) / 100);
+export const KNOT_SPEEDS_HIGH = Array.from({length: 15}, (_, i) => 260 + i * 10);
+export const MACH_SPEEDS = Array.from({length: 47}, (_, i) => (53 + i) / 100);
 export const speedLabel = (unit: "knots" | "mach", value: number) => unit === "mach" ? `Mach ${value.toFixed(2)}` : `${value}kts`;
 export function validRadarSpeed(c: RadarSpeedInstruction) {
   if (c.mode === "maintain") return c.until === undefined && ["exact", "minimum", "maximum"].includes(c.relation ?? "") && (c.unit === "knots" ? [...KNOT_SPEEDS_LOW, ...KNOT_SPEEDS_HIGH].includes(c.value!) : c.unit === "mach" && MACH_SPEEDS.includes(c.value!));
   if (c.mode === "approach") return c.unit === undefined && c.relation === undefined && [[160, 4], [170, 5], [180, 6]].some(([speed, miles]) => c.value === speed && c.until === miles);
-  return ["discretion", "slowest", "best-forward", "follow"].includes(c.mode) && c.value === undefined && c.unit === undefined && c.relation === undefined && c.until === undefined;
+  return ["discretion", "slowest", "best-forward", "follow", "present"].includes(c.mode) && c.value === undefined && c.unit === undefined && c.relation === undefined && c.until === undefined;
 }
 /** Simulator conversion to true knots, using standard-atmosphere temperature.
  * The existing motion model treats its single speed as knots, without a wind/IAS model. */
@@ -30,37 +30,38 @@ const spokenMach = (value: number) => `Mach point ${value.toFixed(2).slice(2).sp
 export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
   if (c.mode === "maintain") {
     const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
-    const value = c.unit === "mach" ? spokenMach(c.value!) : `${c.value}kts`;
+    const value = c.unit === "mach" ? spokenMach(c.value!) : `${c.value} knots`;
     if (c.relation === "minimum") return `maintain ${value} or greater`;
     if (c.relation === "maximum") return `do not exceed ${value}`;
-    return Math.abs(target - a.speed) < .5 ? `maintain ${value}` : `${target > a.speed ? "increase" : "decrease"} speed ${value}`;
+    return Math.abs(target - a.speed) < .5 ? `maintain ${value}` : `${target > a.speed ? "increase speed to" : "reduce speed to"} ${value}`;
   }
-  if (c.mode === "approach") return `maintain ${String(c.value).split("").map(digit => digits[Number(digit)]).join(" ")} knots until ${digits[c.until!]} miles final`;
-  return {discretion: "speed at your discretion", slowest: "maintain slowest practical speed", "best-forward": "maintain best forward speed", follow: "adjust speed to follow aircraft ahead"}[c.mode];
+  if (c.mode === "approach") return `maintain ${String(c.value).split("").map(digit => digits[Number(digit)]).join(" ")} knots until ${digits[c.until!]} mile final`;
+  return {present: "maintain present speed", discretion: "speed at your discretion", slowest: "maintain slowest practical speed", "best-forward": "maintain best forward speed", follow: "adjust speed to follow aircraft ahead"}[c.mode];
 }
 export function assignRadarSpeed(a: Aircraft, c: RadarSpeedInstruction) {
-  if (c.mode === "discretion") {delete a.radar!.speed; a.speedMode = "auto"; a.targetSpeed = a.radar!.station === "center" ? 450 : 250; return;}
-  a.radar!.speed = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed;
+  if (c.mode === "present") {if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed; return;}
+  if (c.mode === "discretion") {if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar?.station === "center" ? 450 : 250; return;}
+  if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed;
   updateRadarSpeed(a, []);
 }
 export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance?: number) {
-  const c = a.radar?.speed;
+  const c = a.radar?.speed ?? a.speedInstruction;
   if (!c) return;
   if (c.mode === "approach" && finalDistance !== undefined && finalDistance <= c.until!) {
-    delete a.radar!.speed; a.speedMode = "auto"; a.targetSpeed = finalDistance <= 2 ? 135 : finalDistance <= 5 ? 160 : 180; return;
+    if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = finalDistance <= 2 ? 135 : finalDistance <= 5 ? 160 : 180; return;
   }
   if (c.mode === "maintain") {
     const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
     a.targetSpeed = c.relation === "minimum" ? Math.max(a.targetSpeed, target) : c.relation === "maximum" ? Math.min(a.targetSpeed, target) : target;
   } else if (c.mode === "approach") a.targetSpeed = c.value!;
   else if (c.mode === "slowest") a.targetSpeed = 135;
-  else if (c.mode === "best-forward") a.targetSpeed = a.radar!.station === "center" ? 450 : 340;
+  else if (c.mode === "best-forward") a.targetSpeed = a.radar?.station === "center" ? 450 : 340;
   else if (c.mode === "follow") {
     const radians = a.heading * Math.PI / 180;
-    const ahead = traffic.filter(other => other.id !== a.id && other.active && other.radar && other.frequency === a.frequency && Math.abs(other.altitude - a.altitude) <= 1000 && Math.cos((other.heading - a.heading) * Math.PI / 180) > Math.SQRT1_2).map(other => {
+    const ahead = traffic.filter(other => other.id !== a.id && other.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(other.mode) && other.frequency === a.frequency && Math.abs(other.altitude - a.altitude) <= 1000 && Math.cos((other.heading - a.heading) * Math.PI / 180) > Math.SQRT1_2).map(other => {
       const dx = other.position.x - a.position.x, dy = other.position.y - a.position.y;
       return {other, along: dx * Math.sin(radians) + dy * Math.cos(radians), lateral: Math.abs(dx * Math.cos(radians) - dy * Math.sin(radians))};
     }).filter(item => item.along > 0 && item.along <= 20 && item.lateral <= 2).sort((a, b) => a.along - b.along)[0];
-    if (ahead) a.targetSpeed = Math.max(135, Math.min(a.radar!.station === "center" ? 600 : 340, ahead.other.speed + (ahead.along - 3) * 10));
+    if (ahead) a.targetSpeed = Math.max(aircraftSpeedLimits(a.type)?.min ?? 80, Math.min(a.radar?.station === "center" ? 600 : 340, ahead.other.speed + (ahead.along - 3) * 10));
   }
 }

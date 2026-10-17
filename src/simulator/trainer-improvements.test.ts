@@ -64,14 +64,14 @@ test("taxi and all exit variants have the requested command, readback and spoken
   const taxi: Instruction = {type: "taxi", runway: "22"};
   const text = catalog.instructionText(a, taxi);
   assert.equal(text, "N714KG, taxi to runway 22, contact tower when ready");
-  assert.equal(readbackText(a.callsign, text, taxi), "Taxi to runway 22, contact tower when ready, N714KG");
+  assert.equal(readbackText(a.callsign, text, taxi), "Taxi to runway 22, N714KG");
   assert.match(aviationSpeech(text), /Runway two two/);
   assert.equal(aviationSpeech("N714KG is on right downwind 31R, full stop"), "N714KG is on right downwind three one right, full stop");
   for (const side of ["left", "right", "any"] as const) {
     const instruction: Instruction = {type: "exit-runway", side};
     const prefix = side === "any" ? "exit runway when able" : `when able turn ${side}`;
     assert.equal(catalog.instructionText({...a, callsign: "Delta 64"}, instruction), `Delta 64, ${prefix}, contact ground on the taxiway`);
-    assert.match(catalog.instructionText(a, {...instruction, expedite: true, traffic: "final"}), /contact ground on the taxiway, expedite, traffic on final$/);
+    assert.match(catalog.instructionText(a, {...instruction, expedite: true, traffic: "final"}), /and contact ground, please expedite, traffic on final$/);
   }
 });
 
@@ -167,7 +167,7 @@ test("a completed hand-drawn intersection route needs no hold flag for Tower che
   const contact = assign(stateOf([a]), {type: "frequency", frequency: "tower"});
   const ready = radioTick(contact); assert.equal(ready.messages.length, 1); assert.match(ready.messages[0].text, /ready for departure from runway 31L/);
   const departure = assign(ready, {type: "takeoff", runway});
-  const g = engine.runwayGeometry(runway), entry = departure.aircraft[0].taxiPath.at(-1)!;
+  const g = engine.runwayGeometry(runway), entry = departure.aircraft[0].taxiPath.at(-2)!;
   assert.ok(Math.abs((entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y - .15) < 1e-7);
   const parking = {...a, intentions: {flight: "pattern" as const, taxi: "parking" as const, afterTransition: "continue" as const}};
   assert.equal(radioTick(assign(stateOf([parking]), {type: "frequency", frequency: "tower"})).messages.length, 0);

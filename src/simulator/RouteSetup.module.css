@@ -1,0 +1,8 @@
+.setup {display:grid;gap:14px;min-width:0}
+.destination {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;min-width:0;margin:0;padding:12px;border:1px solid var(--dashboard-border,#535e6d)}
+.waypoints {display:grid;gap:14px;padding-left:20px;margin:0;min-width:0}
+.waypoint {display:flex;flex-wrap:wrap;align-items:end;gap:12px;min-width:0}
+.waypoint>span {flex:1 1 180px}
+.waypoint>label {flex:1 1 120px}
+.waypoint>button {flex:0 0 auto}
+.setup input,.setup select {max-width:100%;min-width:0}

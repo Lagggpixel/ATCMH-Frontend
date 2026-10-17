@@ -161,7 +161,7 @@ Speech uses the browser-native [Web Speech API](https://developer.mozilla.org/en
 
 - The selected staff aircraft shows its projected movement in gold, active circuit in blue, and the opposite circuit dotted. Frequency is always available beside the selected callsign. Both roles animate the same kinematics at display frame rate between compact authoritative motion updates; message history is shared only when it changes.
 
-- Unsupported operational choices remain browsable with an explanation and no enabled Send action. Report User, guard warnings and external actions are unavailable. Procedure routes, fixes, airspace and winds aloft are visual demonstrations, not navigational data.
+- Unsupported operational choices remain browsable with an explanation and no enabled Send action. Report User is omitted; guard warnings are exercise transmissions without automatic retuning or external actions. Procedure routes, fixes, airspace and winds aloft are visual demonstrations, not navigational data.
 
 - ATIS edits remain drafts until Publish. Selected ATIS tiles use white borders; unselected borders are gray. Runway text color represents wind independently of selection: green headwind, amber when crosswind dominates, red tailwind. Other tile text remains neutral. Procedure selection previews all overlays only while the menu is open with no selection; selected overlays persist after closing. Opacity affects procedures alone.
 
@@ -319,3 +319,23 @@ Frontend 26.10.7 includes these improvements. They use existing JSON snapshots a
 Local circuits and radar vectors/routes/approaches use the same bank-limited flight model. Aircraft roll toward at most 25° left or right bank at no more than 6° per exercise second, then anticipate rollout to finish on the assigned heading. A reversed clearance rolls continuously through wings level. Turn rate varies with modeled airspeed; waypoint/circuit anticipation uses the corresponding radius and roll-in distance. Ground steering retains its separate taxi model.
 
 The optional signed `bankAngle` is authoritative motion state and persists through snapshots, prediction, reload and replay interpolation. Older snapshots start wings level. Direct aircraft edits cannot change bank. No relational schema migration is needed. Coordinated-turn rate follows [FAA PHAK chapter 5](https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/phak/07_phak_ch5.pdf).
+
+
+### Infinite Flight command reference alignment
+
+Ground, Tower, Approach and Center menus, send/confirmation steps, controller transmissions and dedicated pilot readbacks follow the supplied 26.4 reference. Tow Approved and the existing Misc. Messages are excluded from this update. Request-dependent replies appear after the corresponding pilot request; STAR commands require an aircraft arrivalProcedure. Nearby facilities and approach choices use the exercise's pinned configuration.
+
+Holds, 360s, back taxi and takeoff restrictions use the training flight engine. Bookmarks persist in session/replay JSON and can be selected in playback. Report User is omitted from all controller menus. Voice Message records locally for review and transmits the reviewed transcript inside the exercise; it does not send audio to Infinite Flight. Historical messages and previous 500-foot altitude targets remain readable.
+
+
+### Command behavior
+
+Airport-in-sight instructions arm a one-time automatic pilot report when the destination is at most 15 NM away and within 90 degrees either side of the aircraft heading. Automatic must be enabled. The instructor can also transmit the pilot report manually.
+
+Cleared takeoffs use a rolling runway-entry alignment; Line up and Wait still stops. Immediate takeoff, expedited crossings, back taxi and runway exits use faster ground targets while retaining mapped turns, runway holds and traffic spacing. Back taxi follows the selected runway centerline; its Ground handoff occurs only after taking a mapped exit. Progressive turns use the next connected taxiway junction, and Follow Aircraft Ahead tracks a selected aircraft and its route. Exit-and-cross/hold instructions plan the continuation to the named runway. Missing mapped connections produce an explanation instead of a fabricated path.
+
+Own navigation, Continue as filed and flight-following approvals resume the unflown flight plan. Expect Approach with Continue as filed restores route guidance while retaining the expected approach. Approved diversions replace the destination and route; Expect Vectors retains heading guidance until a vector or on-course clearance. Destination names and coordinates are configured in Radar navigation setup, in nautical miles east/north of the exercise origin.
+
+STAR descent follows instructor-configured arrival waypoints, crossing altitudes and speeds; it requires an arrival name and altitude constraints. These are exercise data, not an imported navigation database. Explicit vectors/altitudes override descend-via guidance. Holding uses the assigned fix/inbound course, selected turn direction, bank-limited half turns and timed outbound legs (60 seconds at or below 14,000 feet; 90 seconds above), with assigned altitude and holding speed caps. Exit Hold resumes the remaining route. Tower speed instructions persist, release at the specified final distance, and adjust toward compatible traffic ahead.
+
+All new motion and command state survives session snapshots, prediction and replay. No database migration is required.

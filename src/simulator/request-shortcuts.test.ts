@@ -22,9 +22,9 @@ test("the four request shortcuts are first and preserve the ordinary buttons and
     ["pushback", "Pushback Approved", "Pushback Approved"],
     ["runway-change", "Unable", "Unable"],
     ["cross-runway", "Cross Runway", "Cross Runway..."],
-    ["go-around", "Go Around", "Go Around"],
+    ["go-around", "Respond to Go Around", "Respond to Go Around"],
   ] as const) {
-    const {a, message} = start(id), ordinary = messageMenu(a.frequency!, a);
+    const {a, message} = start(id), ordinary = messageMenu(a.frequency!, a, [], message);
     const menu = requestMessageMenu(a.frequency!, a, message);
     assert.equal(menu[0].label, label); assert.equal(menu[0].suggested, true);
     assert.equal(menu.filter(entry => entry.suggested).length, 1);
@@ -42,7 +42,7 @@ test("all other requests retain the normal menu with no suggested command or gen
     if (["pushback", "runway-change", "cross-runway", "go-around", "transition"].includes(request.id)) continue;
     const message: Message = {id: "request", aircraftId: a.id, sender: "pilot", text: "pilot request", frequency: a.frequency!, time: 1, request: {id: request.id, runway: "24"}};
     const menu = requestMessageMenu(a.frequency!, a, message);
-    assert.deepEqual(menu, messageMenu(a.frequency!, a));
+    assert.deepEqual(menu, messageMenu(a.frequency!, a, [], message));
     assert.ok(!menu.some(entry => entry.label === "Unable" || entry.suggested));
   }
 });
@@ -52,7 +52,7 @@ test("legacy/manual radio requests and automatic self go-arounds get the same sh
     ["pushback", "ready for pushback with information BRAVO", "Pushback Approved"],
     ["runway-change", "requesting runway 06", "Unable"],
     ["cross-runway", "requesting to cross runway 24", "Cross Runway"],
-    ["go-around", "going around", "Go Around"],
+    ["go-around", "going around", "Respond to Go Around"],
   ] as const) {
     const {a, message} = start(id); delete message.request;
     message.text = `${a.callsign}, ${phrase}`;
@@ -80,9 +80,9 @@ test("runway-change Unable shortcut sends the same contextual rejection as the o
   const {state, a, message} = start("runway-change"), menu = requestMessageMenu(a.frequency!, a, message);
   const before = structuredClone(state.aircraft);
   for (const entry of [menu[0], menu.at(-1)!]) {
-    const command = entry.instruction!;
+    const command = entry.children![0].instruction!;
     const next = act(state, {kind: "command", aircraftId: a.id, command, frequency: a.frequency!, text: instructionText(a, command), replyTo: message.id});
-    assert.equal(next.messages.at(-1)!.text, `${a.callsign}, Unable`);
+    assert.equal(next.messages.at(-1)!.text, `${a.callsign}, unable`);
     assert.equal(next.messages.at(-1)!.replyTo, message.id);
     assert.deepEqual(next.aircraft, before);
     assert.equal(pendingPilotMessage(next, a.id, a.frequency!), undefined);

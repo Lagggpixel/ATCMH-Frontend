@@ -112,7 +112,7 @@ test("pushback uses a mapped taxiway behind a real stand and ends on its centerl
 
 test("ground requests remain phase-specific, keep legacy revisions readable, and optionally state pattern intentions", () => {
   const a = {...newAircraft("pilot", false), frequency: "tower" as const};
-  const requests = pilotRequests(a);
+  const requests = pilotRequests(a).filter(r => !["minimum-fuel", "emergency-fuel"].includes(r.id));
   assert.deepEqual(requests.map(r => r.label), ["Request runway crossing", "Frequency Change", "Request Takeoff", "Request Runway Change"]);
   assert.ok(!requests.some(r => r.id === "pattern-entry"));
   assert.equal(resolvePilotRequest({label: "Request pattern entry"})?.id, "pattern-entry");

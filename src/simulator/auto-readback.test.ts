@@ -23,7 +23,7 @@ test("global automation waits 1.5 seconds and assigns each aircraft once without
   state = tick(state, 1.4); assert.equal(state.messages.length, 2); assert.equal(state.aircraft[1].holding, false);
   state = tick(state, .1); assert.equal(state.messages.length, 4); assert.equal(state.aircraft[1].holding, true);
   assert.equal(state.aircraft[0].extended, true);
-  assert.equal(state.messages[2].text, "hold position, Speedbird 124");
+  assert.equal(state.messages[2].text, "You'll call my base, Speedbird 124");
   for (const a of state.aircraft) {assert.equal(a.pending, 0); assert.equal(pendingCommands(state, a.id).length, 0);}
   assert.equal(tick(state, 2).messages.length, 4); assert.equal(original.messages.length, 2);
 });
@@ -55,7 +55,7 @@ test("off cancels timers, on schedules pending traffic, pauses freeze and snapsh
 
 test("assignments revalidate: invalid instructions return Unable, retunes never execute stale commands", () => {
   let state = command(enabled(), "demo-air", {type: "takeoff", runway: "24"}); state = tick(state, 1.5);
-  assert.match(state.messages.at(-1)!.text, /^Unable, This instruction requires ground traffic/);
+  assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 124$/);
   assert.equal(state.aircraft[0].mode, "pattern"); assert.equal(tick(state, 2).messages.length, 2);
   state = command(enabled()); state = send(state, {kind: "edit", aircraftId: "demo-ground", patch: {frequency: "tower"}});
   state = tick(state, 1.5); assert.equal(state.messages.length, 1);

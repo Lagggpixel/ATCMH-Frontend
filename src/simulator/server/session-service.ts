@@ -44,7 +44,12 @@ export class SessionService {
     seat.expiresAt = now + SESSION_LEASE_MS;
   }
   private view(record: SessionRecord, role: SessionRole, now: number) {
-    return {session: summary(record, now), exercise: record.exercise, contentRevision: record.contentRevision,
+    const exercise = role === "staff" ? record.exercise : {...record.exercise, messages: record.exercise.messages.map(message => {
+      const visible = {...message};
+      delete visible.unableReason;
+      return visible;
+    })};
+    return {session: summary(record, now), exercise, contentRevision: record.contentRevision,
       ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }
   private tick(record: SessionRecord, now: number) {

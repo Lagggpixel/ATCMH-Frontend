@@ -29,10 +29,10 @@ test("strip runway leads operational menus at every airport while pattern and ta
       const groundMenu = menu("ground", ground), towerMenu = menu("tower", ground);
       check(find(groundMenu, "Cross Runway...").children!);
       check(find(groundMenu, "Progressive Taxi", "Cross Runway").children!);
-      check(find(groundMenu, "Hold short...").children!, [...ids].reverse());
+      check(find(groundMenu, "Hold short...").children!);
       check(find(towerMenu, "Cross Runway...").children!);
-      check(find(towerMenu, "Hold Short").children!, [...ids].reverse());
-      check(find(towerMenu, "Departure Sequencing...", "Hold short").children!, [...ids].reverse());
+      check(find(towerMenu, "Hold Short").children!);
+      check(find(towerMenu, "Departure Sequencing...", "Hold short").children!);
       check(find(towerMenu, "Cleared for Takeoff").children!);
       check(find(towerMenu, "Line up and Wait").children!);
       assert.deepEqual(find(groundMenu, "Taxi to...").children!.filter(e => e.label.startsWith("Runway ")).map(e => e.label), ids.map(id => `Runway ${id}`));
@@ -84,22 +84,22 @@ test("Approach and Center put assigned approach type and runway first without ch
       const approach = environment.approaches.filter(p => p.type === type).at(-1)!;
       state.aircraft[0].runway = environment.approaches.find(p => p.runway !== approach.runway)!.runway;
       state = act(state, {kind: "maneuver", aircraftId: id, command: {type: "expect-approach", approachId: approach.id}});
-      const types = find(menu(), "Expect approach ...").children!;
+      const types = find(menu(), "Expect Approach...").children!;
       assert.equal(types[0].label, labels[type]);
-      assert.deepEqual(types.slice(3).map(e => e.label), ["Radar Vectors", "Unable to provide services", "Unable (outside of service area)"]);
+      assert.deepEqual(types.slice(3).map(e => e.label), ["Radar Vectors", "Unable (Outside of Coverage Area)", "Unable at this time", "Outside Airspace"]);
       for (const choice of ["ils", "gps", "visual"] as const) {
         const entries = find(types, labels[choice]).children!, normal = environment.approaches.filter(p => p.type === choice);
         const expected = [...normal.filter(p => p.runway === approach.runway), ...normal.filter(p => p.runway !== approach.runway)].map(p => p.id);
-        assert.deepEqual(entries.map(e => e.instruction?.type === "expect-approach" ? e.instruction.approachId : null), expected);
+        assert.deepEqual(entries.map(e => e.children?.[0].instruction?.type === "expect-approach" ? e.children[0].instruction.approachId : null), expected);
       }
       assert.equal(JSON.stringify(state.radarEnvironment), before);
     }
     state = act(state, {kind: "maneuver", aircraftId: id, command: {type: "expect-approach", approachId: null, vectors: true}});
     state.aircraft[0].radar!.requestedApproach = environment.approaches.find(p => p.type === "gps")!.id;
-    assert.deepEqual(find(menu(), "Expect approach ...").children!.slice(0, 3).map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach"]);
+    assert.deepEqual(find(menu(), "Expect Approach...").children!.slice(0, 3).map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach"]);
     const runway = environment.approaches.at(-1)!.runway; state.aircraft[0].runway = runway;
-    for (const label of Object.values(labels)) assert.equal(find(menu(), "Expect approach ...", label).children![0].label, `Runway ${runway}`);
+    for (const label of Object.values(labels)) assert.equal(find(menu(), "Expect Approach...", label).children![0].label, `Runway ${runway}`);
     state.aircraft[0].runway = null; state.aircraft[0].lastRunway = null;
-    for (const type of ["ils", "gps", "visual"] as const) assert.deepEqual(find(menu(), "Expect approach ...", labels[type]).children!.map(e => e.label), environment.approaches.filter(p => p.type === type).map(p => `Runway ${p.runway}`));
+    for (const type of ["ils", "gps", "visual"] as const) assert.deepEqual(find(menu(), "Expect Approach...", labels[type]).children!.map(e => e.label), environment.approaches.filter(p => p.type === type).map(p => `Runway ${p.runway}`));
   }
 });

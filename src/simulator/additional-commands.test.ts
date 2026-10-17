@@ -25,7 +25,7 @@ test("contact choices exclude the tuned frequency without mutating other aircraf
   const state = initialExercise();
   for (const a of state.aircraft) {
     const menu = messageMenu(a.frequency!, a).find(e => e.label === "Contact Other Frequency")!;
-    assert.equal(menu.children?.length, 2);
+    assert.equal(menu.children?.length, a.frequency === "ground" ? 2 : 4);
     assert.ok(menu.children?.every(e => e.instruction?.type === "frequency" && e.instruction.frequency !== a.frequency));
     assert.ok(menu.children?.every(e => e.instruction?.type === "frequency" && !e.instruction.whenReady));
   }
@@ -55,8 +55,8 @@ test("every Misc message sends text, requires no readback and leaves aircraft as
 test("transition menu uses 500-foot intervals and assignments climb without a landing or forced descent", () => {
   let state = running(); const a = state.aircraft[0], heading = a.heading;
   a.clearedToLand = true;
-  const entries = messageMenu("tower", a).find(e => e.label === "Respond to Transition")!.children!;
-  assert.deepEqual(entries.map(e => e.instruction && "altitude" in e.instruction ? e.instruction.altitude : 0), Array.from({length: 20}, (_, i) => (i + 1) * 500));
+  const entries = messageMenu("tower", a, [], {id: "transition", aircraftId: a.id, sender: "pilot", frequency: "tower", time: 0, text: "requesting transition"}).find(e => e.label === "Respond to Transition")!.children!.flatMap(e => e.children ?? []);
+  assert.deepEqual(entries.map(e => e.instruction && "altitude" in e.instruction ? e.instruction.altitude : 0), [...Array.from({length: 18}, (_, i) => 1000 + i * 500), ...Array.from({length: 8}, (_, i) => 10000 + i * 1000), ...Array.from({length: 43}, (_, i) => (180 + i * 10) * 100)]);
   const command: Instruction = {type: "transition", altitude: 3000};
   assert.equal(instructionText(a, command), "Speedbird 124, Transition approved at or above 3000 feet");
   state = assign(state, command, 0);
@@ -66,7 +66,7 @@ test("transition menu uses 500-foot intervals and assignments climb without a la
   assert.deepEqual(predicted.map(a => a.position), advance(state, 1).aircraft.map(a => a.position));
   state = tick(restore(state), 180);
   assert.equal(state.aircraft[0].altitude, 3000); assert.ok(Math.abs(state.aircraft[0].heading - heading) < 1e-8);
-  state = assign(state, {type: "transition", altitude: 500}, 0);
+  state = assign(state, {type: "transition", altitude: 1000}, 0);
   assert.equal(tick(state, 30).aircraft[0].altitude, 3000, "an at-or-above clearance must never descend to a lower minimum");
   assert.match(validateAssignment(state.aircraft[1], command)!, /airborne/);
 });

@@ -1,10 +1,12 @@
+import {updateRouteConstraints} from "./command-navigation";
 import {turnAircraft, bankTurnLead} from "./banked-turns";
 import {runwayEnds, airportRunways, defaultRunway} from "./airports";
 import {DEFAULTS, type Aircraft, type Airport, type Altitude, type Instruction, type Point, type RadarEnvironment} from "./model";
 import {radarSpeedText, updateRadarSpeed, validRadarSpeed} from "./radar-speed";
 
 export const ALTITUDES: readonly Altitude[] = [
-  ...Array.from({length: 34}, (_, i): Altitude => ({unit: "feet", value: 1000 + i * 500})),
+  ...Array.from({length: 18}, (_, i): Altitude => ({unit: "feet", value: 1000 + i * 500})),
+  ...Array.from({length: 8}, (_, i): Altitude => ({unit: "feet", value: 10000 + i * 1000})),
   ...Array.from({length: 43}, (_, i): Altitude => ({unit: "flight-level", value: 180 + i * 10})),
 ];
 export const altitudeFeet = (a: Altitude) => a.unit === "feet" ? a.value : a.value * 100;
@@ -59,7 +61,7 @@ export function radarAircraft(a: Aircraft, station: "approach" | "center", airpo
     clearedToLand: false, clearedForOption: false, leavingCircuit: true};
 }
 export function radarInstructionError(a: Aircraft, c: Instruction, airport: Airport, environment: RadarEnvironment): string | null {
-  if (c.type === "radar-speed") return !a.radar || !airborne(a, airport) ? "This instruction requires airborne Approach or Center traffic." : validRadarSpeed(c) ? null : "Choose a listed speed instruction.";
+  if (c.type === "radar-speed") return !a.radar && a.frequency === "tower" ? validRadarSpeed(c) && c.mode !== "maintain" ? null : "Choose a Tower speed instruction." : !a.radar || !airborne(a, airport) ? "This instruction requires airborne Approach or Center traffic." : validRadarSpeed(c) ? null : "Choose a listed speed instruction.";
   if (!["vector", "expect-approach", "missed-approach", "route"].includes(c.type)) return null;
   if (!a.radar || !airborne(a, airport)) return "This instruction requires airborne Approach or Center traffic.";
   if (c.type === "vector") {
@@ -68,14 +70,16 @@ export function radarInstructionError(a: Aircraft, c: Instruction, airport: Airp
     if (c.approachId && (a.radar.expected !== c.approachId || !environment.approaches.some(item => item.id === c.approachId))) return "The expected approach has changed. Select the current approach before clearing it.";
   }
   if ((c.type === "vector" || c.type === "missed-approach") && c.altitude && (!validAltitude(c.altitude) || altitudeFeet(c.altitude) <= airport.elevation)) return "Choose an available altitude above the airport elevation.";
-  if (c.type === "missed-approach" && altitudeFeet(c.altitude) < a.altitude) return "Missed approach altitude must be at or above the aircraft altitude.";
+
   if (c.type === "expect-approach" && c.approachId && !environment.approaches.some(item => item.id === c.approachId)) return "This approach is unavailable in the pinned training environment.";
   if (c.type === "route" && (!Number.isInteger(c.index) || c.index < 0 || c.index >= a.flightPlan.length)) return "Choose an existing route waypoint.";
   return null;
 }
 export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, environment: RadarEnvironment) {
   const r = a.radar!;
+  if (c.type === "vector" || c.type === "missed-approach" || c.type === "route" && c.altitude) delete a.starDescent;
   if (c.type === "expect-approach") {
+    if (c.navigation === "filed" && a.flightPlan[r.routeIndex]) r.navigation = "route";
     r.expected = c.approachId ?? undefined; r.guidance = c.vectors ? "vectors" : undefined;
     if (c.vectors) a.runway = c.runway ?? a.runway ?? defaultRunway(airport);
     r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; if (r.navigation === "approach") r.navigation = "heading";
@@ -83,10 +87,10 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
     if (c.heading !== undefined) {a.targetHeading = c.heading % 360; r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
     if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;}
     if (c.approachId) {r.navigation = "approach"; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
-  } else if (c.type === "route") {r.navigation = "route"; r.routeIndex = c.index; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
+  } else if (c.type === "route") {r.navigation = "route"; r.routeIndex = c.index; if (c.altitude) r.targetAltitude = {...c.altitude}; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
   else if (c.type === "missed-approach") {
     const expected = environment.approaches.find(item => item.id === r.expected);
-    a.targetHeading = expected?.missedHeading ?? approachGeometry(airport, a.runway ?? defaultRunway(airport)).heading;
+    a.targetHeading = c.heading ?? expected?.missedHeading ?? approachGeometry(airport, a.runway ?? defaultRunway(airport)).heading;
     r.navigation = "missed"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;
     r.speed = undefined;
     a.clearedToLand = false; a.clearedForOption = false; a.targetSpeed = 220; a.speedMode = "auto";
@@ -96,14 +100,18 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
 export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment: RadarEnvironment, traffic: Aircraft[] = [], automatic = false) {
   const r = a.radar!;
   if (!a.active) return;
+  updateRouteConstraints(a);
   let altitude = r.targetAltitude ? altitudeFeet(r.targetAltitude) : a.altitude;
   if (r.navigation === "route") {
     let point = a.flightPlan[r.routeIndex];
     const turnRadius = bankTurnLead(a.speed);
     if (point && distance(a.position, point) <= Math.max(.15, turnRadius * .7)) point = a.flightPlan[++r.routeIndex];
+    updateRouteConstraints(a);
+    altitude = r.targetAltitude ? altitudeFeet(r.targetAltitude) : a.altitude;
     if (point) a.targetHeading = radarHeading(a.position, point);
     else r.navigation = "heading";
   }
+  if (a.starDescent) altitude = Math.min(altitude, a.altitude);
   if (r.navigation === "approach" && r.cleared) {
     const approach = environment.approaches.find(item => item.id === r.cleared);
     if (approach) {
@@ -147,8 +155,8 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   const stride = a.speed / 3600 * dt, radians = a.heading * Math.PI / 180;
   a.position = {x: a.position.x + Math.sin(radians) * stride, y: a.position.y + Math.cos(radians) * stride};
 }
-export function altitudeTransmission(a: Aircraft, altitude: Altitude, missed = false) {
-  const change = missed || altitudeFeet(altitude) > a.altitude + 50 ? "climb and maintain" : altitudeFeet(altitude) < a.altitude - 50 ? "descend and maintain" : "maintain";
+export function altitudeTransmission(a: Aircraft, altitude: Altitude) {
+  const change = altitudeFeet(altitude) > a.altitude + 50 ? "climb and maintain" : altitudeFeet(altitude) < a.altitude - 50 ? "descend and maintain" : "maintain";
   return `${change} ${altitudeLabel(altitude)}`;
 }
 const spokenDigits = (value: number | string) => String(value).split("").map(digit => ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][Number(digit)]).join(" ");
@@ -162,9 +170,16 @@ export function checkInTransmission(a: Aircraft) {
 export function radarInstructionText(a: Aircraft, c: Instruction, environment: RadarEnvironment): string | undefined {
   if (c.type === "radar-speed") return radarSpeedText(a, c);
   if (c.type === "heading") return turnTransmission(a, c.value);
-  const name = (id: string) => {const p = environment.approaches.find(p => p.id === id); return p ? `${p.type === "visual" ? "Visual" : p.type.toUpperCase()} approach runway ${p.runway}` : "approach";};
-  if (c.type === "vector") return [c.heading === undefined ? "" : turnTransmission(a, c.heading), c.altitude ? altitudeTransmission(a, c.altitude) : "", c.approachId ? `cleared for ${name(c.approachId)}` : ""].filter(Boolean).join(", ");
-  if (c.type === "missed-approach") return `execute missed approach, ${altitudeTransmission(a, c.altitude, true)}`;
-  if (c.type === "expect-approach") return c.vectors ? "expect radar vectors" : c.approachId ? `expect ${name(c.approachId)}` : "Unable to provide services";
-  if (c.type === "route") return `proceed direct to waypoint ${c.index + 1}, resume route`;
+  if (c.type === "vector") {
+    const p = environment.approaches.find(p => p.id === c.approachId);
+    const clearance = p ? p.type === "ils" ? `${c.standalone ? "" : `maintain ${c.altitude ? altitudeLabel(c.altitude) : a.radar?.targetAltitude ? altitudeLabel(a.radar.targetAltitude) : Math.round(a.altitude)} until established on the localizer, `}cleared ILS runway ${p.runway} approach` : p.type === "gps" ? `cleared GPS ${c.standalone ? "approach runway" : "runway"} ${p.runway}${c.standalone ? "" : " approach"}` : `cleared visual approach runway ${p.runway}` : "";
+    return [c.heading === undefined ? "" : turnTransmission(a, c.heading), c.altitude && !c.standalone ? altitudeTransmission(a, c.altitude) : "", clearance].filter(Boolean).join(", ");
+  }
+  if (c.type === "missed-approach") return `execute missed approach, ${c.heading === undefined ? "" : turnTransmission(a, c.heading) + ", "}${altitudeFeet(c.altitude) > a.altitude ? "climb" : "descend"} and maintain ${altitudeLabel(c.altitude)}`;
+  if (c.type === "expect-approach") {
+    const p = environment.approaches.find(p => p.id === c.approachId), runway = p?.runway ?? c.runway ?? a.runway;
+    if (c.vectors) return `expect vectors for runway ${runway} at ${environment.airportName ?? "destination"}`;
+    return p ? `${c.navigation === "filed" ? "continue as filed, expect the" : "expect vectors for the"} ${p.type === "visual" ? "visual" : p.type.toUpperCase()} approach runway ${p.runway} at ${environment.airportName ?? "destination"}` : "unable to provide services";
+  }
+  if (c.type === "route") return `proceed direct ${c.name ?? `Waypoint ${c.index + 1}`}${c.altitude ? `, ${altitudeTransmission(a, c.altitude)}` : ""}`;
 }
