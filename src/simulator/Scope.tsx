@@ -189,7 +189,7 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
   const terrainPoint = vector ? terrainCoordinates(AIRPORT, vector.point) : null;
   const terrain = useVectorTerrain(terrainPoint?.latitude, terrainPoint?.longitude);
   const alertBoxes: {x: number; top: number; height: number}[] = [];
-  return <div className={styles.scope} ref={container} aria-label={`${AIRPORT.icao} radar scope`} onPointerDownCapture={event => {if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate();}}}>
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} aria-label={`${AIRPORT.icao} radar scope`} onPointerDownCapture={event => {if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate();}}}>
     <div className={styles.mapSurface} style={routeEditable && routeHover ? {cursor: "crosshair"} : undefined} onPointerDown={event => {
       if (event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId); pointers.current.set(event.pointerId, {x: event.clientX, y: event.clientY}); drag.current = {point: {x: event.clientX, y: event.clientY}, moved: pointers.current.size > 1};
