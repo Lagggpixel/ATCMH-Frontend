@@ -52,7 +52,7 @@ export const aircraftSchema = z.object({id, callsign: z.string().min(1).max(80),
 export const instructionSchema = z.discriminatedUnion("type", [
   radarSpeedObject,
   z.object({type: z.literal("vector"), heading: bounded(0, 360).optional(), altitude: altitudeSchema.optional(), approachId: id.optional()}),
-  z.object({type: z.literal("expect-approach"), approachId: id.nullable(), vectors: z.boolean().optional()}),
+  z.object({type: z.literal("expect-approach"), approachId: id.nullable(), vectors: z.boolean().optional(), runway: runway.optional()}),
   z.object({type: z.literal("missed-approach"), altitude: altitudeSchema}),
   z.object({type: z.literal("route"), index: bounded(0, 199).int()}),
   z.object({type: z.literal("radio"), message: z.enum(["say-intentions", "standby", "correction-standby", "disregard", "unable", "misc"]), text: z.string().min(1).max(300).optional()}),
