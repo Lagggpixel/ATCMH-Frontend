@@ -39,7 +39,7 @@ test("new controller and pilot transmissions play in order once across repeated 
   assert.equal(h.played.length, 1);
   assert.match(h.played[0].text, /Runway two four/);
   h.played[0].end(); assert.equal(h.played.length, 2);
-  assert.match(h.played[1].text, /^Easy 571/);
+  assert.match(h.played[1].text, /^Easy five seven one/);
   h.played[1].end(); h.observe(messages); assert.equal(h.played.length, 2);
   h.close();
 });
@@ -191,6 +191,57 @@ test("staff requests received behind the pause screen are queued and spoken once
   h.player.observe(received, true, "ground", true); h.player.observe(received, true, "ground", true);
   assert.equal(h.played.length, 0);
   h.player.observe({...received, pausedByStaff: false}, true, "ground", false);
-  assert.equal(h.played.length, 1); assert.match(h.played[0].text, /^Easy 571/);
+  assert.equal(h.played.length, 1); assert.match(h.played[0].text, /^Easy five seven one/);
   h.played[0].end(); h.player.observe(received, true, "ground", false); assert.equal(h.played.length, 1); h.close();
+});
+
+test("airline callsign numbers are spoken individually without changing other numbers", () => {
+  assert.equal(aviationSpeech("Speedbird 104, climb to 3000 feet. Wind 240 at 10. QNH 1001.", ["Speedbird 104"]), "Speedbird one zero four, climb to 3000 feet. Wind 240 at 10. QNH 1001.");
+  assert.equal(aviationSpeech("American 001, follow Delta 64. American 0010.", ["American 001", "Delta 64"]), "American zero zero one, follow Delta six four. American 0010.");
+  assert.equal(aviationSpeech("Air Test (104), ready.", ["Air Test (104)"]), "Air Test (one zero four), ready.");
+});
+
+test("registration callsigns use phonetic letters and individual digits", () => {
+  for (const [callsign, spoken] of [["N714KG", "November seven one four Kilo Golf"], ["n04az", "November zero four Alpha Zulu"], ["G-ABCD", "Golf Alpha Bravo Charlie Delta"], ["VH-X9Z", "Victor Hotel X-ray nine Zulu"], ["9V-SAA", "nine Victor Sierra Alpha Alpha"]]) assert.equal(aviationSpeech(`${callsign}, ready, ${callsign}.`, [callsign]), `${spoken}, ready, ${spoken}.`);
+});
+
+test("live transmissions, referenced traffic and replay all normalize callsigns without changing the message log", () => {
+  const h = harness();
+  const state = initialExercise(); state.aircraft[0].callsign = "Speedbird 104"; state.aircraft[1].callsign = "N714KG";
+  h.player.observe(state, true, "all");
+  const controller = {...message("callsign-controller"), text: "Speedbird 104, follow N714KG, Runway 24. Contact Tower on 118.70."};
+  const pilot = {...message("callsign-pilot", "ground", "pilot"), text: "Following N714KG, Speedbird 104."};
+  h.player.observe({...state, messages: [controller, pilot]}, true, "all");
+  assert.equal(h.played[0].text, "Speedbird one zero four, follow November seven one four Kilo Golf, Runway two four. Contact Tower on one one eight decimal seven zero.");
+  h.played[0].end(); assert.equal(h.played[1].text, "Following November seven one four Kilo Golf, Speedbird one zero four.");
+  h.played[1].end(); h.player.say(pilot.text); assert.equal(h.played[2].text, h.played[1].text);
+  assert.equal(pilot.text, "Following N714KG, Speedbird 104.");
+  h.close();
+});
+
+
+test("the browser receives explicit spoken callsigns for transmissions and manual replay", () => {
+  const windowBefore = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const utteranceBefore = Object.getOwnPropertyDescriptor(globalThis, "SpeechSynthesisUtterance");
+  const spoken: {text: string; onend?: () => void}[] = [];
+  class Utterance {constructor(public text: string) {}}
+  Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {configurable: true, value: Utterance});
+  Object.defineProperty(globalThis, "window", {configurable: true, value: {SpeechSynthesisUtterance: Utterance, speechSynthesis: {
+    getVoices: () => [{voiceURI: "local", name: "Local English", lang: "en-GB", localService: true}],
+    addEventListener: () => {}, removeEventListener: () => {}, cancel: () => {}, speak: (utterance: {text: string}) => spoken.push(utterance),
+  }}});
+  try {
+    const player = new RadioAudio(), close = player.start(browserSpeechOutput());
+    try {
+      const state = initialExercise(); state.aircraft[0].callsign = "N714KG"; state.aircraft[1].callsign = "Speedbird 104";
+      player.observe(state, true, "all");
+      const request = {...message("browser-callsign", "tower", "pilot"), text: "N714KG, following Speedbird 104."};
+      player.observe({...state, messages: [request]}, true, "all");
+      assert.equal(spoken[0].text, "November seven one four Kilo Golf, following Speedbird one zero four.");
+      spoken[0].onend!(); player.say(request.text); assert.equal(spoken[1].text, spoken[0].text);
+    } finally {close();}
+  } finally {
+    if (windowBefore) Object.defineProperty(globalThis, "window", windowBefore); else Reflect.deleteProperty(globalThis, "window");
+    if (utteranceBefore) Object.defineProperty(globalThis, "SpeechSynthesisUtterance", utteranceBefore); else Reflect.deleteProperty(globalThis, "SpeechSynthesisUtterance");
+  }
 });

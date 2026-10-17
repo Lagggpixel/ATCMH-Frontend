@@ -130,6 +130,8 @@ Mentee frequencies count aircraft with an unanswered pilot request on that chann
 
 Voice settings provide a device voice selection, speed, volume, Test voice, Replay last message and Stop speaking. The mentee ATIS view can read only the published ATIS. Runway numbers and frequencies use digit-by-digit pronunciation. Voice, rate, volume and online-voice consent stay in the current tab; the account/role’s on/off choice is remembered in this browser.
 
+Callsign speech reads airline numbers digit by digit (Speedbird 104 becomes "Speedbird one zero four") and registration letters phonetically (N714KG becomes "November seven one four Kilo Golf"). This applies to transmissions and manual replay; message logs retain the original callsigns.
+
 Speech uses the browser-native [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis), with automatic preference for a local English voice. Online voices are labeled and use the browser speech provider. There is no application speech API, microphone permission, recording or paid service. Voice availability and sound quality depend on the device/browser. Unsupported browsers keep the simulator usable with audio unavailable; playback failures retain the enabled choice and queued transmissions and show a retry explanation.
 
 ## Exercise controls
