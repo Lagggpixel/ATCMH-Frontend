@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {aStar, buildTaxiGraph, planTaxiRoute, TAXI_ROUTING, type TaxiGraph} from "./taxi-routing";
 import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, predictAircraft, readbackText, restoreExercise} from "./engine";
-import {commandTasks, instructionText} from "./catalog";
+import {commandTasks, instructionText, messageMenu} from "./catalog";
 import {exerciseSchema} from "./protocol";
 import {radioMessageText} from "./radio-audio";
 const gap = (a: {x: number; y: number}, b: {x: number; y: number}) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -42,9 +42,11 @@ test("taxi-to-runway assignment calculates a route and simulated traffic stops s
   assert.ok(gap(traffic.position, traffic.taxiPath.at(-1)!) < 1e-7);
 });
 
-test("runway taxi command and automatic readback retain the requested instruction without channel prefixes", () => {
+test("Taxi to Runway 24 Send reads back and queues the Tower handover", () => {
   let state = initialExercise(); state.autoReadback = true; state.running = true;
-  const a = state.aircraft[1], command = {type: "taxi", destination: "runway", runway: "24"} as const;
+  const a = state.aircraft[1];
+  const command = messageMenu("ground", a).find(entry => entry.label === "Taxi to...")!.children!.find(entry => entry.label === "Runway 24")!.children!.find(entry => entry.label === "Send")!.instruction!;
+  assert.deepEqual(command, {type: "taxi", runway: "24", contactTowerWhenReady: true});
   const text = instructionText(a, command);
   assert.equal(text, "Easy 571, taxi to runway 24, contact tower when ready");
   state = applyEnvelope(state, {id: "taxi", time: 1, action: {kind: "command", aircraftId: a.id, command, frequency: "ground", text}}).state;

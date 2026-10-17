@@ -170,7 +170,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
   const progressive = unavailable("Progressive Taxi", [unavailable("Expect Progressive Taxi Instructions"), {label: "Cross Runway", children: runwayCommand(a, "cross")}, ...["Turn left next taxiway", "Turn right next taxiway", "Continue straight ahead", "Make 180", "Continue taxi at your discretion", "Follow Aircraft Ahead", "Already cleared to cross"].map(label => unavailable(label))]);
   const crossing: MenuEntry = {label: "Cross Runway...", children: runwayCommand(a, "cross").concat([unavailable("Already cleared to cross")])};
   const ground: MenuEntry[] = [
-    {label: "Taxi to...", children: runways(runway => [{label: "Send", instruction: {type: "taxi", runway}}, {label: "Contact Tower when ready", instruction: {type: "taxi", runway, contactTowerWhenReady: true}}]).concat([{label: "Parking", instruction: {type: "taxi", destination: "parking"}}])},
+    {label: "Taxi to...", children: runways(runway => [{label: "Send", instruction: {type: "taxi", runway, contactTowerWhenReady: true}}]).concat([{label: "Parking", instruction: {type: "taxi", destination: "parking"}}])},
     progressive,
     {label: "Continue Taxi", instruction: {type: "taxi"}}, {label: "Hold short...", children: holdShortRunways()},
     crossing,

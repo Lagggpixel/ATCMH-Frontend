@@ -13,11 +13,15 @@ const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
 test("restored Ground menu keeps distinct runway, parking, hold and pushback instructions", () => {
   const a = newAircraft("ground", false), entries = messageMenu("ground", a);
   const taxi = find(entries, "Taxi to...", "Runway 06", "Send").instruction!;
-  assert.deepEqual(taxi, {type: "taxi", runway: "06"});
+  assert.deepEqual(taxi, {type: "taxi", runway: "06", contactTowerWhenReady: true});
   assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06, contact tower when ready");
-  const taxiWithContact = find(entries, "Taxi to...", "Runway 06", "Contact Tower when ready").instruction!;
-  assert.deepEqual(taxiWithContact, {type: "taxi", runway: "06", contactTowerWhenReady: true});
-  assert.equal(instructionText(a, taxiWithContact), "Easy 571, taxi to runway 06, contact tower when ready");
+  for (const runway of find(entries, "Taxi to...").children!.filter(entry => entry.label.startsWith("Runway "))) {
+    assert.deepEqual(runway.children?.map(entry => entry.label), ["Send"]);
+    assert.equal(find(runway.children!, "Send").instruction?.type, "taxi");
+  }
+  const taxi24 = find(entries, "Taxi to...", "Runway 24", "Send").instruction!;
+  assert.deepEqual(taxi24, {type: "taxi", runway: "24", contactTowerWhenReady: true});
+  assert.equal(instructionText(a, taxi24), "Easy 571, taxi to runway 24, contact tower when ready");
   assert.ok(!find(entries, "Contact Other Frequency").children?.some(entry => entry.label.includes("when ready")));
   assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to Parking/);
   assert.match(instructionText(a, find(entries, "Continue Taxi").instruction!), /continue taxi/);
