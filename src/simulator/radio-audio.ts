@@ -23,12 +23,22 @@ export function browserAudioPreference(accountId: string, role: "staff" | "mente
 }
 const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const digits = (value: string) => [...value].map(n => DIGITS[Number(n)]).join(" ");
-export function aviationSpeech(text: string): string {
+const PHONETIC = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"];
+function spokenCallsign(callsign: string): string {
+  if (/^(?:[a-z0-9]{1,2}-[a-z0-9]+|[a-z]+[0-9][a-z0-9]*)$/i.test(callsign)) return [...callsign.toUpperCase()].filter(c => c !== "-").map(c => /[0-9]/.test(c) ? DIGITS[Number(c)] : PHONETIC[c.charCodeAt(0) - 65]).join(" ");
+  return callsign.replace(/[0-9]+/g, digits);
+}
+export function aviationSpeech(text: string, callsigns: readonly string[] = []): string {
+  const names = [...new Set(callsigns.map(c => c.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (names.length) {
+    const escaped = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    text = text.replace(new RegExp(`(?<![a-z0-9])(?:${escaped.join("|")})(?![a-z0-9])`, "gi"), spokenCallsign);
+  }
   return text.replace(/(\bon (?:left |right )?(?:final|base|downwind|crosswind|upwind) )(\d{2})([LRC])?\b/gi, (_, leg: string, number: string, side: string | undefined) => `${leg}${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
     .replace(/\brunway (\d{2})([LRC])?\b/gi, (_, number: string, side: string | undefined) => `Runway ${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
     .replace(/\b(\d{3})\.(\d{2,3})\b/g, (_, whole: string, fraction: string) => `${digits(whole)} decimal ${digits(fraction)}`);
 }
-export const radioMessageText = (message: Message) => aviationSpeech(message.text);
+export const radioMessageText = (message: Message, callsigns: readonly string[] = []) => aviationSpeech(message.text, callsigns);
 
 /** One player per tab. Snapshot recovery establishes a new baseline,
  * so old messages and repeated transport snapshots never become radio transmissions. */
@@ -40,6 +50,7 @@ export class RadioAudio {
   private seen = new Set<string>();
   private previous: {id: string; connected: boolean; elapsed: number; atis: string} | null = null;
   private queue: string[] = [];
+  private callsigns: string[] = [];
   private generation = 0;
   private paused = false;
   private waitingForRetry = false;
@@ -57,6 +68,7 @@ export class RadioAudio {
     return () => {unsubscribe?.(); this.stop(); this.output = null; this.previous = null; this.seen.clear();};
   }
   observe(exercise: Exercise, connected: boolean, _scope: Frequency | "all", paused = false) {
+    this.callsigns = exercise.aircraft.map(a => a.callsign);
     const previous = this.previous;
     const baseline = !previous || !previous.connected || !connected || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
     if (baseline) this.stop();
@@ -70,7 +82,7 @@ export class RadioAudio {
     this.seen = new Set(exercise.messages.map(m => m.id));
     this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis};
     if (this.state.enabled && connected) {
-      for (const message of fresh) this.queue.push(radioMessageText(message));
+      for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
     }
@@ -95,7 +107,7 @@ export class RadioAudio {
   }
   say(text: string) {
     if (!this.state.enabled || !this.output) return;
-    this.queue.push(aviationSpeech(text)); this.next();
+    this.queue.push(aviationSpeech(text, this.callsigns)); this.next();
   }
   stop() {
     this.generation++; this.queue = []; this.waitingForRetry = false;
