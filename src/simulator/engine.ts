@@ -529,6 +529,7 @@ function validateControllerMessage(state: Exercise, a: Aircraft, command: Instru
 
 function readbackText(callsign: string, text: string, instruction?: Instruction): string {
   let phrase = (text.startsWith(`${callsign}, `) ? text.slice(callsign.length + 2) : text).replace(/\.$/, "");
+  if (instruction?.type === "takeoff") phrase = phrase.replace(/^wind [^,]+,\s*/i, "");
   if (instruction?.type === "heading" || instruction?.type === "vector") phrase = phrase.replace(/^turn (left|right) heading /i, "Turning $1 heading ");
   if (instruction?.type === "vector") phrase = phrase.replace(/^(climb|descend) and maintain /i, (_, direction: string) => `${direction[0].toUpperCase()}${direction.slice(1)} and maintain `);
   if (instruction?.type === "cross") phrase = phrase.replace(/^cross /i, "Crossing ");

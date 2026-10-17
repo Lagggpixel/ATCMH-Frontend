@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {instructionText, messageMenu, pilotRequests, pilotRequestText, resolvePilotRequest} from "./catalog";
-import {advance, AIRPORT, applyEnvelope, autoReadbacks, initialExercise, predictAircraft, restoreExercise, runwayGeometry} from "./engine";
+import {advance, AIRPORT, applyEnvelope, autoReadbacks, initialExercise, predictAircraft, readbackText, restoreExercise, runwayGeometry} from "./engine";
 import {pendingCommands, type Action, type Exercise, type Instruction, type PilotRequestSelection} from "./model";
 import {envelopeSchema, exerciseSchema, menteeActionAllowed} from "./protocol";
 import {createScenarioExercise, scenarioFromExercise} from "./scenarios";
@@ -73,6 +73,21 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
     state = tick(send(state, command, a.id));
     assert.equal(state.messages.at(-1)!.text, `${expected}, Easy 571`);
     assert.equal(state.messages.at(-1)!.frequency, "ground");
+  }
+});
+
+test("takeoff readbacks omit wind and retain the runway, traffic hand and callsign", () => {
+  for (const hand of [undefined, "right", "left"] as const) {
+    let state = active(); const a = state.aircraft[1]; a.frequency = "tower";
+    const command: Instruction = {type: "takeoff", runway: "24", ...(hand ? {hand} : {})};
+    const clearance = instructionText(a, command);
+    assert.match(clearance, /^Easy 571, wind 240 at 10, Runway 24, cleared for takeoff/);
+    const expected = `Runway 24, cleared for takeoff${hand ? `, make ${hand} traffic` : ""}, Easy 571`;
+    assert.equal(readbackText(a.callsign, clearance, command), expected);
+    assert.equal(readbackText(a.callsign, `Runway 24, cleared for takeoff${hand ? `, make ${hand} traffic` : ""}`, command), expected);
+    state = tick(send(state, command, a.id));
+    assert.equal(state.messages.at(-1)!.text, expected);
+    assert.equal(state.messages.at(-1)!.frequency, "tower");
   }
 });
 
