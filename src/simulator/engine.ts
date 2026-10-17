@@ -481,9 +481,9 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
         if (command.instruction.type === "land" && command.clearanceCircuit !== undefined && command.clearanceCircuit !== (aircraft!.circuit ?? 0)) return {state, error: "This landing clearance belongs to a previous circuit."};
         const error = validateAssignment(aircraft!, command.instruction, command.frequency, next.aircraft);
         if (error) return {state, error};
-        const previousRunway = aircraft!.runway, previousCircuit = aircraft!.circuit;
+        const previousRunway = aircraft!.runway, previousCircuit = aircraft!.circuit, wasArrival = arrivalTraffic(aircraft!);
         instruct(aircraft!, command.instruction, next.aircraft);
-        if (command.instruction.type === "pattern" && command.instruction.sequence && (aircraft!.runway !== previousRunway || aircraft!.circuit !== previousCircuit)) assignSequence(next.aircraft, aircraft!, command.instruction);
+        if (command.instruction.type === "pattern" && command.instruction.sequence && (aircraft!.runway !== previousRunway || aircraft!.circuit !== previousCircuit || !wasArrival)) assignSequence(next.aircraft, aircraft!, command.instruction);
         if (command.instruction.type !== "frequency") aircraft!.lastRunway = aircraft!.runway ?? aircraft!.lastRunway;
       }
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, commandId: action.replyTo, read: !!action.replyTo, ...(action.request ? {request: action.request, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
