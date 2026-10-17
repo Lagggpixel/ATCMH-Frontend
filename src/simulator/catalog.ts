@@ -26,6 +26,7 @@ export interface PilotRequest {id: PilotRequestId; label: string; text: string; 
 export interface PilotRequestOptions {direction?: Direction; includeRunway?: boolean; exercise?: Pick<Exercise, "publishedDraft" | "radarEnvironment">}
 export const LETTERS = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT", "GOLF", "HOTEL", "INDIA", "JULIET", "KILO", "LIMA", "MIKE", "NOVEMBER", "OSCAR", "PAPA", "QUEBEC", "ROMEO", "SIERRA", "TANGO", "UNIFORM", "VICTOR", "WHISKEY", "XRAY", "YANKEE", "ZULU"];
 export const REMARKS = ["No Pattern Work", "Gate Hold", "Flight plan required"];
+const preferredFirst = <T,>(items: readonly T[], preferred: (item: T) => boolean): T[] => [...items].sort((left, right) => Number(preferred(right)) - Number(preferred(left)));
 function createCatalog(airport: Airport, environment = radarEnvironmentFor(airport)) {
 const FREQUENCIES = frequenciesFor(airport);
 
@@ -96,7 +97,7 @@ function commandTasks(frequency: Frequency, a: Aircraft): CommandTask[] {
   return tasks;
 }
 const unavailable = (label: string, children?: MenuEntry[]): MenuEntry => ({label, children, note: "Not simulated in this exercise"});
-const runways = (make: (runway: Runway) => MenuEntry[]): MenuEntry[] => runwayEnds(airport).map(end => end.id).map(runway => ({label: `Runway ${runway}`, children: make(runway)}));
+const runways = (make: (runway: Runway) => MenuEntry[], preferred?: Runway | null): MenuEntry[] => preferredFirst(runwayEnds(airport), end => end.id === preferred).map(end => ({label: `Runway ${end.id}`, children: make(end.id)}));
 function likelyGiveWayTraffic(source: Aircraft, traffic: Aircraft[], kind: "exiting" | "left" | "right" | "ahead", runway?: Runway): Aircraft | undefined {
   const heading = source.heading * Math.PI / 180;
   const forward = {x: Math.sin(heading), y: Math.cos(heading)};
@@ -123,7 +124,7 @@ const common: MenuEntry[] = [
   {label: "Standby", instruction: {type: "radio", message: "standby"}},
   {label: "Correction", children: [{label: "Correction, Standby", instruction: {type: "radio", message: "correction-standby"}}, {label: "Disregard last message", instruction: {type: "radio", message: "disregard"}}]},
 ];
-const holdShortRunways = (): MenuEntry[] => runwayEnds(airport).map(end => end.id).reverse().map(runway => ({label: runway, instruction: {type: "hold-short", runway}}));
+const holdShortRunways = (a: Aircraft): MenuEntry[] => preferredFirst(runwayEnds(airport).map(end => end.id).reverse(), runway => runway === (a.runway ?? a.lastRunway)).map(runway => ({label: runway, instruction: {type: "hold-short", runway}}));
 const misc = (label: string): MenuEntry => ({label, instruction: {type: "radio", message: "misc", text: MISC_TEXT[label] ?? label}});
 const MISC_TEXT: Record<string, string> = {
   "Follow instructions (Simple)": "Please follow instructions",
@@ -143,12 +144,15 @@ const MISC_TEXT: Record<string, string> = {
 };
 const sharedMisc = ["Follow instructions (Simple)", "Follow instructions (Report)", "Check User Guide", "Duplicate messages", "Stay on frequency", "Please Expedite", "Freq busy be patient", "Aircraft too large", "No Light Aircraft", "Traffic Alert", "Thank you", "Thank you, good day", "You're welcome", "I'm sorry"].map(misc);
 const sequencing = (entry?: Extract<Instruction, {type: "pattern"}>) => Array.from({length: 7}, (_, i): MenuEntry => ({label: `Number ${i + 2}`, children: ["Right Downwind", "Left Downwind", "Right Base", "Left Base", "Final", "Upwind", "Left Crosswind", "Right Crosswind"].map(traffic => ({label: `Traffic to Follow is on ${traffic}`, instruction: entry ? {...entry, sequence: {number: i + 2, traffic}} : {type: "sequence", number: i + 2, traffic}}))}));
-const runwayCommand = (_a: Aircraft, type: "taxi" | "cross" | "takeoff" | "land" | "hold-short") => runways(runway => [{label: "Send", instruction: {type, runway}}]);
+const runwayCommand = (a: Aircraft, type: "taxi" | "cross" | "takeoff" | "land" | "hold-short") => runways(runway => [{label: "Send", instruction: {type, runway}}], a.runway ?? a.lastRunway);
 /** Restored legacy command navigation at the instructor’s request.
  * Unsupported actions remain explicitly unavailable. */
 
 function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []): MenuEntry[] {
   if (frequency === "atis") return [];
+  const assignedRunway = a.runway ?? a.lastRunway;
+  const assignedRunways = (make: (runway: Runway) => MenuEntry[]) => runways(make, assignedRunway);
+  const assignedApproach = environment.approaches.find(p => p.id === (a.radar?.expected ?? a.radar?.cleared));
   if (frequency === "approach" || frequency === "center") return [
     {label: "Vectoring Instructions", children: [
       {label: "Heading", children: HEADING_CHOICES.map(heading => ({label: String(heading).padStart(3, "0"), instruction: {type: "vector", heading}, composeVector: true}))},
@@ -156,7 +160,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
     ]},
     {label: "Request Speed", children: radarSpeedMenu()},
     {label: "Expect approach ...", children: [
-      ...(["ils", "gps", "visual"] as const).map(type => ({label: type === "ils" ? "ILS Approach" : type === "gps" ? "GPS Approach" : "Visual Approach", children: environment.approaches.filter(p => p.type === type).map(p => ({label: `Runway ${p.runway}`, instruction: {type: "expect-approach" as const, approachId: p.id}}))})),
+      ...preferredFirst(["ils", "gps", "visual"] as const, type => type === assignedApproach?.type).map(type => ({label: type === "ils" ? "ILS Approach" : type === "gps" ? "GPS Approach" : "Visual Approach", children: preferredFirst(environment.approaches.filter(p => p.type === type), p => p.runway === (assignedApproach?.runway ?? assignedRunway)).map(p => ({label: `Runway ${p.runway}`, instruction: {type: "expect-approach" as const, approachId: p.id}}))})),
       {label: "Radar Vectors", instruction: {type: "expect-approach", approachId: null, vectors: true}},
       {label: "Unable to provide services", instruction: {type: "radio", message: "misc", text: "Unable to provide services"}},
       {label: "Unable (outside of service area)", instruction: {type: "radio", message: "misc", text: "Unable, outside of service area"}},
@@ -173,7 +177,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
   const ground: MenuEntry[] = [
     {label: "Taxi to...", children: runways(runway => [{label: "Send", instruction: {type: "taxi", runway, contactTowerWhenReady: true}}]).concat([{label: "Parking", instruction: {type: "taxi", destination: "parking"}}])},
     progressive,
-    {label: "Continue Taxi", instruction: {type: "taxi"}}, {label: "Hold short...", children: holdShortRunways()},
+    {label: "Continue Taxi", instruction: {type: "taxi"}}, {label: "Hold short...", children: holdShortRunways(a)},
     crossing,
     {label: "Give way to...", children: [
       {label: "Aircraft exiting runway", children: runwayEnds(airport).map(end => ({label: `Runway ${end.id}`, instruction: {type: "give-way" as const, aircraftId: likelyGiveWayTraffic(a, traffic, "exiting", end.id)?.id, description: `aircraft exiting runway ${end.id}`}}))},
@@ -192,8 +196,8 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
     {label: "Turn Crosswind", instruction: {type: "pattern", leg: "crosswind"}}, {label: "Extend upwind", instruction: {type: "extend", leg: "upwind"}}, unavailable("Continue inbound"), unavailable("Descend to pattern altitude"),
   ];
   const towerGround: MenuEntry[] = [
-    {label: "Cleared for Takeoff", children: runways(runway => [{label: "Send", instruction: {type: "takeoff", runway}}, ...(["right", "left"] as const).map(hand => ({label: `Make ${hand === "right" ? "Right" : "Left"} Traffic`, instruction: {type: "takeoff" as const, runway, hand}})), ...["Straight Out (5000ft)", "Straight Out (3000ft)", "Straight Out (1000ft)", "Request Immediate Takeoff"].map(label => unavailable(label))])}, unavailable("Cancel Takeoff Clearance"),
-    {label: "Hold Short", children: holdShortRunways()}, {label: "Line up and Wait", children: runways(runway => [{label: "Send", instruction: {type: "lineup", runway}}])}, unavailable("Back Taxi"),
+    {label: "Cleared for Takeoff", children: assignedRunways(runway => [{label: "Send", instruction: {type: "takeoff", runway}}, ...(["right", "left"] as const).map(hand => ({label: `Make ${hand === "right" ? "Right" : "Left"} Traffic`, instruction: {type: "takeoff" as const, runway, hand}})), ...["Straight Out (5000ft)", "Straight Out (3000ft)", "Straight Out (1000ft)", "Request Immediate Takeoff"].map(label => unavailable(label))])}, unavailable("Cancel Takeoff Clearance"),
+    {label: "Hold Short", children: holdShortRunways(a)}, {label: "Line up and Wait", children: assignedRunways(runway => [{label: "Send", instruction: {type: "lineup", runway}}])}, unavailable("Back Taxi"),
   ];
   // Entry instructions choose a runway before their Send / sequencing choices.
   for (const entry of pattern.slice(0, 5)) if (entry.instruction) {
@@ -202,7 +206,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
     delete entry.instruction;
   }
   const airborne: MenuEntry[] = [
-    {label: "Cleared to Land / for the Option", children: Array.from({length: 8}, (_, i) => ({label: `Number ${i + 1}`, children: ["Cleared to Land", "Cleared for the Option"].map(label => ({label, children: runways(runway => [{label: "Send", instruction: {type: "land", runway, number: i + 1, option: label === "Cleared for the Option"}}, ...(label === "Cleared for the Option" ? (["right", "left"] as const).map(hand => ({label: `Make ${hand === "right" ? "Right" : "Left"} Traffic`, instruction: {type: "land" as const, runway, number: i + 1, option: true, hand}})) : [])])}))}))},
+    {label: "Cleared to Land / for the Option", children: Array.from({length: 8}, (_, i) => ({label: `Number ${i + 1}`, children: ["Cleared to Land", "Cleared for the Option"].map(label => ({label, children: assignedRunways(runway => [{label: "Send", instruction: {type: "land", runway, number: i + 1, option: label === "Cleared for the Option"}}, ...(label === "Cleared for the Option" ? (["right", "left"] as const).map(hand => ({label: `Make ${hand === "right" ? "Right" : "Left"} Traffic`, instruction: {type: "land" as const, runway, number: i + 1, option: true, hand}})) : [])])}))}))},
     {label: "Sequencing...", children: sequencing()}, {label: "Pattern Instructions", children: pattern},
     {label: "Go Around", children: goAroundChoices()},
     {label: "Respond to Go Around", children: goAroundChoices()}, unavailable("Request 360", [unavailable("Left"), unavailable("Right")]), {label: "Approve Departure Request", children: (["north", "east", "south", "west"] as const).map(direction => ({label: direction[0].toUpperCase() + direction.slice(1), instruction: {type: "departure", direction}}))},
@@ -210,7 +214,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
   const exit: MenuEntry = {label: "Exit runway", children: (["left", "right", "any"] as const).map(side => ({label: side[0].toUpperCase() + side.slice(1), children: ["Send", "Expedite", "Expedite, Traffic on Final", "Expedite, Traffic on Base"].map((label, i) => ({label, instruction: {type: "exit-runway", side, ...(i ? {expedite: true} : {}), ...(i >= 2 ? {traffic: i === 2 ? "final" as const : "base" as const} : {})}}))}))};
   return [...(groundTraffic ? towerGround : airborne.slice(0, 4)), ...(onGround ? [exit] : []), ...(groundTraffic ? [{label: "Taxi to Parking", instruction: {type: "taxi", destination: "parking"}} as MenuEntry] : airborne.slice(4)),
     {label: "Misc. Messages", children: [...sharedMisc, ...["Wait clearance Bfr Tkf", "Wait clearance Bfr Ldg", "Already Clr to Lnd", ...(onGround ? ["Exit Runway"] : []), "No pattern work", "Pattern full", "Check ATIS", "Check Runway", "No int. dept", "No more pattern work. Land or divert."].map(misc)]}, {label: "Respond to Transition", children: Array.from({length: 20}, (_, i) => ({label: `${(i + 1) * 500}ft`, instruction: {type: "transition" as const, altitude: (i + 1) * 500}})).filter(item => item.instruction.altitude > airport.elevation)},
-    ...(groundTraffic ? [{label: "Departure Sequencing...", children: [{label: "Hold short", children: holdShortRunways()}, ...Array.from({length: 7}, (_, i): MenuEntry => ({label: `Number ${i + 2}`, instruction: {type: "sequence", number: i + 2, departure: true}}))]}, progressive, {label: "Continue Taxi", instruction: {type: "taxi"}} as MenuEntry, crossing, {label: "Hold Position", instruction: {type: "stop"}} as MenuEntry] : []), ...otherFrequencies];
+    ...(groundTraffic ? [{label: "Departure Sequencing...", children: [{label: "Hold short", children: holdShortRunways(a)}, ...Array.from({length: 7}, (_, i): MenuEntry => ({label: `Number ${i + 2}`, instruction: {type: "sequence", number: i + 2, departure: true}}))]}, progressive, {label: "Continue Taxi", instruction: {type: "taxi"}} as MenuEntry, crossing, {label: "Hold Position", instruction: {type: "stop"}} as MenuEntry] : []), ...otherFrequencies];
 }
 /** A shortcut duplicates the ordinary command; its submenu and send behavior stay identical. */
 
