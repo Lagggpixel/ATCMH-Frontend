@@ -116,7 +116,9 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       const clearanceHeight = approach.type === "ils" ? glideHeight : airport.elevation + 50 + Math.hypot(dx, dy) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
       if (automatic && checkAltitude) {
         r.clearanceAltitudeChecked = true;
-        if (a.altitude > clearanceHeight + 1e-6) {
+        // Visual traffic can recover a modest height excess within its final-capture allowance.
+        const heightTolerance = approach.type === "visual" ? 500 : 0;
+        if (a.altitude > clearanceHeight + heightTolerance + 1e-6) {
           const altitude = ALTITUDES.find(value => altitudeFeet(value) >= Math.max(a.altitude, 5000, airport.elevation + 2000)) ?? ALTITUDES[ALTITUDES.length - 1];
           assignRadar(a, {type: "missed-approach", altitude}, airport, environment); r.report = "missed";
           moveRadar(a, dt, airport, environment, traffic, automatic); return;

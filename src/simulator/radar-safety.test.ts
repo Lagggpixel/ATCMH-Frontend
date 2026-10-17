@@ -92,10 +92,10 @@ test("terrain alerts use raw AGL below 1000ft and the same approach exemptions",
   }
   a.radar!.cleared = undefined; a.radar!.guidance = "vectors"; a.radar!.transferred = true; a.frequency = "tower"; assert.equal(terrainClearance(a, 4500, state.radarEnvironment), undefined);
 });
-for (const type of ["gps", "visual", "ils"] as const) test(`${type}: above glide path triggers a single automatic missed approach at the correct stage`, () => {
+for (const type of ["gps", "visual", "ils"] as const) test(`${type}: excessive height above glide path triggers a single automatic missed approach at the correct stage`, () => {
   let state = clear(fixture(), type); const a = state.aircraft[0], p = state.radarEnvironment!.approaches.find(p => p.id === a.radar!.cleared)!, airport = getAirport(state), g = approachGeometry(airport, p.runway);
   a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8}; a.heading = a.targetHeading = g.heading;
-  const glide = airport.elevation + 50 + 8 * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180); a.altitude = glide + 1;
+  const glide = airport.elevation + 50 + 8 * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180); a.altitude = glide + (type === "visual" ? 501 : 1);
   const manual = structuredClone(a); moveRadar(manual, .05, airport, state.radarEnvironment!, [], false); assert.notEqual(manual.radar!.navigation, "missed");
   if (type === "ils") {a.position.x += g.vector.y * (p.captureWidth + .1); a.position.y -= g.vector.x * (p.captureWidth + .1); moveRadar(a, .05, airport, state.radarEnvironment!, [], true); assert.notEqual(a.radar!.navigation, "missed"); a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8}; a.altitude = glide + 1;}
   const atGlide = structuredClone(a); atGlide.altitude = glide; for (let i = 0; i < 60; i++) moveRadar(atGlide, .05, airport, state.radarEnvironment!, [], true); assert.notEqual(atGlide.radar!.navigation, "missed");
@@ -103,4 +103,18 @@ for (const type of ["gps", "visual", "ils"] as const) test(`${type}: above glide
   state = autoReadbacks(state, 1000, randomUUID); assert.equal(state.messages.at(-1)!.text, "Speedbird 1, executing missed approach"); const count = state.messages.length;
   state = autoReadbacks(advance(state, 1), 2000, randomUUID); assert.equal(state.messages.length, count);
   assert.ok(exerciseSchema.safeParse(state).success);
+});
+
+for (const mode of ["approach", "center"] as const) for (const excess of [1, 250, 500]) test(`${mode}: visual approach recovers from ${excess}ft above glide path`, () => {
+  const state = clear(fixture(mode), "visual"), a = state.aircraft[0], environment = state.radarEnvironment!, airport = getAirport(state);
+  const p = environment.approaches.find(p => p.id === a.radar!.cleared)!, g = approachGeometry(airport, p.runway);
+  a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8};
+  a.heading = a.targetHeading = g.heading; a.speed = a.targetSpeed = 180;
+  const glide = airport.elevation + 50 + 8 * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180);
+  const initialAltitude = a.altitude = glide + excess;
+  for (let t = 0; t < 60; t += .05) moveRadar(a, .05, airport, environment, [], true);
+  assert.equal(a.radar!.navigation, "approach"); assert.equal(a.radar!.cleared, p.id);
+  assert.equal(a.radar!.clearanceAltitudeChecked, true); assert.equal(a.radar!.captured, true);
+  assert.ok(a.altitude < initialAltitude, "visual traffic must descend and recover the path");
+  assert.notEqual(a.radar!.report, "missed");
 });
