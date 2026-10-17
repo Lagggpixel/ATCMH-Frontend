@@ -5,7 +5,7 @@ import cyul from "./data/cyul.json";
 import roah from "./data/roah.json";
 import kdal from "./data/kdal.json";
 import sbbr from "./data/sbbr.json";
-import type {Airport, Frequency} from "./model";
+import {EXERCISE_WEATHER, type Airport, type Frequency} from "./model";
 
 export const AIRPORT_IDS = ["EGPH", "EGLL", "KBHM", "CYUL", "ROAH", "KDAL", "SBBR"] as const;
 export type AirportId = typeof AIRPORT_IDS[number];
@@ -57,7 +57,7 @@ export const trainingMode = (selection: AirportSelection): "local" | "approach" 
 export const openingFrequency = (selection: AirportSelection): Frequency => {const service = trainingStation(selection).service; return service === "local" ? "ground" : service as Frequency;};
 export const controlledFrequencies = (selection: AirportSelection): Frequency[] => trainingMode(selection) === "local" ? ["ground", "tower", "atis"] : [trainingMode(selection) as Frequency, "atis"];
 export const environmentLabel = (selection: AirportSelection) => `${selection.airport ?? "EGPH"} · ${labels[trainingMode(selection)]}`;
-export const simulatedMetar = (airport: Airport) => `Simulated ${airport.icao} · Wind 240° at 10KT · Visibility 10km · QNH 1001`;
+export const simulatedMetar = (airport: Airport) => `Simulated ${airport.icao} · Wind ${EXERCISE_WEATHER.windDirection}° at ${EXERCISE_WEATHER.windSpeed}KT · Visibility ${EXERCISE_WEATHER.visibilityKm}km · QNH ${EXERCISE_WEATHER.qnh}`;
 
 /** Shared by API parsing and the engine, including nested event instructions. */
 export function runwayReferenceError(value: unknown, airport: Airport): string | undefined {

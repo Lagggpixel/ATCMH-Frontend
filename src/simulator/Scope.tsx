@@ -7,7 +7,7 @@ import {MagnifyingGlassMinus} from "@phosphor-icons/react/dist/csr/MagnifyingGla
 import {Crosshair} from "@phosphor-icons/react/dist/csr/Crosshair";
 import {distance, engineFor} from "./engine";
 import {defaultAirport, runwayEnds, simulatedMetar} from "./airports";
-import {aircraftColor, aircraftTagVisible, EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
+import {aircraftColor, aircraftTagVisible, EXERCISE_WEATHER, runwayWind, type Airport, type Aircraft, type Frequency, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
 import {airborne, snappedVectorHeading, vectorPreview, radarFlightLabel} from "./radar";
 import {terrainCoordinates, terrainElevation} from "./terrain";
 import {radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-safety";
@@ -19,6 +19,7 @@ import {gateAtPoint, type GateTarget} from "./gate-placement";
 export interface ScopeOptions {taxiways: boolean; approaches: boolean; trails: boolean; frequencyTrails: boolean; filter: string}
 export const initialOptions: ScopeOptions = {taxiways: true, approaches: true, trails: true, frequencyTrails: true, filter: "none"};
 const optionRows: [keyof ScopeOptions, string][] = [["taxiways", "Airport surface"], ["approaches", "Approach cones (11 NM)"], ["trails", "Flight history"], ["frequencyTrails", "Limit history to selected frequency"]];
+const runwayWindColors = {headwind: "#91e98d", crosswind: "#e8b257", tailwind: "#ff3434"};
 export function trafficVisible(a: Aircraft, filter: string) {
   if (filter === "none") return true;
   return filter === "below15" ? a.altitude >= 15000 : a.altitude <= Number(filter);
@@ -231,7 +232,7 @@ export default function Scope({savedCamera, onCameraChange, airport = defaultAir
       </svg> : null}</div>
     {gates?.map(gate => {const p = project(gate.point); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) return null; return <button key={gate.id} type="button" className={`${styles.gateTarget} ${gateDraft?.gateId === gate.id ? styles.hoveredGate : ""}`} style={{left: p.x, top: p.y}} aria-label={gate.label} aria-pressed={selectedGate === gate.id} title={gate.label} onClick={event => onGateSelect?.(event.detail && gates ? gateAtPoint(gates, vectorPoint(event), 24 / camera.scale)?.id ?? gate.id : gate.id)}><span/></button>;})}
     {gateDraft ? <span className={styles.gatePlacementHint} role="status">{gateDraft.gateId ? `Release to place at ${gates?.find(gate => gate.id === gateDraft.gateId)?.label}` : "Drag onto a blue gate dot · Escape to cancel"}</span> : null}
-    {runwayEnds(AIRPORT).map(end => {const p = project(end.point); return <span key={end.id} className={styles.runwayTag} style={{left: p.x, top: p.y, color: end.id === AIRPORT.runway.ends[0].id ? "#ff3434" : "#91e98d", borderColor: end.id === AIRPORT.runway.ends[0].id ? "#ff3434" : "#91e98d"}}>{end.id}</span>;})}
+    {runwayEnds(AIRPORT).map(end => {const p = project(end.point), color = runwayWindColors[runwayWind(end.heading, EXERCISE_WEATHER.windDirection)]; return <span key={end.id} className={styles.runwayTag} style={{left: p.x, top: p.y, color, borderColor: color}}>{end.id}</span>;})}
     <button className={styles.airportMarker} style={{left: project({x: 0, y: 0}).x, top: project({x: 0, y: 0}).y}} aria-label={`${AIRPORT.icao} airport information`} onClick={() => setPopup(popup === "airport" ? null : "airport")}><span>{AIRPORT.icao}</span><Crosshair size={28} weight="fill"/><i/></button>
     {vectorAircraft && vector && vectorScreen && onVector ? <>
       <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#ff69bd" strokeWidth="4">
