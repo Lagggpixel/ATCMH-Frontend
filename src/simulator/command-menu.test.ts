@@ -42,6 +42,20 @@ test("Tower restores landing, option, pattern turn and departure choices with ex
     {type: "takeoff", runway: "06", hand: "left"});
 });
 
+test("Exit runway appears only for aircraft on the ground, including before and after takeoff", () => {
+  const ground = newAircraft("exit", false), elevation = ground.altitude;
+  for (const mode of ["pattern", "heading", "go-around", "takeoff"] as const) {
+    const entries = messageMenu("tower", {...ground, mode, frequency: "tower", altitude: elevation + 50});
+    assert.ok(!entries.some(entry => entry.label === "Exit runway"), mode);
+    assert.ok(!find(entries, "Misc. Messages").children!.some(entry => entry.label === "Exit Runway"), `${mode} misc`);
+  }
+  for (const mode of ["parked", "pushback", "taxi", "lineup", "takeoff", "rollout"] as const) {
+    const entries = messageMenu("tower", {...ground, mode, frequency: "tower"});
+    assert.deepEqual(find(entries, "Exit runway", "Left", "Send").instruction, {type: "exit-runway", side: "left"});
+    assert.ok(find(entries, "Misc. Messages").children!.some(entry => entry.label === "Exit Runway"), `${mode} misc`);
+  }
+});
+
 test("Give way sends from the direction or runway choice and guesses only matching traffic", () => {
   const source = {...newAircraft("source", false), heading: 90, position: {x: 0, y: 0}};
   const exiting = {...newAircraft("exiting", false), mode: "rollout" as const, runway: "24" as const, position: {x: .1, y: 0}};

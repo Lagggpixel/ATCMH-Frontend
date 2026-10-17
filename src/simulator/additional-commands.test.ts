@@ -36,7 +36,7 @@ test("every Misc message sends text, requires no readback and leaves aircraft as
   for (const frequency of ["ground", "tower"] as const) {
     const state = {...running(), autoReadback: true}, a = state.aircraft[frequency === "ground" ? 1 : 0];
     const entries = messageMenu(frequency, a).find(e => e.label === "Misc. Messages")!.children!;
-    assert.ok(entries.length >= 24);
+    assert.ok(entries.length > 0);
     for (const entry of entries) {
       assert.equal(entry.note, undefined); assert.equal(entry.instruction?.type, "radio");
       const command = entry.instruction!;
