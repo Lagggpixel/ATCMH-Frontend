@@ -5,6 +5,7 @@ import {exerciseSchema} from "../protocol";
 import {replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
 import {SessionError} from "../sessions";
 import type {SessionRecord} from "./session-service";
+import {rejectMovedRadar} from "./radar-moved";
 
 // Small connection surface also permits the operator's retention transaction to archive first.
 export interface ReplayConnection {execute(sql: string, values: (string | number | null)[]): Promise<[unknown, unknown]>}
@@ -71,7 +72,7 @@ export interface ReplayFilters {mentorId?: string; search?: string; airport?: st
 export async function listReplays(offset: number, filters: ReplayFilters = {}) {
   // Independent bounded queries merged by completion time include surviving pre-recording attempts.
   const limit = offset + 51;
-  const recordedWhere: string[] = [], legacyWhere: string[] = [];
+  const recordedWhere: string[] = ["COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')),'') NOT REGEXP ':(approach|center)$'"], legacyWhere: string[] = ["COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.definition,'$.trainingStation')),'') NOT REGEXP ':(approach|center)$'"];
   const recordedValues: (string | number)[] = [], legacyValues: (string | number)[] = [];
   if (filters.recordedOn !== undefined) {
     recordedWhere.push("ended_at>=? AND ended_at<?");
@@ -108,9 +109,12 @@ export async function readReplay(id: string, after: number): Promise<ReplayDetai
   if (!rows[0]) {
     const old = await queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.id=? AND a.status<>'active'`, [id]);
     if (!old[0]) throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);
-    return {replay: legacySummary(old[0]), initial: old[0].result ? exerciseSchema.parse(JSON.parse(old[0].result).exercise) : null, frames: [], next: null};
+    const initial = old[0].result ? exerciseSchema.parse(JSON.parse(old[0].result).exercise) : null;
+    if (initial) rejectMovedRadar(initial);
+    return {replay: legacySummary(old[0]), initial, frames: [], next: null};
   }
   const row = rows[0], initial = exerciseSchema.parse(JSON.parse(row.initial_state));
+  rejectMovedRadar(initial);
   row.airport = initial.airport; row.airport_data_version = initial.airportDataVersion; row.training_station = initial.trainingStation;
   const frames = await queryReadOnly<(RowDataPacket & {sequence_no: number; at_seconds: number; delta: string; interpolate: number})[]>("SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no LIMIT 500", [id, after]);
   const result: ReplayFrame[] = frames.map(f => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate}));

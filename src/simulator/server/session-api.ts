@@ -4,6 +4,7 @@ import {SESSION_FRAME_MS, SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type SessionStore} from "./session-service";
 import {sqlSessionStore} from "./session-store";
+import {requireLocalSession} from "./radar-moved";
 
 const idSchema = z.string().uuid();
 const seatSchema = z.object({role: z.enum(["staff", "mentee"]), token: z.string().uuid()});
@@ -19,13 +20,13 @@ async function body(request: Request) {
   if (text.length > 2_000_000) throw new SessionError("too-large", "This exercise is too large to save.", 413);
   return JSON.parse(text) as unknown;
 }
-export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest) {
+export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}) {
 const service = new SessionService(store);
 async function sessionCollection(request: Request) {
   try {
     const actor = await authorize(request, true);
     if (new URL(request.url).searchParams.has("code")) throw new SessionError("not-found", "Joining by code is no longer available. Open the session link from Sessions.", 404);
-    if (request.method === "GET") return Response.json({sessions: await service.list(actor)}, {headers: noStore});
+    if (request.method === "GET") return Response.json({sessions: (await service.list(actor)).filter(s => !/:(approach|center)$/.test(s.trainingStation ?? ""))}, {headers: noStore});
     throw new SessionError("scenario-required", "Choose a published scenario to create a training session.", 409);
   } catch (error) {return sessionFailure(error);}
 }
@@ -33,12 +34,15 @@ async function sessionOperation(request: Request, id: string, operation: string)
   try {
     idSchema.parse(id);
     if (operation === "end") {
-      await service.end(await authorize(request, true), id);
+      const actor = await authorize(request, true);
+      await requireLocal(id);
+      await service.end(actor, id);
       return Response.json({ended: true}, {headers: noStore});
     }
     if (operation === "stream") return await stream(request, id);
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "staff" && operation !== "leave");
+    await requireLocal(id);
     if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token), {headers: noStore});
     if (operation === "leave") {await service.leave(actor, id, seat.role, seat.token); return Response.json({left: true}, {headers: noStore});}
     if (operation === "events") {
@@ -53,6 +57,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
 async function stream(request: Request, id: string) {
   const seat = seatSchema.parse({role: request.headers.get("x-simulator-role"), token: request.headers.get("x-simulator-seat")});
   let actor = await authorize(request, seat.role === "staff");
+  await requireLocal(id);
   const initial = await service.frame(actor, id, seat.role, seat.token);
   const encoder = new TextEncoder();
   let cancelled = false, wake: (() => void) | undefined;
@@ -87,6 +92,6 @@ async function stream(request: Request, id: string) {
 
 return {sessionCollection, sessionOperation};
 }
-const api = createSessionApi(sqlSessionStore);
+const api = createSessionApi(sqlSessionStore, authorizeSessionRequest, requireLocalSession);
 export const sessionCollection = api.sessionCollection;
 export const sessionOperation = api.sessionOperation;
