@@ -76,16 +76,38 @@ test("crossing, hold-short, taxi and contact use action-specific pilot readbacks
   }
 });
 
-test("Stay on frequency and frequency release produce no automatic pilot readback", () => {
+test("Stay on frequency stays silent; frequency release replies once on the original channel", () => {
   let state = active();
   const entries = messageMenu("tower", state.aircraft[0]);
   const stay = entries.find(e => e.label === "Misc. Messages")!.children!.find(e => e.label === "Stay on frequency")!.instruction!;
   state = tick(send(state, stay));
   assert.equal(state.messages[0].text, "Speedbird 124, stay on my frequency"); assert.equal(state.messages.length, 1);
-  state = tick(send(state, {type: "frequency", frequency: null}));
-  assert.equal(state.aircraft[0].frequency, null); assert.equal(state.messages.length, 2);
+  state = send(state, {type: "frequency", frequency: null});
+  const commandId = state.messages.at(-1)!.id;
+  state = tick(state, 1.4); assert.equal(state.aircraft[0].frequency, "tower"); assert.equal(state.messages.length, 2);
+  state = tick(state, .1);
+  assert.equal(state.aircraft[0].frequency, null); assert.equal(state.messages.length, 3);
+  assert.equal(state.messages.at(-1)!.text, "Frequency change approved, good day, Speedbird 124");
+  assert.equal(state.messages.at(-1)!.frequency, "tower");
+  assert.equal(state.messages.at(-1)!.commandId, commandId);
+  assert.equal(state.messages.at(-1)!.read, true);
   assert.equal(pendingCommands(state, "demo-air").length, 0);
-  state = restoreExercise(exerciseSchema.parse(state)); assert.equal(state.messages.at(-1)!.acknowledged, true);
+  state = restoreExercise(exerciseSchema.parse(state)); assert.equal(tick(state).messages.length, 3);
+});
+
+test("manual frequency release permits readback and assignment, while Unable retains the frequency", () => {
+  for (const assign of [false, true]) {
+    let state = send({...active(), autoReadback: false}, {type: "frequency", frequency: null});
+    const commandId = state.messages.at(-1)!.id;
+    state = act(state, {kind: "pilot", aircraftId: "demo-air", replyTo: commandId, assign, text: "Frequency change approved, good day, Speedbird 124"});
+    assert.equal(state.messages.length, 2);
+    assert.equal(state.messages.at(-1)!.frequency, "tower");
+    assert.equal(state.aircraft[0].frequency, assign ? null : "tower");
+    assert.equal(pendingCommands(state, "demo-air").length, 0);
+  }
+  let state = send({...active(), autoReadback: false}, {type: "frequency", frequency: null});
+  state = act(state, {kind: "pilot", aircraftId: "demo-air", replyTo: state.messages.at(-1)!.id, text: "Unable, Speedbird 124"});
+  assert.equal(state.aircraft[0].frequency, "tower"); assert.equal(state.messages.at(-1)!.text, "Unable, Speedbird 124");
 });
 
 test("staff Go Around starts a manoeuvre; each mentee response reads back and executes its direction", () => {
