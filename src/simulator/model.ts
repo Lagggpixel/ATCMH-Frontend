@@ -110,7 +110,7 @@ export type Action =
 export type Instruction =
   | RadarSpeedInstruction
   | {type: "vector"; heading?: number; altitude?: Altitude; approachId?: string}
-  | {type: "expect-approach"; approachId: string | null; vectors?: boolean}
+  | {type: "expect-approach"; approachId: string | null; vectors?: boolean; runway?: string}
   | {type: "missed-approach"; altitude: Altitude}
   | {type: "route"; index: number}
   | {type: "radio"; message: "say-intentions" | "standby" | "correction-standby" | "disregard" | "unable" | "misc"; text?: string}

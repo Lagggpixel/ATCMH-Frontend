@@ -70,6 +70,29 @@ test("flight label hides unassigned fields and keeps assignment direction throug
   state = assign(state, {type: "vector", altitude: {unit: "feet", value: 14000}}); assert.match(label().flight, /^140 = 140 /);
   state = assign(state, {type: "expect-approach", approachId: null}); assert.equal(label().approach, undefined);
 });
+for (const mode of ["approach", "center"] as const) for (const automatic of [false, true]) test(`${mode}: RV tags retain the assigned runway through readback and replay (automatic=${automatic})`, () => {
+  let state = exercise(mode); state.autoReadback = automatic;
+  const airport = getAirport(state), runway = airport.runway.ends.find(end => end.id !== state.aircraft[0].runway)!.id;
+  const label = () => radarFlightLabel(state.aircraft[0], airport, state.radarEnvironment).approach;
+  assert.equal(label(), undefined);
+  state = command(state, {type: "expect-approach", approachId: null, vectors: true, runway});
+  assert.equal(label(), undefined, "an unacknowledged transmission is not an assignment");
+  const message = state.messages.at(-1)!;
+  state = automatic ? autoReadbacks(fly(state, 1.5), 1500, randomUUID) : send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: message.id, assign: true});
+  assert.equal(state.aircraft[0].runway, runway);
+  assert.equal(label(), `RV - EGPH ${runway}`);
+  state = assign(state, {type: "vector", heading: 180, altitude: {unit: "feet", value: 5000}});
+  state = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+  assert.equal(label(), `RV - EGPH ${runway}`);
+  const approach = state.radarEnvironment!.approaches.find(p => p.type === "ils")!;
+  state = assign(state, {type: "expect-approach", approachId: approach.id});
+  assert.equal(label(), `ILS - EGPH ${approach.runway}`);
+  state = assign(state, {type: "expect-approach", approachId: null});
+  assert.equal(label(), undefined);
+  state = assign(state, {type: "vector", heading: 90});
+  assert.equal(label(), undefined, "a heading alone does not assign an RV approach");
+});
+
 test("vector preview follows the free endpoint and preserves distance, time and nearby fix", () => {
   const state = exercise(), a = state.aircraft[0]; a.position = {x: 0, y: 0}; a.speed = 200;
   const raw = {x: Math.sin(224 * Math.PI / 180) * 10, y: Math.cos(224 * Math.PI / 180) * 10};

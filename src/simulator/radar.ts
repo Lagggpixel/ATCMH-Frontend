@@ -29,7 +29,7 @@ export function radarFlightLabel(a: Aircraft, airport: Airport, environment?: Ra
   const marker = target && (altitudeFeet(target) < assignedFrom ? ">" : altitudeFeet(target) > assignedFrom ? "<" : "=");
   const approach = environment?.approaches.find(p => p.id === (r?.expected ?? r?.cleared));
   return {flight: `${Math.round(a.altitude / 100)}${target ? ` ${marker} ${Math.round(altitudeFeet(target) / 100)}` : ""} ${Math.round(a.speed)}kts`,
-    approach: approach ? `${approach.type === "visual" ? "Visual" : approach.type.toUpperCase()} - ${airport.icao} ${approach.runway}` : undefined};
+    approach: approach ? `${approach.type === "visual" ? "Visual" : approach.type.toUpperCase()} - ${airport.icao} ${approach.runway}` : r?.guidance === "vectors" ? `RV - ${airport.icao} ${a.runway ?? defaultRunway(airport)}` : undefined};
 }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 export const airborne = (a: Aircraft, airport: Airport) => a.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) && a.altitude > airport.elevation;
@@ -77,6 +77,7 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
   const r = a.radar!;
   if (c.type === "expect-approach") {
     r.expected = c.approachId ?? undefined; r.guidance = c.vectors ? "vectors" : undefined;
+    if (c.vectors) a.runway = c.runway ?? a.runway ?? defaultRunway(airport);
     r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; if (r.navigation === "approach") r.navigation = "heading";
   } else if (c.type === "vector") {
     if (c.heading !== undefined) {a.targetHeading = c.heading % 360; r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
