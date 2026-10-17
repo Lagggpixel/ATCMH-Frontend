@@ -1,3 +1,4 @@
+import {turnAircraft, bankTurnLead} from "./banked-turns";
 import {runwayEnds, airportRunways, defaultRunway} from "./airports";
 import {DEFAULTS, type Aircraft, type Airport, type Altitude, type Instruction, type Point, type RadarEnvironment} from "./model";
 import {radarSpeedText, updateRadarSpeed, validRadarSpeed} from "./radar-speed";
@@ -97,7 +98,7 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   let altitude = r.targetAltitude ? altitudeFeet(r.targetAltitude) : a.altitude;
   if (r.navigation === "route") {
     let point = a.flightPlan[r.routeIndex];
-    const turnRadius = a.speed / 3600 / (DEFAULTS.turnRate * Math.PI / 180);
+    const turnRadius = bankTurnLead(a.speed);
     if (point && distance(a.position, point) <= Math.max(.15, turnRadius * .7)) point = a.flightPlan[++r.routeIndex];
     if (point) a.targetHeading = radarHeading(a.position, point);
     else r.navigation = "heading";
@@ -138,9 +139,8 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   const dx = a.position.x - final.threshold.x, dy = a.position.y - final.threshold.y;
   const along = dx * final.vector.x + dy * final.vector.y, lateral = Math.abs(dx * -final.vector.y + dy * final.vector.x);
   updateRadarSpeed(a, traffic, along < 0 && lateral <= .5 && Math.abs(headingDifference(final.heading, a.heading)) <= 30 ? -along : undefined);
-  const angle = headingDifference(a.targetHeading, a.heading);
-  a.heading = (a.heading + Math.sign(angle) * Math.min(Math.abs(angle), DEFAULTS.turnRate * dt) + 360) % 360;
   a.speed = towards(a.speed, a.targetSpeed, DEFAULTS.acceleration * dt);
+  turnAircraft(a, dt);
   const stride = a.speed / 3600 * dt, radians = a.heading * Math.PI / 180;
   a.position = {x: a.position.x + Math.sin(radians) * stride, y: a.position.y + Math.cos(radians) * stride};
 }

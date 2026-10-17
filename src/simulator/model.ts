@@ -35,6 +35,7 @@ export interface Airport {
 export interface Aircraft {
   id: string; callsign: string; type: string; position: Point;
   heading: number; targetHeading: number; speed: number; targetSpeed: number; altitude: number;
+  bankAngle?: number; // Signed degrees, positive right; absent legacy state is wings level.
   speedMode?: "auto" | "manual"; // IAS profile by default; explicit trainer overrides persist across legs.
   speedTargets?: SpeedTargets; // Filled phases hold a fixed IAS; null/absent phases use automatic defaults.
   frequency: Frequency | null; runway: Runway | null; lastRunway: Runway | null;
@@ -136,7 +137,7 @@ export type Instruction =
 export interface Envelope {id: string; action: Action; time: number}
 export type Direction = "north" | "east" | "south" | "west";
 export interface PilotRequestSelection {id: import("./catalog").PilotRequestId; runway: Runway; direction?: Direction; remainingInPattern?: boolean; includeRunway?: boolean}
-export const DEFAULTS = {airSpeed: 160, taxiSpeed: 15, patternHeight: 1500, patternWidth: 3, turnRate: 3, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 3, minimumPatternSpeed: 80};
+export const DEFAULTS = {airSpeed: 160, taxiSpeed: 15, patternHeight: 1500, patternWidth: 3, bankAngle: 25, bankRate: 6, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 3, minimumPatternSpeed: 80};
 export const FREQUENCIES = {ground: {label: "Ground", value: "121.75"}, tower: {label: "Tower", value: "118.70"}, atis: {label: "ATIS", value: "131.35"}, approach: {label: "Approach", value: "Training"}, center: {label: "Center", value: "Training"}};
 export const EXERCISE_WEATHER = {windDirection: 240, windSpeed: 10, visibilityKm: 10, qnh: 1001, reference: "Exercise time 00:00 (fixed conditions)"} as const;
 export const METAR = `Simulated EGPH · Wind ${EXERCISE_WEATHER.windDirection}° at ${EXERCISE_WEATHER.windSpeed}KT · Visibility ${EXERCISE_WEATHER.visibilityKm}km · QNH ${EXERCISE_WEATHER.qnh}`;

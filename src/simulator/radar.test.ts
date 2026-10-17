@@ -114,12 +114,14 @@ for (const airport of airportList) for (const mode of ["approach", "center"] as 
   assert.ok(state.radarEnvironment?.approaches.some(p => p.runway === defaultRunway(airport)));
   assert.deepEqual(restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state)))), state);
 });
-for (const [start, target, seconds] of [[0, 90, 30], [90, 180, 30], [0, 180, 60], [350, 20, 10], [10, 340, 10]] as const) for (const step of [.1, 5]) test(`turn ${start} → ${target} takes ${seconds}s with ${step}s frames`, () => {
+for (const [start, target] of [[0, 90], [90, 180], [0, 180], [350, 20], [10, 340]] as const) for (const step of [.1, 5]) test(`banked turn ${start} → ${target} rolls out on heading with ${step}s frames`, () => {
   let state = exercise(); Object.assign(state.aircraft[0], {heading: start, targetHeading: start});
   state = assign(state, {type: "vector", heading: target});
-  const midway = fly(state, seconds / 2, step).aircraft[0];
-  near(Math.abs(((midway.heading - start + 540) % 360) - 180), seconds / 2 * 3);
-  state = fly(state, seconds, step); near(state.aircraft[0].heading, target);
+  const rolling = fly(state, 2, step).aircraft[0];
+  near(Math.abs(rolling.bankAngle!), 12);
+  assert.ok(Math.abs(((rolling.heading - start + 540) % 360) - 180) < 6);
+  state = fly(state, 120, step); near(state.aircraft[0].heading, target);
+  near(state.aircraft[0].bankAngle!, 0);
   near(fly(state, 10, step).aircraft[0].heading, target);
   const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), target);
 });
