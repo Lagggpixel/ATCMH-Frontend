@@ -15,7 +15,7 @@ export function TrainingNav({active}: {active?: "sessions" | "scenarios" | "repl
   return <nav className={styles.nav} aria-label="Simulator library">{([
     ["sessions", "/simulator/staff", "Sessions"], ["scenarios", "/simulator/scenarios", "Scenarios"],
     ["replays", "/simulator/replays", "Replays"],
-  ] as const).map(([key, href, label]) => <Link key={key} href={href} aria-current={key === active ? "page" : undefined}>{label}</Link>)}</nav>;
+  ] as const).map(([key, href, label]) => <Link data-simulator-tour={`${key}-tab`} key={key} href={href} aria-current={key === active ? "page" : undefined}>{label}</Link>)}</nav>;
 }
 export default function TrainingLibrary() {
   return <LearningFrame product="Simulator"><SessionAccess embedded role="staff" returnTo="/simulator/scenarios">{csrf => <Library csrf={csrf}/>}</SessionAccess></LearningFrame>;

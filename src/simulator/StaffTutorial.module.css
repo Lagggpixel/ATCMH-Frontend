@@ -1,0 +1,17 @@
+.trigger{white-space:nowrap}
+.tour{--tour-bg:var(--dashboard-surface,#fff);--tour-ink:var(--dashboard-ink,#1d2c3e);--tour-muted:var(--dashboard-muted,#556579);--tour-border:var(--dashboard-border,#d7dee7);--tour-accent:var(--dashboard-link,#215bb1);--tour-tint:var(--dashboard-selected,#edf3fb);position:fixed;inset:0;z-index:1000;pointer-events:none;font:14px/1.6 var(--font-site,system-ui,sans-serif);color:var(--tour-ink)}
+.live{--tour-bg:#151c22;--tour-ink:#edf2f7;--tour-muted:#b4c1ce;--tour-border:#3a4855;--tour-accent:#9ac7ff;--tour-tint:#22303f}
+.tour *{box-sizing:border-box}
+.spotlight{position:fixed;border:2px solid var(--tour-accent);border-radius:8px;box-shadow:0 0 0 9999px #06111d70,0 0 0 4px color-mix(in srgb,var(--tour-accent) 25%,transparent);pointer-events:none}
+.card{position:fixed;width:min(350px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;pointer-events:auto;padding:18px 20px;border:1px solid var(--tour-border);border-top:3px solid var(--tour-accent);border-radius:12px;background:var(--tour-bg);box-shadow:0 12px 40px #0005;text-align:left}
+.card header{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--tour-muted)}
+.card button{font:600 13px/1.4 var(--font-site,system-ui,sans-serif);display:inline-flex;justify-content:center;align-items:center;min-height:40px;padding:8px 12px;border:1px solid var(--tour-border);border-radius:7px;background:var(--tour-bg);color:var(--tour-ink);cursor:pointer;touch-action:manipulation}
+.card button:hover{background:var(--tour-tint)}.card button:disabled{opacity:.4;cursor:default}.card button:focus-visible{outline:3px solid var(--tour-accent);outline-offset:2px}
+.card header button{min-height:32px;border:0;padding:6px 0 6px 8px;color:var(--tour-muted);background:transparent}
+.progress{display:flex;gap:4px;margin:12px 0 18px}.progress span{height:3px;flex:1;background:var(--tour-border);border-radius:2px}.progress .reached{background:var(--tour-accent)}
+.card h2{font-size:21px;line-height:1.25;letter-spacing:-.02em;margin:0 0 12px;color:var(--tour-ink);outline:none;font-weight:750}
+.card p{font-size:14px;line-height:1.65;margin:0 0 14px;color:var(--tour-ink)}
+.card .hint{font-size:12px;line-height:1.6;color:var(--tour-muted);padding:10px 12px;background:var(--tour-tint);border-radius:6px}
+.card footer{display:flex;justify-content:space-between;gap:12px;margin-top:18px}
+.card .next{background:var(--tour-accent);border-color:var(--tour-accent);color:var(--tour-bg)}.card .next:hover{filter:brightness(.92)}
+@media(max-width:650px){.card{padding:14px 16px;width:min(320px,calc(100vw - 24px))}.card h2{font-size:19px}.card p{font-size:13px}.card button{min-height:44px}}
