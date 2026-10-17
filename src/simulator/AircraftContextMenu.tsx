@@ -28,6 +28,6 @@ export default function AircraftContextMenu({aircraft, frequency, elapsed, conne
     </> : contextMenu(frequency, aircraft).map(action => <button key={action} role="menuitem" disabled={!connected} onClick={() => {
       if (action === "reminder" || action === "color") setPicker(action);
       else {onAction(action); if (action === "remove-reminder") onClose();}
-    }}>{CONTEXT_ACTIONS[action]}{action === "reminder" || action === "color" ? " ›" : ""}</button>)}
+    }}>{CONTEXT_ACTIONS[action]}</button>)}
   </div>;
 }

@@ -18,7 +18,7 @@ export function radarSpeedMenu(): MenuEntry[] {
 }
 export const TASK_GROUPS = ["Ground movement", "Departures", "Arrivals and circuit", "Sequence", "Frequency"] as const;
 export interface CommandTask {id: string; label: string; group: typeof TASK_GROUPS[number]; command: Instruction}
-export const CONTEXT_ACTIONS = {messages: "Other messages", reminder: "Add reminder", "remove-reminder": "Clear reminder", information: "Aircraft details", color: "Highlight aircraft", tag: "Position label"} as const;
+export const CONTEXT_ACTIONS = {messages: "Other messages", reminder: "Add reminder", "remove-reminder": "Clear reminder", information: "Aircraft details", color: "Highlight aircraft", tag: "Position Label"} as const;
 export type ContextAction = keyof typeof CONTEXT_ACTIONS;
 export const REQUEST_IDS = ["pushback", "taxi-runway", "cross-runway", "frequency-change", "inbound-land", "inbound-option", "departure", "pattern-entry", "runway-change", "go-around", "departure-direction", "taxi-parking", "transition", "check-in", "request-approach", "missed-approach"] as const;
 export type PilotRequestId = typeof REQUEST_IDS[number];
