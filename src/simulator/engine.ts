@@ -486,7 +486,6 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
         if (command.instruction.type === "pattern" && command.instruction.sequence && (aircraft!.runway !== previousRunway || aircraft!.circuit !== previousCircuit)) assignSequence(next.aircraft, aircraft!, command.instruction);
         if (command.instruction.type !== "frequency") aircraft!.lastRunway = aircraft!.runway ?? aircraft!.lastRunway;
       }
-      if (command?.instruction?.type === "frequency" && command.instruction.frequency === null && !/^Unable/i.test(pilotText)) {command.acknowledged = true; break;}
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, commandId: action.replyTo, read: !!action.replyTo, ...(action.request ? {request: action.request, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
     }
     case "command": {
@@ -538,6 +537,7 @@ function readbackText(callsign: string, text: string, instruction?: Instruction)
   phrase = phrase.replace(/^taxi /i, "Taxi ");
   if (instruction?.type === "taxi" && instruction.destination === "parking") phrase = phrase.replace(/at your discretion/i, "at my discretion");
   if (instruction?.type === "frequency" && instruction.frequency && !instruction.whenReady) phrase = phrase.replace(/^contact /i, "Contacting ");
+  if (instruction?.type === "frequency" && instruction.frequency === null) phrase = "Frequency change approved, good day";
   return `${phrase}, ${callsign}`;
 }
 /** Authoritative session tick only. Client motion prediction never generates radio replies. */
