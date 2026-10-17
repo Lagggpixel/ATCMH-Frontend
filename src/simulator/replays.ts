@@ -77,6 +77,7 @@ export class ReplayTimeline {
       const b = targets.get(a.id); if (!b) return a;
       return {...a, position: {x: a.position.x + (b.position.x - a.position.x) * fraction, y: a.position.y + (b.position.y - a.position.y) * fraction},
         heading: (a.heading + ((b.heading - a.heading + 540) % 360 - 180) * fraction + 360) % 360,
+        ...(a.bankAngle !== undefined || b.bankAngle !== undefined ? {bankAngle: (a.bankAngle ?? 0) + ((b.bankAngle ?? 0) - (a.bankAngle ?? 0)) * fraction} : {}),
         altitude: a.altitude + (b.altitude - a.altitude) * fraction, speed: a.speed + (b.speed - a.speed) * fraction};
     })};
   }

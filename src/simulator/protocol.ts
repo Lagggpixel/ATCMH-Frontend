@@ -1,4 +1,4 @@
-import {MAX_TAXI_POINTS, type Exercise} from "./model";
+import {DEFAULTS, MAX_TAXI_POINTS, type Exercise} from "./model";
 import {z} from "zod";
 import {REQUEST_IDS} from "./catalog";
 import {AIRPORT_IDS, getAirport, trainingStation, trainingMode, runwayReferenceError} from "./airports";
@@ -31,7 +31,7 @@ const atis = z.object({letter: z.string().max(20), departures: z.array(runway).m
 export const intentionsSchema = z.object({flight: z.enum(["pattern", "departure"]), taxi: z.enum(["runway", "parking"]), parkingStand: id.optional(), afterTransition: z.enum(["continue", "touch-and-go"]), overheadRadius: bounded(.1, 5).optional()}).strict();
 
 export const aircraftSchema = z.object({id, callsign: z.string().min(1).max(80), type: z.string().min(1).max(12), position: point,
-  heading: bounded(0, 360), targetHeading: bounded(0, 360), speed: bounded(0, 600), targetSpeed: bounded(0, 600), altitude: bounded(0, 60000),
+  heading: bounded(0, 360), targetHeading: bounded(0, 360), bankAngle: bounded(-DEFAULTS.bankAngle, DEFAULTS.bankAngle).optional(), speed: bounded(0, 600), targetSpeed: bounded(0, 600), altitude: bounded(0, 60000),
   speedMode: z.enum(["auto", "manual"]).optional(),
   speedTargets: speedTargetsSchema.optional(),
   radar: radarStateSchema.optional(),
@@ -80,7 +80,7 @@ const action = z.discriminatedUnion("kind", [
   z.object({kind: z.literal("all-full-stop")}),
   z.object({kind: z.literal("report-position"), aircraftId: id}),
   z.object({kind: z.enum(["play", "pause", "reset"])}), z.object({kind: z.literal("spawn"), aircraft: aircraftSchema}),
-  z.object({kind: z.literal("edit"), aircraftId: id, patch: aircraftSchema.omit({id: true, pending: true, trail: true, mode: true, leg: true, extended: true, releasedHold: true, lastRunway: true, sequence: true, circuit: true, patternFinalDistance: true, contactTowerAtHold: true, towerCheckInPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, arrivalExit: true, arrivalRequest: true, lineupWait: true, transitionAltitude: true, leavingCircuit: true, runwayExit: true, goAroundRunwayHeading: true, selfGoAroundPending: true, clearedForOption: true}).partial().strict()}),
+  z.object({kind: z.literal("edit"), aircraftId: id, patch: aircraftSchema.omit({bankAngle: true, id: true, pending: true, trail: true, mode: true, leg: true, extended: true, releasedHold: true, lastRunway: true, sequence: true, circuit: true, patternFinalDistance: true, contactTowerAtHold: true, towerCheckInPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, arrivalExit: true, arrivalRequest: true, lineupWait: true, transitionAltitude: true, leavingCircuit: true, runwayExit: true, goAroundRunwayHeading: true, selfGoAroundPending: true, clearedForOption: true}).partial().strict()}),
   z.object({kind: z.literal("remove"), aircraftId: id}), z.object({kind: z.literal("read"), aircraftId: id, frequency: frequency.optional()}), z.object({kind: z.literal("atis"), draft: atis}), z.object({kind: z.literal("publish-atis")}),
   z.object({kind: z.literal("taxi-path"), aircraftId: id, path: z.array(taxiPoint).min(1).max(MAX_TAXI_POINTS), edit: z.object({kind: z.enum(["insert", "move"]), index: bounded(0, MAX_TAXI_POINTS - 1).int(), point})}),
   z.object({kind: z.literal("pilot"), aircraftId: id, text, replyTo: id.optional(), assign: z.boolean().optional(), request: pilotRequest.optional()}),

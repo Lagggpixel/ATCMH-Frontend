@@ -1,3 +1,4 @@
+import {turnAircraft, bankTurnLead} from "./banked-turns";
 import {planTaxiRoute, planParkingRoute} from "./taxi-routing";
 import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, groundCollisionGroups, type GroundGuidance} from "./ground-movement";
 import {currentAtisOptions} from "./atis-options";
@@ -18,7 +19,7 @@ const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(AIRPOR
 const radians = Math.PI / 180;
 // Begin the base/final turn one base-speed turn radius beyond the desired join.
 // Otherwise turn anticipation establishes final almost a mile too close in.
-const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + (a.speedTargets?.base ?? 180) / 3600 / (DEFAULTS.turnRate * radians);
+const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + bankTurnLead(a.speedTargets?.base ?? 180);
 
 const normalizeHeading = (heading: number) => (heading % 360 + 360) % 360;
 
@@ -596,7 +597,7 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
   return next;
 }
 const NEXT_LEG: Record<Leg, Leg> = {upwind: "crosswind", crosswind: "downwind", downwind: "base", base: "final", final: "upwind"};
-const turnLead = (a: Aircraft) => Math.max(.12, a.speed / 3600 / (DEFAULTS.turnRate * radians));
+const turnLead = (a: Aircraft) => Math.max(.12, bankTurnLead(a.speed));
 interface SequenceGuidance {extendDownwind: boolean; speedLimit?: number}
 /** Estimate threshold time using the same IAS stages and acceleration as flight.
  * Using the current downwind speed for the whole approach both releases fast
@@ -755,6 +756,7 @@ function advance(state: Exercise, seconds: number): Exercise {
 }
 
 function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: GroundGuidance, autoGoAround: boolean, traffic: Aircraft[]) {
+  if (["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1) a.bankAngle = 0;
   if (a.radar) {moveRadar(a, dt, AIRPORT, radarEnvironment, traffic, autoGoAround); return;}
   const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY);
   let target: Point | null = null;
@@ -809,7 +811,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       if (crossedThreshold && permitted && Math.abs(runwayCoordinates(a.position, g).lateral) < .012 && a.altitude <= AIRPORT.elevation + 80) {
         if (!option) a.landing = "full-stop";
         a.optionHand = optionHand;
-        a.mode = "rollout"; a.altitude = AIRPORT.elevation; a.targetSpeed = a.landing === "touch-and-go" ? DEFAULTS.airSpeed : 0; a.targetHeading = g.heading; a.heading = g.heading;
+        a.mode = "rollout"; a.bankAngle = 0; a.altitude = AIRPORT.elevation; a.targetSpeed = a.landing === "touch-and-go" ? DEFAULTS.airSpeed : 0; a.targetHeading = g.heading; a.heading = g.heading;
         a.position = add(g.threshold, g.vector, Math.max(0, runwayCoordinates(a.position, g).along));
       } else if (crossedThreshold && !permitted && autoGoAround) {
         a.mode = "go-around"; a.leg = "upwind"; a.extended = false; a.targetHeading = g.heading; a.selfGoAroundPending = true;
@@ -819,7 +821,8 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
         a.leg = NEXT_LEG[a.leg]; start = previous[a.leg]; end = points[a.leg]; segment = coordinates(start, end);
       }
       if (a.mode === "pattern") {
-        const lookahead = Math.max(.25, lead * 1.3);
+        // Allow a full roll-out interval while acquiring the next straight leg.
+        const lookahead = Math.max(.25, lead * 1.3 + a.speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate);
         target = add(start, segment.vector, Math.max(0, segment.along) + lookahead);
         a.targetHeading = bearing(a.position, target);
       }
@@ -863,9 +866,9 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   if (a.mode === "heading" && a.takeoffPattern === false) {a.altitude = approach(a.altitude, AIRPORT.elevation + DEFAULTS.patternHeight, (a.altitude > AIRPORT.elevation + DEFAULTS.patternHeight ? DEFAULTS.descentRate : DEFAULTS.climbRate) / 60 * dt); if (a.altitude >= AIRPORT.elevation + DEFAULTS.patternHeight) delete a.takeoffPattern;}
   if (a.mode === "heading" && a.transitionAltitude !== undefined && a.altitude < a.transitionAltitude) a.altitude = approach(a.altitude, a.transitionAltitude, DEFAULTS.climbRate / 60 * dt);
   automaticSpeed(a);
-  const angle = ((a.targetHeading - a.heading + 540) % 360) - 180;
-  a.heading = normalizeHeading(a.heading + Math.sign(angle) * Math.min(Math.abs(angle), DEFAULTS.turnRate * dt));
   a.speed = approach(a.speed, Math.min(a.targetSpeed, guidance.speedLimit ?? Infinity), DEFAULTS.acceleration * dt);
+  if (a.altitude > AIRPORT.elevation + 1) turnAircraft(a, dt);
+  else a.bankAngle = 0;
   const stride = a.speed / 3600 * dt;
   a.position = {x: a.position.x + Math.sin(a.heading * radians) * stride, y: a.position.y + Math.cos(a.heading * radians) * stride};
 }
