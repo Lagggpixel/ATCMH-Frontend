@@ -50,12 +50,18 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
 });
 export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action) => void | Promise<boolean>; onClose: () => void}) {
   const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment);
-  const [path, setPath] = useState<MenuEntry[]>([]);
+  const [pathLabels, setPath] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
   const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
   const root = requestMessageMenu(frequency, aircraft, pilotMessage, exercise.aircraft);
-  const entry = path[path.length - 1];
+  const path: MenuEntry[] = [];
+  for (const label of pathLabels) {
+    const entry = (path.at(-1)?.children ?? root).find(item => item.label === label);
+    if (!entry) break;
+    path.push(entry);
+  }
+  const entry = path.at(-1);
   const entries = (entry?.children ?? (entry ? [] : root)).filter(item => item.instruction?.type !== "frequency" || item.instruction.frequency !== aircraft.frequency);
   const invalid = entry?.instruction ? validateControllerMessage(exercise, aircraft, entry.instruction, frequency, pilotMessage?.id) : null;
   const reason = entry?.note ?? invalid;
@@ -66,7 +72,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
     {vector ? <RadarVectorComposer initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
       const result = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})});
       if (result !== false) {setVector(null); setPath([]);} return result !== false;
-    }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries}>{path.length ? <button onClick={() => {setPath(p => p.slice(0, -1)); setInput("");}}><span>‹</span><div>Back</div></button> : null}{entries.map((item, i) => {
+    }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries}>{path.length ? <button onClick={() => {setPath(path.map(item => item.label).slice(0, -1)); setInput("");}}><span>‹</span><div>Back</div></button> : null}{entries.map((item, i) => {
       const direct = !item.children && Boolean(item.instruction) && !item.composeVector;
       const blocked = item.note ?? (item.instruction ? validateControllerMessage(exercise, aircraft, item.instruction, frequency, pilotMessage?.id) : null);
       return <button key={`${i}-${item.label}`} className={item.suggested ? styles.suggestedCommand : undefined} disabled={(direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-label={direct ? `Send ${item.label}` : undefined} onClick={() => {
@@ -75,7 +81,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
           const command = item.instruction;
           dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})}); setPath([]);
         }
-        else {setInput(""); setPath(p => [...p, item]);}
+        else {setInput(""); setPath([...path.map(entry => entry.label), item.label]);}
       }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && item.label !== "Send" ? <b className={styles.sendLabel}>Send</b> : null}</button>;
     })}</div>}
     {entry && !entry.children && !entry.input ? <div className={styles.compose}><p>{composed}</p><small>{reason ?? "This message is unavailable."}</small></div> : null}
