@@ -1,5 +1,17 @@
 # ATCMH ATC Trainer
 
+
+## Learned quick commands
+
+The aircraft ATC window has a scrollable shortcut column beside the normal menu and message log. Sending an eligible controller message learns its short name and saved options. Tapping the shortcut immediately attempts the same instruction for the currently open aircraft; it does not reopen options or confirmation. Existing connection, pause, frequency and command validation still apply.
+
+Eligibility and labels follow the supplied Infinite Flight 26.4 quick-command reference (18 October 2026), for commands implemented in this simulator. Landing clearances, vectors, generic Unable/Roger and miscellaneous options without shortcut text do not become shortcuts. Drawn taxi paths are editing actions, not eligible radio messages. Reply suggestions and Resend Last Message remain separate controls.
+
+History belongs to the local control-session client, survives aircraft-window/frequency changes and reconnects, and starts empty on a new page/session. It is never reconstructed from received messages or saved logs. This HTTP simulator learns once when an outgoing command is accepted; retries of that command do not count again. The first send has count zero, subsequent sends increase its count, and the most-used entries appear first. There is no persistence, expiry, top-N limit or pinning gesture.
+
+Keys are exact shortcut names, shared across aircraft and frequencies. Same-name collisions retain the first command/options and frequency: for example, Cross Runway Send/Expedite, Continue Taxi/Progressive Taxi, and tail-only Pushback variants. The column filters that retained frequency and ground/airborne visibility; Exit runway and speed shortcuts permit both states. The retained airport is also checked because the simulator uses facility names rather than unique server frequency entities. Shortcuts reuse saved runways/approaches/handoffs while recomposing the current callsign and pilot reply context. Filed/vector approach choices remain distinct.
+
+
 ## Staff quick start
 
 The staff tutorial is an on-screen tour of the actual interface. Five Sessions steps highlight Scenarios, New session, the saved-session list, mentee sharing and Open staff radar. **Continue on radar** opens an available staff radar, or leaves the radar tour ready for the next visit if none is available. Seven radar steps highlight Play/Pause, Traffic, Automatic, the map, aircraft controls, Timeline and the return-to-Sessions link. Targets follow scrolling, resizing and asynchronously loaded session details; missing targets fall back to the relevant panel. Staff can interact with the highlighted controls while the tour is open.

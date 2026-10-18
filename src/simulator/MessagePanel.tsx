@@ -7,6 +7,7 @@ import {type Airport, pendingPilotMessage, type Action, type Aircraft, type Exer
 import {getAirport, defaultAirport, frequenciesFor} from "./airports";
 import type {Instruction} from "./model";
 import RadarVectorComposer from "./RadarVectorComposer";
+import {quickCommandAction, visibleQuickCommands, type QuickCommand} from "./quick-commands";
 import styles from "./Simulator.module.css";
 
 export const MessageLog = memo(function MessageLog({airport = defaultAirport, messages: allMessages, frequency, aircraftId, title = "Message log", showUnableReasons = false}: {airport?: Airport; messages: Exercise["messages"]; frequency: Frequency | "all"; aircraftId?: string; title?: string; showUnableReasons?: boolean}) {
@@ -48,7 +49,7 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
   const messages = allMessages.filter(m => !aircraftId || m.aircraftId === aircraftId);
   return <div ref={log} className={styles.messageLog} role="log" aria-label={title} tabIndex={0}><h2 className={styles.messageLogTitle}>{title}</h2>{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{m.text}{showUnableReasons && m.sender === "pilot" && m.unableReason ? <span className={styles.unableReason}> [{m.unableReason}]</span> : null}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}</p></div>) : <p className={styles.emptyMessages}>No messages yet</p>}</div>;
 });
-export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action) => void | Promise<boolean>; onClose: () => void}) {
+export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose, quickCommands = []}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action, path?: string[]) => void | Promise<boolean>; onClose: () => void; quickCommands?: readonly QuickCommand[]}) {
   const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment);
   const [pathLabels, setPath] = useState<string[]>([]);
   const [input, setInput] = useState("");
@@ -95,6 +96,13 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
       <button disabled={!connected || recording || !input.trim()} onClick={async () => {const command: Instruction = {type: "atc", action: "voice", text: input.trim()}; const sent = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}); if (sent !== false) {setDialog(null); setInput("");}}}>SEND</button>
       <button onClick={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>Cancel</button>
     </dialog> : null}
+    <div className={styles.commandWorkspace}>
+      <div className={styles.quickCommands} role="group" aria-label="Quick commands">{visibleQuickCommands(quickCommands, exercise, aircraft, frequency).map(shortcut => {
+        const action = quickCommandAction(shortcut, exercise, aircraft, frequency);
+        const blocked = validateControllerMessage(exercise, aircraft, action.command, frequency, action.replyTo);
+        return <button key={shortcut.name} aria-label={`Send quick command ${shortcut.name}`} title={blocked ?? action.text} disabled={!connected || Boolean(blocked)} onClick={() => {void dispatch(action, shortcut.path);}}>{shortcut.name}</button>;
+      })}</div>
+      <div className={styles.commandMain}>
     {entry?.input ? <form className={styles.compose} onSubmit={event => {event.preventDefault(); const command = entry.input === "heading" ? {type: "vector" as const, heading: Math.round(Number(input) / 10) * 10 % 360} : {type: "speed" as const, value: Number(input)}; if (!input || validateControllerMessage(exercise, aircraft, command, frequency)) return; dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}); setPath([]); setInput("");}}><label>{entry.input === "heading" ? "Heading (°)" : "Speed (knots)"}<input autoFocus type="number" required min={entry.input === "heading" ? 0 : 80} max={entry.input === "heading" ? 360 : 600} step={entry.input === "heading" ? 10 : 1} value={input} onChange={e => setInput(e.target.value)}/></label><button type="submit" disabled={!connected || !input}>Send</button></form> : null}
     {vector ? <RadarVectorComposer initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
       const result = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})});
@@ -112,12 +120,14 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
         else if (item.composeVector && item.instruction?.type === "vector") setVector(item.instruction);
         else if (direct && item.instruction) {
           const command = item.instruction;
-          dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}); setPath([]);
+          dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}, [...path, item].map(entry => entry.label)); setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.label), item.label]);}
       }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && item.label !== "Send" ? <b className={styles.sendLabel}>Send</b> : null}</button>;
     })}</div>}
     {entry && !entry.children && !entry.input ? <div className={styles.compose}><p>{composed}</p><small>{reason ?? "This message is unavailable."}</small></div> : null}
     <MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency={frequency} aircraftId={aircraft.id}/>
+      </div>
+    </div>
   </section>;
 }
