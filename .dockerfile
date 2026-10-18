@@ -1,7 +1,8 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# Speech runs in the browser; do not download unused native CUDA libraries.
+RUN ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci
 
 FROM node:24-alpine AS builder
 WORKDIR /app

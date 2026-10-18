@@ -74,6 +74,32 @@ test("request-only radar replies appear for the appropriate pilot request", () =
   assert.ok(!c.requestMessageMenu("center", a).some(e => e.label === "Radar Contact"));
   for (const [text, label] of [["with you at 3000", "Radar Contact"], ["requesting flight following", "Respond to Flight Following Request"], ["requesting radar vectors", "Respond to Radar Vectors Request"], ["requesting diversion", "Respond to Diversion Request"], ["minimum fuel", "Respond to Emergency"]]) assert.ok(c.requestMessageMenu("center", a, request(text)).some(e => e.label === label), label);
 });
+test("STAR descent menu follows route availability in Approach and Center", () => {
+  for (const frequency of ["approach", "center"] as const) {
+    const e = engineFor({trainingStation: `EGPH:${frequency}`}), state = e.initialExercise(), a = state.aircraft[0];
+    const airport = getAirport(state), catalog = catalogFor(airport, state.radarEnvironment);
+    const option = () => catalog.messageMenu(frequency, a).find(entry => entry.instruction?.type === "atc" && entry.instruction.action === "star-descent");
+    a.radar!.routeIndex = 0;
+    a.flightPlan = [{x: 0, y: 5, altitude: 4000}, {x: 0, y: 0}];
+    delete a.arrivalProcedure;
+    assert.equal(option(), undefined, "no STAR");
+    a.arrivalProcedure = "TRAIN1";
+    assert.equal(option()?.label, "Request Descent via TRAIN1 STAR");
+    a.radar!.routeIndex = 1;
+    assert.equal(option(), undefined, "no remaining altitude constraints");
+    a.flightPlan[1].altitude = 3000;
+    assert.ok(option(), "remaining constraint restores the option");
+    a.flightPlan[1].altitude = airport.elevation;
+    assert.equal(option(), undefined, "constraint at airport elevation");
+    a.flightPlan[1].altitude = 17500;
+    assert.equal(option(), undefined, "unsupported altitude");
+    a.flightPlan = [];
+    assert.equal(option(), undefined, "empty route");
+    a.flightPlan = [{x: 0, y: 0}];
+    a.radar!.routeIndex = 0;
+    assert.equal(option(), undefined, "route without altitude constraints");
+  }
+});
 test("new menu instructions survive protocol serialization", () => {
   for (const frequency of ["ground", "tower", "approach", "center"] as const) {
     const e = engineFor(frequency === "ground" || frequency === "tower" ? {} : {trainingStation: `EGPH:${frequency}`}), state = e.initialExercise();

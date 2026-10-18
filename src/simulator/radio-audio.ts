@@ -7,11 +7,14 @@ export interface SpeechOutput {
   onVoicesChanged(listener: () => void): () => void;
   speak(text: string, settings: VoiceSettings, end: () => void, error: () => void): void;
   cancel(): void;
+  activate?(): void;
+  dispose?(): void;
+  onStatusChanged?(listener: (status: string) => void): () => void;
 }
 interface AudioState extends VoiceSettings {
-  available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string;
+  available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
 }
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1, volume: 1, speaking: "", error: ""};
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.15, volume: 1, speaking: "", error: "", status: ""};
 export interface AudioPreference {read(): boolean | undefined; write(enabled: boolean): void}
 /** Only the on/off choice persists; online voice consent remains per tab. */
 export function browserAudioPreference(accountId: string, role: "staff" | "mentee"): AudioPreference {
@@ -64,8 +67,9 @@ export class RadioAudio {
     this.update({available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
     const refresh = () => {this.update({voices: output?.voices() ?? []}); this.next();};
     const unsubscribe = output?.onVoicesChanged(refresh);
+    const unsubscribeStatus = output?.onStatusChanged?.(status => this.update({status}));
     refresh();
-    return () => {unsubscribe?.(); this.stop(); this.output = null; this.previous = null; this.seen.clear();};
+    return () => {unsubscribe?.(); unsubscribeStatus?.(); this.stop(); output?.dispose?.(); this.output = null; this.previous = null; this.seen.clear();};
   }
   observe(exercise: Exercise, connected: boolean, _scope: Frequency | "all", paused = false) {
     this.callsigns = exercise.aircraft.map(a => a.callsign);
@@ -89,6 +93,7 @@ export class RadioAudio {
   }
   setEnabled(enabled: boolean) {
     this.stop();
+    if (enabled) this.output?.activate?.();
     this.preference?.write(enabled);
     this.update({enabled: enabled && this.state.available, error: ""});
     // Speak directly from the click gesture to unlock browser audio playback.
@@ -98,6 +103,7 @@ export class RadioAudio {
    * the user's saved audio choice or requiring an off/on toggle. */
   activate = () => {
     if (!this.state.enabled) return;
+    this.output?.activate?.();
     this.waitingForRetry = false;
     this.next();
   };

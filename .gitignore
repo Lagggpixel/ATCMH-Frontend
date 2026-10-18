@@ -17,3 +17,6 @@ coverage/
 
 # Generated TypeScript incremental build cache.
 *.tsbuildinfo
+
+# Generated pinned Kokoro model and browser runtime, prepared before dev/build.
+public/simulator/speech/

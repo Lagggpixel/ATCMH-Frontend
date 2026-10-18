@@ -1,7 +1,7 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "26.10.10",
+  "version": "26.10.11",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +10,9 @@
     "test": "node --import tsx --test",
     "docker:push": "node scripts/docker-push.mjs",
     "docker:build:windows": "node scripts/docker-build-windows.mjs",
-    "docker:build:mac": "node scripts/docker-build-mac.mjs"
+    "docker:build:mac": "node scripts/docker-build-mac.mjs",
+    "predev": "node src/simulator/prepare-radio-speech.mjs",
+    "prebuild": "node src/simulator/prepare-radio-speech.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -22,8 +24,10 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
+    "kokoro-js": "1.2.1",
     "mysql2": "^3.16.0",
     "next": "16.3.8",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "recharts": "^3.1.0",

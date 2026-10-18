@@ -14,6 +14,8 @@ export async function sessionJson(response: Response) {
 /** Both roles receive the same ordered server frames and use Scope's smooth prediction. */
 export class SharedSession {
   private view = INITIAL;
+  private authoritativeExercise = INITIAL.exercise;
+  private pendingTagAngles = new Map<string, {angle: number; revision?: number}>();
   private listeners = new Set<() => void>();
   private manageEvent: ((eventId: string, decision: "run" | "retry" | "skip") => void) | null = null;
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
@@ -22,7 +24,20 @@ export class SharedSession {
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.view;
   getServerSnapshot = () => INITIAL;
-  private update(patch: Partial<SharedSessionView>) {this.view = {...this.view, ...patch}; this.listeners.forEach(listener => listener());}
+  private update(patch: Partial<SharedSessionView>) {
+    if (patch.exercise) this.authoritativeExercise = patch.exercise;
+    const saved = this.authoritativeExercise;
+    for (const [id, pending] of this.pendingTagAngles) {
+      if (!saved.aircraft.some(a => a.id === id && a.active) || pending.revision !== undefined && saved.revision >= pending.revision)
+        this.pendingTagAngles.delete(id);
+    }
+    // Keep dropped tags in place through stale stream frames until the accepted revision arrives.
+    const exercise = this.pendingTagAngles.size ? {...saved, aircraft: saved.aircraft.map(a => {
+      const pending = this.pendingTagAngles.get(a.id);
+      return pending ? {...a, tagAngle: pending.angle} : a;
+    })} : saved;
+    this.view = {...this.view, ...patch, exercise}; this.listeners.forEach(listener => listener());
+  }
   clearError = () => this.update({error: null});
   dispatch = (action: Action) => {
     if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return Promise.resolve(false);}
@@ -45,10 +60,17 @@ export class SharedSession {
     let commands = Promise.resolve();
     this.send = action => {
       const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
+      const tagId = action.kind === "edit" && Object.keys(action.patch).length === 1 && typeof action.patch.tagAngle === "number" ? action.aircraftId : undefined;
+      const pending: {angle: number; revision?: number} | undefined = tagId && action.kind === "edit" ? {angle: action.patch.tagAngle!} : undefined;
+      if (tagId && pending) {this.pendingTagAngles.set(tagId, pending); this.update({});}
       let sent = false;
       commands = commands.then(async () => {
         for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
-          try {await post("commands", {envelope}); sent = true; return;}
+          try {
+            const result = await post("commands", {envelope}); sent = true;
+            if (pending) pending.revision = result.revision;
+            this.update({}); return;
+          }
           catch (reason) {
             const error = reason as Error & {status?: number};
             if (error.status && error.status < 500 || attempt === 2) {
@@ -58,7 +80,10 @@ export class SharedSession {
           }
         }
       });
-      return commands.then(() => sent);
+      return commands.then(() => {
+        if (!sent && tagId && this.pendingTagAngles.get(tagId) === pending) {this.pendingTagAngles.delete(tagId); this.update({});}
+        return sent;
+      });
     };
     this.manageEvent = (eventId, decision) => {
       if (!this.view.connected || this.role !== "staff") return;

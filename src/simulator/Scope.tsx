@@ -14,6 +14,7 @@ import {radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-
 import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {editedTaxiPath, hitTaxiPath, remainingTaxiPath, taxiPathEditable, taxiPathState, type TaxiPathEdit} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
+import AircraftPopupAnchor from "./AircraftPopupAnchor";
 import {approachGuide} from "./approach-guides";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget} from "./scope-overlays";
@@ -56,7 +57,7 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
   const [gateDraft, setGateDraft] = useState<{aircraftId: string; point: Point; gateId?: string} | null>(null);
   const cancelGate = () => {gateDrag.current = null; setGateDraft(null);};
   const [vectorDraft, setVectorDraft] = useState<ReturnType<typeof vectorPreview> & {aircraftId: string} | null>(null);
-  const tagDrag = useRef<{aircraftId: string; pointerId: number; start: Point; at: number; moved: boolean} | null>(null);
+  const tagDrag = useRef<{aircraftId: string; pointerId: number; start: Point; at: number; moved: boolean; angle?: number} | null>(null);
   const [tagDraft, setTagDraft] = useState<{aircraftId: string; angle: number} | null>(null);
   const suppressTagClick = useRef(false);
   const cancelTag = () => {tagDrag.current = null; setTagDraft(null);};
@@ -196,6 +197,7 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
   const vectorScreen = vector ? project(vector.point) : null;
   const terrainPoint = vector ? terrainCoordinates(AIRPORT, vector.point) : null;
   const terrain = useVectorTerrain(terrainPoint?.latitude, terrainPoint?.longitude);
+  const aircraftContext = selectedAircraft && context ? context(selectedAircraft) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
   return <div data-simulator-tour="radar" className={styles.scope} ref={container} aria-label={`${AIRPORT.icao} radar scope`} onPointerDownCapture={event => {if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate();}}}>
     <div className={styles.mapSurface} style={routeEditable && routeHover ? {cursor: "crosshair"} : undefined} onPointerDown={event => {
@@ -282,14 +284,14 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
           <button className={`${styles.aircraftTag} ${tagOffset ? styles.rotatedTag : a.tag === "left" || (a.tag === "auto" && p.x > size.width * .7) ? styles.leftTag : ""}`} style={tagOffset ? {left: tagOffset.x, top: tagOffset.y, right: "auto", bottom: "auto", transform: `translate(${tagOffset.x < 0 ? "-100%" : "0"}, ${tagOffset.y < 0 ? "-100%" : "0"})`, textAlign: tagOffset.x < 0 ? "right" : "left"} : undefined}
             aria-label={`Flight label ${a.callsign}`}
             onPointerDown={event => {suppressTagClick.current = false; if (!onTagAngle || event.button !== 0 || !event.isPrimary) return; event.currentTarget.setPointerCapture(event.pointerId); tagDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, at: performance.now(), moved: false};}}
-            onPointerMove={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId || !onTagAngle) return; if (!current.moved && distance(current.start, {x: event.clientX, y: event.clientY}) < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressTagClick.current = true; cancelTag(); return;} current.moved = true; const bounds = container.current!.getBoundingClientRect(); const angle = (Math.atan2(event.clientY - bounds.top - p.y, event.clientX - bounds.left - p.x) * 180 / Math.PI + 360) % 360; setTagDraft({aircraftId: a.id, angle});}}
-            onPointerUp={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.moved) {suppressTagClick.current = true; if (tagDraft?.aircraftId === a.id) onTagAngle?.(a.id, tagDraft.angle);} cancelTag();}}
+            onPointerMove={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId || !onTagAngle) return; if (!current.moved && distance(current.start, {x: event.clientX, y: event.clientY}) < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressTagClick.current = true; cancelTag(); return;} current.moved = true; const bounds = container.current!.getBoundingClientRect(); const angle = (Math.atan2(event.clientY - bounds.top - p.y, event.clientX - bounds.left - p.x) * 180 / Math.PI + 360) % 360; current.angle = angle; setTagDraft({aircraftId: a.id, angle});}}
+            onPointerUp={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.moved) {suppressTagClick.current = true; if (current.angle !== undefined) onTagAngle?.(a.id, current.angle);} cancelTag();}}
             onPointerCancel={() => {suppressTagClick.current = true; cancelTag();}} onLostPointerCapture={cancelTag}
             onClick={() => {if (suppressTagClick.current) {suppressTagClick.current = false; return;} onSelect(a.id);}}><span>{a.callsign}</span><span>{label.flight}</span>{label.approach ? <span>{label.approach}</span> : null}</button>
         </> : null}
-        {selected === a.id && context ? <div className={`${styles.contextAnchor} ${!contextPoint && p.x > size.width * 0.6 ? styles.contextLeft : ""}`} style={contextPoint ? {position: "fixed", left: Math.max(6, Math.min(window.innerWidth - 250, contextPoint.x)), ...(contextPoint.y > window.innerHeight * .55 ? {top: "auto", bottom: Math.max(6, window.innerHeight - contextPoint.y)} : {top: Math.max(6, contextPoint.y)})} : p.y > size.height * 0.5 ? {top: "auto", bottom: 26} : undefined}>{context(a)}</div> : null}
       </div>;
     })}
+    {aircraftContext && selectedAircraft ? <AircraftPopupAnchor key={`${selectedAircraft.id}:${contextPoint?.x ?? "click"}:${contextPoint?.y ?? "click"}`} scope={container} point={project(selectedAircraft.position)} screenPoint={contextPoint}>{aircraftContext}</AircraftPopupAnchor> : null}
     {following && trafficVisible(following, options.filter) ? <span role="img" aria-label={`Traffic to follow: ${following.callsign}`} className={styles.followingRing} style={{left: project(following.position).x, top: project(following.position).y}}/> : null}
     {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route{routeEditable ? <><br/>Drag the green line to reshape · drag a waypoint to move it</> : null}</> : <>Projected path · {selectedAircraft.mode}<br/>{["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>{editMode === "taxi-preview" ? "Taxi route · drag the green line to adjust" : editMode === "taxi" ? "Click to extend route · drag the line or a waypoint to reshape" : editMode === "flightPlan" ? "Click to add flight-plan waypoint" : "Click to reposition selected aircraft"}</div> : null}

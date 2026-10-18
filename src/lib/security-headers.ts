@@ -4,6 +4,7 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
   const isProduction = nodeEnv === "production";
   const { dashboardApiUrl } = resolvePublicRuntimeConfig(env, nodeEnv);
   const guideMedia = ["/pilot-guide", "/dashboard/pilot-guide"].includes(pathname.replace(/\/$/, ""));
+  const simulator = /^\/simulator(?:\/|$)/.test(pathname);
   const contentSecurityPolicy = [
     "default-src 'self'",
     "base-uri 'self'",
@@ -12,7 +13,8 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
     ...(guideMedia ? ["media-src 'self' https:"] : []),
     `form-action 'self' ${dashboardApiUrl}`,
     "object-src blob:",
-    `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline'${simulator ? " 'wasm-unsafe-eval'" : ""}${isProduction ? "" : " 'unsafe-eval'"}`,
+    ...(simulator ? ["worker-src 'self'"] : []),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",

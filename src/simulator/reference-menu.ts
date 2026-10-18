@@ -3,7 +3,7 @@ import type {Aircraft, Airport, Altitude, Frequency, Instruction, Message, Radar
 import {airportCallsign, frequenciesFor, runwayEnds} from "./airports";
 import {ALTITUDES, altitudeFeet, altitudeLabel} from "./radar";
 import {KNOT_SPEEDS_HIGH, KNOT_SPEEDS_LOW, MACH_SPEEDS, speedLabel} from "./radar-speed";
-import type {ReferenceInstruction} from "./reference-commands";
+import {referenceInstructionError, type ReferenceInstruction} from "./reference-commands";
 
 const letters = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X Ray", "Yankee", "Zulu"];
 const headings = Array.from({length: 36}, (_, i) => (i + 1) * 10);
@@ -63,7 +63,8 @@ export function referenceMenu(frequency: Frequency, a: Aircraft, airport: Airpor
     if (phrase.includes("requesting radar vectors")) menu.push({label: "Respond to Radar Vectors Request", children: [leaf("Send", atc("radar-vectors", {name: destination})), leaf("Deny request", atc("radar-vectors", {variant: "deny", name: destination}))]});
     if (request?.request?.id === "check-in" || phrase.includes("with you at")) menu.push({label: "Radar Contact", children: [leaf("Send", atc("radar-contact")), leaf("Send and Ask Approach Request", atc("radar-contact", {variant: "request"}))]});
     if (phrase.includes("descent") || phrase.includes("descend via")) menu.push({label: "Respond to STAR Descent Request", children: [leaf("Approve", atc("star-response", {variant: "approve", name: a.arrivalProcedure})), leaf("Unable", atc("star-response", {variant: "unable"})), leaf("Say Appproach Request", atc("star-response", {variant: "request"}))]});
-    if (a.arrivalProcedure) menu.push(leaf(`Request Descent via ${a.arrivalProcedure} STAR`, atc("star-descent", {name: a.arrivalProcedure})));
+    const starDescent = atc("star-descent", {name: a.arrivalProcedure});
+    if (!referenceInstructionError(a, starDescent, airport)) menu.push(leaf(`Request Descent via ${a.arrivalProcedure} STAR`, starDescent));
     if (phrase.includes("divert") || phrase.includes("diversion")) menu.push({label: "Respond to Diversion Request", children: [leaf("Expect Vectors", atc("diversion", {variant: "vectors", name: a.diversionDestination?.name ?? destination})), leaf("Proceed On Course", atc("diversion", {variant: "course", name: a.diversionDestination?.name ?? destination})), leaf("Deny", atc("diversion", {variant: "deny", name: a.diversionDestination?.name ?? destination}))]});
     return [...menu, ...common];
   }
