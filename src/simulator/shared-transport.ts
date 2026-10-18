@@ -1,11 +1,12 @@
+import {prepareQuickCommand, QuickCommandManager, type QuickCommand} from "./quick-commands";
 import type {ScenarioStaffView} from "./scenarios";
 import {initialExercise} from "./engine";
 import {exerciseSchema, motionSchema} from "./protocol";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionRole, SessionSummary} from "./sessions";
 
-export interface SharedSessionView {scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
-const INITIAL: SharedSessionView = {exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
+export interface SharedSessionView {quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
+const INITIAL: SharedSessionView = {quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
   if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status});
@@ -14,12 +15,14 @@ export async function sessionJson(response: Response) {
 /** Both roles receive the same ordered server frames and use Scope's smooth prediction. */
 export class SharedSession {
   private view = INITIAL;
+  private quickCommands = new QuickCommandManager();
+  private shortcutPaths = new Map<string, string[]>();
   private authoritativeExercise = INITIAL.exercise;
   private pendingTagAngles = new Map<string, {angle: number; revision?: number}>();
   private listeners = new Set<() => void>();
   private manageEvent: ((eventId: string, decision: "run" | "retry" | "skip") => void) | null = null;
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
-  private send: ((action: Action) => Promise<boolean>) | null = null;
+  private send: ((action: Action, path?: string[]) => Promise<boolean>) | null = null;
   constructor(private role: SessionRole, private id: string, private csrf: string) {}
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.view;
@@ -39,9 +42,9 @@ export class SharedSession {
     this.view = {...this.view, ...patch, exercise}; this.listeners.forEach(listener => listener());
   }
   clearError = () => this.update({error: null});
-  dispatch = (action: Action) => {
+  dispatch = (action: Action, path?: string[]) => {
     if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return Promise.resolve(false);}
-    return this.send(action);
+    return this.send(action, path);
   };
   start(): () => void {
     let stopped = false, claimed = false, timer: ReturnType<typeof setTimeout> | undefined;
@@ -58,7 +61,9 @@ export class SharedSession {
       this.update({connected: false, owner: false, fatal: failure.message, code: failure.code ?? "unavailable"});
     };
     let commands = Promise.resolve();
-    this.send = action => {
+    this.send = (action, path) => {
+      const shortcutPath = path ?? (action.kind === "command" && action.resendOf ? this.shortcutPaths.get(action.resendOf) : undefined);
+      const shortcut = action.kind === "command" ? prepareQuickCommand(action, this.view.exercise, shortcutPath) : null;
       const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
       const tagId = action.kind === "edit" && Object.keys(action.patch).length === 1 && typeof action.patch.tagAngle === "number" ? action.aircraftId : undefined;
       const pending: {angle: number; revision?: number} | undefined = tagId && action.kind === "edit" ? {angle: action.patch.tagAngle!} : undefined;
@@ -68,8 +73,9 @@ export class SharedSession {
         for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
           try {
             const result = await post("commands", {envelope}); sent = true;
+            if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
             if (pending) pending.revision = result.revision;
-            this.update({}); return;
+            this.update({quickCommands: this.quickCommands.ranked()}); return;
           }
           catch (reason) {
             const error = reason as Error & {status?: number};

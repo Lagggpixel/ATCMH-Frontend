@@ -77,7 +77,7 @@ function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") {setMessageId(null); setUtility(null); setSelectedId(null); setEditMode("");}};
     window.addEventListener("keydown", escape); return () => window.removeEventListener("keydown", escape);
   }, []);
-  const openMessages = (a: Aircraft) => {setSelectedId(a.id); setMessageId(a.id); setUtility(null); dispatch({kind: "read", aircraftId: a.id, frequency});};
+  const openMessages = (a: Aircraft) => {setSelectedId(null); setMessageId(a.id); setUtility(null); dispatch({kind: "read", aircraftId: a.id, frequency});};
   const select = (id: string | null) => {setVectorHeading(undefined); setQuickHidden(false); setEditMode(""); setSelectedId(id); setUtility(null); if (id !== messageId) setMessageId(null);};
   const contextAction = (action: ContextAction, a: Aircraft) => {
     if (action === "messages") openMessages(a);
@@ -108,7 +108,7 @@ function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole
         <MessageLog airport={AIRPORT} messages={exercise.messages} frequency={frequency}/>
       </aside>}
     </>}
-    {messaging && role === "mentee" && messaging.frequency === frequency ? <MessagePanel key={`${messaging.id}:${frequency}`} aircraft={messaging} exercise={exercise} frequency={frequency} connected={view.connected} dispatch={dispatch} onClose={() => setMessageId(null)}/> : null}
+    {messaging && role === "mentee" && messaging.frequency === frequency ? <MessagePanel key={`${messaging.id}:${frequency}`} aircraft={messaging} exercise={exercise} frequency={frequency} quickCommands={view.quickCommands} connected={view.connected} dispatch={dispatch} onClose={() => setMessageId(null)}/> : null}
     {utility && selected ? <UtilityPanel label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
     {!view.connected ? <div className={styles.connectionBanner} role="status">{view.status}<span>Your scenario is saved. Waiting for the connection to return.</span></div> : null}
     {trainingError ? <div className={styles.error} role="alert">{trainingError}<button aria-label="Dismiss scenario error" onClick={() => setTrainingError("")}>×</button></div> : null}

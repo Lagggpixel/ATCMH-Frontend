@@ -555,3 +555,13 @@
 
 .gateAircraft {cursor:grab!important;touch-action:none}
 .gateAircraft:active {cursor:grabbing!important}
+
+/* Learned messages sit beside the normal command tree and log, including when empty. */
+.commandWorkspace {display:grid;grid-template-columns:minmax(58px,141fr) minmax(0,659fr);gap:6px;flex:1;min-height:0;min-width:0;padding-top:6px}
+.commandMain {display:flex;flex-direction:column;min-height:0;min-width:0}
+.quickCommands {overflow-y:auto;min-height:0;background:var(--trainer-raised);scrollbar-width:thin}
+.simulator .quickCommands button {display:block;width:100%;min-height:65px;padding:5px;margin:0 0 2px;border:1px solid var(--trainer-border);background:var(--trainer-surface);color:var(--dashboard-ink);font-size:10px;line-height:1.4;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}
+.simulator .quickCommands button:hover:not(:disabled) {background:var(--trainer-selected)}
+.quickCommands button:focus-visible {outline:2px solid var(--trainer-accent);outline-offset:-2px}
+.commandMain>.messageEntries {flex:1;min-height:0}
+.commandMain>.messageLog {flex:0 0 23%;overflow-y:auto;margin-top:6px;border-top:1px solid var(--trainer-border)}
