@@ -5,6 +5,15 @@ import {securityHeadersFor} from "./security-headers";
 const env = {FRONTEND_PUBLIC_ORIGIN: "https://www.atcmh.org", DASHBOARD_API_URL: "https://dashboard-api.atcmh.org"};
 const csp = (path: string) => securityHeadersFor(env, "production", path).find(header => header.key === "Content-Security-Policy")!.value;
 
+test("Kokoro WASM and same-origin workers are permitted only on simulator routes", () => {
+    for (const path of ["/simulator/staff/id", "/simulator/speech/kokoro-v1/worker.mjs"]) {
+        assert.match(csp(path), /script-src[^;]+'wasm-unsafe-eval'/);
+        assert.match(csp(path), /worker-src 'self'/);
+        assert.doesNotMatch(csp(path), /huggingface|jsdelivr|'unsafe-eval'/);
+    }
+    for (const path of ["/", "/dashboard", "/simulator-other"]) assert.doesNotMatch(csp(path), /wasm-unsafe-eval|worker-src/);
+});
+
 test("terrain lookup connections are restricted to simulator pages", () => {
     for (const path of ["/simulator", "/simulator/staff/id", "/simulator/mentee/id", "/simulator/scenarios/new"]) assert.match(csp(path), /connect-src[^;]+https:\/\/terrain\.infinitehorizon\.app/);
     for (const path of ["/", "/dashboard", "/simulator-other", "/pilot-guide"]) assert.doesNotMatch(csp(path), /terrain\.infinitehorizon/);

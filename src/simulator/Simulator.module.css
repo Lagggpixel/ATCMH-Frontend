@@ -68,7 +68,7 @@
 .leftTag {left:auto;right:28px;text-align:right!important}
 .leftTag:before {left:100%;right:auto;transform:rotate(35deg);transform-origin:left}
 .contextAnchor {position:absolute;left:24px;top:26px;z-index:10;color:white;width:230px}
-.contextLeft {left:auto;right:24px}
+.contextAnchor>.aircraftMenu {max-width:100%;max-height:min(55vh,var(--popup-available-height,55vh));box-sizing:border-box;overflow:auto}
 .aircraftMenu {background:#050505;border:1px solid #242424;border-radius:5px;box-shadow:0 4px 20px #0009;max-height:54vh;overflow:auto;padding:12px 0}
 .aircraftMenu button {display:block;width:100%;font-size:15px;padding:12px 18px}
 .optionsMenu {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 5px);bottom:26px;width:clamp(290px,25.8vw,490px);background:#030303;border:1px solid #171717;border-radius:6px;padding:12px 8px;z-index:10;box-shadow:0 8px 20px #0008;max-height:calc(100% - 40px);overflow:auto}
