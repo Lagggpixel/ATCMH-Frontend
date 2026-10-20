@@ -71,10 +71,13 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
   const save = async () => {
     setError(""); setNotice(""); const result = scenarioSchema.safeParse(draft);
     if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return null;}
+    const submitted = JSON.stringify(draft);
     setBusy(true);
     try {
       const value = await trainingRequest(csrf, id === "new" ? "scenarios" : `scenarios/${id}`, id === "new" ? {draft: result.data} : {action: "save", draft: result.data, version: record!.version});
-      setSaved(JSON.stringify(value.scenario.draft)); setRecord(value.scenario); setNotice("Draft saved.");
+      const canonical = normalizeScenario(value.scenario.draft);
+      setDraft(current => JSON.stringify(current) === submitted ? canonical : current);
+      setSaved(JSON.stringify(canonical)); setRecord(value.scenario); setNotice("Draft saved.");
       if (id === "new") router.replace(`/sweatbox/scenarios/${value.scenario.id}`);
       return value.scenario as ScenarioRecord;
     } catch (reason) {setError((reason as Error).message); return null;} finally {setBusy(false);}
