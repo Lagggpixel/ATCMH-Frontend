@@ -53,17 +53,17 @@ export default function ReplayIndex() {
       <div className={styles.context}><p>{filters.mine ? "Showing sessions where you participated as mentor." : "All mentors’ sessions"}</p><span>Newest first · All times UTC</span></div>
       <div aria-busy={loading}>
         {loading ? <p role="status" className={styles.message}>Loading replays…</p> : error ? <div className={styles.message}><p role="alert">{error}</p><button onClick={() => {setLoading(true); setError(""); setRetry(value => value + 1);}}>Try again</button></div> : result.replays.length ? <table className={styles.table}>
-          <caption className={styles.srOnly}>Completed simulator sessions, newest first</caption>
+          <caption className={styles.srOnly}>Completed Sweatbox sessions, newest first</caption>
           <thead><tr><th scope="col">Session</th><th scope="col">Mentor &amp; mentee</th><th scope="col">Recorded UTC</th><th scope="col">Duration</th><th scope="col">Type</th><th scope="col"><span className={styles.srOnly}>Open replay</span></th></tr></thead>
           <tbody>{result.replays.map((replay, index) => <Fragment key={replay.id}>
             {index === 0 || day.format(replay.endedAt) !== day.format(result.replays[index - 1].endedAt) ? <tr className={styles.dateGroup}><th colSpan={6} scope="rowgroup">{day.format(replay.endedAt)}</th></tr> : null}
             <tr className={styles.row}>
-              <td className={styles.session}><Link href={`/simulator/replays/${replay.id}`}>{replay.title}</Link><small>{environmentLabel(replay)}</small></td>
+              <td className={styles.session}><Link href={`/sweatbox/replays/${replay.id}`}>{replay.title}</Link><small>{environmentLabel(replay)}</small></td>
               <td className={styles.people}>{(["staff", "mentee"] as const).map(role => <div key={role}><span>{role === "staff" ? "Mentor" : "Mentee"}</span><p>{replay.participants.filter(person => person.role === role).map(person => person.name || person.accountId).join(", ") || "Not recorded"}</p></div>)}</td>
               <td className={styles.recorded}><span className={styles.mobileLabel}>Recorded UTC</span><time dateTime={new Date(replay.endedAt).toISOString()}>{recorded.format(replay.endedAt)}</time></td>
               <td className={styles.duration}><span className={styles.mobileLabel}>Duration</span>{timeLabel(replay.duration)}</td>
               <td className={styles.kind}><span className={`${styles.badge} ${replay.partial && replay.kind === "recording" ? styles.partial : canPlayReplay(replay) ? styles.recording : styles.summary}`}>{recordingLabel(replay)}</span><small>{replay.status}</small></td>
-              <td className={styles.action}><Link className={library.primary} href={`/simulator/replays/${replay.id}`} aria-label={`${canPlayReplay(replay) ? "Watch replay" : "View saved session"}: ${replay.title}, ${recorded.format(replay.endedAt)} UTC`}>{canPlayReplay(replay) ? "Watch replay" : "View saved session"}</Link></td>
+              <td className={styles.action}><Link className={library.primary} href={`/sweatbox/replays/${replay.id}`} aria-label={`${canPlayReplay(replay) ? "Watch replay" : "View saved session"}: ${replay.title}, ${recorded.format(replay.endedAt)} UTC`}>{canPlayReplay(replay) ? "Watch replay" : "View saved session"}</Link></td>
             </tr>
           </Fragment>)}</tbody>
         </table> : <section className={styles.message}><h2>{filtered ? "No matching replays" : "No completed sessions yet"}</h2><p>{filtered ? "Try another search or clear your filters." : "Completed sessions will appear here, ready to review."}</p></section>}

@@ -26,10 +26,10 @@ export function safeLoginReturnTo(application: LoginApplication, value: string |
   return path === "/" || path === "/account" || path === "/apply" || path.startsWith("/apply?")
     || path === "/careers" || path.startsWith("/careers/")
     || path === "/leaderboard" || path === "/pilot-guide" || path === "/dashboard" || path.startsWith("/dashboard/")
-    || path === "/simulator" || path === "/simulator/about"
-    || /^\/simulator\/replays(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/i.test(path)
-    || path === "/simulator/staff" || /^\/simulator\/(mentee|staff)\/[0-9a-f-]{36}$/i.test(path)
-    || /^\/simulator\/scenarios(?:\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.test(path)
+    || /^\/(?:sweatbox|simulator)(?:\/about)?$/i.test(path)
+    || /^\/(?:sweatbox|simulator)\/replays(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/i.test(path)
+    || /^\/(?:sweatbox|simulator)\/staff$/i.test(path) || /^\/(?:sweatbox|simulator)\/(mentee|staff)\/[0-9a-f-]{36}$/i.test(path)
+    || /^\/(?:sweatbox|simulator)\/scenarios(?:\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.test(path)
     || path === "/exams" || path.startsWith("/exams/") ? value : fallback;
 }
 

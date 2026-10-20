@@ -50,7 +50,7 @@ export function applyTaxiPathEdit(a: Aircraft, expectedPath: TaxiPoint[], edit: 
   if (a.runwayExit) a.runwayExit = updated;
   else {
     a.taxiPath = updated;
-    if (edit.kind === "insert" && a.releasedHold !== null && a.releasedHold >= edit.index) a.releasedHold++;
+    if (a.releasedHold !== null && edit.index <= a.releasedHold) a.releasedHold = null;
   }
   return;
 }

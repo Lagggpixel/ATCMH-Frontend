@@ -155,7 +155,7 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
       if (!route.path) return;
       a.taxiPath = [{...a.position}, ...route.path]; a.taxiIndex = 1; a.releasedHold = null; a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed;
       a.followGroundId = route.leader; delete a.giveWay; delete a.groundYield; delete a.contactTowerAtHold;
-    } else if (c.variant === "crossed" && a.taxiPath[a.taxiIndex]?.hold) {a.releasedHold = a.taxiIndex; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed;}
+    } // Already cleared to cross is a reminder, not a new clearance.
     else if (c.variant === "descend") {a.mode = "pattern"; a.extended = false;}
   }
 }

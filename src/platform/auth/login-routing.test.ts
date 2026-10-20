@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { homeLoginHref, resolveHomeLoginRequest, safeAuthError, safeAuthRef } from "./login-routing";
+import { homeLoginHref, resolveHomeLoginRequest, safeAuthError, safeAuthRef, safeLoginReturnTo } from "./login-routing";
 
 test("direct home login uses the Dashboard audience and returns home", () => {
   assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams()), {returnTo: "/"});
@@ -36,15 +36,21 @@ test("home login links preserve the application and canonical return path", () =
 });
 
 test("simulator login returns to the exact supported views only", () => {
-  for (const path of ["/simulator", "/simulator/about", "/simulator/replays", "/simulator/replays/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
-  for (const path of ["/simulator/replays/not-a-replay", "/simulator/replays/../staff", "/simulator/replaysish"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
-  for (const path of ["/simulator/staff", "/simulator/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/simulator/staff/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
-  for (const path of ["/simulatorish", "/simulator/admin", "/simulator/staff/../mentee", "/simulator%2fstaff"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
+  for (const path of ["/sweatbox", "/sweatbox/about", "/sweatbox/replays", "/sweatbox/replays/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
+  for (const path of ["/sweatbox/replays/not-a-replay", "/sweatbox/replays/../staff", "/sweatbox/replaysish"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
+  for (const path of ["/sweatbox/staff", "/sweatbox/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/sweatbox/staff/ba15f60c-450b-4e88-9786-0f6660fe00fd"]) assert.deepEqual(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})), {returnTo: path});
+  for (const path of ["/sweatboxish", "/sweatbox/admin", "/sweatbox/staff/../mentee", "/sweatbox%2fstaff"]) assert.equal(resolveHomeLoginRequest(new URLSearchParams({returnTo: path})).returnTo, "/");
 });
 
 test("compatibility links preserve only supported auth errors", () => {
   assert.equal(homeLoginHref("dashboard", "/account", "consent_expired"), "/?login=1&returnTo=%2Faccount&authError=consent_expired");
   assert.equal(homeLoginHref("dashboard", "/account", "stack trace <script>"), "/?login=1&returnTo=%2Faccount");
+});
+
+test("legacy simulator login links remain supported after the Sweatbox rename", () => {
+  for (const path of ["/simulator/staff", "/simulator/mentee/ba15f60c-450b-4e88-9786-0f6660fe00fd", "/simulator/scenarios/new", "/simulator/replays"]) {
+    assert.equal(safeLoginReturnTo("dashboard", path), path);
+  }
 });
 
 test("invalid login errors preserve only an opaque support reference", () => {

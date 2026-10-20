@@ -101,6 +101,7 @@ export class SharedSession {
       if (value.type === "snapshot") {
         const exercise = exerciseSchema.parse(value.exercise);
         if (exercise.id !== this.id) throw new Error("Received a frame for another session.");
+        if (exercise.revision < this.authoritativeExercise.revision) return;
         this.update({exercise, scenario: value.scenario, connected: true, owner: this.role === "staff", session: value.session, status: "Session connected", fatal: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);

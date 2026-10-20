@@ -174,11 +174,12 @@ export function commandHasReadback(c?: Instruction) {
 }
 
 export function pendingCommands(exercise: Exercise, aircraftId: string): Message[] {
+  const frequency = exercise.aircraft.find(a => a.id === aircraftId)?.frequency;
   const messages = exercise.messages.filter(m => m.aircraftId === aircraftId);
   const answered = new Set(messages.filter(m => m.sender === "pilot" && m.commandId).map(m => m.commandId));
   let cutoff = -1;
   for (let i = 0; i < messages.length; i++) if (messages[i].sender === "controller" && commandHasReadback(messages[i].instruction) && (answered.has(messages[i].id) || messages[i].retractedBy || messages[i].acknowledged)) cutoff = i;
-  return messages.slice(cutoff + 1).filter(m => m.sender === "controller" && commandHasReadback(m.instruction));
+  return messages.slice(cutoff + 1).filter(m => m.sender === "controller" && m.frequency === frequency && commandHasReadback(m.instruction));
 }
 /** Contextual controller replies target the latest unanswered pilot transmission. */
 export function pendingPilotMessage(exercise: Exercise, aircraftId: string, frequency: Frequency): Message | undefined {

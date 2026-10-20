@@ -7,7 +7,7 @@ export interface SessionSummary {
   scenario?: {title: string; finished: boolean};
 }
 export const sessionCode = (id: string, airport = "EGPH") => `${airport}-${id.slice(0, 8).toUpperCase()}`;
-export const sessionPath = (role: SessionRole, id: string) => `/simulator/${role}/${id}`;
+export const sessionPath = (role: SessionRole, id: string) => `/sweatbox/${role}/${id}`;
 export const SESSION_LEASE_MS = 15_000;
 export const SESSION_FRAME_MS = 200;
 

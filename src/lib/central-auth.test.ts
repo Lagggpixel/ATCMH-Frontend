@@ -18,6 +18,14 @@ const env = {
 };
 const opaque = "o".repeat(43);
 
+test("Sweatbox sign-in preserves supported destinations and rejects unrelated paths", () => {
+  const id = "ba15f60c-450b-4e88-9786-0f6660fe00fd";
+  for (const path of ["/sweatbox", "/sweatbox/about", "/sweatbox/staff?session=" + id, `/sweatbox/staff/${id}`, `/sweatbox/mentee/${id}`, "/sweatbox/scenarios", "/sweatbox/scenarios/new", `/sweatbox/scenarios/${id}`, "/sweatbox/replays", `/sweatbox/replays/${id}`, `/simulator/mentee/${id}`]) {
+    assert.equal(safeLocalReturnTo(path), path);
+  }
+  for (const path of ["/sweatboxish", "/sweatbox/admin", "/sweatbox/replays/not-a-uuid", "//evil.test/sweatbox/staff", "/sweatbox/%2f%2fevil.test"]) assert.equal(safeLocalReturnTo(path), "/exams");
+});
+
 test("central login URL keeps both providers and an AuthReturnPolicy-safe relative callback", () => {
   for (const provider of ["discord", "ifc"] as const) {
     const url = centralLoginUrl(provider, "/exams/quizzes?view=mine", env);

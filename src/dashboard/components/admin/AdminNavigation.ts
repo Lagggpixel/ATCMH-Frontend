@@ -37,7 +37,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
     navigationGroup("Assessment", [{
         items: [
             ...(adminUser?.canManageMockQuestions ? [{path: "/dashboard/mock-questions", label: "Mock Questions"}] : []),
-            ...(simulatorEnabled && canAccessStaffSimulator(adminUser) ? [{path: "/simulator/staff", label: "ATC Simulator"}] : []),
+            ...(simulatorEnabled && canAccessStaffSimulator(adminUser) ? [{path: "/sweatbox/staff", label: "ATCMH Sweatbox"}] : []),
             ...(examCenterEnabled ? [
                 {path: "/dashboard/exams", label: "Exam Center"},
                 {path: "/dashboard/courses", label: "Course Center"},
@@ -62,7 +62,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
         ],
     }]),
 ].map(group => adminUser?.canAccessDashboard === false
-    ? {...group, items: group.items.filter(item => item.path === "/simulator/staff"), sections: group.sections.map(section => ({...section, items: section.items.filter(item => item.path === "/simulator/staff")}))}
+    ? {...group, items: group.items.filter(item => item.path === "/sweatbox/staff"), sections: group.sections.map(section => ({...section, items: section.items.filter(item => item.path === "/sweatbox/staff")}))}
     : group).filter(group => group.items.length > 0);
 
 export const adminNavigationItems = (adminUser: AdminUser | undefined, examCenterEnabled: boolean) =>

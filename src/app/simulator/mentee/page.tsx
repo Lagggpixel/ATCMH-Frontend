@@ -1,3 +1,3 @@
 import {redirect} from "next/navigation";
 
-export default function MenteeSimulatorPage() {redirect("/simulator/staff");}
+export default function MenteeSimulatorPage() {redirect("/sweatbox/staff");}

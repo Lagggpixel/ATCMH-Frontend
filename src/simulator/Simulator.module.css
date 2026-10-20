@@ -295,7 +295,8 @@
 .flightLayout {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;align-items:start}
 .patternControls {min-width:0;display:grid;gap:22px}
 .controlFields .patternControls>h2 {font-size:21px;color:#eef3f6;font-weight:600;margin:0;padding-bottom:12px;border-bottom:1px solid #45535d}
-.flightGrid {display:grid;grid-template-columns:.7fr 1fr 1fr;gap:12px;align-items:end}
+.flightGrid {display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}
+.flightGrid>fieldset {grid-column:1/-1}
 .patternLeg h3 {font-size:14px;font-weight:500;margin:0 0 10px;color:#dbe5eb}
 .staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:42px minmax(180px,1fr) min(460px,55vh)}
 .legButtons {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
