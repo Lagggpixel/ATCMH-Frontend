@@ -4,7 +4,7 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
   const isProduction = nodeEnv === "production";
   const { dashboardApiUrl } = resolvePublicRuntimeConfig(env, nodeEnv);
   const guideMedia = ["/pilot-guide", "/dashboard/pilot-guide"].includes(pathname.replace(/\/$/, ""));
-  const simulator = /^\/simulator(?:\/|$)/.test(pathname);
+  const simulator = /^\/(?:sweatbox|simulator)(?:\/|$)/.test(pathname);
   const contentSecurityPolicy = [
     "default-src 'self'",
     "base-uri 'self'",
@@ -18,7 +18,7 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `connect-src 'self' ${dashboardApiUrl}${/^\/simulator(?:\/|$)/.test(pathname) ? " https://terrain.infinitehorizon.app" : ""}`,
+    `connect-src 'self' ${dashboardApiUrl}${simulator ? " https://terrain.infinitehorizon.app" : ""}`,
     ...(isProduction ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 

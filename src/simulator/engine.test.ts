@@ -38,7 +38,7 @@ test("instructions validate frequency, state and numeric input", () => {
 test("taxi and crossing require configured paths and hold-short points", () => {
   const a = newAircraft("a", false); assert.match(validateAssignment(a, {type: "taxi"})!, /path/);
   a.taxiPath = [{x: 0, y: 0}, {x: 0.1, y: 0}]; assert.match(validateAssignment(a, {type: "hold-short"})!, /no upcoming/);
-  assert.match(validateAssignment(a, {type: "cross"})!, /not holding/);
+  assert.match(validateAssignment(a, {type: "cross"})!, /no upcoming runway crossing/);
 });
 test("taxi stops at marked hold, crossing releases it once, and path end parks traffic", () => {
   let state = initialExercise(); const a = state.aircraft[1]; a.position = {x: 0, y: 0}; a.heading = 90;
@@ -158,7 +158,7 @@ test("Unable declines without executing; assignment requires a valid unanswered 
   assert.match(applyEnvelope(queued, {id: "no-command", time: 1, action: {kind: "pilot", aircraftId: "demo-air", text: "Readback", assign: true}}).error!, /no pending/);
   queued.aircraft[0].frequency = "ground";
   const result = applyEnvelope(queued, {id: "stale", time: 1, action: {kind: "pilot", aircraftId: "demo-air", text: "Turning base", replyTo: "queued-turn", assign: true}});
-  assert.match(result.error!, /not on this frequency/); assert.equal(result.state.messages.length, 1);
+  assert.match(result.error!, /answered or superseded/); assert.equal(result.state.messages.length, 1);
 });
 test("assignment revalidates routes and logs a frequency-change readback on the original frequency", () => {
   let state = initialExercise();

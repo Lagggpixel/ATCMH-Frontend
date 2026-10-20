@@ -24,7 +24,7 @@ function People({replay}: {replay: ReplaySummary}) {
   return <p className={libraryStyles.people}>{(["staff", "mentee"] as const).map(role => <span key={role}><small>{role === "staff" ? "Mentor" : "Mentee"}</small>{replay.participants.filter(p => p.role === role).map(p => p.name || p.accountId).join(", ") || "No participant recorded"}</span>)}</p>;
 }
 export default function ReplayLibrary({id}: {id?: string}) {
-  return <LearningFrame product="Simulator"><SessionAccess embedded role="staff" returnTo={id ? `/simulator/replays/${id}` : "/simulator/replays"}>
+  return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo={id ? `/sweatbox/replays/${id}` : "/sweatbox/replays"}>
     {() => id ? <ReplayViewer key={id} id={id}/> : <ReplayIndex/>}
   </SessionAccess></LearningFrame>;
 }
@@ -51,7 +51,7 @@ function ReplayViewer({id}: {id: string}) {
   return <main className={libraryStyles.library}>
     <TrainingNav active="replays"/>
     <div className={`${libraryStyles.libraryContent} ${replayStyles.viewerContent}`}>
-      <Link href="/simulator/replays">← All replays</Link>
+      <Link href="/sweatbox/replays">← All replays</Link>
       <header className={replayStyles.viewerHeader}>
         <div><h1>{detail?.replay.title ?? "Session replay"}</h1>{detail ? <People replay={detail.replay}/> : null}</div>
         {detail ? <div className={replayStyles.recordMeta}><span><LockSimple size={14} aria-hidden="true"/>Read only</span><p>Session ended <time dateTime={new Date(detail.replay.endedAt).toISOString()}>{date(detail.replay.endedAt)}</time></p></div> : null}

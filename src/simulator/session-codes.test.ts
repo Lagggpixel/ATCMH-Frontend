@@ -30,7 +30,7 @@ test("direct mentee links retain seat access and login returns without the join 
   const response = await api.sessionOperation(new Request(`https://atcmh.test/api/simulator/sessions/${session.id}/join`, {method: "POST", body: JSON.stringify({role: "mentee", token: randomUUID()})}), session.id, "join");
   assert.equal(response.status, 200);
   assert.equal(store.records.get(session.id)?.mentee?.accountId, "learner");
-  const path = `/simulator/mentee/${session.id}`;
+  const path = `/sweatbox/mentee/${session.id}`;
   assert.equal(safeLoginReturnTo("dashboard", path), path);
-  assert.equal(safeLoginReturnTo("dashboard", "/simulator/mentee"), "/");
+  assert.equal(safeLoginReturnTo("dashboard", "/sweatbox/mentee"), "/");
 });

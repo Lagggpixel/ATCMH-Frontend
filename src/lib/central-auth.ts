@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import {safeLoginReturnTo} from "../platform/auth/login-routing";
 
 export const sessionCookie = "__Host-atcmh_session";
 export const loopbackSessionCookie = "atcmh_session";
@@ -77,7 +78,9 @@ export function safeLocalReturnTo(value: string | null | undefined): string {
       || parsed.pathname === "/apply" || parsed.pathname.startsWith("/apply?") || parsed.pathname === "/pilot-guide"
       || parsed.pathname === "/careers" || parsed.pathname.startsWith("/careers/")
       || parsed.pathname === "/leaderboard" || parsed.pathname === "/dashboard"
-      || parsed.pathname.startsWith("/dashboard/") || /^\/simulator\/(mentee|staff)(\/[0-9a-f-]{36})?$/i.test(parsed.pathname) || parsed.pathname === "/exams"
+      || parsed.pathname.startsWith("/dashboard/")
+      || (/^\/(?:sweatbox|simulator)(?:\/|$)/.test(parsed.pathname) && safeLoginReturnTo("dashboard", parsed.pathname) === parsed.pathname)
+      || parsed.pathname === "/exams"
       || parsed.pathname.startsWith("/exams/");
     return parsed.origin === PRIVATE_RETURN_ORIGIN && allowed
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`

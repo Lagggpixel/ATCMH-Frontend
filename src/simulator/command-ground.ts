@@ -6,6 +6,19 @@ import {courseDifference, courseTo} from "./command-navigation";
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 type GroundPlan = {path: TaxiPoint[]; leader?: string; error?: undefined} | {error: string; path?: undefined; leader?: undefined};
 
+/** A clearance belongs to the first hold ahead, never to an arbitrary waypoint. */
+export function crossingHold(airport: Airport, a: Aircraft, runway?: string): {index: number; error?: undefined} | {error: string; index?: undefined} {
+  if (!["taxi", "parked"].includes(a.mode)) return {error: "This instruction requires taxiing or stopped ground traffic."};
+  const index = a.taxiPath.findIndex((point, i) => i >= a.taxiIndex && point.hold);
+  if (index < 0) return {error: "The taxi path has no upcoming runway crossing."};
+  const hold = a.taxiPath[index];
+  if (runway && hold.runway && !airportRunways(airport).some(pair => pair.ends.some(end => end.id === runway) && pair.ends.some(end => end.id === hold.runway)))
+    return {error: "Clearance must match the runway at the next hold point."};
+  if (!a.taxiPath.slice(index + 1).some(point => distance(point, hold) > 1e-7))
+    return {error: "The taxi path ends at this hold point. Configure a route across the runway first."};
+  return {index};
+}
+
 /** Travel to the next mapped junction, then take the selected branch. */
 export function progressiveRoute(airport: Airport, a: Aircraft, variant: string, traffic: Aircraft[] = []): GroundPlan {
   if (variant === "follow") {

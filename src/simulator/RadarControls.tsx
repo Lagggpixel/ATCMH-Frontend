@@ -1,4 +1,5 @@
 "use client";
+import LandingOutcomeControl from "./LandingOutcomeControl";
 import RouteSetup from "./RouteSetup";
 import {useState} from "react";
 import {getAirport} from "./airports";
@@ -6,10 +7,10 @@ import {engineFor} from "./engine";
 import {ALTITUDES, altitudeLabel, radarEnvironmentFor, roundedHeading} from "./radar";
 import type {Aircraft, Exercise, Instruction, RadarEnvironment} from "./model";
 
-export function RadarSeedControls({aircraft: a, environment, onEdit}: {aircraft: Aircraft; environment: RadarEnvironment; onEdit: (patch: Partial<Aircraft>) => void}) {
+export function RadarSeedControls({aircraft: a, environment, onEdit}: {aircraft: Aircraft; environment: RadarEnvironment; onEdit: (patch: Partial<Aircraft>) => void | boolean | Promise<boolean>}) {
   const r = a.radar;
   if (!r) return null;
-  return <section aria-label="Radar navigation setup"><h3>Radar navigation</h3>
+  return <section aria-label="Radar navigation setup"><h3>Radar navigation</h3><LandingOutcomeControl value={a.landing} onChange={landing => onEdit({landing})}/>
     <label>Initial guidance<select value={r.navigation} onChange={e => onEdit({radar: {...r, navigation: e.target.value as "heading" | "route", routeIndex: 0, cleared: undefined, captured: false}})}><option value="heading">Fly heading</option><option value="route" disabled={!a.flightPlan.length}>Follow route</option>{!["heading", "route"].includes(r.navigation) ? <option value={r.navigation}>{r.navigation}</option> : null}</select></label>
     <label>Expected approach<select value={r.expected ?? ""} onChange={e => onEdit({radar: {...r, expected: e.target.value || undefined, cleared: undefined, captured: false}})}><option value="">None</option>{environment.approaches.map(p => <option key={p.id} value={p.id}>{p.type.toUpperCase()} · Runway {p.runway}</option>)}</select></label>
     <label>Arrival STAR<input maxLength={100} value={a.arrivalProcedure ?? ""} onChange={event => onEdit({arrivalProcedure: event.target.value.trim() || undefined})} placeholder="Optional procedure name"/></label>
