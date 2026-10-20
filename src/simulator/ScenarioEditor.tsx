@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useState} from "react";
+import {memo, useCallback, useDeferredValue, useEffect, useMemo, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import SessionAccess from "./SessionAccess";
@@ -18,9 +18,10 @@ import {blankScenario, normalizeScenario, normalizeScenarioAircraft, gatesFor, i
 import {sessionJson} from "./shared-transport";
 import {trainingRequest} from "./TrainingLibrary";
 import ScenarioEventEditor, {defaultEvent} from "./ScenarioEventEditor";
-import type {Aircraft, Exercise, Point} from "./model";
+import type {Exercise, Point} from "./model";
 import sim from "./Simulator.module.css";
 import styles from "./Training.module.css";
+const EditorScope = memo(Scope);
 type Preview = {exercise: Exercise; runtime: ScenarioRuntime};
 export default function ScenarioEditor({id}: {id: string}) {
   return <SessionAccess role="staff" returnTo={`/sweatbox/scenarios/${id}`}>{csrf => <Editor key={id} id={id} csrf={csrf}/>}</SessionAccess>;
@@ -57,12 +58,16 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
     });}, 100);
     return () => clearInterval(timer);
   }, [preview?.exercise.running]);
-  const aircraft = draft.aircraft.map(a => ({...newAircraft(a.key, false), ...a.seed}));
+  const aircraft = useMemo(() => draft.aircraft.map(a => ({...newAircraft(a.key, false), ...a.seed})), [draft.aircraft, newAircraft]);
+  // Keep input/draft updates immediate; the expensive map can catch up between keystrokes.
+  const scopeAircraft = useDeferredValue(aircraft);
+  const scopeGates = useMemo(() => gateTargets(getAirport({airport: draft.airport})), [draft.airport]);
   const spec = draft.aircraft.find(a => a.key === selected), a = aircraft.find(a => a.id === selected), event = draft.events.find(e => e.id === eventId);
   const radarMode = trainingMode(draft);
   const ground = !!spec && groundSpawn(spec.seed);
-  const patchAircraft = (patch: Partial<Aircraft>) => setDraft(d => ({...d, aircraft: d.aircraft.map(a => a.key === selected ? {...a, seed: {...a.seed, ...patch, ...(a.seed.radar && patch.altitude !== undefined ? {radar: {...a.seed.radar, targetAltitude: undefined}} : {})}} : a)}));
-  const select = (key: string | null) => {setSelected(key ?? ""); setEventId(""); setNotes(false); setEditMode("");};
+  const select = useCallback((key: string | null) => {setSelected(key ?? ""); setEventId(""); setNotes(false); setEditMode("");}, [setSelected, setEventId, setNotes, setEditMode]);
+  const previewIds = preview?.runtime.aircraftIds;
+  const selectOnScope = useCallback((id: string | null) => select(previewIds ? Object.entries(previewIds).find(([, value]) => value === id)?.[0] ?? null : id), [previewIds, select]);
   const save = async () => {
     setError(""); setNotice(""); const result = scenarioSchema.safeParse(draft);
     if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return null;}
@@ -84,20 +89,22 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
     const key = `traffic-${crypto.randomUUID().slice(0, 8)}`, next = newAircraft(key, air); next.callsign = `${air ? "Speedbird" : "Easy"} ${100 + draft.aircraft.length}`;
     setDraft(d => ({...d, aircraft: [...d.aircraft, {key, initial: true, seed: seedFromAircraft(next), ...(!air ? {gateId: scenarioGates.find(g => !d.aircraft.some(a => a.gateId === g.id))?.id ?? scenarioGates[0].id} : {})}].map(normalizeAircraft)})); select(key);
   };
-  const placeAtGate = (aircraftId: string, gateId: string) => setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key === aircraftId ? placeAircraftAtGate(spec, gateId, AIRPORT) : spec)}));
+  const placeAtGate = useCallback((aircraftId: string, gateId: string) => setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key === aircraftId ? placeAircraftAtGate(spec, gateId, AIRPORT) : spec)})), [AIRPORT]);
+  const selectGate = useCallback((gateId: string) => placeAtGate(selected, gateId), [placeAtGate, selected]);
   const removeAircraft = () => {
     if (!window.confirm("Remove this aircraft and all events that reference it?")) return;
     setDraft(d => ({...d, aircraft: d.aircraft.filter(p => p.key !== selected), events: d.events.filter(e => !(e.trigger.type === "condition" && "aircraftKey" in e.trigger.condition && e.trigger.condition.aircraftKey === selected)).map(e => ({...e, actions: e.actions.filter(a => !("aircraftKey" in a) || a.aircraftKey !== selected)})).filter(e => e.actions.length)})); select(null);
   };
-  const point = (p: Point) => {
+  const point = useCallback((p: Point) => {
     if (editMode === "condition" && event?.trigger.type === "condition" && event.trigger.condition.type === "position") {
       const trigger = {...event.trigger, condition: {...event.trigger.condition, point: p}};
       setDraft(d => ({...d, events: d.events.map(e => e.id === event.id ? {...e, trigger} : e)})); setEditMode(""); return;
     }
-    if (!a || ground && editMode === "position") return;
-    patchAircraft(editMode === "position" ? {position: p} : editMode === "taxi" ? {taxiPath: [...a.taxiPath, {...p, hold}]} : {flightPlan: [...a.flightPlan, p]});
+    if (!selected || ground && editMode === "position") return;
+    setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key !== selected ? spec : {...spec, seed: {...spec.seed,
+      ...(editMode === "position" ? {position: p} : editMode === "taxi" ? {taxiPath: [...spec.seed.taxiPath, {...p, hold}]} : {flightPlan: [...spec.seed.flightPlan, p]})}})}));
     if (editMode === "position") setEditMode("");
-  };
+  }, [editMode, event, ground, selected, hold, setEditMode]);
   const test = () => {
     const result = scenarioSchema.safeParse(draft); if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return;}
     setPreview(createScenarioExercise(result.data, "scenario-preview", crypto.randomUUID())); setEditMode(""); setError("");
@@ -111,7 +118,7 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
   return <EditorScreen><main className={`${sim.simulator} ${styles.editor}`}>
     <header className={styles.editorHeader}><Link href="/sweatbox/scenarios" onClick={e => {if (dirty && !window.confirm("Leave without saving your draft?")) e.preventDefault();}}>← Scenarios</Link><input aria-label="Scenario name" maxLength={80} value={draft.title} disabled={!!preview} onChange={e => setDraft({...draft, title: e.target.value})}/><span role="status">{preview ? `Test · ${timeLabel(preview.exercise.elapsed)}` : !record ? "Not saved yet" : dirty ? "Unsaved changes" : "Saved"}</span>{preview ? <><button onClick={() => previewCommand(preview.exercise.running ? "pause" : "play")}>{preview.exercise.running ? "Pause test" : "Start test"}</button><button onClick={() => setPreview(null)}>Back to editor</button></> : <><button disabled={busy} onClick={() => void save()}>Save draft</button><button disabled={busy} onClick={test}>Test</button><button className={styles.primary} disabled={busy} onClick={() => void publish()}>Publish{record?.publishedRevision ? ` v${record.publishedRevision + 1}` : ""}</button></>}</header>
     <aside className={styles.outline}><button onClick={() => {select(null); setNotes(false);}}>Airport & frequency</button><button aria-pressed={notes} onClick={() => {setNotes(true); setEventId(""); select(null); setNotes(true);}}>Instructor notes</button><div className={styles.outlineHeading}><h2>Traffic <small>{draft.aircraft.length}</small></h2></div>{!preview ? <div className={styles.actions}><button disabled={draft.aircraft.length >= 50 || radarMode !== "local"} onClick={() => addAircraft(false)}>+ Ground</button><button disabled={draft.aircraft.length >= 50} onClick={() => addAircraft(true)}>+ Airborne</button></div> : null}<div className={styles.outlineList}>{draft.aircraft.map(p => <button key={p.key} aria-pressed={selected === p.key && !eventId} onClick={() => select(p.key)}><strong>{p.seed.callsign}</strong><small>{p.seed.type} · {(preview ? preview.exercise.aircraft.find(a => a.id === preview.runtime.aircraftIds[p.key])?.frequency : p.seed.frequency) ?? "No frequency"}</small><small>{p.initial ? "Present at Start" : "Scheduled spawn"}{preview && !preview.exercise.aircraft.some(a => a.id === preview.runtime.aircraftIds[p.key]) ? " · Not present" : ""}</small></button>)}</div><footer>{environmentLabel(draft)}<br/>{record ? <>Created by {record.ownerName || record.ownerId}<br/></> : null}</footer></aside>
-    <div className={styles.editorScope}><Scope key={`${AIRPORT.icao}:${radarMode}`} airport={AIRPORT} radarEnvironment={draft.radarEnvironment} radarMode={radarMode === "local" ? undefined : radarMode} autoReadback={preview?.exercise.autoReadback} aircraft={preview?.exercise.aircraft ?? aircraft} running={preview?.exercise.running ?? false} frequency="all" gates={!preview && ground && !editMode ? gateTargets(AIRPORT) : undefined} selectedGate={spec?.gateId} onGateSelect={gateId => placeAtGate(selected, gateId)} onGateDrop={placeAtGate} selected={preview ? preview.runtime.aircraftIds[selected] ?? null : selected || null} onSelect={id => select(preview ? Object.entries(preview.runtime.aircraftIds).find(([, value]) => value === id)?.[0] ?? null : id)} editMode={preview ? "" : editMode} onPoint={point}/></div>
+    <div className={styles.editorScope}><EditorScope key={`${AIRPORT.icao}:${radarMode}`} airport={AIRPORT} radarEnvironment={draft.radarEnvironment} radarMode={radarMode === "local" ? undefined : radarMode} autoReadback={preview?.exercise.autoReadback} aircraft={preview?.exercise.aircraft ?? scopeAircraft} running={preview?.exercise.running ?? false} frequency="all" gates={!preview && ground && !editMode ? scopeGates : undefined} selectedGate={spec?.gateId} onGateSelect={selectGate} onGateDrop={placeAtGate} selected={preview ? preview.runtime.aircraftIds[selected] ?? null : selected || null} onSelect={selectOnScope} editMode={preview ? "" : editMode} onPoint={point}/></div>
     <aside className={styles.inspector} aria-label="Scenario settings">
     {preview ? <div className={styles.inspectorFields}><h2>{draft.title}</h2><p>Preview movement and scheduled requests. This does not change any training session.</p><button onClick={test}>Restart test from 00:00</button><label><input type="checkbox" checked={!!preview.exercise.autoReadback} onChange={e => {const enabled = e.target.checked; setPreview(current => current ? {...current, exercise: applyEnvelope(current.exercise, {id: crypto.randomUUID(), time: Date.now(), action: {kind: "auto-readback", enabled}}).state} : current);}}/>Automatic during rehearsal</label><h3>Messages</h3>{preview.exercise.messages.slice(-15).map(m => <p key={m.id} className={styles.previewMessage}>{m.text}</p>)}{record?.publishedRevision ? <button disabled={busy} onClick={async () => {setBusy(true); try {const value = await trainingRequest(csrf, `scenarios/${record.id}`, {action: "launch", revision: record.publishedRevision}); router.push(`/sweatbox/staff?session=${value.sessionId}`);} catch (e) {setError((e as Error).message); setBusy(false);}}}>Create session from revision {record.publishedRevision}</button> : null}</div> : notes ? <div className={styles.inspectorFields}><h2>Instructor notes</h2><label>Instructor notes<textarea rows={8} maxLength={6000} value={draft.instructorNotes} onChange={e => setDraft({...draft, instructorNotes: e.target.value})}/></label></div> : event ? <ScenarioEventEditor event={event} definition={draft} onChange={value => setDraft(d => ({...d, events: d.events.map(e => e.id === value.id ? value : e)}))} onRemove={() => {setDraft(d => ({...d, events: d.events.filter(e => e.id !== event.id)})); setEventId("");}} onPickPosition={() => setEditMode("condition")}/> : a && spec ? <ScenarioAircraftInspector key={selected} definition={draft} aircraft={a} onChange={setDraft} onRemove={removeAircraft} editMode={editMode} onEditMode={setEditMode} hold={hold} onHold={setHold} onError={setError}/> : <ScenarioSetup compact definition={draft} onChange={setDraft} locked={!!draft.aircraft.length || !!draft.events.length}/>}
     </aside>

@@ -50,8 +50,8 @@ export default function ScenarioAircraftInspector({definition, aircraft: a, onCh
     <div className={styles.body}>
       <section className={styles.panel} role="tabpanel" id={`${id}-Setup-panel`} aria-labelledby={`${id}-Setup-tab`} hidden={tab !== "Setup"}>
         <div className={styles.section}>
-          <label>Callsign<input value={a.callsign} maxLength={80} onChange={e => patch({callsign: e.target.value || "Aircraft"})}/></label>
-          <div className={styles.pair}><label>Type<input value={a.type} maxLength={12} onChange={e => patch({type: e.target.value || "A320"})}/></label>
+          <label>Callsign<input value={a.callsign} maxLength={80} onChange={e => patch({callsign: e.target.value})}/></label>
+          <div className={styles.pair}><label>Type<input value={a.type} maxLength={12} onChange={e => patch({type: e.target.value})}/></label>
             <label>Frequency<select value={a.frequency ?? "none"} onChange={e => patch({frequency: e.target.value === "none" ? null : e.target.value as Frequency})}><option value="ground">Ground</option><option value="tower">Tower</option>{radarMode !== "local" ? <><option value="approach">Approach</option><option value="center">Center</option></> : null}<option value="none">None</option></select></label></div>
           <label>Appears<select value={spec.initial ? "initial" : "scheduled"} onChange={e => schedule(e.target.value === "initial")}><option value="initial">At Start</option><option value="scheduled">From a timeline event</option></select></label>
         </div>
