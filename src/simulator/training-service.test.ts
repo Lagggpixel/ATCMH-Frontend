@@ -29,6 +29,7 @@ class Database {
   };
   private run(t: Tables, raw: string, v: unknown[]): [Row[] | object, unknown[]] {
     const sql = raw.replace(/\s+/g, " ").toUpperCase(), select = (rows: Row[]) => [structuredClone(rows), []] as [Row[], unknown[]];
+    if (sql.startsWith("SELECT OWNER_ID,SCENARIO_ID,REVISION,SESSION_ID FROM SIMULATOR_ATTEMPTS")) return select(t.attempts.filter(r => r.id === v[0]));
     if (sql.startsWith("SELECT AUTO_READBACK FROM SIMULATOR_STAFF_PREFERENCES")) return select(t.preferences.filter(r => r.account_id === v[0]));
     if (sql.startsWith("INSERT INTO SIMULATOR_STAFF_PREFERENCES")) {
       const row = t.preferences.find(r => r.account_id === v[0]);
@@ -224,5 +225,23 @@ test("durable replays survive restart/end, sample movement, retain messages and 
     const final = new ReplayTimeline(replay.initial!, replay.frames).at(replay.replay.duration);
     assert.ok(final.messages.some(m => m.text === "Request departure")); assert.ok(final.publishedAtis.length > 0);
     assert.ok(final.aircraft[0].position.x !== replay.initial!.aircraft[0].position.x || final.aircraft[0].position.y !== replay.initial!.aircraft[0].position.y);
+  } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
+});
+
+
+test("retries of a scenario launch reuse the recorded attempt and reject request ID reuse", async () => {
+  const db = new Database(); setPoolForTests(db as unknown as Pool); setWritePoolForTests(db as unknown as Pool);
+  try {
+    const service = new TrainingService(), actor = {accountId: "10001", staff: true};
+    const saved = await service.save(actor, blankScenario());
+    const published = await service.publish(actor, saved.id, saved.version), requestId = randomUUID();
+    const first = await service.launchScenario(actor, saved.id, published.publishedRevision, requestId);
+    const again = await service.launchScenario(actor, saved.id, published.publishedRevision, requestId);
+    assert.deepEqual(again, first); assert.equal(db.tables.sessions.length, 1); assert.equal(db.tables.attempts.length, 1);
+    assert.equal(db.tables.attempts[0].id, requestId);
+    await assert.rejects(service.launchScenario({...actor, accountId: "another"}, saved.id, published.publishedRevision, requestId), {code: "request-conflict"});
+    await service.publish(actor, saved.id, published.version);
+    await assert.rejects(service.launchScenario(actor, saved.id, 2, requestId), {code: "request-conflict"});
+    assert.equal(db.tables.sessions.length, 1);
   } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
 });

@@ -196,7 +196,7 @@ test("staff requests received behind the pause screen are queued and spoken once
 });
 
 test("airline callsign numbers are spoken individually without changing other numbers", () => {
-  assert.equal(aviationSpeech("Speedbird 104, climb to 3000 feet. Wind 240 at 10. QNH 1001.", ["Speedbird 104"]), "Speedbird one zero four, climb to 3000 feet. Wind 240 at 10. QNH 1001.");
+  assert.equal(aviationSpeech("Speedbird 104, climb to 3000 feet. Wind 240 at 10. QNH 1001.", ["Speedbird 104"]), "Speedbird one zero four, climb to three thousand feet. Wind 240 at 10. Q-N-H 1001.");
   assert.equal(aviationSpeech("American 001, follow Delta 64. American 0010.", ["American 001", "Delta 64"]), "American zero zero one, follow Delta six four. American 0010.");
   assert.equal(aviationSpeech("Air Test (104), ready.", ["Air Test (104)"]), "Air Test (one zero four), ready.");
 });

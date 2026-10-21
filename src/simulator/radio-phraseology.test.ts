@@ -5,6 +5,7 @@ import {engineFor, applyEnvelope, autoReadbacks, advance} from "./engine";
 import {catalogFor} from "./catalog";
 import {getAirport} from "./airports";
 import {checkInTransmission} from "./radar";
+import {aviationSpeech} from "./radio-audio";
 
 for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording matches actual shortest turn, heading rounding and readback`, () => {
   for (const [from, heading, phrase] of [
@@ -42,16 +43,18 @@ test("manual and automatic check-ins use feet below 18000 and spoken flight leve
     assert.equal(autoReadbacks(state, 1000, randomUUID).messages.at(-1)!.text, expected);
   }
 });
-test("approach requests use spelled initialisms and airport callsign instead of runway or ATIS", () => {
+test("approach requests display compact initialisms and ICAO codes, and speak airport names", () => {
   for (const airport of ["EGPH", "EGLL"]) {
     const state = engineFor({airport, trainingStation: `${airport}:approach`}).initialExercise(), a = state.aircraft[0]; a.callsign = "Speedbird 1";
     const catalog = catalogFor(getAirport(state)), request = catalog.resolvePilotRequest({requestId: "request-approach"})!;
     const destination = airport === "EGPH" ? "Edinburgh" : "Heathrow";
-    assert.equal(catalog.pilotRequestText(a, request, a.runway!, false, {exercise: state}), `Speedbird 1, requesting I-L-S approach to ${destination}`);
-    for (const [type, phrase] of [["ils", "I-L-S"], ["gps", "G-P-S"], ["visual", "visual"]] as const) {
+    assert.equal(catalog.pilotRequestText(a, request, a.runway!, false, {exercise: state}), `Speedbird 1, requesting ILS approach at ${airport}`);
+    for (const [type, phrase] of [["ils", "ILS"], ["gps", "GPS"], ["visual", "visual"]] as const) {
       const approach = state.radarEnvironment!.approaches.find(p => p.type === type)!;
       approach.id = `custom-${type}`; a.radar!.expected = approach.id;
-      assert.equal(catalog.pilotRequestText(a, request, a.runway!, false, {exercise: state}), `Speedbird 1, requesting ${phrase} approach to ${destination}`);
+      const display = catalog.pilotRequestText(a, request, a.runway!, false, {exercise: state});
+      assert.equal(display, `Speedbird 1, requesting ${phrase} approach at ${airport}`);
+      assert.equal(aviationSpeech(display, [a.callsign]), `Speedbird one, requesting ${phrase === "visual" ? phrase : phrase.split("").join("-")} approach at ${destination}`);
     }
   }
 });

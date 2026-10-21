@@ -1,4 +1,6 @@
 import {type Exercise, type Frequency, type Message} from "./model";
+import {aviationSpeech} from "./radio-speech";
+export {aviationSpeech} from "./radio-speech";
 
 export interface RadioVoice {id: string; name: string; language: string; local: boolean}
 export interface VoiceSettings {voice: string; rate: number; volume: number; allowOnline?: boolean}
@@ -14,7 +16,7 @@ export interface SpeechOutput {
 interface AudioState extends VoiceSettings {
   available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
 }
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.15, volume: 1, speaking: "", error: "", status: ""};
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.3, volume: 1, speaking: "", error: "", status: ""};
 export interface AudioPreference {read(): boolean | undefined; write(enabled: boolean): void}
 /** Only the on/off choice persists; online voice consent remains per tab. */
 export function browserAudioPreference(accountId: string, role: "staff" | "mentee"): AudioPreference {
@@ -23,23 +25,6 @@ export function browserAudioPreference(accountId: string, role: "staff" | "mente
     read: () => {try {const value = window.localStorage.getItem(key); return value === "true" ? true : value === "false" ? false : undefined;} catch {return undefined;}},
     write: enabled => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Audio still works when browser storage is unavailable. */ }},
   };
-}
-const DIGITS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
-const digits = (value: string) => [...value].map(n => DIGITS[Number(n)]).join(" ");
-const PHONETIC = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"];
-function spokenCallsign(callsign: string): string {
-  if (/^(?:[a-z0-9]{1,2}-[a-z0-9]+|[a-z]+[0-9][a-z0-9]*)$/i.test(callsign)) return [...callsign.toUpperCase()].filter(c => c !== "-").map(c => /[0-9]/.test(c) ? DIGITS[Number(c)] : PHONETIC[c.charCodeAt(0) - 65]).join(" ");
-  return callsign.replace(/[0-9]+/g, digits);
-}
-export function aviationSpeech(text: string, callsigns: readonly string[] = []): string {
-  const names = [...new Set(callsigns.map(c => c.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
-  if (names.length) {
-    const escaped = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    text = text.replace(new RegExp(`(?<![a-z0-9])(?:${escaped.join("|")})(?![a-z0-9])`, "gi"), spokenCallsign);
-  }
-  return text.replace(/(\bon (?:left |right )?(?:final|base|downwind|crosswind|upwind) )(\d{2})([LRC])?\b/gi, (_, leg: string, number: string, side: string | undefined) => `${leg}${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
-    .replace(/\brunway (\d{2})([LRC])?\b/gi, (_, number: string, side: string | undefined) => `Runway ${digits(number)}${side ? ` ${{L: "left", R: "right", C: "center"}[side.toUpperCase()]}` : ""}`)
-    .replace(/\b(\d{3})\.(\d{2,3})\b/g, (_, whole: string, fraction: string) => `${digits(whole)} decimal ${digits(fraction)}`);
 }
 export const radioMessageText = (message: Message, callsigns: readonly string[] = []) => aviationSpeech(message.text, callsigns);
 

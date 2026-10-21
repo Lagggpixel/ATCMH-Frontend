@@ -107,7 +107,7 @@ test("PCM cache evicts old entries and teardown releases worker resources", asyn
 
 test("radio queue preserves pause/resume and suppresses AI results after disconnect", async () => {
   const h = setup(), player = new RadioAudio(); const close = player.start(h.output);
-  assert.equal(player.getSnapshot().rate, 1.15);
+  assert.equal(player.getSnapshot().rate, 1.3);
   const initial = initialExercise(); player.observe(initial, true, "all");
   const state = {...initial, messages: [{id: "fresh", aircraftId: initial.aircraft[0].id, sender: "controller" as const, time: 1, frequency: "tower" as const, text: "Runway 24, cleared for takeoff."}]};
   player.observe(state, true, "all"); assert.equal(h.generated.length, 1);
@@ -166,4 +166,18 @@ test("a stalled or crashed real worker adapter terminates and falls back without
     for (const [key, descriptor] of descriptors) {if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key);}
     t.mock.timers.reset();
   }
+});
+
+
+test("whole-message playback removes long digit gaps before applying one radio effect", async () => {
+  const h = setup(); h.speak(settings, "Speedbird one zero four, with you at four thousand");
+  const word = clip(), samples = new Float32Array(word.samples.length * 2 + 24000);
+  samples.set(word.samples); samples.set(word.samples, word.samples.length + 24000);
+  h.generated[0].resolve({samples, sampleRate: 24000}); await flush();
+  assert.equal(h.generated.length, 1, "a transmission is synthesized as continuous speech");
+  assert.equal(h.played.length, 1);
+  assert.ok(h.played[0].clip.samples.length < samples.length - 12000);
+  assert.ok(h.played[0].clip.samples.every(Number.isFinite));
+  h.played[0].resolve(); await flush(); assert.equal(h.ended(), 1);
+  h.output.dispose!();
 });

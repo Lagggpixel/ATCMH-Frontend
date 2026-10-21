@@ -594,8 +594,9 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
   for (const a of state.aircraft.filter(a => a.radar?.report && a.active && a.frequency && a.frequency !== "atis")) {
     next = structuredClone(next);
     delete next.aircraft.find(other => other.id === a.id)!.radar!.report;
-    const text = a.radar!.report === "missed" ? `${a.callsign}, executing missed approach` : a.radar!.report === "intentions" ? `${a.callsign}, ${a.radar!.expected ? `inbound for ${a.radar!.expected}` : a.radar!.navigation === "route" ? "continuing on route" : "awaiting vectors"}` : checkInTransmission(a);
-    next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text}}).state;
+    const request = a.radar!.report === "intentions" && a.radar!.expected ? {id: "request-approach" as const, runway: a.runway ?? DEFAULT_RUNWAY} : a.radar!.report === "check-in" ? {id: "check-in" as const, runway: a.runway ?? DEFAULT_RUNWAY} : undefined;
+    const text = a.radar!.report === "missed" ? `${a.callsign}, executing missed approach` : a.radar!.report === "intentions" ? `${a.callsign}, ${a.radar!.navigation === "route" ? "continuing on route" : "awaiting vectors"}` : checkInTransmission(a);
+    next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text, request}}).state;
   }
   for (const a of state.aircraft.filter(a => a.arrivalRequest)) {
     next = structuredClone(next);
