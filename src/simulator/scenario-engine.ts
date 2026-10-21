@@ -1,3 +1,4 @@
+import {reserveCallsigns} from "./callsigns";
 import {engineFor, distance} from "./engine";
 import {getAirport} from "./airports";
 import {catalogFor} from "./catalog";
@@ -35,7 +36,12 @@ export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntim
       let action: Action;
       if (spec.type === "note") continue;
       const aircraftId = runtime.aircraftIds[spec.aircraftKey];
-      if (spec.type === "spawn") action = {kind: "spawn", aircraft: materializeAircraft(runtime, spec.aircraftKey)};
+      if (spec.type === "spawn") {
+        const aircraft = materializeAircraft(runtime, spec.aircraftKey);
+        // Old running attempts predate reservations. Trust only this immutable scenario seed.
+        next = structuredClone(next); reserveCallsigns(next, [aircraft]);
+        action = {kind: "spawn", aircraft};
+      }
       else {
         const aircraft = next.aircraft.find(a => a.id === aircraftId);
         if (!aircraft) throw new Error("Target aircraft is not present. Spawn it first or skip this event.");

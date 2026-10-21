@@ -1,7 +1,7 @@
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction} from "../../lib/db";
-import {storedScenarioSchema, scenarioSchema, normalizeScenario, createScenarioExercise, scenarioFromExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
+import {storedScenarioSchema, scenarioSchema, scenarioSchemaFor, normalizeScenario, createScenarioExercise, scenarioFromExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
 import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
 import {availableControl, SessionService, type Actor} from "./session-service";
@@ -28,7 +28,7 @@ export class TrainingService {
     if (!rows[0]) throw unavailable(); const record = scenarioRecord(rows[0]); rejectMovedRadar(record.draft); return record;
   }
   async save(actor: Actor, draft: ScenarioDefinition, id?: string, version?: number) {
-    staff(actor); draft = normalizeScenario(scenarioSchema.parse(draft));
+    staff(actor); draft = normalizeScenario(storedScenarioSchema.parse(draft));
     rejectMovedRadar(draft);
     return withWriteTransaction(async connection => {
       if (id) {
@@ -36,10 +36,12 @@ export class TrainingService {
         if (!rows[0]) throw unavailable();
         if (rows[0].version !== version) throw new SessionError("revision-conflict", "This draft changed in another page. Reload before saving.", 409);
         const previous = storedScenarioSchema.parse(JSON.parse(rows[0].draft));
+        scenarioSchemaFor(previous).parse(draft);
         rejectMovedRadar(previous);
         if (previous.airport !== draft.airport && (previous.aircraft.length || previous.events.length || draft.aircraft.length || draft.events.length)) throw new SessionError("invalid-scenario", "Clear traffic and events before changing the airport, or create a new scenario.", 400);
         await connection.execute("UPDATE simulator_scenarios SET draft=?,version=version+1,updated_at=? WHERE id=?", [JSON.stringify(draft), Date.now(), id]);
       } else {
+        scenarioSchema.parse(draft);
         id = randomUUID();
         await connection.execute("INSERT INTO simulator_scenarios (id,owner_id,version,published_revision,updated_at,draft,owner_name) VALUES (?,?,1,0,?,?,?)", [id, actor.accountId, Date.now(), JSON.stringify(draft), actor.displayName ?? null]);
       }
@@ -70,7 +72,7 @@ export class TrainingService {
   private async revision(actor: Actor, scenarioId: string, revision: number) {
     await this.scenario(actor, scenarioId);
     const rows = await queryReadOnly<RevisionRow[]>("SELECT definition FROM simulator_scenario_revisions WHERE scenario_id=? AND revision=?", [scenarioId, revision]);
-    if (!rows[0]) throw unavailable(); return scenarioSchema.parse(JSON.parse(rows[0].definition));
+    if (!rows[0]) throw unavailable(); return storedScenarioSchema.parse(JSON.parse(rows[0].definition));
   }
   private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string) {
     rejectMovedRadar(definition);

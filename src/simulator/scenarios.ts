@@ -93,13 +93,18 @@ export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.l
   if (value.events.some(e => !visit(e.id))) error("Event dependencies contain a cycle.");
 });
 
-/** Historical definitions remain readable; new saves/imports must use unique callsigns. */
-export const scenarioSchema = storedScenarioSchema.superRefine((value, ctx) => {
-  for (let i = 0; i < value.aircraft.length; i++) {
-    const a = value.aircraft[i], conflict = callsignConflict(a.seed.callsign, value.aircraft.slice(0, i).map(other => other.seed.callsign));
-    if (conflict) ctx.addIssue({code: z.ZodIssueCode.custom, message: `${a.seed.callsign}: ${conflict}`});
-  }
-});
+/** Existing aircraft keep their authored callsigns; additions and renames must be unique. */
+export function scenarioSchemaFor(previous?: z.infer<typeof storedScenarioSchema>) {
+  return storedScenarioSchema.superRefine((value, ctx) => {
+    const preserved = new Map(previous?.aircraft.map(a => [a.key, a.seed.callsign]));
+    for (const [index, a] of value.aircraft.entries()) {
+      if (preserved.get(a.key) === a.seed.callsign) continue;
+      const conflict = callsignConflict(a.seed.callsign, value.aircraft.filter(other => other.key !== a.key).map(other => other.seed.callsign));
+      if (conflict) ctx.addIssue({code: z.ZodIssueCode.custom, path: ["aircraft", index, "seed", "callsign"], message: `${a.seed.callsign}: ${conflict}`});
+    }
+  });
+}
+export const scenarioSchema = scenarioSchemaFor();
 
 export type ScenarioDefinition = z.infer<typeof scenarioSchema>;
 

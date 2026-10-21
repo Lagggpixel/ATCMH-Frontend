@@ -1,5 +1,5 @@
 import {z} from "zod";
-import {scenarioSchema} from "../scenarios";
+import {scenarioSchema, storedScenarioSchema} from "../scenarios";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
@@ -27,7 +27,7 @@ export function createTrainingApi(service: TrainingOperations = new TrainingServ
             value = {scenario: capture.success ? await service.capture(actor, capture.data.sessionId, capture.data.title) : await service.save(actor, scenarioSchema.parse(z.object({draft: z.unknown()}).parse(raw).draft))};
           } else {
             const action = z.object({action: z.enum(["save", "publish", "launch"])}).parse(raw).action;
-            if (action === "save") {const input = z.object({draft: scenarioSchema, version}).parse(raw); value = {scenario: await service.save(actor, input.draft, id, input.version)};}
+            if (action === "save") {const input = z.object({draft: storedScenarioSchema, version}).parse(raw); value = {scenario: await service.save(actor, input.draft, id, input.version)};}
             else if (action === "publish") value = {scenario: await service.publish(actor, id, z.object({version}).parse(raw).version)};
             else {const input = z.object({action: z.literal("launch"), revision: version, requestId: uuid.optional()}).strict().parse(raw); value = await service.launchScenario(actor, id, input.revision, input.requestId);}
           }
@@ -39,7 +39,14 @@ export function createTrainingApi(service: TrainingOperations = new TrainingServ
         }
       }
       return Response.json(value, {headers: {"cache-control": "no-store"}});
-    } catch (error) {return sessionFailure(error);}
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const details = error.issues.slice(0, 3).map(issue => `${issue.path.length ? issue.path.join(".") + ": " : ""}${issue.message}`).join("; ");
+        return Response.json({code: "invalid-request", error: `Invalid scenario request: ${details}`}, {status: 400, headers: {"cache-control": "no-store"}});
+      }
+      if (error instanceof SyntaxError) return Response.json({code: "invalid-request", error: "The request body must contain valid JSON."}, {status: 400, headers: {"cache-control": "no-store"}});
+      return sessionFailure(error);
+    }
   };
 }
 export const trainingApi = createTrainingApi();
