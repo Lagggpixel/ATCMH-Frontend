@@ -428,7 +428,9 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
   if (action.kind === "spawn" || action.kind === "edit") {
     const edited = action.kind === "spawn" ? action.aircraft : {...aircraft!, ...action.patch};
     if (action.kind === "spawn" || action.patch.callsign !== undefined && action.patch.callsign !== aircraft!.callsign) {
-      const error = callsignConflict(edited.callsign, [...next.aircraft, ...(next.callsignReservations ?? [])].filter(a => a.id !== edited.id).map(a => a.callsign));
+      // A scenario spawn materializes an existing authored aircraft, including legacy shared numbers.
+      const reservedSpawn = action.kind === "spawn" && next.callsignReservations?.some(a => a.id === edited.id && a.callsign === edited.callsign);
+      const error = reservedSpawn ? undefined : callsignConflict(edited.callsign, [...next.aircraft, ...(next.callsignReservations ?? [])].filter(a => a.id !== edited.id).map(a => a.callsign));
       if (error) return {state, error};
       if ((next.callsignReservations?.length ?? 0) >= 19900) return {state, error: "Start a new exercise before adding more callsigns."};
       reserveCallsigns(next, [...next.aircraft, edited]);

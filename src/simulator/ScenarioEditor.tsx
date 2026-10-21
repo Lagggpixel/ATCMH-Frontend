@@ -17,7 +17,7 @@ import LearningFrame from "../learning/LearningFrame";
 import {TrainingNav} from "./TrainingLibrary";
 import library from "./LibraryPages.module.css";
 import {advanceScenario, executeScenarioEvent} from "./scenario-engine";
-import {blankScenario, normalizeScenario, normalizeScenarioAircraft, gatesFor, isGroundSpawn, createScenarioExercise, scenarioSchema, seedFromAircraft, timeLabel, type ScenarioDefinition, type ScenarioRecord, type ScenarioRuntime} from "./scenarios";
+import {blankScenario, normalizeScenario, normalizeScenarioAircraft, gatesFor, isGroundSpawn, createScenarioExercise, scenarioSchemaFor, seedFromAircraft, timeLabel, type ScenarioDefinition, type ScenarioRecord, type ScenarioRuntime} from "./scenarios";
 import {sessionJson} from "./shared-transport";
 import {trainingRequest} from "./TrainingLibrary";
 import ScenarioEventEditor, {defaultEvent} from "./ScenarioEventEditor";
@@ -74,7 +74,7 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
   const previewIds = preview?.runtime.aircraftIds;
   const selectOnScope = useCallback((id: string | null) => select(previewIds ? Object.entries(previewIds).find(([, value]) => value === id)?.[0] ?? null : id), [previewIds, select]);
   const save = async () => {
-    setError(""); setNotice(""); const result = scenarioSchema.safeParse(draft);
+    setError(""); setNotice(""); const result = scenarioSchemaFor(record?.draft).safeParse(draft);
     if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return null;}
     const submitted = JSON.stringify(draft);
     setBusy(true);
@@ -118,7 +118,7 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
     if (editMode === "position") setEditMode("");
   }, [editMode, event, ground, selected, hold, setEditMode]);
   const test = () => {
-    const result = scenarioSchema.safeParse(draft); if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return;}
+    const result = scenarioSchemaFor(record?.draft).safeParse(draft); if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return;}
     setPreview(createScenarioExercise(result.data, "scenario-preview", crypto.randomUUID())); setEditMode(""); setError("");
   };
   const previewCommand = (command: "play" | "pause") => setPreview(current => {
