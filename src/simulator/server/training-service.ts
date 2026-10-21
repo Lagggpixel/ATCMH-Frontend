@@ -1,7 +1,7 @@
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction} from "../../lib/db";
-import {scenarioSchema, normalizeScenario, createScenarioExercise, scenarioFromExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
+import {storedScenarioSchema, scenarioSchema, normalizeScenario, createScenarioExercise, scenarioFromExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
 import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
 import {availableControl, SessionService, type Actor} from "./session-service";
@@ -12,8 +12,8 @@ interface RevisionRow extends RowDataPacket {definition: string}
 const unavailable = () => new SessionError("not-found", "This scenario is unavailable.", 404);
 function staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
 const scenarioRecord = (r: ScenarioRow): ScenarioRecord => {
-  const published = r.published_definition ? scenarioSchema.parse(JSON.parse(r.published_definition)) : undefined;
-  return {id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: scenarioSchema.parse(JSON.parse(r.draft)), ...(published ? {published: {title: published.title, airport: published.airport, airportDataVersion: published.airportDataVersion, trainingStation: published.trainingStation}} : {})};
+  const published = r.published_definition ? storedScenarioSchema.parse(JSON.parse(r.published_definition)) : undefined;
+  return {id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: storedScenarioSchema.parse(JSON.parse(r.draft)), ...(published ? {published: {title: published.title, airport: published.airport, airportDataVersion: published.airportDataVersion, trainingStation: published.trainingStation}} : {})};
 };
 
 /** Authoring and scenario lifecycle mutations share the existing SQL transaction context with sessions. */
@@ -35,7 +35,7 @@ export class TrainingService {
         const [rows] = await connection.execute<ScenarioRow[]>("SELECT * FROM simulator_scenarios WHERE id=? FOR UPDATE", [id]);
         if (!rows[0]) throw unavailable();
         if (rows[0].version !== version) throw new SessionError("revision-conflict", "This draft changed in another page. Reload before saving.", 409);
-        const previous = scenarioSchema.parse(JSON.parse(rows[0].draft));
+        const previous = storedScenarioSchema.parse(JSON.parse(rows[0].draft));
         rejectMovedRadar(previous);
         if (previous.airport !== draft.airport && (previous.aircraft.length || previous.events.length || draft.aircraft.length || draft.events.length)) throw new SessionError("invalid-scenario", "Clear traffic and events before changing the airport, or create a new scenario.", 400);
         await connection.execute("UPDATE simulator_scenarios SET draft=?,version=version+1,updated_at=? WHERE id=?", [JSON.stringify(draft), Date.now(), id]);

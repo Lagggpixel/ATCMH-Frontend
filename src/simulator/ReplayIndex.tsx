@@ -3,7 +3,6 @@ import {Fragment, useEffect, useState} from "react";
 import Link from "next/link";
 import {MagnifyingGlassIcon} from "@phosphor-icons/react/MagnifyingGlass";
 import {UserIcon} from "@phosphor-icons/react/User";
-import {LockSimpleIcon} from "@phosphor-icons/react/LockSimple";
 import {AIRPORT_IDS, environmentLabel} from "./airports";
 import {TrainingNav} from "./TrainingLibrary";
 import LibraryFooter from "./LibraryFooter";
@@ -16,7 +15,7 @@ import styles from "./ReplayIndex.module.css";
 const day = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "long", year: "numeric", timeZone: "UTC"});
 const recorded = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC"});
 
-export default function ReplayIndex() {
+export default function ReplayIndex({canViewOthers = false}: {canViewOthers?: boolean}) {
   const [filters, setFilters] = useState({q: "", airport: "", date: "", mine: false, offset: 0});
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<{replays: ReplaySummary[]; next: number | null}>({replays: [], next: null});
@@ -38,7 +37,7 @@ export default function ReplayIndex() {
   return <main className={`${library.library} ${styles.library}`}>
     <TrainingNav active="replays"/>
     <div className={`${library.libraryContent} ${styles.content}`}>
-      <header className={styles.heading}><h1>Replays</h1><p>Completed sessions and replays stay saved permanently. Review aircraft movement, radio messages and ATIS.</p></header>
+      <header className={styles.heading}><h1>Replays</h1></header>
       <div className={styles.toolbar}>
         <form role="search" className={styles.search} onSubmit={event => {event.preventDefault(); change({q: query.trim()});}}>
           <MagnifyingGlassIcon size={20} aria-hidden="true"/>
@@ -47,10 +46,10 @@ export default function ReplayIndex() {
         </form>
         <select aria-label="Filter by airport" value={filters.airport} onChange={event => change({airport: event.target.value})}><option value="">All airports</option>{AIRPORT_IDS.map(airport => <option key={airport}>{airport}</option>)}</select>
         <label className={styles.dateFilter}>Recorded date (UTC)<input type="date" value={filters.date} onChange={event => change({date: event.target.value})}/></label>
-        <button type="button" className={styles.mine} aria-pressed={filters.mine} title="Sessions where you participated as mentor" onClick={() => change({mine: !filters.mine})}><UserIcon size={18} aria-hidden="true"/>My sessions</button>
+        {canViewOthers ? <button type="button" className={styles.mine} aria-pressed={filters.mine} title="Sessions where you participated as mentor" onClick={() => change({mine: !filters.mine})}><UserIcon size={18} aria-hidden="true"/>My sessions</button> : null}
         {filtered ? <button className={styles.clear} onClick={() => {setQuery(""); change({q: "", airport: "", date: "", mine: false});}}>Clear filters</button> : null}
       </div>
-      <div className={styles.context}><p>{filters.mine ? "Showing sessions where you participated as mentor." : "All mentors’ sessions"}</p><span>Newest first · All times UTC</span></div>
+      <div className={styles.context}><span>Newest first · All times UTC</span></div>
       <div aria-busy={loading}>
         {loading ? <p role="status" className={styles.message}>Loading replays…</p> : error ? <div className={styles.message}><p role="alert">{error}</p><button onClick={() => {setLoading(true); setError(""); setRetry(value => value + 1);}}>Try again</button></div> : result.replays.length ? <table className={styles.table}>
           <caption className={styles.srOnly}>Completed Sweatbox sessions, newest first</caption>
@@ -69,7 +68,6 @@ export default function ReplayIndex() {
         </table> : <section className={styles.message}><h2>{filtered ? "No matching replays" : "No completed sessions yet"}</h2><p>{filtered ? "Try another search or clear your filters." : "Completed sessions will appear here, ready to review."}</p></section>}
       </div>
       <nav className={styles.pagination} aria-label="Replay pages"><p aria-live="polite">{!loading && !error ? result.replays.length ? `Showing ${filters.offset + 1}–${filters.offset + result.replays.length}${filtered ? " matching replays" : " replays"}` : "0 replays" : ""}</p><div><button disabled={loading || filters.offset === 0} onClick={() => change({offset: Math.max(0, filters.offset - 50)})}>Previous</button><span>Page {Math.floor(filters.offset / 50) + 1}</span><button disabled={loading || !!error || result.next === null} onClick={() => {if (result.next !== null) change({offset: result.next});}}>Next</button></div></nav>
-      <p className={styles.readOnly}><LockSimpleIcon size={18} aria-hidden="true"/>Replays are read only. The original session cannot be modified.</p>
       <LibraryFooter/>
     </div>
   </main>;

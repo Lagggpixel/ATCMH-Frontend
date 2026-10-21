@@ -6,6 +6,7 @@ import {planTaxiRoute, planParkingRoute} from "./taxi-routing";
 import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, groundCollisionGroups, type GroundGuidance} from "./ground-movement";
 import {currentAtisOptions} from "./atis-options";
 import {applyTaxiPathEdit} from "./taxi-path-editing";
+import {callsignConflict, reserveCallsigns} from "./callsigns";
 import {assignRadar, checkInTransmission, moveRadar, radarAircraft, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
 import {automaticRadarUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed} from "./radar-speed";
@@ -426,6 +427,12 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
   if (action.kind === "spawn" && (trainingMode(state) === "local" ? !!action.aircraft.radar : !action.aircraft.radar || action.aircraft.radar.station !== trainingMode(state) || action.aircraft.mode !== "heading")) return {state, error: "Aircraft does not match this exercise's training mode."};
   if (action.kind === "spawn" || action.kind === "edit") {
     const edited = action.kind === "spawn" ? action.aircraft : {...aircraft!, ...action.patch};
+    if (action.kind === "spawn" || action.patch.callsign !== undefined && action.patch.callsign !== aircraft!.callsign) {
+      const error = callsignConflict(edited.callsign, [...next.aircraft, ...(next.callsignReservations ?? [])].filter(a => a.id !== edited.id).map(a => a.callsign));
+      if (error) return {state, error};
+      if ((next.callsignReservations?.length ?? 0) >= 19900) return {state, error: "Start a new exercise before adding more callsigns."};
+      reserveCallsigns(next, [...next.aircraft, edited]);
+    }
     if (trainingMode(state) === "local" ? !!edited.radar : !edited.radar || edited.radar.station !== trainingMode(state) || edited.mode !== "heading" || edited.active && edited.altitude <= AIRPORT.elevation) return {state, error: "Aircraft does not match this exercise's training mode."};
     if (edited.radar) {
       if ([edited.radar.expected, edited.radar.cleared].some(id => id && !radarEnvironment.approaches.some(p => p.id === id))) return {state, error: "Aircraft approach is missing from the training environment."};
@@ -476,7 +483,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       break;
     }
     case "spawn": if (next.aircraft.length >= 50) return {state, error: "This exercise supports up to 50 aircraft."}; if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."}; next.aircraft.push(action.aircraft); break;
-    case "remove": next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); break;
+    case "remove": reserveCallsigns(next, [aircraft!]); next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); break;
     case "taxi-path": {const error = applyTaxiPathEdit(aircraft!, action.path, action.edit); if (error) return {state, error}; break;}
     case "edit":
       if (["runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) aircraft!.releasedHold = null;
@@ -484,6 +491,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       if (["runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.arrivalExit; delete aircraft!.runwayExit;}
       if (action.patch.clearedToLand === false || action.patch.runway && action.patch.runway !== aircraft!.runway) clearLanding(aircraft!); if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) delete aircraft!.contactTowerAtHold; if (action.patch.runway && action.patch.runway !== aircraft!.runway || action.patch.hand && action.patch.hand !== aircraft!.hand) aircraft!.patternFinalDistance = undefined; if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.groundYield; delete aircraft!.giveWay; delete aircraft!.automaticRequest; delete aircraft!.parkingAfterContact;}
       Object.assign(aircraft!, action.patch);
+      if (aircraft!.radar && action.patch.position) delete aircraft!.radar.localizerIntercept;
       if (action.patch.targetSpeed !== undefined || action.patch.speedMode !== undefined) delete aircraft!.speedInstruction;
       if (action.patch.tag !== undefined && action.patch.tagAngle === undefined) delete aircraft!.tagAngle;
       if (aircraft!.radar && (action.patch.targetSpeed !== undefined || action.patch.speedMode !== undefined)) delete aircraft!.radar.speed;
@@ -594,9 +602,11 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
   for (const a of state.aircraft.filter(a => a.radar?.report && a.active && a.frequency && a.frequency !== "atis")) {
     next = structuredClone(next);
     delete next.aircraft.find(other => other.id === a.id)!.radar!.report;
+    delete next.aircraft.find(other => other.id === a.id)!.radar!.missedReason;
     const request = a.radar!.report === "intentions" && a.radar!.expected ? {id: "request-approach" as const, runway: a.runway ?? DEFAULT_RUNWAY} : a.radar!.report === "check-in" ? {id: "check-in" as const, runway: a.runway ?? DEFAULT_RUNWAY} : undefined;
     const text = a.radar!.report === "missed" ? `${a.callsign}, executing missed approach` : a.radar!.report === "intentions" ? `${a.callsign}, ${a.radar!.navigation === "route" ? "continuing on route" : "awaiting vectors"}` : checkInTransmission(a);
     next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text, request}}).state;
+    if (a.radar!.report === "missed" && a.radar!.missedReason) next.messages.at(-1)!.unableReason = a.radar!.missedReason;
   }
   for (const a of state.aircraft.filter(a => a.arrivalRequest)) {
     next = structuredClone(next);

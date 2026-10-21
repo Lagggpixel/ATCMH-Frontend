@@ -26,7 +26,8 @@ export function updateRouteConstraints(a: Aircraft) {
     a.radar.targetAltitude = point.altitude >= 18000 ? {unit: "flight-level", value: point.altitude / 100} : {unit: "feet", value: point.altitude};
     a.radar.altitudeAssignedFrom ??= a.altitude;
   }
-  if (point.speed !== undefined && !a.radar.speed) {a.targetSpeed = point.speed; a.speedMode = "manual";}
+  if (point.speed !== undefined) a.radar.routeSpeed = point.speed;
+  if (a.radar.routeSpeed !== undefined && !a.radar.speed && a.speedMode !== "manual") a.targetSpeed = a.radar.routeSpeed;
 }
 
 export function moveOwnRoute(a: Aircraft) {

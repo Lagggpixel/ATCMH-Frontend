@@ -355,3 +355,12 @@ Own navigation, Continue as filed and flight-following approvals resume the unfl
 STAR descent follows instructor-configured arrival waypoints, crossing altitudes and speeds; it requires an arrival name and altitude constraints. These are exercise data, not an imported navigation database. Explicit vectors/altitudes override descend-via guidance. Holding uses the assigned fix/inbound course, selected turn direction, bank-limited half turns and timed outbound legs (60 seconds at or below 14,000 feet; 90 seconds above), with assigned altitude and holding speed caps. Exit Hold resumes the remaining route. Tower speed instructions persist, release at the specified final distance, and adjust toward compatible traffic ahead.
 
 All new motion and command state survives session snapshots, prediction and replay. No database migration is required.
+
+
+### Automatic radar arrivals and traffic callsigns
+
+ILS, GPS and visual arrivals share staged automatic speeds during vectors, interception and final: inbound beyond 25 NM, up to 250 kt within 25 NM, 220 kt within 15 NM, 180 kt within 10 NM, 160 kt within 5 NM and the aircraft landing target within 3 NM. Aircraft performance limits and configured phase targets apply; explicit speed instructions and trainer manual overrides persist until released. Waypoint speed constraints remain route constraints and do not create permanent manual overrides.
+
+In Automatic, ILS localizer interception is limited to 35 degrees. Crossing final with a steeper unsuccessful intercept triggers a missed approach, including crossings between simulation frames. After localizer interception, more than 100 ft above the glideslope triggers a missed approach; the initial clearance height check remains in place. Automatic missed approaches retain a trainer-only bracketed explanation in the message log, outside radio audio and learner responses.
+
+New aircraft use randomized operators and numbers from 1 to 9999. Callsign and numeric suffix uniqueness are checked on additions, renaming and scenario validation. Scheduled scenario traffic reserves its number before spawning, and removed or renamed traffic keeps its earlier number reserved until a new exercise/attempt. Existing saved snapshots remain readable.
