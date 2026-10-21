@@ -213,8 +213,10 @@ function pilotRequestText(a: Aircraft, request: PilotRequest, runway: Runway, re
   if (request.id === "airport-in-sight") return `Airport in sight, ${a.callsign}`;
   if (request.id === "check-in") return checkInTransmission(a);
   if (request.id === "request-approach") {
-    const type = (options.exercise?.radarEnvironment ?? environment).approaches.find(p => p.id === a.radar?.expected)?.type ?? "ils";
-    return `${a.callsign}, requesting ${type === "ils" ? "I-L-S" : type === "gps" ? "G-P-S" : "visual"} approach to ${airportCallsign(airport)}`;
+    const pinned = options.exercise?.radarEnvironment ?? environment;
+    const type = pinned.approaches.find(p => p.id === a.radar?.expected)?.type
+      ?? pinned.approaches.find(p => p.type === "ils")?.type ?? pinned.approaches[0]?.type ?? "visual";
+    return `${a.callsign}, requesting ${type === "ils" ? "ILS" : type === "gps" ? "GPS" : "visual"} approach at ${airport.icao}`;
   }
   if (request.id === "transition") {
     const nm = Math.hypot(a.position.x, a.position.y);

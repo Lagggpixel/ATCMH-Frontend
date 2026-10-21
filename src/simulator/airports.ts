@@ -1,3 +1,4 @@
+import {AIRPORT_RADIO_NAMES} from "./radio-identifiers";
 import egph from "./data/egph.json";
 import egll from "./data/egll.json";
 import kbhm from "./data/kbhm.json";
@@ -30,7 +31,7 @@ export const airportList = AIRPORT_IDS.map(id => snapshots[id]);
 export const airportRunways = (airport: Airport) => airport.runways ?? [{...airport.runway, id: airport.runway.ends.map(e => e.id).join("/")}];
 export const runwayEnds = (airport: Airport) => airportRunways(airport).flatMap(r => r.ends);
 export const defaultRunway = (airport: Airport) => airport.runway.ends[1].id;
-export const airportCallsign = (airport: Airport) => ({EGPH: "Edinburgh", EGLL: "Heathrow", KBHM: "Birmingham", CYUL: "Montreal", ROAH: "Naha", KDAL: "Dallas", SBBR: "Brasilia"})[airport.icao as AirportId];
+export const airportCallsign = (airport: Airport) => AIRPORT_RADIO_NAMES[airport.icao];
 
 export type ServiceType = Frequency | "local" | "approach" | "center";
 export interface RadioStation {id: string; service: ServiceType; name: string; airport?: string; sector?: string; mhz?: string; available: boolean}

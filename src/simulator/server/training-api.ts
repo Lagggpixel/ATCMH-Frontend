@@ -29,7 +29,7 @@ export function createTrainingApi(service: TrainingOperations = new TrainingServ
             const action = z.object({action: z.enum(["save", "publish", "launch"])}).parse(raw).action;
             if (action === "save") {const input = z.object({draft: scenarioSchema, version}).parse(raw); value = {scenario: await service.save(actor, input.draft, id, input.version)};}
             else if (action === "publish") value = {scenario: await service.publish(actor, id, z.object({version}).parse(raw).version)};
-            else {const input = z.object({action: z.literal("launch"), revision: version}).strict().parse(raw); value = await service.launchScenario(actor, id, input.revision);}
+            else {const input = z.object({action: z.literal("launch"), revision: version, requestId: uuid.optional()}).strict().parse(raw); value = await service.launchScenario(actor, id, input.revision, input.requestId);}
           }
         } else {
           if (!id) throw new SessionError("not-found", "Attempt unavailable.", 404);

@@ -72,9 +72,9 @@ export class TrainingService {
     const rows = await queryReadOnly<RevisionRow[]>("SELECT definition FROM simulator_scenario_revisions WHERE scenario_id=? AND revision=?", [scenarioId, revision]);
     if (!rows[0]) throw unavailable(); return scenarioSchema.parse(JSON.parse(rows[0].definition));
   }
-  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number) {
+  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string) {
     rejectMovedRadar(definition);
-    const attemptId = randomUUID(), generation = randomUUID();
+    const attemptId = requestId ?? randomUUID(), generation = randomUUID();
     const created = createScenarioExercise(definition, "pending", generation);
     Object.assign(created.runtime, {scenarioId, revision, attemptId});
     const session = await new SessionService(sqlSessionStore).create(actor, definition.title, created.exercise, created.runtime);
@@ -83,10 +83,23 @@ export class TrainingService {
     });
     return {sessionId: session.id};
   }
-  async launchScenario(actor: Actor, scenarioId: string, revision: number) {
+  async launchScenario(actor: Actor, scenarioId: string, revision: number, requestId?: string) {
     staff(actor);
-    const definition = await this.revision(actor, scenarioId, revision);
-    return withWriteTransaction(() => this.launch(actor, definition, scenarioId, revision));
+    return withWriteTransaction(async connection => {
+      const [rows] = await connection.execute<ScenarioRow[]>("SELECT * FROM simulator_scenarios WHERE id=? FOR UPDATE", [scenarioId]);
+      if (!rows[0]) throw unavailable();
+      const definition = await this.revision(actor, scenarioId, revision);
+      if (requestId) {
+        const [attempts] = await connection.execute<(RowDataPacket & {owner_id: string; scenario_id: string; revision: number; session_id: string})[]>("SELECT owner_id,scenario_id,revision,session_id FROM simulator_attempts WHERE id=? FOR UPDATE", [requestId]);
+        if (attempts[0]) {
+          const previous = attempts[0];
+          if (previous.owner_id !== actor.accountId || previous.scenario_id !== scenarioId || previous.revision !== revision)
+            throw new SessionError("request-conflict", "This creation request was already used. Close the dialog and try again.", 409);
+          return {sessionId: previous.session_id};
+        }
+      }
+      return this.launch(actor, definition, scenarioId, revision, requestId);
+    });
   }
   async finish(actor: Actor, sessionId: string, feedback: string, attemptId: string) {
     staff(actor);

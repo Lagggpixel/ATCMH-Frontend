@@ -1,5 +1,6 @@
 import {browserSpeechOutput, type RadioVoice, type SpeechOutput, type VoiceSettings} from "./radio-audio";
 import {radioEffect} from "./radio-effect";
+import {compactSpeechPauses} from "./speech-pcm";
 
 // Version the asset path when changing the model, runtime or worker protocol.
 export const KOKORO_ASSETS = "/sweatbox/speech/kokoro-v1";
@@ -62,7 +63,7 @@ export function createKokoroSpeechOutput(fallback: SpeechOutput | null, createSy
           synthesis ??= createSynthesis();
           const generated = await synthesis.generate(text, voice.slice(7), settings.rate);
           if (current !== generation) return;
-          clip = {samples: radioEffect(generated.samples, generated.sampleRate), sampleRate: generated.sampleRate};
+          clip = {samples: radioEffect(compactSpeechPauses(generated.samples, generated.sampleRate), generated.sampleRate), sampleRate: generated.sampleRate};
           // PCM is tab-local and bounded; do not persist radio text or generated speech.
           if (clip.samples.byteLength <= 12 * 1024 * 1024) {
             while (cacheBytes + clip.samples.byteLength > 12 * 1024 * 1024 || cache.size >= 12) {

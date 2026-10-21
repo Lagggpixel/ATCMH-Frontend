@@ -8,6 +8,7 @@ import LearningFrame from "../learning/LearningFrame";
 import {Copy} from "@phosphor-icons/react/dist/csr/Copy";
 import {TrainingNav, trainingRequest} from "./TrainingLibrary";
 import SessionAccess from "./SessionAccess";
+import {sessionLibrary} from "./session-library";
 import StaffTutorial from "./StaffTutorial";
 import {sessionJson} from "./shared-transport";
 import {getAirport, environmentLabel} from "./airports";
@@ -25,34 +26,31 @@ function ActiveDate({time}: {time: number}) {
 }
 function Library({csrf, accountId}: {csrf: string; accountId: string}) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]), [selectedId, setSelectedId] = useState("");
-  const [loading, setLoading] = useState(true), [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true), [error, setError] = useState(""), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
   const [dialog, setDialog] = useState<"new" | "end" | null>(null), [scenarioId, setScenarioId] = useState(""), [busy, setBusy] = useState(false);
   const [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
   const [ending, setEnding] = useState<SessionSummary | null>(null);
   const modal = useRef<HTMLDialogElement>(null), active = sessions.find(s => s.id === selectedId);
+  const library = useRef<ReturnType<typeof sessionLibrary> | null>(null), pending = useRef(false);
+  const launch = useRef<{scenarioId: string; revision: number; requestId: string} | null>(null);
   useEffect(() => {
-    let stopped = false; const controller = new AbortController();
-    const load = async () => {
-      try {
-        const [data, library] = await Promise.all(["/api/simulator/sessions", "/api/simulator/training/scenarios"].map(path => fetch(path, {cache: "no-store", signal: controller.signal}).then(sessionJson)));
-        if (!stopped) {setSessions(data.sessions); setScenarios(library.scenarios.filter((s: ScenarioRecord) => s.publishedRevision > 0)); const requested = new URL(window.location.href).searchParams.get("session"); setSelectedId(current => data.sessions.some((s: SessionSummary) => s.id === current) ? current : data.sessions.find((s: SessionSummary) => s.id === requested)?.id ?? data.sessions[0]?.id ?? ""); setError("");}
-      } catch (reason) {if (!stopped) setError((reason as Error).message);}
-      finally {if (!stopped) setLoading(false);}
-    };
-    void load(); const timer = setInterval(() => void load(), 5000);
-    return () => {stopped = true; controller.abort(); clearInterval(timer);};
+    const sync = sessionLibrary((data, definitions) => {setSessions(data); setScenarios(definitions); setLoading(false); const requested = new URL(window.location.href).searchParams.get("session"); setSelectedId(current => data.some(s => s.id === current) ? current : data.find(s => s.id === requested)?.id ?? data[0]?.id ?? "");}, message => {setLoadError(message); setLoading(false);});
+    library.current = sync; void sync.refresh();
+    return () => {sync.stop(); library.current = null;};
   }, []);
   useEffect(() => {if (dialog) modal.current?.showModal(); else modal.current?.close();}, [dialog]);
   const create = async () => {
     const scenario = scenarios.find(s => s.id === scenarioId) ?? scenarios[0];
-    if (!scenario) return;
-    setBusy(true); setError("");
+    if (!scenario || pending.current) return;
+    pending.current = true; library.current?.invalidate(); setBusy(true); setError("");
+    if (launch.current?.scenarioId !== scenario.id)
+      launch.current = {scenarioId: scenario.id, revision: scenario.publishedRevision, requestId: crypto.randomUUID()};
     try {
-      const data = await trainingRequest(csrf, `scenarios/${scenario.id}`, {action: "launch", revision: scenario.publishedRevision});
-      const saved = await fetch("/api/simulator/sessions", {cache: "no-store"}).then(sessionJson);
-      setSessions(saved.sessions); setSelectedId(data.sessionId); setDialog(null);
-      setNotice("Session created and paused.");
-    } catch (reason) {setError((reason as Error).message);} finally {setBusy(false);}
+      const data = await trainingRequest(csrf, `scenarios/${scenario.id}`, {action: "launch", revision: launch.current.revision, requestId: launch.current.requestId});
+      if (!data.sessionId) throw new Error("The session could not be confirmed. Try again.");
+      setDialog(null); setSelectedId(data.sessionId); setNotice("Session created and paused."); launch.current = null;
+    } catch (reason) {setError((reason as Error).message);}
+    finally {pending.current = false; setBusy(false); void library.current?.refresh();}
   };
   const copy = async () => {
     if (!active) return;
@@ -60,17 +58,18 @@ function Library({csrf, accountId}: {csrf: string; accountId: string}) {
     catch {setNotice("Copy the mentee link below.");}
   };
   const end = async () => {
-    if (!ending) return; setBusy(true);
+    if (!ending || pending.current) return; pending.current = true; library.current?.invalidate(); setBusy(true); setError("");
     try {
       await fetch(`/api/simulator/sessions/${ending.id}`, {method: "DELETE", headers: {"x-csrf-token": csrf}}).then(sessionJson);
       setSessions(current => current.filter(s => s.id !== ending.id)); setSelectedId(""); setDialog(null); setNotice("Session ended. Its recording is saved in Replays.");
     } catch (reason) {setError((reason as Error).message);}
-    finally {setBusy(false);}
+    finally {pending.current = false; setBusy(false); void library.current?.refresh();}
   };
   return <div className={styles.library}>
     <TrainingNav active="sessions"/>
     <main className={styles.content}>
-      <div className={styles.heading}><h1>Sweatbox sessions</h1><div className={styles.headingActions}><StaffTutorial accountId={accountId}/><button data-simulator-tour="new-session" className={styles.primary} disabled={loading} onClick={() => {setScenarioId(scenarios[0]?.id ?? ""); setError(""); setDialog("new");}}>New session</button></div></div>
+      <div className={styles.heading}><h1>Sweatbox sessions</h1><div className={styles.headingActions}><StaffTutorial accountId={accountId}/><button data-simulator-tour="new-session" className={styles.primary} disabled={loading} onClick={() => {launch.current = null; setScenarioId(scenarios[0]?.id ?? ""); setError(""); setDialog("new");}}>New session</button></div></div>
+      {loadError ? <p role="alert" className={styles.error}>Could not refresh sessions: {loadError} <button onClick={() => void library.current?.refresh()}>Try again</button></p> : null}
       {error && !dialog ? <p role="alert" className={styles.error}>{error}</p> : null}
       <div data-simulator-tour="session-library">{loading ? <p role="status" className={styles.loading}>Loading saved sessions…</p> : !sessions.length ? <section className={styles.empty}><h2>No saved sessions yet</h2></section> :
         <div className={styles.tableWrap}><table aria-label="Saved Sweatbox sessions"><thead><tr><th scope="col">Session</th><th scope="col">Airport</th><th scope="col">Created by</th><th scope="col">Last active (UTC)</th><th scope="col">Mentor</th><th scope="col">Mentee</th><th scope="col" className={styles.actionColumn}>Action</th></tr></thead><tbody>{sessions.map(s => <tr key={s.id} className={s.id === selectedId ? styles.selected : undefined}>
