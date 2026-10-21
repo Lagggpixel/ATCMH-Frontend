@@ -5,7 +5,7 @@ import {advance, applyEnvelope, autoReadbacks, engineFor, readbackText} from "./
 import {getAirport} from "./airports";
 import {ALTITUDES, approachGeometry, moveRadar} from "./radar";
 import {automaticRadarUnable, radarApproachExempt, radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-safety";
-import {aircraftSpeedLimits} from "./radar-speed";
+import {radarPerformance, aircraftSpeedLimits} from "./radar-speed";
 import {exerciseSchema} from "./protocol";
 import type {Action, Exercise, Instruction} from "./model";
 
@@ -42,7 +42,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: automatic Una
     initial.aircraft[0].altitude = 5000;
     const state = transmit(initial, command), a = state.aircraft[0];
     assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 1$/);
-    assert.equal(a.radar!.cleared, before.radar!.cleared); assert.equal(a.radar!.targetAltitude, before.radar!.targetAltitude); assert.equal(a.targetHeading, before.targetHeading); assert.equal(a.targetSpeed, before.targetSpeed);
+    assert.equal(a.radar!.cleared, before.radar!.cleared); assert.equal(a.radar!.targetAltitude, before.radar!.targetAltitude); assert.equal(a.targetHeading, before.targetHeading); assert.equal(a.targetSpeed, Math.min(before.targetSpeed, radarPerformance(a).max));
     assert.equal(autoReadbacks(state, 2000, randomUUID).messages.length, state.messages.length);
   }
   const initial = fixture(mode); initial.aircraft[0].altitude = 5000;

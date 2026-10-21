@@ -6,7 +6,7 @@ export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
 export interface RadarApproach {id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
 export interface RadarEnvironment {airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
-export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"}
+export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"; inboundSpeed?: number; finalSpeedProfile?: boolean; routeSpeed?: number}
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
 export type RoutePoint = Point & {altitude?: number; speed?: number};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
@@ -99,6 +99,7 @@ export interface Atis {
   expectations: string[]; remarks: string[]; notams: string[]; procedures: string[];
 }
 export interface Exercise {
+  callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean;
   autoReadback?: boolean;

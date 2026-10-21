@@ -24,9 +24,9 @@ function People({replay}: {replay: ReplaySummary}) {
   return <p className={libraryStyles.people}>{(["staff", "mentee"] as const).map(role => <span key={role}><small>{role === "staff" ? "Mentor" : "Mentee"}</small>{replay.participants.filter(p => p.role === role).map(p => p.name || p.accountId).join(", ") || "No participant recorded"}</span>)}</p>;
 }
 export default function ReplayLibrary({id}: {id?: string}) {
-  return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo={id ? `/sweatbox/replays/${id}` : "/sweatbox/replays"}>
-    {() => id ? <ReplayViewer key={id} id={id}/> : <ReplayIndex/>}
-  </SessionAccess></LearningFrame>;
+  return <div className={id ? replayStyles.dark : undefined}><LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo={id ? `/sweatbox/replays/${id}` : "/sweatbox/replays"}>
+    {() => id ? <ReplayViewer key={id} id={id}/> : <ReplayIndex canViewOthers/>}
+  </SessionAccess></LearningFrame></div>;
 }
 function ReplayViewer({id}: {id: string}) {
   const [detail, setDetail] = useState<ReplayDetail | null>(null), [error, setError] = useState("");

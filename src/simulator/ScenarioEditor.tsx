@@ -1,4 +1,5 @@
 "use client";
+import {randomCallsign} from "./callsigns";
 import {memo, useCallback, useDeferredValue, useEffect, useMemo, useState} from "react";
 import Link from "next/link";
 import {Warning} from "@phosphor-icons/react/dist/csr/Warning";
@@ -93,8 +94,12 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
     catch (reason) {setError((reason as Error).message);} finally {setBusy(false);}
   };
   const addAircraft = (air: boolean) => {
-    const key = `traffic-${crypto.randomUUID().slice(0, 8)}`, next = newAircraft(key, air); next.callsign = `${air ? "Speedbird" : "Easy"} ${100 + draft.aircraft.length}`;
-    setDraft(d => ({...d, aircraft: [...d.aircraft, {key, initial: true, seed: seedFromAircraft(next), ...(!air ? {gateId: scenarioGates.find(g => !d.aircraft.some(a => a.gateId === g.id))?.id ?? scenarioGates[0].id} : {})}].map(normalizeAircraft)})); select(key);
+    const key = `traffic-${crypto.randomUUID().slice(0, 8)}`, next = newAircraft(key, air), rolls = [Math.random(), Math.random()];
+    setDraft(d => {
+      let roll = 0;
+      const callsign = randomCallsign(d.aircraft.map(a => a.seed.callsign), () => rolls[roll++ % rolls.length]);
+      return ({...d, aircraft: [...d.aircraft, {key, initial: true, seed: seedFromAircraft({...next, callsign}), ...(!air ? {gateId: scenarioGates.find(g => !d.aircraft.some(a => a.gateId === g.id))?.id ?? scenarioGates[0].id} : {})}].map(normalizeAircraft)});
+    }); select(key);
   };
   const placeAtGate = useCallback((aircraftId: string, gateId: string) => setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key === aircraftId ? placeAircraftAtGate(spec, gateId, AIRPORT) : spec)})), [AIRPORT]);
   const selectGate = useCallback((gateId: string) => placeAtGate(selected, gateId), [placeAtGate, selected]);

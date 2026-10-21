@@ -44,11 +44,15 @@ export class SessionService {
     seat.expiresAt = now + SESSION_LEASE_MS;
   }
   private view(record: SessionRecord, role: SessionRole, now: number) {
-    const exercise = role === "staff" ? record.exercise : {...record.exercise, messages: record.exercise.messages.map(message => {
+    const exercise = role === "staff" ? record.exercise : {...record.exercise, aircraft: record.exercise.aircraft.map(a => {
+      if (!a.radar?.missedReason) return a;
+      const radar = {...a.radar}; delete radar.missedReason; return {...a, radar};
+    }), messages: record.exercise.messages.map(message => {
       const visible = {...message};
       delete visible.unableReason;
       return visible;
     })};
+    if (role === "mentee") delete exercise.callsignReservations;
     return {session: summary(record, now), exercise, contentRevision: record.contentRevision,
       ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }

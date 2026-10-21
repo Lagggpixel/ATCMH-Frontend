@@ -3,6 +3,7 @@ import {standPoints} from "./stand-geometry";
 import {z} from "zod";
 import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema} from "./protocol";
 import {radarEnvironmentFor} from "./radar";
+import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
 import {buildTaxiGraph} from "./taxi-routing";
 import {AIRPORT_IDS, defaultAirport, getAirport, airportSelection, trainingStation, trainingMode, runwayReferenceError, type AirportSelection} from "./airports";
@@ -40,7 +41,7 @@ export const eventSchema = z.object({id: key, title: z.string().trim().min(1).ma
   z.object({type: z.literal("condition"), condition: conditionSchema, delay: seconds}),
 ]), actions: z.array(eventActionSchema).min(1).max(10)});
 
-export const scenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
+export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
   radarEnvironment: radarEnvironmentSchema.optional(),
   title: z.string().trim().min(1).max(80), instructorNotes: z.string().max(6000),
   aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(50), events: z.array(eventSchema).max(200),
@@ -92,6 +93,14 @@ export const scenarioSchema = z.object({schema: z.union([z.literal(1), z.literal
   if (value.events.some(e => !visit(e.id))) error("Event dependencies contain a cycle.");
 });
 
+/** Historical definitions remain readable; new saves/imports must use unique callsigns. */
+export const scenarioSchema = storedScenarioSchema.superRefine((value, ctx) => {
+  for (let i = 0; i < value.aircraft.length; i++) {
+    const a = value.aircraft[i], conflict = callsignConflict(a.seed.callsign, value.aircraft.slice(0, i).map(other => other.seed.callsign));
+    if (conflict) ctx.addIssue({code: z.ZodIssueCode.custom, message: `${a.seed.callsign}: ${conflict}`});
+  }
+});
+
 export type ScenarioDefinition = z.infer<typeof scenarioSchema>;
 
 export type ScenarioEvent = z.infer<typeof eventSchema>;
@@ -105,7 +114,7 @@ export interface ScenarioRuntime {
   started: boolean; finished: boolean; feedback?: string; attemptId?: string; scenarioId?: string; revision?: number;
 }
 
-export const scenarioRuntimeSchema = z.object({definition: scenarioSchema, generation: z.string().uuid(), aircraftIds: z.record(z.string()),
+export const scenarioRuntimeSchema = z.object({definition: storedScenarioSchema, generation: z.string().uuid(), aircraftIds: z.record(z.string()),
   events: z.record(z.object({status: z.enum(["scheduled", "waiting", "completed", "blocked", "skipped"]), conditionAt: z.number().finite().min(0).max(1e12).optional(), completedAt: z.number().finite().min(0).max(1e12).optional(), error: z.string().optional()})),
   started: z.boolean(), finished: z.boolean(), feedback: z.string().max(6000).optional(), attemptId: z.string().uuid().optional(), scenarioId: z.string().uuid().optional(), revision: z.number().int().positive().optional()});
 
@@ -127,7 +136,7 @@ export const blankScenario = (selection: AirportSelection = {}): ScenarioDefinit
 
 export function createScenarioExercise(definition: ScenarioDefinition, sessionId: string, generation: string): {exercise: Exercise; runtime: ScenarioRuntime} {
   const runtime: ScenarioRuntime = {definition: structuredClone(definition), generation, aircraftIds: Object.fromEntries(definition.aircraft.map(a => [a.key, `${generation}:${a.key}`])), events: Object.fromEntries(definition.events.map(e => [e.id, {status: e.trigger.type === "manual" ? "waiting" : "scheduled"}])), started: false, finished: false};
-  const exercise = {...engineFor(definition).initialExercise(sessionId), trainingStation: definition.trainingStation ?? `${definition.airport}:ground`, aircraft: definition.aircraft.filter(a => a.initial).map(a => materializeAircraft(runtime, a.key))};
+  const exercise = {...engineFor(definition).initialExercise(sessionId), trainingStation: definition.trainingStation ?? `${definition.airport}:ground`, callsignReservations: definition.aircraft.map(a => ({id: runtime.aircraftIds[a.key], callsign: a.seed.callsign})), aircraft: definition.aircraft.filter(a => a.initial).map(a => materializeAircraft(runtime, a.key))};
   return {exercise, runtime};
 }
 

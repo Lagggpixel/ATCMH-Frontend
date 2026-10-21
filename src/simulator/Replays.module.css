@@ -1,3 +1,5 @@
+.dark,.dark :global(.dashboard-theme){color-scheme:dark;--dashboard-bg:#15191d;--dashboard-canvas:#15191d;--dashboard-header:#1d2329;--dashboard-secondary:#26303a;--dashboard-inset:#1d2329;--dashboard-surface:#1d2329;--dashboard-border:#333c45;--dashboard-ink:#edf0f3;--dashboard-text:#edf0f3;--dashboard-muted:#a9b2bd;--dashboard-accent:#ed744b;--dashboard-link:#ff966c;--dashboard-button:#cf4828;--dashboard-button-hover:#b83d20;--dashboard-on-button:#fff;--dashboard-selected:#35231f;--dashboard-danger-text:#ff9189;--dashboard-danger-bg:#382326;--dashboard-shadow-color:#0008;min-height:100dvh;background:var(--dashboard-bg);color:var(--dashboard-ink)}
+.dark :global([data-learning-product="Sweatbox"]){color-scheme:dark}
 .viewerContent{max-width:1600px!important;padding-top:24px!important}
 .viewerHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin:16px 0 24px}
 .viewerHeader h1{margin:0 0 16px;font-size:clamp(26px,3vw,36px);line-height:1.2;overflow-wrap:anywhere}
