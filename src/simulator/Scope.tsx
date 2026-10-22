@@ -1,5 +1,6 @@
 "use client";
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {outsideVectorCircle, VECTOR_HOLD_MS, type VectorTarget} from "./vector-drag";
 import {Airplane} from "@phosphor-icons/react/dist/csr/Airplane";
 import {Gear} from "@phosphor-icons/react/dist/csr/Gear";
 import {MagnifyingGlassPlus} from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
@@ -14,10 +15,11 @@ import {radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-
 import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {editedTaxiPath, hitTaxiPath, remainingTaxiPath, taxiPathEditable, taxiPathState, type TaxiPathEdit} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
-import AircraftPopupAnchor from "./AircraftPopupAnchor";
+import AircraftPopupPresence from "./AircraftPopupPresence";
 import {approachGuide} from "./approach-guides";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget} from "./scope-overlays";
+import {useScopeCamera} from "./use-scope-camera";
 export interface ScopeOptions {taxiways: boolean; approaches: boolean; trails: boolean; frequencyTrails: boolean; filter: string}
 export const initialOptions: ScopeOptions = {taxiways: true, approaches: true, trails: true, frequencyTrails: true, filter: "none"};
 const runwayWindColors = {headwind: "#91e98d", crosswind: "#e8b257", tailwind: "#ff3434"};
@@ -27,9 +29,9 @@ export function trafficVisible(a: Aircraft, filter: string) {
   return filter === "below15" ? a.altitude >= 15000 : a.altitude <= Number(filter);
 }
 export interface ScopeCamera {center: Point; scale: number}
-interface Props {savedCamera?: ScopeCamera; onCameraChange?: (camera: ScopeCamera) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
+interface Props {focusRequest?: {id: string; serial: number}; savedCamera?: ScopeCamera; onCameraChange?: (camera: ScopeCamera) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
-export default function Scope({savedCamera, onCameraChange, showProjectedPaths = true, airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
+export default function Scope({focusRequest, savedCamera, onCameraChange, showProjectedPaths = true, airport = defaultAirport, radarEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
   const AIRPORT = airport, METAR = simulatedMetar(airport);
   const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment}), [airport, radarEnvironment]);
   const airportCamera = useMemo(() => {
@@ -48,10 +50,8 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const trafficCanvas = useRef<HTMLCanvasElement>(null);
-  const pointers = useRef(new Map<number, Point>());
-  const drag = useRef<{point: Point; moved: boolean} | null>(null);
   const routeDrag = useRef<RouteDrag | null>(null);
-  const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; at: number; moved: boolean} | null>(null);
+  const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; at: number; moved: boolean; armed?: boolean; timer?: ReturnType<typeof setTimeout>} | null>(null);
   const suppressClick = useRef(false);
   const gateDrag = useRef<{aircraftId: string; pointerId: number; start: Point; moved: boolean} | null>(null);
   const [gateDraft, setGateDraft] = useState<{aircraftId: string; point: Point; gateId?: string} | null>(null);
@@ -61,7 +61,8 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
   const [tagDraft, setTagDraft] = useState<{aircraftId: string; angle: number} | null>(null);
   const suppressTagClick = useRef(false);
   const cancelTag = () => {tagDrag.current = null; setTagDraft(null);};
-  const cancelVector = () => {vectorDrag.current = null; setVectorDraft(null);};
+  useEffect(() => () => clearTimeout(vectorDrag.current?.timer), []);
+  const cancelVector = () => {clearTimeout(vectorDrag.current?.timer); vectorDrag.current = null; setVectorDraft(null);};
   useEffect(() => {
     const current = tagDrag.current;
     if (current && (!onTagAngle || !snapshot.some(a => a.id === current.aircraftId && a.active))) {
@@ -96,27 +97,57 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
     return () => window.removeEventListener("keydown", close);
   }, []);
   const project = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
+  useEffect(() => {
+    if (!focusRequest) return;
+    const target = snapshot.find(a => a.id === focusRequest.id);
+    const frame = requestAnimationFrame(() => {if (target) setCamera(current => ({...current, center: {...target.position}}));});
+    return () => cancelAnimationFrame(frame);
+    // A new request centers once; ordinary traffic updates must not interrupt panning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest]);
   const minimumScale = radarMode ? .5 : 8;
-  const zoom = (factor: number) => setCamera(c => ({...c, scale: Math.max(minimumScale, Math.min(1800, c.scale * factor))}));
+  const navigationCamera = useScopeCamera(camera, setCamera, size, minimumScale);
+  const zoom = (factor: number) => {if (!vectorDrag.current && !tagDrag.current && !routeDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useEffect(() => {
     const node = container.current;
     if (!node) return;
     const resize = new ResizeObserver(([entry]) => {
       const width = entry.contentRect.width;
       setSize({width, height: entry.contentRect.height});
-      if (!fitted.current) {fitted.current = true; setCamera(airportCamera(width, entry.contentRect.height, frequency === "all"));}
+      if (!fitted.current) {fitted.current = true; navigationCamera.reset(airportCamera(width, entry.contentRect.height, frequency === "all"));}
     });
     resize.observe(node);
+    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, .${styles.airportPopup}, .${styles.scopeButtons}`);
+    const manipulatingAircraft = () => !!(routeDrag.current || vectorDrag.current || tagDrag.current || gateDrag.current);
+    let gestureScale: number | null = null;
     const wheel = (event: WheelEvent) => {
       // Popup lists use native scrolling; only wheel events over the map zoom it.
-      if (event.target instanceof Element && event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, .${styles.airportPopup}, .${styles.scopeButtons}`)) return;
+      if (blocked(event)) return;
       event.preventDefault();
-      if (routeDrag.current || vectorDrag.current || gateDrag.current) return;
-      setCamera(c => ({...c, scale: Math.max(minimumScale, Math.min(1800, c.scale * Math.exp(-event.deltaY * 0.0015)))}));
+      if (manipulatingAircraft() || gestureScale !== null) return;
+      const bounds = node.getBoundingClientRect();
+      navigationCamera.wheel({x: event.clientX - bounds.left, y: event.clientY - bounds.top}, event.deltaY, event.deltaMode, event.ctrlKey);
     };
+    // Safari exposes trackpad magnification as cumulative gesture scale instead of Ctrl+wheel.
+    const gestureStart = (event: Event) => {if (blocked(event)) return; event.preventDefault(); navigationCamera.stop(); gestureScale = 1;};
+    const gestureChange = (event: Event) => {
+      if (gestureScale === null) return;
+      event.preventDefault();
+      const gesture = event as Event & {scale: number; clientX: number; clientY: number};
+      if (!Number.isFinite(gesture.scale) || gesture.scale <= 0) return;
+      if (!manipulatingAircraft() && !navigationCamera.motion.pointers.size) {
+        const bounds = node.getBoundingClientRect();
+        navigationCamera.magnify({x: gesture.clientX - bounds.left, y: gesture.clientY - bounds.top}, gesture.scale / gestureScale);
+      }
+      gestureScale = gesture.scale;
+    };
+    const gestureEnd = () => {gestureScale = null;};
     node.addEventListener("wheel", wheel, {passive: false});
-    return () => {resize.disconnect(); node.removeEventListener("wheel", wheel);};
-  }, [frequency, airportCamera, minimumScale, setCamera]);
+    node.addEventListener("gesturestart", gestureStart, {passive: false});
+    node.addEventListener("gesturechange", gestureChange, {passive: false});
+    node.addEventListener("gestureend", gestureEnd);
+    return () => {resize.disconnect(); node.removeEventListener("wheel", wheel); node.removeEventListener("gesturestart", gestureStart); node.removeEventListener("gesturechange", gestureChange); node.removeEventListener("gestureend", gestureEnd);};
+  }, [frequency, airportCamera, navigationCamera]);
   useEffect(() => {
     const node = canvas.current;
     if (!node) return;
@@ -150,6 +181,7 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
       path([g.threshold, g.center], "#f04444", 1.5);
     }
   }, [camera, size, options, AIRPORT, airport, radarMode, radarEnvironment]);
+  const [tap, setTap] = useState<{id: string; point: Point; choices: string[]} | null>(null);
   const selectedAircraft = snapshot.find(a => a.id === selected);
   const taxiAircraft = selectedAircraft && frequency === "all" && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const routeEditable = !!taxiAircraft && !!onTaxiPathEdit && editMode !== "position" && editMode !== "flightPlan";
@@ -193,42 +225,50 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
   const vectorPoint = (event: {clientX: number; clientY: number}): Point => {const bounds = container.current!.getBoundingClientRect(); return {x: camera.center.x + (event.clientX - bounds.left - size.width / 2) / camera.scale, y: camera.center.y - (event.clientY - bounds.top - size.height / 2) / camera.scale};};
   const vectorAircraft = vectorDraft && aircraft.find(a => a.id === vectorDraft.aircraftId);
   const vectorDistance = vectorAircraft && vectorDraft ? distance(vectorAircraft.position, vectorDraft.point) : 0;
-  const vector = vectorAircraft && vectorDraft ? {...vectorDraft, heading: snappedVectorHeading(vectorAircraft.position, vectorDraft.point), nm: vectorDistance, minutes: vectorAircraft.speed > 0 ? vectorDistance / vectorAircraft.speed * 60 : null} : null;
+  const vector = vectorAircraft && vectorDraft ? {...vectorDraft, heading: snappedVectorHeading(vectorAircraft.position, vectorDraft.point, AIRPORT), nm: vectorDistance, minutes: vectorAircraft.speed > 0 ? vectorDistance / vectorAircraft.speed * 60 : null} : null;
   const vectorScreen = vector ? project(vector.point) : null;
   const terrainPoint = vector ? terrainCoordinates(AIRPORT, vector.point) : null;
   const terrain = useVectorTerrain(terrainPoint?.latitude, terrainPoint?.longitude);
+  const dismissAircraftMenu = () => {setTap(null); onSelect(null);};
+  const selectAt = (a: Aircraft, event: {clientX: number; clientY: number; detail: number}) => {
+    const bounds = container.current!.getBoundingClientRect(), at = project(a.position);
+    const point = event.detail ? {x: event.clientX, y: event.clientY} : {x: bounds.left + at.x, y: bounds.top + at.y};
+    const choices = context && frequency !== "all" && event.detail ? aircraft.filter(other => trafficVisible(other, options.filter) && distance(project(other.position), at) < 24).map(other => other.id) : [];
+    setTap({id: a.id, point, choices: choices.length > 1 ? choices : []});
+    onSelect(a.id); setPopup(null);
+  };
   const aircraftContext = selectedAircraft && context ? context(selectedAircraft) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} aria-label={`${AIRPORT.icao} radar scope`} onPointerDownCapture={event => {if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate();}}}>
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate();}}}>
     <div className={styles.mapSurface} style={routeEditable && routeHover ? {cursor: "crosshair"} : undefined} onPointerDown={event => {
       if (event.button !== 0) return;
-      event.currentTarget.setPointerCapture(event.pointerId); pointers.current.set(event.pointerId, {x: event.clientX, y: event.clientY}); drag.current = {point: {x: event.clientX, y: event.clientY}, moved: pointers.current.size > 1};
-      if (pointers.current.size > 1) {routeDrag.current = null; setRouteDraft(null); return;}
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const bounds = event.currentTarget.getBoundingClientRect();
+      navigationCamera.down(event.pointerId, {x: event.clientX - bounds.left, y: event.clientY - bounds.top}, event.pointerType, !editMode);
+      if (navigationCamera.motion.pointers.size > 1) {routeDrag.current = null; setRouteDraft(null); return;}
       const hit = routeEditable && taxiAircraft ? hitTaxiPath(taxiAircraft, pointAt(event), 11 / camera.scale) : undefined;
       if (hit && taxiAircraft) {routeDrag.current = {aircraftId: taxiAircraft.id, pointerId: event.pointerId, path: taxiPathState(taxiAircraft).path.map(p => ({...p})), edit: hit, start: {x: event.clientX, y: event.clientY}, moved: false}; if (hit.kind === "move") setRouteNode({aircraftId: taxiAircraft.id, index: hit.index});}
     }}
       onPointerMove={event => {
-        const previous = pointers.current.get(event.pointerId);
+        const previous = navigationCamera.motion.pointers.get(event.pointerId);
         if (!previous) {const hit = routeEditable && taxiAircraft ? hitTaxiPath(taxiAircraft, pointAt(event), 11 / camera.scale) : undefined; setRouteHover(current => current?.index === hit?.index && current?.kind === hit?.kind ? current : hit); return;}
         const nextPoint = {x: event.clientX, y: event.clientY};
         if (routeDrag.current?.pointerId === event.pointerId) {
           const current = routeDrag.current;
           if (distance(current.start, nextPoint) > 4) current.moved = true;
           if (current.moved) {current.edit = {...current.edit, point: pointAt(event)}; setRouteDraft({...current});}
-        } else if (pointers.current.size === 2) {const other = [...pointers.current.entries()].find(([id]) => id !== event.pointerId)![1]; const before = distance(previous, other); const after = distance(nextPoint, other); if (before > 1) zoom(after / before);}
-        else setCamera(c => ({...c, center: {x: c.center.x - (nextPoint.x - previous.x) / c.scale, y: c.center.y + (nextPoint.y - previous.y) / c.scale}}));
-        if (drag.current && distance(drag.current.point, nextPoint) > 4) drag.current.moved = true;
-        pointers.current.set(event.pointerId, nextPoint);
+        }
+        const bounds = event.currentTarget.getBoundingClientRect();
+        navigationCamera.move(event.pointerId, {x: event.clientX - bounds.left, y: event.clientY - bounds.top}, !routeDrag.current);
       }} onPointerUp={event => {
-        pointers.current.delete(event.pointerId);
         const current = routeDrag.current;
+        const tapped = current ? (navigationCamera.cancel(event.pointerId), false) : navigationCamera.up(event.pointerId);
         if (current?.pointerId === event.pointerId) {
           if (current.moved && current.aircraftId === selected && routeEditable) {onTaxiPathEdit?.(current.aircraftId, current.path, {...current.edit, point: pointAt(event)}); setRouteNode({aircraftId: current.aircraftId, index: current.edit.index});}
           routeDrag.current = null; setRouteDraft(null); setRouteHover(undefined);
-        } else if (drag.current && !drag.current.moved) {setRouteNode(null); if (onPoint && editMode) onPoint(pointAt(event)); else {onSelect(null); setPopup(null);}}
-        drag.current = null;
-      }} onPointerCancel={event => {pointers.current.delete(event.pointerId); drag.current = null; routeDrag.current = null; setRouteDraft(null);}}
-      onLostPointerCapture={event => {pointers.current.delete(event.pointerId); drag.current = null; routeDrag.current = null; setRouteDraft(null);}}
+        } else if (tapped) {setRouteNode(null); if (onPoint && editMode) onPoint(pointAt(event)); else {onSelect(null); setPopup(null);}}
+      }} onPointerCancel={event => {navigationCamera.cancel(event.pointerId); routeDrag.current = null; setRouteDraft(null);}}
+      onLostPointerCapture={event => {navigationCamera.cancel(event.pointerId); routeDrag.current = null; setRouteDraft(null);}}
       onPointerLeave={() => setRouteHover(undefined)}><canvas ref={canvas} className={styles.mapCanvas}/><canvas ref={trafficCanvas} className={`${styles.mapCanvas} ${styles.trafficCanvas}`}/>
       {taxiAircraft && taxiLine.length > 1 ? <svg className={styles.taxiRouteOverlay} width={size.width} height={size.height} role="group" aria-label={`${taxiAircraft.callsign} taxi route`}>
         <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke="#58e283" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -252,7 +292,7 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
       <div className={styles.vectorPreviewBox} role="status" aria-label="Vector details" style={{left: Math.max(6, Math.min(size.width - 215, vectorScreen.x + 15)), top: Math.max(6, Math.min(size.height - 90, vectorScreen.y + 15))}}>
         <span>{String(vector.heading || 360).padStart(3, "0")}°&nbsp; {String(Math.round(vector.nm)).padStart(3, "0")}NM</span>
         <span>{vector.minutes === null ? "—min" : `${Math.ceil(vector.minutes)}min`} - {terrain === undefined ? "…" : terrain === null ? "Terrain unavailable" : `${terrain}ft~`}</span>
-        {vector.fix ? <span>{vector.fix}</span> : null}
+        {vector.target ? <span>Direct To {vector.target.name}</span> : vector.fix ? <span>{vector.fix}</span> : null}
       </div>
     </> : null}
     {aircraft.filter(a => trafficVisible(a, options.filter)).map(a => {
@@ -274,11 +314,11 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
         {giveWayTargets?.includes(a.id) ? <span className={styles.giveWayTarget} role="img" aria-label={`Likely give-way traffic: ${a.callsign}`}/> : null}
         {busting ? <div className={styles.bustingRing} role="status" aria-label={`Busting ${a.callsign}`}><div className={styles.bustingTag} style={{bottom: `calc(100% + ${alertOffset}px)`}}>{conflicts.map(alert => <span key={alert.otherId}>{separationLabel(alert)}</span>)}{agl !== undefined ? <span>{Math.floor(agl)}ft AGL</span> : null}</div></div> : null}
         <button aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${selected === a.id ? styles.selectedAircraft : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onVector) event.preventDefault();}}
-          onPointerDown={event => {suppressClick.current = false; if (onGateDrop && gates?.length && a.id === selected && !running && event.button === 0 && event.isPrimary) {event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); gateDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, moved: false}; return;} if (!onVector || event.button !== 0 || !event.isPrimary || a.frequency !== frequency || !airborne(a, airport) || a.radar?.transferred) return; event.currentTarget.setPointerCapture(event.pointerId); vectorDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, at: performance.now(), moved: false};}}
-          onPointerMove={event => {const placement = gateDrag.current; if (placement?.pointerId === event.pointerId && gates) {event.stopPropagation(); if (!placement.moved && distance(placement.start, {x: event.clientX, y: event.clientY}) < 4) return; placement.moved = true; const point = vectorPoint(event); setGateDraft({aircraftId: a.id, point, gateId: gateAtPoint(gates, point, 24 / camera.scale)?.id}); return;} const current = vectorDrag.current; if (!current || current.pointerId !== event.pointerId || !onVector) return; const moved = distance(current.start, {x: event.clientX, y: event.clientY}); if (!current.moved && moved < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressClick.current = true; cancelVector(); return;} current.moved = true; setVectorDraft({aircraftId: a.id, ...vectorPreview(a, vectorPoint(event), radarEnvironment)});}}
-          onPointerUp={event => {const placement = gateDrag.current; if (placement?.pointerId === event.pointerId) {event.stopPropagation(); if (placement.moved) {suppressClick.current = true; const gate = gates && gateAtPoint(gates, vectorPoint(event), 24 / camera.scale); if (gate && placement.aircraftId === selected) onGateDrop?.(placement.aircraftId, gate.id);} cancelGate(); return;} const current = vectorDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.moved) {suppressClick.current = true; if (onVector && a.frequency === frequency && !a.radar?.transferred && airborne(a, airport)) onVector(a.id, snappedVectorHeading(a.position, vectorDraft?.point ?? vectorPoint(event)), {x: event.clientX, y: event.clientY});} cancelVector();}}
+          onPointerDown={event => {suppressClick.current = false; if (onGateDrop && gates?.length && a.id === selected && !running && event.button === 0 && event.isPrimary) {event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); gateDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, moved: false}; return;} if (!onVector || event.button !== 0 || !event.isPrimary || a.frequency !== frequency || !airborne(a, airport) || a.radar?.transferred) return; event.currentTarget.setPointerCapture(event.pointerId); const current: NonNullable<typeof vectorDrag.current> = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, at: performance.now(), moved: false}; vectorDrag.current = current;current.timer = setTimeout(() => {if(vectorDrag.current !== current)return;current.armed=true;setVectorDraft({aircraftId:a.id,...vectorPreview(a,vectorPoint({clientX:current.start.x,clientY:current.start.y}),AIRPORT,radarEnvironment,camera.scale)});},VECTOR_HOLD_MS);}}
+          onPointerMove={event => {const placement = gateDrag.current; if (placement?.pointerId === event.pointerId && gates) {event.stopPropagation(); if (!placement.moved && distance(placement.start, {x: event.clientX, y: event.clientY}) < 4) return; placement.moved = true; const point = vectorPoint(event); setGateDraft({aircraftId: a.id, point, gateId: gateAtPoint(gates, point, 24 / camera.scale)?.id}); return;} const current = vectorDrag.current; if (!current || current.pointerId !== event.pointerId || !onVector) return; const moved = distance(current.start, {x:event.clientX,y:event.clientY});if(!current.armed){if(moved>8){suppressClick.current=true;cancelVector();}return;}current.moved=true;setVectorDraft({aircraftId:a.id,...vectorPreview(a,vectorPoint(event),AIRPORT,radarEnvironment,camera.scale)});}}
+          onPointerUp={event => {const placement = gateDrag.current; if (placement?.pointerId === event.pointerId) {event.stopPropagation(); if (placement.moved) {suppressClick.current = true; const gate = gates && gateAtPoint(gates, vectorPoint(event), 24 / camera.scale); if (gate && placement.aircraftId === selected) onGateDrop?.(placement.aircraftId, gate.id);} cancelGate(); return;} const current = vectorDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.armed) {suppressClick.current = true; const point=vectorPoint(event);if(onVector && a.frequency===frequency && !a.radar?.transferred && airborne(a,airport) && outsideVectorCircle(a.position,point,camera.scale)){const preview=vectorPreview(a,point,AIRPORT,radarEnvironment,camera.scale);onVector(a.id,preview.heading,{x:event.clientX,y:event.clientY},preview.target);}} cancelVector();}}
           onPointerCancel={() => {suppressClick.current = true; cancelVector(); cancelGate();}} onLostPointerCapture={() => {cancelVector(); cancelGate();}}
-          onClick={() => {if (suppressClick.current) {suppressClick.current = false; return;} onSelect(a.id); setPopup(null);}}><Airplane size={25} weight="fill" className={!busting && pendingAircraft?.includes(a.id) ? styles.pendingAircraft : undefined} style={{transform: `rotate(${a.heading}deg)`}}/></button>
+          onClick={event => {if (suppressClick.current) {suppressClick.current = false; return;} selectAt(a, event);}}><Airplane size={25} weight="fill" className={!busting && pendingAircraft?.includes(a.id) ? styles.pendingAircraft : undefined} style={{transform: `rotate(${a.heading}deg)`}}/></button>
         {aircraftTagVisible(a, frequency, selected) ? <>
           {tagOffset ? <svg className={styles.tagLeader} width="1" height="1" aria-hidden="true"><line x1="0" y1="0" x2={tagOffset.x} y2={tagOffset.y} stroke="currentColor"/></svg> : null}
           <button className={`${styles.aircraftTag} ${tagOffset ? styles.rotatedTag : a.tag === "left" || (a.tag === "auto" && p.x > size.width * .7) ? styles.leftTag : ""}`} style={tagOffset ? {left: tagOffset.x, top: tagOffset.y, right: "auto", bottom: "auto", transform: `translate(${tagOffset.x < 0 ? "-100%" : "0"}, ${tagOffset.y < 0 ? "-100%" : "0"})`, textAlign: tagOffset.x < 0 ? "right" : "left"} : undefined}
@@ -287,11 +327,13 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
             onPointerMove={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId || !onTagAngle) return; if (!current.moved && distance(current.start, {x: event.clientX, y: event.clientY}) < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressTagClick.current = true; cancelTag(); return;} current.moved = true; const bounds = container.current!.getBoundingClientRect(); const angle = (Math.atan2(event.clientY - bounds.top - p.y, event.clientX - bounds.left - p.x) * 180 / Math.PI + 360) % 360; current.angle = angle; setTagDraft({aircraftId: a.id, angle});}}
             onPointerUp={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.moved) {suppressTagClick.current = true; if (current.angle !== undefined) onTagAngle?.(a.id, current.angle);} cancelTag();}}
             onPointerCancel={() => {suppressTagClick.current = true; cancelTag();}} onLostPointerCapture={cancelTag}
-            onClick={() => {if (suppressTagClick.current) {suppressTagClick.current = false; return;} onSelect(a.id);}}><span>{a.callsign}</span><span>{label.flight}</span>{label.approach ? <span>{label.approach}</span> : null}</button>
+            onClick={event => {if (suppressTagClick.current) {suppressTagClick.current = false; return;} selectAt(a, event);}}><span>{a.callsign}</span><span>{label.flight}</span>{label.approach ? <span>{label.approach}</span> : null}</button>
         </> : null}
       </div>;
     })}
-    {aircraftContext && selectedAircraft ? <AircraftPopupAnchor key={`${selectedAircraft.id}:${contextPoint?.x ?? "click"}:${contextPoint?.y ?? "click"}`} scope={container} point={project(selectedAircraft.position)} screenPoint={contextPoint}>{aircraftContext}</AircraftPopupAnchor> : null}
+    <AircraftPopupPresence scope={container} onDismiss={dismissAircraftMenu} popup={aircraftContext && selectedAircraft ? {key: `${selectedAircraft.id}:${contextPoint?.x ?? tap?.point.x ?? "click"}:${contextPoint?.y ?? tap?.point.y ?? "click"}`, point: project(selectedAircraft.position), screenPoint: contextPoint ?? (tap?.id === selected ? tap.point : undefined), content: <>
+      {tap?.id === selected && tap.choices.length > 1 ? <div className={`${styles.aircraftMenu} ${styles.radarQuick}`} role="menu" aria-label="Choose aircraft">{tap.choices.map(id => {const a = snapshot.find(item => item.id === id); return a ? <button key={id} role="menuitem" onClick={() => {setTap({...tap, id, choices: []}); onSelect(id);}}>{a.callsign}</button> : null;})}</div> : aircraftContext}
+    </>} : null}/>
     {following && trafficVisible(following, options.filter) ? <span role="img" aria-label={`Traffic to follow: ${following.callsign}`} className={styles.followingRing} style={{left: project(following.position).x, top: project(following.position).y}}/> : null}
     {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route{routeEditable ? <><br/>Drag the green line to reshape · drag a waypoint to move it</> : null}</> : <>Projected path · {selectedAircraft.mode}<br/>{["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>{editMode === "taxi-preview" ? "Taxi route · drag the green line to adjust" : editMode === "taxi" ? "Click to extend route · drag the line or a waypoint to reshape" : editMode === "flightPlan" ? "Click to add flight-plan waypoint" : "Click to reposition selected aircraft"}</div> : null}
@@ -299,7 +341,7 @@ export default function Scope({savedCamera, onCameraChange, showProjectedPaths =
       <button aria-label="Scope options" aria-expanded={popup === "options"} onClick={() => setPopup(popup === "options" ? null : "options")}><Gear size={32} weight="fill"/></button>
       <button aria-label="Zoom in" onClick={() => zoom(1.4)}><MagnifyingGlassPlus size={32} weight="bold"/></button>
       <button aria-label="Zoom out" onClick={() => zoom(1 / 1.4)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
-      <button aria-label="Recenter airport" onClick={() => setCamera(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
+      <button aria-label="Recenter airport" onClick={() => navigationCamera.reset(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
     </div>
     {popup === "options" ? <div className={styles.optionsMenu} role="menu" aria-label="Scope options">{optionRows.map(([key, label]) => <button key={key} role="menuitemcheckbox" aria-checked={Boolean(options[key])} onClick={() => setOptions(o => ({...o, [key]: !o[key]}))}><span>{options[key] ? "✓" : ""}</span>{label}</button>)}<button onClick={() => setPopup("hide")}>Hide Traffic <span className={styles.arrow}>›</span></button></div> : null}
     {popup === "hide" ? <div className={styles.optionsMenu} role="menu" aria-label="Hide Traffic">{[["none", "Show All Traffic"], ...[10000, 15000, 20000, 25000, 30000].map(n => [String(n), `Hide Traffic > ${n / 1000}K`]), ["below15", "Hide Traffic < 15K"]].map(([value, label]) => <button key={value} role="menuitemradio" aria-checked={options.filter === value} onClick={() => {setOptions(o => ({...o, filter: value})); setPopup(null);}}><span>{options.filter === value ? "✓" : ""}</span>{label}</button>)}</div> : null}

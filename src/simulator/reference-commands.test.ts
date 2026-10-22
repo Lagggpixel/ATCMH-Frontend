@@ -153,3 +153,56 @@ test("ILS flight-level readbacks and level missed-approach replies retain the re
   assert.equal(e.readbackText("Speedbird 1", "Speedbird 1, cleared ILS runway 24 approach", {type: "vector", approachId: "ils-24", standalone: true, interceptAltitude: 19000}), "Maintain FL190 until established on the localizer, cleared ILS runway 24, Speedbird 1");
   assert.equal(e.readbackText("Speedbird 1", "Speedbird 1, execute missed approach, descend and maintain 4000", {type: "missed-approach", altitude: {unit: "feet", value: 4000}, fromAltitude: 4000}), "Executing missed approach, maintain 4000, Speedbird 1");
 });
+
+
+test("missed-approach calls keep the ordinary menu without suggestions", () => {
+  for (const frequency of ["approach", "center"] as const) {
+    const engine = engineFor({trainingStation: `EGPH:${frequency}`}), state = engine.initialExercise();
+    const aircraft = state.aircraft[0], catalog = catalogFor(getAirport(state), state.radarEnvironment);
+    const base: Message = {id: "missed", aircraftId: aircraft.id, sender: "pilot", frequency, time: 0, text: `${aircraft.callsign}, executing missed approach`};
+    for (const request of [base, {...base, request: {id: "missed-approach" as const, runway: "24"}}]) {
+      const menu = catalog.requestMessageMenu(frequency, aircraft, request);
+      assert.ok(!menu.some(entry => entry.suggested), `${frequency}: no missed-approach suggestions`);
+      assert.deepEqual(menu, catalog.messageMenu(frequency, aircraft, [], request));
+      assert.ok(menu.some(entry => entry.label === "Vectoring Instructions"));
+      assert.ok(menu.some(entry => entry.label === "Missed Approach Instructions"));
+    }
+  }
+});
+
+
+test("Request Approach suggests Expect Approach with a direct Radar Vectors Send option", () => {
+  for (const frequency of ["approach", "center"] as const) {
+    const engine = engineFor({trainingStation: `EGPH:${frequency}`}), state = engine.initialExercise();
+    const aircraft = state.aircraft[0], catalog = catalogFor(getAirport(state), state.radarEnvironment);
+    aircraft.runway = "06";
+    const base: Message = {id: "approach-request", aircraftId: aircraft.id, sender: "pilot", frequency, time: 0, text: `${aircraft.callsign}, requesting ILS approach at EGPH`};
+    for (const request of [base, {...base, request: {id: "request-approach" as const, runway: "24"}}, {...base, text: `${aircraft.callsign}, requesting GPS approach at EGPH`}, {...base, text: `${aircraft.callsign}, requesting visual approach at EGPH`}]) {
+      const menu = catalog.requestMessageMenu(frequency, aircraft, request);
+      assert.equal(menu[0].label, "Expect Approach");
+      assert.equal(menu[0].suggested, true);
+      assert.equal(menu.filter(entry => entry.suggested).length, 1);
+      const vectors = find(menu, "Expect Approach", "Radar Vectors");
+      assert.deepEqual(vectors.children?.map(entry => entry.label), ["Send"]);
+      const command = find(menu, "Expect Approach", "Radar Vectors", "Send").instruction!;
+      assert.deepEqual(command, {type: "expect-approach", approachId: null, vectors: true, runway: "06", navigation: "vectors"});
+      assert.ok(instructionSchema.safeParse(command).success);
+      assert.equal(engine.validateControllerMessage(state, aircraft, command, frequency), null);
+      assert.match(catalog.instructionText(aircraft, command), /expect vectors for runway 06/);
+      state.messages = [request];
+      const sent = engine.applyEnvelope(state, {id: randomUUID(), time: 1000, action: {kind: "command", aircraftId: aircraft.id, frequency, command, text: catalog.instructionText(aircraft, command), replyTo: request.id}});
+      assert.equal(sent.error, undefined);
+      assert.deepEqual(sent.state.messages.at(-1)?.instruction, command);
+      assert.equal(sent.state.messages.at(-1)?.replyTo, request.id);
+      const ordinary = catalog.messageMenu(frequency, aircraft, [], request);
+      assert.deepEqual(menu.slice(1), ordinary, "ordinary approach menus remain unchanged");
+      assert.ok(find(menu, "Expect Approach...", "Radar Vectors").children?.every(entry => /^Runway /.test(entry.label)));
+      assert.deepEqual(find(menu, "Expect Approach", "ILS Approach"), find(ordinary, "Expect Approach...", "ILS Approach"));
+    }
+    assert.ok(!catalog.requestMessageMenu(frequency, aircraft).some(entry => entry.suggested));
+    aircraft.runway = undefined;
+    const fallback = find(catalog.requestMessageMenu(frequency, aircraft, base), "Expect Approach", "Radar Vectors", "Send").instruction!;
+    assert.ok(instructionSchema.safeParse(fallback).success);
+    assert.doesNotMatch(catalog.instructionText(aircraft, fallback), /undefined/);
+  }
+});

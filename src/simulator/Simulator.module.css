@@ -17,7 +17,8 @@
 .topBanner {grid-column:2/4;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 12px 0 2px;white-space:nowrap;overflow:hidden;font-size:clamp(13px,1.05vw,21px);background:black;z-index:3}
 .topBanner>span:first-child {color:#91e98d;overflow:hidden;text-overflow:ellipsis}
 .topBanner>span:last-child {font-family:"Simulator Mono",monospace;flex-shrink:0}
-.scope {grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000}
+.scope {grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.scope :is(input,textarea,[contenteditable="true"]) {-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 .scope :is(.airportMarker,.aircraft,.aircraftTag),.scope :is(.airportMarker,.aircraft,.aircraftTag):hover {background:transparent!important;border:0!important;box-shadow:none;min-height:0;font-weight:400}
 .scope .aircraftTag {display:block;line-height:1.25;border-radius:0}
 .scope .airportMarker {display:grid;place-items:center;border-radius:0}
@@ -108,8 +109,6 @@
 .selectedStrip {background:#1a1a1a}
 .otherFrequency {color:#888}
 .reminder {outline:2px solid #91e98d;outline-offset:-2px}
-.splitter {appearance:none;height:8px!important;padding:0!important;margin:0!important;width:100%;border:0!important;background:#222!important;cursor:ns-resize}
-.splitter::-webkit-slider-thumb {appearance:none;height:8px;width:30px;background:#888}
 .messageLog {min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:safe flex-end;font-size:clamp(14px,1.16vw,20px);padding:0 4px 3px 0;overflow-wrap:anywhere}
 .messageLog>div {padding:3px 0;border-bottom:1px solid #333;background:#151515}
 .messageLog>div:nth-child(even) {background:#000}
@@ -404,7 +403,8 @@
   --trainer-muted:#b3bfc8;
   --trainer-accent:#27c9d6;
   --trainer-selected:#17343a;
-  padding:0;grid-template-columns:132px minmax(0,1fr) 400px;
+  --controller-unit:1px;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * var(--controller-unit));
   grid-template-rows:64px minmax(0,1fr);
   background:#0e1114;color:#e6edf2;font-size:15px;
   scrollbar-color:#52616c var(--trainer-surface);scrollbar-width:thin;
@@ -458,7 +458,6 @@
 .menteeSimulator .strip .atcButton {border-left:1px solid var(--trainer-border);font-size:12px!important;padding:8px!important;text-align:center!important;border-radius:0;color:#6ce5ed}
 .menteeSimulator .atcButton i {bottom:8px;right:8px;width:6px;height:6px}
 .menteeSimulator .selectedStrip {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 2px 0 var(--trainer-accent)}
-.menteeSimulator .splitter {background:#303a42!important;margin:0 0 6px!important}
 .menteeSimulator .messageLog {display:block;font-size:14px;line-height:1.5;padding:0;min-height:0}
 .messageLogTitle {position:sticky;top:0;z-index:1;background:var(--trainer-surface);font-size:13px;font-weight:400;color:#d9e3e9;padding:12px 0;margin:0;border-bottom:1px solid var(--trainer-border)}
 .menteeSimulator .messageLog>div {background:transparent;padding:12px 0;border-bottom:1px solid #303a42}
@@ -513,7 +512,7 @@
 .trainingAtis .atisPublished {flex:none;white-space:pre-wrap;padding:16px;background:var(--trainer-surface);border:1px solid var(--trainer-border);border-radius:3px;min-height:100px;overflow:visible;font-size:14px;line-height:1.7}
 .trainingAtis h2 {background:none;border:0;padding:0;font-size:13px;color:#d9e3e9;margin-bottom:14px}
 @media(max-width:1100px) {
-  .menteeSimulator {grid-template-columns:112px minmax(0,1fr) 350px;grid-template-rows:72px minmax(0,1fr)}
+  .menteeSimulator {grid-template-rows:72px minmax(0,1fr)}
   .menteeSimulator .topBanner {padding:8px 12px;gap:10px;font-size:13px}
   .menteeSimulator .topBanner>span:last-child {font-size:10px}
   .menteeSimulator .sidebar {gap:8px;padding:14px 8px}
@@ -566,3 +565,129 @@
 .quickCommands button:focus-visible {outline:2px solid var(--trainer-accent);outline-offset:-2px}
 .commandMain>.messageEntries {flex:1;min-height:0}
 .commandMain>.messageLog {flex:0 0 23%;overflow-y:auto;margin-top:6px;border-top:1px solid var(--trainer-border)}
+
+.simulator:fullscreen {width:100%;height:100dvh}
+.fullscreenControl {position:relative;display:inline-flex;flex-shrink:0}
+.fullscreenControl button {display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-height:36px;padding:6px 9px}
+.fullscreenControl [role="status"] {position:absolute;right:0;top:calc(100% + 6px);width:240px;padding:10px;background:var(--dashboard-surface,#161b20);color:var(--dashboard-ink,#eee);border:1px solid var(--dashboard-border,#46515b);border-radius:4px;font-size:13px;white-space:normal;z-index:30}
+@media(max-width:1100px) {.fullscreenControl button>span {display:none}.fullscreenControl button {padding:6px}}
+
+
+.menteeSimulator .sidebar {padding:8px 3px;gap:8px;min-width:0}
+.menteeSimulator .trainerBrand {margin:0 0 12px}
+.menteeSimulator .trainerBrand strong {font-size:10px;letter-spacing:0}
+.menteeSimulator .sidebar>button {min-height:76px;padding:8px 1px;gap:6px;font-size:11px;min-width:0}
+.facilityLabel {display:flex;flex-direction:column;gap:4px;max-width:100%;overflow-wrap:anywhere}
+.facilityLabel small {font-size:10px}
+.menteeSimulator .frequencyValue {font-size:9px;overflow-wrap:anywhere}
+.menteeSimulator .sidebar .exit {padding:10px 2px;font-size:11px;text-align:center}
+.menteeSimulator .rightPanel {grid-template-rows:minmax(0,1fr) minmax(0,calc(166 * var(--controller-unit)));min-width:0;padding:0 10px 0}
+.messageBackdrop {position:absolute;inset:0;z-index:31;width:100%;height:100%;padding:0!important;background:transparent!important;cursor:default!important}
+.menteeSimulator .commandPanel {position:absolute;grid-area:auto;right:calc(env(safe-area-inset-right) + 5 * var(--controller-unit));bottom:calc(env(safe-area-inset-bottom) + 5 * var(--controller-unit));top:auto;width:calc(562 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10 * var(--controller-unit)));max-width:none;max-height:none;padding:0;border:0;outline:1px solid var(--trainer-border);border-radius:5px;box-shadow:0 6px 24px #0008;z-index:32}
+.contextAnchor {width:320px;z-index:30}
+.contextAnchor>.aircraftMenu {width:100%;min-width:0;max-height:var(--popup-available-height,calc(100dvh - 10px));padding:0;scrollbar-width:auto;animation:aircraftMenuEnter .12s ease-out}
+.simulator .aircraftMenu {background:#050505;color:#eee;border-color:#353535}
+.simulator .aircraftMenu button {min-height:calc(55 * var(--controller-unit,1px));padding:12px 18px;color:#eee;background:transparent;font-size:15px;overflow-wrap:anywhere}
+.simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:#263a42;color:#fff}
+.simulator .aircraftMenu button:active:not(:disabled) {background:#d3f3fb;color:#07191e}
+.contextAnchor .altitudeChoices {max-height:none;overflow:visible}
+.aircraftInformation {top:calc(env(safe-area-inset-top) + 74px);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit) + 5px);left:auto;transform:none;box-shadow:0 6px 24px #0008;max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 10px)}
+@keyframes aircraftMenuEnter {from {opacity:0;transform:translateX(var(--popup-direction,-8px))} to {opacity:1;transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce) {.contextAnchor>.aircraftMenu {animation:none}}
+
+.menteeSimulator .trainerBrand>span {font-size:9px}
+@media(orientation:landscape) and (max-height:550px) and (min-width:568px) {.menteeSimulator {--controller-unit:.8px;grid-template-rows:44px minmax(0,1fr)} .menteeSimulator .rotatePrompt {display:none} .menteeSimulator .sidebar>button {min-height:60px} .menteeSimulator .topBanner {font-size:11px;padding:4px 8px;gap:8px}}
+
+
+/* Controller overlays stay above the audio/header layer and inside fullscreen. */
+.aircraftInformation {z-index:35;max-height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 84px)}
+.menteeSimulator .rotatePrompt {z-index:100}
+
+/* Infinite Flight 26.4 settled backgrounds; alpha values are bytes / 255. */
+.menteeSimulator .sidebar {background:transparent}
+.menteeSimulator .sidebar>button {background:rgb(0 0 0 / calc(40 / 255))}
+.menteeSimulator .sidebar>button.activeFrequency {background:rgb(0 0 0 / calc(81 / 255))}
+.menteeSimulator .rightPanel,.menteeSimulator .topBanner {background:rgb(0 0 0 / calc(81 / 255))}
+.menteeSimulator .strip,.menteeSimulator .selectedStrip {background:rgb(0 0 0 / calc(153 / 255))}
+.menteeSimulator .stripBody,.menteeSimulator .strip .atcButton {background:transparent}
+.menteeSimulator .stripsHeader,.menteeSimulator .messageLogTitle {background:transparent}
+.menteeSimulator .messageLog {background:rgb(0 0 0 / calc(89 / 255))}
+.menteeSimulator .messageLog>div:nth-of-type(odd) {background:#171717}
+.menteeSimulator .messageLog>div:nth-of-type(even) {background:transparent}
+.simulator .aircraftMenu,.simulator .optionsMenu,.simulator .scope .optionsMenu,.simulator .scope .procedurePanel {background:#000}
+.simulator .aircraftMenu button {background:transparent}
+.simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:#171717;color:#fff}
+.simulator .aircraftMenu button:active:not(:disabled) {background:#272727;color:#fff}
+.menteeSimulator .commandPanel,.menteeSimulator .commandPanel header {background:#000}
+.menteeSimulator .commandPanel .quickCommands {background:rgb(0 0 0 / calc(170 / 255))}
+.menteeSimulator .commandMain,.menteeSimulator .commandPanel .messageEntries {background:#171717}
+.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button {background:#272727}
+.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button:hover:not(:disabled) {background:#333}
+.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button:active:not(:disabled) {background:#272727;color:#fff}
+.menteeSimulator .commandPanel button:disabled,.simulator .aircraftMenu button:disabled {opacity:.5}
+.simulator .aircraftInformation {background:#15181e}
+/* Only a pending selection's background flashes; its text stays fully visible. */
+.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button[aria-busy=true] {animation:messageSelectionPending .15s steps(1,end) infinite}
+@keyframes messageSelectionPending {0%,100% {background-color:#272727} 50% {background-color:rgb(39 39 39 / 50%)}}
+@media(prefers-reduced-motion:reduce) {.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button[aria-busy=true] {animation:none}}
+
+@media(orientation:landscape) and (max-height:550px) and (min-width:568px) {.menteeSimulator .sidebar>button {font-size:9px}.menteeSimulator .facilityLabel small {font-size:9px}.menteeSimulator .frequencyValue {font-size:7px;letter-spacing:-.2px;white-space:nowrap}}
+
+/* Controller messaging: 141:659 columns span all 562 scaled units. */
+.menteeSimulator .commandPanel {animation:none;transition:none}
+.menteeSimulator .commandWorkspace {grid-template-columns:minmax(0,141fr) minmax(0,659fr);gap:0;padding:0;width:100%;height:100%;flex:1}
+.menteeSimulator .commandPanel .quickCommands {margin:calc(2 * var(--controller-unit));min-width:0}
+.menteeSimulator .commandPanel .commandMain {background:#000;min-width:0}
+.menteeSimulator .commandMain>header {margin:0 calc(8 * var(--controller-unit));padding:calc(8 * var(--controller-unit)) 0;font-size:calc(18 * var(--controller-unit));min-height:calc(55 * var(--controller-unit))}
+.menteeSimulator .commandMain>:is(.messageEntries,.compose,section) {margin:calc(8 * var(--controller-unit));min-width:0}
+.menteeSimulator .commandPanel :is(.messageEntries) button {height:calc(55 * var(--controller-unit));min-height:calc(55 * var(--controller-unit));width:100%;flex:none;margin:0;overflow:hidden;padding:calc(8 * var(--controller-unit)) calc(12 * var(--controller-unit));font-size:calc(14 * var(--controller-unit));line-height:1.25}
+.menteeSimulator .commandPanel :is(.messageEntries) button>div {min-width:0;overflow-wrap:anywhere}
+.commandHistory {flex:0 0 23%;min-height:0;min-width:0;margin:calc(8 * var(--controller-unit));background:#171717;overflow:hidden}
+.commandHistory>.messageLog {height:100%;width:100%}
+.menteeSimulator:has(.commandPanel) .contextAnchor {z-index:33}
+
+/* 26.4 controller message rows: 38, 100*, 126, 69*. */
+.menteeSimulator .commandPanel {background:transparent;border-radius:0;outline:0;box-shadow:none}
+.menteeSimulator .commandPanel .commandMain {display:grid;grid-template-rows:calc(38 * var(--controller-unit)) minmax(0,100fr) minmax(0,69fr);background:#000}
+.menteeSimulator .commandMain>.commandHeading {grid-row:1;margin:0;padding:0;min-height:0;height:auto;border:0;background:#000}
+.keyboardClose {opacity:0;position:absolute;right:0;top:0}
+.keyboardClose:focus-visible {opacity:1}
+.menteeSimulator .commandMain>.messageEntries {grid-row:2;min-height:0}
+.menteeSimulator .commandMain>.compose,.menteeSimulator .commandMain>section {grid-row:2;min-height:0}
+.menteeSimulator .commandMain>[hidden] {display:none}
+.commandHistory {grid-row:3;margin:calc(8 * var(--controller-unit));min-height:0}
+.menteeSimulator .commandPanel .quickCommands button {background:rgb(0 0 0 / calc(170 / 255));border:0;border-radius:0;margin:calc(2 * var(--controller-unit));width:calc(100% - 4 * var(--controller-unit));padding:calc(5 * var(--controller-unit));font-size:calc(10 * var(--controller-unit))}
+.visuallyHidden {position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
+.menteeSimulator .compactMessageLog {font-size:calc(14 * var(--controller-unit));line-height:1.25}
+.menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit)) 0;border:0}
+.compactMessageLog p {margin:0}
+
+.contextAnchor>.aircraftMenu {padding:calc(16 * var(--controller-unit,1px));animation:aircraftMenuEnter .04s linear both;border:0;border-radius:calc(8 * var(--controller-unit,1px));box-shadow:none}
+.simulator .aircraftMenu button {height:calc(55 * var(--controller-unit,1px));min-height:calc(55 * var(--controller-unit,1px));padding:0 calc(16 * var(--controller-unit,1px));font-size:calc(14 * var(--controller-unit,1px));overflow:hidden}
+.simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:active:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:transparent;color:inherit}
+.contextAnchor[data-closing=true]>.aircraftMenu {animation:aircraftMenuLeave .04s linear both;pointer-events:none}
+@keyframes aircraftMenuLeave {from {opacity:1;transform:translateX(0)} to {opacity:0;transform:translateX(var(--popup-direction,36px))}}
+@media(prefers-reduced-motion:reduce) {.contextAnchor>.aircraftMenu,.contextAnchor[data-closing=true]>.aircraftMenu {animation:none}}
+
+/* Reference controller chrome, independent of the trainer workspace. */
+.menteeSimulator {grid-template-rows:calc(34 * var(--controller-unit)) minmax(0,1fr)}
+.menteeSimulator .topBanner {height:calc(34 * var(--controller-unit));min-height:0;padding:0 calc(6 * var(--controller-unit));gap:calc(8 * var(--controller-unit));font-size:calc(11 * var(--controller-unit));border:0;white-space:nowrap}
+.menteeSimulator .topBanner>span:first-child {white-space:nowrap;text-overflow:ellipsis;overflow:hidden;line-height:1}
+.menteeSimulator .topBanner small {display:none}
+.menteeSimulator .topBanner :is(.radioAudio button,.fullscreenControl button) {min-height:0;height:calc(30 * var(--controller-unit));padding:calc(3 * var(--controller-unit)) calc(5 * var(--controller-unit));font-size:calc(11 * var(--controller-unit))}
+.menteeSimulator .sidebar {padding:0 0 calc(54 * var(--controller-unit));gap:0;overflow-y:auto}
+.menteeSimulator .sidebar>button {flex:1 0 0;min-height:calc(48 * var(--controller-unit));padding:calc(4 * var(--controller-unit)) 1px;gap:calc(4 * var(--controller-unit));border:0;border-radius:0}
+.menteeSimulator .strip {height:calc(75 * var(--controller-unit));min-height:calc(75 * var(--controller-unit));padding:0;margin:0;border:0;border-bottom:1px solid #0003;border-radius:0;gap:0;grid-template-columns:minmax(0,1fr) calc(64 * var(--controller-unit));touch-action:pan-y}
+.menteeSimulator .stripBody {padding:calc(6 * var(--controller-unit))!important;gap:calc(4 * var(--controller-unit));font-size:calc(14 * var(--controller-unit))!important}
+.menteeSimulator .stripBody>span:first-child {font-size:calc(15 * var(--controller-unit))}
+.menteeSimulator .strip .atcButton {padding:calc(4 * var(--controller-unit))!important;font-size:calc(14 * var(--controller-unit))!important;border:0}
+.menteeSimulator .strips {overflow-x:hidden}
+.menteeSimulator .stripsHeader {display:none}
+.menteeSimulator .aircraftInformation {top:calc(env(safe-area-inset-top) + 34 * var(--controller-unit));bottom:env(safe-area-inset-bottom);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit));width:calc(458 * var(--controller-unit));max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 60 * var(--controller-unit));height:auto;max-height:none;box-shadow:none;border:0;border-radius:0;overflow-y:auto}
+.menteeSimulator .commandMain>.commandHistory {grid-row:3;grid-column:1;min-height:0}
+.menteeSimulator .commandMain>.messageEntries {grid-column:1}
+.menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit));border:0}
+.menteeSimulator .compactMessageLog p {margin:0}
+
+.menteeSimulator .commandPanel .messageEntries button.suggestedCommand {color:#91e98d}
+.menteeSimulator .restoreStrips {width:100%;padding:8px;font-size:12px;background:rgb(0 0 0 / calc(81 / 255));color:#eee;text-align:center}

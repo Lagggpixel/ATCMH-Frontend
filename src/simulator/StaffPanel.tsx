@@ -1,4 +1,5 @@
 "use client";
+import {magneticHeadingLabel} from "./magnetic-headings";
 import {useState, type ReactNode} from "react";
 import Link from "next/link";
 import {Airplane} from "@phosphor-icons/react/dist/csr/Airplane";
@@ -63,7 +64,7 @@ export default function StaffPanel(props: Props) {
 
 function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, onEditMode, holdPoint, onHoldPoint, owner, section}: Props & {selected: Aircraft; section: string}) {
   const [headingDraft, setHeading] = useState<string | null>(null);
-  const heading = headingDraft ?? String(Math.round(a.targetHeading));
+  const heading = headingDraft ?? String(magneticHeadingLabel(a.targetHeading, getAirport(exercise)));
   const AIRPORT = getAirport(exercise);
   const {runwayGeometry, sequenceStatus, validateAssignment: validateInstruction} = engineFor(exercise);
   const {pilotRequests, pilotRequestText} = catalogFor(AIRPORT);
@@ -115,7 +116,7 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       </section>
       <div className={styles.flightOverrides}>
       <SpeedControls airport={AIRPORT} aircraft={a} onEdit={edit} onSpeed={value => maneuver({type: "speed", value})}/>
-      <section className={styles.headingControls} aria-label="Heading controls"><h2>Maneuver</h2><div className={styles.numberCommand}><label>Heading (°)<input aria-label="Heading override" type="number" min="0" max="360" step="10" value={heading} onChange={e => setHeading(e.target.value)}/></label><button disabled={!!validateInstruction(a, {type: "heading", value: Number(heading)})} onClick={() => {maneuver({type: "heading", value: Number(heading)}); setHeading(null);}}>Set heading</button></div></section>
+      <section className={styles.headingControls} aria-label="Heading controls"><h2>Maneuver</h2><div className={styles.numberCommand}><label>Heading (°M)<input aria-label="Heading override" type="number" min="0" max="360" step="10" value={heading} onChange={e => setHeading(e.target.value)}/></label><button disabled={!!validateInstruction(a, {type: "heading", value: Number(heading)})} onClick={() => {maneuver({type: "heading", value: Number(heading)}); setHeading(null);}}>Set heading</button></div></section>
       </div>
     </div> : null}
     {section === "routes" && a.radar ? <RadarSeedControls aircraft={a} environment={exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT)} onEdit={edit}/> : null}

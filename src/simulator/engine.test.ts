@@ -1,3 +1,5 @@
+import {getAirport} from "./airports";
+import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, AIRPORT, applyEnvelope, initialExercise, newAircraft, patternTargets, runwayGeometry, validateAssignment, validateInstruction} from "./engine";
@@ -53,7 +55,7 @@ test("taxi stops at marked hold, crossing releases it once, and path end parks t
 test("heading overrides survive runway changes until explicit pattern instruction", () => {
   let state = maneuver(initialExercise(), {type: "heading", value: 90});
   const before = {...state.aircraft[0].position}; state = maneuver(state, {type: "runway", runway: "06"});
-  assert.equal(state.aircraft[0].mode, "heading"); assert.equal(state.aircraft[0].targetHeading, 90); assert.deepEqual(state.aircraft[0].position, before); assert.equal(state.aircraft[0].leg, "final");
+  assert.equal(state.aircraft[0].mode, "heading"); assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport())); assert.deepEqual(state.aircraft[0].position, before); assert.equal(state.aircraft[0].leg, "final");
   state = maneuver(state, {type: "pattern", leg: "downwind", hand: "right"}); assert.equal(state.aircraft[0].mode, "pattern"); assert.equal(state.aircraft[0].hand, "right");
 });
 test("pattern extensions suppress automatic turns and new instructions release them", () => {

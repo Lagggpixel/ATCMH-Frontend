@@ -4,11 +4,12 @@ export type Frequency = "ground" | "tower" | "atis" | "approach" | "center";
 export type Altitude = {unit: "feet" | "flight-level"; value: number};
 export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
+/** missedHeading is a true course, preserving existing scenario geometry. */
 export interface RadarApproach {id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
 export interface RadarEnvironment {airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
-export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"; inboundSpeed?: number; finalSpeedProfile?: boolean; routeSpeed?: number}
+export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"; inboundSpeed?: number; finalSpeedProfile?: boolean; routeSpeed?: number}
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
-export type RoutePoint = Point & {altitude?: number; speed?: number};
+export type RoutePoint = Point & {name?: string; altitude?: number; speed?: number};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";
@@ -36,6 +37,7 @@ export interface Airport {
 }
 export interface Aircraft {
   id: string; callsign: string; type: string; position: Point;
+  /** True headings for map motion and saved snapshots; controller headings are magnetic. */
   heading: number; targetHeading: number; speed: number; targetSpeed: number; altitude: number;
   bankAngle?: number; // Signed degrees, positive right; absent legacy state is wings level.
   speedMode?: "auto" | "manual"; // IAS profile by default; explicit trainer overrides persist across legs.
@@ -130,7 +132,7 @@ export type Instruction =
   | {type: "vector"; heading?: number; altitude?: Altitude; approachId?: string; standalone?: boolean; interceptAltitude?: number}
   | {type: "expect-approach"; approachId: string | null; vectors?: boolean; navigation?: "filed" | "vectors"; runway?: string}
   | {type: "missed-approach"; altitude: Altitude; heading?: number; fromAltitude?: number}
-  | {type: "route"; index: number; altitude?: Altitude; name?: string}
+  | {type: "route"; index: number; altitude?: Altitude; name?: string; point?: Point}
   | {type: "radio"; message: "say-intentions" | "standby" | "correction-standby" | "disregard" | "unable" | "misc" | "roger" | "wilco"; text?: string}
   | {type: "transition"; altitude: number}
   | {type: "departure"; direction: "north" | "east" | "south" | "west"}

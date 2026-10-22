@@ -10,7 +10,7 @@ export const HEADING_CHOICES = Array.from({length: 36}, (_, i) => (i + 1) * 10);
 export function radarSpeedMenu(): MenuEntry[] {return referenceSpeedMenu();}
 export const TASK_GROUPS = ["Ground movement", "Departures", "Arrivals and circuit", "Sequence", "Frequency"] as const;
 export interface CommandTask {id: string; label: string; group: typeof TASK_GROUPS[number]; command: Instruction}
-export const CONTEXT_ACTIONS = {messages: "Other messages", reminder: "Add reminder", "remove-reminder": "Clear reminder", information: "Aircraft details", color: "Highlight aircraft", tag: "Position Label"} as const;
+export const CONTEXT_ACTIONS = {messages: "Other Message", hold: "Hold", guard: "Send On Guard Warning", reminder: "Set Reminder", "remove-reminder": "Clear reminder", information: "Show Information", color: "Set Color", tag: "Tag Placement"} as const;
 export type ContextAction = keyof typeof CONTEXT_ACTIONS;
 export const REQUEST_IDS = ["pushback", "taxi-runway", "cross-runway", "frequency-change", "inbound-land", "inbound-option", "departure", "pattern-entry", "runway-change", "go-around", "departure-direction", "taxi-parking", "transition", "check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight"] as const;
 export type PilotRequestId = typeof REQUEST_IDS[number];
@@ -24,7 +24,7 @@ const FREQUENCIES = frequenciesFor(airport);
 
 function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[] = []): string {
   instruction = roundedHeadingInstruction(instruction);
-  const radarText = radarInstructionText(a, instruction, {...environment, airportName: airportCallsign(airport)});
+  const radarText = radarInstructionText(a, instruction, {...environment, airportName: airportCallsign(airport)}, airport);
   if (radarText !== undefined) return `${a.callsign}, ${radarText}`;
   const runway = ("runway" in instruction ? instruction.runway : undefined) ?? a.runway ?? defaultRunway(airport);
   let text: string;
@@ -151,7 +151,14 @@ function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message
     /^(?:ready for|requesting) pushback\b/i.test(phrase) ? "pushback" :
     /^requesting (?:change to )?runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "runway-change" :
     /^(?:requesting to|ready to) cross runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "cross-runway" :
-    /^going around\.?$/i.test(phrase) ? "go-around" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
+    /^requesting (?:(?:ILS|GPS|visual) )?approach\b/i.test(phrase) ? "request-approach" :
+    /^executing missed approach\b/i.test(phrase) ? "missed-approach" : /^going around\.?$/i.test(phrase) ? "go-around" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
+  if (requestId === "request-approach" && (frequency === "approach" || frequency === "center")) {
+    const approach = entries.find(entry => entry.label === "Expect Approach...");
+    if (approach) return [{...approach, label: "Expect Approach", suggested: true, children: approach.children?.map(option => option.label === "Radar Vectors"
+      ? {...option, children: [{label: "Send", instruction: {type: "expect-approach", approachId: null, vectors: true, runway: a.runway ?? defaultRunway(airport), navigation: "vectors"}}]}
+      : option)}, ...entries];
+  }
   const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Respond to Go Around", transition: "Respond to Transition"};
   if (requestId === "runway-change") entries.push({label: "Unable", children: [{label: "Confirm", instruction: {type: "radio", message: "unable"}}]});
   const original = entries.find(entry => entry.label === (requestId ? labels[requestId] : undefined));
@@ -161,7 +168,7 @@ function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message
 
 
 function contextMenu(frequency: Frequency, a: Aircraft): ContextAction[] {
-  return [...(a.frequency === frequency ? ["messages", "reminder", ...(a.reminderAt !== null ? ["remove-reminder"] : [])] : []), "information", "color", "tag"] as ContextAction[];
+  return [...(a.frequency === frequency ? ["messages", "reminder", ...(a.reminderAt !== null ? ["remove-reminder"] : [])] : a.active && frequency !== "atis" ? ["guard"] : []), "information", "color", "tag"] as ContextAction[];
 }
 
 

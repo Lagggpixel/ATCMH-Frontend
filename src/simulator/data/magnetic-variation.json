@@ -1,0 +1,14 @@
+{
+  "model": "WMM-2025",
+  "date": "2026-10-22",
+  "convention": "degrees east positive; true = magnetic + variation",
+  "airports": {
+    "CYUL": -13.4995,
+    "EGLL": 1.1086,
+    "EGPH": -0.3822,
+    "KBHM": -4.0444,
+    "KDAL": 2.5616,
+    "ROAH": -5.8631,
+    "SBBR": -22.1391
+  }
+}

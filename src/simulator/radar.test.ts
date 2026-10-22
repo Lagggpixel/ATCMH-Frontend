@@ -1,3 +1,4 @@
+import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -96,12 +97,12 @@ for (const mode of ["approach", "center"] as const) for (const automatic of [fal
 test("vector preview follows the free endpoint and preserves distance, time and nearby fix", () => {
   const state = exercise(), a = state.aircraft[0]; a.position = {x: 0, y: 0}; a.speed = 200;
   const raw = {x: Math.sin(224 * Math.PI / 180) * 10, y: Math.cos(224 * Math.PI / 180) * 10};
-  const result = vectorPreview(a, raw, {...state.radarEnvironment!, fixes: [{id: "LAMBORNE", point: raw}]});
+  const result = vectorPreview(a, raw, getAirport(state), {...state.radarEnvironment!, fixes: [{id: "LAMBORNE", point: raw}]});
   assert.equal(result.heading, 220); near(result.nm, 10); near(result.minutes!, 3); near(radarHeading(a.position, result.point), 224); assert.deepEqual(result.point, raw); assert.equal(result.fix, "LAMBORNE");
-  assert.equal(vectorPreview(a, raw, {...state.radarEnvironment!, fixes: [{id: "FAR", point: {x: 60, y: 0}}]}).fix, undefined);
-  for (let heading = 0; heading < 360; heading++) assert.equal(snappedVectorHeading(a.position, {x: Math.sin(heading * Math.PI / 180), y: Math.cos(heading * Math.PI / 180)}) % 10, 0);
-  assert.equal(snappedVectorHeading(a.position, {x: -.01, y: 10}), 0);
-  a.speed = 0; assert.equal(vectorPreview(a, raw).minutes, null);
+  assert.equal(vectorPreview(a, raw, getAirport(state), {...state.radarEnvironment!, fixes: [{id: "FAR", point: {x: 60, y: 0}}]}).fix, undefined);
+  for (let heading = 0; heading < 360; heading++) assert.equal(snappedVectorHeading(a.position, {x: Math.sin(heading * Math.PI / 180), y: Math.cos(heading * Math.PI / 180)}, getAirport(state)) % 10, 0);
+  assert.equal(snappedVectorHeading(a.position, {x: -.01, y: 10}, getAirport(state)), 0);
+  a.speed = 0; assert.equal(vectorPreview(a, raw, getAirport(state)).minutes, null);
 });
 test("all heading instructions round consistently in transmissions, readbacks and assigned movement", () => {
   let state = exercise();
@@ -110,12 +111,12 @@ test("all heading instructions round consistently in transmissions, readbacks an
   assert.deepEqual(state.messages.at(-1)!.instruction, {type: "vector", heading: 220});
   const id = state.messages.at(-1)!.id;
   state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: id, assign: true});
-  assert.equal(state.aircraft[0].targetHeading, 220);
+  assert.equal(state.aircraft[0].targetHeading, magneticToTrue(220, getAirport()));
   const sent = state.messages.find(m => m.id === id)!; assert.match(engineFor(state).readbackText(state.aircraft[0].callsign, sent.text, sent.instruction), /heading two two zero/);
-  state = assign(state, {type: "vector", heading: 356}); assert.equal(state.aircraft[0].targetHeading, 0);
+  state = assign(state, {type: "vector", heading: 356}); assert.equal(state.aircraft[0].targetHeading, magneticToTrue(0, getAirport()));
   const engine = engineFor({trainingStation: "EGPH:local"});
   const local = engine.initialExercise(); local.aircraft = [engine.newAircraft("a", true)];
-  assert.equal(assign(local, {type: "heading", value: 224}).aircraft[0].targetHeading, 220);
+  assert.equal(assign(local, {type: "heading", value: 224}).aircraft[0].targetHeading, magneticToTrue(220, getAirport()));
 });
 
 test("altitude picker contains the reference 69 values and rejects gaps", () => {
@@ -138,15 +139,15 @@ for (const airport of airportList) for (const mode of ["approach", "center"] as 
   assert.deepEqual(restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state)))), state);
 });
 for (const [start, target] of [[0, 90], [90, 180], [0, 180], [350, 20], [10, 340]] as const) for (const step of [.1, 5]) test(`banked turn ${start} → ${target} rolls out on heading with ${step}s frames`, () => {
-  let state = exercise(); Object.assign(state.aircraft[0], {heading: start, targetHeading: start});
+  let state = exercise(); Object.assign(state.aircraft[0], {heading: magneticToTrue(start, getAirport()), targetHeading: magneticToTrue(start, getAirport())});
   state = assign(state, {type: "vector", heading: target});
   const rolling = fly(state, 2, step).aircraft[0];
   near(Math.abs(rolling.bankAngle!), 12);
-  assert.ok(Math.abs(((rolling.heading - start + 540) % 360) - 180) < 6);
-  state = fly(state, 120, step); near(state.aircraft[0].heading, target);
+  assert.ok(Math.abs(((rolling.heading - magneticToTrue(start, getAirport()) + 540) % 360) - 180) < 6);
+  state = fly(state, 120, step); near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
   near(state.aircraft[0].bankAngle!, 0);
-  near(fly(state, 10, step).aircraft[0].heading, target);
-  const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), target);
+  near(fly(state, 10, step).aircraft[0].heading, magneticToTrue(target, getAirport()));
+  const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), magneticToTrue(target, getAirport()));
 });
 test("combined heading/altitude sends once and waits for manual assignment", () => {
   let state = exercise(); state.aircraft[0].heading = 0; const before = structuredClone(state.aircraft[0]);
@@ -157,7 +158,7 @@ test("combined heading/altitude sends once and waits for manual assignment", () 
   state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: envelope.id}); assert.deepEqual(state.aircraft[0], before);
   state = command(state, instruction); const id = state.messages.at(-1)!.id;
   state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: id, assign: true});
-  assert.equal(state.aircraft[0].targetHeading, 90); assert.equal(state.aircraft[0].radar!.targetAltitude!.value, 6000);
+  assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport())); assert.equal(state.aircraft[0].radar!.targetAltitude!.value, 6000);
   near(fly(state, 60).aircraft[0].altitude, 6000);
 });
 test("automatic readback assigns a combined clearance after the existing delay", () => {
@@ -165,7 +166,7 @@ test("automatic readback assigns a combined clearance after the existing delay",
   state = command(state, {type: "vector", heading: 90, altitude: {unit: "flight-level", value: 190}});
   const before = autoReadbacks(fly(state, 1), 1000, randomUUID); assert.notEqual(before.aircraft[0].targetHeading, 90);
   state = autoReadbacks(fly(state, 1.5), 1500, randomUUID);
-  assert.equal(state.aircraft[0].targetHeading, 90); assert.equal(state.aircraft[0].radar!.targetAltitude!.unit, "flight-level");
+  assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport())); assert.equal(state.aircraft[0].radar!.targetAltitude!.unit, "flight-level");
   assert.match(state.messages.at(-1)!.text, /FL190/); assert.equal(state.messages.filter(m => m.commandId).length, 1);
 });
 for (const type of ["ils", "gps", "visual"] as const) test(`${type}: expectation does not capture, clearance does, missed approach resets guidance`, () => {
@@ -173,11 +174,11 @@ for (const type of ["ils", "gps", "visual"] as const) test(`${type}: expectation
   const g = approachGeometry(getAirport(state), p.runway);
   Object.assign(state.aircraft[0], {position: {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8}, heading: g.heading, targetHeading: g.heading, altitude: 2500});
   state = assign(state, {type: "expect-approach", approachId: p.id}); assert.equal(fly(state, 1).aircraft[0].radar!.captured, false);
-  state = assign(state, {type: "vector", heading: g.heading, altitude: {unit: "feet", value: 2500}, approachId: p.id});
+  state = assign(state, {type: "vector", heading: trueToMagnetic(g.heading, getAirport(state)), altitude: {unit: "feet", value: 2500}, approachId: p.id});
   const captured = fly(state, 1); assert.equal(captured.aircraft[0].radar!.captured, true);
   const missed = assign(captured, {type: "missed-approach", altitude: {unit: "feet", value: 5000}});
   assert.equal(missed.aircraft[0].radar!.navigation, "missed"); assert.equal(missed.aircraft[0].radar!.cleared, undefined);
-  assert.equal(missed.aircraft[0].radar!.captured, false); near(missed.aircraft[0].targetHeading, p.missedHeading);
+  assert.equal(missed.aircraft[0].radar!.captured, false); near(missed.aircraft[0].targetHeading, captured.aircraft[0].targetHeading);
   assert.ok(fly(missed, 5).aircraft[0].altitude > captured.aircraft[0].altitude);
 });
 test("stale approach clearance rejects the entire instruction without applying its heading or altitude", () => {
