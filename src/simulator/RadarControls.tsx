@@ -1,4 +1,5 @@
 "use client";
+import {trueToMagnetic} from "./magnetic-headings";
 import LandingOutcomeControl from "./LandingOutcomeControl";
 import RouteSetup from "./RouteSetup";
 import {useState} from "react";
@@ -20,14 +21,14 @@ export function RadarSeedControls({aircraft: a, environment, onEdit}: {aircraft:
   </section>;
 }
 export function RadarStaffControls({aircraft, exercise, onManeuver}: {aircraft: Aircraft; exercise: Exercise; onManeuver: (command: Instruction) => void}) {
-  const [heading, setHeading] = useState(String(roundedHeading(aircraft.targetHeading)));
+  const [heading, setHeading] = useState(String(roundedHeading(trueToMagnetic(aircraft.targetHeading, getAirport(exercise)))));
   const [altitude, setAltitude] = useState(aircraft.radar?.targetAltitude ? altitudeLabel(aircraft.radar.targetAltitude) : altitudeLabel(ALTITUDES.find(a => (a.unit === "feet" ? a.value : a.value * 100) >= aircraft.altitude) ?? ALTITUDES[0]));
   const [speed, setSpeed] = useState(String(Math.round(aircraft.targetSpeed)));
   const environment = exercise.radarEnvironment ?? radarEnvironmentFor(getAirport(exercise));
   const command: Instruction = {type: "vector", heading: roundedHeading(Number(heading)), altitude: ALTITUDES.find(a => altitudeLabel(a) === altitude)};
   const invalid = engineFor(exercise).validateAssignment(aircraft, command);
   return <section aria-label="Radar flight controls"><h2>Radar flight controls</h2><p>{aircraft.radar?.navigation} · {aircraft.radar?.captured ? "Established" : aircraft.radar?.cleared ? "Approach cleared" : "Approach not cleared"}</p>
-    <label>Heading (°)<input type="number" min="0" max="360" step="10" value={heading} onChange={e => setHeading(e.target.value)}/></label>
+    <label>Heading (°M)<input type="number" min="0" max="360" step="10" value={heading} onChange={e => setHeading(e.target.value)}/></label>
     <label>Assigned altitude<select value={altitude} onChange={e => setAltitude(e.target.value)}>{ALTITUDES.map(a => <option key={altitudeLabel(a)}>{altitudeLabel(a)}</option>)}</select></label>
     <button disabled={!heading || !!invalid} title={invalid ?? undefined} onClick={() => onManeuver(command)}>Assign heading & altitude</button>
     <button disabled={!heading || !aircraft.radar?.expected || !!engineFor(exercise).validateAssignment(aircraft, {...command, approachId: aircraft.radar?.expected})} onClick={() => onManeuver({...command, approachId: aircraft.radar!.expected})}>Clear for expected approach</button>

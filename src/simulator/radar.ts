@@ -1,3 +1,5 @@
+import {vectorSnapTarget} from "./vector-drag";
+import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
 import {MAX_ILS_INTERCEPT, GLIDESLOPE_DEVIATION_FEET, missedLocalizerReason} from "./radar-automation";
 import {updateRouteConstraints} from "./command-navigation";
 import {turnAircraft, bankTurnLead} from "./banked-turns";
@@ -16,15 +18,16 @@ export const validAltitude = (a: Altitude) => ALTITUDES.some(item => item.unit =
 export const headingDifference = (target: number, current: number) => ((target - current + 540) % 360) - 180;
 export const radarHeading = (from: Point, to: Point) => (Math.atan2(to.x - from.x, to.y - from.y) * 180 / Math.PI + 360) % 360;
 export const roundedHeading = (heading: number) => Math.round(heading / 10) * 10 % 360;
-export const snappedVectorHeading = (from: Point, to: Point) => roundedHeading(radarHeading(from, to));
+export const snappedVectorHeading = (from: Point, to: Point, airport: Airport) => roundedHeading(trueToMagnetic(radarHeading(from, to), airport));
 export function roundedHeadingInstruction(c: Instruction): Instruction {
   return c.type === "heading" ? {...c, value: roundedHeading(c.value)} : c.type === "vector" && c.heading !== undefined ? {...c, heading: roundedHeading(c.heading)} : c;
 }
-export function vectorPreview(a: Aircraft, point: Point, environment?: RadarEnvironment) {
-  const heading = snappedVectorHeading(a.position, point), nm = distance(a.position, point);
-  const endpoint = {...point};
+export function vectorPreview(a: Aircraft, point: Point, airport: Airport, environment?: RadarEnvironment, screenScale?: number) {
+  const target = screenScale === undefined ? undefined : vectorSnapTarget(a, point, screenScale, environment);
+  const endpoint = {...(target?.point ?? point)};
+  const heading = snappedVectorHeading(a.position, endpoint, airport), nm = distance(a.position, endpoint);
   const nearby = environment?.fixes.filter(fix => distance(fix.point, endpoint) <= 2).sort((a, b) => distance(a.point, endpoint) - distance(b.point, endpoint))[0];
-  return {heading, nm, point: endpoint, minutes: a.speed > 0 ? nm / a.speed * 60 : null, fix: nearby?.id};
+  return {heading, nm, point: endpoint, minutes: a.speed > 0 ? nm / a.speed * 60 : null, fix: nearby?.id, target};
 }
 export function radarFlightLabel(a: Aircraft, airport: Airport, environment?: RadarEnvironment) {
   const r = a.radar, target = r?.targetAltitude;
@@ -33,6 +36,12 @@ export function radarFlightLabel(a: Aircraft, airport: Airport, environment?: Ra
   const approach = environment?.approaches.find(p => p.id === (r?.expected ?? r?.cleared));
   return {flight: `${Math.round(a.altitude / 100)}${target ? ` ${marker} ${Math.round(altitudeFeet(target) / 100)}` : ""} ${Math.round(a.speed)}kts`,
     approach: approach ? `${approach.type === "visual" ? "Visual" : approach.type.toUpperCase()} - ${airport.icao} ${approach.runway}` : r?.guidance === "vectors" ? `RV - ${airport.icao} ${a.runway ?? defaultRunway(airport)}` : undefined};
+}
+export function radarStripRunway(a: Aircraft, environment: RadarEnvironment): string {
+  const r = a.radar;
+  if (!r) return a.runway ?? a.lastRunway ?? "----";
+  const approach = environment.approaches.find(p => p.id === (r.cleared ?? r.expected));
+  return approach?.runway ?? (r.guidance === "vectors" ? a.runway ?? a.lastRunway : undefined) ?? "----";
 }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 export const airborne = (a: Aircraft, airport: Airport) => a.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) && a.altitude > airport.elevation;
@@ -74,10 +83,17 @@ export function radarInstructionError(a: Aircraft, c: Instruction, airport: Airp
 
   if (c.type === "expect-approach" && c.approachId && !environment.approaches.some(item => item.id === c.approachId)) return "This approach is unavailable in the pinned training environment.";
   if (c.type === "route" && (!Number.isInteger(c.index) || c.index < 0 || c.index >= a.flightPlan.length)) return "Choose an existing route waypoint.";
+  if (c.type === "route" && c.point && (Math.hypot(a.flightPlan[c.index].x - c.point.x, a.flightPlan[c.index].y - c.point.y) > .001 || c.name && a.flightPlan[c.index].name !== c.name && environment?.fixes.find(fix => fix.id === c.name && Math.hypot(fix.point.x - c.point!.x, fix.point.y - c.point!.y) < .001) === undefined)) return "The selected flight-plan waypoint has changed. Select it again.";
   return null;
 }
 export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, environment: RadarEnvironment) {
   const r = a.radar!;
+  if (r.navigation === "missed") r.missedApproach = true; // Older snapshots have no phase flag.
+  // A vertical instruction must leave the lateral clearance and banked turn intact.
+  if (c.type === "vector" && c.heading === undefined && !c.approachId) {
+    if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude; delete a.starDescent; }
+    return;
+  }
   if (c.type === "expect-approach" || c.type === "route" || c.type === "missed-approach" || c.type === "vector" && (c.heading !== undefined || c.approachId)) {delete r.localizerIntercept; delete r.missedReason;}
   if (c.type === "expect-approach" || c.type === "route" || c.type === "missed-approach" || c.type === "vector" && c.heading !== undefined) delete r.finalSpeedProfile;
   if (c.type === "route" || c.type === "missed-approach" || c.type === "vector") delete r.routeSpeed;
@@ -88,14 +104,15 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
     if (c.vectors) a.runway = c.runway ?? a.runway ?? defaultRunway(airport);
     r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; if (r.navigation === "approach") r.navigation = "heading";
   } else if (c.type === "vector") {
-    if (c.heading !== undefined) {a.targetHeading = c.heading % 360; r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
+    if (c.heading !== undefined) {a.targetHeading = magneticToTrue(c.heading, airport); r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
     if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;}
-    if (c.approachId) {r.navigation = "approach"; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
+    if (c.approachId) {delete r.missedApproach; r.navigation = "approach"; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
   } else if (c.type === "route") {r.navigation = "route"; r.routeIndex = c.index; if (c.altitude) r.targetAltitude = {...c.altitude}; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false;}
   else if (c.type === "missed-approach") {
-    const expected = environment.approaches.find(item => item.id === r.expected);
-    a.targetHeading = c.heading ?? expected?.missedHeading ?? approachGeometry(airport, a.runway ?? defaultRunway(airport)).heading;
-    r.navigation = "missed"; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;
+    const expected = environment.approaches.find(item => item.id === (r.cleared ?? r.expected));
+    if (expected) a.runway = expected.runway;
+    if (c.heading !== undefined) a.targetHeading = magneticToTrue(c.heading, airport);
+    r.navigation = "missed"; r.missedApproach = true; r.cleared = undefined; r.captured = false; r.localizer = false; r.clearanceAltitudeChecked = false; r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;
     r.speed = undefined;
     a.clearedToLand = false; a.clearedForOption = false; a.targetSpeed = automaticRadarTarget(a); a.speedMode = "auto";
   }
@@ -103,7 +120,9 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
 }
 function automaticMissed(a: Aircraft, airport: Airport, environment: RadarEnvironment, reason: string) {
   const altitude = ALTITUDES.find(value => altitudeFeet(value) >= Math.max(a.altitude, 5000, airport.elevation + 2000)) ?? ALTITUDES[ALTITUDES.length - 1];
-  assignRadar(a, {type: "missed-approach", altitude}, airport, environment);
+  const approach = environment.approaches.find(p => p.id === (a.radar!.cleared ?? a.radar!.expected));
+  const heading = trueToMagnetic(approach?.missedHeading ?? approachGeometry(airport, a.runway ?? defaultRunway(airport)).heading, airport);
+  assignRadar(a, {type: "missed-approach", altitude, heading}, airport, environment);
   a.radar!.report = "missed"; a.radar!.missedReason = reason;
 }
 export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment: RadarEnvironment, traffic: Aircraft[] = [], automatic = false) {
@@ -178,22 +197,22 @@ export function altitudeTransmission(a: Aircraft, altitude: Altitude) {
   return `${change} ${altitudeLabel(altitude)}`;
 }
 const spokenDigits = (value: number | string) => String(value).split("").map(digit => ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][Number(digit)]).join(" ");
-export function turnTransmission(a: Aircraft, heading: number) {
+export function turnTransmission(a: Aircraft, heading: number, airport: Airport) {
   const target = roundedHeading(heading);
-  return `turn ${headingDifference(target, a.heading) < 0 ? "left" : "right"} heading ${spokenDigits(String(target || 360).padStart(3, "0"))}`;
+  return `turn ${headingDifference(magneticToTrue(target, airport), a.heading) < 0 ? "left" : "right"} heading ${spokenDigits(String(target || 360).padStart(3, "0"))}`;
 }
 export function checkInTransmission(a: Aircraft) {
   return `${a.callsign}, with you at ${a.altitude >= 18000 ? `flight level ${spokenDigits(Math.round(a.altitude / 100))}` : Math.round(a.altitude)}`;
 }
-export function radarInstructionText(a: Aircraft, c: Instruction, environment: RadarEnvironment): string | undefined {
+export function radarInstructionText(a: Aircraft, c: Instruction, environment: RadarEnvironment, airport: Airport): string | undefined {
   if (c.type === "radar-speed") return radarSpeedText(a, c);
-  if (c.type === "heading") return turnTransmission(a, c.value);
+  if (c.type === "heading") return turnTransmission(a, c.value, airport);
   if (c.type === "vector") {
     const p = environment.approaches.find(p => p.id === c.approachId);
     const clearance = p ? p.type === "ils" ? `${c.standalone ? "" : `maintain ${c.altitude ? altitudeLabel(c.altitude) : a.radar?.targetAltitude ? altitudeLabel(a.radar.targetAltitude) : Math.round(a.altitude)} until established on the localizer, `}cleared ILS runway ${p.runway} approach` : p.type === "gps" ? `cleared GPS ${c.standalone ? "approach runway" : "runway"} ${p.runway}${c.standalone ? "" : " approach"}` : `cleared visual approach runway ${p.runway}` : "";
-    return [c.heading === undefined ? "" : turnTransmission(a, c.heading), c.altitude && !c.standalone ? altitudeTransmission(a, c.altitude) : "", clearance].filter(Boolean).join(", ");
+    return [c.heading === undefined ? "" : turnTransmission(a, c.heading, airport), c.altitude && !c.standalone ? altitudeTransmission(a, c.altitude) : "", clearance].filter(Boolean).join(", ");
   }
-  if (c.type === "missed-approach") return `execute missed approach, ${c.heading === undefined ? "" : turnTransmission(a, c.heading) + ", "}${altitudeFeet(c.altitude) > a.altitude ? "climb" : "descend"} and maintain ${altitudeLabel(c.altitude)}`;
+  if (c.type === "missed-approach") return `execute missed approach, ${c.heading === undefined ? "" : turnTransmission(a, c.heading, airport) + ", "}${altitudeTransmission(a, c.altitude)}`;
   if (c.type === "expect-approach") {
     const p = environment.approaches.find(p => p.id === c.approachId), runway = p?.runway ?? c.runway ?? a.runway;
     if (c.vectors) return `expect vectors for runway ${runway} at ${environment.airportName ?? "destination"}`;

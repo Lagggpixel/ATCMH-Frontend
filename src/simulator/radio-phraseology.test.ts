@@ -1,3 +1,4 @@
+import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -19,7 +20,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
   ] as const) {
     let state = engineFor({trainingStation: `EGPH:${mode}`}).initialExercise();
     state.running = true; state.autoReadback = true;
-    const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.heading = from; delete a.radar!.report;
+    const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.heading = magneticToTrue(from, getAirport(state)); delete a.radar!.report;
     const c = {type: "vector" as const, heading};
     assert.equal(catalogFor(getAirport(state)).instructionText(a, c), `Speedbird 1, ${phrase}`);
     const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: mode, command: c, text: "untrusted wording"}});
@@ -30,7 +31,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
     assert.equal(engineFor(state).readbackText(a.callsign, `Speedbird 1, ${phrase}, climb and maintain 6000`, {...c, altitude: {unit: "feet", value: 6000}}), `${readback}, climb and maintain 6000, Speedbird 1`);
     state = autoReadbacks(advance(state, 1.5), 1500, randomUUID);
     assert.equal(state.messages.at(-1)!.text, `${readback}, Speedbird 1`);
-    assert.equal(state.aircraft[0].targetHeading, Math.round(heading / 10) * 10 % 360);
+    assert.equal(state.aircraft[0].targetHeading, magneticToTrue(Math.round(heading / 10) * 10 % 360, getAirport(state)));
   }
 });
 test("manual and automatic check-ins use feet below 18000 and spoken flight levels above", () => {

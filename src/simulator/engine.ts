@@ -1,3 +1,4 @@
+import {magneticToTrue} from "./magnetic-headings";
 import {airportVisible, moveOwnRoute} from "./command-navigation";
 import {crossingHold, runwayContinuation} from "./command-ground";
 import {assignReference, moveReference, pilotReadback, referenceInstructionError} from "./reference-commands";
@@ -11,7 +12,7 @@ import {assignRadar, checkInTransmission, moveRadar, radarAircraft, radarEnviron
 import {automaticRadarUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed} from "./radar-speed";
 
-import {defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
+import {controlledFrequencies, defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
 import {catalogFor, positionReportText} from "./catalog";
 import {DEFAULTS, commandHasReadback, intentionsOf, EXERCISE_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, patternLegLabel, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
 
@@ -379,7 +380,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
     case "pattern": if (a.leg === "final" && c.leg === "upwind") newCircuit(a); a.mode = "pattern"; a.leg = c.leg; a.extended = false; if (c.hand) a.hand = c.hand; if (c.leg === "base") a.patternFinalDistance = Math.max(defaultBaseDistance(a), -runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).along); break;
     case "sequence": if (c.cancelLanding) clearLanding(a); break;
     case "extend": a.mode = "pattern"; a.leg = c.leg; a.extended = true; break;
-    case "heading": a.mode = "heading"; a.extended = false; a.targetHeading = normalizeHeading(c.value); break;
+    case "heading": a.mode = "heading"; a.extended = false; a.targetHeading = magneticToTrue(c.value, AIRPORT); break;
     case "speed": delete a.speedInstruction; a.targetSpeed = c.value; a.speedMode = "manual"; if (a.radar) delete a.radar.speed; break;
     case "runway": break;
     case "frequency":
@@ -551,7 +552,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       if (c.type === "land" && c.number === 1) aircraft!.sequence = undefined;
       const original = action.resendOf ? next.messages.find(m => m.id === action.resendOf && m.sender === "controller" && m.aircraftId === aircraft!.id && m.frequency === action.frequency) : undefined;
       if (action.resendOf && (!original?.instruction || JSON.stringify(original.instruction) !== JSON.stringify(c))) return {state, error: "The original controller message is unavailable."};
-      const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment);
+      const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment, AIRPORT);
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`, instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
     }
   }
@@ -568,6 +569,10 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
 const AUTO_READBACK_DELAY = 1.5;
 
 function validateControllerMessage(state: Exercise, a: Aircraft, command: Instruction, frequency: Frequency, replyTo?: string): string | null {
+  if (command.type === "atc" && command.action === "guard") {
+    if (!a.active || frequency === "atis" || !controlledFrequencies(state).includes(frequency) || command.frequency !== frequency) return "Choose an active controller frequency for the guard warning.";
+    return validateInstruction(a, command, frequency, state.aircraft);
+  }
   if (trainingMode(state) !== "local") {
     if (!a.radar || !a.active || a.radar.transferred || frequency !== trainingMode(state)) return "Aircraft is not controlled on this training frequency.";
     if (!["vector", "expect-approach", "missed-approach", "route", "speed", "radar-speed", "frequency", "radio", "atc"].includes(command.type)) return "This instruction is unavailable in radar training.";

@@ -2,7 +2,7 @@ import {REFERENCE_ACTIONS} from "./reference-commands";
 import {DEFAULTS, MAX_TAXI_POINTS, type Exercise} from "./model";
 import {z} from "zod";
 import {REQUEST_IDS} from "./catalog";
-import {AIRPORT_IDS, getAirport, trainingStation, trainingMode, runwayReferenceError} from "./airports";
+import {controlledFrequencies, AIRPORT_IDS, getAirport, trainingStation, trainingMode, runwayReferenceError} from "./airports";
 import {validAltitude, radarEnvironmentFor} from "./radar";
 import {validRadarSpeed} from "./radar-speed";
 const bounded = (min: number, max: number) => z.number().finite().min(min).max(max);
@@ -24,7 +24,7 @@ export const radarEnvironmentSchema = z.object({version: z.literal(1), name: z.s
 });
 // Historical flight targets and radio records retain the previous 500-foot grid.
 const savedAltitudeSchema = z.object({unit: z.enum(["feet", "flight-level"]), value: bounded(1, 60000).int()}).strict().refine(a => validAltitude(a) || a.unit === "feet" && a.value >= 1000 && a.value <= 17500 && a.value % 500 === 0);
-export const radarStateSchema = z.object({station: z.enum(["approach", "center"]), navigation: z.enum(["heading", "route", "approach", "missed"]), routeIndex: bounded(0, 200).int(), expected: id.optional(), cleared: id.optional(), captured: z.boolean().optional(), localizer: z.boolean().optional(), clearanceAltitudeChecked: z.boolean().optional(), missedReason: z.string().max(1000).optional(), localizerIntercept: z.object({along: bounded(-10000, 10000), lateral: bounded(-10000, 10000), angle: bounded(0, 180)}).optional(), targetAltitude: savedAltitudeSchema.optional(), altitudeAssignedFrom: bounded(0, 65000).optional(), speed: radarSpeedSchema.optional(), guidance: z.literal("vectors").optional(), transferred: z.boolean().optional(), inboundSpeed: bounded(1, 600).optional(), finalSpeedProfile: z.boolean().optional(), routeSpeed: bounded(1, 600).optional(), report: z.enum(["check-in", "missed", "intentions"]).optional()});
+export const radarStateSchema = z.object({station: z.enum(["approach", "center"]), navigation: z.enum(["heading", "route", "approach", "missed"]), routeIndex: bounded(0, 200).int(), expected: id.optional(), cleared: id.optional(), captured: z.boolean().optional(), localizer: z.boolean().optional(), clearanceAltitudeChecked: z.boolean().optional(), missedReason: z.string().max(1000).optional(), missedApproach: z.boolean().optional(), localizerIntercept: z.object({along: bounded(-10000, 10000), lateral: bounded(-10000, 10000), angle: bounded(0, 180)}).optional(), targetAltitude: savedAltitudeSchema.optional(), altitudeAssignedFrom: bounded(0, 65000).optional(), speed: radarSpeedSchema.optional(), guidance: z.literal("vectors").optional(), transferred: z.boolean().optional(), inboundSpeed: bounded(1, 600).optional(), finalSpeedProfile: z.boolean().optional(), routeSpeed: bounded(1, 600).optional(), report: z.enum(["check-in", "missed", "intentions"]).optional()});
 const phaseSpeed = bounded(1, 600).int().nullable().optional();
 
 export const speedTargetsSchema = z.object({inbound: phaseSpeed, "upwind-downwind": phaseSpeed, base: phaseSpeed, final: phaseSpeed, vref: phaseSpeed}).strict();
@@ -49,7 +49,7 @@ export const aircraftSchema = z.object({id, callsign: z.string().min(1).max(80),
   arrivalExit: z.object({instruction: z.enum(["automatic", "exit-runway", "parking"]), speed: z.union([z.literal(15), z.literal(25), z.literal(35)]), followOn: z.boolean().optional()}).optional(),
   arrivalRequest: z.enum(["frequency-change", "taxi-parking"]).optional(),
   lineupWait: z.boolean().optional(), transitionAltitude: bounded(500, 10000).multipleOf(500).optional(), leavingCircuit: z.boolean().optional(), runwayExit: z.array(taxiPoint).min(2).max(MAX_TAXI_POINTS).optional(),
-  flightPlan: z.array(point.extend({altitude: bounded(1000, 60000).refine(value => validAltitude(value >= 18000 ? {unit: "flight-level", value: value / 100} : {unit: "feet", value})).optional(), speed: bounded(80, 600).optional()})).max(200), trail: z.array(point.extend({time: bounded(0, 1e12).optional()})).max(120), pending: bounded(0, 100000).int(), active: z.boolean(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  flightPlan: z.array(point.extend({name: z.string().min(1).max(100).optional(), altitude: bounded(1000, 60000).refine(value => validAltitude(value >= 18000 ? {unit: "flight-level", value: value / 100} : {unit: "feet", value})).optional(), speed: bounded(80, 600).optional()})).max(200), trail: z.array(point.extend({time: bounded(0, 1e12).optional()})).max(120), pending: bounded(0, 100000).int(), active: z.boolean(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
   tag: z.enum(["auto", "default", "left", "right"]), tagAngle: bounded(0, 360).optional(), reminderAt: bounded(0, 1e12).nullable(), sequence: sequence.optional(), atcManeuver: z.object({kind: z.enum(["circle", "hold"]), hand, remaining: bounded(-360, 720), heading: bounded(0, 360), previousMode: z.enum(["parked", "pushback", "taxi", "lineup", "takeoff", "go-around", "pattern", "heading", "rollout"]), previousLeg: z.enum(["upwind", "crosswind", "downwind", "base", "final"]), altitude: bounded(0, 65000), center: point.optional(), inbound: bounded(0, 360).optional(), phase: z.enum(["entry", "turn-outbound", "outbound", "turn-inbound", "inbound"]).optional(), timer: bounded(0, 120).optional(), turnRemaining: bounded(-10, 540).optional()}).optional(), backTaxi: z.object({lineup: z.boolean(), contactGround: z.boolean()}).optional(), arrivalProcedure: z.string().min(1).max(100).optional(),
   destination: z.object({name: z.string().min(1).max(100), point}).nullable().optional(), diversionDestination: z.object({name: z.string().min(1).max(100), point}).nullable().optional(),
   routeNavigation: z.object({index: bounded(0, 200).int(), descending: z.boolean().optional()}).optional(), starDescent: z.boolean().optional(), reportAirportInSight: z.boolean().optional(), speedInstruction: radarSpeedSchema.optional(), expedited: z.boolean().optional(), followGroundId: id.optional(), optionHand: hand.optional(), circuit: bounded(0, 1e12).int().optional(), patternFinalDistance: bounded(3, 2000).optional(), pushback: z.object({path: z.array(point).min(2).max(10), index: bounded(0, 10).int(), tail: z.enum(["north", "east", "south", "west"]).optional()}).optional()});
@@ -59,11 +59,11 @@ function makeInstructionSchema(saved = false) {
   const commandAltitudeSchema = saved ? savedAltitudeSchema : altitudeSchema;
   return z.discriminatedUnion("type", [
   radarSpeedObject,
-  z.object({type: z.literal("atc"), action: z.enum(REFERENCE_ACTIONS), variant: z.string().max(100).optional(), runway: runway.optional(), hand: hand.optional(), altitude: commandAltitudeSchema.optional(), index: bounded(0, 199).int().optional(), expedite: z.boolean().optional(), contactGround: z.boolean().optional(), lineup: z.boolean().optional(), frequency: frequency.optional(), text: z.string().max(1000).optional(), name: z.string().max(100).optional()}),
+  z.object({type: z.literal("atc"), action: z.enum(REFERENCE_ACTIONS), variant: z.string().max(100).optional(), runway: runway.optional(), hand: hand.optional(), altitude: commandAltitudeSchema.optional(), index: bounded(0, 199).int().optional(), expedite: z.boolean().optional(), contactGround: z.boolean().optional(), lineup: z.boolean().optional(), frequency: frequency.optional(), text: z.string().max(1000).optional(), name: z.string().max(100).optional(), point: point.optional()}),
   z.object({type: z.literal("vector"), heading: bounded(0, 360).optional(), altitude: commandAltitudeSchema.optional(), approachId: id.optional(), standalone: z.boolean().optional(), interceptAltitude: bounded(0, 60000).optional()}),
   z.object({type: z.literal("expect-approach"), approachId: id.nullable(), vectors: z.boolean().optional(), navigation: z.enum(["filed", "vectors"]).optional(), runway: runway.optional()}),
   z.object({type: z.literal("missed-approach"), altitude: commandAltitudeSchema, heading: bounded(0, 360).optional(), fromAltitude: bounded(0, 60000).optional()}),
-  z.object({type: z.literal("route"), index: bounded(0, 199).int(), altitude: commandAltitudeSchema.optional(), name: z.string().max(100).optional()}),
+  z.object({type: z.literal("route"), index: bounded(0, 199).int(), altitude: commandAltitudeSchema.optional(), name: z.string().max(100).optional(), point: point.optional()}),
   z.object({type: z.literal("radio"), message: z.enum(["say-intentions", "standby", "correction-standby", "disregard", "unable", "misc", "roger", "wilco"]), text: z.string().min(1).max(300).optional()}),
   z.object({type: z.literal("transition"), altitude: bounded(saved ? 500 : 1000, 60000).int()}),
   z.object({type: z.literal("departure"), direction: z.enum(["north", "east", "south", "west"])}),
@@ -133,6 +133,9 @@ export const exerciseSchema = exerciseObject.superRefine((value, ctx) => {
 export const motionSchema = exerciseObject.pick({id: true, revision: true, elapsed: true, aircraft: true, running: true, collisions: true});
 
 export function menteeActionAllowed(value: z.infer<typeof action>, exercise?: Exercise) {
+  if (value.kind === "command" && exercise && value.command.type === "atc" && value.command.action === "guard") {
+    return value.frequency !== "atis" && value.command.frequency === value.frequency && controlledFrequencies(exercise).includes(value.frequency) && exercise.aircraft.some(a => a.id === value.aircraftId && a.active);
+  }
   if (value.kind === "command" && exercise && trainingMode(exercise) !== "local") {
     const station = trainingMode(exercise);
     return value.frequency === station && exercise.aircraft.some(a => a.id === value.aircraftId && a.radar?.station === station && a.frequency === station && !a.radar.transferred) && ["vector", "expect-approach", "missed-approach", "route", "speed", "radar-speed", "frequency", "radio", "atc"].includes(value.command.type);

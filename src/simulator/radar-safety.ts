@@ -5,7 +5,7 @@ import {aircraftSpeedLimits, machKnots} from "./radar-speed";
 export function automaticRadarUnable(a: Aircraft, c: Instruction): string | null {
   if (!a.radar) return null;
   if (a.radar.cleared && (c.type === "heading" || c.type === "speed" || c.type === "vector" && (c.heading !== undefined || !!c.altitude) || c.type === "radar-speed" && c.mode !== "approach")) return "Already cleared for approach.";
-  if (c.type === "missed-approach" && !a.radar.cleared) return "Not cleared for approach.";
+  if (c.type === "missed-approach" && !a.radar.cleared && a.radar.navigation !== "missed" && !a.radar.missedApproach) return "Not cleared for approach.";
   const limits = aircraftSpeedLimits(a.type);
   if (!limits) return null;
   if (c.type === "speed") return c.value < limits.min || c.value > limits.max ? "Speed outside aircraft limits." : null;

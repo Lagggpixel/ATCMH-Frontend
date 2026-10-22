@@ -1,7 +1,7 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "26.10.18",
+  "version": "26.10.19",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,7 +12,8 @@
     "docker:build:windows": "node scripts/docker-build-windows.mjs",
     "docker:build:mac": "node scripts/docker-build-mac.mjs",
     "predev": "node src/simulator/prepare-radio-speech.mjs",
-    "prebuild": "node src/simulator/prepare-radio-speech.mjs"
+    "prebuild": "node src/simulator/prepare-radio-speech.mjs",
+    "data:magnetic": "node scripts/generate-magnetic-variation.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -42,6 +43,7 @@
     "@types/sanitize-html": "^2.16.2",
     "eslint": "9.39.1",
     "eslint-config-next": "16.3.6",
+    "geomagnetism": "0.2.0",
     "tsx": "4.23.0",
     "typescript": "5.9.3",
     "vite": "8.1.5"

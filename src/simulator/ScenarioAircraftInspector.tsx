@@ -1,4 +1,5 @@
 "use client";
+import {magneticHeadingLabel, magneticToTrue} from "./magnetic-headings";
 import {useId, useState, type Dispatch, type SetStateAction} from "react";
 import {Info} from "@phosphor-icons/react/dist/csr/Info";
 import {Trash} from "@phosphor-icons/react/dist/csr/Trash";
@@ -63,7 +64,7 @@ export default function ScenarioAircraftInspector({definition, aircraft: a, onCh
             <button type="button" aria-pressed={editMode === "position"} onClick={() => toggleMode("position")}>Place on scope</button>
             <button type="button" onClick={() => {const g = engineFor(definition).runwayGeometry(a.runway ?? defaultRunway(airport)); patch({position: {x: g.threshold.x - g.vector.x * 5, y: g.threshold.y - g.vector.y * 5}, heading: g.heading, targetHeading: g.heading, speed: 160, targetSpeed: 160, altitude: airport.elevation + 1500, mode: "heading"});}}>Place on runway approach</button>
           </>}
-          <div className={styles.pair}><label>Heading °<input type="number" min={0} max={360} step={1} value={Math.round(a.heading)} onChange={e => patch({heading: Number(e.target.value), targetHeading: Number(e.target.value)})}/></label>
+          <div className={styles.pair}><label>Heading °M<input type="number" min={0} max={360} step={1} value={magneticHeadingLabel(a.heading, airport)} onChange={e => patch({heading: magneticToTrue(Number(e.target.value), airport), targetHeading: magneticToTrue(Number(e.target.value), airport)})}/></label>
             <div className={styles.alignedAction}><span>Reverse</span><button type="button" aria-label="Reverse heading" onClick={() => patch({heading: (a.heading + 180) % 360, targetHeading: (a.heading + 180) % 360})}><ArrowClockwise size={17} aria-hidden="true"/>180°</button></div></div>
         </div>
         <details className={styles.advanced}><summary>Advanced initial state<CaretRight size={16} aria-hidden="true"/></summary><div className={styles.section}>

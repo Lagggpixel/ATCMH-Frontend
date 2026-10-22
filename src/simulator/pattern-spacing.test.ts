@@ -1,3 +1,5 @@
+import {getAirport} from "./airports";
+import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, applyEnvelope, bearing, distance, initialExercise, newAircraft, patternTargets, predictAircraft, projectedPath, restoreExercise, runwayGeometry, sequenceStatus} from "./engine";
@@ -49,7 +51,7 @@ test("automatic extension resumes when traffic clears, without releasing manual 
   manual = act(manual, {kind: "remove", aircraftId: "leader"});
   assert.equal(advance(manual, 5).aircraft[0].leg, "downwind");
   const heading = act(state, {kind: "maneuver", aircraftId: "follower", command: {type: "heading", value: 90}});
-  const flown = advance(heading, 5).aircraft[0]; assert.equal(flown.mode, "heading"); assert.equal(flown.targetHeading, 90);
+  const flown = advance(heading, 5).aircraft[0]; assert.equal(flown.mode, "heading"); assert.equal(flown.targetHeading, magneticToTrue(90, getAirport()));
 });
 
 test("extended base/final geometry survives reload, aligns with the runway and resets for the next circuit", () => {

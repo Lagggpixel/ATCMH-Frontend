@@ -1,18 +1,23 @@
 "use client";
+import type {VectorTarget} from "./vector-drag";
+import FullscreenButton from "./FullscreenButton";
+import {magneticHeadingLabel} from "./magnetic-headings";
+import type {Airport} from "./model";
 import {useCallback, useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
 import Link from "next/link";
-import {CONTEXT_ACTIONS, type ContextAction} from "./catalog";
+import {catalogFor, CONTEXT_ACTIONS, type ContextAction} from "./catalog";
 import {getAirport, frequenciesFor, simulatedMetar, openingFrequency, controlledFrequencies, trainingMode} from "./airports";
 import RadarQuickPopup from "./RadarQuickPopup";
-import {airborne} from "./radar";
-import {frequencyPendingRequests, pendingPilotMessage, stripRunway, unreadMessages, type Action, type Aircraft, type Frequency, type Point} from "./model";
+import {airborne, radarStripRunway, radarEnvironmentFor} from "./radar";
+import {frequencyPendingRequests, pendingPilotMessage, unreadMessages, type Action, type Aircraft, type Frequency, type Point} from "./model";
 import {SharedSession} from "./shared-transport";
 import SessionAccess, {SessionNotice} from "./SessionAccess";
 import {sessionCode, sessionPath, type SessionRole} from "./sessions";
 import LiveScenarioPanel from "./LiveScenarioPanel";
 import {trainingRequest} from "./TrainingLibrary";
 import Scope, {type ScopeCamera} from "./Scope";
+import ControllerStrip from "./ControllerStrip";
 import StaffPanel, {StaffToolbar, TrafficRoster} from "./StaffPanel";
 import AtisPanel from "./AtisPanel";
 import MessagePanel, {MessageLog} from "./MessagePanel";
@@ -27,18 +32,22 @@ export default function Simulator({role, sessionId}: {role: SessionRole; session
 function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole; sessionId: string; csrf: string; accountId: string}) {
   const [transport] = useState(() => new SharedSession(role, sessionId, csrf));
   const view = useSyncExternalStore(transport.subscribe, transport.getSnapshot, transport.getServerSnapshot);
+  const [dismissedStrips, setDismissedStrips] = useState<Record<string, string | null>>({});
+  const [focusRequest, setFocusRequest] = useState<{id: string; serial: number}>();
   const [chosenFrequency, setFrequency] = useState<Frequency | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [vectorHeading, setVectorHeading] = useState<number>();
+  const [vectorTarget, setVectorTarget] = useState<VectorTarget>();
   const [vectorAnchor, setVectorAnchor] = useState<Point>();
   const [quickHidden, setQuickHidden] = useState(false);
+  const [messagePath, setMessagePath] = useState<string[]>([]);
   const [messageId, setMessageId] = useState<string | null>(null);
   const [utility, setUtility] = useState<ContextAction | null>(null);
   const [editMode, setEditMode] = useState("");
   const [holdPoint, setHoldPoint] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const [trainingError, setTrainingError] = useState("");
-  const [split, setSplit] = useState(76);
+  const fullscreenRoot = useRef<HTMLElement>(null);
   const {exercise} = view;
   const AIRPORT = getAirport(exercise), FREQUENCIES = frequenciesFor(AIRPORT), METAR = simulatedMetar(AIRPORT);
   const mode = trainingMode(exercise);
@@ -54,7 +63,7 @@ function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole
   useEffect(() => transport.start(), [transport]);
   useEffect(() => transport.subscribe(() => {
     const current = transport.getSnapshot();
-    if (!current.connected || role === "mentee" && current.exercise.pausedByStaff) {setVectorHeading(undefined); setQuickHidden(true);}
+    if (!current.connected || role === "mentee" && current.exercise.pausedByStaff) {setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(true);}
   }), [transport, role]);
   useEffect(() => {
     if (!paused) return;
@@ -77,39 +86,42 @@ function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") {setMessageId(null); setUtility(null); setSelectedId(null); setEditMode("");}};
     window.addEventListener("keydown", escape); return () => window.removeEventListener("keydown", escape);
   }, []);
-  const openMessages = (a: Aircraft) => {setSelectedId(null); setMessageId(a.id); setUtility(null); dispatch({kind: "read", aircraftId: a.id, frequency});};
-  const select = (id: string | null) => {setVectorHeading(undefined); setQuickHidden(false); setEditMode(""); setSelectedId(id); setUtility(null); if (id !== messageId) setMessageId(null);};
+  const openMessages = (a: Aircraft, path: string[] = []) => {setMessagePath(path);setSelectedId(null); setMessageId(a.id); setUtility(null); dispatch({kind: "read", aircraftId: a.id, frequency});};
+  const select = (id: string | null) => {setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); setEditMode(""); setSelectedId(id); setUtility(null); if (id !== messageId) setMessageId(null);};
   const contextAction = (action: ContextAction, a: Aircraft) => {
     if (action === "messages") openMessages(a);
+    else if (action === "hold") openMessages(a, ["Request Hold", "Present Position"]);
+    else if (action === "guard") {const command = {type: "atc", action: "guard", frequency, variant: "contact"} as const; void dispatch({kind: "command", aircraftId: a.id, command, frequency, text: catalogFor(AIRPORT, exercise.radarEnvironment).instructionText(a, command)}); setQuickHidden(true);}
     else if (action === "remove-reminder") dispatch({kind: "edit", aircraftId: a.id, patch: {reminderAt: null}});
-    else setUtility(action);
+    else {setUtility(action); setQuickHidden(true);}
   };
   const point = (p: Point) => {
     if (!selected || role !== "staff" || editMode === "taxi-preview") return;
     const patch: Partial<Aircraft> = editMode === "position" ? {position: p} : editMode === "taxi" ? {taxiPath: [...selected.taxiPath, {...p, hold: holdPoint}]} : {flightPlan: [...selected.flightPlan, p]};
     dispatch({kind: "edit", aircraftId: selected.id, patch}); if (editMode === "position") setEditMode("");
   };
-  const context = (a: Aircraft) => role === "staff" ? null : mode !== "local" && a.frequency === frequency && airborne(a, AIRPORT) && !a.radar?.transferred ? quickHidden || !view.connected ? null : <RadarQuickPopup key={`${a.id}:${vectorHeading ?? "click"}`} aircraft={a} exercise={exercise} frequency={frequency} heading={vectorHeading} connected={view.connected} dispatch={dispatch} onMessages={() => openMessages(a)} onSent={() => {setQuickHidden(true); setVectorHeading(undefined);}}/> : <AircraftContextMenu key={a.id} aircraft={a} frequency={frequency} elapsed={exercise.elapsed} connected={view.connected} dispatch={dispatch} onAction={action => contextAction(action, a)} onClose={() => select(null)}/>;
+  const context = (a: Aircraft) => role === "staff" || quickHidden ? null : mode !== "local" && a.frequency === frequency && airborne(a, AIRPORT) && !a.radar?.transferred ? quickHidden || !view.connected ? null : <RadarQuickPopup key={`${a.id}:${vectorHeading ?? "click"}:${vectorTarget?.index ?? "free"}`} aircraft={a} exercise={exercise} frequency={frequency} heading={vectorHeading} target={vectorTarget} connected={view.connected} dispatch={dispatch} onMessages={() => openMessages(a)} onAction={action => contextAction(action, a)} onSent={() => {setQuickHidden(true); setVectorHeading(undefined); setVectorTarget(undefined);}}/> : <AircraftContextMenu key={a.id} exercise={exercise} aircraft={a} frequency={frequency} elapsed={exercise.elapsed} connected={view.connected} dispatch={dispatch} onAction={action => contextAction(action, a)} onClose={() => {setQuickHidden(true); setVectorHeading(undefined); setVectorTarget(undefined);}}/>;
   const elapsed = `${String(Math.floor(exercise.elapsed / 60)).padStart(2, "0")}:${String(Math.floor(exercise.elapsed % 60)).padStart(2, "0")}`;
   if (view.fatal) return <SessionNotice title={view.code === "seat-occupied" ? `${role === "staff" ? "Control" : "Mentee"} page already in use` : view.code === "not-found" ? "Session unavailable" : "Could not join session"}><p>{view.fatal}</p><p>Session {sessionCode(sessionId, exercise.airport)}</p><button onClick={() => window.location.reload()}>Try again</button><Link href="/sweatbox/staff">Return to sessions</Link></SessionNotice>;
   if (!view.session) return <SessionNotice title={view.status}><Link href={`/sweatbox/${role}`}>Return to {role === "staff" ? "sessions" : "session entry"}</Link></SessionNotice>;
-  return <main className={`${styles.simulator} ${role === "staff" ? styles.staffSimulator : styles.menteeSimulator}`}>
+  return <main ref={fullscreenRoot} className={`${styles.simulator} ${role === "staff" ? styles.staffSimulator : styles.menteeSimulator}`}>
     <div className={styles.exerciseContents} inert={paused} aria-hidden={paused || undefined}>
-    {role === "staff" ? <><StaffToolbar tutorial={<StaffTutorial accountId={accountId} live/>} sessionId={sessionId} sessionTitle={view.session.title} exercise={exercise} dispatch={dispatch} owner={view.owner} status={view.status} audio={<RadioAudio accountId={accountId} role={role} exercise={exercise} connected={view.connected} scope="all"/>} onReset={() => {select(null); setEditMode("");}} scenario={!!view.scenario} onRestart={() => void trainingRequest(csrf, `attempts/${sessionId}`, {action: "restart", attemptId: view.scenario?.attemptId}).catch(e => setTrainingError(e.message))} extra={<LiveScenarioPanel sessionId={sessionId} csrf={csrf} scenario={view.scenario} elapsed={exercise.elapsed} running={exercise.running} connected={view.connected} onEvent={transport.scenarioEvent}/>}/><TrafficRoster exercise={exercise} selected={selected} onSelect={select} dispatch={dispatch} owner={view.owner}/></> : <><nav className={styles.sidebar} aria-label="Sweatbox frequencies"><div className={styles.trainerBrand}><strong>ATCMH</strong><span>Sweatbox</span></div>{controlledFrequencies(exercise).map(key => <button key={key} aria-pressed={frequency === key} className={`${frequency === key ? styles.activeFrequency : ""} ${frequencyPending[key] ? styles.pendingRequest : ""}`} onClick={() => {setFrequency(key); setMessageId(null); setSelectedId(null); setVectorHeading(undefined); setQuickHidden(false);}}><span>{AIRPORT.icao} {FREQUENCIES[key].label}</span><span className={styles.frequencyValue}>{FREQUENCIES[key].value}{frequencyPending[key] ? ` (${frequencyPending[key]})` : ""}</span></button>)}<Link href="/sweatbox/staff" className={styles.exit}>Leave</Link></nav>
-    <header className={styles.topBanner}><span>{METAR}<small>Simulation only · <a href="/sweatbox/about" target="_blank" rel="noreferrer">About & sources</a></small></span><RadioAudio accountId={accountId} role={role} exercise={exercise} connected={view.connected} paused={paused} scope={frequency}/><span>UTC {now ? new Date(now).toISOString().slice(11, 19) : "--:--:--"}Z · Exercise {elapsed}</span></header></>}
+    {role === "staff" ? <><StaffToolbar tutorial={<StaffTutorial accountId={accountId} live/>} sessionId={sessionId} sessionTitle={view.session.title} exercise={exercise} dispatch={dispatch} owner={view.owner} status={view.status} audio={<RadioAudio accountId={accountId} role={role} exercise={exercise} connected={view.connected} scope="all"/>} onReset={() => {select(null); setEditMode("");}} scenario={!!view.scenario} onRestart={() => void trainingRequest(csrf, `attempts/${sessionId}`, {action: "restart", attemptId: view.scenario?.attemptId}).catch(e => setTrainingError(e.message))} extra={<LiveScenarioPanel sessionId={sessionId} csrf={csrf} scenario={view.scenario} elapsed={exercise.elapsed} running={exercise.running} connected={view.connected} onEvent={transport.scenarioEvent}/>}/><TrafficRoster exercise={exercise} selected={selected} onSelect={select} dispatch={dispatch} owner={view.owner}/></> : <><nav className={styles.sidebar} aria-label="Sweatbox frequencies">{controlledFrequencies(exercise).map(key => <button key={key} aria-pressed={frequency === key} className={`${frequency === key ? styles.activeFrequency : ""} ${frequencyPending[key] ? styles.pendingRequest : ""}`} onClick={() => {setFrequency(key); setMessageId(null); setSelectedId(null); setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false);}}><span className={styles.facilityLabel}><small>{AIRPORT.icao}</small>{FREQUENCIES[key].label}</span><span className={styles.frequencyValue}>{FREQUENCIES[key].value}{frequencyPending[key] ? ` (${frequencyPending[key]})` : ""}</span></button>)}<Link href="/sweatbox/staff" className={styles.exit}>Leave</Link></nav>
+    <header className={styles.topBanner}><span>{METAR}<small>Simulation only · <a href="/sweatbox/about" target="_blank" rel="noreferrer">About & sources</a></small></span><RadioAudio accountId={accountId} role={role} exercise={exercise} connected={view.connected} paused={paused} scope={frequency}/><span>UTC {now ? new Date(now).toISOString().slice(11, 19) : "--:--:--"}Z · Exercise {elapsed}</span><FullscreenButton target={fullscreenRoot}/></header></>}
     {frequency === "atis" && role === "mentee" ? <AtisPanel exercise={exercise} dispatch={dispatch} connected={view.connected}/> : <>
-      <Scope key={`${exercise.id}:${AIRPORT.icao}:${mode}`} savedCamera={scopeCameras[scopeView]} onCameraChange={saveScopeCamera} airport={AIRPORT} radarEnvironment={exercise.radarEnvironment} radarMode={mode === "local" ? undefined : mode} onVector={role === "mentee" && mode !== "local" && view.connected && !paused ? (id, heading, release) => {select(id); setVectorHeading(heading); setVectorAnchor(release);} : undefined} contextPoint={vectorHeading === undefined ? undefined : vectorAnchor} onTagAngle={view.connected && !paused && (role === "mentee" || view.owner) ? (id, angle) => void dispatch({kind: "edit", aircraftId: id, patch: {tagAngle: angle}}) : undefined} pendingAircraft={pendingAircraft} autoReadback={exercise.autoReadback} running={exercise.running} aircraft={exercise.aircraft} frequency={role === "staff" ? "all" : frequency} giveWayTargets={giveWayTargets} selected={selected?.id ?? null} onSelect={select} onPoint={point} onTaxiPathEdit={role === "staff" && view.owner ? (aircraftId, path, edit) => dispatch({kind: "taxi-path", aircraftId, path, edit}) : undefined} editMode={role === "staff" && view.owner ? editMode : ""} context={context}/>
-      {role === "staff" ? <StaffPanel exercise={exercise} selected={selected} dispatch={dispatch} onSelect={select} editMode={editMode} onEditMode={setEditMode} holdPoint={holdPoint} onHoldPoint={setHoldPoint} owner={view.owner} status={view.status}/> : <aside className={styles.rightPanel} style={{gridTemplateRows: `${split}% 8px 1fr`}} aria-label="Flight strips and messages" inert={Boolean(messaging)} aria-hidden={Boolean(messaging) || undefined}>
-        <div className={styles.strips} aria-label="Flight strips"><header className={styles.stripsHeader}><h2>{FREQUENCIES[frequency].label} traffic</h2><span>{exercise.aircraft.filter(a => a.frequency === frequency).length}</span></header>{exercise.aircraft.filter(a => a.frequency === frequency).map(a => {
+      <Scope focusRequest={focusRequest} key={`${exercise.id}:${AIRPORT.icao}:${mode}`} savedCamera={scopeCameras[scopeView]} onCameraChange={saveScopeCamera} airport={AIRPORT} radarEnvironment={exercise.radarEnvironment} radarMode={mode === "local" ? undefined : mode} onVector={role === "mentee" && mode !== "local" && view.connected && !paused ? (id, heading, release, target) => {select(id); setVectorHeading(heading); setVectorTarget(target); setVectorAnchor(release);} : undefined} contextPoint={vectorHeading === undefined ? undefined : vectorAnchor} onTagAngle={view.connected && !paused && (role === "mentee" || view.owner) ? (id, angle) => void dispatch({kind: "edit", aircraftId: id, patch: {tagAngle: angle}}) : undefined} pendingAircraft={pendingAircraft} autoReadback={exercise.autoReadback} running={exercise.running} aircraft={exercise.aircraft} frequency={role === "staff" ? "all" : frequency} giveWayTargets={giveWayTargets} selected={selected?.id ?? null} onSelect={select} onPoint={point} onTaxiPathEdit={role === "staff" && view.owner ? (aircraftId, path, edit) => dispatch({kind: "taxi-path", aircraftId, path, edit}) : undefined} editMode={role === "staff" && view.owner ? editMode : ""} context={context}/>
+      {role === "staff" ? <StaffPanel exercise={exercise} selected={selected} dispatch={dispatch} onSelect={select} editMode={editMode} onEditMode={setEditMode} holdPoint={holdPoint} onHoldPoint={setHoldPoint} owner={view.owner} status={view.status}/> : <aside className={styles.rightPanel} aria-label="Flight strips and messages" inert={Boolean(messaging)} aria-hidden={Boolean(messaging) || undefined}>
+        <div className={styles.strips} aria-label="Flight strips">{Object.keys(dismissedStrips).length ? <button className={styles.restoreStrips} onClick={() => setDismissedStrips({})}>Restore dismissed strips</button> : null}<header className={styles.stripsHeader}><h2>{FREQUENCIES[frequency].label} traffic</h2><span>{exercise.aircraft.filter(a => a.frequency === frequency).length}</span></header>{exercise.aircraft.filter(a => a.frequency === frequency).map(a => {
           const pending = pendingAircraft.includes(a.id) ? 1 : 0;
-          return <div key={a.id} className={`${styles.strip} ${selectedId === a.id ? styles.selectedStrip : ""} ${a.reminderAt !== null && a.reminderAt <= exercise.elapsed ? styles.reminder : ""}`}><button className={styles.stripBody} onClick={() => select(a.id)} aria-label={`Select strip ${a.callsign}`}><span>{a.callsign}</span><span style={{color: a.clearedToLand ? "#91e98d" : undefined}}>{stripRunway(a)}</span><span>{a.type}</span></button><button className={`${styles.atcButton} ${pending ? styles.pendingRequest : ""}`} disabled={!view.connected} onClick={() => openMessages(a)}>ATC{pending ? ` (${pending})` : ""}<i className={a.active ? styles.activePilot : styles.inactivePilot}/></button></div>;
+          const stripKey = `${frequency}:${a.id}`, latestRequest = exercise.messages.filter(m => m.aircraftId === a.id && m.frequency === frequency && m.sender === "pilot").at(-1)?.id ?? null;
+          if (Object.hasOwn(dismissedStrips, stripKey) && dismissedStrips[stripKey] === latestRequest) return null;
+          return <ControllerStrip key={a.id} aircraft={a} runway={radarStripRunway(a, exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT))} selected={selectedId === a.id} pending={Boolean(pending)} reminder={a.reminderAt !== null && a.reminderAt <= exercise.elapsed} connected={view.connected} onSelect={() => select(a.id)} onFocus={() => {setSelectedId(null); setFocusRequest({id: a.id, serial: Date.now()});}} onMessages={() => openMessages(a)} onDismiss={() => {setDismissedStrips(previous => ({...previous, [stripKey]: latestRequest})); if (selectedId === a.id) select(null);}}/>;
         })}</div>
-        <input className={styles.splitter} aria-label="Flight strip panel height" type="range" min="30" max="85" value={split} onChange={e => setSplit(Number(e.target.value))}/>
-        <MessageLog airport={AIRPORT} messages={exercise.messages} frequency={frequency}/>
+        <MessageLog airport={AIRPORT} messages={exercise.messages} frequency={frequency} compact/>
       </aside>}
     </>}
-    {messaging && role === "mentee" && messaging.frequency === frequency ? <MessagePanel key={`${messaging.id}:${frequency}`} aircraft={messaging} exercise={exercise} frequency={frequency} quickCommands={view.quickCommands} connected={view.connected} dispatch={dispatch} onClose={() => setMessageId(null)}/> : null}
-    {utility && selected ? <UtilityPanel label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
+    {messaging && role === "mentee" && messaging.frequency === frequency ? <><button className={styles.messageBackdrop} aria-label="Dismiss aircraft messages" onClick={() => setMessageId(null)}/><MessagePanel key={`${messaging.id}:${frequency}:${messagePath.join("/")}`} initialPath={messagePath} aircraft={messaging} exercise={exercise} frequency={frequency} quickCommands={view.quickCommands} connected={view.connected} dispatch={dispatch} onClose={() => setMessageId(null)}/></> : null}
+    {utility && selected ? <UtilityPanel airport={AIRPORT} label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
     {!view.connected ? <div className={styles.connectionBanner} role="status">{view.status}<span>Your scenario is saved. Waiting for the connection to return.</span></div> : null}
     {trainingError ? <div className={styles.error} role="alert">{trainingError}<button aria-label="Dismiss scenario error" onClick={() => setTrainingError("")}>×</button></div> : null}
     {view.error ? <div className={styles.error} role="alert">{view.error}<button aria-label="Dismiss error" onClick={transport.clearError}>×</button></div> : null}
@@ -118,10 +130,10 @@ function SimulatorSession({role, sessionId, csrf, accountId}: {role: SessionRole
     {paused ? <section className={styles.pauseScreen} role="status" aria-labelledby="exercise-paused-title"><Pause size={40} weight="fill" aria-hidden="true"/><h1 id="exercise-paused-title" ref={pauseTitle} tabIndex={-1}>{view.session.scenario?.finished ? "Exercise finished" : "Exercise paused"}</h1><Link href="/">Exit Sweatbox</Link></section> : null}
   </main>;
 }
-function UtilityPanel({label, aircraft: a, dispatch, onClose}: {label: ContextAction; aircraft: Aircraft; dispatch: (a: Action) => void; onClose: () => void}) {
+function UtilityPanel({airport, label, aircraft: a, dispatch, onClose}: {airport: Airport; label: ContextAction; aircraft: Aircraft; dispatch: (a: Action) => void; onClose: () => void}) {
   const edit = (patch: Partial<Aircraft>) => {dispatch({kind: "edit", aircraftId: a.id, patch}); onClose();};
-  return <section className={styles.utility} role="dialog" aria-label={CONTEXT_ACTIONS[label]} aria-modal="true"><header>{CONTEXT_ACTIONS[label]}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
-    {label === "information" ? <dl><dt>Callsign</dt><dd>{a.callsign}</dd><dt>Aircraft</dt><dd>{a.type}</dd><dt>Altitude</dt><dd>{Math.round(a.altitude)}ft MSL</dd><dt>Heading</dt><dd>{Math.round(a.heading)}°</dd><dt>Speed</dt><dd>{Math.round(a.speed)}KT</dd></dl> : null}
-    {label === "tag" ? <div className={styles.colorChoices}>{(["auto", "default", "left", "right"] as const).map(tag => <button key={tag} onClick={() => edit({tag})}>{tag === "auto" ? "Automatic Position" : tag === "default" ? "Default Position" : tag === "left" ? "Left" : "Right"}</button>)}</div> : null}
+  return <section className={`${styles.utility} ${label === "information" ? styles.aircraftInformation : ""}`} role="dialog" aria-label={CONTEXT_ACTIONS[label]} aria-modal={label === "information" ? undefined : true}><header>{CONTEXT_ACTIONS[label]}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
+    {label === "information" ? <dl><dt>Callsign</dt><dd>{a.callsign}</dd><dt>Aircraft</dt><dd>{a.type}</dd><dt>Altitude</dt><dd>{Math.round(a.altitude)}ft MSL</dd><dt>Heading</dt><dd>{magneticHeadingLabel(a.heading, airport)}°M</dd><dt>Speed</dt><dd>{Math.round(a.speed)}KT</dd><dt>Frequency</dt><dd>{a.frequency ? a.frequency.toUpperCase() : "Not tuned"}</dd><dt>Destination</dt><dd>{a.destination?.name ?? airport.icao}</dd><dt>Assigned runway</dt><dd>{a.runway ?? "—"}</dd><dt>Assigned altitude</dt><dd>{a.radar?.targetAltitude ? a.radar.targetAltitude.unit === "feet" ? `${a.radar.targetAltitude.value}ft` : `FL${a.radar.targetAltitude.value}` : "—"}</dd><dt>Flight plan</dt><dd>{a.flightPlan.length ? <ol>{a.flightPlan.map((point, index) => <li key={index}>{point.name ?? `Waypoint ${index + 1}`}</li>)}</ol> : "No flight plan"}</dd></dl> : null}
+    {label === "tag" ? <div className={styles.colorChoices}>{(["auto", "default"] as const).map(tag => <button key={tag} onClick={() => edit({tag})}>{tag === "auto" ? "Automatic Position" : tag === "default" ? "Default Position" : tag === "left" ? "Left" : "Right"}</button>)}</div> : null}
   </section>;
 }
