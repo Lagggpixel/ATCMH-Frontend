@@ -96,7 +96,7 @@ for (const station of ["approach", "center"] as const) test(`${station}: pilot M
   const report = state.messages.at(-1)!, a = state.aircraft[0];
   assert.equal(a.targetHeading, f.a.targetHeading); assert.equal(a.bankAngle, 15);
   const menu = catalogFor(f.airport, f.env).requestMessageMenu(station, a, report);
-  assert.deepEqual(menu.filter(e => e.suggested).map(e => e.label), ["Vectoring Instructions", "Missed Approach Instructions"]);
+  assert.deepEqual(menu.filter(e => e.suggested), [], "missed-approach calls leave the normal menu without suggested replies");
   assert.equal(menu.filter(e => e.label === "Vectoring Instructions").length, 1);
   assert.equal(menu.filter(e => e.label === "Missed Approach Instructions").length, 1);
   assert.deepEqual(catalogFor(f.airport, f.env).requestMessageMenu(station, a, {...report, request: undefined}), menu, "legacy/automatic plain-text reports get the same replies");
