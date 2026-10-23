@@ -1,15 +1,31 @@
 import type {ReferenceInstruction, AtcManeuver} from "./reference-commands";
 export const MAX_TAXI_POINTS = 600;
-export type Frequency = "ground" | "tower" | "atis" | "approach" | "center";
+export const ILS_CAPTURE_DISTANCE_NM = 25;
+export type Frequency = "ground" | "tower" | "atis" | "approach" | "center" | "departure" | "unicom";
 export type Altitude = {unit: "feet" | "flight-level"; value: number};
 export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
 /** missedHeading is a true course, preserving existing scenario geometry. */
-export interface RadarApproach {id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
-export interface RadarEnvironment {airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
-export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions"; inboundSpeed?: number; finalSpeedProfile?: boolean; routeSpeed?: number}
+export interface RadarApproach {glideslope?:boolean;airportIcao?: string; airportName?: string; elevation?: number; threshold?: Point; departure?: Point; id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
+export interface RadarEnvironment {facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point}[]; approaches: RadarApproach[]}
+export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
+  approachIntercept?: {seconds: number; entered: boolean};
+  gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
+  inboundSpeed?: number; // Initial/profile speed, separate from a persistent ATC instruction.
+  finalSpeedProfile?: boolean; // A distance-limited speed has released on aligned final.
+  routeSpeed?: number;
+  returningToApproach?: boolean;
+  flight?: "departure" | "return"; requestedApproach?: string; departureDirection?: Direction;
+  departure?: {runway: Runway; phase: "roll" | "climb"; touchAndGo?: boolean};
+  arrival?: {runway: Runway; phase: "rollout" | "stopped" | "vacating" | "vacated"};
+  patternJoin?: {status: "joining" | "established" | "unable"; reason?: string; notified?: boolean};
+}
+/** The exercise station stays pinned; touch-and-go returns are worked on Approach. */
+export const radarControlFrequency = (a: Pick<Aircraft, "radar">) => a.radar?.returningToApproach ? "approach" : a.radar?.station;
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
-export type RoutePoint = Point & {name?: string; altitude?: number; speed?: number};
+/** Published hold courses use true north, like the simulator's local map geometry. */
+export interface PublishedHold {inbound: number; hand: "left" | "right"; maxSpeed?: number; legSeconds?: number}
+export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; hold?: PublishedHold; finalApproachFix?: boolean};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";
@@ -31,11 +47,18 @@ export interface Airport {
   icao: string; name: string; elevation: number; sourceDate: string;
   origin: {lat: number; lon: number}; osmAttribution: string;
   runway: {lengthFeet: number; ends: {id: string; heading: number; point: Point}[]};
-  runways?: {id: string; lengthFeet: number; widthFeet?: number; ends: {id: string; heading: number; point: Point}[]}[];
+  runways?: {id: string; lengthFeet: number; widthFeet?: number; exitClearanceFeet?: number; ends: {id: string; heading: number; point: Point}[]}[];
   dataVersion?: string;
   features: {id: string; kind: string; name: string; points: Point[]}[];
 }
 export interface Aircraft {
+  performanceProfile?: "C172" | "C208" | "TBM9" | "DH8D" | "A320" | "B738" | "B77W"; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
+  fuel?: {state: "unknown" | "normal" | "minimum" | "emergency"; enduranceMinutes: number; declared?: "minimum" | "emergency"};
+  assigned?: import("./controller-state").ControllerAssignments;
+  groundReady?: boolean;
+  conflictMotion?: import("./training-conflicts").ConflictMotion;
+  conflictRequest?: PilotRequestSelection;
+  navigationSource?: {revision: string; procedureId?: string; routeId?: string};
   id: string; callsign: string; type: string; position: Point;
   /** True headings for map motion and saved snapshots; controller headings are magnetic. */
   heading: number; targetHeading: number; speed: number; targetSpeed: number; altitude: number;
@@ -54,7 +77,6 @@ export interface Aircraft {
   giveWay?: {aircraftId: string; description: string};
   groundYield?: {aircraftId: string; point: Point};
   automaticRequest?: "taxi" | "departure" | "inbound-option" | "inbound-land";
-  towerCheckInPending?: boolean;
   parkingAfterContact?: boolean;
   transitionOverheadArmed?: boolean;
   departureRunway?: Runway;
@@ -69,7 +91,7 @@ export interface Aircraft {
   color: string | null; tag: "auto" | "default" | "left" | "right"; tagAngle?: number;
   reminderAt: number | null;
   sequence?: TrafficSequence; optionHand?: "left" | "right"; circuit?: number;
-  pushback?: {path: Point[]; index: number; tail?: Direction};
+  pushback?: {path: Point[]; index: number};
   patternFinalDistance?: number; // Extended base/final geometry for this circuit, in NM.
   radar?: RadarState;
   atcManeuver?: AtcManeuver;
@@ -79,7 +101,9 @@ export interface Aircraft {
   diversionDestination?: {name: string; point: Point} | null;
   routeNavigation?: {index: number; descending?: boolean};
   starDescent?: boolean;
+  followRouteAltitudes?: boolean;
   reportAirportInSight?: boolean;
+  airportSighting?: {target: string; seconds: number; terrain?: {position: Point; altitude: number; checkedAt: number; targetElevation?: number; status: "clear" | "blocked" | "unavailable"}};
   speedInstruction?: RadarSpeedInstruction;
   expedited?: boolean;
   followGroundId?: string;
@@ -96,27 +120,36 @@ export interface Message {
   request?: PilotRequestSelection;
   requestCircuit?: number;
 }
+export interface ExerciseWeather {windDirection: number; windSpeed: number; windGust?: number; variableWind?: boolean; visibilityKm: number; qnh: number; temperature?: number; dewpoint?: number; reference: string; observedAt?: string; rawMetar?: string; source?: string}
 export interface Atis {
+  weather?:ExerciseWeather;
+  publicText?: string; publicSource?: string; observedAt?: string;
   letter: string; departures: Runway[]; arrivals: Runway[];
   expectations: string[]; remarks: string[]; notams: string[]; procedures: string[];
 }
 export interface Exercise {
+  weather?: ExerciseWeather;
+  conflicts?: import("./training-conflicts").TrainingConflict[];
   callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
   autoReadback?: boolean;
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
   radarEnvironment?: RadarEnvironment;
-  aircraft: Aircraft[]; messages: Message[]; processed: string[];
   collisions?: {id: string; elapsed: number; aircraft: {id: string; callsign: string}[]; position: Point}[];
+  aircraft: Aircraft[]; messages: Message[]; processed: string[];
   atis: Atis; publishedAtis: string; publishedDraft: Atis | null;
 }
 export type Action =
+  | {kind:"facilities";activity:Record<string,boolean>}
+  | {kind: "all-full-stop"}
+  | {kind: "report-position"; aircraftId: string}
+  | {kind: "weather"; weather: ExerciseWeather}
+  | {kind: "conflict"; conflict: import("./training-conflicts").ConflictKind; aircraftId: string; otherId: string}
+  | {kind: "cancel-conflict"; conflictId: string}
   | {kind: "play" | "reset"}
   | {kind: "pause"; visibility?: "hidden" | "visible"}
   | {kind: "auto-readback"; enabled: boolean}
-  | {kind: "all-full-stop"}
-  | {kind: "report-position"; aircraftId: string}
   | {kind: "spawn"; aircraft: Aircraft}
   | {kind: "edit"; aircraftId: string; patch: Partial<Aircraft>}
   | {kind: "taxi-path"; aircraftId: string; path: TaxiPoint[]; edit: import("./taxi-path-editing").TaxiPathEdit}
@@ -153,22 +186,22 @@ export type Instruction =
   | {type: "extend"; leg: "upwind" | "downwind"}
   | {type: "heading" | "speed"; value: number}
   | {type: "runway"; runway: Runway}
-  | {type: "frequency"; frequency: Frequency | null; whenReady?: boolean; from?: Frequency}
+  | {type: "frequency"; frequency: Frequency | null; facilityId?: string; facilityName?: string; mhz?: string; whenReady?: boolean; from?: Frequency}
   | {type: "outcome"; outcome: Aircraft["landing"]};
 export interface Envelope {id: string; action: Action; time: number}
 export type Direction = "north" | "east" | "south" | "west";
-export interface PilotRequestSelection {id: import("./catalog").PilotRequestId; runway: Runway; direction?: Direction; remainingInPattern?: boolean; includeRunway?: boolean}
-export const DEFAULTS = {airSpeed: 160, taxiSpeed: 15, patternHeight: 1500, patternWidth: 3, bankAngle: 25, bankRate: 6, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 3, minimumPatternSpeed: 80};
-export const FREQUENCIES = {ground: {label: "Ground", value: "121.75"}, tower: {label: "Tower", value: "118.70"}, atis: {label: "ATIS", value: "131.35"}, approach: {label: "Approach", value: "Training"}, center: {label: "Center", value: "Training"}};
+export interface PilotRequestSelection {id: import("./catalog").PilotRequestId; runway: Runway; direction?: Direction; remainingInPattern?: boolean; includeRunway?: boolean; inbound?: "default" | "runway" | "ils" | "gps" | "visual"; altitude?: Altitude; position?: "Right Downwind" | "Left Downwind" | "Right Base" | "Left Base" | "Final"; outcome?: "full-stop" | "touch-and-go"; confirmed?: boolean; approachId?: string}
+export const DEFAULTS = {airSpeed: 160, taxiSpeed: 15, patternHeight: 1500, patternWidth: 3, bankAngle: 25, bankRate: 6, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 1, minimumPatternSpeed: 80};
+export const FREQUENCIES = {ground: {label: "Ground", value: "121.75"}, tower: {label: "Tower", value: "118.70"}, atis: {label: "ATIS", value: "131.35"}, approach: {label: "Approach", value: "Training"}, center: {label: "Center", value: "Training"}, departure: {label: "Departure", value: "Training"}, unicom: {label: "Unicom", value: "122.80"}};
 export const EXERCISE_WEATHER = {windDirection: 240, windSpeed: 10, visibilityKm: 10, qnh: 1001, reference: "Exercise time 00:00 (fixed conditions)"} as const;
 export const METAR = `Simulated EGPH · Wind ${EXERCISE_WEATHER.windDirection}° at ${EXERCISE_WEATHER.windSpeed}KT · Visibility ${EXERCISE_WEATHER.visibilityKm}km · QNH ${EXERCISE_WEATHER.qnh}`;
 export const emptyAtis = (): Atis => ({letter: "ALPHA", departures: ["24"], arrivals: ["24"], expectations: [], remarks: [], notams: [], procedures: []});
-export const aircraftColor = (aircraft: Aircraft, frequency: Frequency | "all") => aircraft.color ?? ((frequency === "all" ? aircraft.frequency !== null && aircraft.frequency !== "atis" : aircraft.frequency === frequency) ? "#80dce8" : "#808080");
-export const stripRunway = (aircraft: Aircraft) => aircraft.runway ?? aircraft.lastRunway ?? "----";
+export const aircraftColor = (aircraft: Aircraft, frequency: Frequency | "all") => ((frequency === "all" ? aircraft.frequency !== null && aircraft.frequency !== "atis" : aircraft.frequency === frequency) ? "#87cefa" : "#808080");
+export const stripRunway = (aircraft: Aircraft) => aircraft.assigned?.runway ?? aircraft.runway ?? aircraft.lastRunway ?? "----";
 export const unreadMessages = (exercise: Exercise, aircraftId: string, frequency?: Frequency) => exercise.messages.filter(m => m.aircraftId === aircraftId && m.sender === "pilot" && !m.commandId && m.read === false && (!frequency || m.frequency === frequency)).length;
 /** Requests stay active after opening the log, until the controller responds. */
 export function frequencyPendingRequests(exercise: Exercise): Record<Frequency, number> {
-  const counts = {ground: 0, tower: 0, atis: 0, approach: 0, center: 0};
+  const counts = {ground: 0, tower: 0, atis: 0, approach: 0, center: 0, departure: 0, unicom: 0};
   for (const a of exercise.aircraft) if (a.frequency && pendingPilotMessage(exercise, a.id, a.frequency)) counts[a.frequency]++;
   return counts;
 }

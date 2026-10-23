@@ -1,0 +1,155 @@
+{
+  "sourceDate": "2026-10-19",
+  "source": "InfiniteHorizon imported Infinite Flight navigation database (read-only export)",
+  "origins": [
+    {
+      "code": "0CO2",
+      "name": "Crested Butte Airpark",
+      "lat": 38.851890563964844,
+      "lon": -106.92831039428711,
+      "elevation": 8979.00038191027
+    },
+    {
+      "code": "20V",
+      "name": "Mc Elroy Airfield",
+      "lat": 40.0534553527832,
+      "lon": -106.36898422241211,
+      "elevation": 7415.000134565698
+    },
+    {
+      "code": "7V2",
+      "name": "North Fork Valley",
+      "lat": 38.8316535949707,
+      "lon": -107.64588928222656,
+      "elevation": 5798.000225557743
+    },
+    {
+      "code": "CO11",
+      "name": "Breckenridge",
+      "lat": 39.50720977783203,
+      "lon": -106.04918670654297,
+      "elevation": 9401.000015378937
+    },
+    {
+      "code": "KASE",
+      "name": "Aspen-Pitkin Co Sardy",
+      "lat": 39.22187614440918,
+      "lon": -106.86824417114258,
+      "elevation": 7838.00019992618
+    },
+    {
+      "code": "KEGE",
+      "name": "Eagle County Regional",
+      "lat": 39.642765045166016,
+      "lon": -106.91595077514648,
+      "elevation": 6546.000082661786
+    },
+    {
+      "code": "KLXV",
+      "name": "Lake Co",
+      "lat": 39.21946716308594,
+      "lon": -106.31644439697266,
+      "elevation": 9927.000511349655
+    },
+    {
+      "code": "KRIL",
+      "name": "Garfield County Rgnl",
+      "lat": 39.526601791381836,
+      "lon": -107.72799301147461,
+      "elevation": 5543.000228761688
+    },
+    {
+      "code": "VNJI",
+      "name": "Jiri",
+      "lat": 27.626959800720215,
+      "lon": 86.23015975952148,
+      "elevation": 6085.000025631562
+    },
+    {
+      "code": "VNKG",
+      "name": "Khotang",
+      "lat": 27.181249618530273,
+      "lon": 86.77249908447266,
+      "elevation": 4432.0001877511895
+    },
+    {
+      "code": "VNLD",
+      "name": "Lamidanda",
+      "lat": 27.252614974975586,
+      "lon": 86.67253112792969,
+      "elevation": 4047.000114060449
+    },
+    {
+      "code": "VNLK",
+      "name": "Tenzing-Hillary/Lukla",
+      "lat": 27.686784744262695,
+      "lon": 86.72943115234375,
+      "elevation": 9099.999775723834
+    },
+    {
+      "code": "VNPL",
+      "name": "Phaplu",
+      "lat": 27.517974853515625,
+      "lon": 86.58511734008789,
+      "elevation": 8096.999921823736
+    },
+    {
+      "code": "VNRT",
+      "name": "Rumjatar",
+      "lat": 27.302587509155273,
+      "lon": 86.55109024047852,
+      "elevation": 4500.999951300033
+    },
+    {
+      "code": "VNTR",
+      "name": "Tumlingtar",
+      "lat": 27.3149995803833,
+      "lon": 87.19433975219727,
+      "elevation": 1315.0000384473424
+    }
+  ],
+  "aspenRoute": [
+    {
+      "procedure": "RNV-F",
+      "type": "Approach",
+      "transition": null,
+      "index": 0,
+      "fix": "DBL",
+      "lat": 39.43918444444444,
+      "lon": -106.89446777777778
+    },
+    {
+      "procedure": "RNV-F",
+      "type": "Approach",
+      "transition": null,
+      "index": 1,
+      "fix": "HEPEB",
+      "lat": 39.381115,
+      "lon": -106.88861194
+    },
+    {
+      "procedure": "RNV-F",
+      "type": "Approach",
+      "transition": null,
+      "index": 2,
+      "fix": "ALLIX",
+      "lat": 39.33945806,
+      "lon": -106.88417972
+    },
+    {
+      "procedure": "RNV-F",
+      "type": "Approach",
+      "transition": null,
+      "index": 3,
+      "fix": "MAFMU",
+      "lat": 39.25639444,
+      "lon": -106.87556694
+    }
+  ],
+  "ceyag": {
+    "id": "215303",
+    "identifier": "CEYAG",
+    "lat": 39.27252472,
+    "lon": -106.89250417
+  }
+}

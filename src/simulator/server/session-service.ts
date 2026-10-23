@@ -53,6 +53,7 @@ export class SessionService {
       return visible;
     })};
     if (role === "mentee") delete exercise.callsignReservations;
+    if (role === "mentee") delete exercise.conflicts;
     return {session: summary(record, now), exercise, contentRevision: record.contentRevision,
       ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }

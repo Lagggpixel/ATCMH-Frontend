@@ -94,6 +94,9 @@ test("every completed circuit, touch-and-go and go-around requires a fresh seque
   for (const landing of [false, true]) {
     const state = send(traffic(), sequence(3, "Left Base")); const a = state.aircraft[0], g = runwayGeometry();
     Object.assign(a, {leg: "final", position: {...g.threshold}, heading: g.heading, clearedToLand: landing, altitude: landing ? 136 : 1636});
+    // This test isolates circuit clearance expiry; keep the other arrival clear
+    // of the threshold now that physical contact generates a crash.
+    state.aircraft[1].position = {...patternTargets(state.aircraft[1]).downwind};
     state.running = true;
     const next = advance(state, .1);
     assert.equal(next.aircraft[0].sequence, undefined); assert.equal(next.aircraft[0].circuit, 1);

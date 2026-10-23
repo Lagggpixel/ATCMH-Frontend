@@ -1,4 +1,6 @@
 "use client";
+import FacilityControls from "./FacilityControls";
+import WeatherControls from "./WeatherControls";
 import {LETTERS, REMARKS} from "./catalog";
 import {currentAtisOptions} from "./atis-options";
 import {EXERCISE_WEATHER, type Action, type Atis, type Exercise} from "./model";
@@ -6,7 +8,8 @@ import {getAirport, runwayEnds, simulatedMetar} from "./airports";
 import styles from "./Simulator.module.css";
 
 export default function AtisPanel({exercise, dispatch, connected}: {exercise: Exercise; dispatch: (a: Action) => void; connected: boolean}) {
-  const airport = getAirport(exercise), METAR = simulatedMetar(airport);
+  const airport = getAirport(exercise), METAR = exercise.weather?.rawMetar ?? simulatedMetar(airport);
+  const weather = exercise.weather ?? EXERCISE_WEATHER;
   const draft = currentAtisOptions(exercise.atis);
   const dirty = JSON.stringify(exercise.publishedDraft) !== JSON.stringify(draft);
   const toggle = (field: "departures" | "arrivals" | "expectations" | "remarks" | "notams" | "procedures", value: string) => {
@@ -14,7 +17,9 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
     dispatch({kind: "atis", draft: {...draft, [field]: values.includes(value) ? values.filter(x => x !== value) : [...values, value]} as Atis});
   };
   return <section className={`${styles.atis} ${styles.trainingAtis}`} aria-label="ATIS editor">
-    <header><div><h1>Exercise information</h1><p>{METAR}<br/>{EXERCISE_WEATHER.reference}</p></div><button disabled={!connected || !dirty} onClick={() => dispatch({kind: "publish-atis"})}>Publish ATIS</button></header>
+    <header><div><h1>Exercise information</h1><p>{METAR}<br/>{weather.reference}</p></div><button disabled={!connected || !dirty} onClick={() => dispatch({kind: "publish-atis"})}>Publish ATIS</button></header>
+    <WeatherControls exercise={exercise} dispatch={dispatch} connected={connected}/>
+    <FacilityControls exercise={exercise} dispatch={dispatch} connected={connected}/>
     <label>Information letter<select aria-label="Information letter" value={draft.letter} disabled={!connected} onChange={e => dispatch({kind: "atis", draft: {...draft, letter: e.target.value}})}>{[...new Set([...LETTERS, draft.letter])].map(letter => <option key={letter}>{letter}</option>)}</select></label>
     <div className={styles.atisFields}>
       {(["departures", "arrivals"] as const).map(field => <fieldset key={field}><legend>{field === "departures" ? "Departure runways" : "Arrival runways"}</legend>{runwayEnds(airport).map(({id: runway}) => <label key={runway}><input type="checkbox" disabled={!connected} checked={draft[field].includes(runway)} onChange={() => toggle(field, runway)}/>Runway {runway}</label>)}</fieldset>)}

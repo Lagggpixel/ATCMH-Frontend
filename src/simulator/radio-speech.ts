@@ -27,6 +27,10 @@ export function aviationSpeech(text: string, callsigns: readonly string[] = []):
     text = text.replace(new RegExp(`(?<![a-z0-9])(?:${escaped.join("|")})(?![a-z0-9])`, "gi"), spokenCallsign);
   }
   return radioInitialismSpeech(text)
+    .replace(/\b(wind\s+\d{1,3}\s+at\s+)(\d{1,3})\b/gi, (_, prefix: string, speed: string) => `${prefix}${digits(speed)}`)
+    .replace(/\b((?:heading|wind)\s+)(\d{1,3})\b/gi, (_, prefix: string, heading: string) => `${prefix}${digits(heading.padStart(3, "0"))}`)
+    .replace(/\b(Q-N-H\s+)(\d{3,4})\b/gi, (_, prefix: string, pressure: string) => `${prefix}${digits(pressure)}`)
+    .replace(/\b(\d{1,3})\s+(knots|kts|degrees)\b/gi, (_, value: string, unit: string) => `${digits(value)} ${unit}`)
     .replace(/\b(?:FL\s*|flight level\s+)(\d{2,3})\b/gi, (_, level: string) => `flight level ${digits(level)}`)
     .replace(/\b(\d{1,3}(?:,\d{3})|\d{1,5})\s+(feet|foot|ft)\b/gi, (_, number: string, unit: string) => `${cardinal(Number(number.replaceAll(",", "")))} ${unit}`)
     .replace(/\b(with you at|hold present position at|level at|at or above|at or below|(?:climb|descend)(?: and maintain| to)?|maintain|altitude(?: of)?)\s+(\d{1,3}(?:,\d{3})|\d{1,5})\b(?!\s*(?:knots|degrees))/gi, (_, prefix: string, number: string) => `${prefix} ${cardinal(Number(number.replaceAll(",", "")))}`)

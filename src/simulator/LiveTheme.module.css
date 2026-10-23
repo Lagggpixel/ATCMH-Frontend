@@ -1,0 +1,20 @@
+/* Scoped to live instructor/mentee sessions and their portalled tutorial. */
+.theme {
+  color-scheme: dark;
+  --dashboard-bg: #111619;
+  --dashboard-canvas: #111619;
+  --dashboard-surface: #1b2227;
+  --dashboard-border: #45515b;
+  --dashboard-ink: #edf2f5;
+  --dashboard-text: #edf2f5;
+  --dashboard-muted: #b0bdc6;
+  --dashboard-accent: #ffb18a;
+  --dashboard-link: #ffb18a;
+  --dashboard-button: #b94025;
+  --dashboard-button-hover: #9f321b;
+  --dashboard-on-button: #fff;
+  --dashboard-selected: #392b25;
+  --dashboard-danger-text: #ffaaa4;
+  --dashboard-danger-bg: #3c2426;
+  --dashboard-shadow-color: #0008;
+}

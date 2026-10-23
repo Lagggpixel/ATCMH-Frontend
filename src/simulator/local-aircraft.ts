@@ -1,3 +1,4 @@
+import {profileForType} from "./aircraft-performance";
 import {getAirport, runwayEnds, trainingMode, type AirportSelection} from "./airports";
 import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
@@ -6,7 +7,7 @@ import {aircraftSchema} from "./protocol";
 import {gatesFor, normalizeScenarioAircraft, seedFromAircraft, standPlacement, type ScenarioDefinition} from "./scenarios";
 import type {Aircraft, Leg, Point} from "./model";
 
-export type LocalPlacement = "gate" | "final" | "circuit" | "custom";
+export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom";
 export interface LocalAircraftOptions {
   placement: LocalPlacement; callsign: string; type: string; runway: string; gateId?: string;
   distance: number; leg: Leg; hand: Aircraft["hand"]; height: number; speed: number; heading: number; position?: Point;
@@ -30,16 +31,20 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
   if (!callsign || !type) throw new Error("Enter an aircraft callsign and type.");
   const conflict = callsignConflict(callsign, existingCallsigns); if (conflict) throw new Error(conflict);
   const a = engine.newAircraft(id, options.placement !== "gate");
-  Object.assign(a, {callsign, type, runway: options.runway, landing: options.landing, hand: options.hand, frequency: options.frequency,
+  Object.assign(a, {callsign, type, performanceProfile:profileForType(type), runway: options.runway, landing: options.landing, hand: options.hand, frequency: options.frequency,
     intentions: {flight: options.flight, taxi: "runway", afterTransition: "continue"}});
   const bounded = (value: number, min: number, max: number, label: string) => {
     if (!Number.isFinite(value) || value < min || value > max) throw new Error(`${label} must be between ${min} and ${max}.`);
     return value;
   };
-  if (options.placement === "gate") {
+  if (options.placement === "ground") {
+    if (!options.position || !Number.isFinite(options.position.x) || !Number.isFinite(options.position.y) || Math.max(Math.abs(options.position.x), Math.abs(options.position.y)) > 2000) throw new Error("Choose a valid ground position.");
+    Object.assign(a, {position: {...options.position}, altitude: airport.elevation, speed: 0, targetSpeed: 0, mode: "parked", groundReady: true, heading: magneticToTrue(bounded(options.heading, 0, 360, "Heading"), airport)});
+    a.targetHeading = a.heading;
+  } else if (options.placement === "gate") {
     if (!gatesFor(airport).some(gate => gate.id === options.gateId)) throw new Error("Choose a mapped gate.");
     const placement = standPlacement(options.gateId!, false, airport)!;
-    Object.assign(a, placement, {targetHeading: placement.heading});
+    Object.assign(a, placement, {targetHeading: placement.heading, groundReady: false});
   } else {
     a.altitude = airport.elevation + bounded(options.height, 1, 60000 - airport.elevation, "Height above airport (ft)");
     a.speed = a.targetSpeed = bounded(options.speed, 80, 600, "Speed (kt)");

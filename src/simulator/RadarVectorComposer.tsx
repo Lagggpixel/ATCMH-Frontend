@@ -1,17 +1,20 @@
 "use client";
-import {useRef, useState} from "react";
-import {HEADING_CHOICES} from "./catalog";
+import {useEffect, useRef, useState} from "react";
+import {catalogFor, HEADING_CHOICES} from "./catalog";
+import {getAirport} from "./airports";
 import {validateControllerMessage} from "./engine";
 import {ALTITUDES, altitudeLabel} from "./radar";
 import type {Aircraft, Exercise, Frequency, Instruction} from "./model";
 import styles from "./Simulator.module.css";
 
 type Vector = Extract<Instruction, {type: "vector"}>;
-export default function RadarVectorComposer({initial, aircraft, exercise, frequency, connected, onBack, onSend}: {initial: Vector; aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; onBack: () => void; onSend: (command: Vector) => void | Promise<boolean>}) {
+export default function RadarVectorComposer({initial, aircraft, exercise, frequency, connected, onBack, onSend, prepareSpeech}: {initial: Vector; aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; onBack: () => void; onSend: (command: Vector) => void | Promise<boolean>; prepareSpeech?: (text: string) => () => void}) {
   const [draft, setDraft] = useState(initial);
   const [picker, setPicker] = useState<"heading" | "altitude" | null>(null);
   const [sending, setSending] = useState(false), inFlight = useRef(false);
   const invalid = validateControllerMessage(exercise, aircraft, draft, frequency);
+  const speechDraft = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather).instructionText(aircraft, draft);
+  useEffect(() => {if (connected && !invalid && !picker) return prepareSpeech?.(speechDraft);}, [connected, invalid, picker, speechDraft, prepareSpeech]);
   const pick = (patch: Partial<Vector>) => {setDraft(c => ({...c, ...patch})); setPicker(null);};
   return <section aria-label="Compose vector instruction">
     <div className={styles.messageEntries}>

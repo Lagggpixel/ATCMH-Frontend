@@ -3,24 +3,28 @@ import {aviationSpeech} from "./radio-speech";
 export {aviationSpeech} from "./radio-speech";
 
 export interface RadioVoice {id: string; name: string; language: string; local: boolean}
-export interface VoiceSettings {voice: string; rate: number; volume: number; allowOnline?: boolean}
+export interface VoiceSettings {voice: string; rate: number; volume: number; allowOnline?: boolean; radioFilter?: boolean}
 export interface SpeechOutput {
   voices(): RadioVoice[];
   onVoicesChanged(listener: () => void): () => void;
   speak(text: string, settings: VoiceSettings, end: () => void, error: () => void): void;
+  prepare?(text: string, settings: VoiceSettings): void;
+  prepareDraft?(text: string, settings: VoiceSettings): void;
+  cancelDraft?(): void;
   cancel(): void;
   activate?(): void;
+  warm?(): void;
   dispose?(): void;
   onStatusChanged?(listener: (status: string) => void): () => void;
 }
 interface AudioState extends VoiceSettings {
   available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
 }
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.3, volume: 1, speaking: "", error: "", status: ""};
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.15, volume: 1, speaking: "", error: "", status: ""};
 export interface AudioPreference {read(): boolean | undefined; write(enabled: boolean): void}
 /** Only the on/off choice persists; online voice consent remains per tab. */
 export function browserAudioPreference(accountId: string, role: "staff" | "mentee"): AudioPreference {
-  const key = `atcmh:simulator:radio-audio:v1:${accountId}:${role}`;
+  const key = `simulator:radio-audio:v1:${accountId}:${role}`;
   return {
     read: () => {try {const value = window.localStorage.getItem(key); return value === "true" ? true : value === "false" ? false : undefined;} catch {return undefined;}},
     write: enabled => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Audio still works when browser storage is unavailable. */ }},
@@ -38,10 +42,25 @@ export class RadioAudio {
   private seen = new Set<string>();
   private previous: {id: string; connected: boolean; elapsed: number; atis: string} | null = null;
   private queue: string[] = [];
+  private failedText = "";
+  private failureCount = 0;
   private callsigns: string[] = [];
   private generation = 0;
   private paused = false;
   private waitingForRetry = false;
+  private draftGeneration = 0;
+  private draftTimer?: ReturnType<typeof setTimeout>;
+  /** Warm only the reviewed draft; this never sends an ATC command or starts playback. */
+  prepareDraft = (text: string) => {
+    this.cancelDraft();
+    const generation = this.draftGeneration;
+    if (text.trim() && this.state.enabled && !this.paused) this.draftTimer = setTimeout(() => {
+      if (generation === this.draftGeneration && this.state.enabled && !this.paused)
+        this.output?.prepareDraft?.(aviationSpeech(text, this.callsigns), this.state);
+    }, 500);
+    return () => {if (generation === this.draftGeneration) this.cancelDraft();};
+  };
+  private cancelDraft() {this.draftGeneration++; clearTimeout(this.draftTimer); this.draftTimer = undefined; this.output?.cancelDraft?.();}
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.state;
   getServerSnapshot = () => INITIAL_STATE;
@@ -50,6 +69,7 @@ export class RadioAudio {
     this.output = output;
     this.preference = preference;
     this.update({available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
+    if (this.state.enabled) output?.warm?.();
     const refresh = () => {this.update({voices: output?.voices() ?? []}); this.next();};
     const unsubscribe = output?.onVoicesChanged(refresh);
     const unsubscribeStatus = output?.onStatusChanged?.(status => this.update({status}));
@@ -66,6 +86,7 @@ export class RadioAudio {
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
       this.queue.unshift(interrupted);
     }
+    if (paused) this.cancelDraft();
     this.paused = paused;
     const fresh = baseline ? [] : exercise.messages.filter(m => !this.seen.has(m.id));
     this.seen = new Set(exercise.messages.map(m => m.id));
@@ -94,19 +115,23 @@ export class RadioAudio {
   };
   setSettings(settings: Partial<VoiceSettings>) {
     if (settings.voice !== undefined || settings.allowOnline !== undefined) this.stop();
-    this.update({allowOnline: settings.allowOnline ?? this.state.allowOnline, voice: settings.allowOnline === false ? "" : settings.voice ?? this.state.voice, rate: Math.min(1.5, Math.max(0.7, settings.rate ?? this.state.rate)), volume: Math.min(1, Math.max(0, settings.volume ?? this.state.volume))});
+    this.update({allowOnline: settings.allowOnline ?? this.state.allowOnline, voice: settings.allowOnline === false ? "" : settings.voice ?? this.state.voice, rate: Math.min(2, Math.max(0.7, settings.rate ?? this.state.rate)), volume: Math.min(1, Math.max(0, settings.volume ?? this.state.volume))});
+    if (settings.radioFilter !== undefined) this.update({radioFilter: settings.radioFilter});
   }
   say(text: string) {
     if (!this.state.enabled || !this.output) return;
     this.queue.push(aviationSpeech(text, this.callsigns)); this.next();
   }
   stop() {
+    this.cancelDraft();
     this.generation++; this.queue = []; this.waitingForRetry = false;
     if (this.state.speaking) this.output?.cancel();
     if (this.state.speaking) this.update({speaking: ""});
   }
   private next() {
-    if (!this.output || !this.state.enabled || this.paused || this.waitingForRetry || this.state.speaking || !this.queue.length) return;
+    if (!this.output || !this.state.enabled || this.paused || this.waitingForRetry || !this.queue.length) return;
+    // Load one transmission ahead while the current one plays, without reordering radio calls.
+    if (this.state.speaking) {this.output.prepare?.(this.queue[0], this.state); return;}
     // Device voices often arrive asynchronously, after the first radio frame.
     if (!this.state.voices.length) return;
     const text = this.queue.shift()!;
@@ -115,14 +140,21 @@ export class RadioAudio {
     const error = () => {
       if (generation !== this.generation) return;
       this.generation++; this.output?.cancel();
+      this.failureCount = this.failedText === text ? this.failureCount + 1 : 1; this.failedText = text;
+      if (this.failureCount >= 2) {
+        this.update({speaking: "", error: "A radio message could not play. Its text remains in the message log.", status: "Playback failed; continuing with the next message"});
+        this.waitingForRetry = false; queueMicrotask(() => this.next()); return;
+      }
       this.queue.unshift(text); this.waitingForRetry = true;
-      this.update({speaking: "", error: "Voice playback is waiting. Click or press a key in the simulator to retry. If needed, select an available voice in Voice settings."});
+      this.update({speaking: "", error: "Voice playback is waiting. Click or press a key in Sweatbox to retry. If needed, select an available voice in Voice settings."});
     };
-    const {voice, rate, volume, allowOnline} = this.state;
-    try {this.output.speak(text, {voice, rate, volume, allowOnline}, () => {
+    const {voice, rate, volume, allowOnline, radioFilter} = this.state;
+    try {this.output.speak(text, {voice, rate, volume, allowOnline, ...(radioFilter === undefined ? {} : {radioFilter})}, () => {
       if (generation !== this.generation) return;
-      this.update({speaking: ""}); this.next();
-    }, error);} catch {error();}
+      this.failedText = ""; this.failureCount = 0; this.update({speaking: ""}); this.next();
+    }, error);
+      if (this.queue.length) this.output.prepare?.(this.queue[0], this.state);
+    } catch {error();}
   }
 }
 

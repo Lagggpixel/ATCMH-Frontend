@@ -1,5 +1,4 @@
 import {MAX_TAXI_POINTS} from "./model";
-import {standPoints} from "./stand-geometry";
 import {airportRunways} from "./airports";
 import type {Airport, Point, Runway, TaxiPoint} from "./model";
 // Distances are nautical miles. Routing uses mapped centerlines only, never apron polygons.
@@ -86,8 +85,8 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
   const lateral = Math.abs((position.x - first.x) * -v.y + (position.y - first.y) * v.x);
   if (along > -TAXI_ROUTING.runwayEndMargin && along < length + TAXI_ROUTING.runwayEndMargin && lateral < TAXI_ROUTING.holdDistance - 1e-7) return {error: "Aircraft is inside the runway protected area. Reposition onto a taxiway before calculating a departure route."};
   const holds = source.runwayHolds?.[pair.id] ?? source.holds;
-  // Some thresholds have only an intersection connector. Keep the mapped entry;
-  // departureRoute aligns there rather than silently back-taxiing to full length.
+  // Some thresholds have only an intersection connector; departureRoute back-taxis
+  // from that mapped hold to the full-length threshold before starting the roll.
   const closest = Math.min(...holds.map(id => distance(source.points[id], threshold)));
   const radius = Math.min(.5, Math.max(TAXI_ROUTING.departureAccessRadius, closest + .001));
   const goals = holds.filter(id => distance(source.points[id], threshold) <= radius);
@@ -139,7 +138,7 @@ export function planParkingRoute(airport: Airport, position: Point, standId?: st
   const graph = buildTaxiGraph(airport);
   const stands = airport.features.filter(f => f.kind === "parking_position" && f.points.length > 1 && (!standId || f.id === standId));
   const goals = stands.flatMap(stand => {
-    const end = standPoints(airport, stand).at(-1)!;
+    const end = stand.points.at(-1)!;
     if (occupied.some(p => distance(p, end) < .03)) return [];
     const node = graph.points.findIndex(p => distance(p, end) < 1e-6);
     return node < 0 ? [] : [node];
