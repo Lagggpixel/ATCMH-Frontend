@@ -1,3 +1,82 @@
+# ATCMH Sweatbox library layout
+
+Date: 23 October 2026 (Europe/London)
+
+final result: passed
+
+## Comparison target and evidence
+
+The current standalone Sweatbox Sessions, Scenarios and Replays indexes are the visual reference. ATCMH retains its existing logo, blue theme tokens, appearance/account controls, shared scenario ownership and authentication. This is an implementation in the existing frontend, not a separate product or new backend.
+
+Reference preview: `http://127.0.0.1:3106/simulator/{staff,scenarios,replays}`.
+
+ATCMH preview: `http://127.0.0.1:3110/sweatbox/{staff,scenarios,replays}`. Both previews use the same synthetic trainer, three sessions/scenarios and two replays. Application APIs are replaced by a local sample-data proxy; production writes are zero.
+
+Evidence directory: `C:/Users/Reid/.codex/visualizations/2026/10/23/01a169a1-53e5-7583-b115-b8aaeb88b7ba/`.
+
+Source visual truth and matching implementation screenshots:
+
+| Surface | Source | Implementation |
+| --- | --- | --- |
+| Sessions, desktop | `reference-sessions-desktop.jpg` | `atcmh-sessions-desktop.jpg` |
+| Scenarios, desktop | `reference-scenarios-desktop.jpg` | `atcmh-scenarios-desktop.jpg` |
+| Replays, desktop | `reference-replays-desktop.jpg` | `atcmh-replays-desktop.jpg` |
+| Sessions, phone | `reference-sessions-phone.jpg` | `atcmh-sessions-phone.jpg` |
+| Scenarios, phone | `reference-scenarios-phone.jpg` | `atcmh-scenarios-phone.jpg` |
+| Replays, phone | `reference-replays-phone.jpg` | `atcmh-replays-phone.jpg` |
+
+Each filename above is relative to the absolute evidence directory. Dark-theme checks are also recorded in `atcmh-{sessions,scenarios,replays}-dark-phone.jpg`; the phone scenario action was subsequently refined and recaptured in the light-theme comparison pair. `atcmh-archive-notice.jpg` records successful sample archiving and its balanced notification. `atcmh-library-browser.json` contains 36 passing browser assertions.
+
+## Capture normalization and state
+
+- Browser: Codex in-app browser, using its native screenshot API. Captures are JPEG files.
+- Desktop CSS viewport: 1440 × 1000. Scenario/replay pairs are 1440 × 1000 pixels. Session pairs are 1425 × 990 pixels from the native browser capture; source and implementation have identical dimensions and are compared at the same scale.
+- Phone CSS viewport: 390 × 844. Both members of each pair are 375 × 812 pixels from the native capture, so no additional density normalization is needed. The browser reports a device pixel ratio approximately 1; native capture sizing is recorded independently of the CSS viewport.
+- State: loaded lists, light appearance, same sample content and dates, no open menus or tutorials. The standalone account is a normal trainer; ATCMH retains its existing staff access and shared library. Consequently ATCMH keeps its My sessions replay filter and creator attribution.
+- Responsive overflow checks additionally cover 320, 768, 1024 and 1600 CSS pixels.
+- Full-view reference and implementation pairs were opened together in the same comparison input. Focused inspection used the readable scenario action/metadata rows, replay toolbar/columns, session card actions and sidebar footer within those captures; a separate crop was unnecessary at the native comparison size.
+
+## Findings and comparison history
+
+1. **[P2, fixed] Scenario content started 16px too far right on desktop.** The initial implementation inherited the generic session gutter. It now uses the standalone scenario workspace's 48px left / 40px right desktop gutters, with its tablet and phone variants. The final desktop scenario comparison verifies the corrected alignment.
+2. **[P2, fixed] Replay heading and filters started 28px too low.** The common workspace overrode the replay page's 40px top padding. The replay-specific padding now wins, and the desktop column widths again follow the source at this viewport. The final replay comparison verifies heading, filter, date-group and row alignment.
+3. **[P2, fixed] Phone scenario action occupied an unnecessary extra row.** The initial container threshold applied the smallest-screen layout at 390px. The threshold is now 300px of available content, preserving the source's inline metadata/action layout at 390px while keeping the action full width when needed at 320px. The recaptured `atcmh-scenarios-phone.jpg` and the final two responsive browser assertions verify the correction.
+4. **Accepted product differences:** ATCMH's brand lockup and white/blue sidebar replace Sweatbox's wordmark and rust palette. The phone header is 76px to retain ATCMH's appearance and account controls. All/Published/Drafts filters preserve ATCMH's shared scenario library rather than adding the standalone product's private/template permissions. Creator attribution adds one metadata line. Standalone-only Changelog, Join and Owner Spectate features are not introduced. Existing ATCMH editor and replay-player routes retain their existing frames.
+
+No actionable P0/P1/P2 findings remain after the final comparison.
+
+## Required fidelity surfaces
+
+- **Fonts and typography:** existing ATCMH `--font-site` is retained. Heading hierarchy, 18–20px list titles, secondary labels, line height, wrapping and control weights follow the reference. Titles and names wrap without clipping.
+- **Spacing and layout rhythm:** sidebar, active navigation, desktop gutters, compact scenario rows, replay toolbar/date groups and session card layouts match the source structure. The three spacing findings above were corrected and recaptured.
+- **Colours and tokens:** surfaces, borders, text, primary actions, selected states and focus treatments use ATCMH dashboard variables. Light and dark modes persist across all three routes. Desktop appearance choices open above the sidebar footer and remain within the viewport.
+- **Image and asset fidelity:** the existing ATCMH logo asset is retained, with its natural proportions. Existing Phosphor icons provide navigation/actions. No new raster assets, approximated logos or decorative artwork were needed.
+- **Copy and content:** existing creator, participant, airport, recording type, revision and UTC date information remains available. Session row actions use Trainee link, Enter and Archive, with matching tutorial guidance. Shared-library filters and authenticated mentee links retain ATCMH semantics.
+
+## Interaction and technical verification
+
+- Scenario text search, published/draft filtering, arrow-key tab navigation, no-results recovery, action menu open/Escape/focus restoration.
+- Replay search, airport filtering, clear filters, retained participant scope and replay links.
+- Phone navigation open, content inert while open, route change closes navigation, Escape closes it and restores focus.
+- New-session dialog opens with published scenarios and cancels correctly. Archive confirmation focuses Keep session; cancellation preserves the row. Disposable sample archive removes the intended row, displays balanced feedback, and dismisses correctly.
+- Light/dark switching and theme persistence across all three pages; desktop appearance menu fits on screen.
+- No horizontal overflow in tested widths; no framework error overlay or application errors during the final checks. Early preview-only failures from a stale source junction, injected setup script and unsupported sample airports were corrected before the final verification window.
+- 19 focused tutorial/session-library/replay tests pass. Scoped ESLint and TypeScript pass. The final isolated production build passes, with existing package-version named-export warnings in unrelated version/dashboard routes.
+- All 11 changed application source files match the verified preview byte-for-byte. No dependency, version, database, published image or deployment change was made.
+
+## Remaining scope and implementation checklist
+
+- [x] Match the three library index layouts while retaining the ATCMH theme.
+- [x] Verify desktop/phone visuals, themes, keyboard controls and sample interactions.
+- [x] Resolve and recapture P2 visual differences.
+- [x] Complete focused tests, lint, TypeScript and production build.
+- Not exercised: real production writes, full editor/radar/player workflows or other browser engines. Those workflows were outside this library-layout change.
+
+
+---
+
+# Previous design QA records
+
 # Administration Roles — option 1 (2026-10-11)
 
 **Final result: passed**

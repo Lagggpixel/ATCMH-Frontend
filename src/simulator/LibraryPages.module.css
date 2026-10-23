@@ -1,4 +1,5 @@
 .library{composes:library from "./StaffSessions.module.css"}
+.workspaceLibrary{composes:workspaceLibrary from "./StaffSessions.module.css"}
 .nav{composes:nav from "./StaffSessions.module.css"}
 .libraryContent{composes:content from "./StaffSessions.module.css"}
 .heading{composes:heading from "./StaffSessions.module.css"}

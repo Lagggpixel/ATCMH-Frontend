@@ -4,7 +4,6 @@ import Link from "next/link";
 import {MagnifyingGlassIcon} from "@phosphor-icons/react/MagnifyingGlass";
 import {UserIcon} from "@phosphor-icons/react/User";
 import {AIRPORT_IDS, environmentLabel} from "./airports";
-import {TrainingNav} from "./TrainingLibrary";
 import LibraryFooter from "./LibraryFooter";
 import {sessionJson} from "./shared-transport";
 import {timeLabel} from "./scenarios";
@@ -34,8 +33,7 @@ export default function ReplayIndex({canViewOthers = false}: {canViewOthers?: bo
     return () => controller.abort();
   }, [filters, retry]);
   const filtered = !!(filters.q || filters.airport || filters.date || filters.mine);
-  return <main className={`${library.library} ${styles.library}`}>
-    <TrainingNav active="replays"/>
+  return <main className={`${library.library} ${library.workspaceLibrary} ${styles.library}`}>
     <div className={`${library.libraryContent} ${styles.content}`}>
       <header className={styles.heading}><h1>Replays</h1></header>
       <div className={styles.toolbar}>
