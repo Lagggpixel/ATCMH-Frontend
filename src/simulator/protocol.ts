@@ -92,7 +92,7 @@ const action = z.discriminatedUnion("kind", [
   z.object({kind: z.literal("auto-readback"), enabled: z.boolean()}),
   z.object({kind: z.literal("all-full-stop")}),
   z.object({kind: z.literal("report-position"), aircraftId: id}),
-  z.object({kind: z.enum(["play", "pause", "reset"])}), z.object({kind: z.literal("spawn"), aircraft: aircraftSchema}),
+  z.object({kind: z.enum(["play", "reset"])}), z.object({kind: z.literal("pause"), visibility: z.enum(["hidden", "visible"]).optional()}), z.object({kind: z.literal("spawn"), aircraft: aircraftSchema}),
   z.object({kind: z.literal("edit"), aircraftId: id, patch: aircraftSchema.omit({routeNavigation: true, starDescent: true, reportAirportInSight: true, speedInstruction: true, expedited: true, followGroundId: true, atcManeuver: true, backTaxi: true, bankAngle: true, id: true, pending: true, trail: true, mode: true, leg: true, extended: true, releasedHold: true, lastRunway: true, sequence: true, circuit: true, patternFinalDistance: true, contactTowerAtHold: true, towerCheckInPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, arrivalExit: true, arrivalRequest: true, lineupWait: true, transitionAltitude: true, leavingCircuit: true, runwayExit: true, goAroundRunwayHeading: true, selfGoAroundPending: true, clearedForOption: true}).partial().strict()}),
   z.object({kind: z.literal("remove"), aircraftId: id}), z.object({kind: z.literal("read"), aircraftId: id, frequency: frequency.optional()}), z.object({kind: z.literal("atis"), draft: atis}), z.object({kind: z.literal("publish-atis")}),
   z.object({kind: z.literal("taxi-path"), aircraftId: id, path: z.array(taxiPoint).min(1).max(MAX_TAXI_POINTS), edit: z.object({kind: z.enum(["insert", "move"]), index: bounded(0, MAX_TAXI_POINTS - 1).int(), point})}),
@@ -103,7 +103,7 @@ const action = z.discriminatedUnion("kind", [
 export const envelopeSchema = z.object({id, time: bounded(0, 1e15), action});
 
 const exerciseObject = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS).optional(), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(), id, revision: bounded(0, 1e12).int(), elapsed: bounded(0, 1e12), running: z.boolean(), pausedByStaff: z.boolean().optional(),
-  autoReadback: z.boolean().optional(),
+  autoReadback: z.boolean().optional(), pauseVisibility: z.enum(["hidden", "visible"]).optional(),
   bookmarks: z.array(z.object({id, elapsed: bounded(0, 1e12), aircraftId: id, label: z.string().max(256)})).max(1000).optional(),
   radarEnvironment: radarEnvironmentSchema.optional(),
   callsignReservations: z.array(z.object({id, callsign: z.string().min(1).max(80)})).max(20000).optional(),

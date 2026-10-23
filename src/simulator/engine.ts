@@ -467,7 +467,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
   switch (action.kind) {
     case "reset": {const reset = initialExercise(state.id); reset.trainingStation = state.trainingStation; reset.autoReadback = state.autoReadback ?? false; reset.revision = state.revision + 1; reset.processed = [...state.processed.slice(-511), envelope.id]; return {state: reset};}
     case "play": next.running = true; next.pausedByStaff = false; break;
-    case "pause": next.running = false; next.pausedByStaff = true; break;
+    case "pause": next.running = false; next.pausedByStaff = true; next.pauseVisibility = action.visibility ?? "hidden"; break;
     case "auto-readback": {
       next.autoReadback = action.enabled;
       for (const m of next.messages) delete m.autoReadbackAt;

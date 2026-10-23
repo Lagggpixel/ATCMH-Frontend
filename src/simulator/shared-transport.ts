@@ -1,7 +1,8 @@
 import {prepareQuickCommand, QuickCommandManager, type QuickCommand} from "./quick-commands";
 import type {ScenarioStaffView} from "./scenarios";
 import {initialExercise} from "./engine";
-import {exerciseSchema, motionSchema} from "./protocol";
+import {envelopeSchema, exerciseSchema, motionSchema} from "./protocol";
+import {invalidRequestMessage} from "./request-validation";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionRole, SessionSummary} from "./sessions";
 
@@ -62,9 +63,11 @@ export class SharedSession {
     };
     let commands = Promise.resolve();
     this.send = (action, path) => {
+      const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
+      const validation = envelopeSchema.safeParse(envelope);
+      if (!validation.success) {this.update({error: invalidRequestMessage(validation.error)}); return Promise.resolve(false);}
       const shortcutPath = path ?? (action.kind === "command" && action.resendOf ? this.shortcutPaths.get(action.resendOf) : undefined);
       const shortcut = action.kind === "command" ? prepareQuickCommand(action, this.view.exercise, shortcutPath) : null;
-      const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
       const tagId = action.kind === "edit" && Object.keys(action.patch).length === 1 && typeof action.patch.tagAngle === "number" ? action.aircraftId : undefined;
       const pending: {angle: number; revision?: number} | undefined = tagId && action.kind === "edit" ? {angle: action.patch.tagAngle!} : undefined;
       if (tagId && pending) {this.pendingTagAngles.set(tagId, pending); this.update({});}
@@ -75,7 +78,7 @@ export class SharedSession {
             const result = await post("commands", {envelope}); sent = true;
             if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
             if (pending) pending.revision = result.revision;
-            this.update({quickCommands: this.quickCommands.ranked()}); return;
+            this.update({error: null, quickCommands: this.quickCommands.ranked()}); return;
           }
           catch (reason) {
             const error = reason as Error & {status?: number};
