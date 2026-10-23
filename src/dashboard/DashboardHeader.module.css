@@ -21,6 +21,9 @@
 .brandLink:focus-visible { outline: 3px solid var(--dashboard-focus, #9bbcff); outline-offset: 4px; }
 .dashboardNavigation { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: center; }
 .siteActions { display: flex; flex: 0 0 auto; align-items: center; gap: .4rem; margin-left: auto; }
+.quickSearch { display: flex; }
+.quickSearch:empty { display: none; }
+.dashboardHeader .accountNavigation { min-width: 2.75rem; }
 .mobileMenuButton, .drawerHeader, .drawerBackdrop { display: none; }
 
 @media (max-width: 1100px) {
@@ -38,13 +41,18 @@
     .dashboardHeader .accountNavigation { display: flex; min-width: 2.75rem; }
 }
 @media (max-width: 560px) {
-    .dashboardHeader { min-height: 64px; }
+    .dashboardHeader.dashboardHeader { min-height: 64px; gap: .5rem; }
+    .dashboardHeader > .brandLink small { display: none; }
     .homeLabel { display: none; }
     .brandLink img { width: 36px; height: 36px; }
     .brandLink strong { font-size: .9rem; }
     .brandLink small { font-size: .55rem; }
 }
 @media (max-width: 380px) {
+    .dashboardHeader.dashboardHeader { gap: .25rem; }
+    .siteActions { gap: .15rem; }
+    .dashboardHeader > .brandLink { gap: .4rem; }
+    .dashboardHeader > .brandLink img { width: 32px; height: 32px; }
     .brandLink small { display: none; }
     .drawerHeader .brandLink small { display: block; font-size: .48rem; }
     .drawerHeader { padding-inline: .65rem; }

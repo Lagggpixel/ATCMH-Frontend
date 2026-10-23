@@ -58,6 +58,7 @@ export default function DashboardHeader({simulatorEnabled = false}: {simulatorEn
         </div>
         {adminUser ? <button ref={menuButton} type="button" className={styles.mobileMenuButton} aria-controls="dashboard-sections" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>Menu</button> : null}
         <div className={styles.siteActions}>
+            <div id="dashboard-quick-search" className={styles.quickSearch}/>
             <AppearanceMenu/>
             <div className={`nav-primary-auth ${styles.accountNavigation}`}><AuthNavigation showLogin={false}/></div>
         </div>

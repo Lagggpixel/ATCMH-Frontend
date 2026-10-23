@@ -1,6 +1,6 @@
-.toolbar { display: flex; justify-content: flex-end; max-width: 1360px; margin: 0 auto; padding: 12px clamp(16px, 3vw, 40px) 0; }
 .trigger, .dialog header button { min-height: 40px; border: 1px solid var(--border-color, #dce3eb); border-radius: 7px; background: var(--surface-color, #fff); color: var(--text-color, #18345c); padding: 8px 12px; font: inherit; cursor: pointer; }
-.trigger { display: flex; gap: 16px; align-items: center; }
+.trigger { display: inline-flex; flex: 0 0 auto; min-height: 44px; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; font-size: .85rem; }
+.trigger:hover { background: var(--button-hover, #e8f1ff); }
 .trigger kbd { color: var(--muted-text, #667d9b); font-size: .75rem; }
 .dialog:global(.dashboard-product) { width: min(620px, calc(100vw - 32px)); min-height: 0; max-height: min(720px, calc(100dvh - 40px)); box-sizing: border-box; overflow: auto; margin: auto; padding: 22px; border: 1px solid var(--border-color, #dce3eb); border-radius: 12px; background: var(--surface-color, #fff); color: var(--text-color, #18345c); box-shadow: 0 24px 80px #0005; }
 .dialog::backdrop { background: #0c1838a6; }
@@ -14,4 +14,6 @@
 .results li[aria-selected="true"] a, .results a:hover { background: var(--dashboard-selected, #e9f2ff); }
 .results small, .kind { color: var(--muted-text, #667d9b); font-size: .8rem; }
 .trigger:focus-visible, .dialog button:focus-visible, .dialog input:focus-visible { outline: 3px solid var(--accent-color, #075ee8); outline-offset: 2px; }
-@media (max-width: 480px) { .dialog { padding: 16px; } .trigger kbd { display: none; } }
+@media (max-width: 1280px) { .trigger kbd { display: none; } }
+@media (max-width: 1100px) { .trigger { width: 44px; padding: 0; } .triggerLabel { display: none; } }
+@media (max-width: 480px) { .dialog:global(.dashboard-product) { padding: 16px; } }
