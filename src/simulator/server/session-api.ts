@@ -73,8 +73,8 @@ async function stream(request: Request, id: string) {
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
-            const {id, revision, elapsed, aircraft, running, collisions} = frame.exercise;
-            send({type: "motion", state: {id, revision, elapsed, aircraft, running, collisions}, session: frame.session});
+            const {id, revision, elapsed, aircraft, running, conflicts, collisions} = frame.exercise;
+            send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions}, session: frame.session});
           } else send({type: "presence", session: frame.session});
           revision = frame.exercise.revision;
           await new Promise<void>(resolve => {const timer = setTimeout(resolve, SESSION_FRAME_MS); wake = () => {clearTimeout(timer); resolve();};});

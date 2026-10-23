@@ -1,0 +1,1152 @@
+{
+  "LTFM": {
+    "revision": "b5f4cbf02111ec12d935494594a6361d488ec23f7e289039698740b251dd77ba",
+    "routes": [
+      {
+        "procedure": "ATPI1A",
+        "procedureId": "40121",
+        "routeId": "40121:transition:62268",
+        "transition": "RW34L",
+        "points": [
+          {
+            "identifier": "ATPIX",
+            "lat": 41.75333333,
+            "lon": 30.62361111
+          },
+          {
+            "identifier": "FM401",
+            "lat": 41.69363472,
+            "lon": 30.161115
+          },
+          {
+            "identifier": "FM402",
+            "lat": 41.70141139,
+            "lon": 30.00558194
+          },
+          {
+            "identifier": "FM403",
+            "lat": 41.77640611,
+            "lon": 29.85557417
+          },
+          {
+            "identifier": "FM404",
+            "lat": 41.85113222,
+            "lon": 29.70528083
+          },
+          {
+            "identifier": "FM405",
+            "lat": 41.72557917,
+            "lon": 29.59417583
+          },
+          {
+            "identifier": "FM406",
+            "lat": 41.60001417,
+            "lon": 29.48361444
+          },
+          {
+            "identifier": "FM407",
+            "lat": 41.53390972,
+            "lon": 29.25558083
+          },
+          {
+            "identifier": "FM408",
+            "lat": 41.45611111,
+            "lon": 29.17224444
+          },
+          {
+            "identifier": "FM410",
+            "lat": 41.33918861,
+            "lon": 29.17250583
+          },
+          {
+            "identifier": "FM411",
+            "lat": 41.26029778,
+            "lon": 29.30639833
+          },
+          {
+            "identifier": "FM412",
+            "lat": 41.15529,
+            "lon": 29.40361472
+          },
+          {
+            "identifier": "FM413",
+            "lat": 41.03334278,
+            "lon": 29.45556611
+          },
+          {
+            "identifier": "FM414",
+            "lat": 40.90527806,
+            "lon": 29.45807222
+          },
+          {
+            "identifier": "FM415",
+            "lat": 40.92278667,
+            "lon": 29.28389028
+          },
+          {
+            "identifier": "FM416",
+            "lat": 40.93583833,
+            "lon": 29.15305944
+          },
+          {
+            "identifier": "FM417",
+            "lat": 40.94862528,
+            "lon": 29.02222306
+          },
+          {
+            "identifier": "VASTE",
+            "lat": 40.9613975,
+            "lon": 28.89113083
+          }
+        ],
+        "arcStart": "FM410",
+        "merge": "VASTE",
+        "arcAltitude": 9000,
+        "approach": "I35RY",
+        "approachRunway": "35R",
+        "approachProcedureId": 40159,
+        "approachPoints": [
+          {
+            "identifier": "VASTE",
+            "lat": 40.9613975,
+            "lon": 28.89113083
+          },
+          {
+            "identifier": "PEMUX",
+            "lat": 40.93305861,
+            "lon": 28.77751639
+          },
+          {
+            "identifier": "ABACO",
+            "lat": 40.98057667,
+            "lon": 28.75474944
+          },
+          {
+            "identifier": "GAPDI",
+            "lat": 41.02834444,
+            "lon": 28.73222917
+          },
+          {
+            "identifier": "FRUGO",
+            "lat": 41.07001389,
+            "lon": 28.73139833
+          },
+          {
+            "identifier": "RW35R",
+            "lat": 41.26191711425781,
+            "lon": 28.72774314880371
+          }
+        ]
+      },
+      {
+        "procedure": "ERSE1A",
+        "procedureId": "40127",
+        "routeId": "40127:transition:62286",
+        "transition": "RW34L",
+        "points": [
+          {
+            "identifier": "ERSEN",
+            "lat": 40.86555556,
+            "lon": 30.66611111
+          },
+          {
+            "identifier": "FM501",
+            "lat": 40.88613667,
+            "lon": 30.45416861
+          },
+          {
+            "identifier": "FM502",
+            "lat": 41.00113528,
+            "lon": 30.28333528
+          },
+          {
+            "identifier": "FM503",
+            "lat": 41.11586028,
+            "lon": 30.11169194
+          },
+          {
+            "identifier": "FM504",
+            "lat": 40.99222972,
+            "lon": 29.96778167
+          },
+          {
+            "identifier": "FM505",
+            "lat": 40.86807917,
+            "lon": 29.82417556
+          },
+          {
+            "identifier": "FM506",
+            "lat": 40.87057611,
+            "lon": 29.68335917
+          },
+          {
+            "identifier": "FM507",
+            "lat": 40.8722425,
+            "lon": 29.58252417
+          },
+          {
+            "identifier": "FM510",
+            "lat": 40.90947028,
+            "lon": 29.414465
+          },
+          {
+            "identifier": "FM511",
+            "lat": 41.02779917,
+            "lon": 29.41197111
+          },
+          {
+            "identifier": "FM512",
+            "lat": 41.14055667,
+            "lon": 29.36391306
+          },
+          {
+            "identifier": "FM513",
+            "lat": 41.23750361,
+            "lon": 29.27419139
+          },
+          {
+            "identifier": "FM514",
+            "lat": 41.31028444,
+            "lon": 29.15058056
+          },
+          {
+            "identifier": "FM515",
+            "lat": 41.22306889,
+            "lon": 29.08556694
+          },
+          {
+            "identifier": "FM516",
+            "lat": 41.13584917,
+            "lon": 29.02057083
+          },
+          {
+            "identifier": "FM517",
+            "lat": 41.04862556,
+            "lon": 28.95584222
+          },
+          {
+            "identifier": "VASTE",
+            "lat": 40.9613975,
+            "lon": 28.89113083
+          }
+        ],
+        "arcStart": "FM510",
+        "merge": "VASTE",
+        "arcAltitude": 10000,
+        "approach": "I35RY",
+        "approachRunway": "35R",
+        "approachProcedureId": 40159,
+        "approachPoints": [
+          {
+            "identifier": "VASTE",
+            "lat": 40.9613975,
+            "lon": 28.89113083
+          },
+          {
+            "identifier": "PEMUX",
+            "lat": 40.93305861,
+            "lon": 28.77751639
+          },
+          {
+            "identifier": "ABACO",
+            "lat": 40.98057667,
+            "lon": 28.75474944
+          },
+          {
+            "identifier": "GAPDI",
+            "lat": 41.02834444,
+            "lon": 28.73222917
+          },
+          {
+            "identifier": "FRUGO",
+            "lat": 41.07001389,
+            "lon": 28.73139833
+          },
+          {
+            "identifier": "RW35R",
+            "lat": 41.26191711425781,
+            "lon": 28.72774314880371
+          }
+        ]
+      },
+      {
+        "procedure": "DRAM1A",
+        "procedureId": "40124",
+        "routeId": "40124:transition:62277",
+        "transition": "RW34L",
+        "points": [
+          {
+            "identifier": "DRAMO",
+            "lat": 41.03444444,
+            "lon": 26.61111111
+          },
+          {
+            "identifier": "AGBET",
+            "lat": 41.03974056,
+            "lon": 26.8972425
+          },
+          {
+            "identifier": "FM701",
+            "lat": 41.11806,
+            "lon": 27.06751472
+          },
+          {
+            "identifier": "FM702",
+            "lat": 41.19585222,
+            "lon": 27.23807333
+          },
+          {
+            "identifier": "FM703",
+            "lat": 41.07946806,
+            "lon": 27.33084278
+          },
+          {
+            "identifier": "FM704",
+            "lat": 40.96307611,
+            "lon": 27.42307972
+          },
+          {
+            "identifier": "FM705",
+            "lat": 40.896135,
+            "lon": 27.64862917
+          },
+          {
+            "identifier": "FM706",
+            "lat": 40.8930825,
+            "lon": 27.80251361
+          },
+          {
+            "identifier": "FM710",
+            "lat": 40.91306278,
+            "lon": 27.93194528
+          },
+          {
+            "identifier": "FM711",
+            "lat": 41.04111861,
+            "lon": 27.92334806
+          },
+          {
+            "identifier": "FM712",
+            "lat": 41.16530167,
+            "lon": 27.96473972
+          },
+          {
+            "identifier": "FM713",
+            "lat": 41.27502028,
+            "lon": 28.0527825
+          },
+          {
+            "identifier": "FM714",
+            "lat": 41.36055583,
+            "lon": 28.17947139
+          },
+          {
+            "identifier": "FM715",
+            "lat": 41.24863583,
+            "lon": 28.27640306
+          },
+          {
+            "identifier": "FM716",
+            "lat": 41.16500333,
+            "lon": 28.34889278
+          },
+          {
+            "identifier": "FM717",
+            "lat": 41.08111611,
+            "lon": 28.42111417
+          },
+          {
+            "identifier": "EVBIR",
+            "lat": 40.99723556,
+            "lon": 28.49306111
+          }
+        ],
+        "arcStart": "FM710",
+        "merge": "EVBIR",
+        "arcAltitude": 9000,
+        "approach": "I34LY",
+        "approachRunway": "34L",
+        "approachProcedureId": 40156,
+        "approachPoints": [
+          {
+            "identifier": "EVBIR",
+            "lat": 40.99723556,
+            "lon": 28.49306111
+          },
+          {
+            "identifier": "GITGI",
+            "lat": 40.99195639,
+            "lon": 28.59141361
+          },
+          {
+            "identifier": "AMEIS",
+            "lat": 40.98722389,
+            "lon": 28.68169222
+          },
+          {
+            "identifier": "OGIBI",
+            "lat": 41.02807194,
+            "lon": 28.71195778
+          },
+          {
+            "identifier": "ELNUG",
+            "lat": 41.12639222,
+            "lon": 28.71001417
+          },
+          {
+            "identifier": "RW34L",
+            "lat": 41.264835357666016,
+            "lon": 28.707412719726562
+          }
+        ]
+      },
+      {
+        "procedure": "RILE1A",
+        "procedureId": "40133",
+        "routeId": "40133:transition:62304",
+        "transition": "RW34L",
+        "points": [
+          {
+            "identifier": "RILEX",
+            "lat": 41.97111111,
+            "lon": 26.76638889
+          },
+          {
+            "identifier": "IPMIL",
+            "lat": 41.89751028,
+            "lon": 26.92862972
+          },
+          {
+            "identifier": "FM801",
+            "lat": 41.81083389,
+            "lon": 27.11918556
+          },
+          {
+            "identifier": "FM802",
+            "lat": 41.68197139,
+            "lon": 27.36584611
+          },
+          {
+            "identifier": "FM803",
+            "lat": 41.54944556,
+            "lon": 27.439725
+          },
+          {
+            "identifier": "FM804",
+            "lat": 41.41641472,
+            "lon": 27.51307417
+          },
+          {
+            "identifier": "FM805",
+            "lat": 41.47445278,
+            "lon": 27.69863833
+          },
+          {
+            "identifier": "FM806",
+            "lat": 41.53196028,
+            "lon": 27.88473528
+          },
+          {
+            "identifier": "FM807",
+            "lat": 41.55585639,
+            "lon": 28.03694639
+          },
+          {
+            "identifier": "FM808",
+            "lat": 41.44918694,
+            "lon": 28.20750167
+          },
+          {
+            "identifier": "FM810",
+            "lat": 41.33251417,
+            "lon": 28.203895
+          },
+          {
+            "identifier": "FM811",
+            "lat": 41.25363806,
+            "lon": 28.08668306
+          },
+          {
+            "identifier": "FM812",
+            "lat": 41.15251583,
+            "lon": 28.00556306
+          },
+          {
+            "identifier": "FM813",
+            "lat": 41.03779056,
+            "lon": 27.96723306
+          },
+          {
+            "identifier": "FM814",
+            "lat": 40.91946944,
+            "lon": 27.9750075
+          },
+          {
+            "identifier": "FM815",
+            "lat": 40.93918028,
+            "lon": 28.10444889
+          },
+          {
+            "identifier": "FM816",
+            "lat": 40.95862639,
+            "lon": 28.23389778
+          },
+          {
+            "identifier": "FM817",
+            "lat": 40.97805806,
+            "lon": 28.36335417
+          },
+          {
+            "identifier": "EVBIR",
+            "lat": 40.99723556,
+            "lon": 28.49306111
+          }
+        ],
+        "arcStart": "FM810",
+        "merge": "EVBIR",
+        "arcAltitude": 10000,
+        "approach": "I34LY",
+        "approachRunway": "34L",
+        "approachProcedureId": 40156,
+        "approachPoints": [
+          {
+            "identifier": "EVBIR",
+            "lat": 40.99723556,
+            "lon": 28.49306111
+          },
+          {
+            "identifier": "GITGI",
+            "lat": 40.99195639,
+            "lon": 28.59141361
+          },
+          {
+            "identifier": "AMEIS",
+            "lat": 40.98722389,
+            "lon": 28.68169222
+          },
+          {
+            "identifier": "OGIBI",
+            "lat": 41.02807194,
+            "lon": 28.71195778
+          },
+          {
+            "identifier": "ELNUG",
+            "lat": 41.12639222,
+            "lon": 28.71001417
+          },
+          {
+            "identifier": "RW34L",
+            "lat": 41.264835357666016,
+            "lon": 28.707412719726562
+          }
+        ]
+      }
+    ]
+  },
+  "EIDW": {
+    "revision": "484b6ea241ec9be627c918531a23508068c480e8024232bd30e9018204093454",
+    "routes": [
+      {
+        "procedure": "ABLI2L",
+        "procedureId": "7358",
+        "routeId": "7358:transition:11219",
+        "transition": "RW28L",
+        "points": [
+          {
+            "identifier": "ABLIN",
+            "lat": 52.78277778,
+            "lon": -4.9925
+          },
+          {
+            "identifier": "IRKUM",
+            "lat": 52.99666667,
+            "lon": -5.3775
+          },
+          {
+            "identifier": "LIPGO",
+            "lat": 53.06388889,
+            "lon": -5.5
+          },
+          {
+            "identifier": "PEKOK",
+            "lat": 53.12750833,
+            "lon": -5.56668889
+          },
+          {
+            "identifier": "SIVNA",
+            "lat": 53.19778611,
+            "lon": -5.64085278
+          },
+          {
+            "identifier": "SUGAD",
+            "lat": 53.28945833,
+            "lon": -5.52752222
+          },
+          {
+            "identifier": "DW704",
+            "lat": 53.40085278,
+            "lon": -5.48611389
+          },
+          {
+            "identifier": "DW705",
+            "lat": 53.51279444,
+            "lon": -5.5239
+          },
+          {
+            "identifier": "DW706",
+            "lat": 53.60584167,
+            "lon": -5.635025
+          },
+          {
+            "identifier": "LAPMO",
+            "lat": 53.40305556,
+            "lon": -5.94555556
+          }
+        ],
+        "arcStart": "SIVNA",
+        "merge": "LAPMO",
+        "arcAltitude": 7000,
+        "approach": "I28L",
+        "approachRunway": "28L",
+        "approachProcedureId": 7421,
+        "approachPoints": [
+          {
+            "identifier": "LAPMO",
+            "lat": 53.40305556,
+            "lon": -5.94555556
+          },
+          {
+            "identifier": "MAXEV",
+            "lat": 53.40918056,
+            "lon": -6.05473056
+          },
+          {
+            "identifier": "RW28L",
+            "lat": 53.420257568359375,
+            "lon": -6.250528335571289
+          }
+        ]
+      },
+      {
+        "procedure": "BAGS2L",
+        "procedureId": "7363",
+        "routeId": "7363:transition:11225",
+        "transition": "RW28L",
+        "points": [
+          {
+            "identifier": "BAGSO",
+            "lat": 53.68,
+            "lon": -5.5
+          },
+          {
+            "identifier": "ADSIS",
+            "lat": 53.68416944,
+            "lon": -5.65944444
+          },
+          {
+            "identifier": "KERAV",
+            "lat": 53.62835278,
+            "lon": -5.76584167
+          },
+          {
+            "identifier": "KOGAX",
+            "lat": 53.57168333,
+            "lon": -5.637225
+          },
+          {
+            "identifier": "KUDOM",
+            "lat": 53.4903,
+            "lon": -5.55389722
+          },
+          {
+            "identifier": "DW814",
+            "lat": 53.39640278,
+            "lon": -5.52805833
+          },
+          {
+            "identifier": "DW815",
+            "lat": 53.30335833,
+            "lon": -5.56279444
+          },
+          {
+            "identifier": "DW816",
+            "lat": 53.22946944,
+            "lon": -5.64556667
+          },
+          {
+            "identifier": "LAPMO",
+            "lat": 53.40305556,
+            "lon": -5.94555556
+          }
+        ],
+        "arcStart": "KOGAX",
+        "merge": "LAPMO",
+        "arcAltitude": 8000,
+        "approach": "I28L",
+        "approachRunway": "28L",
+        "approachProcedureId": 7421,
+        "approachPoints": [
+          {
+            "identifier": "LAPMO",
+            "lat": 53.40305556,
+            "lon": -5.94555556
+          },
+          {
+            "identifier": "MAXEV",
+            "lat": 53.40918056,
+            "lon": -6.05473056
+          },
+          {
+            "identifier": "RW28L",
+            "lat": 53.420257568359375,
+            "lon": -6.250528335571289
+          }
+        ]
+      }
+    ]
+  },
+  "RJTT": {
+    "revision": "50ad95fef05ade4c0029aacbba17bb45e5c482b4d552ec866070e5426b08f871",
+    "routes": [
+      {
+        "procedure": "XACL",
+        "procedureId": "50766",
+        "routeId": "50766:transition:75416",
+        "transition": "RW16B",
+        "points": [
+          {
+            "identifier": "XAC",
+            "lat": 34.712225277777776,
+            "lon": 139.41390166666667
+          },
+          {
+            "identifier": "ACORN",
+            "lat": 34.84113389,
+            "lon": 139.69613083
+          },
+          {
+            "identifier": "SOLAR",
+            "lat": 34.98584,
+            "lon": 139.7550125
+          },
+          {
+            "identifier": "SCOUT",
+            "lat": 35.10666861,
+            "lon": 139.89891194
+          },
+          {
+            "identifier": "TT250",
+            "lat": 35.02474167,
+            "lon": 140.05223611
+          },
+          {
+            "identifier": "TT251",
+            "lat": 34.99918611,
+            "lon": 140.19333333
+          },
+          {
+            "identifier": "TT252",
+            "lat": 35.01085833,
+            "lon": 140.33694444
+          },
+          {
+            "identifier": "STOCK",
+            "lat": 35.07724278,
+            "lon": 140.50058139
+          },
+          {
+            "identifier": "SHAFT",
+            "lat": 35.37417833,
+            "lon": 140.22028639
+          },
+          {
+            "identifier": "SNOKE",
+            "lat": 35.59751778,
+            "lon": 140.23640806
+          },
+          {
+            "identifier": "SPINE",
+            "lat": 35.70362417,
+            "lon": 140.19030056
+          },
+          {
+            "identifier": "SOPPY",
+            "lat": 35.74946778,
+            "lon": 140.02778611
+          },
+          {
+            "identifier": "SNARE",
+            "lat": 35.79194694,
+            "lon": 139.87722611
+          },
+          {
+            "identifier": "T6L60",
+            "lat": 35.81056111,
+            "lon": 139.81056667
+          },
+          {
+            "identifier": "SANDY",
+            "lat": 35.82140361,
+            "lon": 139.73391222
+          }
+        ],
+        "arcStart": "SCOUT",
+        "merge": "SHAFT",
+        "arcAltitude": 12000,
+        "approach": "I16L",
+        "approachRunway": "16L",
+        "approachProcedureId": 50773,
+        "approachPoints": [
+          {
+            "identifier": "SANDY",
+            "lat": 35.82140361,
+            "lon": 139.73391222
+          },
+          {
+            "identifier": "LABAN",
+            "lat": 35.82139222,
+            "lon": 139.68474333
+          },
+          {
+            "identifier": "LINEN",
+            "lat": 35.82112889,
+            "lon": 139.63474944
+          },
+          {
+            "identifier": "LORRY",
+            "lat": 35.77834667,
+            "lon": 139.63501806
+          },
+          {
+            "identifier": "LYCOS",
+            "lat": 35.7350175,
+            "lon": 139.66585861
+          },
+          {
+            "identifier": "RW16L",
+            "lat": 35.56589721791101,
+            "lon": 139.78655278829567
+          }
+        ]
+      },
+      {
+        "procedure": "AROSAL",
+        "procedureId": "50733",
+        "routeId": "50733:transition:75382",
+        "transition": "RW16B",
+        "points": [
+          {
+            "identifier": "AROSA",
+            "lat": 34.70029778,
+            "lon": 140.69917472
+          },
+          {
+            "identifier": "AVEEY",
+            "lat": 34.69863583,
+            "lon": 140.36586028
+          },
+          {
+            "identifier": "ALDEN",
+            "lat": 34.86139222,
+            "lon": 140.25139694
+          },
+          {
+            "identifier": "TT256",
+            "lat": 34.94862222,
+            "lon": 140.18946944
+          },
+          {
+            "identifier": "TT257",
+            "lat": 34.97723611,
+            "lon": 140.02946111
+          },
+          {
+            "identifier": "SLICK",
+            "lat": 35.07001972,
+            "lon": 139.85530528
+          },
+          {
+            "identifier": "SHAFT",
+            "lat": 35.37417833,
+            "lon": 140.22028639
+          },
+          {
+            "identifier": "SNOKE",
+            "lat": 35.59751778,
+            "lon": 140.23640806
+          },
+          {
+            "identifier": "SPINE",
+            "lat": 35.70362417,
+            "lon": 140.19030056
+          },
+          {
+            "identifier": "SOPPY",
+            "lat": 35.74946778,
+            "lon": 140.02778611
+          },
+          {
+            "identifier": "SNARE",
+            "lat": 35.79194694,
+            "lon": 139.87722611
+          },
+          {
+            "identifier": "T6L60",
+            "lat": 35.81056111,
+            "lon": 139.81056667
+          },
+          {
+            "identifier": "SANDY",
+            "lat": 35.82140361,
+            "lon": 139.73391222
+          }
+        ],
+        "arcStart": "TT256",
+        "merge": "SHAFT",
+        "arcAltitude": 11000,
+        "approach": "I16L",
+        "approachRunway": "16L",
+        "approachProcedureId": 50773,
+        "approachPoints": [
+          {
+            "identifier": "SANDY",
+            "lat": 35.82140361,
+            "lon": 139.73391222
+          },
+          {
+            "identifier": "LABAN",
+            "lat": 35.82139222,
+            "lon": 139.68474333
+          },
+          {
+            "identifier": "LINEN",
+            "lat": 35.82112889,
+            "lon": 139.63474944
+          },
+          {
+            "identifier": "LORRY",
+            "lat": 35.77834667,
+            "lon": 139.63501806
+          },
+          {
+            "identifier": "LYCOS",
+            "lat": 35.7350175,
+            "lon": 139.66585861
+          },
+          {
+            "identifier": "RW16L",
+            "lat": 35.56589721791101,
+            "lon": 139.78655278829567
+          }
+        ]
+      },
+      {
+        "procedure": "XACR",
+        "procedureId": "50768",
+        "routeId": "50768:transition:75417",
+        "transition": "RW16B",
+        "points": [
+          {
+            "identifier": "XAC",
+            "lat": 34.712225277777776,
+            "lon": 139.41390166666667
+          },
+          {
+            "identifier": "ACORN",
+            "lat": 34.84113389,
+            "lon": 139.69613083
+          },
+          {
+            "identifier": "SOLAR",
+            "lat": 34.98584,
+            "lon": 139.7550125
+          },
+          {
+            "identifier": "SCOUT",
+            "lat": 35.10666861,
+            "lon": 139.89891194
+          },
+          {
+            "identifier": "SCOPE",
+            "lat": 35.39945472,
+            "lon": 140.09389778
+          },
+          {
+            "identifier": "T6R70",
+            "lat": 35.6039,
+            "lon": 140.23084444
+          },
+          {
+            "identifier": "NUMAN",
+            "lat": 35.78723417,
+            "lon": 140.20113694
+          },
+          {
+            "identifier": "NORIK",
+            "lat": 35.90780306,
+            "lon": 140.18168139
+          },
+          {
+            "identifier": "T6R71",
+            "lat": 36.01640278,
+            "lon": 140.17916944
+          },
+          {
+            "identifier": "T6R72",
+            "lat": 36.09167222,
+            "lon": 140.13445278
+          },
+          {
+            "identifier": "NURSE",
+            "lat": 36.16084139,
+            "lon": 140.03139639
+          },
+          {
+            "identifier": "NEURO",
+            "lat": 35.95751694,
+            "lon": 139.91139722
+          },
+          {
+            "identifier": "NIGEL",
+            "lat": 35.93529278,
+            "lon": 139.85474444
+          },
+          {
+            "identifier": "NATTY",
+            "lat": 35.89724611,
+            "lon": 139.75862
+          }
+        ],
+        "arcStart": "NORIK",
+        "merge": "NEURO",
+        "arcAltitude": 10000,
+        "approach": "I16R",
+        "approachRunway": "16R",
+        "approachProcedureId": 50774,
+        "approachPoints": [
+          {
+            "identifier": "NATTY",
+            "lat": 35.89724611,
+            "lon": 139.75862
+          },
+          {
+            "identifier": "RANGY",
+            "lat": 35.875295,
+            "lon": 139.70280194
+          },
+          {
+            "identifier": "RESIN",
+            "lat": 35.84084667,
+            "lon": 139.61585111
+          },
+          {
+            "identifier": "RUGBY",
+            "lat": 35.77417889,
+            "lon": 139.61613361
+          },
+          {
+            "identifier": "RONIE",
+            "lat": 35.68558167,
+            "lon": 139.67945083
+          },
+          {
+            "identifier": "RW16R",
+            "lat": 35.55998609231705,
+            "lon": 139.7690667400523
+          }
+        ]
+      },
+      {
+        "procedure": "GODINR",
+        "procedureId": "50746",
+        "routeId": "50746:transition:75393",
+        "transition": "RW16B",
+        "points": [
+          {
+            "identifier": "GODIN",
+            "lat": 36.40695389,
+            "lon": 140.28196917
+          },
+          {
+            "identifier": "NOVEL",
+            "lat": 36.35169278,
+            "lon": 140.00113639
+          },
+          {
+            "identifier": "NAMCO",
+            "lat": 36.17639222,
+            "lon": 140.04056444
+          },
+          {
+            "identifier": "TT680",
+            "lat": 36.10222778,
+            "lon": 140.15111111
+          },
+          {
+            "identifier": "TT681",
+            "lat": 36.0203,
+            "lon": 140.19946389
+          },
+          {
+            "identifier": "NILUS",
+            "lat": 35.90417167,
+            "lon": 140.20224306
+          },
+          {
+            "identifier": "NEURO",
+            "lat": 35.95751694,
+            "lon": 139.91139722
+          },
+          {
+            "identifier": "NIGEL",
+            "lat": 35.93529278,
+            "lon": 139.85474444
+          },
+          {
+            "identifier": "NATTY",
+            "lat": 35.89724611,
+            "lon": 139.75862
+          }
+        ],
+        "arcStart": "TT680",
+        "merge": "NEURO",
+        "arcAltitude": 9000,
+        "approach": "I16R",
+        "approachRunway": "16R",
+        "approachProcedureId": 50774,
+        "approachPoints": [
+          {
+            "identifier": "NATTY",
+            "lat": 35.89724611,
+            "lon": 139.75862
+          },
+          {
+            "identifier": "RANGY",
+            "lat": 35.875295,
+            "lon": 139.70280194
+          },
+          {
+            "identifier": "RESIN",
+            "lat": 35.84084667,
+            "lon": 139.61585111
+          },
+          {
+            "identifier": "RUGBY",
+            "lat": 35.77417889,
+            "lon": 139.61613361
+          },
+          {
+            "identifier": "RONIE",
+            "lat": 35.68558167,
+            "lon": 139.67945083
+          },
+          {
+            "identifier": "RW16R",
+            "lat": 35.55998609231705,
+            "lon": 139.7690667400523
+          }
+        ]
+      }
+    ]
+  }
+}

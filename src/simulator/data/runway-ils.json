@@ -1,0 +1,523 @@
+{
+  "verifiedOn": "2026-10-18",
+  "source": "InfiniteHorizon navigation database: if_runway_end, if_localizer, if_glideslope",
+  "airports": {
+    "CYUL": {
+      "06L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "06R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "24L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "24R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EGLL": {
+      "09L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "09R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "27L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "27R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EGPH": {
+      "24": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "06": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "KBHM": {
+      "18": {
+        "localizer": true,
+        "glideslope": false
+      },
+      "24": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "36": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "06": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "KDAL": {
+      "13L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "13R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "31L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "31R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "KLAS": {
+      "01L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "01R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "08L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "08R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "19L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "19R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "26L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "26R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "KONT": {
+      "08L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "08R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "26L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "26R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "LBSF": {
+      "27": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "09": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "LFMN": {
+      "04L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "04R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "22L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "22R": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "LGAV": {
+      "03L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "03R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "21L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "21R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "NZAA": {
+      "05R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "23L": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "PHOG": {
+      "20": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "23": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "02": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "05": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "ROAH": {
+      "18L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "18R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "36L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "36R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "SBBR": {
+      "11L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "11R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "29L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "29R": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "KJFK": {
+      "13R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "31L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "04R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "22L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "13L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "31R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "04L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "22R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "CYYC": {
+      "35R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "17L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "11": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "29": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "35L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "17R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EBBR": {
+      "01": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "19": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "07R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "25L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "07L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "25R": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EDDL": {
+      "05L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "23R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "05R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "23L": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EDDS": {
+      "07": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "25": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "EGSS": {
+      "04": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "22": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "KSAN": {
+      "09": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "27": {
+        "localizer": true,
+        "glideslope": false
+      }
+    },
+    "KSLC": {
+      "16L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "34R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "16R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "34L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "14": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "32": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "17": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "35": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "LIME": {
+      "10": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "28": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "12": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "30": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "LQSA": {
+      "11": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "29": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "OAKB": {
+      "11": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "29": {
+        "localizer": true,
+        "glideslope": true
+      }
+    },
+    "SCEL": {
+      "17L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "35R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "17R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "35L": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "EIDW": {
+      "10L": {"localizer": true, "glideslope": true},
+      "28R": {"localizer": true, "glideslope": false},
+      "10R": {"localizer": true, "glideslope": false},
+      "28L": {"localizer": true, "glideslope": false},
+      "16": {"localizer": true, "glideslope": false},
+      "34": {"localizer": false, "glideslope": false}
+    },
+    "LTFM": {
+      "16L": {"localizer": false, "glideslope": false},
+      "34R": {"localizer": false, "glideslope": false},
+      "16R": {"localizer": true, "glideslope": true},
+      "34L": {"localizer": true, "glideslope": true},
+      "17L": {"localizer": true, "glideslope": true},
+      "35R": {"localizer": true, "glideslope": true},
+      "17R": {"localizer": false, "glideslope": false},
+      "35L": {"localizer": false, "glideslope": false},
+      "18": {"localizer": true, "glideslope": true},
+      "36": {"localizer": true, "glideslope": true}
+    },
+    "RJTT": {
+      "04": {"localizer": false, "glideslope": false},
+      "22": {"localizer": true, "glideslope": true},
+      "05": {"localizer": false, "glideslope": false},
+      "23": {"localizer": true, "glideslope": true},
+      "16L": {"localizer": true, "glideslope": true},
+      "34R": {"localizer": true, "glideslope": true},
+      "16R": {"localizer": true, "glideslope": true},
+      "34L": {"localizer": true, "glideslope": true}
+    },
+    "TNCM": {
+      "10": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "28": {
+        "localizer": false,
+        "glideslope": false
+      }
+    },
+    "KASE": {
+      "15": {"localizer": true, "glideslope": false},
+      "33": {"localizer": false, "glideslope": false}
+    },
+    "VNLK": {
+      "06": {"localizer": false, "glideslope": false},
+      "24": {"localizer": false, "glideslope": false}
+    }
+  },
+  "highTerrainVerifiedOn": "2026-10-19"
+}

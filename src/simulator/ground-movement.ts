@@ -6,26 +6,7 @@ const heading = (a: Point, b: Point) => (Math.atan2(b.x - a.x, b.y - a.y) / radi
 const angleTo = (from: number, to: number) => (to - from + 540) % 360 - 180;
 const approach = (value: number, target: number, rate: number) => value + Math.sign(target - value) * Math.min(Math.abs(target - value), rate);
 const interpolate = (a: Point, b: Point, t: number): Point => ({x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t});
-export const GROUND = {spacing: .045, corridor: .018, collisionDistance: .018, turnRate: 20, pushbackSpeed: 3}; // NM, degrees/sec, knots.
-
-const approvedPushConflict = (a: Aircraft, b: Aircraft) => (a.mode === "pushback" || b.mode === "pushback")
-  && a.giveWay?.aircraftId !== b.id && b.giveWay?.aircraftId !== a.id;
-
-/** Approved pushbacks are the controller's responsibility. Detect actual contact,
- * not merely intersecting planned routes, independently of the tuned frequency. */
-export function groundCollisionGroups(traffic: Aircraft[], elevation: number): Aircraft[][] {
-  const ground = traffic.filter(a => onGround(a, elevation) && a.altitude <= elevation + 50);
-  const groups: Aircraft[][] = [];
-  for (let i = 0; i < ground.length; i++) for (let j = i + 1; j < ground.length; j++) {
-    const a = ground[i], b = ground[j];
-    if (a.speed + b.speed <= .01 || distance(a.position, b.position) > GROUND.collisionDistance) continue;
-    const touching = groups.filter(group => group.includes(a) || group.includes(b));
-    const merged = [...new Set([a, b, ...touching.flat()])].sort((a, b) => a.id.localeCompare(b.id));
-    for (const group of touching) groups.splice(groups.indexOf(group), 1);
-    groups.push(merged);
-  }
-  return groups.sort((a, b) => a[0].id.localeCompare(b[0].id));
-}
+export const GROUND = {spacing: .045, corridor: .018, turnRate: 20, pushbackSpeed: 3}; // NM, degrees/sec, knots.
 
 /** Join the mapped taxiway behind the nose, then turn the tail along its centerline.
  * A cardinal tail instruction chooses direction on that taxiway, never a random endpoint. */
@@ -102,7 +83,6 @@ export function resolveGroundPriorities(traffic: Aircraft[], elevation = 0) {
   const sorted = [...traffic].filter(a => onGround(a, elevation) && !a.holding && ["taxi", "pushback", "lineup"].includes(a.mode)).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (let i = 0; i < sorted.length; i++) for (let j = i + 1; j < sorted.length; j++) {
     const a = sorted[i], b = sorted[j], conflict = groundConflict(a, b);
-    if (approvedPushConflict(a, b)) continue;
     if (!conflict) continue;
     const aWins = b.giveWay?.aircraftId === a.id || a.giveWay?.aircraftId !== b.id && (b.groundYield?.aircraftId === a.id || a.groundYield?.aircraftId !== b.id && conflict.own <= conflict.other);
     const loser = aWins ? b : a, winner = aWins ? a : b;
@@ -123,7 +103,6 @@ export function groundGuidance(a: Aircraft, traffic: Aircraft[], elevation = 0):
   const path = a.mode === "pushback" ? a.pushback?.path.slice(a.pushback.index) ?? [] : a.taxiPath.slice(a.taxiIndex);
   for (const other of traffic) {
     if (other.id === a.id || !onGround(other, elevation) || Math.abs(other.altitude - a.altitude) > 50) continue;
-    if (approvedPushConflict(a, other)) continue;
     const conflict = !other.holding && ["taxi", "pushback", "lineup"].includes(other.mode) ? groundConflict(a, other) : undefined;
     const yielding = a.giveWay?.aircraftId === other.id;
     if (yielding || conflict) {

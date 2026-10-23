@@ -1,0 +1,12 @@
+"use client";
+import {useState} from "react";
+import {LETTERS} from "./catalog";
+import {getAirport} from "./airports";
+import type {Action, Exercise, ExerciseWeather} from "./model";
+interface Report {airport:string; weather?:ExerciseWeather; atis:{type:string;code:string;datis:string;updatedAt:string}[];warnings:string[]}
+export default function WeatherControls({exercise,dispatch,connected}:{exercise:Exercise;dispatch:(action:Action)=>void;connected:boolean}){
+ const [report,setReport]=useState<Report|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const airport=getAirport(exercise).icao;
+ const load=async()=>{setBusy(true);setError("");try{const response=await fetch(`/api/simulator/weather?airport=${airport}`);const body=await response.json();if(!response.ok)throw new Error(body.error??"Weather unavailable");setReport(body);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ return <section aria-label="Public weather and ATIS"><button disabled={!connected||busy} onClick={()=>void load()}>{busy?"Loading weather…":`Load public weather / ATIS for ${airport}`}</button>{error?<p role="alert">{error}</p>:null}{report?.airport===airport?<><p>{report.weather?.rawMetar}</p>{report.warnings.map(w=><p key={w} role="status">{w}</p>)}{report.weather?<button disabled={!connected} onClick={()=>dispatch({kind:"weather",weather:report.weather!})}>Use observation in exercise</button>:null}{report.atis.map((a,i)=><div key={`${a.type}-${i}`}><p>{a.datis}</p><small>{a.type} · Updated {a.updatedAt} · <a href={`https://atis.info/${airport}`} target="_blank" rel="noreferrer">Public ATIS source</a></small><button disabled={!connected} onClick={()=>dispatch({kind:"atis",draft:{...exercise.atis,letter:LETTERS[a.code.charCodeAt(0)-65]??exercise.atis.letter,publicText:a.datis,publicSource:`https://atis.info/api/${airport}`,observedAt:a.updatedAt}})}>Use this ATIS draft</button></div>)}<p>Loaded observations are saved with the exercise when applied. ATIS is published with Publish ATIS.</p></>:null}{exercise.atis.publicText?<><textarea aria-label="Imported ATIS draft" maxLength={12000} value={exercise.atis.publicText} disabled={!connected} onChange={e=>dispatch({kind:"atis",draft:{...exercise.atis,publicText:e.target.value}})}/><button disabled={!connected} onClick={()=>{const draft={...exercise.atis};delete draft.publicText;delete draft.publicSource;delete draft.observedAt;dispatch({kind:"atis",draft});}}>Use generated ATIS</button></>:null}</section>;
+}
