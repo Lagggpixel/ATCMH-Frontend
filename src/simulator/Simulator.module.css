@@ -839,13 +839,14 @@
 @media(prefers-reduced-motion:reduce){.crashAlert{animation:none}}
 
 /* Approved compact staff workspace. Expanded tasks scroll without displacing the radar. */
-.staffSimulator {--staff-dock-height:clamp(248px,31.25dvh,320px);--dashboard-surface:#12191e;--dashboard-border:#34414b;--dashboard-ink:#edf2f5;--dashboard-text:#edf2f5;--dashboard-muted:#aab7c1;--dashboard-link:#ffb18a;--dashboard-selected:#392b25;--dashboard-danger-text:#ffaaa4;grid-template-columns:clamp(230px,25vw,384px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
+.staffSimulator {--staff-dock-height:clamp(270px,34dvh,340px);--dashboard-surface:#12191e;--dashboard-border:#34414b;--dashboard-ink:#edf2f5;--dashboard-text:#edf2f5;--dashboard-muted:#aab7c1;--dashboard-link:#ffb18a;--dashboard-selected:#392b25;--dashboard-danger-text:#ffaaa4;grid-template-columns:clamp(230px,25vw,384px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
 .staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
-.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:min(480px,65dvh)}
-.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}
+.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:min(580px,62dvh)}
+.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:58px}
 .staffSimulator .staffToolbar {background:#0a0f12;border-color:#2a343c;min-height:44px}
 @media(max-width:1100px) {.staffSimulator {grid-template-columns:230px minmax(0,1fr)}}
 @media(max-width:650px) {.staffSimulator {grid-template-columns:190px minmax(0,1fr)}}
+@media(max-height:820px) {.staffSimulator {--staff-dock-height:clamp(240px,38dvh,292px)}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
 @media(max-height:600px) and (orientation:landscape) {.staffSimulator {--staff-dock-height:210px}.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:70dvh}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
 
 .scope .aircraftTag,.scope .aircraftTag:hover {background:transparent!important;color:var(--label-text,#d3d3d3)!important}
