@@ -1,4 +1,5 @@
 .content{padding-top:40px}
+.library .content{padding-top:40px}
 .heading{margin-bottom:30px}
 .heading h1{margin:0 0 12px;font-size:clamp(32px,3vw,40px);line-height:1.2;letter-spacing:-.025em}
 .toolbar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
@@ -34,7 +35,7 @@
 .mobileLabel{display:none}
 .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:1100px){.table thead th,.row td{padding-inline:10px}.table thead th:nth-child(1){width:21%}.table thead th:nth-child(2){width:20%}.table thead th:nth-child(3){width:18%}.table thead th:nth-child(5){width:17%}.table thead th:nth-child(6){width:15%}}
-@media(max-width:850px){
+@container(max-width:850px){
  .table,.table tbody{display:block}.table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
  .dateGroup{display:block}.dateGroup th{display:block;padding:12px}
  .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:20px 12px;border-bottom:1px solid var(--dashboard-border)}
@@ -44,7 +45,7 @@
  .action{align-self:center}.kind{align-self:center}.library .action a{min-height:46px}
  .context{align-items:flex-start}.context span{text-align:right}.search{max-width:none}
 }
-@media(max-width:520px){
+@container(max-width:650px){
  .content{width:calc(100% - 32px);padding-top:28px}.heading{margin-bottom:24px}
  .toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.search{min-width:0;grid-column:1/-1}.library .search input{font-size:16px}.library .search button{padding-inline:12px}
  .toolbar:not(:has(.mine))>select{grid-column:1/-1}
@@ -55,3 +56,4 @@
 }
 
 .dateFilter{display:grid;gap:4px;font-size:12px;color:var(--dashboard-muted)}
+@media(max-width:760px){.library .content{padding-top:28px}}

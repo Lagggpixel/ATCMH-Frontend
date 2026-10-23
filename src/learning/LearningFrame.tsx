@@ -2,13 +2,18 @@
 
 import type {ReactNode} from "react";
 import Image from "next/image";
+import {usePathname} from "next/navigation";
 import {ArrowLeftIcon} from "@phosphor-icons/react/ArrowLeft";
 import DashboardThemeProvider from "@/src/dashboard/theme/DashboardThemeProvider";
 import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
 import {AuthNavigation} from "@/src/marketing/SiteHeader";
 import styles from "./LearningFrame.module.css";
+import SweatboxWorkspace from "./SweatboxWorkspace";
 
 export default function LearningFrame({product, children}: {product: "Courses" | "Pilot Guide" | "Careers" | "Sweatbox"; children: ReactNode}) {
+    const pathname = usePathname();
+    if (product === "Sweatbox" && /^\/(?:sweatbox|simulator)\/(?:staff|scenarios|replays)\/?$/.test(pathname))
+        return <DashboardThemeProvider><SweatboxWorkspace>{children}</SweatboxWorkspace></DashboardThemeProvider>;
     return <DashboardThemeProvider><div className={styles.frame} data-learning-product={product}>
         <a className={styles.skipLink} href="#learning-content">Skip to content</a>
         <header className={styles.header}>

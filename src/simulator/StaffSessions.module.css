@@ -73,3 +73,46 @@
 .notification p{margin:0;flex:1;overflow-wrap:anywhere}
 .library .notification button{flex-shrink:0;min-height:28px;min-width:28px;padding:0;border:0;background:transparent;font-size:22px;line-height:1}
 @media(max-width:650px){.notification{top:84px;right:20px}}
+
+/* Sweatbox library indexes share the standalone workspace layout and ATCMH tokens. */
+.workspaceLibrary{min-height:100dvh}
+.workspaceLibrary .content{width:100%;max-width:1600px;margin-inline:auto;padding:68px 64px 28px;container-type:inline-size}
+.workspaceLibrary .heading{gap:24px;margin-bottom:32px}
+.workspaceLibrary .heading h1{font-size:36px;margin:0;line-height:1.2}
+.workspaceLibrary .heading .primary{min-width:152px}
+.workspaceLibrary .tableWrap table{min-width:0}
+.workspaceLibrary .tableWrap th:first-child{width:20%}.workspaceLibrary .tableWrap th:nth-child(2){width:8%}.workspaceLibrary .tableWrap th:nth-child(3){width:10%}.workspaceLibrary .tableWrap th:nth-child(4){width:12%}.workspaceLibrary .tableWrap th:last-child{width:30%}
+.workspaceLibrary .tableWrap :is(th,td){padding-inline:16px}
+.rowActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.library .rowActions :is(button,a){padding:10px;min-height:44px;font-size:14px;white-space:nowrap}
+.library .deleteAction{color:var(--dashboard-danger-text,#b42318)}
+.workspaceLibrary .manualLink{display:block;margin-top:10px}
+.workspaceLibrary .notification{top:24px;align-items:center}
+.workspaceLibrary .empty{border:0;min-height:55vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 0}
+.workspaceLibrary .empty h2{font-size:32px;letter-spacing:-.02em}
+.workspaceLibrary .footer{padding-top:32px}
+@media(max-width:1200px){.workspaceLibrary .content{width:100%;padding:48px 40px 28px}.workspaceLibrary .heading h1{font-size:34px}}
+@media(max-width:900px){.workspaceLibrary .content{padding-inline:28px}.workspaceLibrary .heading{flex-wrap:wrap}.workspaceLibrary .headingActions{gap:8px}}
+@media(max-width:760px){.workspaceLibrary{min-height:calc(100dvh - 76px)}.workspaceLibrary .content{width:100%;padding:32px 20px 24px}.workspaceLibrary .heading{flex-direction:column;gap:20px;align-items:stretch}.workspaceLibrary .heading h1{font-size:32px}.workspaceLibrary .headingActions{justify-content:space-between}.workspaceLibrary .notification{top:92px;right:20px}.workspaceLibrary .empty h2{font-size:26px}}
+@container (max-width:1150px){
+ .workspaceLibrary .tableWrap{overflow:visible;background:transparent;border:0}
+ .workspaceLibrary .tableWrap table,.workspaceLibrary .tableWrap tbody{display:block;min-width:0}
+ .workspaceLibrary .tableWrap thead{display:none}
+ .workspaceLibrary .tableWrap tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 24px;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);border-radius:8px;padding:24px;margin-bottom:16px}
+ .workspaceLibrary .tableWrap td{padding:0;border:0;min-width:0;font-size:16px}
+ .workspaceLibrary .tableWrap td:first-child,.workspaceLibrary .tableWrap td:last-child{grid-column:1/-1}
+ .workspaceLibrary .tableWrap td:not(:first-child):not(:last-child)::before{content:attr(data-label);display:block;color:var(--dashboard-muted);font-size:13px;margin-bottom:6px}
+ .workspaceLibrary .tableWrap td:first-child strong{font-size:20px}
+ .workspaceLibrary .tableWrap td:nth-child(2){white-space:nowrap}
+ .workspaceLibrary .tableWrap td:nth-child(4){grid-column:3/5}
+ .workspaceLibrary .tableWrap td:nth-child(5),.workspaceLibrary .tableWrap td:nth-child(6){grid-column:span 2}
+ .workspaceLibrary .tableWrap td:last-child{border-top:1px solid var(--dashboard-border);padding-top:18px}
+ .workspaceLibrary .rowActions :is(button,a){padding:10px 14px}
+}
+@container (max-width:650px){
+ .workspaceLibrary .tableWrap tr{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;padding:20px}
+ .workspaceLibrary .tableWrap td:nth-child(4){grid-column:1/-1}
+ .workspaceLibrary .tableWrap td:nth-child(5),.workspaceLibrary .tableWrap td:nth-child(6){grid-column:span 1}
+ .rowActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .library .rowActions :is(button,a){padding:10px 6px;font-size:14px}
+}
