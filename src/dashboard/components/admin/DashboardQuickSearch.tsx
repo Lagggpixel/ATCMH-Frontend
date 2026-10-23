@@ -1,6 +1,7 @@
 "use client";
 import {useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
+import {MagnifyingGlassIcon} from "@phosphor-icons/react/MagnifyingGlass";
 import {useDashboard} from "../../DashboardProvider";
 import {adminNavigationGroups} from "./AdminNavigation";
 import {searchDashboard} from "../../utils/DashboardSearch";
@@ -12,6 +13,9 @@ export default function DashboardQuickSearch() {
     const deferred = useDeferredValue(query);
     const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null), trigger = useRef<HTMLButtonElement>(null);
     const previousFocus = useRef<HTMLElement | null>(null);
+    const [navbarTarget, setNavbarTarget] = useState<HTMLElement | null>(null);
+    // The header lives outside the gated dashboard data provider.
+    useEffect(() => {setNavbarTarget(document.getElementById("dashboard-quick-search"));}, []);
     const available = Boolean(state.token && state.adminUser?.canAccessDashboard !== false && state.adminUser);
     const results = useMemo(() => {
         if (!available) return [];
@@ -28,7 +32,7 @@ export default function DashboardQuickSearch() {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) {
                 event.preventDefault();
                 if (dialog.current?.open) {input.current?.focus(); return;}
-                if (document.querySelector("dialog[open]")) return;
+                if (document.querySelector('dialog[open], [aria-modal="true"]')) return;
                 previousFocus.current = document.activeElement as HTMLElement;
                 setQuery(""); setActive(0); setOpen(true);
             }
@@ -46,8 +50,8 @@ export default function DashboardQuickSearch() {
     if (!available) return null;
     // Use real links so existing unsaved-editor navigation guards also handle Enter.
     const choose = () => dialog.current?.querySelector<HTMLAnchorElement>(`[data-result-index="${selected}"] a`)?.click();
-    return <div className={styles.toolbar}>
-        <button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" onClick={() => {previousFocus.current = trigger.current; setQuery(""); setActive(0); setOpen(true);}}>Quick search <kbd>Ctrl / ⌘ K</kbd></button>
+    return <>
+        {navbarTarget ? createPortal(<button ref={trigger} type="button" className={styles.trigger} aria-label="Quick search" title="Quick search (Ctrl / ⌘ K)" aria-haspopup="dialog" onClick={() => {previousFocus.current = trigger.current; setQuery(""); setActive(0); setOpen(true);}}><MagnifyingGlassIcon size={20} aria-hidden="true"/><span className={styles.triggerLabel}>Quick search</span><kbd>Ctrl / ⌘ K</kbd></button>, navbarTarget) : null}
         {open ? createPortal(<dialog ref={dialog} data-dashboard-surface className={`dashboard-product ${styles.dialog}`} aria-labelledby="dashboard-search-title" onCancel={event => {event.preventDefault(); close();}} onClick={event => {if (event.target === event.currentTarget) {const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close();}}}>
             <header><h2 id="dashboard-search-title">Quick search</h2><button type="button" onClick={close}>Close</button></header>
             <label htmlFor="dashboard-search-input">Find a section, mentee or session</label>
@@ -65,5 +69,5 @@ export default function DashboardQuickSearch() {
             {!results.length ? <p>No matches. Try a name, Discord ID, airport or session number.</p> : null}
             <p className={styles.hint}>↑ ↓ to select · Enter to open · Escape to close</p>
         </dialog>, document.body) : null}
-    </div>;
+    </>;
 }
