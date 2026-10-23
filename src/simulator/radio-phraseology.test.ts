@@ -10,13 +10,13 @@ import {aviationSpeech} from "./radio-audio";
 
 for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording matches actual shortest turn, heading rounding and readback`, () => {
   for (const [from, heading, phrase] of [
-    [300, 230, "turn left heading two three zero"],
-    [350, 50, "turn right heading zero five zero"],
-    [330, 0, "turn right heading three six zero"],
-    [330, 360, "turn right heading three six zero"],
-    [10, 350, "turn left heading three five zero"],
-    [0, 180, "turn left heading one eight zero"],
-    [90, 224, "turn right heading two two zero"],
+    [300, 230, "turn left heading 230"],
+    [350, 50, "turn right heading 050"],
+    [330, 0, "turn right heading 360"],
+    [330, 360, "turn right heading 360"],
+    [10, 350, "turn left heading 350"],
+    [0, 180, "turn left heading 180"],
+    [90, 224, "turn right heading 220"],
   ] as const) {
     let state = engineFor({trainingStation: `EGPH:${mode}`}).initialExercise();
     state.running = true; state.autoReadback = true;
@@ -35,13 +35,13 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
   }
 });
 test("manual and automatic check-ins use feet below 18000 and spoken flight levels above", () => {
-  for (const [altitude, phrase] of [[4000, "4000"], [17500, "17500"], [18000, "flight level one eight zero"], [35000, "flight level three five zero"]] as const) {
+  for (const [altitude, phrase] of [[4000, "4,000ft"], [17500, "17,500ft"], [18000, "18,000ft"], [35000, "35,000ft"]] as const) {
     const state = engineFor({trainingStation: "EGPH:approach"}).initialExercise(); state.running = true; state.autoReadback = true;
-    const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.altitude = altitude;
+    const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.altitude = altitude; a.radar!.flight = "departure";
     const expected = `Speedbird 1, with you at ${phrase}`, catalog = catalogFor(getAirport(state));
     assert.equal(checkInTransmission(a), expected);
-    assert.equal(catalog.pilotRequestText(a, catalog.resolvePilotRequest({requestId: "check-in"})!, "06"), expected);
-    assert.equal(autoReadbacks(state, 1000, randomUUID).messages.at(-1)!.text, expected);
+    assert.equal(catalog.pilotRequestText(a, catalog.resolvePilotRequest({requestId: "check-in"})!, "06"), `Edinburgh Approach, ${expected}`);
+    assert.equal(autoReadbacks(state, 1000, randomUUID).messages.at(-1)!.text, `Edinburgh Approach, ${expected}`);
   }
 });
 test("approach requests display compact initialisms and ICAO codes, and speak airport names", () => {

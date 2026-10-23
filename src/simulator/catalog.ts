@@ -1,28 +1,34 @@
+import {orderedMenu} from "./menu-order";
+import {ATIS_REMARKS} from "./atis-options";
+import {approachOptions, destinationCode} from "./aviation";
+import {altitudeFeet, altitudeLabel} from "./radar";
 import {referenceControllerText} from "./reference-commands";
 import {referenceMenu, referenceSpeedMenu} from "./reference-menu";
-import {EXERCISE_WEATHER, patternLegLabel, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message} from "./model";
+import {EXERCISE_WEATHER as DEFAULT_WEATHER, type ExerciseWeather, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message, patternLegLabel} from "./model";
 import {defaultAirport, defaultRunway, runwayEnds, airportCallsign, frequenciesFor} from "./airports";
 import type {RadarEnvironment} from "./model";
-import {checkInTransmission, radarEnvironmentFor, radarInstructionText, roundedHeadingInstruction} from "./radar";
+import {checkInTransmission, radarEnvironmentFor, radarInstructionText, radarRequestedApproach, roundedHeadingInstruction} from "./radar";
 
-export interface MenuEntry {label: string; instruction?: Instruction; children?: MenuEntry[]; note?: string; suggested?: boolean; input?: "heading" | "speed"; composeVector?: boolean; dialog?: "voice" | "report" | "bookmark"; resend?: boolean; requiresRequest?: string[]; replyOnly?: boolean}
+export interface MenuEntry {label: string; instruction?: Instruction; children?: MenuEntry[]; note?: string; suggested?: boolean; sendLabel?: "SEND" | "NOW"; input?: "heading" | "speed"; composeVector?: boolean; dialog?: "voice" | "report" | "bookmark"; resend?: boolean; requiresRequest?: string[]; replyOnly?: boolean}
 export const HEADING_CHOICES = Array.from({length: 36}, (_, i) => (i + 1) * 10);
 export function radarSpeedMenu(): MenuEntry[] {return referenceSpeedMenu();}
 export const TASK_GROUPS = ["Ground movement", "Departures", "Arrivals and circuit", "Sequence", "Frequency"] as const;
 export interface CommandTask {id: string; label: string; group: typeof TASK_GROUPS[number]; command: Instruction}
 export const CONTEXT_ACTIONS = {messages: "Other Message", hold: "Hold", guard: "Send On Guard Warning", reminder: "Set Reminder", "remove-reminder": "Clear reminder", information: "Show Information", color: "Set Color", tag: "Tag Placement"} as const;
 export type ContextAction = keyof typeof CONTEXT_ACTIONS;
-export const REQUEST_IDS = ["pushback", "taxi-runway", "cross-runway", "frequency-change", "inbound-land", "inbound-option", "departure", "pattern-entry", "runway-change", "go-around", "departure-direction", "taxi-parking", "transition", "check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight"] as const;
+export const REQUEST_IDS = ["pushback", "taxi-runway", "cross-runway", "frequency-change", "inbound-land", "inbound-option", "departure", "pattern-entry", "runway-change", "go-around", "departure-direction", "taxi-parking", "transition", "check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight", "altitude-change", "report-position", "excellent-service", "back-with-you", "roger", "wilco", "standby", "unable", "correction", "unicom-taxi", "unicom-takeoff", "unicom-inbound", "unicom-position", "unicom-go-around", "unicom-clear-runway", "unicom-advisories", "unicom-cross-runway", "unicom-holding-short"] as const;
 export type PilotRequestId = typeof REQUEST_IDS[number];
 export interface PilotRequest {id: PilotRequestId; label: string; text: string; runway?: boolean; phase?: "ground" | "airborne"; legacyLabel: string}
-export interface PilotRequestOptions {direction?: Direction; includeRunway?: boolean; exercise?: Pick<Exercise, "publishedDraft" | "radarEnvironment">}
+export interface PilotRequestOptions {direction?: Direction; takeoffDirection?: Direction | "Straight Out"; entry?: "Left Traffic" | "Right Traffic" | "Straight In"; includeRunway?: boolean; inbound?: import("./model").PilotRequestSelection["inbound"]; altitude?: import("./model").Altitude; position?: string; outcome?: Aircraft["landing"]; approachId?: string; exercise?: Pick<Exercise, "publishedDraft" | "radarEnvironment">}
 export const LETTERS = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT", "GOLF", "HOTEL", "INDIA", "JULIET", "KILO", "LIMA", "MIKE", "NOVEMBER", "OSCAR", "PAPA", "QUEBEC", "ROMEO", "SIERRA", "TANGO", "UNIFORM", "VICTOR", "WHISKEY", "XRAY", "YANKEE", "ZULU"];
-export const REMARKS = ["No Pattern Work", "Gate Hold", "Flight plan required"];
-function createCatalog(airport: Airport, environment = radarEnvironmentFor(airport)) {
+export const REMARKS = ATIS_REMARKS.map(option => option.label);
+function createCatalog(airport: Airport, environment = radarEnvironmentFor(airport), weather: ExerciseWeather = DEFAULT_WEATHER) {
+const EXERCISE_WEATHER = weather;
 const FREQUENCIES = frequenciesFor(airport);
 
 
 function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[] = []): string {
+  environment={...environment,approaches:[...environment.approaches,...approachOptions(a,airport,environment.approaches).filter(p=>!environment.approaches.some(existing=>existing.id===p.id))]};
   instruction = roundedHeadingInstruction(instruction);
   const radarText = radarInstructionText(a, instruction, {...environment, airportName: airportCallsign(airport)}, airport);
   if (radarText !== undefined) return `${a.callsign}, ${radarText}`;
@@ -52,7 +58,7 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
     case "cancel-landing": text = "cancel landing clearance"; break;
     case "pattern": text = path.find(entry => /^(Enter|Turn)/.test(entry.label))?.label.toLowerCase() ?? `enter ${instruction.leg === "final" ? "straight in" : `${instruction.hand ?? a.hand} ${instruction.leg}`}`; if (!path.length || path.some(entry => entry.label.startsWith("Runway"))) text += ` runway ${runway}`; if (instruction.sequence) text += `, number ${instruction.sequence.number}, traffic to follow is on ${instruction.sequence.traffic?.toLowerCase() ?? "final"}`; break;
     case "extend": text = instruction.leg === "downwind" ? "extend downwind, I'll call your base" : "extend upwind, I'll call your crosswind"; break;
-    case "frequency": text = instruction.frequency ? `contact ${FREQUENCIES[instruction.frequency].name}${FREQUENCIES[instruction.frequency].value === "Training" ? "" : " on " + FREQUENCIES[instruction.frequency].value}` : `${instruction.from === "approach" ? "radar services terminated, " : ""}frequency change approved, good day!`; break;
+    case "frequency": text = instruction.frequency ? `contact ${instruction.facilityName ?? FREQUENCIES[instruction.frequency].name}${(instruction.mhz ?? FREQUENCIES[instruction.frequency].value) === "Training" ? "" : " on " + (instruction.mhz ?? FREQUENCIES[instruction.frequency].value)}` : `${instruction.from === "approach" ? "radar services terminated, " : ""}frequency change approved, good day!`; break;
     case "heading": text = `fly heading ${instruction.value}`; break;
     case "speed": text = `maintain ${instruction.value} knots`; break;
     case "runway": text = `expect Runway ${instruction.runway}`; break;
@@ -68,7 +74,7 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
 function commandTasks(frequency: Frequency, a: Aircraft): CommandTask[] {
   if (frequency === "atis") return [];
   const runway = a.runway ?? defaultRunway(airport);
-  const ground = ["parked", "pushback", "taxi", "lineup", "takeoff", "rollout"].includes(a.mode);
+  const ground = a.altitude <= airport.elevation + 1;
   const tasks: CommandTask[] = ground ? [
     {id: "taxi", label: "Route to runway", group: "Ground movement", command: {type: "taxi", destination: "runway", runway}},
     {id: "continue", label: "Resume taxi route", group: "Ground movement", command: {type: "taxi", destination: "continue"}},
@@ -138,31 +144,30 @@ function legacyMessageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[
   ]}, ...(frequency === "ground" || frequency === "tower" ? [{label: "Misc. Messages", children: [...sharedMisc, ...labels.map(misc)]}] : [])];
 }
 function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = [], request?: Message, messages: Message[] = []): MenuEntry[] {
-  return referenceMenu(frequency, a, airport, environment, legacyMessageMenu(frequency, a, traffic), traffic, request, messages);
+  return orderedMenu(referenceMenu(frequency, a, airport, environment, legacyMessageMenu(frequency, a, traffic), traffic, request, messages, weather),frequency);
 }
 /** A shortcut duplicates the ordinary command; its submenu and send behavior stay identical. */
 
 function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message, traffic: Aircraft[] = [], messages: Message[] = []): MenuEntry[] {
-  const entries = messageMenu(frequency, a, traffic, request, messages);
+  const entries = orderedMenu(messageMenu(frequency, a, traffic, request, messages),frequency);
   if (!request || request.sender !== "pilot" || request.commandId || request.aircraftId !== a.id || request.frequency !== frequency || a.frequency !== frequency || frequency === "atis") return entries;
   // Older snapshots and automatic go-arounds contain radio text without structured request data.
   const phrase = request.text.slice(request.text.indexOf(",") + 1).trim();
   const requestId = request.request?.id ?? (
     /^(?:ready for|requesting) pushback\b/i.test(phrase) ? "pushback" :
-    /^requesting (?:change to )?runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "runway-change" :
+    /^requesting runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "runway-change" :
     /^(?:requesting to|ready to) cross runway (?:0[1-9]|[12][0-9]|3[0-6])[LRC]?\.?$/i.test(phrase) ? "cross-runway" :
     /^requesting (?:(?:ILS|GPS|visual) )?approach\b/i.test(phrase) ? "request-approach" :
-    /^executing missed approach\b/i.test(phrase) ? "missed-approach" : /^going around\.?$/i.test(phrase) ? "go-around" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
+    /^executing missed approach\b/i.test(phrase) ? "missed-approach" : /^going around\.?$/i.test(phrase) ? "go-around" : /^with you at\b/i.test(phrase) ? "check-in" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
   if (requestId === "request-approach" && (frequency === "approach" || frequency === "center")) {
     const approach = entries.find(entry => entry.label === "Expect Approach...");
-    if (approach) return [{...approach, label: "Expect Approach", suggested: true, children: approach.children?.map(option => option.label === "Radar Vectors"
-      ? {...option, children: [{label: "Send", instruction: {type: "expect-approach", approachId: null, vectors: true, runway: a.runway ?? defaultRunway(airport), navigation: "vectors"}}]}
-      : option)}, ...entries];
+    if(approach)approach.suggested=true;
   }
-  const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Respond to Go Around", transition: "Respond to Transition"};
+  const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Respond to Go Around", transition: "Respond to Transition", "check-in": "Radar Contact", "flight-following":"Respond to Flight Following Request", "radar-vectors":"Respond to Radar Vectors Request", "star-descent":"Respond to STAR Descent Request", "diversion":"Respond to Diversion Request", "minimum-fuel":"Respond to Emergency", "emergency-fuel":"Respond to Emergency"};
   if (requestId === "runway-change") entries.push({label: "Unable", children: [{label: "Confirm", instruction: {type: "radio", message: "unable"}}]});
   const original = entries.find(entry => entry.label === (requestId ? labels[requestId] : undefined));
-  return original ? [{...original, label: requestId === "transition" ? "Approve transition" : requestId === "cross-runway" ? "Cross Runway" : original.label, suggested: true}, ...entries] : entries;
+  if(original)original.suggested=true;
+  return orderedMenu(entries,frequency);
 }
 
 
@@ -174,7 +179,11 @@ function contextMenu(frequency: Frequency, a: Aircraft): ContextAction[] {
 
 
 const REQUESTS: PilotRequest[] = [
-  {id: "check-in", label: "Check in", legacyLabel: "Radar check in", text: "with you", phase: "airborne"},
+  ...([
+    ["altitude-change","Request Altitude Change"],["report-position","Report Position"],["excellent-service","Excellent Service, Thanks!"],["back-with-you","Back with you"],["roger","Roger"],["wilco","Wilco"],["standby","Stand by"],["unable","Unable"],["correction","Correction"],
+    ["unicom-taxi","Taxi"],["unicom-takeoff","Takeoff"],["unicom-inbound","Announce Inbound"],["unicom-position","Report Position"],["unicom-go-around","Go around"],["unicom-clear-runway","Clear of All Runways"],["unicom-advisories","Request Traffic Advisories"],["unicom-cross-runway","Cross Runway"],["unicom-holding-short","Hold Short"],
+  ] as const).map(([id,label]):PilotRequest=>({id,label,legacyLabel:label,text:label,...(id.startsWith("unicom-")?{phase:["unicom-taxi","unicom-takeoff","unicom-clear-runway","unicom-cross-runway","unicom-holding-short"].includes(id)?"ground":"airborne"}:{}), ...(["report-position","unicom-position","unicom-inbound","unicom-takeoff","unicom-taxi","unicom-cross-runway","unicom-holding-short"].includes(id)?{runway:true}: {})})),
+  {id: "check-in", label: "Check in (IFR)", legacyLabel: "Radar check in", text: "with you", phase: "airborne"},
   {id: "request-approach", label: "Request approach", legacyLabel: "Request approach", text: "requesting", phase: "airborne"},
   {id: "missed-approach", label: "Missed approach", legacyLabel: "Executing missed approach", text: "executing missed approach", phase: "airborne"},
   {id: "pushback", label: "Request Pushback", legacyLabel: "Request pushback", text: "ready for pushback", phase: "ground"},
@@ -182,7 +191,7 @@ const REQUESTS: PilotRequest[] = [
   {id: "cross-runway", label: "Request runway crossing", legacyLabel: "Ready to cross runway", text: "requesting to cross", runway: true, phase: "ground"},
   {id: "frequency-change", label: "Frequency Change", legacyLabel: "Request frequency change", text: "requesting frequency change"},
   {id: "inbound-land", label: "Request Landing", legacyLabel: "Inbound for landing", text: "inbound for landing", runway: true, phase: "airborne"},
-  {id: "inbound-option", label: "Request the Option", legacyLabel: "Inbound for touch and go", text: "inbound for touch and go", runway: true, phase: "airborne"},
+  {id: "inbound-option", label: "Request the Option", legacyLabel: "Inbound for touch and go", text: "inbound, requesting the option", runway: true, phase: "airborne"},
   {id: "departure", label: "Request Takeoff", legacyLabel: "Ready for departure", text: "ready for departure from", runway: true, phase: "ground"},
   {id: "departure-direction", label: "Request Departure", legacyLabel: "Request departure to direction", text: "requesting departure to the", phase: "airborne"},
   {id: "pattern-entry", label: "Request Pattern Entry", legacyLabel: "Request pattern entry", text: "requesting pattern entry for", runway: true},
@@ -205,10 +214,17 @@ function resolvePilotRequest(value: {requestId?: string; label?: string}): Pilot
 }
 
 const pilotRequests = (a: Aircraft): PilotRequest[] => {
-  const ground = ["parked", "pushback", "taxi", "lineup", "takeoff", "rollout"].includes(a.mode);
-  if (a.radar) return a.frequency && a.frequency !== "atis" ? REQUESTS.filter(r => ["check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight"].includes(r.id)) : [];
+  const ground = a.altitude <= airport.elevation + 1;
+  const emergency = a.altitude>airport.elevation+1 && (a.flightSeconds??0)>=60 && a.fuel && ["minimum","emergency"].includes(a.fuel.state);
+  const common=["excellent-service","back-with-you","roger","wilco","standby","unable","correction"];
+  const available=REQUESTS.filter(r=>!["minimum-fuel","emergency-fuel"].includes(r.id)||emergency);
+  if(a.frequency==="unicom") {
+    const visible = ground ? ["unicom-taxi","unicom-takeoff","unicom-clear-runway","unicom-cross-runway","unicom-holding-short"] : ["unicom-inbound","unicom-position","unicom-go-around","unicom-advisories"];
+    return available.filter(r=>visible.includes(r.id));
+  }
+  if (a.radar) return !a.radar.departure && !a.radar.arrival && a.frequency && a.frequency !== "atis" ? available.filter(r => [...common,"altitude-change","check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight", ...(a.radar?.flight === "departure" ? ["departure-direction"] : [])].includes(r.id)) : [];
   const allowed = a.frequency === "approach" || a.frequency === "center" ? ["check-in", "request-approach", "missed-approach", "frequency-change"] : a.frequency === "ground" ? ["pushback", "taxi-runway", "taxi-parking", "cross-runway", "frequency-change"] : a.frequency === "tower" ? ground ? ["departure", "cross-runway", "runway-change", "frequency-change"] : ["inbound-land", "inbound-option", "transition", "departure-direction", "pattern-entry", "runway-change", "go-around", "frequency-change"] : [];
-  return REQUESTS.filter(r => (allowed.includes(r.id) || a.frequency !== "atis" && ["minimum-fuel", "emergency-fuel"].includes(r.id)) && (!r.phase || (r.phase === "ground") === ground));
+  return available.filter(r => (common.includes(r.id) || !ground && a.frequency==="tower" && r.id==="report-position" || allowed.includes(r.id) || a.frequency !== "atis" && ["minimum-fuel", "emergency-fuel"].includes(r.id)) && (!r.phase || (r.phase === "ground") === ground));
 };
 
 
@@ -218,12 +234,39 @@ function pilotRequestText(a: Aircraft, request: PilotRequest, runway: Runway, re
   if (request.id === "diversion" && a.diversionDestination) return `${a.callsign}, requesting diversion to ${a.diversionDestination.name}`;
   if (request.id === "flight-following" && a.destination) return `${a.callsign}, requesting flight following to ${a.destination.name}`;
   if (request.id === "airport-in-sight") return `Airport in sight, ${a.callsign}`;
-  if (request.id === "check-in") return checkInTransmission(a);
+  if (request.id === "check-in") return checkInTransmission(a,FREQUENCIES[a.frequency??"approach"].name);
+  if(request.id === "minimum-fuel" || request.id === "emergency-fuel") return `${a.callsign}, ${request.id==="minimum-fuel"?"Minimum Fuel":"Emergency Fuel"}, ${Math.round(a.fuel?.enduranceMinutes??0)} minutes remaining.`;
+  if(request.id === "altitude-change") {const altitude=options.altitude??{unit:"feet" as const,value:5000};return `${a.callsign}, requesting ${altitudeFeet(altitude)>a.altitude?"climb":"descent"} to ${altitudeLabel(altitude)}`;}
+  if(request.id === "report-position") return `${a.callsign}, is on ${options.position??"Final"} Runway ${runway}${options.outcome?options.outcome==="full-stop"?", full stop":", touch and go":""}`;
+  if(request.id === "excellent-service")return `Excellent Service, Thanks!, ${a.callsign}`;
+  if(request.id === "back-with-you")return `is back with you, ${a.callsign}`;
+  if(["roger","wilco","standby","unable","correction"].includes(request.id))return `${request.label}, ${a.callsign}`;
+  if(request.id.startsWith("unicom-")) {
+    const receiver=`${airportCallsign(airport)} traffic`, who=`${receiver}, ${a.callsign}`;
+    const direction=options.takeoffDirection??options.direction??"north";
+    const departure=remainingInPattern ? "Remaining in the Pattern" : `Departing ${direction[0].toUpperCase()+direction.slice(1)}`;
+    const compass=["north","northeast","east","southeast","south","southwest","west","northwest"][Math.round(((Math.atan2(a.position.x,a.position.y)*180/Math.PI+360)%360)/45)%8];
+    const position=`${Math.round(Math.hypot(a.position.x,a.position.y))} miles to the ${compass} at ${Math.round(a.altitude/100)*100} feet`;
+    const phrases: Record<string,string>={
+      "unicom-taxi":`${who}, taxiing to Runway ${runway}`,
+      "unicom-takeoff":`${who} is taking off Runway ${runway}, ${departure}`,
+      "unicom-inbound":`${who} is ${position}, inbound for ${options.outcome==="touch-and-go"?"Touch and Goes":"Landing"}, will make ${options.entry??"Straight In"} for Runway ${runway}`,
+      "unicom-position":`${who} is on ${options.position??"Final"}, Runway ${runway}`,
+      "unicom-go-around":`${who}, going around`,
+      "unicom-clear-runway":`${who} is clear of all runways`,
+      "unicom-advisories":`${who} is inbound, request traffic advisories`,
+      "unicom-cross-runway":`${who}, crossing Runway ${runway}`,
+      "unicom-holding-short":`${who}, holding short Runway ${runway}`,
+    };
+    return phrases[request.id];
+  }
+  if(request.id === "inbound-land" || request.id === "inbound-option"){const landing=request.id==="inbound-land"?"Landing":"Touch and Go",mode=options.inbound??"runway";const direction=["north","northeast","east","southeast","south","southwest","west","northwest"][Math.round(((Math.atan2(a.position.x,a.position.y)*180/Math.PI+360)%360)/45)%8];const position=`${Math.round(Math.hypot(a.position.x,a.position.y))} miles to the ${direction} at ${Math.round(a.altitude/100)*100} feet`;return ["ils","gps","visual"].includes(mode)?`${airportCallsign(airport)} Tower, ${a.callsign}, inbound on the ${mode==="visual"?"Visual":mode.toUpperCase()}${request.id==="inbound-option"?" for Touch and Go":""} Runway ${runway}${atis}`:`${airportCallsign(airport)} Tower, ${a.callsign} is ${position}, inbound for ${landing}${atis}${mode==="runway"?`, requesting Runway ${runway}`:""}`;}
   if (request.id === "request-approach") {
-    const pinned = options.exercise?.radarEnvironment ?? environment;
-    const type = pinned.approaches.find(p => p.id === a.radar?.expected)?.type
+    const pinned = {...(options.exercise?.radarEnvironment ?? environment), approaches:approachOptions(a,airport,(options.exercise?.radarEnvironment ?? environment).approaches)};
+    const type = pinned.approaches.find(p=>p.id===options.approachId)?.type ?? radarRequestedApproach(a, pinned)?.type
+      ?? pinned.approaches.find(p => p.id === a.radar?.expected)?.type
       ?? pinned.approaches.find(p => p.type === "ils")?.type ?? pinned.approaches[0]?.type ?? "visual";
-    return `${a.callsign}, requesting ${type === "ils" ? "ILS" : type === "gps" ? "GPS" : "visual"} approach at ${airport.icao}`;
+    return `${a.callsign}, requesting ${type === "ils" ? "ILS" : type === "gps" ? "GPS" : "visual"} approach at ${destinationCode(a,airport)}`;
   }
   if (request.id === "transition") {
     const nm = Math.hypot(a.position.x, a.position.y);
@@ -232,10 +275,9 @@ function pilotRequestText(a: Aircraft, request: PilotRequest, runway: Runway, re
     return `${a.callsign} is ${Math.round(nm * 10) / 10} miles to the ${direction} of ${airportCallsign(airport)} at ${Math.round(a.altitude)} feet, requesting transition`;
   }
   if (request.id === "pushback") return `${a.callsign}, ready for pushback${atis}`;
-  if (request.id === "inbound-option") return `${positionDescription(a, airport)}, inbound for touch and go${atis}`;
   if (request.id === "runway-change") return `${a.callsign}, requesting change to runway ${runway}`;
-  if (request.id === "taxi-runway") return `${a.callsign}, ready to taxi${options.includeRunway === false ? "" : ` to runway ${runway}`}${atis}`;
-  if (request.id === "departure-direction") return `${a.callsign}, requesting departure to the ${options.direction ?? "north"}`;
+  if (request.id === "taxi-runway") return `${airportCallsign(airport)} Ground, ${a.callsign} ready to taxi${options.includeRunway === false ? "" : ` to runway ${runway}`}${atis}`;
+  if (request.id === "departure-direction") return `${a.radar ? checkInTransmission(a) : a.callsign}, requesting departure to the ${options.direction ?? a.radar?.departureDirection ?? "north"}`;
   return `${a.callsign}, ${request.text}${request.runway ? ` runway ${runway}` : ""}${request.id === "departure" && remainingInPattern ? ", remaining in the pattern" : ""}`;
 }
 
@@ -243,8 +285,8 @@ function pilotRequestText(a: Aircraft, request: PilotRequest, runway: Runway, re
 return {instructionText, commandTasks, messageMenu, requestMessageMenu, contextMenu, resolvePilotRequest, pilotRequests, pilotRequestText};
 }
 const catalogs = new WeakMap<Airport, ReturnType<typeof createCatalog>>();
-export function catalogFor(airport: Airport = defaultAirport, environment?: RadarEnvironment) {
- if (environment) return createCatalog(airport, environment);
+export function catalogFor(airport: Airport = defaultAirport, environment?: RadarEnvironment, weather?: ExerciseWeather) {
+ if (environment || weather) return createCatalog(airport, environment, weather);
  let catalog = catalogs.get(airport);
  if (!catalog) {catalog = createCatalog(airport); catalogs.set(airport, catalog);}
  return catalog;

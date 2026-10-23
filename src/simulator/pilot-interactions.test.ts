@@ -50,11 +50,11 @@ test("pushback and both taxi variants use the latest broadcast, never the unpubl
   state.atis.letter = "BRAVO"; state = act(state, {kind: "publish-atis"}); state.atis.letter = "CHARLIE";
   for (const id of ["pushback", "taxi-runway"] as const) {
     const next = request(state, {id, runway: "06"}, "demo-ground");
-    assert.equal(next.messages.at(-1)!.text, `Easy 201, ready ${id === "pushback" ? "for pushback" : "to taxi to runway 06"} with information BRAVO`);
+    assert.equal(next.messages.at(-1)!.text, `${id === "pushback" ? "Easy 201, ready for pushback" : "Edinburgh Ground, Easy 201 ready to taxi to runway 06"} with information BRAVO`);
     assert.equal(next.aircraft[1].mode, "parked"); assert.equal(next.aircraft[1].runway, "24");
   }
   state = request(state, {id: "taxi-runway", runway: "06", includeRunway: false}, "demo-ground");
-  assert.equal(state.messages.at(-1)!.text, "Easy 201, ready to taxi with information BRAVO");
+  assert.equal(state.messages.at(-1)!.text, "Edinburgh Ground, Easy 201 ready to taxi with information BRAVO");
   const noAtis = initialExercise();
   assert.equal(pilotRequestText(noAtis.aircraft[1], resolvePilotRequest({requestId: "pushback"})!, "24", false, {exercise: noAtis}), "Easy 571, ready for pushback");
 });

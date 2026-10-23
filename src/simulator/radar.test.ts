@@ -77,7 +77,7 @@ for (const mode of ["approach", "center"] as const) for (const automatic of [fal
   const label = () => radarFlightLabel(state.aircraft[0], airport, state.radarEnvironment).approach;
   assert.equal(label(), undefined);
   state = command(state, {type: "expect-approach", approachId: null, vectors: true, runway});
-  assert.equal(label(), undefined, "an unacknowledged transmission is not an assignment");
+  assert.equal(label(), `RV - EGPH ${runway}`, "controller assignment appears before pilot execution");
   const message = state.messages.at(-1)!;
   state = automatic ? autoReadbacks(fly(state, 1.5), 1500, randomUUID) : send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: message.id, assign: true});
   assert.equal(state.aircraft[0].runway, runway);
@@ -107,12 +107,12 @@ test("vector preview follows the free endpoint and preserves distance, time and 
 test("all heading instructions round consistently in transmissions, readbacks and assigned movement", () => {
   let state = exercise();
   state = command(state, {type: "vector", heading: 224});
-  assert.match(state.messages.at(-1)!.text, /heading two two zero/);
+  assert.match(state.messages.at(-1)!.text, /heading 220/);
   assert.deepEqual(state.messages.at(-1)!.instruction, {type: "vector", heading: 220});
   const id = state.messages.at(-1)!.id;
   state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: id, assign: true});
   assert.equal(state.aircraft[0].targetHeading, magneticToTrue(220, getAirport()));
-  const sent = state.messages.find(m => m.id === id)!; assert.match(engineFor(state).readbackText(state.aircraft[0].callsign, sent.text, sent.instruction), /heading two two zero/);
+  const sent = state.messages.find(m => m.id === id)!; assert.match(engineFor(state).readbackText(state.aircraft[0].callsign, sent.text, sent.instruction), /heading 220/);
   state = assign(state, {type: "vector", heading: 356}); assert.equal(state.aircraft[0].targetHeading, magneticToTrue(0, getAirport()));
   const engine = engineFor({trainingStation: "EGPH:local"});
   const local = engine.initialExercise(); local.aircraft = [engine.newAircraft("a", true)];
@@ -121,7 +121,7 @@ test("all heading instructions round consistently in transmissions, readbacks an
 
 test("altitude picker contains the reference 69 values and rejects gaps", () => {
   assert.equal(ALTITUDES.length, 69);
-  assert.equal(altitudeLabel(ALTITUDES[0]), "1000"); assert.equal(altitudeLabel(ALTITUDES[25]), "17000");
+  assert.equal(altitudeLabel(ALTITUDES[0]), "1,000ft"); assert.equal(altitudeLabel(ALTITUDES[25]), "17,000ft");
   assert.equal(altitudeLabel(ALTITUDES[26]), "FL180"); assert.equal(altitudeLabel(ALTITUDES[68]), "FL600");
   for (const altitude of ALTITUDES) assert.ok(altitudeSchema.safeParse(altitude).success);
   for (const value of [{unit: "feet", value: 18000}, {unit: "feet", value: 1250}, {unit: "flight-level", value: 185}, {unit: "feet", value: NaN}]) assert.equal(altitudeSchema.safeParse(value).success, false);
@@ -153,9 +153,9 @@ test("combined heading/altitude sends once and waits for manual assignment", () 
   let state = exercise(); state.aircraft[0].heading = 0; const before = structuredClone(state.aircraft[0]);
   const instruction: Instruction = {type: "vector", heading: 90, altitude: {unit: "feet", value: 6000}};
   const envelope = {id: randomUUID(), time: 0, action: {kind: "command" as const, aircraftId: "a", frequency: "approach" as const, command: instruction, text: "ignored"}};
-  state = applyEnvelope(state, envelope).state; assert.equal(state.messages[0].text, "Speedbird 1, turn right heading zero nine zero, climb and maintain 6000");
-  assert.deepEqual(state.aircraft[0], before); assert.equal(applyEnvelope(state, envelope).state, state);
-  state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: envelope.id}); assert.deepEqual(state.aircraft[0], before);
+  state = applyEnvelope(state, envelope).state; assert.equal(state.messages[0].text, "Speedbird 1, turn right heading 090, climb and maintain 6,000ft");
+  assert.deepEqual({...state.aircraft[0],assigned:undefined}, {...before,assigned:undefined}); assert.equal(applyEnvelope(state, envelope).state, state);
+  state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: envelope.id}); assert.deepEqual({...state.aircraft[0],assigned:undefined}, {...before,assigned:undefined});
   state = command(state, instruction); const id = state.messages.at(-1)!.id;
   state = send(state, {kind: "pilot", aircraftId: "a", text: "readback", replyTo: id, assign: true});
   assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport())); assert.equal(state.aircraft[0].radar!.targetAltitude!.value, 6000);
@@ -169,13 +169,52 @@ test("automatic readback assigns a combined clearance after the existing delay",
   assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport())); assert.equal(state.aircraft[0].radar!.targetAltitude!.unit, "flight-level");
   assert.match(state.messages.at(-1)!.text, /FL190/); assert.equal(state.messages.filter(m => m.commandId).length, 1);
 });
+for (const mode of ["approach", "center"] as const) for (const heading of [0, 224]) test(`${mode}: dragged heading ${heading} and ILS clearance are read back and flown together`, () => {
+  let state = exercise(mode); state.autoReadback = true;
+  const a = state.aircraft[0], approach = state.radarEnvironment!.approaches.find(p => p.type === "ils")!;
+  a.heading = a.targetHeading = 90; a.altitude = 3000;
+  // Outside localizer capture: the drag vector must steer the aircraft to final.
+  a.position = {x: 30, y: 30}; a.radar!.expected = approach.id;
+  const target = Math.round(heading / 10) * 10 % 360;
+  state = command(state, {type: "vector", heading, approachId: approach.id});
+  assert.equal(state.aircraft[0].targetHeading, 90);
+  assert.match(state.messages.at(-1)!.text, /heading .*cleared.*ILS/);
+  state = autoReadbacks(fly(state, 1.5), 1500, randomUUID);
+  assert.match(state.messages.at(-1)!.text, /heading .*cleared.*ILS/);
+  assert.equal(state.aircraft[0].targetHeading, magneticToTrue(target, getAirport(state)));
+  assert.equal(state.aircraft[0].radar!.cleared, approach.id);
+  state = fly(state, 120);
+  near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
+  assert.equal(state.aircraft[0].radar!.cleared, approach.id);
+});
+for (const mode of ["approach", "center"] as const) for (const type of ["ils", "gps", "visual"] as const) for (const [altitude, heading, wording] of [[2500, undefined, "descend and maintain"], [3000, 0, "maintain"], [5000, 220, "climb and maintain"]] as const) test(`${mode} ${type}: approach clearance with ${heading ?? "no"} heading and ${altitude}ft is transmitted and assigned together`, () => {
+  let state = exercise(mode); state.autoReadback = true;
+  const a = state.aircraft[0], approach = state.radarEnvironment!.approaches.find(p => p.type === type)!;
+  a.heading = a.targetHeading = 90; a.altitude = 3000; a.position = {x: 30, y: 30}; a.radar!.expected = approach.id;
+  const instruction: Instruction = {type: "vector", ...(heading !== undefined ? {heading} : {}), altitude: {unit: "feet", value: altitude}, approachId: approach.id};
+  const before = structuredClone(a);
+  state = command(state, instruction);
+  assert.deepEqual({...state.aircraft[0],assigned:undefined}, {...before,assigned:undefined}, "opening/sending the clearance must wait for readback before assignment");
+  assert.equal(state.messages.length, 1);
+  assert.deepEqual(state.messages[0].instruction, instruction);
+  assert.match(state.messages[0].text, new RegExp(`${wording} ${altitude.toLocaleString("en-US")}ft.*cleared.*${type === "visual" ? "visual" : type.toUpperCase()}`));
+  if (type === "ils") assert.match(state.messages[0].text, new RegExp(`maintain ${altitude.toLocaleString("en-US")}ft until established on the localizer`));
+  state = autoReadbacks(fly(state, 1.5), 1500, randomUUID);
+  assert.equal(state.messages.length, 2);
+  if (type === "gps") {assert.match(state.messages[1].text, /Unable/); assert.equal(state.aircraft[0].radar!.cleared, undefined); return;}
+  assert.match(state.messages[1].text, new RegExp(`${wording} ${altitude.toLocaleString("en-US")}ft`, "i"));
+  assert.equal(state.aircraft[0].targetHeading, heading === undefined ? 90 : magneticToTrue(heading, getAirport()));
+  assert.deepEqual(state.aircraft[0].radar!.targetAltitude, {unit: "feet", value: altitude});
+  assert.equal(state.aircraft[0].radar!.cleared, approach.id);
+});
 for (const type of ["ils", "gps", "visual"] as const) test(`${type}: expectation does not capture, clearance does, missed approach resets guidance`, () => {
   let state = exercise(); const p = state.radarEnvironment!.approaches.find(p => p.type === type)!;
   const g = approachGeometry(getAirport(state), p.runway);
   Object.assign(state.aircraft[0], {position: {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8}, heading: g.heading, targetHeading: g.heading, altitude: 2500});
+  if (type === "gps") state.aircraft[0].flightPlan = [{x:g.threshold.x-g.vector.x*7.9,y:g.threshold.y-g.vector.y*7.9,finalApproachFix:true},{...g.threshold}];
   state = assign(state, {type: "expect-approach", approachId: p.id}); assert.equal(fly(state, 1).aircraft[0].radar!.captured, false);
   state = assign(state, {type: "vector", heading: trueToMagnetic(g.heading, getAirport(state)), altitude: {unit: "feet", value: 2500}, approachId: p.id});
-  const captured = fly(state, 1); assert.equal(captured.aircraft[0].radar!.captured, true);
+  const captured = fly(state, type === "ils" ? 30 : type === "gps" ? 3 : 1); assert.equal(captured.aircraft[0].radar!.captured, true);
   const missed = assign(captured, {type: "missed-approach", altitude: {unit: "feet", value: 5000}});
   assert.equal(missed.aircraft[0].radar!.navigation, "missed"); assert.equal(missed.aircraft[0].radar!.cleared, undefined);
   assert.equal(missed.aircraft[0].radar!.captured, false); near(missed.aircraft[0].targetHeading, captured.aircraft[0].targetHeading);
@@ -195,8 +234,8 @@ test("radar vectors remove approach eligibility; Unable responses grant no clear
   assert.equal(state.aircraft[0].radar!.expected, undefined); assert.equal(state.aircraft[0].radar!.cleared, undefined);
   const menu = catalogFor(getAirport(state), state.radarEnvironment).messageMenu("approach", state.aircraft[0]);
   assert.ok(menu.some(e => e.label === "Request Hold")); assert.ok(!menu.some(e => e.label === "Clear for Approach"));
-  assert.deepEqual(menu[2].children!.map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach", "Radar Vectors", "Unable (Outside of Coverage Area)", "Unable at this time", "Outside Airspace"]);
-  for (const entry of menu[2].children!.slice(-3)) assert.equal(entry.children![0].instruction!.type, "atc");
+  assert.deepEqual(menu.find(e=>e.label==="Expect Approach...")!.children!.map(e => e.label), ["ILS Approach", "GPS Approach", "Visual Approach", "Radar Vectors", "Unable (Outside of Coverage Area)", "Unable at this time", "Outside Airspace"]);
+  for (const entry of menu.find(e=>e.label==="Expect Approach...")!.children!.slice(-3)) assert.equal(entry.children![0].instruction!.type, "atc");
 });
 test("altitude-only preserves heading and route; Center keeps assigned speed", () => {
   let state = exercise("center"); state.aircraft[0].flightPlan = [{x: 10, y: 10}, {x: 20, y: 0}];
@@ -260,7 +299,7 @@ test("resume route retains progress after a vector, while direct-to chooses an e
 test("transferred radar traffic keeps radar pilot requests and cannot switch into circuit movement", () => {
   let state = assign(exercise(), {type: "frequency", frequency: "tower"});
   const requests = catalogFor(getAirport(state), state.radarEnvironment).pilotRequests(state.aircraft[0]);
-  assert.deepEqual(requests.map(r => r.id), ["check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "minimum-fuel", "emergency-fuel", "airport-in-sight"]);
+  assert.deepEqual(requests.map(r => r.id), ["altitude-change","excellent-service","back-with-you","roger","wilco","standby","unable","correction","check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "airport-in-sight"]);
   const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: "a", command: {type: "pattern", leg: "downwind"}}});
   assert.match(result.error!, /unavailable/); assert.equal(result.state, state);
   state = send(state, {kind: "pilot", aircraftId: "a", text: "", request: {id: "missed-approach", runway: defaultRunway(getAirport(state))}});
@@ -287,9 +326,10 @@ test("a scenario seeded on another frequency starts as transferred radar traffic
 for (const transfer of [false, true]) test(`approach threshold ${transfer ? "completes a Tower handoff" : "triggers a missed approach on the radar position"}`, () => {
   let state = exercise(); const approach = state.radarEnvironment!.approaches[0], g = approachGeometry(getAirport(state), approach.runway);
   Object.assign(state.aircraft[0], {position: {x: g.threshold.x - g.vector.x * .02, y: g.threshold.y - g.vector.y * .02}, heading: g.heading, targetHeading: g.heading, altitude: getAirport(state).elevation + 60});
-  state = assign(state, {type: "expect-approach", approachId: approach.id}); state = assign(state, {type: "vector", approachId: approach.id}); state.aircraft[0].radar!.captured = true;
+  state = assign(state, {type: "expect-approach", approachId: approach.id}); state = assign(state, {type: "vector", approachId: approach.id}); Object.assign(state.aircraft[0].radar!, {captured: true, localizer: true, glideslope: true});
   if (transfer) state = assign(state, {type: "frequency", frequency: "tower"});
   state = fly(state, .1, .1);
-  assert.equal(state.aircraft[0].active, !transfer);
+  assert.equal(state.aircraft[0].active, true);
+  if (transfer) {assert.equal(state.aircraft[0].mode, "heading"); state = fly(state, 10, .1); assert.equal(state.aircraft[0].mode, "rollout"); assert.equal(state.aircraft[0].altitude, getAirport(state).elevation); assert.equal(state.aircraft[0].radar!.arrival!.phase, "rollout");}
   if (!transfer) {assert.equal(state.aircraft[0].radar!.navigation, "missed"); assert.equal(state.aircraft[0].radar!.report, "missed");}
 });

@@ -1,5 +1,5 @@
+import {climbRate, descentRate} from "./aircraft-performance";
 import type {Aircraft, Airport, Point} from "./model";
-import {DEFAULTS} from "./model";
 
 export const courseTo = (from: Point, to: Point) => (Math.atan2(to.x - from.x, to.y - from.y) * 180 / Math.PI + 360) % 360;
 export const courseDifference = (from: number, to: number) => (to - from + 540) % 360 - 180;
@@ -13,13 +13,14 @@ export function resumeRoute(a: Aircraft) {
     a.mode = "heading"; if ("departure" in a.radar) delete a.radar.departure; if ("patternJoin" in a.radar) delete a.radar.patternJoin;
     a.radar.navigation = a.flightPlan[a.radar.routeIndex] ? "route" : "heading";
     delete a.radar.cleared; a.radar.captured = false; a.radar.localizer = false;
+    delete a.radar.gpsApproach;
     if ("glideslope" in a.radar) a.radar.glideslope = false;
   } else if (a.flightPlan.length) {a.mode = "heading"; a.routeNavigation ??= {index: 0};}
 }
 
 /** Route constraints are instructor data, never invented published procedures. */
 export function updateRouteConstraints(a: Aircraft) {
-  if (!a.starDescent || !a.radar || a.radar.navigation !== "route") return;
+  if ((!a.starDescent && !a.followRouteAltitudes) || !a.radar || a.radar.navigation !== "route") return;
   const point = a.flightPlan[a.radar.routeIndex];
   if (!point) {delete a.starDescent; return;}
   if (point.altitude !== undefined) {
@@ -38,9 +39,9 @@ export function moveOwnRoute(a: Aircraft) {
   if (point) a.targetHeading = courseTo(a.position, point);
 }
 
-export function airportVisible(a: Aircraft, airport: Airport) {
+export function airportVisible(a: Aircraft, airport: Airport, elevation = airport.elevation) {
   const target = a.destination?.point ?? {x: 0, y: 0};
-  return a.active && a.altitude > airport.elevation + 1 && distance(a.position, target) <= 15 + 1e-8
+  return a.active && a.altitude > elevation + 1 && Math.hypot(distance(a.position, target), (a.altitude - elevation) / 6076.12) <= 15 + 1e-8
     && Math.abs(courseDifference(a.heading, courseTo(a.position, target))) <= 90 + 1e-8;
 }
 
@@ -50,6 +51,7 @@ export function assignDestination(a: Aircraft, target: {name: string; point: Poi
   delete a.starDescent; delete a.atcManeuver;
   if (a.radar) {
     a.radar.routeIndex = 0; a.radar.navigation = vectors ? "heading" : "route";
+    delete a.radar.gpsApproach;
     delete a.radar.cleared; delete a.radar.expected; a.radar.captured = false; a.radar.localizer = false;
     if ("glideslope" in a.radar) a.radar.glideslope = false;
   } else {a.mode = "heading"; a.routeNavigation = {index: 0};}
@@ -58,6 +60,6 @@ export function assignDestination(a: Aircraft, target: {name: string; point: Poi
 
 export const holdingLegSeconds = (altitude: number) => altitude > 14000 ? 90 : 60;
 export const moveAltitude = (a: Aircraft, target: number, dt: number) => {
-  const rate = a.altitude > target ? DEFAULTS.descentRate : DEFAULTS.climbRate;
+  const rate = a.altitude > target ? descentRate(a) : climbRate(a);
   a.altitude += Math.sign(target - a.altitude) * Math.min(Math.abs(target - a.altitude), rate / 60 * dt);
 };

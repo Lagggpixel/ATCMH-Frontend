@@ -1,5 +1,7 @@
 "use client";
 import {useRef, useState} from "react";
+import {controllerAircraft} from "./controller-state";
+import {environmentWithDestinations} from "./aviation";
 import {catalogFor, CONTEXT_ACTIONS, contextMenu, type ContextAction} from "./catalog";
 import {AircraftOptionPicker} from "./AircraftContextMenu";
 import {getAirport} from "./airports";
@@ -18,9 +20,9 @@ export default function RadarQuickPopup({aircraft, exercise, frequency, heading,
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState("");
-  const airport = getAirport(exercise), environment = exercise.radarEnvironment ?? radarEnvironmentFor(airport);
-  const expected = environment.approaches.find(p => p.id === aircraft.radar?.expected);
-  const {instructionText} = catalogFor(airport, environment);
+  const airport = getAirport(exercise), environment = environmentWithDestinations(airport,exercise.radarEnvironment ?? radarEnvironmentFor(airport),[aircraft]);
+  const expected = environment.approaches.find(p => p.id === controllerAircraft(aircraft).radar?.expected);
+  const {instructionText} = catalogFor(airport, environment,exercise.weather);
   const directCommand: Extract<Instruction, {type: "route"}> | undefined = target && {type: "route", index: target.index, name: target.name, point: target.point};
   const directError = directCommand ? validateControllerMessage(exercise, aircraft, directCommand, frequency) : undefined;
   const commandFor = (altitude: Altitude): Instruction => picker === "direct-altitude" && directCommand ? {...directCommand, altitude} : picker === "missed" ? {type: "missed-approach", altitude} : {type: "vector", ...(heading !== undefined ? {heading} : {}), altitude, ...(picker === "approach" ? {approachId} : {})};

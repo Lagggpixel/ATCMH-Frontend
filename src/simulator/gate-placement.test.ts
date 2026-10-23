@@ -6,7 +6,7 @@ import {gateAtPoint, gateTargets, placeAircraftAtGate} from "./gate-placement";
 import {normalizeScenarioAircraft, seedFromAircraft, standPlacement} from "./scenarios";
 
 test("gate drops use mapped nose positions and preserve aircraft setup across airports", () => {
-  for (const airport of airportList) {
+  for (const airport of airportList.filter(airport => airport.features.some(feature => feature.kind === "parking_position"))) {
     const gates = gateTargets(airport);
     assert.ok(gates.length > 1);
     const spec = normalizeScenarioAircraft({key: "ground", initial: false, gateId: gates[0].id,

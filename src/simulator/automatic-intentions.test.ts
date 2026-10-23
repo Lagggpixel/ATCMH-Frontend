@@ -119,9 +119,9 @@ test("transition has live position wording and a first green shortcut sharing th
   assert.equal(pilotRequestText(a, request, "24"), "Easy 201 is 5 miles to the north east of Edinburgh at 1500 feet, requesting transition");
   let state = act(stateOf([a]), {kind: "pilot", aircraftId: a.id, text: "", request: {id: "transition", runway: "24"}});
   const menu = requestMessageMenu("tower", a, state.messages[0]);
-  assert.equal(menu[0].label, "Approve transition"); assert.equal(menu[0].suggested, true);
-  assert.deepEqual(menu[0].children, menu.find(m => m.label === "Respond to Transition")!.children);
-  assert.deepEqual(menu[0].children!.flatMap(m => m.children ?? []).map(m => m.label), [...Array.from({length: 18}, (_, i) => String(1000 + i * 500)), ...Array.from({length: 8}, (_, i) => String(10000 + i * 1000)), ...Array.from({length: 43}, (_, i) => `FL${180 + i * 10}`)]);
+  assert.equal(menu.find(e=>e.suggested)?.label, "Respond to Transition"); assert.equal(menu.find(e=>e.suggested)?.suggested, true);
+  assert.deepEqual(menu.find(e=>e.suggested)?.children, menu.find(m => m.label === "Respond to Transition")!.children);
+  assert.deepEqual(menu.find(e=>e.suggested)?.children!.flatMap(m => m.children ?? []).map(m => m.label), [...Array.from({length: 18}, (_, i) => `${(1000+i*500).toLocaleString("en-US")}ft`), ...Array.from({length: 8}, (_, i) => `${(10000+i*1000).toLocaleString("en-US")}ft`), ...Array.from({length: 43}, (_, i) => `FL${180 + i * 10}`)]);
   state = act(state, {kind: "command", aircraftId: a.id, frequency: "tower", text: instructionText(a, {type: "transition", altitude: 1500}), command: {type: "transition", altitude: 1500}, replyTo: state.messages[0].id});
   state = tick(state, 1.5); assert.equal(state.aircraft[0].mode, "heading"); assert.match(state.messages.at(-1)!.text, /Transition approved at 1500 feet, Easy 201/);
 });

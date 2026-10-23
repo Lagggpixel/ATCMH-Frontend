@@ -1,3 +1,4 @@
+import {trueAirspeed} from "./aircraft-performance";
 import {DEFAULTS, type Aircraft} from "./model";
 
 const radians = Math.PI / 180;
@@ -25,14 +26,15 @@ function rolloutHeading(speed: number, bank: number) {
   return Math.sign(bank) * rateFactor(speed) * -Math.log(Math.cos(bank * radians)) / (DEFAULTS.bankRate * radians);
 }
 
-export function turnAircraft(a: Pick<Aircraft, "heading" | "targetHeading" | "speed" | "bankAngle">, seconds: number) {
+export function turnAircraft(a: Pick<Aircraft, "heading" | "targetHeading" | "speed" | "bankAngle"> & Partial<Pick<Aircraft,"performanceProfile"|"altitude">>, seconds: number) {
+  const speed=a.performanceProfile?trueAirspeed(a.speed,a.altitude??0):a.speed;
   let remaining = Math.max(0, seconds);
   while (remaining > 1e-8) {
     const dt = Math.min(.05, remaining), bank = clampBank(a.bankAngle ?? 0);
     const angle = ((a.targetHeading - a.heading + 540) % 360) - 180;
     if (Math.abs(angle) < 1e-9 && Math.abs(bank) < 1e-9) {a.bankAngle = 0; return;}
     let low = clampBank(bank - DEFAULTS.bankRate * dt), high = clampBank(bank + DEFAULTS.bankRate * dt);
-    const requiredHeading = (next: number) => headingDuringRoll(a.speed, bank, next, dt) + rolloutHeading(a.speed, next);
+    const requiredHeading = (next: number) => headingDuringRoll(speed, bank, next, dt) + rolloutHeading(speed, next);
     // Choose the largest reachable bank that can still roll out on the selected
     // heading. A new clearance inside the stopping arc must finish rolling first.
     let next: number;
@@ -43,7 +45,7 @@ export function turnAircraft(a: Pick<Aircraft, "heading" | "targetHeading" | "sp
       for (let i = 0; i < 24; i++) {const middle = (low + high) / 2; if (requiredHeading(middle) < angle) low = middle; else high = middle;}
       next = (low + high) / 2;
     }
-    a.heading = (a.heading + headingDuringRoll(a.speed, bank, next, dt) + 360) % 360;
+    a.heading = (a.heading + headingDuringRoll(speed, bank, next, dt) + 360) % 360;
     a.bankAngle = next;
     if (next === 0 && Math.abs(((a.targetHeading - a.heading + 540) % 360) - 180) < 1e-7) a.heading = (a.targetHeading + 360) % 360;
     remaining -= dt;

@@ -39,12 +39,14 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
     return () => {resize.disconnect(); window.removeEventListener("resize", place);};
   }, []);
   useEffect(() => {
+    // An outgoing quick menu must not dismiss the message panel that replaced it.
+    if (closing) return;
     const dismiss = (event: PointerEvent) => {if (event.target instanceof Node && !anchor.current?.contains(event.target)) onDismiss?.();};
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") onDismiss?.();};
     document.addEventListener("pointerdown", dismiss, true);
     document.addEventListener("keydown", escape);
     return () => {document.removeEventListener("pointerdown", dismiss, true); document.removeEventListener("keydown", escape);};
-  }, [onDismiss]);
+  }, [onDismiss, closing]);
   const popup = <div ref={anchor} className={styles.contextAnchor} data-closing={closing} inert={closing} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
   const host = scope.current?.closest("main");
   return host ? createPortal(popup, host) : popup;

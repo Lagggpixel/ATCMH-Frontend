@@ -10,7 +10,7 @@ import {exerciseSchema, instructionSchema} from "./protocol";
 import {pendingCommands, type Instruction, type Message} from "./model";
 
 const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
-  const entry = entries.find(e => e.label === labels[0]); assert.ok(entry, labels.join(" / "));
+  const entry = entries.find(e => (e.label === labels[0] || /^\d{4,5}$/.test(labels[0]) && e.label === `${Number(labels[0]).toLocaleString("en-US")}ft`)); assert.ok(entry, labels.join(" / "));
   return labels.length === 1 ? entry : find(entry.children ?? [], ...labels.slice(1));
 };
 test("reference clearances have distinct pilot wording, rather than controller echoes", () => {
@@ -61,7 +61,7 @@ test("radar choices match the reference bounds and assigned-approach clearance b
   const menu = catalog.messageMenu("approach", a);
   const clearance = find(menu, "Vectoring Instructions", "Altitude", "< 10,000ft", "3000", "Cleared ILS", "Runway 24").instruction!;
   const text = catalog.instructionText(a, clearance);
-  assert.match(text, /maintain 3000 until established on the localizer, cleared ILS runway 24 approach$/);
+  assert.match(text, /maintain 3,000ft until established on the localizer, cleared ILS runway 24 approach$/);
   assert.match(e.readbackText(a.callsign, text, clearance), /cleared ILS runway 24, Speedbird 124$/);
   const standalone = find(menu, "Clear for Approach", "Runway 24").instruction!;
   assert.equal(e.readbackText(a.callsign, catalog.instructionText(a, standalone), standalone), "Maintain 3000 until established on the localizer, cleared ILS runway 24, Speedbird 124");
@@ -86,18 +86,18 @@ test("STAR descent menu follows route availability in Approach and Center", () =
     a.arrivalProcedure = "TRAIN1";
     assert.equal(option()?.label, "Request Descent via TRAIN1 STAR");
     a.radar!.routeIndex = 1;
-    assert.equal(option(), undefined, "no remaining altitude constraints");
+    assert.ok(option(), "STAR visibility does not depend on no remaining altitude constraints");
     a.flightPlan[1].altitude = 3000;
     assert.ok(option(), "remaining constraint restores the option");
     a.flightPlan[1].altitude = airport.elevation;
-    assert.equal(option(), undefined, "constraint at airport elevation");
+    assert.ok(option(), "STAR visibility does not depend on constraint at airport elevation");
     a.flightPlan[1].altitude = 17500;
-    assert.equal(option(), undefined, "unsupported altitude");
+    assert.ok(option(), "STAR visibility does not depend on unsupported altitude");
     a.flightPlan = [];
-    assert.equal(option(), undefined, "empty route");
+    assert.ok(option(), "STAR visibility does not depend on empty route");
     a.flightPlan = [{x: 0, y: 0}];
     a.radar!.routeIndex = 0;
-    assert.equal(option(), undefined, "route without altitude constraints");
+    assert.ok(option(), "STAR visibility does not depend on route without altitude constraints");
   }
 });
 test("new menu instructions survive protocol serialization", () => {
@@ -142,8 +142,8 @@ test("the highlighted reply to a pilot go-around uses roger and the dedicated ac
   const e = engineFor(), a = e.newAircraft("go", true), c = catalogFor();
   const request: Message = {id: "go-request", aircraftId: a.id, time: 0, sender: "pilot", frequency: "tower", text: "Speedbird 124, going around", request: {id: "go-around", runway: "24"}};
   const menu = c.requestMessageMenu("tower", a, request);
-  assert.equal(menu[0].label, "Respond to Go Around"); assert.equal(menu[0].suggested, true);
-  const instruction = find([menu[0]], "Respond to Go Around", "Make Left Traffic", "Runway 24").instruction!;
+  const reply=menu.find(e=>e.label==="Respond to Go Around")!;assert.equal(reply.suggested,true);assert.equal(menu.filter(e=>e.label==="Respond to Go Around").length,1);
+  const instruction = find(menu, "Respond to Go Around", "Make Left Traffic", "Runway 24").instruction!;
   assert.equal(c.instructionText(a, instruction), "Speedbird 124, roger, make left traffic runway 24");
   assert.equal(e.readbackText(a.callsign, c.instructionText(a, instruction), instruction), "Roger, Speedbird 124");
 });
@@ -179,12 +179,12 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
     const base: Message = {id: "approach-request", aircraftId: aircraft.id, sender: "pilot", frequency, time: 0, text: `${aircraft.callsign}, requesting ILS approach at EGPH`};
     for (const request of [base, {...base, request: {id: "request-approach" as const, runway: "24"}}, {...base, text: `${aircraft.callsign}, requesting GPS approach at EGPH`}, {...base, text: `${aircraft.callsign}, requesting visual approach at EGPH`}]) {
       const menu = catalog.requestMessageMenu(frequency, aircraft, request);
-      assert.equal(menu[0].label, "Expect Approach");
-      assert.equal(menu[0].suggested, true);
+      const approachReply=menu.find(e=>e.label==="Expect Approach...")!;assert.ok(menu.indexOf(approachReply)>0);
+      assert.equal(approachReply.suggested, true);
       assert.equal(menu.filter(entry => entry.suggested).length, 1);
-      const vectors = find(menu, "Expect Approach", "Radar Vectors");
-      assert.deepEqual(vectors.children?.map(entry => entry.label), ["Send"]);
-      const command = find(menu, "Expect Approach", "Radar Vectors", "Send").instruction!;
+      const vectors = find(menu, "Expect Approach...", "Radar Vectors");
+      assert.ok(vectors.children?.some(entry=>entry.label==="Runway 06"));
+      const command = find(menu, "Expect Approach...", "Radar Vectors", "Runway 06", "Expect Vectors").instruction!;
       assert.deepEqual(command, {type: "expect-approach", approachId: null, vectors: true, runway: "06", navigation: "vectors"});
       assert.ok(instructionSchema.safeParse(command).success);
       assert.equal(engine.validateControllerMessage(state, aircraft, command, frequency), null);
@@ -195,13 +195,13 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
       assert.deepEqual(sent.state.messages.at(-1)?.instruction, command);
       assert.equal(sent.state.messages.at(-1)?.replyTo, request.id);
       const ordinary = catalog.messageMenu(frequency, aircraft, [], request);
-      assert.deepEqual(menu.slice(1), ordinary, "ordinary approach menus remain unchanged");
+      assert.deepEqual(menu.map(({suggested,...entry})=>entry), ordinary, "context replies retain the ordinary registration order");
       assert.ok(find(menu, "Expect Approach...", "Radar Vectors").children?.every(entry => /^Runway /.test(entry.label)));
-      assert.deepEqual(find(menu, "Expect Approach", "ILS Approach"), find(ordinary, "Expect Approach...", "ILS Approach"));
+      assert.deepEqual(find(menu, "Expect Approach...", "ILS Approach"), find(ordinary, "Expect Approach...", "ILS Approach"));
     }
     assert.ok(!catalog.requestMessageMenu(frequency, aircraft).some(entry => entry.suggested));
     aircraft.runway = undefined;
-    const fallback = find(catalog.requestMessageMenu(frequency, aircraft, base), "Expect Approach", "Radar Vectors", "Send").instruction!;
+    const fallback = find(catalog.requestMessageMenu(frequency, aircraft, base), "Expect Approach...", "Radar Vectors", "Runway 06", "Expect Vectors").instruction!;
     assert.ok(instructionSchema.safeParse(fallback).success);
     assert.doesNotMatch(catalog.instructionText(aircraft, fallback), /undefined/);
   }

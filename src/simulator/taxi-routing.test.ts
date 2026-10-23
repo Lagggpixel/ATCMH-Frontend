@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {aStar, buildTaxiGraph, planTaxiRoute, TAXI_ROUTING, type TaxiGraph} from "./taxi-routing";
 import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, predictAircraft, readbackText, restoreExercise} from "./engine";
-import {commandTasks, instructionText, messageMenu} from "./catalog";
+import {commandTasks, instructionText} from "./catalog";
 import {exerciseSchema} from "./protocol";
 import {radioMessageText} from "./radio-audio";
 const gap = (a: {x: number; y: number}, b: {x: number; y: number}) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -38,15 +38,13 @@ test("taxi-to-runway assignment calculates a route and simulated traffic stops s
   assert.equal(assigned.error, undefined); state = assigned.state; state.running = true; state.autoReadback = true;
   for (let i = 0; i < 600; i++) state = advance(state, 1);
   const traffic = state.aircraft[1]; assert.equal(traffic.runway, "06"); assert.equal(traffic.holding, true); assert.equal(traffic.speed, 0);
-  assert.equal(traffic.frequency, "tower"); assert.equal(traffic.contactTowerAtHold, undefined);
+  assert.equal(traffic.frequency, "ground"); assert.equal(traffic.contactTowerAtHold, undefined);
   assert.ok(gap(traffic.position, traffic.taxiPath.at(-1)!) < 1e-7);
 });
 
-test("Taxi to Runway 24 reads back and queues the Tower handover", () => {
+test("runway taxi command and automatic readback retain the requested instruction without channel prefixes", () => {
   let state = initialExercise(); state.autoReadback = true; state.running = true;
-  const a = state.aircraft[1];
-  const command = messageMenu("ground", a).find(entry => entry.label === "Taxi to...")!.children!.find(entry => entry.label === "Runway 24")!.instruction!;
-  assert.deepEqual(command, {type: "taxi", runway: "24", contactTowerWhenReady: true});
+  const a = state.aircraft[1], command = {type: "taxi", destination: "runway", runway: "24"} as const;
   const text = instructionText(a, command);
   assert.equal(text, "Easy 571, taxi to runway 24, contact tower when ready");
   state = applyEnvelope(state, {id: "taxi", time: 1, action: {kind: "command", aircraftId: a.id, command, frequency: "ground", text}}).state;
@@ -56,7 +54,7 @@ test("Taxi to Runway 24 reads back and queues the Tower handover", () => {
   assert.equal(reply.text, "Taxi to runway 24, Easy 571");
   assert.equal(reply.text, readbackText(a.callsign, text, command));
   assert.equal(radioMessageText(reply), "Taxi to Runway two four, Easy 571");
-  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, true);
+  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, undefined);
 });
 
 test("handover waits for the final hold, survives snapshot recovery, and is never predicted early", () => {

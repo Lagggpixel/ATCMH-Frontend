@@ -6,3 +6,4 @@
 .waypoint>label {flex:1 1 120px}
 .waypoint>button {flex:0 0 auto}
 .setup input,.setup select {max-width:100%;min-width:0}
+.waypoint>.check {flex-direction:row;align-items:center;gap:8px}.check input {width:16px!important;min-height:16px!important;flex-shrink:0}

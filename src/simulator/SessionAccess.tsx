@@ -5,13 +5,13 @@ import Link from "next/link";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import {homeLoginHref} from "../platform/auth/login-routing";
 import {canAccessStaffSimulator} from "./feature";
-import type {SessionRole} from "./sessions";
+import type {SessionMode} from "./sessions";
 import styles from "./Sessions.module.css";
 
 export function SessionNotice({title, children, embedded = false}: {title: string; children?: ReactNode; embedded?: boolean}) {
   return <main className={`${styles.notice} ${embedded ? styles.embeddedNotice : ""}`}>{!embedded ? <Link href="/" className={styles.brand}>ATCMH <span>/ Sweatbox</span></Link> : null}<section><h1>{title}</h1>{children}</section><footer><TrainerNotice/></footer></main>;
 }
-export default function SessionAccess({returnTo, children, embedded = false}: {role: SessionRole; returnTo: string; children: (csrf: string, accountId: string) => ReactNode; embedded?: boolean}) {
+export default function SessionAccess({returnTo, children, embedded = false}: {role: SessionMode; returnTo: string; children: (csrf: string, accountId: string) => ReactNode; embedded?: boolean}) {
   const {session, adminUser, loading, error} = usePortalAuth();
   const [csrf, setCsrf] = useState(""), [failure, setFailure] = useState("");
   useEffect(() => {

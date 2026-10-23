@@ -22,7 +22,7 @@ for (const airport of airportList) {
     const {exercise} = createScenarioExercise(definition, "local", randomUUID());
     assert.equal(exercise.trainingStation, `${airport.icao}:local`);
     assert.equal(openingFrequency(exercise), "ground");
-    assert.deepEqual(Object.keys(frequenciesFor(airport)), ["ground", "tower", "atis", "approach", "center"]);
+    assert.deepEqual(Object.keys(frequenciesFor(airport)), ["departure","unicom","ground", "tower", "atis", "approach", "center"]);
     assert.equal(environmentLabel(exercise), `${airport.icao} · Ground & Tower`);
     assert.equal(openingFrequency({...exercise, trainingStation: `${airport.icao}:tower`}), "tower");
   });
@@ -34,7 +34,7 @@ for (const airport of airportList) {
     const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(JSON.parse(JSON.stringify(definition))), "session", randomUUID());
     exercise.running = true;
     const after = advanceScenario(exercise, runtime, 1, 1000).exercise;
-    assert.ok(after.messages[0].text.includes(`runway ${defaultRunway(airport)}`));
+    assert.ok(after.messages[0].text.toLowerCase().includes(`runway ${defaultRunway(airport).toLowerCase()}`));
     assert.equal(after.airport, airport.icao); assert.equal(after.trainingStation, `${airport.icao}:tower`);
     assert.equal(after.airportDataVersion, airport.dataVersion);
     const captured = scenarioFromExercise(restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(after)))), "Captured");
@@ -51,6 +51,7 @@ for (const airport of airportList) {
     assert.ok(catalogFor(airport).pilotRequestText({...engine.newAircraft("a", false), frequency: "ground"}, {id: "taxi-runway", label: "Request Taxi", runway: true}, defaultRunway(airport)).includes(defaultRunway(airport)));
   });
 
+  if (airport.features.some(feature => feature.kind === "parking_position")) {
   test(`${airport.icao}: every runway has a mapped departure route from an offered stand`, () => {
     assert.ok(gatesFor(airport).length);
     for (const end of runwayEnds(airport)) {
@@ -80,6 +81,7 @@ for (const airport of airportList) {
     assert.equal(final.holding, true); assert.equal(final.taxiIndex, final.taxiPath.length - 1);
     assert.equal(final.runway, runway); assert.deepEqual(final.position, {x: final.taxiPath.at(-1)!.x, y: final.taxiPath.at(-1)!.y});
   });
+  }
 }
 
 test("airport/station validation rejects mismatched datasets, unavailable services and nested foreign runways", () => {

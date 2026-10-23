@@ -50,6 +50,7 @@ export function applyTaxiPathEdit(a: Aircraft, expectedPath: TaxiPoint[], edit: 
   if (a.runwayExit) a.runwayExit = updated;
   else {
     a.taxiPath = updated;
+    // Moving the approach to a cleared crossing requires a fresh clearance.
     if (a.releasedHold !== null && edit.index <= a.releasedHold) a.releasedHold = null;
   }
   return;

@@ -1,4 +1,5 @@
 "use client";
+import {IF_TAG_COLORS} from "./if-colors";
 import GroundQuickActions from "./GroundQuickActions";
 import {useState} from "react";
 import {CONTEXT_ACTIONS, contextMenu, type ContextAction} from "./catalog";
@@ -6,10 +7,7 @@ import type {Action, Aircraft, Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
 
 const reminderMinutes = [1, 2, 5, 10, 15, 30, 60];
-const highlightColors = [
-  {label: "Yellow", value: "#f3f5b8"}, {label: "Red", value: "#fc473a"},
-  {label: "Blue", value: "#5593d0"}, {label: "Green", value: "#4bae4f"},
-];
+const highlightColors = IF_TAG_COLORS;
 
 export function AircraftOptionPicker({picker, elapsed, connected, onEdit}: {
   picker: "reminder" | "color"; elapsed: number; connected: boolean; onEdit: (patch: Partial<Aircraft>) => void;

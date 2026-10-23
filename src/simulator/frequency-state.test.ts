@@ -13,16 +13,16 @@ test("frequency requests count aircraft awaiting a response, persist when read a
   let state = initialExercise();
   for (let i = 0; i < 5; i++) state = act(state, {kind: "pilot", aircraftId: "demo-ground", text: `Request ${i}`});
   state = act(state, {kind: "pilot", aircraftId: "demo-air", text: "Request pattern"});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "read", aircraftId: "demo-ground", frequency: "ground"});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Hold position", command: {type: "stop"}});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "pilot", aircraftId: "demo-ground", text: "Changing channel"});
   state = act(state, {kind: "edit", aircraftId: "demo-ground", patch: {frequency: "tower"}});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "remove", aircraftId: "demo-air"});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 0, atis: 0, approach: 0, center: 0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 0, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
 });
 test("read requests stay read through Ground/Tower transfers in both directions", () => {
   for (const [from, to] of [["ground", "tower"], ["tower", "ground"]] as const) {
@@ -57,7 +57,7 @@ test("readbacks, assignments and Unable replies cannot create pending or unread 
     assert.equal(state.aircraft[1].pending, 0);
     assert.equal(state.messages.at(-1)!.read, true);
     assert.equal(pendingPilotMessage(state, "demo-ground", "ground"), undefined);
-    assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 0, atis: 0, approach: 0, center: 0});
+    assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 0, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
     state.messages.at(-1)!.read = false; // Previous releases stored replies as unread.
     assert.equal(unreadMessages(state, "demo-ground"), 0);
     assert.equal(restoreExercise(state).aircraft[1].pending, 0);

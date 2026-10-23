@@ -4,13 +4,13 @@ import {initialExercise} from "./engine";
 import {envelopeSchema, exerciseSchema, motionSchema} from "./protocol";
 import {invalidRequestMessage} from "./request-validation";
 import type {Action, Envelope, Exercise} from "./model";
-import type {SessionRole, SessionSummary} from "./sessions";
+import type {SessionMode, SessionSummary} from "./sessions";
 
 export interface SharedSessionView {quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
 const INITIAL: SharedSessionView = {quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
-  if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status});
+  if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status, retryAt: value.retryAt});
   return value;
 }
 /** Both roles receive the same ordered server frames and use Scope's smooth prediction. */
@@ -24,11 +24,19 @@ export class SharedSession {
   private manageEvent: ((eventId: string, decision: "run" | "retry" | "skip") => void) | null = null;
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
   private send: ((action: Action, path?: string[]) => Promise<boolean>) | null = null;
-  constructor(private role: SessionRole, private id: string, private csrf: string) {}
+  private controlsEnabled = false;
+  constructor(private role: SessionMode, private id: string, private csrf: string) {}
+  private canControl() {return this.role === "staff" || this.role === "spectator" && this.controlsEnabled;}
+  setControlsEnabled = (enabled: boolean) => {
+    if (this.role !== "spectator") return;
+    this.controlsEnabled = enabled && this.view.connected;
+    this.update({owner: this.canControl(), error: null});
+  };
   subscribe = (listener: () => void) => {this.listeners.add(listener); return () => {this.listeners.delete(listener);};};
   getSnapshot = () => this.view;
   getServerSnapshot = () => INITIAL;
   private update(patch: Partial<SharedSessionView>) {
+    if (patch.connected === false && this.role === "spectator") this.controlsEnabled = false;
     if (patch.exercise) this.authoritativeExercise = patch.exercise;
     const saved = this.authoritativeExercise;
     for (const [id, pending] of this.pendingTagAngles) {
@@ -44,6 +52,7 @@ export class SharedSession {
   }
   clearError = () => this.update({error: null});
   dispatch = (action: Action, path?: string[]) => {
+    if (this.role === "spectator" && !this.controlsEnabled) return Promise.resolve(false);
     if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return Promise.resolve(false);}
     return this.send(action, path);
   };
@@ -74,6 +83,7 @@ export class SharedSession {
       let sent = false;
       commands = commands.then(async () => {
         for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
+          if (this.role === "spectator" && !this.controlsEnabled) return;
           try {
             const result = await post("commands", {envelope}); sent = true;
             if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
@@ -95,8 +105,8 @@ export class SharedSession {
       });
     };
     this.manageEvent = (eventId, decision) => {
-      if (!this.view.connected || this.role !== "staff") return;
-      commands = commands.then(async () => {try {await post("events", {eventId, decision});} catch (reason) {if (!stopped) this.update({error: (reason as Error).message});}});
+      if (!this.view.connected || !this.canControl()) return;
+      commands = commands.then(async () => {if (!this.canControl()) return; try {await post("events", {eventId, decision});} catch (reason) {if (!stopped) this.update({error: (reason as Error).message});}});
     };
     const frame = (data: string) => {
       const value = JSON.parse(data);
@@ -105,16 +115,16 @@ export class SharedSession {
         const exercise = exerciseSchema.parse(value.exercise);
         if (exercise.id !== this.id) throw new Error("Received a frame for another session.");
         if (exercise.revision < this.authoritativeExercise.revision) return;
-        this.update({exercise, scenario: value.scenario, connected: true, owner: this.role === "staff", session: value.session, status: "Session connected", fatal: null});
+        this.update({exercise, scenario: value.scenario, connected: true, owner: this.canControl(), session: value.session, status: "Session connected", fatal: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);
         if (motion.id === this.id && motion.revision >= this.view.exercise.revision)
-          this.update({exercise: {...this.view.exercise, ...motion}, session: value.session, connected: true, owner: this.role === "staff", status: "Session connected"});
+          this.update({exercise: {...this.view.exercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
       } else if (value.type === "presence") this.update({session: value.session});
     };
     const connect = async () => {
       try {
-        await post("join"); claimed = true;
+        await post("join"); claimed = this.role !== "spectator";
         if (stopped) {release(); return;}
         const response = await fetch(`${base}/stream`, {headers: {"x-simulator-role": this.role, "x-simulator-seat": token}, cache: "no-store", signal: controller.signal});
         if (!response.ok) await sessionJson(response);

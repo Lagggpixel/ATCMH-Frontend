@@ -3,6 +3,7 @@ import test from "node:test";
 import {initialExercise} from "./engine";
 import type {Exercise, Message} from "./model";
 import {RadioAudio, aviationSpeech, browserSpeechOutput, type SpeechOutput, type VoiceSettings} from "./radio-audio";
+import {RADIO_INITIALISMS, radioDisplayText, radioInitialismSpeech} from "./radio-text";
 
 const message = (id: string, frequency: Message["frequency"] = "ground", sender: Message["sender"] = "controller"): Message => ({id, frequency, sender, aircraftId: "demo-ground", time: 1, text: `Easy 571, taxi to Runway 24, hold short (${id})`});
 function harness(scope: "all" | "ground" | "tower" = "all") {
@@ -26,11 +27,26 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
 test("radio defaults on, loads device voices and is safe during server rendering", () => {
   const h = harness();
   assert.equal(h.player.getSnapshot().enabled, true);
+  assert.equal(h.player.getSnapshot().rate, 1.15);
   assert.equal(h.player.getSnapshot().voices[0].id, "local");
   assert.equal(h.played.length, 0); // Mounting does not produce an announcement.
   h.observe([message("fresh")]); assert.equal(h.played.length, 1);
   assert.equal(browserSpeechOutput(), null);
   h.close();
+});
+
+test("reviewed drafts debounce without transmitting, and cancel on replacement, mute or pause", t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const h = harness(), drafts: string[] = [];
+  h.output.prepareDraft = text => {drafts.push(text);};
+  const cleanup = h.player.prepareDraft("old draft");
+  t.mock.timers.tick(400); cleanup();
+  h.player.prepareDraft("Fly heading 90"); t.mock.timers.tick(499); assert.equal(drafts.length, 0);
+  t.mock.timers.tick(1); assert.deepEqual(drafts, ["Fly heading zero nine zero"]); assert.equal(h.played.length, 0);
+  h.player.prepareDraft("muted draft"); h.player.setEnabled(false); t.mock.timers.tick(500); assert.equal(drafts.length, 1);
+  h.enable(); h.player.prepareDraft("paused draft"); h.player.observe(initialExercise(), true, "all", true);
+  t.mock.timers.tick(500); assert.equal(drafts.length, 1); assert.equal(h.played.length, 0);
+  h.close(); t.mock.timers.reset();
 });
 test("new controller and pilot transmissions play in order once across repeated snapshots", () => {
   const h = harness(); h.enable();
@@ -182,6 +198,16 @@ test("runway designators and radio frequencies are spoken digit by digit", () =>
   assert.equal(aviationSpeech("Runway 06, Runway 24R, contact Tower on 118.70"), "Runway zero six, Runway two four right, contact Tower on one one eight decimal seven zero");
 });
 
+test("ILS and GPS display compactly while both current and historical messages speak their letters", () => {
+  const legacy = "Japan Air 514, requesting I-L-S approach. Expect G-P-S approach runway 06.";
+  const display = "Japan Air 514, requesting ILS approach. Expect GPS approach runway 06.";
+  assert.equal(radioDisplayText(legacy), display);
+  assert.equal(radioDisplayText(display), display);
+  assert.equal(aviationSpeech(display, ["Japan Air 514"]), "Japan Air five one four, requesting I-L-S approach. Expect G-P-S approach Runway zero six.");
+  assert.equal(aviationSpeech(legacy, ["Japan Air 514"]), aviationSpeech(display, ["Japan Air 514"]));
+  assert.equal(radioDisplayText("G-ABCD, visual approach. X-ray."), "G-ABCD, visual approach. X-ray.");
+});
+
 test("staff requests received behind the pause screen are queued and spoken once on resume", () => {
   const h = harness("ground"); h.enable();
   const state = {...initialExercise(), pausedByStaff: true};
@@ -195,10 +221,27 @@ test("staff requests received behind the pause screen are queued and spoken once
   h.played[0].end(); h.player.observe(received, true, "ground", false); assert.equal(h.played.length, 1); h.close();
 });
 
-test("airline callsign numbers are spoken individually without changing other numbers", () => {
-  assert.equal(aviationSpeech("Speedbird 104, climb to 3000 feet. Wind 240 at 10. QNH 1001.", ["Speedbird 104"]), "Speedbird one zero four, climb to three thousand feet. Wind 240 at 10. Q-N-H 1001.");
+test("airline callsigns and radio quantities keep their correct spoken formats", () => {
+  assert.equal(aviationSpeech("Speedbird 104, climb to 3000 feet. Wind 240 at 10. QNH 1001.", ["Speedbird 104"]), "Speedbird one zero four, climb to three thousand feet. Wind two four zero at one zero. Q-N-H one zero zero one.");
   assert.equal(aviationSpeech("American 001, follow Delta 64. American 0010.", ["American 001", "Delta 64"]), "American zero zero one, follow Delta six four. American 0010.");
   assert.equal(aviationSpeech("Air Test (104), ready.", ["Air Test (104)"]), "Air Test (one zero four), ready.");
+});
+
+test("alphanumeric flight identifiers retain the airline name and separate digits from phonetic suffixes", () => {
+  assert.equal(aviationSpeech("Ryanair 7VK, follow Ryanair 4RP.", ["Ryanair 7VK", "Ryanair 4RP"]), "Ryanair seven Victor Kilo, follow Ryanair four Romeo Papa.");
+  assert.equal(aviationSpeech("Easy A12B Heavy, ready.", ["Easy A12B Heavy"]), "Easy Alpha one two Bravo Heavy, ready.");
+  assert.equal(aviationSpeech("KLM 001, Japan Air 514.", ["KLM 001", "Japan Air 514"]), "K-L-M zero zero one, Japan Air five one four.");
+});
+
+test("known initialisms share display and spoken spelling without spelling ordinary words", () => {
+  for (const acronym of RADIO_INITIALISMS) {
+    const spoken = acronym.split("").join("-");
+    assert.equal(aviationSpeech(acronym), spoken);
+    assert.equal(aviationSpeech(spoken), spoken);
+    assert.equal(radioDisplayText(spoken), acronym);
+    assert.equal(radioInitialismSpeech(acronym.toLowerCase(), " "), acronym.split("").join(" "));
+  }
+  assert.equal(aviationSpeech("ATIS, visual, gulfstream, G-ABCD."), "ATIS, visual, gulfstream, G-ABCD.");
 });
 
 test("registration callsigns use phonetic letters and individual digits", () => {

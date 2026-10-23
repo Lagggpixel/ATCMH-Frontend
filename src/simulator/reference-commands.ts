@@ -1,3 +1,5 @@
+import {trueToMagnetic, magneticToTrue} from "./magnetic-headings";
+import {acceleration} from "./aircraft-performance";
 import type {Aircraft, Airport, Altitude, Frequency, Instruction, Point, RadarEnvironment} from "./model";
 import {DEFAULTS} from "./model";
 import {airportCallsign, defaultRunway, frequenciesFor} from "./airports";
@@ -11,12 +13,14 @@ export interface ReferenceInstruction {
   type: "atc"; action: typeof REFERENCE_ACTIONS[number]; variant?: string;
   runway?: string; hand?: "left" | "right"; altitude?: Altitude; index?: number;
   expedite?: boolean; contactGround?: boolean; lineup?: boolean; frequency?: Frequency;
-  text?: string; name?: string;
+  text?: string; name?: string; waypointType?:string; point?:Point; inbound?:number;
 }
 export interface AtcManeuver {
   kind: "circle" | "hold"; hand: "left" | "right"; remaining: number;
   heading: number; previousMode: Aircraft["mode"]; previousLeg: Aircraft["leg"];
   altitude: number; center?: Point; inbound?: number;
+  published?: boolean; fixName?: string; maxSpeed?: number; legSeconds?: number;
+  entryTrack?: number;
   phase?: "entry" | "turn-outbound" | "outbound" | "turn-inbound" | "inbound"; timer?: number; turnRemaining?: number;
 }
 export const altitudeWords = (a: Altitude) => a.unit === "feet" ? `${a.value} feet` : `flight level ${a.value}`;
@@ -25,8 +29,10 @@ const strip = (callsign: string, text: string) => (text.startsWith(`${callsign},
 export function referenceControllerText(a: Aircraft, c: ReferenceInstruction, airport: Airport, environment: RadarEnvironment): string {
   const runway = c.runway ?? a.runway ?? defaultRunway(airport), destination = c.name ?? airportCallsign(airport);
   const altitude = c.altitude ? altitudeLabel(c.altitude) : "", facility = frequenciesFor(airport)[c.frequency ?? a.frequency ?? "tower"];
-  const point = c.index === undefined ? undefined : a.flightPlan[c.index];
-  const waypoint = point ? environment.fixes.find(f => Math.hypot(f.point.x - point.x, f.point.y - point.y) < .001)?.id ?? `Waypoint ${c.index! + 1}` : undefined;
+  const point = c.point ?? (c.index === undefined ? undefined : a.flightPlan[c.index]);
+  const waypoint = c.name ?? (point ? ("name" in point ? point.name as string : undefined) ?? environment.fixes.find(f => Math.hypot(f.point.x - point.x, f.point.y - point.y) < .001)?.id ?? `Waypoint ${c.index! + 1}` : undefined);
+  const waypointType=c.waypointType ?? (point && "waypointType" in point ? point.waypointType as string : undefined) ?? (point && environment.fixes.find(f=>Math.hypot(f.point.x-point.x,f.point.y-point.y)<.001)?.waypointType);
+  const waypointLabel=waypointType?`${waypoint} ${waypointType}`:waypoint;
   switch (c.action) {
     case "progressive": return ({expect: "expect progressive taxi instructions", left: "turn left next taxiway", right: "turn right next taxiway", straight: "continue straight ahead", reverse: "make 180", discretion: "continue taxi at your discretion", follow: "follow aircraft ahead", crossed: "you were already instructed to cross the runway", inbound: "continue inbound", descend: "descend to pattern altitude"} as Record<string, string>)[c.variant!] ?? "";
     case "cancel-takeoff": return "cancel takeoff clearance, hold position";
@@ -34,10 +40,10 @@ export function referenceControllerText(a: Aircraft, c: ReferenceInstruction, ai
     case "circle": return `make a ${c.hand} 360${c.variant === "spacing" ? " for spacing" : ""}`;
     case "hold": {
       const speed = altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265;
-      if (!point) return `hold present position at ${altitude}, ${c.hand} turns, do not exceed ${speed} knots`;
-      const course = (Math.atan2(point.x - a.position.x, point.y - a.position.y) * 180 / Math.PI + 540) % 360;
-      const direction = ["north", "north east", "east", "south east", "south", "south west", "west", "north west"][Math.round(course / 45) % 8];
-      return `cleared direct ${waypoint}, hold ${direction} of ${waypoint}, ${c.hand} turns, maintain ${altitude}, do not exceed ${speed} knots`;
+      if (!point) return `hold present position at ${altitude}, ${c.hand === "left" ? "Left" : "Right"} Turns, do not exceed ${speed} knots`;
+      const course = ((c.inbound ?? trueToMagnetic(courseTo(a.position,point),airport))+180)%360;
+      const direction = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"][Math.round(course / 45) % 8];
+      return `cleared direct ${waypointLabel}, hold ${direction} of ${waypointLabel}, ${c.hand === "left" ? "Left" : "Right"} Turns, maintain ${altitude}, do not exceed ${speed} knots`;
     }
     case "exit-hold": return "exit the hold, continue as filed";
     case "navigation": return c.variant === "own" ? "resume own navigation" : "continue as filed";
@@ -112,7 +118,8 @@ export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, 
   if (["cancel-takeoff", "back-taxi"].includes(c.action) && !ground) return "This instruction requires ground traffic.";
   if (["circle", "hold", "navigation", "exit-hold"].includes(c.action) && ground) return "This instruction requires airborne traffic.";
   if (c.action === "hold" && (!c.altitude || altitudeFeet(c.altitude) <= airport.elevation)) return "Choose a holding altitude above airport elevation.";
-  if (c.index !== undefined && !a.flightPlan[c.index]) return "The selected flight-plan waypoint is no longer available.";
+  if(c.action==="hold" && c.index!==undefined && c.point && a.flightPlan[c.index] && Math.hypot(c.point.x-a.flightPlan[c.index].x,c.point.y-a.flightPlan[c.index].y)>.000001)return "The selected holding waypoint has changed. Select it again.";
+  if (c.index !== undefined && !a.flightPlan[c.index] && !(c.action === "hold" && c.point)) return "The selected flight-plan waypoint is no longer available.";
   if (c.action === "back-taxi") return backTaxiRoute(airport, a, c.runway ?? a.runway ?? defaultRunway(airport), !!c.contactGround).error ?? null;
   if (c.action === "progressive" && ["left", "right", "straight", "reverse", "discretion", "follow"].includes(c.variant!)) {
     if (!ground) return "This instruction requires ground traffic.";
@@ -120,7 +127,7 @@ export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, 
     return progressiveRoute(airport, a, c.variant!, traffic).error ?? null;
   }
   if (c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") {
-    if (!a.radar || !a.arrivalProcedure || !a.flightPlan.slice(a.radar?.routeIndex ?? 0).some(p => p.altitude !== undefined)) return "Configure the arrival route and its altitude constraints before approving STAR descent.";
+    if (!a.arrivalProcedure) return "Choose an arrival STAR before approving STAR descent.";
   }
   if ((c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") && a.flightPlan.some(p => p.altitude !== undefined && (p.altitude <= airport.elevation || !validAltitude(p.altitude >= 18000 ? {unit: "flight-level", value: p.altitude / 100} : {unit: "feet", value: p.altitude})))) return "Choose listed STAR altitudes above airport elevation.";
   if (c.action === "diversion" && c.variant !== "deny" && !a.diversionDestination) return "Choose a diversion destination in aircraft navigation setup.";
@@ -138,16 +145,16 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
     delete a.arrivalExit; delete a.runwayExit; delete a.contactTowerAtHold;
   }
   if (c.action === "circle" || c.action === "hold") {
-    const point = c.index === undefined ? {...a.position} : a.flightPlan[c.index];
-    if (c.action === "hold") {a.targetSpeed = Math.min(a.speed, altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265); a.speedMode = "manual";}
+    const point = c.point ?? (c.index === undefined ? {...a.position} : a.flightPlan[c.index]);
+    if (c.action === "hold") {a.targetSpeed = Math.min(a.speed, altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265); if (!a.radar) a.speedMode = "manual";}
     a.atcManeuver = {kind: c.action, hand: c.hand ?? "right", remaining: 360, heading: a.heading, previousMode: a.radar ? "heading" : a.mode, previousLeg: a.leg, altitude: c.altitude ? altitudeFeet(c.altitude) : a.altitude,
-      ...(c.action === "hold" ? {center: {...point}, inbound: c.index === undefined ? a.heading : courseTo(a.position, point), phase: c.index === undefined ? "turn-outbound" : "entry", timer: 0, turnRemaining: 180} : {})};
+      ...(c.action === "hold" ? {center: {...point}, inbound: c.inbound===undefined ? c.index === undefined ? a.heading : courseTo(a.position, point) : magneticToTrue(c.inbound,airport), ...(c.name?{fixName:c.name}:{}), phase: c.index === undefined ? "turn-outbound" : "entry", timer: 0, turnRemaining: 180} : {})};
     if (a.radar) {a.mode = "heading"; if ("departure" in a.radar) delete a.radar.departure; if ("patternJoin" in a.radar) delete a.radar.patternJoin; a.radar.navigation = "heading"; a.radar.cleared = undefined; a.radar.captured = false; a.radar.localizer = false; if ("glideslope" in a.radar) a.radar.glideslope = false;}
   }
   if (c.action === "exit-hold" || c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
   if (["flight-following", "expect-unable"].includes(c.action) && !a.flightPlan.length) assignDestination(a, a.destination ?? {name: airportCallsign(airport), point: {x: 0, y: 0}}, false);
   if (c.action === "diversion" && c.variant !== "deny" && a.diversionDestination) assignDestination(a, a.diversionDestination, c.variant === "vectors");
-  if (c.action === "airport-in-sight") a.reportAirportInSight = true;
+  if (c.action === "airport-in-sight") {a.reportAirportInSight = true; delete a.airportSighting;}
   if (c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") {resumeRoute(a); a.starDescent = true;}
   if (c.action === "progressive") {
     if (["left", "right", "straight", "reverse", "discretion", "follow"].includes(c.variant!)) {
@@ -155,7 +162,7 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
       if (!route.path) return;
       a.taxiPath = [{...a.position}, ...route.path]; a.taxiIndex = 1; a.releasedHold = null; a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed;
       a.followGroundId = route.leader; delete a.giveWay; delete a.groundYield; delete a.contactTowerAtHold;
-    } // Already cleared to cross is a reminder, not a new clearance.
+    } // "Already cleared to cross" is a reminder, not a new movement clearance.
     else if (c.variant === "descend") {a.mode = "pattern"; a.extended = false;}
   }
 }
@@ -163,7 +170,7 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
 export function moveReference(a: Aircraft, dt: number): boolean {
   const m = a.atcManeuver;
   if (!m || !a.active) return false;
-  if (m.kind === "hold") a.targetSpeed = Math.min(a.targetSpeed, m.altitude <= 6000 ? 200 : m.altitude <= 14000 ? 230 : 265);
+  if (m.kind === "hold") a.targetSpeed = Math.min(a.targetSpeed, m.maxSpeed ?? Infinity, m.altitude <= 6000 ? 200 : m.altitude <= 14000 ? 230 : 265);
   const sign = m.hand === "right" ? 1 : -1;
   if (m.kind === "circle") a.targetHeading = (a.heading + sign * Math.min(90, Math.max(0, m.remaining)) + 360) % 360;
   else {
@@ -171,16 +178,29 @@ export function moveReference(a: Aircraft, dt: number): boolean {
     if (m.phase === "entry" || m.phase === "inbound") {
       const delta = {x: a.position.x - m.center.x, y: a.position.y - m.center.y};
       const passed = delta.x * Math.sin(m.inbound * Math.PI / 180) + delta.y * Math.cos(m.inbound * Math.PI / 180) >= 0;
-      if (Math.hypot(delta.x, delta.y) <= Math.max(.08, a.speed / 3600 * 2) || m.phase === "inbound" && passed) {m.phase = "turn-outbound"; m.turnRemaining = 180;}
+      if (Math.hypot(delta.x, delta.y) <= Math.max(.08, a.speed / 3600 * 2) || m.phase === "inbound" && passed) {
+        if (m.published && m.phase === "entry") {
+          const entryAngle = sign * courseDifference(m.inbound, a.heading);
+          // The OCK STAR joins from the west: a teardrop keeps its entry on the holding side.
+          if (entryAngle > 110) {m.entryTrack = (m.inbound + 180 - sign * 30 + 360) % 360;}
+        }
+        m.phase = "turn-outbound";
+        m.turnRemaining = m.published ? ((m.entryTrack ?? m.inbound + 180) - a.heading) * sign % 360 + 360 : 180;
+        if (m.published) m.turnRemaining %= 360;
+      }
       else a.targetHeading = courseTo(a.position, m.center);
     }
     if (m.phase === "turn-outbound" || m.phase === "turn-inbound") {
       m.turnRemaining ??= 180;
       a.targetHeading = (a.heading + sign * Math.min(90, Math.max(0, m.turnRemaining)) + 360) % 360;
     } else if (m.phase === "outbound") {
-      a.targetHeading = (m.inbound + 180) % 360;
+      a.targetHeading = m.entryTrack ?? (m.inbound + 180) % 360;
       m.timer = (m.timer ?? 0) + dt;
-      if (m.timer >= holdingLegSeconds(m.altitude)) {m.phase = "turn-inbound"; m.turnRemaining = 180;}
+      if (m.timer >= (m.legSeconds ?? holdingLegSeconds(m.altitude))) {
+        m.phase = "turn-inbound";
+        m.turnRemaining = m.published ? ((m.inbound - a.heading) * sign % 360 + 360) % 360 : 180;
+        delete m.entryTrack;
+      }
     }
   }
   const previous = a.heading;
@@ -191,7 +211,7 @@ export function moveReference(a: Aircraft, dt: number): boolean {
     m.turnRemaining = (m.turnRemaining ?? 180) - turned;
     if (m.turnRemaining <= .05 && Math.abs(a.bankAngle ?? 0) < .1) {m.phase = m.phase === "turn-outbound" ? "outbound" : "inbound"; m.timer = 0;}
   }
-  a.speed += Math.sign(a.targetSpeed - a.speed) * Math.min(Math.abs(a.targetSpeed - a.speed), DEFAULTS.acceleration * dt);
+  a.speed += Math.sign(a.targetSpeed - a.speed) * Math.min(Math.abs(a.targetSpeed - a.speed), acceleration(a) * dt);
   const stride = a.speed / 3600 * dt;
   a.position = {x: a.position.x + Math.sin(a.heading * Math.PI / 180) * stride, y: a.position.y + Math.cos(a.heading * Math.PI / 180) * stride};
   moveAltitude(a, m.altitude, dt);

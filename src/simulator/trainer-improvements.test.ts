@@ -51,7 +51,7 @@ test("inbound and runway-change requests use current location, altitude and publ
   const a = {...engine.newAircraft("a", true), callsign: "N714KG", position: {x: Math.SQRT1_2 * 5, y: -Math.SQRT1_2 * 5}, altitude: 1500};
   const state = stateOf([a]); state.publishedDraft = {...state.atis, letter: "X"};
   const request = catalog.resolvePilotRequest({requestId: "inbound-option"})!;
-  assert.equal(catalog.pilotRequestText(a, request, "31R", false, {exercise: state}), "N714KG is 5 nautical miles to the south east of KDAL at 1500 feet, inbound for touch and go with information X");
+  assert.equal(catalog.pilotRequestText(a, request, "31R", false, {exercise: state}), "Dallas Tower, N714KG is 5 miles to the southeast at 1500 feet, inbound for Touch and Go with information X, requesting Runway 31R");
   const sent = act(state, {kind: "pilot", aircraftId: a.id, text: "stale preview", request: {id: "inbound-option", runway: "31R"}});
   assert.equal(sent.messages.at(-1)!.text, catalog.pilotRequestText(a, request, "31R", false, {exercise: state}));
   assert.equal(catalog.pilotRequestText(a, request, "31R").includes("information"), false);
@@ -147,8 +147,8 @@ test("colliding approved pushbacks disappear together on any frequency, with dur
   const create = (id: string, x: number, heading: number): Aircraft => ({...engine.newAircraft(id, false), mode: "pushback", position: {x, y: 0}, heading, targetHeading: heading, speed: 3, targetSpeed: 3, pushback: {path: [{x: -x, y: 0}, {x: -x * 2, y: 0}], index: 0}});
   const before = stateOf([create("a", -.04, 270), {...create("b", .04, 90), frequency: "tower"}]);
   let state = before;
-  for (let t = 0; t < 60 && state.aircraft.length; t++) state = advance(state, 1);
-  assert.equal(state.aircraft.length, 0); assert.equal(state.collisions?.length, 1);
+  for (let t = 0; t < 60 && state.aircraft.some(a=>a.active); t++) state = advance(state, 1);
+  assert.equal(state.aircraft.filter(a=>a.active).length, 0); assert.equal(state.collisions?.length, 1);
   assert.deepEqual(state.collisions[0].aircraft.map(a => a.id), ["a", "b"]);
   assert.equal(motionSchema.parse(state).collisions?.length, 1);
   assert.deepEqual(applyReplayDelta(before, replayDelta(before, state)), state);
@@ -206,8 +206,9 @@ test("conflicting real KDAL gate pushbacks collide only when their mapped paths 
 
 test("session service rejects learner bulk/report actions and marks collision frames as content", async () => {
   const store = new MemoryStore(); let now = 1000;
-  const service = new SessionService(store, () => now), staff = {accountId: "mentor", staff: true}, learner = {accountId: "learner", staff: false};
+  const service = new SessionService(store, () => now), staff = {accountId: "mentor", staff: true}, learner = {accountId: "learner", staff: false, learnerSession:""};
   const created = await service.create(staff, "Synthetic controls", stateOf([engine.newAircraft("a", true)]));
+  learner.learnerSession=created.id;
   await service.join(staff, created.id, "staff", "staff-seat"); await service.join(learner, created.id, "mentee", "learner-seat");
   for (const action of [{kind: "all-full-stop"}, {kind: "report-position", aircraftId: "a"}] as Action[]) {
     await assert.rejects(service.dispatch(learner, created.id, "mentee", "learner-seat", {id: randomUUID(), time: now, action}), /unavailable/);
@@ -217,7 +218,8 @@ test("session service rejects learner bulk/report actions and marks collision fr
   assert.equal(record.exercise.aircraft[0].landing, "full-stop"); assert.equal(record.exercise.messages.length, 1);
   record.exercise.aircraft = ["a", "b"].map((id, i) => ({...engine.newAircraft(id, false), mode: "pushback", position: {x: i * .03, y: 0}, heading: i ? 90 : 270, targetHeading: i ? 90 : 270, speed: 3, targetSpeed: 3, pushback: {path: [{x: i ? -.1 : .1, y: 0}, {x: i ? -.2 : .2, y: 0}], index: 0}}));
   const before = record.contentRevision;
-  for (let t = 0; t < 30 && store.records.get(created.id)!.exercise.aircraft.length; t++) {now += 1000; await service.frame(staff, created.id, "staff", "staff-seat");}
+  for (let t = 0; t < 30 && store.records.get(created.id)!.exercise.aircraft.some(a=>a.active); t++) {now += 1000; await service.join(staff, created.id, "staff", "staff-seat");await service.frame(staff, created.id, "staff", "staff-seat");}
+  await service.join(learner, created.id, "mentee", "learner-seat");
   const frame = await service.frame(learner, created.id, "mentee", "learner-seat");
   assert.equal(frame.exercise.aircraft.length, 0); assert.equal(frame.exercise.collisions?.length, 1);
   assert.ok(frame.contentRevision > before, "stream and replay must receive the collision as a content update");

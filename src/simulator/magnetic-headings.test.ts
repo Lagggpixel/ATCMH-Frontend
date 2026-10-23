@@ -70,7 +70,9 @@ for (const station of ["approach", "center"] as const) for (const airport of air
     }
   });
   test(`${airport.icao} ${station}: automatic MA retains its configured true course`, () => {
-    const f = fixture(airport.icao, station), p = f.env.approaches[0], g = approachGeometry(airport, p.runway);
+    const f = fixture(airport.icao, station), p = f.env.approaches.find(p => p.type === "ils" && p.glideslope !== false);
+    if (!p) return; // A localizer-only runway cannot miss a nonexistent glideslope.
+    const g = approachGeometry(airport, p.runway);
     f.a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8};
     f.a.heading = f.a.targetHeading = g.heading; f.a.altitude = airport.elevation + 10000;
     assignRadar(f.a, {type: "expect-approach", approachId: p.id}, airport, f.env);
@@ -84,10 +86,10 @@ for (const station of ["approach", "center"] as const) for (const airport of air
 
 test("radio turn directions compare true geometry but speak the assigned magnetic heading", () => {
   const f = fixture(); f.a.heading = magneticToTrue(350, f.airport);
-  assert.equal(turnTransmission(f.a, 10, f.airport), "turn right heading zero one zero");
+  assert.equal(turnTransmission(f.a, 10, f.airport), "turn right heading 010");
   f.a.heading = magneticToTrue(10, f.airport);
-  assert.equal(turnTransmission(f.a, 350, f.airport), "turn left heading three five zero");
-  assert.match(radarInstructionText(f.a, {type: "vector", heading: 350}, f.env, f.airport)!, /three five zero/);
+  assert.equal(turnTransmission(f.a, 350, f.airport), "turn left heading 350");
+  assert.match(radarInstructionText(f.a, {type: "vector", heading: 350}, f.env, f.airport)!, /heading 350/);
 });
 
 for (const station of ["approach", "center"] as const) test(`${station}: pilot MA accepts ordinary and MA replies, including after restore and another vector`, () => {

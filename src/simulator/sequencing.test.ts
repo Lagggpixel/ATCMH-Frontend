@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {advance, applyEnvelope, autoReadbacks, followedAircraft, headingProjection, initialExercise, newAircraft, patternTargets, restoreExercise, runwayGeometry, sequenceStatus} from "./engine";
+import {advance, autoReadbacks, applyEnvelope, followedAircraft, headingProjection, initialExercise, newAircraft, patternTargets, restoreExercise, runwayGeometry, sequenceStatus} from "./engine";
 import {DEFAULTS, patternLegLabel, pendingCommands, type Action, type Aircraft, type Exercise, type Instruction} from "./model";
 import {exerciseSchema, envelopeSchema} from "./protocol";
 
@@ -62,24 +62,6 @@ test("a combined pattern entry and sequence follows the selected runway when ass
   assert.equal(state.aircraft[0].sequence?.followingId, "other");
   assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "other");
 });
-test("pattern entry after a transition restores its follow link on manual and automatic assignment", () => {
-  for (const automatic of [false, true]) {
-    let state = traffic(); state.aircraft = state.aircraft.slice(0, 2);
-    state.aircraft[1].position = patternTargets(state.aircraft[1]).base;
-    state = act(state, {kind: "maneuver", aircraftId: "follower", command: {type: "transition", altitude: 2500}});
-    assert.equal(state.aircraft[0].leavingCircuit, true);
-    state.autoReadback = automatic;
-    state = send(state, {type: "pattern", leg: "downwind", hand: "right", runway: "24", sequence: {number: 2, traffic: "Final"}});
-    if (automatic) {
-      state.running = true;
-      state = autoReadbacks(advance(state, 1.5), ++serial, () => `automatic-seq-${serial}`);
-    } else state = act(state, {kind: "pilot", aircraftId: "follower", replyTo: state.messages.at(-1)!.id, assign: true, text: "Entering right downwind 24, number 2"});
-    assert.equal(state.aircraft[0].leavingCircuit, undefined);
-    assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "first", `Automatic ${automatic}`);
-    const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
-    assert.equal(followedAircraft(restored.aircraft[0], restored.aircraft)?.id, "first");
-  }
-});
 test("sequence expires after own runway changes and when preceding traffic changes runway, leaves or is removed", () => {
   const queued = send(traffic(), sequence());
   for (const action of [
@@ -94,6 +76,9 @@ test("every completed circuit, touch-and-go and go-around requires a fresh seque
   for (const landing of [false, true]) {
     const state = send(traffic(), sequence(3, "Left Base")); const a = state.aircraft[0], g = runwayGeometry();
     Object.assign(a, {leg: "final", position: {...g.threshold}, heading: g.heading, clearedToLand: landing, altitude: landing ? 136 : 1636});
+    // This test isolates circuit clearance expiry; keep the other arrival clear
+    // of the threshold now that physical contact generates a crash.
+    state.aircraft[1].position = {...patternTargets(state.aircraft[1]).downwind};
     state.running = true;
     const next = advance(state, .1);
     assert.equal(next.aircraft[0].sequence, undefined); assert.equal(next.aircraft[0].circuit, 1);
@@ -124,4 +109,23 @@ test("heading projection is straight, white-line geometry for current heading an
   const a = {...newAircraft("a", true), position: {x: 1, y: 2}, heading: 90, targetHeading: 180, speed: 120} as Aircraft;
   assert.deepEqual(headingProjection(a), [a.position, {x: 2, y: 2}]);
   assert.equal(DEFAULTS.radarSeconds, 30);
+});
+
+test("pattern entry after a transition restores its follow link on manual and automatic assignment", () => {
+  for (const automatic of [false, true]) {
+    let state = traffic(); state.aircraft = state.aircraft.slice(0, 2);
+    state.aircraft[1].position = patternTargets(state.aircraft[1]).base;
+    state = act(state, {kind: "maneuver", aircraftId: "follower", command: {type: "transition", altitude: 2500}});
+    assert.equal(state.aircraft[0].leavingCircuit, true);
+    state.autoReadback = automatic;
+    state = send(state, {type: "pattern", leg: "downwind", hand: "right", runway: "24", sequence: {number: 2, traffic: "Final"}});
+    if (automatic) {
+      state.running = true;
+      state = autoReadbacks(advance(state, 1.5), ++serial, () => `automatic-seq-${serial}`);
+    } else state = act(state, {kind: "pilot", aircraftId: "follower", replyTo: state.messages.at(-1)!.id, assign: true, text: "Entering right downwind 24, number 2"});
+    assert.equal(state.aircraft[0].leavingCircuit, undefined);
+    assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "first", `Automatic ${automatic}`);
+    const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    assert.equal(followedAircraft(restored.aircraft[0], restored.aircraft)?.id, "first");
+  }
 });
