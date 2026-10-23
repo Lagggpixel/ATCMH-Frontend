@@ -5,7 +5,7 @@ import styles from "./LandingOutcomeControl.module.css";
 
 export type LandingChange = (value: Aircraft["landing"]) => void | boolean | Promise<void | boolean>;
 
-export default function LandingOutcomeControl({value, onChange}: {value: Aircraft["landing"]; onChange: LandingChange}) {
+export default function LandingOutcomeControl({value, onChange, compact = false}: {value: Aircraft["landing"]; onChange: LandingChange; compact?: boolean}) {
   const name = useId();
   const [request, setRequest] = useState<{value: Aircraft["landing"]; waiting: boolean} | null>(null);
   const [error, setError] = useState("");
@@ -22,6 +22,7 @@ export default function LandingOutcomeControl({value, onChange}: {value: Aircraf
       setRequest(null); setError(reason instanceof Error ? reason.message : "Landing intention was not saved. Try again.");
     }
   };
+  if (compact) return <label>Next landing<select aria-label="Landing intention" disabled={pending} aria-busy={pending} value={pending ? request!.value : value} onChange={event => void change(event.target.value as Aircraft["landing"])}><option value="full-stop">Full stop</option><option value="touch-and-go">Touch and go</option></select>{error || pending ? <small role={error ? "alert" : "status"}>{error || "Saving landing intention…"}</small> : null}</label>;
   return <fieldset className={styles.control} disabled={pending} aria-busy={pending}>
     <legend>Landing intention</legend>
     <div className={styles.choices}>
