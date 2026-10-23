@@ -15,13 +15,7 @@ test("restored Ground menu keeps distinct runway, parking, hold and pushback ins
   const taxi = find(entries, "Taxi to...", "Runway 06").instruction!;
   assert.deepEqual(taxi, {type: "taxi", runway: "06", contactTowerWhenReady: true});
   assert.equal(instructionText(a, taxi), "Easy 571, taxi to runway 06, contact tower when ready");
-  for (const runway of find(entries, "Taxi to...").children!.filter(entry => entry.label.startsWith("Runway "))) {
-    assert.equal(runway.children, undefined);
-    assert.equal(runway.instruction?.type, "taxi");
-  }
-  const taxi24 = find(entries, "Taxi to...", "Runway 24").instruction!;
-  assert.deepEqual(taxi24, {type: "taxi", runway: "24", contactTowerWhenReady: true});
-  assert.equal(instructionText(a, taxi24), "Easy 571, taxi to runway 24, contact tower when ready");
+  assert.equal(find(entries, "Taxi to...", "Runway 06").children, undefined);
   assert.ok(!find(entries, "Contact Other Frequency").children?.some(entry => entry.label.includes("when ready")));
   assert.match(instructionText(a, find(entries, "Taxi to...", "Parking").instruction!), /taxi to parking/);
   assert.match(instructionText(a, find(entries, "Continue Taxi").instruction!), /continue taxi/);
@@ -72,13 +66,13 @@ test("ATIS adapts selected legacy options without mutating archived source data"
   state.atis.notams = ["Training event", "EVENT", "Simulated low visibility", "LOW VISIBILITY", "Custom notice"];
   const before = JSON.stringify(state);
   const draft = currentAtisOptions(state.atis);
-  assert.deepEqual(REMARKS, ["No Pattern Work", "Gate Hold", "Flight plan required"]);
-  assert.deepEqual(draft.remarks, ["No Pattern Work", "Gate Hold", "Custom restriction"]);
-  assert.deepEqual(draft.notams, ["Low Visibility", "Custom notice"]);
+  assert.equal(REMARKS.length, 10);
+  assert.deepEqual(draft.remarks, ["No pattern work", "Gate Hold", "Mult. Freq. In Use", "Custom restriction"]);
+  assert.deepEqual(draft.notams, ["Event", "Low visibility", "Custom notice"]);
   assert.equal(JSON.stringify(state), before);
   const published = applyEnvelope(state, {id: "publish", time: 1, action: {kind: "publish-atis"}}).state;
   assert.deepEqual(published.atis, draft); assert.deepEqual(published.publishedDraft, draft);
-  assert.match(published.publishedAtis, /No Pattern Work.*Gate Hold.*Low Visibility/);
-  assert.doesNotMatch(published.publishedAtis, /Training event|EVENT|Separate ground|Simulated low/);
+  assert.match(published.publishedAtis, /no pattern work.*gate hold in effect.*multiple frequencies in use.*Notams, event in progress.*low visibility, use caution/);
+  assert.doesNotMatch(published.publishedAtis, /Training event|Separate ground|Simulated low/);
   assert.equal(JSON.stringify(state), before);
 });

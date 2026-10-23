@@ -21,8 +21,8 @@ test("bundled airport contains OSM features, attributed metadata and real thresh
   assert.equal(exerciseSchema.safeParse(initialExercise()).success, true);
 });
 test("only current frequency determines default aircraft color", () => {
-  const a = newAircraft("a", true); assert.equal(aircraftColor(a, "tower"), "#80dce8"); assert.equal(aircraftColor(a, "ground"), "#808080");
-  a.frequency = null; assert.equal(aircraftColor(a, "tower"), "#808080"); a.color = "#ffffff"; assert.equal(aircraftColor(a, "tower"), "#ffffff");
+  const a = newAircraft("a", true); assert.equal(aircraftColor(a, "tower"), "#87cefa"); assert.equal(aircraftColor(a, "ground"), "#808080");
+  a.frequency = null; assert.equal(aircraftColor(a, "tower"), "#808080"); a.color = "#ffffff"; assert.equal(aircraftColor(a, "tower"), "#808080");
 });
 test("runway strip uses assigned, last interacted, then placeholder", () => {
   const a = newAircraft("a", true); a.lastRunway = "06"; assert.equal(stripRunway(a), "24"); a.runway = null; assert.equal(stripRunway(a), "06"); a.lastRunway = null; assert.equal(stripRunway(a), "----");
@@ -103,19 +103,19 @@ test("queued commands and plain readbacks do not change aircraft instructions", 
 });
 test("ATIS draft changes do not publish until explicit publication", () => {
   let state = initialExercise(); state = act(state, {kind: "atis", draft: {...state.atis, letter: "BRAVO", remarks: ["NO PATTERN WORK"]}});
-  assert.equal(state.publishedAtis, "ATIS UNAVAILABLE"); state = act(state, {kind: "publish-atis"}); assert.match(state.publishedAtis, /BRAVO/); assert.match(state.publishedAtis, /NO PATTERN WORK/);
+  assert.equal(state.publishedAtis, "ATIS UNAVAILABLE"); state = act(state, {kind: "publish-atis"}); assert.match(state.publishedAtis, /BRAVO/); assert.match(state.publishedAtis, /no pattern work/);
   state = act(state, {kind: "atis", draft: {...state.atis, letter: "CHARLIE"}}); assert.match(state.publishedAtis, /BRAVO/);
 });
 test("training tasks retain crossing and ground commands on tower, with typed off-frequency context", () => {
   const a = newAircraft("a", true);
   assert.ok(!contextMenu("ground", a).includes("messages")); assert.ok(contextMenu("tower", a).includes("messages"));
-  a.frequency = "ground"; a.mode = "parked";
+  a.frequency = "ground"; a.mode = "parked"; a.altitude=AIRPORT.elevation;
   for (const frequency of ["ground", "tower"] as const) {
     const tasks = commandTasks(frequency, a);
     for (const id of ["taxi", "continue", "parking", "cross", "hold-short", "stop", "pushback"]) assert.ok(tasks.some(t => t.id === id));
     assert.ok(!tasks.some(t => t.command.type === "pattern"));
   }
-  a.mode = "pattern"; assert.ok(commandTasks("tower", a).some(t => t.id === "pattern"));
+  a.mode = "pattern"; a.altitude=AIRPORT.elevation+1500; assert.ok(commandTasks("tower", a).some(t => t.id === "pattern"));
   assert.deepEqual(commandTasks("atis", a), []);
 });
 
@@ -175,13 +175,13 @@ test("pilot requests carry their chosen runway without changing the assigned run
   const a = newAircraft("a", true);
   const request = pilotRequests(a).find(r => r.id === "runway-change")!;
   assert.equal(pilotRequestText(a, request, "06"), "Speedbird 124, requesting change to runway 06"); assert.equal(a.runway, "24");
-  a.frequency = "ground"; a.mode = "parked";
-  assert.equal(pilotRequestText(a, pilotRequests(a)[1], "06"), "Speedbird 124, ready to taxi to runway 06");
-  assert.equal(pilotRequestText(a, pilotRequests(a)[0], "06"), "Speedbird 124, ready for pushback");
+  a.frequency = "ground"; a.mode = "parked"; a.altitude=AIRPORT.elevation;
+  assert.equal(pilotRequestText(a, pilotRequests(a).find(r=>r.id==="taxi-runway")!, "06"), "Edinburgh Ground, Speedbird 124 ready to taxi to runway 06");
+  assert.equal(pilotRequestText(a, pilotRequests(a).find(r=>r.id==="pushback")!, "06"), "Speedbird 124, ready for pushback");
 });
 test("unified staff scope shows traffic on both local frequencies in aqua", () => {
   const a = newAircraft("a", true);
-  assert.equal(aircraftColor(a, "all"), "#80dce8"); a.frequency = "ground"; assert.equal(aircraftColor(a, "all"), "#80dce8");
+  assert.equal(aircraftColor(a, "all"), "#87cefa"); a.frequency = "ground"; assert.equal(aircraftColor(a, "all"), "#87cefa");
   a.frequency = null; assert.equal(aircraftColor(a, "all"), "#808080");
   assert.equal(menteeActionAllowed({kind: "pilot", aircraftId: "a", text: "Readback", replyTo: "c", assign: true}), false);
 });

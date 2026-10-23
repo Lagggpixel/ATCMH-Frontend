@@ -3,7 +3,7 @@ import {radioEffect} from "./radio-effect";
 import {compactSpeechPauses} from "./speech-pcm";
 
 // Version the asset path when changing the model, runtime or worker protocol.
-export const KOKORO_ASSETS = "/sweatbox/speech/kokoro-v1";
+export const KOKORO_ASSETS = "/simulator/speech/kokoro-v1";
 export const KOKORO_VOICES: RadioVoice[] = [
   {id: "kokoro:bf_emma", name: "Kokoro Emma · British female", language: "en-GB", local: true},
   {id: "kokoro:bm_george", name: "Kokoro George · British male", language: "en-GB", local: true},

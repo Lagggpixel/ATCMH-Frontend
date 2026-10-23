@@ -1,4 +1,5 @@
-import type {Aircraft, RadarSpeedInstruction} from "./model";
+import {performanceFor, densityRatio} from "./aircraft-performance";
+import {radarControlFrequency, type Aircraft, type RadarSpeedInstruction} from "./model";
 
 /** Simplified trainer envelopes, not certified performance data. Unknown types
  * retain instructor control rather than assuming an airliner envelope. */
@@ -29,31 +30,33 @@ export function validRadarSpeed(c: RadarSpeedInstruction) {
 export const machKnots = (mach: number, altitude: number) => mach * 661.4786 * Math.sqrt(Math.max(216.65, 288.15 - .0065 * altitude * .3048) / 288.15);
 /** Training profiles in the existing single-speed motion model, not certified V-speeds. */
 export function radarPerformance(a: Aircraft) {
+  const selected=performanceFor(a);
+  if(selected) return {min:selected.min,max:selected.max,inbound:radarControlFrequency(a)==="center" ? selected.cruise*Math.sqrt(densityRatio(a.altitude)) : selected.inbound,climb:selected.climbSpeed,rotation:selected.rotation,landing:selected.landing};
   const limits = aircraftSpeedLimits(a.type);
   const light = !!limits && limits.min <= 70, prop = !!limits && limits.min === 90;
   const min = limits?.min ?? 135;
-  const max = limits ? a.radar?.station === "center" && a.altitude >= 24000 && limits.mach ? Math.max(limits.max, machKnots(limits.mach, a.altitude)) : limits.max : 600;
-  return {min, max, inbound: light ? min === 60 ? 120 : 150 : prop ? 200 : a.radar?.station === "center" ? 450 : 250,
+  const max = limits ? radarControlFrequency(a) === "center" && a.altitude >= 24000 && limits.mach ? Math.max(limits.max, machKnots(limits.mach, a.altitude)) : limits.max : 600;
+  return {min, max, inbound: light ? min === 60 ? 120 : 150 : prop ? 200 : radarControlFrequency(a) === "center" ? 450 : 250,
     climb: light ? min === 60 ? 90 : 110 : prop ? 160 : 220, rotation: light ? min : prop ? 100 : Math.max(140, min), landing: min};
 }
 export function automaticRadarTarget(a: Aircraft, approachDistance?: number) {
   const p = radarPerformance(a), r = a.radar;
   const inbound = a.speedTargets?.inbound ?? r?.inboundSpeed ?? p.inbound;
   let target = inbound;
-  if (r?.navigation === "missed") target = a.speedTargets?.["upwind-downwind"] ?? p.climb;
+  if (r?.navigation === "missed" || r?.departure) target = a.speedTargets?.["upwind-downwind"] ?? p.climb;
   else if (r?.navigation === "route" && r.routeSpeed !== undefined) target = r.routeSpeed;
   else if (approachDistance !== undefined) {
     const nm = Math.max(0, approachDistance - 1e-8);
     target = nm <= 3 ? a.speedTargets?.vref ?? p.landing : nm <= 5 ? a.speedTargets?.final ?? Math.min(inbound, 160)
       : nm <= 10 ? a.speedTargets?.final ?? Math.min(inbound, 180) : nm <= 15 ? Math.min(inbound, 220) : nm <= 25 ? Math.min(inbound, 250) : inbound;
-  } else if (r?.navigation === "route" && a.starDescent) target = a.flightPlan[r.routeIndex]?.speed ?? r.routeSpeed ?? inbound;
+  } else if (r?.navigation === "route" && (a.starDescent || a.followRouteAltitudes)) target = a.flightPlan[r.routeIndex]?.speed ?? r.routeSpeed ?? inbound;
   return Math.max(p.min, Math.min(p.max, target));
 }
 const digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const spokenMach = (value: number) => `Mach point ${value.toFixed(2).slice(2).split("").map(digit => digits[Number(digit)]).join(" ")}`;
 export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
   if (c.mode === "maintain") {
-    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
+    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude)*(a.performanceProfile ? Math.sqrt(densityRatio(a.altitude)):1) : c.value!;
     const value = c.unit === "mach" ? spokenMach(c.value!) : `${c.value} knots`;
     if (c.relation === "minimum") return `maintain ${value} or greater`;
     if (c.relation === "maximum") return `do not exceed ${value}`;
@@ -64,7 +67,7 @@ export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
 }
 export function assignRadarSpeed(a: Aircraft, c: RadarSpeedInstruction) {
   if (c.mode === "present") {if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed; return;}
-  if (c.mode === "discretion") {if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar ? automaticRadarTarget(a) : 250; return;}
+  if (c.mode === "discretion") {if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar || performanceFor(a) ? automaticRadarTarget(a) : 250; return;}
   if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed;
   updateRadarSpeed(a, []);
 }
@@ -76,18 +79,18 @@ export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance
     if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar ? automaticRadarTarget(a, finalDistance) : finalDistance <= 2 ? 135 : finalDistance <= 5 ? 160 : 180; return;
   }
   if (c.mode === "maintain") {
-    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude) : c.value!;
+    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude)*(a.performanceProfile ? Math.sqrt(densityRatio(a.altitude)):1) : c.value!;
     a.targetSpeed = c.relation === "minimum" ? Math.max(automaticTarget, target) : c.relation === "maximum" ? Math.min(automaticTarget, target) : target;
   } else if (c.mode === "approach") a.targetSpeed = c.value!;
-  else if (c.mode === "slowest") a.targetSpeed = a.radar ? radarPerformance(a).min : 135;
-  else if (c.mode === "best-forward") a.targetSpeed = a.radar ? Math.min(radarPerformance(a).max, a.radar?.station === "center" ? 450 : 340) : 340;
+  else if (c.mode === "slowest") a.targetSpeed = a.radar || performanceFor(a) ? radarPerformance(a).min : 135;
+  else if (c.mode === "best-forward") a.targetSpeed = a.radar || performanceFor(a) ? Math.min(radarPerformance(a).max, radarControlFrequency(a) === "center" ? 450 : 340) : 340;
   else if (c.mode === "follow") {
     const radians = a.heading * Math.PI / 180;
     const ahead = traffic.filter(other => other.id !== a.id && other.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(other.mode) && other.frequency === a.frequency && Math.abs(other.altitude - a.altitude) <= 1000 && Math.cos((other.heading - a.heading) * Math.PI / 180) > Math.SQRT1_2).map(other => {
       const dx = other.position.x - a.position.x, dy = other.position.y - a.position.y;
       return {other, along: dx * Math.sin(radians) + dy * Math.cos(radians), lateral: Math.abs(dx * Math.cos(radians) - dy * Math.sin(radians))};
     }).filter(item => item.along > 0 && item.along <= 20 && item.lateral <= 2).sort((a, b) => a.along - b.along)[0];
-    const limits = a.radar ? radarPerformance(a) : {min: 135, max: 340};
+    const limits = a.radar || performanceFor(a) ? radarPerformance(a) : {min: 135, max: 340};
     a.targetSpeed = Math.max(limits.min, Math.min(limits.max, ahead ? ahead.other.speed + (ahead.along - 3) * 10 : automaticTarget));
   }
 }

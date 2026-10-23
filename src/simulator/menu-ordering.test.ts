@@ -19,7 +19,7 @@ function act(state: Exercise, action: Action) {
 test("strip runway leads operational menus at every airport while pattern and taxi choices keep their order", () => {
   for (const airport of airportList) {
     const engine = engineFor({airport: airport.icao}), menu = catalogFor(airport).messageMenu;
-    const ids = runwayEnds(airport).map(end => end.id), before = JSON.stringify(airport);
+    const ids = runwayEnds(airport).slice().sort((l,r)=>Math.abs((l.heading-240+540)%360-180)-Math.abs((r.heading-240+540)%360-180)).map(end => end.id), before = JSON.stringify(airport);
     for (const runway of ids) {
       const ground = {...engine.newAircraft("ground", false), runway};
       const check = (entries: MenuEntry[], normal = ids) => {
@@ -63,7 +63,7 @@ test("all runway-assignment instructions feed menu ordering; pending, crossing a
   }
   let state = engine.initialExercise(); const id = state.aircraft[1].id;
   state = act(state, {kind: "command", aircraftId: id, frequency: "ground", text: "Taxi to runway 06", command: {type: "taxi", runway: "06"}});
-  assert.equal(find(menu("ground", state.aircraft[1]), "Cross Runway...").children![0].label, "Runway 24");
+  assert.equal(find(menu("ground", state.aircraft[1]), "Cross Runway...").children![0].label, "Runway 06");
   state = act(state, {kind: "pilot", aircraftId: id, replyTo: state.messages.at(-1)!.id, text: "Taxi to runway 06", assign: true});
   for (const type of ["cross", "hold-short"] as const) {
     const copy = structuredClone(state), a = copy.aircraft[1];

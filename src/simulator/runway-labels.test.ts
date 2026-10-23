@@ -26,16 +26,16 @@ test("runway label text and borders follow the wind in the displayed METAR", asy
   try {
     weather.windDirection = 240;
     assert.match(simulatedMetar(dallas), /Wind 240° at 10KT/);
-    check(labels(dallas), {"13L": "#e8b257", "13R": "#e8b257", "31L": "#e8b257", "31R": "#e8b257"});
-    check(labels(getAirport({airport: "EGPH"})), {"06": "#ff3434", "24": "#91e98d"});
+    check(labels(dallas), {"13L": "#ffa500", "13R": "#ffa500", "31L": "#ffa500", "31R": "#ffa500"});
+    check(labels(getAirport({airport: "EGPH"})), {"06": "#ff0000", "24": "#90ee90"});
 
     weather.windDirection = 135.6;
     assert.match(simulatedMetar(dallas), /Wind 135\.6° at 10KT/);
-    check(labels(dallas), {"13L": "#91e98d", "13R": "#91e98d", "31L": "#ff3434", "31R": "#ff3434"});
+    check(labels(dallas), {"13L": "#90ee90", "13R": "#90ee90", "31L": "#ff0000", "31R": "#ff0000"});
 
     weather.windDirection = 315.6;
     assert.match(simulatedMetar(dallas), /Wind 315\.6° at 10KT/);
-    check(labels(dallas), {"13L": "#ff3434", "13R": "#ff3434", "31L": "#91e98d", "31R": "#91e98d"});
+    check(labels(dallas), {"13L": "#ff0000", "13R": "#ff0000", "31L": "#90ee90", "31R": "#90ee90"});
   } finally {
     weather.windDirection = original;
     if (originalCssLoader) require.extensions[".css"] = originalCssLoader;

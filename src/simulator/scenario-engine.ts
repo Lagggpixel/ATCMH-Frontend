@@ -1,3 +1,4 @@
+import {pilotRequestSchema} from "./protocol";
 import {reserveCallsigns} from "./callsigns";
 import {engineFor, distance} from "./engine";
 import {getAirport} from "./airports";
@@ -54,11 +55,11 @@ export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntim
         else {
           const request = resolvePilotRequest(spec);
           const legacyCircuitEntry = request?.id === "pattern-entry" && aircraft.frequency === "tower";
-          if (!request || !legacyCircuitEntry && !pilotRequests(aircraft).some(r => r.id === request.id) || !["ground", "tower", "approach", "center"].includes(aircraft.frequency ?? "")) throw new Error("This pilot request is unavailable on the aircraft's current frequency.");
+          if (!request || !legacyCircuitEntry && !pilotRequests(aircraft).some(r => r.id === request.id) || !["ground", "tower", "approach", "center","departure","unicom"].includes(aircraft.frequency ?? "")) throw new Error("This pilot request is unavailable on the aircraft's current frequency.");
           const groundRequest = request.phase === "ground";
           if (groundRequest && !["parked", "taxi", "lineup", "rollout"].includes(aircraft.mode)) throw new Error("This request requires ground traffic.");
           if (request.phase === "airborne" && !["heading", "pattern", "go-around"].includes(aircraft.mode)) throw new Error("Inbound requests require airborne traffic.");
-          action = {kind: "pilot", aircraftId, text: pilotRequestText(aircraft, request, spec.runway, spec.remainingInPattern, {...spec, exercise: next}), request: {id: request.id, runway: spec.runway, direction: spec.direction, includeRunway: spec.includeRunway, remainingInPattern: spec.remainingInPattern}};
+          action = {kind: "pilot", aircraftId, text: pilotRequestText(aircraft, request, spec.runway, spec.remainingInPattern, {...spec, exercise: next}), request: pilotRequestSchema.parse({...spec,id:request.id})};
         }
       }
       const result = applyEnvelope(next, {id: `${runtime.generation}:${event.id}:${i}`, time: now, action});

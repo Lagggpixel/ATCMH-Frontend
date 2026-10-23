@@ -1,8 +1,8 @@
-import {REQUEST_IDS} from "./catalog";
 import {standPoints} from "./stand-geometry";
+import {REQUEST_IDS} from "./catalog";
 import {z} from "zod";
-import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema} from "./protocol";
-import {radarEnvironmentFor} from "./radar";
+import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema, weatherSchema, pilotRequestSchema} from "./protocol";
+import {radarEnvironmentFor, radarTrafficStateError} from "./radar";
 import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
 import {buildTaxiGraph} from "./taxi-routing";
@@ -12,7 +12,7 @@ const key = z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/);
 const seconds = z.number().finite().min(0).max(86400);
 const point = z.object({x: z.number().finite().min(-2000).max(2000), y: z.number().finite().min(-2000).max(2000)});
 
-export const seedSchema = aircraftSchema.omit({id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, contactTowerAtHold: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
+export const seedSchema = aircraftSchema.omit({airportSighting: true, reportAirportInSight: true, id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, contactTowerAtHold: true, towerCheckInPending: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
   .refine(seed => seed.mode !== "pushback", "Start aircraft parked and schedule a pushback manoeuvre instead.");
 
 export const conditionSchema = z.discriminatedUnion("type", [
@@ -28,7 +28,7 @@ export const conditionSchema = z.discriminatedUnion("type", [
 
 export const eventActionSchema = z.discriminatedUnion("type", [
   z.object({type: z.literal("spawn"), aircraftKey: key}),
-  z.object({type: z.literal("request"), aircraftKey: key, requestId: z.enum(REQUEST_IDS).optional(), label: z.string().min(1).max(80).optional(), runway: runwaySchema, direction: z.enum(["north", "east", "south", "west"]).optional(), includeRunway: z.boolean().optional(), remainingInPattern: z.boolean().optional()}),
+  z.object({...pilotRequestSchema.omit({id:true,runway:true}).shape,type: z.literal("request"), aircraftKey: key, requestId: z.enum(REQUEST_IDS).optional(), label: z.string().min(1).max(80).optional(), runway: runwaySchema, direction: z.enum(["north", "east", "south", "west"]).optional(), includeRunway: z.boolean().optional(), remainingInPattern: z.boolean().optional()}),
   z.object({type: z.literal("transmission"), aircraftKey: key, text: z.string().trim().min(1).max(1000)}),
   z.object({type: z.literal("maneuver"), aircraftKey: key, instruction: instructionSchema}),
   z.object({type: z.literal("remove"), aircraftKey: key}),
@@ -42,7 +42,7 @@ export const eventSchema = z.object({id: key, title: z.string().trim().min(1).ma
 ]), actions: z.array(eventActionSchema).min(1).max(10)});
 
 export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
-  radarEnvironment: radarEnvironmentSchema.optional(),
+  weather: weatherSchema.optional(), radarEnvironment: radarEnvironmentSchema.optional(),
   title: z.string().trim().min(1).max(80), instructorNotes: z.string().max(6000),
   aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(50), events: z.array(eventSchema).max(200),
 }).superRefine((value, ctx) => {
@@ -59,8 +59,8 @@ export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.l
   if (trainingMode(value) !== "local") {
     const environment = value.radarEnvironment ?? radarEnvironmentFor(airport);
     for (const a of value.aircraft) {
-      if (isGroundSpawn(a.seed, airport) || a.seed.mode !== "heading" || !a.seed.radar || a.seed.radar.station !== trainingMode(value)) error(`${a.seed.callsign}: radar exercises require airborne radar traffic.`);
-      for (const id of [a.seed.radar?.expected, a.seed.radar?.cleared]) if (id && !environment.approaches.some(p => p.id === id)) error(`${a.seed.callsign}: approach is missing from the training environment.`);
+      if (!a.seed.radar || a.seed.radar.station !== trainingMode(value) || radarTrafficStateError(a.seed, airport)) error(`${a.seed.callsign}: radar exercises require airborne or takeoff traffic.`);
+      for (const id of [a.seed.radar?.expected, a.seed.radar?.cleared, a.seed.radar?.requestedApproach]) if (id && !environment.approaches.some(p => p.id === id)) error(`${a.seed.callsign}: approach is missing from the training environment.`);
     }
   }
   else if (value.aircraft.some(a => a.seed.radar)) error("Ground & Tower traffic cannot use radar guidance.");
@@ -123,7 +123,7 @@ export const scenarioRuntimeSchema = z.object({definition: storedScenarioSchema,
   events: z.record(z.object({status: z.enum(["scheduled", "waiting", "completed", "blocked", "skipped"]), conditionAt: z.number().finite().min(0).max(1e12).optional(), completedAt: z.number().finite().min(0).max(1e12).optional(), error: z.string().optional()})),
   started: z.boolean(), finished: z.boolean(), feedback: z.string().max(6000).optional(), attemptId: z.string().uuid().optional(), scenarioId: z.string().uuid().optional(), revision: z.number().int().positive().optional()});
 
-export interface ScenarioRecord {id: string; ownerId: string; ownerName?: string; version: number; publishedRevision: number; updatedAt: number; draft: ScenarioDefinition; published?: {title: string} & AirportSelection}
+export interface ScenarioRecord {id: string; ownerId: string; ownerName?: string; isTemplate?: boolean; canEdit?: boolean; canOverride?: boolean; canCreateTemplate?: boolean; version: number; publishedRevision: number; updatedAt: number; draft: ScenarioDefinition; published?: {title: string} & AirportSelection}
 
 export interface ScenarioStaffView {title: string; instructorNotes: string; attemptId?: string; finished: boolean; events: (ScenarioEvent & EventState)[]}
 
@@ -134,7 +134,7 @@ export function seedFromAircraft(a: Aircraft) {return seedSchema.parse(a);}
 
 export function scenarioFromExercise(exercise: Exercise, title: string): ScenarioDefinition {
   const airport = getAirport(exercise);
-  return {schema: 2, ...airportSelection(airport), trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
+  return {schema: 2, ...airportSelection(airport), trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.weather ? {weather:structuredClone(exercise.weather)}:{}), ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
 }
 
 export const blankScenario = (selection: AirportSelection = {}): ScenarioDefinition => scenarioFromExercise({...engineFor(selection).initialExercise(), ...(selection.trainingStation ? {trainingStation: selection.trainingStation} : {}), aircraft: []}, "Untitled scenario");
@@ -163,11 +163,11 @@ export function gatesFor(airport: Airport) {
 }
 export const scenarioGates = gatesFor(defaultAirport);
 
-export const isGroundSpawn = (seed: z.infer<typeof seedSchema>, airport: Airport = defaultAirport) => ["parked", "taxi", "lineup", "rollout"].includes(seed.mode) || seed.altitude <= airport.elevation;
+export const isGroundSpawn = (seed: z.infer<typeof seedSchema>, airport: Airport = defaultAirport) => !seed.radar && (["parked", "taxi", "lineup", "rollout"].includes(seed.mode) || seed.altitude <= airport.elevation);
 /** Legacy surface positions become gate spawns without invalidating saved schema-1 scenarios. */
 
 export function normalizeScenarioAircraft(spec: ScenarioDefinition["aircraft"][number], AIRPORT: Airport = defaultAirport): ScenarioDefinition["aircraft"][number] {
-  if (spec.seed.radar) return {...spec, gateId: undefined, seed: {...spec.seed, radar: {...spec.seed.radar, transferred: spec.seed.frequency !== spec.seed.radar.station}}};
+  if (spec.seed.radar) return {...spec, gateId: undefined, seed: {...spec.seed, radar: {...spec.seed.radar, transferred: spec.seed.frequency !== (spec.seed.radar.returningToApproach ? "approach" : spec.seed.radar.station)}}};
   if (!isGroundSpawn(spec.seed, AIRPORT)) return {...spec, gateId: undefined};
   const scenarioGates = gatesFor(AIRPORT);
   if (!scenarioGates.length) throw new Error("No mapped gates are available at this airport.");
@@ -188,8 +188,8 @@ export const normalizeScenario = (definition: ScenarioDefinition): ScenarioDefin
 export function standPlacement(id: string, reverse = false, AIRPORT: Airport = defaultAirport): {position: Point; heading: number} | undefined {
   const stand = AIRPORT.features.find(f => f.id === id && f.kind === "parking_position");
   if (!stand || stand.points.length < 2) return;
-  const points = standPoints(AIRPORT, stand);
-  const [a, b] = reverse ? [points.at(-1)!, points[0]] : [points[0], points.at(-1)!];
+  const points=standPoints(AIRPORT,stand);
+  const [a,b]=reverse?[points.at(-1)!,points[0]]:[points[0],points.at(-1)!];
   return {position: {...b}, heading: (Math.atan2(b.x - a.x, b.y - a.y) * 180 / Math.PI + 360) % 360};
 }
 

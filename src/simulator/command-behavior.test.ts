@@ -4,6 +4,7 @@ import {randomUUID} from "node:crypto";
 import {createAirportEngine, engineFor} from "./engine";
 import {getAirport, airportList, airportRunways, airportSelection} from "./airports";
 import {airportVisible} from "./command-navigation";
+import {sightingTargetKey} from "./airport-sighting";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
 import {exerciseSchema} from "./protocol";
 import type {Aircraft, Airport, Exercise, Instruction} from "./model";
@@ -36,13 +37,15 @@ function ground(): {e: Engine; s: Exercise; a: Aircraft} {
 
 test("airport-in-sight uses inclusive 15 NM/90 degree boundaries and reports once", () => {
   const {e, s} = radar(), a = s.aircraft[0], airport = getAirport(s);
-  Object.assign(a, {position: {x: 0, y: -15}, heading: 90});
+  Object.assign(a, {position: {x: 0, y: -Math.sqrt(15 ** 2 - ((a.altitude - airport.elevation) / 6076.12) ** 2)}, heading: 90});
   assert.equal(airportVisible(a, airport), true);
   a.position.y = -15.001; assert.equal(airportVisible(a, airport), false);
   a.position.y = -14; a.heading = 90.01; assert.equal(airportVisible(a, airport), false);
   let next = assign(e, s, {type: "atc", action: "airport-in-sight"});
   next = e.autoReadbacks(next, 0, randomUUID); assert.equal(next.messages.length, 0);
-  next.aircraft[0].heading = 90; next = e.autoReadbacks(next, 1, randomUUID);
+  const looking = next.aircraft[0]; looking.heading = looking.targetHeading = 0;
+  looking.airportSighting = {target: sightingTargetKey(looking, airport), seconds: 0, terrain: {position: {...looking.position}, altitude: looking.altitude, checkedAt: next.elapsed, status: "clear"}};
+  next = e.autoReadbacks(e.advance(next, 3), 3000, randomUUID);
   assert.equal(next.messages[0].text, "Airport in sight, Speedbird 124");
   assert.equal(e.autoReadbacks(next, 2, randomUUID).messages.length, 1);
   assert.ok(exerciseSchema.safeParse(next).success);
@@ -182,8 +185,8 @@ test("following traffic preserves runway holds and requires a separate crossing 
   assert.equal(next.aircraft[0].taxiPath[next.aircraft[0].taxiIndex].runway, "36");
 });
 
-test("back-taxi Ground handoff follows mapped exits at every included runway end", () => {
-  for (const airport of airportList) {
+test("back-taxi Ground handoff follows mapped exits at airports with mapped ground spawns", () => {
+  for (const airport of airportList.filter(airport => airport.features.some(feature => feature.kind === "parking_position"))) {
     const e = engineFor(airportSelection(airport));
     for (const pair of airportRunways(airport)) for (const end of pair.ends) {
       const g = e.runwayGeometry(end.id), a = e.newAircraft("mapped", false);

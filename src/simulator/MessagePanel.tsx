@@ -8,6 +8,7 @@ import {getAirport, defaultAirport, frequenciesFor} from "./airports";
 import type {Instruction} from "./model";
 import RadarVectorComposer from "./RadarVectorComposer";
 import {quickCommandAction, visibleQuickCommands, type QuickCommand} from "./quick-commands";
+import {radioDisplayText} from "./radio-text";
 import styles from "./Simulator.module.css";
 
 export const MessageLog = memo(function MessageLog({airport = defaultAirport, messages: allMessages, frequency, aircraftId, title = "Message log", showUnableReasons = false, compact = false}: {airport?: Airport; messages: Exercise["messages"]; frequency: Frequency | "all"; aircraftId?: string; title?: string; showUnableReasons?: boolean; compact?: boolean}) {
@@ -25,12 +26,21 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
     const scroll = () => {setFollowing(element.scrollHeight - element.clientHeight - element.scrollTop <= 2);};
     // Stop before the browser scrolls, including when a message arrives in the same frame.
     const wheel = (event: WheelEvent) => {if (event.deltaY < 0 && element.scrollHeight > element.clientHeight) setFollowing(false);};
+    let touchY: number | undefined;
+    const touchStart = (event: TouchEvent) => {touchY = event.touches[0]?.clientY;};
+    const touchMove = (event: TouchEvent) => {
+      const nextY = event.touches[0]?.clientY;
+      if (touchY !== undefined && nextY !== undefined && nextY > touchY && element.scrollHeight > element.clientHeight) setFollowing(false);
+      touchY = nextY;
+    };
     const key = (event: KeyboardEvent) => {
       if (["ArrowUp", "PageUp", "Home"].includes(event.key) && element.scrollHeight > element.clientHeight) setFollowing(false);
       else if (event.key === "End") setFollowing(true);
     };
     element.addEventListener("scroll", scroll, {passive: true});
     element.addEventListener("wheel", wheel, {passive: true});
+    element.addEventListener("touchstart", touchStart, {passive: true});
+    element.addEventListener("touchmove", touchMove, {passive: true});
     element.addEventListener("keydown", key);
     const resize = new ResizeObserver(follow);
     resize.observe(element);
@@ -40,6 +50,8 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
       resize.disconnect();
       element.removeEventListener("scroll", scroll);
       element.removeEventListener("wheel", wheel);
+      element.removeEventListener("touchstart", touchStart);
+      element.removeEventListener("touchmove", touchMove);
       element.removeEventListener("keydown", key);
     };
   }, []);
@@ -47,10 +59,10 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
     if (following.current && log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [allMessages, aircraftId]);
   const messages = allMessages.filter(m => !aircraftId || m.aircraftId === aircraftId);
-  return <div ref={log} className={`${styles.messageLog} ${compact ? styles.compactMessageLog : ""}`} role="log" aria-label={title} tabIndex={0}>{!compact ? <h2 className={styles.messageLogTitle}>{title}</h2> : null}{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={compact ? styles.visuallyHidden : styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{m.text}{showUnableReasons && m.sender === "pilot" && m.unableReason ? <span className={styles.unableReason}> [{m.unableReason}]</span> : null}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}</p></div>) : <p className={styles.emptyMessages}>No messages yet</p>}</div>;
+  return <div ref={log} className={`${styles.messageLog} ${compact ? styles.compactMessageLog : ""}`} role="log" aria-label={title} tabIndex={0}>{!compact ? <h2 className={styles.messageLogTitle}>{title}</h2> : null}{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={compact ? styles.visuallyHidden : styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{radioDisplayText(m.text)}{showUnableReasons && m.sender === "pilot" && m.unableReason ? <span className={styles.unableReason}> [{m.unableReason}]</span> : null}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}</p></div>) : <p className={styles.emptyMessages}>No messages yet</p>}</div>;
 });
-export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose, quickCommands = [], initialPath = []}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action, path?: string[]) => void | Promise<boolean>; onClose: () => void; quickCommands?: readonly QuickCommand[]; initialPath?: string[]}) {
-  const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment);
+export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose, quickCommands = [], initialPath = [], holdTarget, prepareSpeech}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action, path?: string[]) => void | Promise<boolean>; onClose: () => void; quickCommands?: readonly QuickCommand[]; initialPath?: string[]; holdTarget?: import("./vector-drag").VectorTarget; prepareSpeech?: (text: string) => () => void}) {
+  const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather);
   const [pathLabels, setPath] = useState<string[]>(initialPath);
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
   const sending = useRef(false);
@@ -81,7 +93,8 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
   };
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
   const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
-  const root = requestMessageMenu(frequency, aircraft, pilotMessage, exercise.aircraft, exercise.messages);
+  const menuAircraft = holdTarget && aircraft.radar ? {...aircraft, radar: {...aircraft.radar, routeIndex: holdTarget.index}} : aircraft;
+  const root = requestMessageMenu(frequency, menuAircraft, pilotMessage, exercise.aircraft, exercise.messages);
   const path: MenuEntry[] = [];
   for (const label of pathLabels) {
     const entry = (path.at(-1)?.children ?? root).find(item => item.label === label);
@@ -89,7 +102,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
     path.push(entry);
   }
   const entry = path.at(-1);
-  const entries = (entry?.children ?? (entry ? [] : root)).filter(item => item.instruction?.type !== "frequency" || item.instruction.frequency !== aircraft.frequency);
+  const entries = entry?.children ?? (entry ? [] : root);
   const invalid = entry?.instruction ? validateControllerMessage(exercise, aircraft, entry.instruction, frequency, pilotMessage?.id) : null;
   const reason = entry?.note ?? invalid;
   const renderEntry = (item: MenuEntry, i: number) => {
@@ -108,9 +121,11 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
           if (await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}, [...path, item].map(entry => entry.label), item.label)) setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.label), item.label]);}
-      }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && item.label !== "Send" ? <b className={styles.sendLabel}>Send</b> : null}</button>;
+      }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && (item.sendLabel || item.label !== "Send") ? <b className={styles.sendLabel}>{item.sendLabel ?? "Send"}</b> : null}</button>;
     };
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;
+  const speechDraft = dialog === "voice" && input.trim() ? instructionText(aircraft, {type: "atc", action: "voice", text: input.trim()}) : entry?.instruction && !invalid ? composed : "";
+  useEffect(() => {if (connected && speechDraft) return prepareSpeech?.(speechDraft);}, [connected, speechDraft, prepareSpeech]);
   return <section className={`${styles.extendedPanel} ${styles.commandPanel}`} aria-label={`${aircraft.callsign} messages`}>
     {dialog === "voice" ? <dialog ref={voiceDialog} aria-label="Voice Message" className={styles.compose} onCancel={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>
       <p>Record and review your training message. Enter the reviewed transcript to transmit it in this exercise.</p>
@@ -130,7 +145,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
       <div className={styles.commandMain}>
     <header className={styles.commandHeading}><h2 className={styles.visuallyHidden}>{aircraft.callsign}</h2><button className={styles.keyboardClose} aria-label="Close aircraft messages" onClick={onClose}><X size={20}/></button></header>
     {entry?.input ? <form className={styles.compose} onSubmit={event => {event.preventDefault(); const command = entry.input === "heading" ? {type: "vector" as const, heading: Math.round(Number(input) / 10) * 10 % 360} : {type: "speed" as const, value: Number(input)}; if (!input || validateControllerMessage(exercise, aircraft, command, frequency)) return; dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}); setPath([]); setInput("");}}><label>{entry.input === "heading" ? "Heading (°M)" : "Speed (knots)"}<input autoFocus type="number" required min={entry.input === "heading" ? 0 : 80} max={entry.input === "heading" ? 360 : 600} step={entry.input === "heading" ? 10 : 1} value={input} onChange={e => setInput(e.target.value)}/></label><button type="submit" disabled={!connected || !input}>Send</button></form> : null}
-    {vector ? <RadarVectorComposer initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
+    {vector ? <RadarVectorComposer prepareSpeech={prepareSpeech} initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
       const result = await dispatch({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})});
       if (result !== false) {setVector(null); setPath([]);} return result !== false;
     }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries} hidden={Boolean(entry?.input)}>{path.length ? <button onClick={() => {if (sending.current) return; setPath(path.map(item => item.label).slice(0, -1)); setInput("");}}><span>‹</span><div>Back</div></button> : null}{entries.map(renderEntry)}</div>}

@@ -2,9 +2,10 @@ import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise} from "../engine";
 import {menteeActionAllowed} from "../protocol";
 import type {Envelope, Exercise} from "../model";
-import {SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
+import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
+import {airportSightings, type SightingProvider} from "./airport-sightings";
 
 export interface Actor {accountId: string; staff: boolean; displayName?: string}
 export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string}
@@ -34,7 +35,7 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {})};
 }
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionRole, token: string, now: number) {
     if (role === "staff") this.staff(actor);
@@ -53,22 +54,30 @@ export class SessionService {
       return visible;
     })};
     if (role === "mentee") delete exercise.callsignReservations;
+    if (role === "mentee") delete exercise.conflicts;
     return {session: summary(record, now), exercise, contentRevision: record.contentRevision,
       ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }
   private tick(record: SessionRecord, now: number) {
     const occupied = [record.staff, record.mentee].some(seat => seat && seat.expiresAt > now);
     const gap = (now - record.tickAt) / 1000;
-    // No offline catch-up: the saved scenario resumes where the last page left it.
-    if (occupied && gap > 0 && gap <= 2) {
+    // Recover delayed connected updates, but never simulate an offline interval.
+    if (occupied && gap > 0 && gap <= SESSION_LEASE_MS / 1000) {
+      this.sightings.apply(record.exercise);
       const collision = record.exercise.collisions?.at(-1)?.id;
-      if (record.scenario) {
-        const result = advanceScenario(record.exercise, record.scenario, gap, now);
-        record.exercise = result.exercise; if (result.changed) record.contentRevision++;
-      } else record.exercise = advance(record.exercise, gap);
+      // Match ordinary stream cadence so engine caps cannot discard time and
+      // scenario events/readbacks take effect before later movement is simulated.
+      for (let at = record.tickAt; at < now;) {
+        const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000;
+        if (record.scenario) {
+          const result = advanceScenario(record.exercise, record.scenario, seconds, stepAt);
+          record.exercise = result.exercise; if (result.changed) record.contentRevision++;
+        } else record.exercise = advance(record.exercise, seconds);
+        const replied = autoReadbacks(record.exercise, stepAt, this.uuid);
+        if (replied !== record.exercise) {record.exercise = replied; record.contentRevision++;}
+        at = stepAt;
+      }
       if (record.exercise.collisions?.at(-1)?.id !== collision) record.contentRevision++;
-      const replied = autoReadbacks(record.exercise, now, this.uuid);
-      if (replied !== record.exercise) {record.exercise = replied; record.contentRevision++;}
     }
     record.tickAt = now;
   }
@@ -97,13 +106,15 @@ export class SessionService {
       return this.view(record, role, now);
     });
   }
-  frame(actor: Actor, id: string, role: SessionRole, token: string) {
-    return this.store.transaction(id, record => {
+  async frame(actor: Actor, id: string, role: SessionRole, token: string) {
+    const view = await this.store.transaction(id, record => {
       const now = this.now();
       this.seat(record, actor, role, token, now); this.tick(record, now);
       record.updatedAt = now;
       return this.view(record, role, now);
     });
+    this.sightings.request(view.exercise);
+    return view;
   }
   dispatch(actor: Actor, id: string, role: SessionRole, token: string, envelope: Envelope) {
     return this.store.transaction(id, async record => {

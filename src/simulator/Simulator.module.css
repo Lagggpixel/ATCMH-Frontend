@@ -1,3 +1,8 @@
+@font-face {font-family:"Simulator Aircraft";src:url("/simulator/fonts/InfiniteFlight.ttf") format("truetype");font-style:normal;font-weight:400;font-display:block}
+@font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Light.ttf") format("truetype");font-style:normal;font-weight:300;font-display:swap}
+@font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Medium.ttf") format("truetype");font-style:normal;font-weight:500;font-display:swap}
+@font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Bold.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
+@font-face {font-family:"Simulator Mono";src:url("/simulator/fonts/B612Mono-Bold.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
 @font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
 @font-face {font-family:"Simulator Mono";src:url("/simulator/fonts/B612Mono-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
 .simulator {position:fixed;inset:0;display:grid;grid-template-columns:5.85% minmax(0,1fr) 23.4%;padding:0 1.7% 2.2%;grid-template-rows:40px minmax(0,1fr);background:#000;color:#eee;font:clamp(14px,1.15vw,21px)/1.25 "Simulator Fira",sans-serif;isolation:isolate;overflow:hidden;color-scheme:dark}
@@ -17,7 +22,7 @@
 .topBanner {grid-column:2/4;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 12px 0 2px;white-space:nowrap;overflow:hidden;font-size:clamp(13px,1.05vw,21px);background:black;z-index:3}
 .topBanner>span:first-child {color:#91e98d;overflow:hidden;text-overflow:ellipsis}
 .topBanner>span:last-child {font-family:"Simulator Mono",monospace;flex-shrink:0}
-.scope {grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.scope {font-family:"Simulator Fira",sans-serif;grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .scope :is(input,textarea,[contenteditable="true"]) {-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 .scope :is(.airportMarker,.aircraft,.aircraftTag),.scope :is(.airportMarker,.aircraft,.aircraftTag):hover {background:transparent!important;border:0!important;box-shadow:none;min-height:0;font-weight:400}
 .scope .aircraftTag {display:block;line-height:1.25;border-radius:0}
@@ -27,6 +32,9 @@
 .mapSurface:active {cursor:grabbing}
 .mapCanvas {width:100%;height:100%;display:block}
 .trafficCanvas {position:absolute;inset:0;pointer-events:none}
+.holdOverlay {position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.aircraftTag .holdStatus {color:inherit}
+.fixTooltip {position:absolute;z-index:6;max-width:calc(100% - 12px);padding:5px 8px;background:#101820;color:#b7d8ff;border:1px solid #2a82e6;font:12px/1.3 "Simulator Fira",sans-serif;overflow-wrap:anywhere;pointer-events:none}
 .taxiRouteOverlay {position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
 .taxiWaypoint {pointer-events:all;cursor:grab;outline:none}
 .taxiWaypoint:active {cursor:grabbing}
@@ -46,7 +54,7 @@
 .airportMarker i {position:absolute;left:10px;top:10px;width:10px;height:10px;background:#91e98d;border-radius:50%;pointer-events:none}
 .runwayTag {position:absolute;background:black;border:1px solid;transform:translate(-50%,-50%);font-size:clamp(12px,1vw,19px);font-weight:bold;padding:0 3px;pointer-events:none;z-index:3;border-radius:2px}
 .aircraftPosition {position:absolute;width:0;height:0;z-index:4}
-.aircraftPosition:has(.contextAnchor:not(:empty)) {z-index:10}
+.aircraftPosition:has(.contextAnchor) {z-index:10}
 .scope .gateTarget {position:absolute;z-index:3;width:22px;height:22px;padding:0;border:0!important;background:transparent!important;transform:translate(-50%,-50%);display:grid;place-items:center;cursor:pointer}
 .gateTarget span {width:7px;height:7px;border-radius:50%;background:#499cff;box-shadow:0 0 0 1px #112744}
 .gateTarget[aria-pressed="true"] span,.gateTarget:hover span,.gateTarget:focus-visible span {box-shadow:0 0 0 4px #499cff44}
@@ -55,6 +63,7 @@
 .gatePlacementHint {position:absolute;z-index:6;top:16px;left:50%;transform:translateX(-50%);padding:9px 14px;background:#102133;color:#c8e2ff;border:1px solid #375f87;border-radius:4px;font-size:13px;pointer-events:none}
 .aircraft {transform:translate(-50%,-50%);position:absolute;padding:0!important;width:30px;height:30px;display:grid;place-items:center;color:inherit!important}
 .simulator .aircraft:hover {background:transparent}
+.aircraft svg {overflow:visible;transform-origin:center}
 .aircraft:hover svg {filter:brightness(1.3)}
 .selectedAircraft {outline:1px solid currentColor;border-radius:50%!important}
 .giveWayTarget {position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:2px dashed #f5b64b;border-radius:50%;pointer-events:none;z-index:2;animation:giveWayPulse 1.4s ease-in-out infinite}
@@ -91,6 +100,8 @@
 .procedurePanel footer input {width:140px}
 .procedurePanel footer>button {border:1px solid #aaa;width:100px;text-align:center}
 .attribution {position:absolute;bottom:2px;left:5px;font-size:9px;color:#777!important;z-index:2}
+.navigationStatus {position:absolute;bottom:26px;left:8px;z-index:3;padding:5px 8px;background:#111d;color:#ddd;font-size:12px}
+.navigationStatus button {margin-left:6px;color:inherit;text-decoration:underline}
 .nearbyAirport {position:absolute;left:12%;top:15%;color:#999!important;font-size:13px!important}
 .wind {position:absolute;left:20px;bottom:30px;padding:12px;background:#111b;font-family:"Simulator Mono",monospace;font-size:12px;line-height:1.6;pointer-events:none}
 .editHint {position:absolute;top:12px;left:12px;right:80px;text-align:center;background:#1d252add;padding:8px;font-size:13px;color:#d4e5ef;pointer-events:none}
@@ -116,10 +127,6 @@
 .pilotMessage {color:#bd8fa9}
 .offFrequencyMessage {color:#858585}
 .exerciseContents {display:contents}
-.visiblePause {position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:90;padding:10px 18px;border:1px solid #e8b257;border-radius:6px;background:#27231b;color:#ffe1a1;box-shadow:0 3px 16px #0005;pointer-events:none}
-.pauseControls {display:flex;align-items:center;gap:8px;flex-shrink:0}
-.staffToolbar .pauseControls label {display:flex;flex-direction:column;gap:3px;font-size:10px;line-height:1.1;white-space:nowrap}
-.staffToolbar .pauseControls select {max-width:150px;min-height:26px;padding:3px 5px;font-size:12px;line-height:1.1;background:var(--dashboard-surface);color:var(--dashboard-ink);border:1px solid var(--dashboard-border);border-radius:4px}
 .pauseScreen {position:fixed;inset:0;z-index:120;background:#303236;color:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
 .pauseScreen>svg {color:#c7c9cc;margin-bottom:26px}
 .pauseScreen>p {font-family:"Simulator Mono",monospace;letter-spacing:.16em;font-size:12px;color:#c7c9cc;margin:0 0 16px}
@@ -127,22 +134,35 @@
 .pauseScreen>span {font-size:16px;color:#c7c9cc;line-height:1.5}
 .pauseScreen>a {margin-top:36px;padding:12px 22px;border:1px solid #8d9095;color:#f5f5f5;font-size:14px}
 .pauseScreen>a:hover {background:#414449}
+.visiblePause {position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:90;padding:10px 18px;border:1px solid #e8b257;border-radius:6px;background:#27231b;color:#ffe1a1;box-shadow:0 3px 16px #0005;pointer-events:none}
+.pauseControls {display:flex;align-items:center;gap:8px}
+.pauseControls label {display:flex;flex-direction:column;gap:3px;font-size:10px}
+.pauseControls select {max-width:150px;padding:5px;font-size:12px;background:var(--dashboard-surface);color:var(--dashboard-ink);border:1px solid var(--dashboard-border);border-radius:4px}
+.mentorContext {position:fixed;z-index:110;width:240px;padding:10px;background:var(--dashboard-surface);color:var(--dashboard-ink);border:1px solid var(--dashboard-border);border-radius:6px;box-shadow:0 10px 35px #0008}
+.mentorContext strong {display:block;padding:5px 8px;font-size:12px}
+.mentorContext button {display:block;width:100%;padding:12px;text-align:left;color:inherit;background:transparent;border:0;border-radius:4px}
+.mentorContext button:hover,.mentorContext button:focus-visible {background:var(--dashboard-hover);outline:2px solid var(--dashboard-accent)}
+.navigationPicker {display:flex;flex-direction:column;gap:10px;margin:14px 0;padding:12px;border:1px solid var(--dashboard-border);border-radius:6px}
+.navigationPicker label {display:flex;flex-direction:column;gap:5px}
+.navigationPicker small {line-height:1.5;overflow-wrap:anywhere}
 .extendedPanel {position:absolute;z-index:12;right:0;top:40px;bottom:0;width:min(490px,45vw);background:#000;border-left:1px solid #555;display:flex;flex-direction:column;padding:8px;font-size:clamp(12px,1vw,19px)}
 .extendedPanel header {display:flex;justify-content:space-between;align-items:center;padding:5px;min-height:50px;font-size:17px}
 .extendedPanel header small {display:block;font-family:"Simulator Mono",monospace;font-size:11px;margin-top:6px}
 .messageEntries {overflow:auto;min-height:0;flex:1}
-.messageEntries button {display:flex;gap:12px;align-items:center;min-height:48px;width:100%;background:#252525;border-bottom:3px solid black;text-transform:uppercase;font-size:14px}
-.messageEntries button>span {color:#777;font-family:"Simulator Mono",monospace;font-size:11px}
+.simulator .messageEntries button {display:flex;gap:12px;align-items:center;min-height:48px;width:100%;background:var(--dashboard-bg);color:var(--dashboard-ink);border-bottom:3px solid var(--dashboard-surface);text-transform:uppercase;font-size:14px}
+.simulator .messageEntries button:hover:not(:disabled) {background:var(--dashboard-selected)}
+.messageEntries button>span {color:var(--dashboard-muted);font-family:"Simulator Mono",monospace;font-size:11px}
 .messageEntries b {margin-left:auto}
-.messageEntries small {display:block;color:#c4a580;font-size:11px;margin-top:6px;text-transform:none}
-.messageEntries .sendLabel {font-size:11px;font-weight:400;color:#bdbdbd}
-.messageEntries button.suggestedCommand {color:#c5f467}
+.messageEntries small {display:block;color:var(--dashboard-muted);font-size:11px;margin-top:6px;text-transform:none}
+.messageEntries .sendLabel {font-size:11px;font-weight:400;color:var(--dashboard-muted)}
+.simulator .messageEntries button.suggestedCommand {color:var(--dashboard-link);background:var(--dashboard-selected)}
 .messageEntries button.suggestedCommand>span,.messageEntries button.suggestedCommand .sendLabel {color:inherit}
 .backButton {color:#94c2dc!important;background:#161616!important}
-.compose {padding:12px;background:#181818;min-height:120px}
-.compose p {margin:0 0 10px;color:#91e98d}
-.compose small {display:block;color:#c4a580;margin-bottom:10px}
-.compose button {border:1px solid #888;width:100%;text-align:center;background:#292929}
+.compose {padding:12px;background:var(--dashboard-bg);color:var(--dashboard-ink);min-height:120px}
+.compose p {margin:0 0 10px;color:var(--dashboard-ink)}
+.compose small {display:block;color:var(--dashboard-muted);margin-bottom:10px}
+.simulator .compose button {border:1px solid var(--dashboard-button);width:100%;text-align:center;background:var(--dashboard-button);color:var(--dashboard-on-button)}
+.simulator .compose button:hover:not(:disabled) {background:var(--dashboard-button-hover)}
 .extendedPanel>.messageLog {flex:0 0 23%;margin-top:6px}
 .atis {grid-column:2/4;grid-row:2;position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden;font-size:clamp(14px,1.05vw,20px)}
 .atisToolbar {display:flex;align-items:center;gap:6px;min-height:clamp(46px,3.8vw,72px);border-bottom:1px solid #333}
@@ -206,124 +226,130 @@
   .rotatePrompt h1 {font-weight:400}
 }
 /* Staff workspace: a unified scope with contextual controls beneath it. */
-.staffSimulator {padding:0;grid-template-columns:254px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 238px;font-size:14px;background:#101315;color:#e8edf2;--staff-border:#303639;--staff-muted:#a3adb7;--staff-blue:#159de9}
+.staffSimulator {padding:0;grid-template-columns:254px minmax(0,1fr);grid-template-rows:42px minmax(0,1fr) 238px;font-size:14px;background:var(--dashboard-surface);color:var(--dashboard-ink);--staff-border:#303639;--staff-muted:#a3adb7;--staff-blue:#159de9}
 .staffSimulator button,.staffSimulator a,.staffSimulator input,.staffSimulator select {font-size:14px}
 .staffSimulator button {border-radius:3px}
-.staffSimulator button:focus-visible,.staffSimulator a:focus-visible,.staffSimulator summary:focus-visible {outline:2px solid #73ccff;outline-offset:2px}
+.staffSimulator button:focus-visible,.staffSimulator a:focus-visible,.staffSimulator summary:focus-visible {outline:2px solid var(--dashboard-link);outline-offset:2px}
 .staffSimulator button:disabled {opacity:.38;cursor:not-allowed}
-.staffToolbar {grid-row:1;grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:8px 14px;padding:7px 20px;border-bottom:1px solid var(--staff-border);min-width:0;min-height:54px;background:#101315}
-.staffToolbar>* {flex-shrink:0}
-.staffToolbar>a {white-space:nowrap}
-.staffToolbar>a:first-child {font-weight:500;letter-spacing:.04em;color:#eef4f9;text-decoration:none}
-.staffTitle {color:#66717a;white-space:nowrap}
+.staffToolbar {grid-row:1;grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--staff-border);min-width:0;background:var(--dashboard-surface)}
+.staffToolbar>a:first-child {font-weight:500;letter-spacing:.04em;color:var(--dashboard-ink);text-decoration:none}
+.staffTitle {color:var(--dashboard-ink);white-space:nowrap}
 .staffTitle>span {margin-left:10px;color:var(--staff-muted)}
-.exerciseStatus {margin-left:auto;color:#d9e0e6;display:flex;gap:10px;align-items:center;font-size:13px;min-width:0;white-space:nowrap}
+.exerciseStatus {margin-left:auto;color:var(--dashboard-ink);display:flex;gap:10px;align-items:center;font-size:13px;min-width:0}
 .exerciseStatus time {font-family:"Simulator Mono",monospace;font-size:12px;white-space:nowrap}
 .staffToolbar button,.staffToolbar .openMentee {display:flex;gap:8px;align-items:center;padding:5px 14px;border-left:1px solid var(--staff-border);border-radius:0;text-decoration:none;white-space:nowrap}
 .staffToolbar svg {width:19px;height:19px;flex-shrink:0}
-.staffToolbar .playButton {color:#88dc83}
-.trafficRoster {grid-row:2;grid-column:1;min-height:0;overflow:auto;border-right:1px solid var(--staff-border);background:#101315;display:flex;flex-direction:column}
+.staffToolbar .playButton {color:var(--dashboard-ink)}
+.trafficRoster {grid-row:2;grid-column:1;min-height:0;overflow:auto;border-right:1px solid var(--staff-border);background:var(--dashboard-surface);display:flex;flex-direction:column}
 .trafficRoster>header {display:flex;align-items:center;justify-content:space-between;padding:17px 14px 14px;gap:5px}
 .trafficRoster h1 {font-size:20px;font-weight:500;margin:0;white-space:nowrap}
-.trafficRoster h1 small {font-size:12px;color:#818d96;font-weight:400;margin-left:3px}
+.trafficRoster h1 small {font-size:12px;color:var(--dashboard-muted);font-weight:400;margin-left:3px}
 .trafficRoster>header button {display:flex;align-items:center;gap:5px;padding:5px 0;font-size:12px;white-space:nowrap}
 .trafficRoster>header svg {width:17px;height:17px}
-.trafficRoster .autoReadback {display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;margin:0 7px 12px;padding:10px;border:1px solid #38434b;background:#171b1e}
+.trafficRoster .autoReadback {display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;margin:0 7px 12px;padding:10px;border:1px solid var(--dashboard-border);background:var(--dashboard-surface)}
 .autoReadback>span:first-child {display:grid;gap:4px;min-width:0}
 .autoReadback strong {font-size:12px;font-weight:500}
-.autoReadback small {font-size:10px;line-height:1.4;color:#aebeca}
-.autoReadbackSwitch {width:30px;height:18px;padding:2px;flex-shrink:0;border:1px solid #697782;border-radius:10px;background:#30383e}
-.autoReadbackSwitch::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:#d6e0e8}
-.autoReadback[aria-checked=true] {border-color:#4da9d4;background:#152a38}
-.autoReadback[aria-checked=true] .autoReadbackSwitch {background:#1677a4;border-color:#73ccff}
-.autoReadback[aria-checked=true] .autoReadbackSwitch::after {transform:translateX(12px);background:#fff}
+.autoReadback small {font-size:10px;line-height:1.4;color:var(--dashboard-muted)}
+.autoReadbackSwitch {width:30px;height:18px;padding:2px;flex-shrink:0;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-surface)}
+.autoReadbackSwitch::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-surface)}
+.autoReadback[aria-checked=true] {border-color:var(--dashboard-link);background:var(--dashboard-selected)}
+.autoReadback[aria-checked=true] .autoReadbackSwitch {background:var(--dashboard-surface);border-color:var(--dashboard-link)}
+.autoReadback[aria-checked=true] .autoReadbackSwitch::after {transform:translateX(12px);background:var(--dashboard-surface)}
 .trafficList {display:grid;gap:7px;padding:0 7px}
-.trafficCard {position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:6px;width:100%;border:1px solid #292e32;background:#171b1e;padding:11px 13px;text-align:left;min-height:78px}
+.trafficCard {position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:6px;width:100%;border:1px solid var(--dashboard-border);background:var(--dashboard-surface);padding:11px 13px;text-align:left;min-height:78px}
 .trafficCard>span {min-width:0;display:flex;flex-direction:column;gap:3px}
 .trafficCard strong {font-weight:500;overflow-wrap:anywhere}
-.trafficCard small {font-size:12px;color:#c0cbd4;white-space:normal;overflow-wrap:anywhere}
-.trafficCard>span:first-child small {color:#9eacb7}
+.trafficCard small {font-size:12px;color:var(--dashboard-ink);white-space:normal;overflow-wrap:anywhere}
+.trafficCard>span:first-child small {color:var(--dashboard-muted)}
 .trafficCard b {font-weight:400;font-size:12px}
-.trafficCard .airPhase {color:#8ed5ff}
-.trafficCard .groundPhase {color:#e7b565}
-.selectedTraffic {background:#152a38;border-color:#4da9d4;box-shadow:inset 2px 0 #36b9fc}
-.trafficCard em {grid-column:1/-1;font-size:11px;font-style:normal;color:#e8bf7b;margin-top:3px}
-.trafficRoster footer {margin-top:auto;padding:18px 14px;color:#84939e;font-size:11px;line-height:1.7}
+.trafficCard .airPhase {color:var(--dashboard-ink)}
+.trafficCard .groundPhase {color:var(--dashboard-ink)}
+.selectedTraffic {background:var(--dashboard-selected);border-color:var(--dashboard-link);box-shadow:inset 2px 0 #36b9fc}
+.trafficCard em {grid-column:1/-1;font-size:11px;font-style:normal;color:var(--dashboard-ink);margin-top:3px}
+.trafficRoster footer {margin-top:auto;padding:18px 14px;color:var(--dashboard-muted);font-size:11px;line-height:1.7}
 .trafficRoster footer span {display:block}
-.addAircraft {margin:0 8px 10px;padding:12px;display:grid;gap:10px;background:#1b2227;border:1px solid #37434b;border-radius:4px}
+.addAircraft {margin:0 8px 10px;padding:12px;display:grid;gap:10px;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);border-radius:4px}
 .addAircraft label {display:grid;gap:6px;font-size:12px;color:var(--staff-muted)}
-.addAircraft button {border:1px solid #424d55;padding:6px!important;font-size:12px!important}
+.addAircraft button {border:1px solid var(--dashboard-border);padding:6px!important;font-size:12px!important}
+.addTrafficDialog {width:380px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:0;margin:auto;border:1px solid var(--dashboard-border);border-radius:6px;background:var(--dashboard-surface);color:var(--dashboard-ink);box-shadow:0 16px 60px #0004;overflow:auto}
+.addTrafficDialog::backdrop {background:#1119}
+.addTrafficDialog .addAircraft {margin:0;padding:24px;gap:16px;border:0}
+.addTrafficDialog h2 {margin:0 0 4px;font-size:21px;font-weight:500}
+.addTrafficDialog .addAircraft label {font-size:13px;color:var(--dashboard-ink)}
+.addTrafficDialog .addAircraft select {min-height:40px;height:40px}
+.addTrafficDialog .buttonRow {padding-top:4px;gap:10px}
+.addTrafficDialog .addAircraft button {min-height:40px;font-size:13px!important}
 .staffSimulator .scopeButtons {width:42px;bottom:10px;right:10px;gap:4px;display:flex;flex-direction:column}
-.staffSimulator .scopeButtons button {height:40px;background:#101315;border:1px solid #343b40;border-radius:3px;padding:8px}
+.staffSimulator .scopeButtons button {height:40px;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);border-radius:3px;padding:8px}
 .staffSimulator .scopeButtons svg {width:24px;height:24px}
-.staffPanel {grid-row:3;grid-column:1/-1;display:grid;grid-template-columns:330px minmax(0,1fr);min-height:0;min-width:0;border-top:1px solid var(--staff-border);background:#111517;padding:0 8px 8px}
+.staffPanel {grid-row:3;grid-column:1/-1;display:grid;grid-template-columns:330px minmax(0,1fr);min-height:0;min-width:0;border-top:1px solid var(--staff-border);background:var(--dashboard-surface);padding:0 8px 8px}
 .aircraftNavigation {border-right:1px solid var(--staff-border);padding:12px 12px 0;overflow:auto;min-width:0}
 .aircraftNavigation header {display:flex;justify-content:space-between;gap:10px;margin:0 3px 10px;min-height:39px;font-size:12px}
 .aircraftNavigation header>div {display:grid;gap:3px;min-width:0}
 .aircraftNavigation strong {font-size:17px;font-weight:500;overflow-wrap:anywhere}
-.aircraftNavigation small {font-size:12px;color:#aebeca}
+.aircraftNavigation small {font-size:12px;color:var(--dashboard-muted)}
 .aircraftNavigation nav {display:grid;gap:0}
-.aircraftNavigation nav button {display:flex;align-items:center;gap:10px;text-align:left;padding:4px 12px;color:#afbfcb;font-size:13px;height:28px;border-left:3px solid transparent}
+.aircraftNavigation nav button {display:flex;align-items:center;gap:10px;text-align:left;padding:4px 12px;color:var(--dashboard-ink);font-size:13px;height:28px;border-left:3px solid transparent}
 .aircraftNavigation nav svg {width:20px;height:20px}
-.aircraftNavigation nav button[aria-current] {background:#162b39;color:#80d1ff;border-left-color:#36b9fc}
+.aircraftNavigation nav button[aria-current] {background:var(--dashboard-selected);color:var(--dashboard-ink);border-left-color:var(--dashboard-link)}
 .controlContent {overflow:auto;min-height:0;min-width:0;padding:14px 18px 8px 26px}
 .staffSimulator .controlContent>.messageLog {height:100%;display:block;font-size:13px;line-height:1.5;padding:0;--trainer-surface:#111517;--trainer-border:#303639;--trainer-muted:#a3adb7}
-.staffSimulator .messageLog>div {padding:8px 10px;border-bottom:1px solid #303639;background:#171d21}
-.staffSimulator .messageLog>div:nth-child(even) {background:#111517}
-.staffSimulator .controllerMessage {color:#a4e5c1}
-.staffSimulator .pilotMessage {color:#a6dcea}
+.staffSimulator .messageLog>div {padding:8px 10px;border-bottom:1px solid var(--dashboard-border);background:var(--dashboard-surface)}
+.staffSimulator .messageLog>div:nth-child(even) {background:var(--dashboard-surface)}
+.staffSimulator .controllerMessage {color:var(--dashboard-ink)}
+.staffSimulator .pilotMessage {color:var(--dashboard-ink)}
 .controlFields {border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}
 .controlFields label {display:grid;gap:5px;color:var(--staff-muted);font-size:12px;min-width:0}
-.controlFields input,.controlFields select,.addAircraft select {width:100%;min-width:0;height:34px;min-height:34px;padding:6px 10px;border:1px solid #4b5257;border-radius:3px;background:#101315;color:#e8edf2;font-size:14px;color-scheme:dark}
-.controlFields button {background:#242a2f;border:1px solid #424a50;padding:7px 12px;text-align:center;font-size:13px;min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.staffSimulator .primaryButton {background:#0c8dda;color:#fff;border-color:#269ce0}
-.controlFields button[aria-pressed=true] {background:#163345;border-color:#3ba9e6;color:#92d6ff}
+.controlFields input,.controlFields select,.addAircraft select {width:100%;min-width:0;height:34px;min-height:34px;padding:6px 10px;border:1px solid var(--dashboard-border);border-radius:3px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:14px;color-scheme:light}
+.controlFields button {background:var(--dashboard-surface);border:1px solid var(--dashboard-border);padding:7px 12px;text-align:center;font-size:13px;min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.staffSimulator .primaryButton {background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-link)}
+.controlFields button[aria-pressed=true] {background:var(--dashboard-selected);border-color:var(--dashboard-link);color:var(--dashboard-ink)}
 .controlFields h2 {font-size:12px;font-weight:400;color:var(--staff-muted);margin:0 0 7px}
-.controlFields h2 small {margin-left:6px;color:#d0dae1;font-size:11px}
+.controlFields h2 small {margin-left:6px;color:var(--dashboard-ink);font-size:11px}
 .requestFields {display:grid;grid-template-columns:minmax(0,1.5fr) minmax(100px,.65fr) minmax(0,1fr);gap:22px}
 .requestPreview {display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:18px;align-items:end}
 .requestPreview>label {display:flex;align-items:center;gap:18px;white-space:nowrap}
-.controlFields output {display:block;border:1px solid #4b5257;border-radius:3px;background:#101315;padding:8px 10px;color:#e3eaf0;min-width:0;overflow-wrap:anywhere;font-size:14px;flex:1}
+.controlFields output {display:block;border:1px solid var(--dashboard-border);border-radius:3px;background:var(--dashboard-surface);padding:8px 10px;color:var(--dashboard-ink);min-width:0;overflow-wrap:anywhere;font-size:14px;flex:1}
 .requestPreview>button {height:40px}
 .controllerResponse {border-top:1px solid var(--staff-border);padding-top:11px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end}
 .responseButtons {display:flex;gap:7px}
 .responseButtons button {min-height:35px;padding:7px 14px}
-.controlHint {font-size:11px;color:#8e9da9;margin:0;line-height:1.5}
-.arrivalExpectations {border:1px solid #34444e;border-radius:6px;padding:12px;font-size:12px;color:#bfcbd3}
-.arrivalExpectations strong {font-size:12px;color:#dbe4eb}
+.controlHint {font-size:11px;color:var(--dashboard-muted);margin:0;line-height:1.5}
+.arrivalExpectations {border:1px solid var(--dashboard-border);border-radius:6px;padding:12px;font-size:12px;color:var(--dashboard-ink)}
+.arrivalExpectations strong {font-size:12px;color:var(--dashboard-ink)}
 .arrivalExpectations ol {margin:8px 0 0;padding-left:20px;line-height:1.8}
-.otherResponse {font-size:12px;color:#a3b6c3}
+.otherResponse {font-size:12px;color:var(--dashboard-muted)}
 .otherResponse summary {cursor:pointer;width:fit-content}
 .otherResponse>div {margin-top:10px}
 .buttonRow {display:flex;gap:7px}
 .buttonRow>* {flex:1;min-width:0}
 .flightLayout {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;align-items:start}
 .patternControls {min-width:0;display:grid;gap:22px}
-.controlFields .patternControls>h2 {font-size:21px;color:#eef3f6;font-weight:600;margin:0;padding-bottom:12px;border-bottom:1px solid #45535d}
+.controlFields .patternControls>h2 {font-size:21px;color:var(--dashboard-ink);font-weight:600;margin:0;padding-bottom:12px;border-bottom:1px solid var(--dashboard-border)}
 .flightGrid {display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}
 .flightGrid>fieldset {grid-column:1/-1}
-.patternLeg h3 {font-size:14px;font-weight:500;margin:0 0 10px;color:#dbe5eb}
-.staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:auto minmax(180px,1fr) min(460px,55vh)}
+.patternLeg h3 {font-size:14px;font-weight:500;margin:0 0 10px;color:var(--dashboard-ink)}
+.staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:42px minmax(180px,1fr) min(460px,55vh)}
 .legButtons {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
 .controlFields .legButtons button {font-size:13px;padding:8px 4px;text-transform:capitalize;min-height:43px;border-radius:0}
 .legButtons button+button {border-left:0}
-.legButtons button[aria-pressed=true] {position:relative;outline:1px solid #53c8e7;outline-offset:-1px}
+.legButtons button[aria-pressed=true] {position:relative;outline:1px solid var(--dashboard-link);outline-offset:-1px}
 .numberCommand {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px}
 .flightActions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .controlFields .flightActions button {min-height:43px;font-size:14px;white-space:normal}
-.controlFields .allowLanding {background:#27b8dc;border-color:#58d0ec;color:#06171c}
-.controlFields .cancelLanding {background:#17382c;border-color:#6bba94;color:#b2e6ca}
-.controlFields .goAround {border-color:#b98d3a;color:#efc375;background:#1c1d1c}
-.flightStatus {font-size:12px;color:#a3b5c2;margin:0;line-height:1.5}
-.flightOverrides {border-left:1px solid #45535d;padding-left:24px;min-width:0}
-.headingControls {border-top:1px solid #45535d;padding-top:12px;margin-top:14px}
-.controlFields .headingControls h2 {font-size:14px;font-weight:500;color:#dbe5eb;margin:0 0 8px}
+.controlFields .allowLanding {background:var(--dashboard-surface);border-color:var(--dashboard-link);color:var(--dashboard-ink)}
+.controlFields .cancelLanding {background:var(--dashboard-surface);border-color:var(--dashboard-link);color:var(--dashboard-ink)}
+.controlFields .goAround {border-color:var(--dashboard-link);color:var(--dashboard-ink);background:var(--dashboard-surface)}
+.flightStatus {font-size:12px;color:var(--dashboard-muted);margin:0;line-height:1.5}
+.flightOverrides {border-left:1px solid var(--dashboard-border);padding-left:24px;min-width:0}
+.headingControls {border-top:1px solid var(--dashboard-border);padding-top:12px;margin-top:14px}
+.controlFields .headingControls h2 {font-size:14px;font-weight:500;color:var(--dashboard-ink);margin:0 0 8px}
 .headingControls .numberCommand {grid-template-columns:minmax(0,1fr) 140px}
 .headingControls .numberCommand label {grid-template-columns:auto minmax(70px,1fr);align-items:center;gap:12px}
 .controlContent {container-type:inline-size}
 @container(max-width:760px) {
   .flightLayout {grid-template-columns:1fr;gap:24px}
-  .flightOverrides {border-left:0;padding-left:0;border-top:1px solid #45535d;padding-top:18px}
+  .flightOverrides {border-left:0;padding-left:0;border-top:1px solid var(--dashboard-border);padding-top:18px}
 }
 .routeGrid {display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:20px}
 .routeGrid>section {display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -333,11 +359,11 @@
 .controlFields .checkLabel input {width:15px;height:15px;min-height:15px;accent-color:var(--staff-blue)}
 .detailsGrid {display:grid;grid-template-columns:1.4fr .8fr 1.2fr 1fr;gap:18px}
 .detailsFooter {display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:15px;border-top:1px solid var(--staff-border);padding-top:14px}
-.controlFields .removeButton {color:#f2a8a1;border-color:#663d3a;background:#251b1b}
-.staffEmpty {height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#aab9c4;text-align:center;font-size:14px}
+.controlFields .removeButton {color:var(--dashboard-danger-text);border-color:var(--dashboard-danger-text);background:var(--dashboard-surface)}
+.staffEmpty {height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--dashboard-muted);text-align:center;font-size:14px}
 .staffEmpty p {font-size:12px;margin:0}
 @media(max-width:1200px) {
-  .staffSimulator {grid-template-columns:220px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 250px}
+  .staffSimulator {grid-template-columns:220px minmax(0,1fr);grid-template-rows:42px minmax(0,1fr) 250px}
   .staffPanel {grid-template-columns:270px minmax(0,1fr)}
   .controlContent {padding:12px 14px}
   .aircraftNavigation header {font-size:11px;gap:6px}
@@ -355,53 +381,52 @@
   .controllerResponse {gap:9px}
   .flightGrid,.routeGrid,.detailsGrid {gap:10px}
 }
-.staffSimulator .trafficCard {border:1px solid #292e32;background:#171b1e;text-align:left;padding:11px 13px}
-.staffSimulator .selectedTraffic {background:#152a38;border-color:#4da9d4}
-.staffSimulator .trafficCard:hover {background:#1a2a34;border-color:#4da9d4}
+.staffSimulator .trafficCard {border:1px solid var(--dashboard-border);background:var(--dashboard-surface);text-align:left;padding:11px 13px}
+.staffSimulator .selectedTraffic {background:var(--dashboard-selected);border-color:var(--dashboard-link)}
+.staffSimulator .trafficCard:hover {background:var(--dashboard-selected);border-color:var(--dashboard-link)}
 .staffSimulator .trafficCard strong {font-size:15px}
 .staffSimulator .controlContent {scrollbar-width:thin;scrollbar-color:#45535c transparent}
 .staffSimulator .scopeButtons {border:0;background:transparent}
-.staffSimulator button.primaryButton:hover {background:#147fbd;border-color:#63c7ff}
-.routeError {color:#f0aaa0;font-size:11px;margin:0;line-height:1.5}
+.staffSimulator button.primaryButton:hover {background:var(--dashboard-surface);border-color:var(--dashboard-link)}
+.routeError {color:var(--dashboard-danger-text);font-size:11px;margin:0;line-height:1.5}
 .exerciseStatus>span {max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .resetBackdrop {position:fixed;inset:0;z-index:40;background:#000b;display:flex;align-items:center;justify-content:center}
-.resetDialog {width:390px;background:#151c21;border:1px solid #4b5964;border-radius:6px;padding:24px;box-shadow:0 12px 50px #0009}
+.resetDialog {width:390px;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);border-radius:6px;padding:24px;box-shadow:0 12px 50px #0009}
 .resetDialog h2 {font-size:20px;margin:0 0 12px;font-weight:500}
-.resetDialog p {font-size:14px;color:#bac7d0;line-height:1.5;margin:0 0 24px}
+.resetDialog p {font-size:14px;color:var(--dashboard-muted);line-height:1.5;margin:0 0 24px}
 .resetDialog>div {display:flex;justify-content:flex-end;gap:10px}
-.staffToolbar .resetDialog button {border:1px solid #4b5964;border-radius:3px;padding:8px 14px}
+.staffToolbar .resetDialog button {border:1px solid var(--dashboard-border);border-radius:3px;padding:8px 14px}
 @media(max-width:1200px) {.staffSimulator .trafficCard strong {font-size:13px}}
 /* Per-tab radio playback, kept out of the radar and traffic controls. */
 .topBanner {overflow:visible;position:relative;z-index:25}
 .topBanner>span:first-child {min-width:0;flex:1}
 .staffToolbar {position:relative;z-index:25}
 .radioAudio {display:flex;align-items:center;flex-shrink:0;gap:2px;font-size:12px;white-space:nowrap}
-.radioAudio .audioToggle,.radioAudio .audioSettingsToggle {padding:5px 8px;border:1px solid #39434b;border-radius:3px;font-size:12px;display:flex;align-items:center;gap:6px;min-height:28px;white-space:nowrap}
+.radioAudio .audioToggle,.radioAudio .audioSettingsToggle {padding:5px 8px;border:1px solid var(--dashboard-border);border-radius:3px;font-size:12px;display:flex;align-items:center;gap:6px;min-height:28px;white-space:nowrap}
 .audioToggle svg {width:17px;height:17px;flex-shrink:0}
-.audioToggle[aria-pressed=true] {color:#91e98d;border-color:#557653}
-.audioSettings {position:fixed;right:20px;top:48px;z-index:45;width:min(350px,calc(100vw - 40px));max-height:calc(100dvh - 70px);overflow:auto;white-space:normal;background:#111719;border:1px solid #4b5964;box-shadow:0 10px 35px #000b;padding:16px;font:14px/1.4 "Simulator Fira",sans-serif;color:#e8edf2}
-.staffToolbar .audioSettings {position:absolute;top:calc(100% + 8px);max-height:calc(100dvh - 160px)}
+.audioToggle[aria-pressed=true] {color:var(--dashboard-ink);border-color:var(--dashboard-border)}
+.audioSettings {position:fixed;right:20px;top:48px;z-index:45;width:min(350px,calc(100vw - 40px));max-height:calc(100dvh - 70px);overflow:auto;white-space:normal;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);box-shadow:0 10px 35px #000b;padding:16px;font:14px/1.4 "Simulator Fira",sans-serif;color:var(--dashboard-ink)}
 .audioSettings header {display:flex;align-items:center;justify-content:space-between;gap:12px}
 .audioSettings header button {font-size:20px!important;line-height:1;padding:4px 8px!important;border:0!important}
-.audioSettings p {font-size:12px;color:#aebeca;margin:10px 0;line-height:1.5}
+.audioSettings p {font-size:12px;color:var(--dashboard-muted);margin:10px 0;line-height:1.5}
 .audioSettings label {display:block;font-size:12px;margin:14px 0}
 .audioSettings output {float:right;font-family:"Simulator Mono",monospace}
 .audioSettings input,.audioSettings select {display:block;width:100%;margin-top:6px;font-size:13px!important}
 .audioSettings input[type=range] {padding:0;cursor:pointer}
 .audioSettings>div:not(.audioStatus) {display:flex;flex-wrap:wrap;gap:6px}
-.radioAudio .audioSettings button {border:1px solid #4b5964;padding:6px 9px;font-size:12px;display:inline-flex;justify-content:center;white-space:normal}
-.audioStatus {border-top:1px solid #39434b;padding-top:10px;margin-top:10px;color:#91e98d;font-size:12px;overflow-wrap:anywhere}
-.audioError {position:fixed;top:48px;right:20px;padding:8px 12px;background:#482323;color:#f1b5b5;font-size:12px;white-space:normal}
+.radioAudio .audioSettings button {border:1px solid var(--dashboard-border);padding:6px 9px;font-size:12px;display:inline-flex;justify-content:center;white-space:normal}
+.audioStatus {border-top:1px solid var(--dashboard-border);padding-top:10px;margin-top:10px;color:var(--dashboard-ink);font-size:12px;overflow-wrap:anywhere}
+.audioError {position:fixed;top:48px;right:20px;padding:8px 12px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:12px;white-space:normal}
 .utility {z-index:30}
 @media(max-width:1200px) {
-  .staffToolbar {gap:8px 6px;padding:7px 10px}
+  .staffToolbar {gap:6px;padding:0 10px}
   .staffToolbar>button,.staffToolbar .openMentee {padding:5px 9px;font-size:12px}
   .staffToolbar .staffTitle>span {margin-left:5px}
   .topBanner .audioToggle>span {display:none}
 }
 @media(max-width:1000px) {.staffTitle>span {display:none}}
-.followingRing {position:absolute; width:44px; height:44px; border:2px solid #fff; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:4;}
-/* Original ATCMH chrome: horizontal frequencies and a task/preview inspector.
+.followingRing {position:absolute; width:44px; height:44px; border:2px solid var(--dashboard-link); border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:4;}
+/* Original ATCMH chrome:horizontal frequencies and a task/preview inspector.
    Neutral aviation colours are shared conventions; assets and layout remain ours. */
 .menteeSimulator {
   --trainer-surface:#181c20;
@@ -413,40 +438,40 @@
   --controller-unit:1px;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * var(--controller-unit));
   grid-template-rows:64px minmax(0,1fr);
-  background:#0e1114;color:#e6edf2;font-size:15px;
+  background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:15px;
   scrollbar-color:#52616c var(--trainer-surface);scrollbar-width:thin;
 }
 .menteeSimulator button:focus-visible,.menteeSimulator a:focus-visible,.menteeSimulator input:focus-visible,.menteeSimulator select:focus-visible {outline:2px solid var(--trainer-accent);outline-offset:-3px}
-.menteeSimulator button:hover {background:#29333a}
-.menteeSimulator .topBanner {grid-column:2/-1;grid-row:1;padding:8px 20px;background:#12171b;gap:16px;white-space:normal;border-bottom:1px solid #303a42;font-size:14px}
-.menteeSimulator .topBanner>span:first-child {color:#9de69f;line-height:1.4}
-.topBanner small {display:block;margin-top:3px;color:#b3bfc8;font-size:12px;line-height:1.4}
-.menteeSimulator .topBanner small a {color:#6cdeea;text-decoration:underline;text-underline-offset:3px}
-.menteeSimulator .topBanner>span:last-child {font-size:12px;color:#c0ccd5}
+.menteeSimulator button:hover {background:var(--dashboard-surface)}
+.menteeSimulator .topBanner {grid-column:2/-1;grid-row:1;padding:8px 20px;background:var(--dashboard-surface);gap:16px;white-space:normal;border-bottom:1px solid var(--dashboard-border);font-size:14px}
+.menteeSimulator .topBanner>span:first-child {color:var(--dashboard-ink);line-height:1.4}
+.topBanner small {display:block;margin-top:3px;color:var(--dashboard-ink);font-size:12px;line-height:1.4}
+.menteeSimulator .topBanner small a {color:var(--dashboard-ink);text-decoration:underline;text-underline-offset:3px}
+.menteeSimulator .topBanner>span:last-child {font-size:12px;color:var(--dashboard-ink)}
 .menteeSimulator .radioAudio button {min-height:32px;padding:6px 10px;background:var(--trainer-surface);border-color:var(--trainer-border)}
 .menteeSimulator .sidebar {grid-column:1;grid-row:1/-1;display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:18px 10px;background:var(--trainer-surface);border-right:1px solid var(--trainer-border)}
 .trainerBrand {display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 26px;white-space:nowrap}
 .trainerBrand strong {font-size:20px;letter-spacing:.04em;color:var(--trainer-accent)}
-.trainerBrand>span {font-size:12px;color:#c4cfd7}
-.menteeSimulator .sidebar>button {display:flex;flex-direction:column;gap:8px;min-height:88px;border-radius:3px;border:1px solid var(--trainer-border);font-size:13px;padding:12px 6px;background:#151b20}
-.frequencyValue {font:12px/1.3 "Simulator Mono",monospace;color:#c0ccd5}
-.menteeSimulator .sidebar .activeFrequency {background:var(--trainer-selected);color:#6ce5ed;border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent)}
+.trainerBrand>span {font-size:12px;color:var(--dashboard-ink)}
+.menteeSimulator .sidebar>button {display:flex;flex-direction:column;gap:8px;min-height:88px;border-radius:3px;border:1px solid var(--trainer-border);font-size:13px;padding:12px 6px;background:var(--dashboard-surface)}
+.frequencyValue {font:12px/1.3 "Simulator Mono",monospace;color:var(--dashboard-ink)}
+.menteeSimulator .sidebar .activeFrequency {background:var(--trainer-selected);color:var(--dashboard-ink);border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent)}
 .activeFrequency .frequencyValue {color:inherit}
 /* A single, slow pulse ties the channel, radar target and Commands control together. */
 .simulator button.pendingRequest {animation:pendingRequestPulse 1.6s steps(1,end) infinite;border-radius:3px}
-.pendingAircraft {animation:pendingAircraftPulse 1.6s steps(1,end) infinite}
+.pendingAircraft {animation:pendingAircraftPulse 1s steps(1,end) infinite}
 @keyframes pendingAircraftPulse {
   0%,100% {fill:currentColor}
-  50% {fill:#FFF600}
+  50% {fill:#ffa500}
 }
 @keyframes pendingRequestPulse {
-  50% {background-color:#FFF600;color:#101820}
+  50% {background-color:#fff600;color:#20252a}
 }
 @media (prefers-reduced-motion:reduce) {
-  .simulator button.pendingRequest {animation:none;background-color:#FFF600!important;color:#101820!important}
-  .pendingAircraft {animation:none;fill:#FFF600}
+  .simulator button.pendingRequest {animation:none;background-color:#fff600!important;color:#20252a!important}
+  .pendingAircraft {animation:none;fill:#ffa500}
 }
-.menteeSimulator .sidebar .exit {position:static;font-size:13px;color:#cbd6de!important;margin-top:auto;padding:10px 14px;border:1px solid var(--trainer-border);border-radius:3px}
+.menteeSimulator .sidebar .exit {position:static;font-size:13px;color:var(--dashboard-ink)!important;margin-top:auto;padding:10px 14px;border:1px solid var(--trainer-border);border-radius:3px}
 .menteeSimulator .scope {grid-column:2;grid-row:2}
 .menteeSimulator .scopeButtons {width:42px;right:10px;bottom:28px;border-color:var(--trainer-border);background:var(--trainer-surface)}
 .menteeSimulator .scopeButtons button {height:42px;border-color:var(--trainer-border)}
@@ -458,66 +483,66 @@
 .stripsHeader>span {font:12px "Simulator Mono",monospace;color:var(--trainer-muted)}
 .menteeSimulator .strip {display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:6px;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:8px;margin:0 0 8px;min-height:84px}
 .menteeSimulator .stripBody {width:100%;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:7px 10px;padding:4px!important;font-size:14px!important}
-.menteeSimulator .stripBody>span:first-child {font-size:15px;color:#edf3f7}
+.menteeSimulator .stripBody>span:first-child {font-size:15px;color:var(--dashboard-ink)}
 .menteeSimulator .stripBody>span:nth-child(2) {font:12px "Simulator Mono",monospace}
 .menteeSimulator .stripBody>span:nth-child(2)::before {content:"RWY ";font-size:10px;color:var(--trainer-muted)}
 .menteeSimulator .stripBody>span:nth-child(3) {font-size:12px;color:var(--trainer-muted)}
-.menteeSimulator .strip .atcButton {border-left:1px solid var(--trainer-border);font-size:12px!important;padding:8px!important;text-align:center!important;border-radius:0;color:#6ce5ed}
+.menteeSimulator .strip .atcButton {border-left:1px solid var(--trainer-border);font-size:12px!important;padding:8px!important;text-align:center!important;border-radius:0;color:var(--dashboard-ink)}
 .menteeSimulator .atcButton i {bottom:8px;right:8px;width:6px;height:6px}
 .menteeSimulator .selectedStrip {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 2px 0 var(--trainer-accent)}
 .menteeSimulator .messageLog {display:block;font-size:14px;line-height:1.5;padding:0;min-height:0}
-.messageLogTitle {position:sticky;top:0;z-index:1;background:var(--trainer-surface);font-size:13px;font-weight:400;color:#d9e3e9;padding:12px 0;margin:0;border-bottom:1px solid var(--trainer-border)}
-.menteeSimulator .messageLog>div {background:transparent;padding:12px 0;border-bottom:1px solid #303a42}
+.messageLogTitle {position:sticky;top:0;z-index:1;background:var(--trainer-surface);font-size:13px;font-weight:400;color:var(--dashboard-ink);padding:12px 0;margin:0;border-bottom:1px solid var(--trainer-border)}
+.menteeSimulator .messageLog>div {background:transparent;padding:12px 0;border-bottom:1px solid var(--dashboard-border)}
 .menteeSimulator .messageLog>div:nth-child(even) {background:transparent}
 .messageMeta {display:flex;gap:12px;justify-content:space-between;font-size:10px;color:var(--trainer-muted);line-height:1.5}
 .messageMeta time {font-family:"Simulator Mono",monospace;white-space:nowrap}
 .messageLog p {margin:5px 0 0}
-.menteeSimulator .controllerMessage {color:#a4e5c1}
-.menteeSimulator .pilotMessage {color:#a6dcea}
-.menteeSimulator .offFrequencyMessage {color:#a2adb6}
+.menteeSimulator .controllerMessage {color:var(--dashboard-ink)}
+.menteeSimulator .pilotMessage {color:var(--dashboard-ink)}
+.menteeSimulator .offFrequencyMessage {color:var(--dashboard-ink)}
 .emptyMessages {padding:20px 0;color:var(--trainer-muted);font-size:13px}
 .menteeSimulator .commandPanel {position:relative;grid-column:3;grid-row:2;top:auto;right:auto;bottom:auto;width:auto;min-width:0;min-height:0;padding:0 20px 16px;background:var(--trainer-surface);border-left:1px solid var(--trainer-border);box-shadow:none;overflow:hidden;z-index:12}
 .commandPanel header {position:sticky;top:0;z-index:2;flex-shrink:0;background:var(--trainer-surface);padding:18px 0 16px;border-bottom:1px solid var(--trainer-border);font-size:21px;align-items:flex-start}
 .commandPanel header small {font-size:11px;line-height:1.6;letter-spacing:.02em;color:var(--trainer-muted)}
-.commandPanel header button {padding:2px;color:#bac7d1}
+.commandPanel header button {padding:2px;color:var(--dashboard-ink)}
 .commandForm {display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0 0;flex-shrink:0}
-.commandForm>label {display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c4cfd7}
+.commandForm>label {display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dashboard-ink)}
 .commandForm>label:only-of-type {grid-column:1/-1}
-.commandForm select {width:100%;min-height:40px;border-radius:3px;border-color:var(--trainer-border);background:#20262b;font-size:14px;padding:8px 10px}
+.commandForm select {width:100%;min-height:40px;border-radius:3px;border-color:var(--trainer-border);background:var(--dashboard-surface);font-size:14px;padding:8px 10px}
 .taskChoices {grid-column:1/-1;border:0;border-bottom:1px solid var(--trainer-border);padding:0 0 18px;margin:0;min-width:0}
-.taskChoices legend {padding:0 0 10px;font-size:13px;color:#d9e3e9}
+.taskChoices legend {padding:0 0 10px;font-size:13px;color:var(--dashboard-ink)}
 .taskChoices>div {display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .menteeSimulator .taskChoices button {position:relative;min-height:42px;border:1px solid var(--trainer-border);border-radius:3px;padding:9px 11px;font-size:13px;line-height:1.4;background:var(--trainer-raised);text-align:left;overflow-wrap:anywhere}
-.menteeSimulator .taskChoices button[aria-pressed=true] {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent);color:#d7fbff}
+.menteeSimulator .taskChoices button[aria-pressed=true] {background:var(--trainer-selected);border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent);color:var(--dashboard-ink)}
 .commandPreview {grid-column:1/-1;border-top:1px solid var(--trainer-border);padding:16px 0 18px;line-height:1.6;font-size:14px}
-.commandPreview>strong {font-size:13px;font-weight:400;color:#d9e3e9}
+.commandPreview>strong {font-size:13px;font-weight:400;color:var(--dashboard-ink)}
 .commandPreview p {margin:10px 0;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:10px 12px;overflow-wrap:anywhere}
-.commandPreview small {display:block;margin:8px 0;color:#f5c88c;font-size:12px}
-.menteeSimulator .commandPreview button {display:flex;justify-content:center;align-items:center;gap:8px;background:var(--trainer-accent);border:1px solid var(--trainer-accent);border-radius:3px;width:100%;min-height:44px;text-align:center;color:#07282d;font-size:14px}
-.menteeSimulator .commandPreview button:hover:not(:disabled) {background:#6ce5ed}
+.commandPreview small {display:block;margin:8px 0;color:var(--dashboard-ink);font-size:12px}
+.menteeSimulator .commandPreview button {display:flex;justify-content:center;align-items:center;gap:8px;background:var(--trainer-accent);border:1px solid var(--trainer-accent);border-radius:3px;width:100%;min-height:44px;text-align:center;color:var(--dashboard-ink);font-size:14px}
+.menteeSimulator .commandPreview button:hover:not(:disabled) {background:var(--dashboard-surface)}
 .commandPanel>.messageLog {flex:0 0 20%;overflow-y:auto;border-top:1px solid var(--trainer-border)}
 .commandPanel>.messageEntries {flex:1 1 80%}
 .pilotReply {flex-shrink:0;padding:12px;margin:0 0 10px;border:1px solid var(--trainer-border);background:var(--trainer-raised);font-size:13px}
 .pilotReply p {margin:0;line-height:1.5}
 .unableReason {color:#a3adb7}
 .withdrawnMessage {display:block;font-size:11px;color:var(--trainer-muted);margin-top:4px}
-.menteeSimulator .attribution {font-size:11px;color:#c4d4dd!important;background:#12171b;padding:4px 8px;bottom:5px;left:8px;border-radius:3px}
+.menteeSimulator .attribution {font-size:11px;color:var(--dashboard-ink)!important;background:var(--dashboard-surface);padding:4px 8px;bottom:5px;left:8px;border-radius:3px}
 .menteeSimulator .airportPopup {background:var(--trainer-surface);border-color:var(--trainer-border);line-height:1.5;max-width:440px;min-width:300px}
 .menteeSimulator .airportPopup p {font-size:13px;color:var(--trainer-muted)}
-.trainingAtis {grid-column:2/-1;grid-row:2;overflow:auto;padding:24px 32px;background:#11161a;gap:20px}
+.trainingAtis {grid-column:2/-1;grid-row:2;overflow:auto;padding:24px 32px;background:var(--dashboard-surface);gap:20px}
 .trainingAtis>header {display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:1px solid var(--trainer-border);padding-bottom:16px}
 .trainingAtis h1 {font-size:22px;margin:0;font-weight:400}
 .trainingAtis p {font-size:14px;color:var(--trainer-muted);line-height:1.5}
 .trainingAtis>label {display:flex;gap:16px;align-items:center;font-size:14px}
 .trainingAtis>label select {width:180px;min-height:40px;background:var(--trainer-raised);border:1px solid var(--trainer-border);border-radius:3px;padding:8px 10px;font-size:14px}
-.menteeSimulator .trainingAtis button {padding:12px 24px;min-height:44px;border:1px solid var(--trainer-accent);border-radius:3px;background:var(--trainer-accent);color:#07282d;font-size:14px}
+.menteeSimulator .trainingAtis button {padding:12px 24px;min-height:44px;border:1px solid var(--trainer-accent);border-radius:3px;background:var(--trainer-accent);color:var(--dashboard-ink);font-size:14px}
 .atisFields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .atisFields fieldset {border:1px solid var(--trainer-border);border-radius:3px;padding:12px 16px;background:var(--trainer-surface);min-width:0}
-.atisFields legend {font-size:14px;color:#6ce5ed;padding:0 6px}
+.atisFields legend {font-size:14px;color:var(--dashboard-ink);padding:0 6px}
 .atisFields label {display:flex;align-items:center;gap:10px;margin:12px 0;font-size:14px;line-height:1.5}
 .atisFields input[type=checkbox] {width:17px;height:17px;accent-color:var(--trainer-accent);flex-shrink:0}
 .trainingAtis .atisPublished {flex:none;white-space:pre-wrap;padding:16px;background:var(--trainer-surface);border:1px solid var(--trainer-border);border-radius:3px;min-height:100px;overflow:visible;font-size:14px;line-height:1.7}
-.trainingAtis h2 {background:none;border:0;padding:0;font-size:13px;color:#d9e3e9;margin-bottom:14px}
+.trainingAtis h2 {background:none;border:0;padding:0;font-size:13px;color:var(--dashboard-ink);margin-bottom:14px}
 @media(max-width:1100px) {
   .menteeSimulator {grid-template-rows:72px minmax(0,1fr)}
   .menteeSimulator .topBanner {padding:8px 12px;gap:10px;font-size:13px}
@@ -534,34 +559,89 @@
   .atisFields {grid-template-columns:1fr 1fr}
 }
 .pathLegend {bottom:40px}
-.automaticHelpButton { border-radius: 50%; width: 1.65rem; height: 1.65rem; margin: .25rem .75rem; font-weight: 700; }
-.automaticHelp { max-width: 38rem; width: calc(100vw - 3rem); max-height: 80vh; overflow: auto; padding: 1.5rem; border: 1px solid #405065; border-radius: .75rem; background: #111b28; color: #e1e8f0; }
-.automaticHelp::backdrop { background: #0009; }
-.automaticHelp li { margin-block: .6rem; line-height: 1.5; }
-.automaticHelp p { line-height: 1.5; }
-.controlFields [aria-label="Aircraft intentions"] { display: grid; gap: 1rem; }
+.automaticHelpButton { border-radius:50%; width:1.65rem; height:1.65rem; margin:.25rem .75rem; font-weight:700; }
+.automaticHelp { max-width:38rem; width:calc(100vw - 3rem); max-height:80vh; overflow:auto; padding:1.5rem; border:1px solid var(--dashboard-border); border-radius:.75rem; background:var(--dashboard-surface); color:var(--dashboard-ink); }
+.automaticHelp::backdrop { background:#0009; }
+.automaticHelp li { margin-block:.6rem; line-height:1.5; }
+.automaticHelp p { line-height:1.5; }
+.controlFields [aria-label="Aircraft intentions"] { display:grid; gap:1rem; }
 
-.automaticRow { display: flex; align-items: center; gap: .4rem; margin: 0 7px 12px; }
-.trafficRoster .automaticRow .autoReadback { margin: 0; flex: 1; min-width: 0; }
-.staffSimulator .automaticHelpButton { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #94a5b5; border-radius: 50%; width: 1.5rem; height: 1.5rem; margin: 0; padding: 0; line-height: 1; color: #dce7ee; }
-.staffSimulator .automaticHelp > button { border: 1px solid #94a5b5; border-radius: .25rem; padding: .4rem .8rem; }
+.automaticRow { display:flex; align-items:center; gap:.4rem; margin:0 7px 12px; }
+.trafficRoster .automaticRow .autoReadback { margin:0; flex:1; min-width:0; }
+.staffSimulator .automaticHelpButton { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid var(--dashboard-link); border-radius:50%; width:1.5rem; height:1.5rem; margin:0; padding:0; line-height:1; color:var(--dashboard-ink); }
+.staffSimulator .automaticHelp > button { border:1px solid var(--dashboard-link); border-radius:.25rem; padding:.4rem .8rem; }
 
 /* Airborne controller popups and previews. */
 .vectorOverlay {position:absolute;inset:0;pointer-events:none;z-index:6;font:14px "Simulator Mono",monospace}
-.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;min-width:190px;padding:8px 10px;border:1px solid #92979c55;border-radius:3px;background:#555b63d9;color:#fff;font:14px/1.5 "Simulator Mono",monospace;box-shadow:0 2px 8px #0005}
+.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;min-width:190px;padding:8px 10px;border:1px solid var(--dashboard-border);border-radius:3px;background:var(--dashboard-surface);color:var(--dashboard-ink);font:14px/1.5 "Simulator Mono",monospace;box-shadow:0 2px 8px #0005}
 .vectorPreviewBox span {display:block;white-space:nowrap}
 .radarQuick {min-width:200px;max-height:55vh;overflow:auto;padding:4px 0}
 .altitudeChoices {max-height:38vh;overflow:auto;overscroll-behavior:contain}
-.radarQuick p {padding:8px 12px;font-size:12px;color:#ff9999}
+.radarQuick p {padding:8px 12px;font-size:12px;color:var(--dashboard-ink)}
 .radarQuick button:has(.colorSwatch) {display:flex;align-items:center;gap:10px}
-.colorSwatch {width:14px;height:14px;border:1px solid #eee;border-radius:50%;flex:none}
+.colorSwatch {width:14px;height:14px;border:1px solid var(--dashboard-link);border-radius:50%;flex:none}
 .aircraft {touch-action:none}
-.bustingRing {position:absolute;left:-24px;top:-24px;width:48px;height:48px;border:3px solid #ff4242;border-radius:50%;pointer-events:none;z-index:3}
-.bustingTag {position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);display:grid;gap:2px;color:#ff4242;background:#101619e8;font-size:12px;white-space:nowrap;padding:2px 4px}
-.terrainUnavailable {position:absolute;bottom:28px;left:12px;color:#ffb276;background:#101619e8;padding:3px 6px;font-size:11px;pointer-events:none}
+.bustingRing {position:absolute;left:-24px;top:-24px;width:48px;height:48px;border:3px solid var(--dashboard-link);border-radius:50%;pointer-events:none;z-index:3}
+.bustingTag {position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);display:grid;gap:2px;color:var(--dashboard-ink);background:var(--dashboard-surface);font-size:12px;white-space:nowrap;padding:2px 4px}
+.terrainUnavailable {position:absolute;bottom:28px;left:12px;color:var(--dashboard-ink);background:var(--dashboard-surface);padding:3px 6px;font-size:11px;pointer-events:none}
 
 .gateAircraft {cursor:grab!important;touch-action:none}
 .gateAircraft:active {cursor:grabbing!important}
+
+/* Live chrome inherits the session theme; the radar keeps its instrument colors. */
+.staffSimulator {color-scheme:dark;background:var(--dashboard-bg);color:var(--dashboard-ink);--staff-border:var(--dashboard-border);--staff-muted:var(--dashboard-muted);--staff-blue:var(--dashboard-link);font-family:"Simulator Fira",sans-serif}
+.staffSimulator :is(input,select) {color-scheme:dark;accent-color:var(--dashboard-link)}
+.staffSimulator :is(button,a,input,select,summary):focus-visible {outline-color:var(--dashboard-link)}
+.staffSimulator .primaryButton,.controlFields .allowLanding {background:var(--dashboard-button);color:var(--dashboard-on-button);border-color:var(--dashboard-button)}
+.staffSimulator button.primaryButton:hover {background:var(--dashboard-button-hover);border-color:var(--dashboard-button-hover)}
+.staffToolbar .playButton {color:#a0dca5}
+.staffSimulator .trafficCard {border-color:var(--dashboard-border);background:var(--dashboard-surface)}
+.staffSimulator .selectedTraffic,.staffSimulator .trafficCard:hover {border-color:var(--dashboard-link);background:var(--dashboard-selected)}
+.selectedTraffic {box-shadow:inset 2px 0 var(--dashboard-link)}
+.controlFields button[aria-pressed=true],.aircraftNavigation nav button[aria-current] {background:var(--dashboard-selected);color:var(--dashboard-link);border-color:var(--dashboard-link)}
+.staffSimulator .trafficCard .airPhase {color:#9acbe8}
+.staffSimulator .trafficCard .groundPhase,.staffSimulator .trafficCard em {color:#e9bf7d}
+.controlFields .goAround {background:#332b1b;color:#f2ce8d;border-color:#9c7b3a}
+.controlFields .cancelLanding {background:#203126;color:#a0dca5;border-color:#658f6c}
+.controlFields .removeButton {background:var(--dashboard-danger-bg);color:var(--dashboard-danger-text);border-color:var(--dashboard-danger-text)}
+.staffSimulator .controllerMessage {color:#a0dca5}.staffSimulator .pilotMessage {color:#9acbe8}
+.staffSimulator .scope {color-scheme:dark;color:#eee}
+.staffSimulator .scope .scopeButtons button {background:#101315;color:#e8edf2;border-color:#343b40}
+.staffSimulator .scope .scopeButtons button:hover {background:#253039}
+.staffSimulator .scope .optionsMenu {background:#030303;color:#e8edf2;border-color:#171717}
+.staffSimulator .scope .optionsMenu button {background:transparent;color:#e8edf2}
+.staffSimulator .scope .optionsMenu button:hover {background:#253039}
+.staffSimulator .scope .optionsMenu .arrow {color:#03a9d6}
+.staffSimulator .scope .procedurePanel {background:#000;color:#eee;border-color:#222}
+.staffSimulator .scope .procedurePanel label {color:#eee;border-color:#161616}
+.autoReadback[aria-checked=true] {background:var(--dashboard-selected);border-color:var(--dashboard-link)}
+.autoReadbackSwitch {background:var(--dashboard-border);border-color:#aaa69e}.autoReadbackSwitch::after {background:#fff}
+.autoReadback[aria-checked=true] .autoReadbackSwitch {background:var(--dashboard-button);border-color:var(--dashboard-button)}
+.staffSimulator :is(input,select) {background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-border)}
+.staffSimulator a {color:var(--dashboard-link)}
+.staffSimulator button:hover {background:var(--dashboard-selected)}
+.staffSimulator .scope .scopeButtons button:hover {background:#253039}
+.staffSimulator .scope .optionsMenu button:hover {background:#253039}
+.menteeSimulator {background:var(--dashboard-bg);color:var(--dashboard-ink);font-family:"Simulator Fira",sans-serif;color-scheme:dark;--trainer-surface:var(--dashboard-surface);--trainer-raised:var(--dashboard-bg);--trainer-border:var(--dashboard-border);--trainer-muted:var(--dashboard-muted);--trainer-selected:var(--dashboard-selected);--trainer-accent:var(--dashboard-link)}
+.menteeSimulator .sidebar {background:var(--dashboard-surface);color:var(--dashboard-ink)}
+.menteeSimulator .sidebar .activeFrequency {color:var(--dashboard-link);border-color:var(--dashboard-link)}
+.menteeSimulator .topBanner {background:var(--dashboard-surface);color:var(--dashboard-ink)}
+.menteeSimulator .topBanner>span:first-child {color:var(--dashboard-ink)}
+.menteeSimulator :is(input,select) {color-scheme:dark;background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-border)}
+.menteeSimulator .scopeButtons button {background:var(--dashboard-surface);color:var(--dashboard-ink)}
+.menteeSimulator .scopeButtons button:hover {background:var(--dashboard-selected)}
+.menteeSimulator .commandPreview button {color:var(--dashboard-on-button)}
+.menteeSimulator .commandPreview button:hover:not(:disabled) {background:var(--dashboard-button-hover)}
+.menteeSimulator .taskChoices button[aria-pressed=true] {color:var(--dashboard-link)}
+.staffSimulator .controlContent>.messageLog {--trainer-surface:var(--dashboard-surface);--trainer-border:var(--dashboard-border);--trainer-muted:var(--dashboard-muted)}
+.staffSimulator .scope .attribution a {color:#b7d8e8}
+.menteeSimulator .attribution a {color:var(--dashboard-link)}
+/* Popovers use the same theme as the surrounding live controls. */
+.simulator .aircraftMenu {background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-border)}
+.simulator .aircraftMenu button:hover {background:var(--dashboard-selected)}
+.menteeSimulator .scope {color:#eee}
+.simulator .scope .airportPopup {background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-border)}
+.staffSimulator [aria-label="Approach guidance"][role="alert"],.staffSimulator .trafficCard small[role="alert"] {color:var(--dashboard-danger-text)}
 
 /* Learned messages sit beside the normal command tree and log, including when empty. */
 .commandWorkspace {display:grid;grid-template-columns:minmax(58px,141fr) minmax(0,659fr);gap:6px;flex:1;min-height:0;min-width:0;padding-top:6px}
@@ -573,13 +653,63 @@
 .commandMain>.messageEntries {flex:1;min-height:0}
 .commandMain>.messageLog {flex:0 0 23%;overflow-y:auto;margin-top:6px;border-top:1px solid var(--trainer-border)}
 
+/* Native list gestures stay separate from the map's pan, pinch and vector gestures. */
+.simulator :is(.strips,.messageLog,.messageEntries,.quickCommands,.aircraftMenu,.optionsMenu,.procedurePanel,.sidebar,.utility,.audioSettings,.trainingAtis) {touch-action:pan-y pinch-zoom;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+.commandMain>section {display:flex;flex-direction:column;flex:1;min-height:0;min-width:0}
+.menteeSimulator .sidebar {min-height:0;overflow-y:auto}
+.menteeSimulator .sidebar>* {flex-shrink:0}
+.menteeSimulator .optionsMenu {max-width:calc(100% - 62px)}
+
+/* Keep the tablet workspace available on short, landscape phone screens too. */
+@media (orientation:landscape) and (min-width:568px) and (min-height:280px) {
+  .menteeSimulator .rotatePrompt {display:none}
+  .menteeSimulator {height:100dvh;bottom:auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+}
+@media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
+  .menteeSimulator {--controller-unit:.8px;grid-template-rows:44px minmax(0,1fr)}
+  .menteeSimulator .topBanner {gap:8px;padding:4px 8px;font-size:11px}
+  .menteeSimulator .topBanner>span:first-child {min-width:0;white-space:nowrap;text-overflow:ellipsis}
+  .menteeSimulator .topBanner small {font-size:10px;margin:0}
+  .menteeSimulator .topBanner>span:last-child {display:none}
+  .menteeSimulator .radioAudio {flex-shrink:0}
+  .menteeSimulator .sidebar {padding:8px 4px;gap:8px}
+  .menteeSimulator .trainerBrand {margin:0 0 6px}
+  .menteeSimulator .trainerBrand strong {font-size:12px;letter-spacing:0}
+  .menteeSimulator .sidebar>button {min-height:64px;padding:8px 2px;font-size:11px;gap:4px}
+  .menteeSimulator .frequencyValue {font-size:10px}
+  .menteeSimulator .sidebar .exit {font-size:12px;padding:10px 8px}
+  .menteeSimulator .rightPanel,.menteeSimulator .commandPanel {padding:0 8px 4px}
+  .menteeSimulator .stripsHeader {min-height:36px;margin-bottom:6px}
+  .menteeSimulator .strip {grid-template-columns:minmax(0,1fr) 48px;min-height:64px;padding:4px;gap:2px;margin-bottom:6px}
+  .menteeSimulator .stripBody {min-width:0;gap:4px}
+  .menteeSimulator .stripBody>span:first-child {font-size:13px;overflow-wrap:anywhere}
+  .menteeSimulator .strip .atcButton {padding:4px!important}
+  .menteeSimulator .commandPanel header {min-height:44px;padding:6px 0;font-size:16px}
+  .menteeSimulator .commandPanel header small {font-size:10px}
+  .menteeSimulator .commandPanel header button {min-width:44px;min-height:44px;margin-top:-6px}
+  .menteeSimulator .messageLog {font-size:12px}
+  .menteeSimulator .messageLogTitle {padding:6px 0;font-size:12px}
+  .menteeSimulator .messageLog>div {padding:6px 0}
+  .menteeSimulator .scopeButtons {right:6px;bottom:22px}
+  .menteeSimulator .attribution {font-size:9px;max-width:calc(100% - 8px)}
+}
+
+.ownerObserver { display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:0; font-size:10px; line-height:12px; }
+.ownerObserver > span { color: var(--accent, #df6b31); font-weight: 700; white-space: nowrap; }
+.ownerObserver button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -2px; }
+
+
+.staffToolbar .ownerObserver button {padding:2px 8px;font-size:11px;line-height:16px;border-left:0}
+.staffToolbar:has(.ownerObserver)>a[href="/sweatbox/about"] {white-space:nowrap;font-size:12px}
+@media(max-width:1200px) {.staffToolbar:has(.ownerObserver) .staffTitle {display:none}}
+
 .simulator:fullscreen {width:100%;height:100dvh}
 .fullscreenControl {position:relative;display:inline-flex;flex-shrink:0}
 .fullscreenControl button {display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-height:36px;padding:6px 9px}
 .fullscreenControl [role="status"] {position:absolute;right:0;top:calc(100% + 6px);width:240px;padding:10px;background:var(--dashboard-surface,#161b20);color:var(--dashboard-ink,#eee);border:1px solid var(--dashboard-border,#46515b);border-radius:4px;font-size:13px;white-space:normal;z-index:30}
 @media(max-width:1100px) {.fullscreenControl button>span {display:none}.fullscreenControl button {padding:6px}}
 
-
+/* Infinite Flight controller proportions, with one shared display unit. */
 .menteeSimulator .sidebar {padding:8px 3px;gap:8px;min-width:0}
 .menteeSimulator .trainerBrand {margin:0 0 12px}
 .menteeSimulator .trainerBrand strong {font-size:10px;letter-spacing:0}
@@ -601,9 +731,6 @@
 .aircraftInformation {top:calc(env(safe-area-inset-top) + 74px);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit) + 5px);left:auto;transform:none;box-shadow:0 6px 24px #0008;max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 10px)}
 @keyframes aircraftMenuEnter {from {opacity:0;transform:translateX(var(--popup-direction,-8px))} to {opacity:1;transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce) {.contextAnchor>.aircraftMenu {animation:none}}
-
-.menteeSimulator .trainerBrand>span {font-size:9px}
-@media(orientation:landscape) and (max-height:550px) and (min-width:568px) {.menteeSimulator {--controller-unit:.8px;grid-template-rows:44px minmax(0,1fr)} .menteeSimulator .rotatePrompt {display:none} .menteeSimulator .sidebar>button {min-height:60px} .menteeSimulator .topBanner {font-size:11px;padding:4px 8px;gap:8px}}
 
 
 /* Controller overlays stay above the audio/header layer and inside fullscreen. */
@@ -696,11 +823,23 @@
 .menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit));border:0}
 .menteeSimulator .compactMessageLog p {margin:0}
 
-.menteeSimulator .commandPanel .messageEntries button.suggestedCommand {color:#91e98d}
+.menteeSimulator .commandPanel .messageEntries button.suggestedCommand {color:#90ee90}
 .menteeSimulator .restoreStrips {width:100%;padding:8px;font-size:12px;background:rgb(0 0 0 / calc(81 / 255));color:#eee;text-align:center}
 
+/* Training actions remain inside the fullscreen root. */
+.mentorContext {position:fixed;z-index:75;display:grid;min-width:220px;padding:8px;background:#171d23;border:1px solid #65717a;border-radius:6px;color:#fff;box-shadow:0 6px 24px #0008}
+.mentorContext strong {padding:8px}.mentorContext button {text-align:left;min-height:40px}
+.conflictTag {display:block!important;color:#ff4545!important;font-size:11px;font-weight:800;white-space:nowrap}
+.conflictTarget {outline:2px solid #ff4545;border-radius:50%}
+.conflictPrompt {position:absolute;z-index:60;left:50%;top:90px;transform:translateX(-50%);max-width:90%;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#222c33;color:white;border:1px solid #ff4545;border-radius:6px}
+.conflictList {position:absolute;z-index:25;right:12px;top:70px;max-width:min(450px,calc(100% - 36px));font-size:12px;color:#ff6b6b;background:#10151be6;border-radius:5px;padding:5px 9px;pointer-events:auto}.conflictList:empty{display:none}.conflictList button{padding:3px 6px;margin-left:8px;font-size:11px}
+.crashAlert {position:absolute;z-index:100;top:22%;left:50%;transform:translateX(-50%);width:min(780px,90%);box-sizing:border-box;display:grid;justify-items:center;gap:16px;padding:28px;background:#960b10f5;color:white;border:6px solid #ff4b4b;box-shadow:0 0 0 12px #ff292940,0 0 80px #f004;text-align:center;animation:crashImpact .65s ease-out both;pointer-events:auto}
+.crashAlert strong {font-size:clamp(34px,6vw,84px);line-height:1.05;font-weight:900;text-transform:uppercase}.crashAlert span{font-size:20px}.crashAlert button{padding:10px 24px;background:#fff;color:#700;border:0;font-weight:bold}
+@keyframes crashImpact {0%{transform:translateX(-50%) scale(1.15);background:#ff3434}35%{transform:translateX(-50%) scale(.98)}100%{transform:translateX(-50%) scale(1)}}
+@media(prefers-reduced-motion:reduce){.crashAlert{animation:none}}
+
 /* Approved compact staff workspace. Expanded tasks scroll without displacing the radar. */
-.staffSimulator {--staff-dock-height:248px;--dashboard-surface:#12191e;--dashboard-border:#34414b;--dashboard-ink:#edf2f5;--dashboard-text:#edf2f5;--dashboard-muted:#aab7c1;--dashboard-link:#ffb18a;--dashboard-selected:#392b25;--dashboard-danger-text:#ffaaa4;grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
+.staffSimulator {--staff-dock-height:clamp(248px,31.25dvh,320px);--dashboard-surface:#12191e;--dashboard-border:#34414b;--dashboard-ink:#edf2f5;--dashboard-text:#edf2f5;--dashboard-muted:#aab7c1;--dashboard-link:#ffb18a;--dashboard-selected:#392b25;--dashboard-danger-text:#ffaaa4;grid-template-columns:clamp(230px,25vw,384px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
 .staffSimulator:has(.staffPanel[data-section=flight]) {grid-template-rows:auto minmax(0,1fr) var(--staff-dock-height)}
 .staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:min(480px,65dvh)}
 .staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}
@@ -708,3 +847,5 @@
 @media(max-width:1100px) {.staffSimulator {grid-template-columns:230px minmax(0,1fr)}}
 @media(max-width:650px) {.staffSimulator {grid-template-columns:190px minmax(0,1fr)}}
 @media(max-height:600px) and (orientation:landscape) {.staffSimulator {--staff-dock-height:210px}.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:70dvh}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
+
+.scope .aircraftTag,.scope .aircraftTag:hover {background:transparent!important;color:var(--label-text,#d3d3d3)!important}

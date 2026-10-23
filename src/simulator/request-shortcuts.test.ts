@@ -17,7 +17,7 @@ function start(id: PilotRequestSelection["id"]) {
   return {state, a: aircraft, message: pendingPilotMessage(state, a.id, a.frequency!)!};
 }
 
-test("the four request shortcuts are first and preserve the ordinary buttons and identical commands", () => {
+test("contextual replies are highlighted once in their ordinary registration position", () => {
   for (const [id, label, originalLabel] of [
     ["pushback", "Pushback Approved", "Pushback Approved"],
     ["runway-change", "Unable", "Unable"],
@@ -26,13 +26,13 @@ test("the four request shortcuts are first and preserve the ordinary buttons and
   ] as const) {
     const {a, message} = start(id), ordinary = messageMenu(a.frequency!, a, [], message);
     const menu = requestMessageMenu(a.frequency!, a, message);
-    assert.equal(menu[0].label, label); assert.equal(menu[0].suggested, true);
+    const reply=menu.find(entry=>entry.label===originalLabel)!;assert.ok(reply);assert.equal(reply.suggested,true);assert.equal(menu.filter(entry=>entry.label===originalLabel).length,1);
     assert.equal(menu.filter(entry => entry.suggested).length, 1);
-    assert.deepEqual(menu.slice(1, ordinary.length + 1), ordinary, "all ordinary commands retain their relative position, shifted by one");
-    const original = menu.slice(1).find(entry => entry.label === originalLabel)!;
-    assert.ok(original); assert.ok(!original.suggested);
-    assert.deepEqual(menu[0].children, original.children);
-    assert.deepEqual(menu[0].instruction, original.instruction);
+    assert.deepEqual(menu.filter(e=>e.label!=="Unable").map(({suggested,...entry})=>entry),ordinary);
+    const original = ordinary.find(entry=>entry.label===originalLabel) ?? reply;
+    assert.ok(original); assert.ok(original===reply || !original.suggested);
+    assert.deepEqual(reply.children, original.children);
+    assert.deepEqual(reply.instruction, original.instruction);
   }
 });
 
@@ -56,8 +56,8 @@ test("legacy/manual radio requests and automatic self go-arounds get the same sh
   ] as const) {
     const {a, message} = start(id); delete message.request;
     message.text = `${a.callsign}, ${phrase}`;
-    assert.equal(requestMessageMenu(a.frequency!, a, message)[0].label, label);
-    assert.equal(requestMessageMenu(a.frequency!, a, message)[0].suggested, true);
+    const found=requestMessageMenu(a.frequency!,a,message).find(e=>e.label===(label==="Cross Runway"?"Cross Runway...":label))!;assert.ok(found);
+    assert.equal(found.suggested,true);
   }
 });
 
@@ -68,7 +68,7 @@ test("shortcuts stay while the controller is on standby and disappear when the r
     state = act(state, {kind: "command", aircraftId: a.id, command, frequency: a.frequency!, text: instructionText(a, command), replyTo: message.id});
   };
   send({type: "radio", message: "standby"});
-  assert.equal(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!))[0].suggested, true);
+  assert.equal(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!)).find(e=>e.label==="Pushback Approved")?.suggested, true);
   send({type: "pushback", tail: "north"});
   assert.deepEqual(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!)), messageMenu(a.frequency!, a));
   message = {...message, commandId: "pilot-readback"};
@@ -79,7 +79,7 @@ test("shortcuts stay while the controller is on standby and disappear when the r
 test("runway-change Unable shortcut sends the same contextual rejection as the ordinary button", () => {
   const {state, a, message} = start("runway-change"), menu = requestMessageMenu(a.frequency!, a, message);
   const before = structuredClone(state.aircraft);
-  for (const entry of [menu[0], menu.at(-1)!]) {
+  for (const entry of menu.filter(e=>e.label==="Unable")) {
     const command = entry.children![0].instruction!;
     const next = act(state, {kind: "command", aircraftId: a.id, command, frequency: a.frequency!, text: instructionText(a, command), replyTo: message.id});
     assert.equal(next.messages.at(-1)!.text, `${a.callsign}, unable`);

@@ -15,20 +15,22 @@ import data from "./data/egph.json";
 test("every stable request and exact legacy label executes the same scenario without rewriting its source", () => {
   for (const id of REQUEST_IDS) {
     const request = resolvePilotRequest({requestId: id})!;
-    for (const legacy of [true, false]) {
-      const radar = ["check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "airport-in-sight"].includes(id);
+    for (const legacy of resolvePilotRequest({label:request.legacyLabel})?.id===id?[true,false]:[false]) {
+      const radar = ["check-in", "request-approach", "missed-approach", "flight-following", "radar-vectors", "star-descent", "diversion", "airport-in-sight","altitude-change"].includes(id);
       const base = {...blankScenario(), ...(radar ? {trainingStation: "EGPH:approach"} : {})};
       const a = (radar ? engineFor(base).newAircraft : newAircraft)("seed", request.phase !== "ground" && !["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id));
       a.frequency = ["pushback", "taxi-runway", "taxi-parking", "cross-runway"].includes(id) ? "ground" : "tower";
       if (id === "frequency-change") a.frequency = "ground";
       if (radar) a.frequency = "approach";
-      const definition = {...base, aircraft: [{key: "target", initial: true, seed: seedFromAircraft(a)}], events: [{id: "request", title: "Request", trigger: {type: "time" as const, at: 0}, actions: [{type: "request" as const, aircraftKey: "target", runway: "06" as const, ...(legacy ? {label: request.legacyLabel} : {requestId: id, label: "Display text can change"})}]}]};
+      if(id.startsWith("unicom-"))a.frequency="unicom";
+      if(["minimum-fuel","emergency-fuel"].includes(id)){a.fuel={state:"emergency",enduranceMinutes:30};a.flightSeconds=120;}
+      const definition = {...base, aircraft: [{key: "target", initial: true, seed: seedFromAircraft(a)}], events: [{id: "request", title: "Request", trigger: {type: "time" as const, at: 0}, actions: [{type: "request" as const, aircraftKey: "target", runway: "06" as const, confirmed:true, ...(legacy ? {label: request.legacyLabel} : {requestId: id, label: "Display text can change"})}]}]};
       const before = JSON.stringify(definition);
       const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(definition), "session", "generation");
       exercise.running = true;
       const result = advanceScenario(exercise, runtime, 0, 1000).exercise;
       assert.equal(runtime.events.request.status, "completed", `${id}/${legacy}`);
-      assert.equal(result.messages.length, 1); assert.match(result.messages[0].text, new RegExp(request.text, "i"));
+      assert.equal(result.messages.length, 1); assert.equal(result.messages[0].request?.id,id);
       assert.equal(JSON.stringify(definition), before);
     }
   }

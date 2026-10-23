@@ -51,7 +51,7 @@ test("a clearance from a stand taxis, lines up and rotates on the chosen runway 
 
 test("option choices preserve current traffic until touchdown then fly the requested opposite pattern", () => {
   let state = initialExercise(); const a = state.aircraft[0], g = runwayGeometry();
-  a.position = {...g.threshold}; a.altitude = AIRPORT.elevation; a.speed = 140;
+  a.position = {...g.threshold}; a.altitude = AIRPORT.elevation+2; a.speed = 140;
   const task = commandTasks("tower", a).find(t => t.id === "land")!;
   const entry = {instruction: {...task.command, runway: "24", number: 2, option: true, hand: "right"} as Instruction};
   assert.match(instructionText(a, entry.instruction!), /number 2, runway 24, cleared for the option, after the option, make right traffic/);

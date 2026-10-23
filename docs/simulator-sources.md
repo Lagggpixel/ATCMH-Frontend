@@ -16,8 +16,8 @@ Do not use internal/decompiled Infinite Flight code, message catalogues, extract
 | --- | --- | --- |
 | Airport surface | OpenStreetMap contributors, ODbL 1.0 | Local XML extract, bounds -3.405,55.935,-3.335,55.968; way IDs retained; projected to local nautical miles by `scripts/import-simulator-data.py` |
 | Airport origin, elevation, runway endpoints/headings | OurAirports public-domain airports.csv and runways.csv | Same importer, local input files; import date in `src/simulator/data/egph.json` |
-| Fonts | Fira Sans and B612 Mono, SIL OFL | Original licence files beside public fonts |
-| Icons | Phosphor React, MIT | Package licence copied verbatim to `public/simulator/Phosphor-MIT.txt` |
+| Fonts | Fira Sans (300/400/500/700) and B612 Mono (400/700), SIL OFL, from Google's font repository | Original licence files beside public fonts |
+| Icons | Phosphor React, MIT; user-supplied original IF 26.4 `InfiniteFlight.ttf` aircraft glyphs | Phosphor licence at `public/simulator/Phosphor-MIT.txt`. Original aircraft codepoints from local `Theme.Glyphs.Aircraft`, rendered as SVG text with `MapControl`'s 26-unit font / .69 base scale and 1.15x black backing offset 1 unit at 1x. Font extraction provenance/hash at `public/simulator/fonts/InfiniteFlight-NOTICE.txt`; the icon font is not covered by the Fira/B612 OFL licences. Trainer aircraft lack wingspan metadata, so physical wingspan-based enlargement is unavailable. |
 | Scenario content | ATCMH author contributions; rights must be checked by author | Fictional callsigns/events, no personal/sensitive information or copied exam questions |
 | Generic motion and guidance | ATCMH implementation; historic reference exposure disclosed above | Existing taxi, circuit, sequencing and assignment engine retained; no assertion of independent historical provenance |
 

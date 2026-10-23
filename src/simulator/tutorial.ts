@@ -1,5 +1,5 @@
 export type TutorialOutcome = "completed" | "skipped" | "radar";
-export const tutorialKey = (accountId: string) => `atcmh:simulator:staff-tutorial:v1:${accountId}`;
+export const tutorialKey = (accountId: string) => `simulator:staff-tutorial:v1:${accountId}`;
 
 /** Personal browser preference; radar means the Sessions tour is done. */
 export function tutorialPreference(accountId: string) {
@@ -22,10 +22,10 @@ export function shouldStartTutorial(outcome: TutorialOutcome | null, live: boole
 
 export interface TutorialStep {target: string; fallback?: string; title: string; text: string; hint: string}
 export const SESSION_TOUR: readonly TutorialStep[] = [
-  {target: "scenarios-tab", title: "Start with a scenario", text: "This is your scenario library. Build a setup here, save it and publish it before using it in a session.", hint: "Scenarios are shared with other staff. A session uses the published revision."},
+  {target: "scenarios-tab", fallback: "library-navigation", title: "Start with a scenario", text: "Build a setup in your scenario library, then publish it for a session. You can also use or duplicate a public scenario.", hint: "Your scenarios are private unless the owner shares them. Public originals are read only for other trainers."},
   {target: "new-session", title: "Create a paused session", text: "Choose New session, then pick a published scenario. Your exercise starts paused so you can prepare before the mentee joins.", hint: "You can use the highlighted controls during this tour. Nothing is created automatically."},
-  {target: "session-library", title: "Choose your exercise", text: "Saved sessions appear here with their airport and connected mentor and mentee. Each row includes Trainee link, Enter and Archive controls.", hint: "If this list is empty, create a session from a published scenario first."},
-  {target: "mentee-sharing", fallback: "session-library", title: "Invite your mentee", text: "Use Trainee link in the session row to copy its joining link. Send that link to your mentee so they can sign in and join their own page.", hint: "Each session has one staff control seat and one mentee seat. Avoid opening duplicate seat tabs."},
+  {target: "session-library", title: "Choose your exercise", text: "Saved sessions appear here with their airport and connected mentor and mentee. Each row has Trainee link, Enter and Archieve controls.", hint: "If this list is empty, create a session from a published scenario first."},
+  {target: "mentee-sharing", fallback: "session-library", title: "Invite your mentee", text: "Use Trainee link in the session row to copy its joining link. Your learner only enters their name; signed-in staff join with their existing account. A session code also works from the Join page.", hint: "Each session has one staff control seat and one mentee seat. Avoid opening duplicate seat tabs."},
   {target: "staff-radar-link", fallback: "session-library", title: "Continue on the staff radar", text: "Use Enter for a session with a free mentor seat. The next part of the tour points out the controls inside the exercise.", hint: "If no radar is available yet, continue later. The radar tour will open on your next staff radar visit."},
 ];
 export const RADAR_TOUR: readonly TutorialStep[] = [
@@ -35,7 +35,7 @@ export const RADAR_TOUR: readonly TutorialStep[] = [
   {target: "radar", title: "Watch the aircraft on the radar", text: "Select an aircraft on the map, pan to follow traffic and use the map controls to adjust your view. Selection matches the Traffic list.", hint: "Use a computer or a tablet in landscape for the radar and aircraft controls."},
   {target: "aircraft-controls", title: "Act as the pilot", text: "With an aircraft selected, use Radio to reply or send a pilot request. Flight controls movement; Setup contains intentions, routes, speed settings and aircraft details.", hint: "The Radio task menu includes aircraft history and the session message log. More actions contains pattern or navigation controls, and Expand panel gives longer tasks more room."},
   {target: "timeline", fallback: "toolbar", title: "Run events and save feedback", text: "For a scenario session, open Timeline to review events, run manual events while playing, or choose Finish attempt to save feedback.", hint: "A session without a scenario shows Save scenario here instead."},
-  {target: "return-sessions", title: "Return for a debrief", text: "Return to Sessions here. Leaving keeps the saved session. End session closes it permanently and saves its recording in Replays for your debrief.", hint: "You can reopen this on-screen tour at any time with Tutorial in Sessions or the staff radar’s Session menu."},
+  {target: "return-sessions", title: "Return for a debrief", text: "Return to Sessions here. Leaving keeps the saved session. Archieve closes it permanently and saves its recording in Replays for your debrief.", hint: "You can reopen this on-screen tour at any time with Tutorial in Sessions or the staff radar’s Session menu."},
 ];
 
 export interface TourRect {left: number; top: number; width: number; height: number}
