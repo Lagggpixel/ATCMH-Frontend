@@ -7,6 +7,28 @@ import {createSessionApi} from "./server/session-api";
 import {createTrainingApi} from "./server/training-api";
 import type {SessionStore} from "./server/session-service";
 
+test("both access checks start together and a deadline cancels introspection and permissions", async t => {
+  const names = ["SIMULATOR_ENABLED", "DASHBOARD_API_URL", "EXAMS_AUTH_KEY", "EXAMS_CSRF_SECRET", "FRONTEND_PUBLIC_ORIGIN"] as const;
+  const before = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  Object.assign(process.env, {SIMULATOR_ENABLED: "true", DASHBOARD_API_URL: "https://api.test", EXAMS_AUTH_KEY: "test-key", EXAMS_CSRF_SECRET: "test-csrf-secret-for-simulator-tests", FRONTEND_PUBLIC_ORIGIN: "https://atcmh.test"});
+  const deadline = new AbortController(), signals: AbortSignal[] = [];
+  t.mock.method(AbortSignal, "timeout", (ms: number) => {assert.equal(ms, 8000); return deadline.signal;});
+  t.mock.method(globalThis, "fetch", (_input: unknown, init: RequestInit) => {
+    signals.push(init.signal!);
+    return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason), {once: true}));
+  });
+  try {
+    const pending = authorizeSessionRequest(new Request("https://atcmh.test/api/simulator/sessions", {headers: {cookie: "__Host-atcmh_session=synthetic-session-token-for-tests-only"}}), true);
+    assert.equal(signals.length, 2);
+    assert.equal(signals[0], signals[1]);
+    deadline.abort(new DOMException("signal timed out", "TimeoutError"));
+    await assert.rejects(pending, (error: unknown) => error instanceof SessionError && error.status === 503 && error.code === "unavailable");
+    assert.ok(signals.every(signal => signal.aborted));
+  } finally {
+    for (const name of names) {if (before[name] === undefined) delete process.env[name]; else process.env[name] = before[name];}
+  }
+});
+
 test("every simulator seat enforces staff/admin/tester access, central sign-in, origin and CSRF", async () => {
   const names = ["SIMULATOR_ENABLED", "DASHBOARD_API_URL", "EXAMS_AUTH_KEY", "EXAMS_CSRF_SECRET", "FRONTEND_PUBLIC_ORIGIN"] as const;
   const before = Object.fromEntries(names.map(name => [name, process.env[name]])), originalFetch = globalThis.fetch;

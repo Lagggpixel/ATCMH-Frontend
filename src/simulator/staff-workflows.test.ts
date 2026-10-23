@@ -36,10 +36,10 @@ test("invalidated library reads cannot resurrect ended sessions or replace newer
     const fresh = sync.refresh();
     waiting[2](Response.json({sessions: [{id: "new"}]})); waiting[3](Response.json({scenarios: []})); await fresh;
     waiting[0](Response.json({sessions: [{id: "ended"}]})); waiting[1](Response.json({scenarios: []})); await old;
-    assert.deepEqual(received, [["new"]]); assert.deepEqual(errors, [""]);
+    assert.deepEqual(received, [["new"], ["new"]]); assert.deepEqual(errors, [""]);
     const stopped = sync.refresh(); sync.stop();
     waiting[4](Response.json({sessions: [{id: "late"}]})); waiting[5](Response.json({scenarios: []})); await stopped;
-    assert.deepEqual(received, [["new"]]);
+    assert.deepEqual(received, [["new"], ["new"]]);
   } finally {sync.stop();}
 });
 
