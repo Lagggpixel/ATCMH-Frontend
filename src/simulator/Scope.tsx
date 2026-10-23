@@ -310,7 +310,7 @@ export default function Scope({focusRequest, savedCamera, onCameraChange, showPr
       const label = radarFlightLabel(a, AIRPORT, radarEnvironment);
       const tagAngle = tagDraft?.aircraftId === a.id ? tagDraft.angle : a.tagAngle;
       const tagOffset = tagAngle === undefined ? null : {x: Math.cos(tagAngle * Math.PI / 180) * Math.hypot(28, 25), y: Math.sin(tagAngle * Math.PI / 180) * Math.hypot(28, 25)};
-      return <div key={a.id} className={styles.aircraftPosition} style={{left: p.x, top: p.y, color}}>
+      return <div key={a.id} className={styles.aircraftPosition} style={{left: 0, top: 0, transform: `translate(${p.x}px, ${p.y}px)`, color}}>
         {giveWayTargets?.includes(a.id) ? <span className={styles.giveWayTarget} role="img" aria-label={`Likely give-way traffic: ${a.callsign}`}/> : null}
         {busting ? <div className={styles.bustingRing} role="status" aria-label={`Busting ${a.callsign}`}><div className={styles.bustingTag} style={{bottom: `calc(100% + ${alertOffset}px)`}}>{conflicts.map(alert => <span key={alert.otherId}>{separationLabel(alert)}</span>)}{agl !== undefined ? <span>{Math.floor(agl)}ft AGL</span> : null}</div></div> : null}
         <button aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${selected === a.id ? styles.selectedAircraft : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onVector) event.preventDefault();}}
@@ -350,8 +350,6 @@ export default function Scope({focusRequest, savedCamera, onCameraChange, showPr
     {terrainSamples.unavailable ? <span role="status" className={styles.terrainUnavailable}>Terrain data unavailable for {terrainSamples.unavailable} aircraft</span> : null}
   </div>;
 }
-/** Both roles animate at the display's frame rate between authoritative motion
- * frames. A background staff tab's throttled timer no longer makes the mentee jump. */
 function useVectorTerrain(latitude?: number, longitude?: number) {
   const [result, setResult] = useState<{latitude: number; longitude: number; feet: number | null} | null>(null);
   useEffect(() => {
@@ -369,16 +367,21 @@ function useVectorTerrain(latitude?: number, longitude?: number) {
   return result?.latitude === latitude && result?.longitude === longitude ? result?.feet : undefined;
 }
 function useRadarAircraft(snapshot: Aircraft[], running: boolean, autoReadback: boolean, airport: Airport, radarEnvironment?: RadarEnvironment) {
-  const {predictAircraft} = engineFor({airport: airport.icao, radarEnvironment});
+  const {predictAircraft} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment}), [airport, radarEnvironment]);
   const latest = useRef({snapshot, time: 0});
   const [frame, setFrame] = useState<{snapshot: Aircraft[]; aircraft: Aircraft[]} | null>(null);
   useEffect(() => {latest.current = {snapshot, time: performance.now()};}, [snapshot]);
   useEffect(() => {
     if (!running) return;
-    let handle = 0;
-    const draw = () => {
-      const current = latest.current;
-      setFrame({snapshot: current.snapshot, aircraft: predictAircraft(current.snapshot, (performance.now() - current.time) / 1000, autoReadback)});
+    let handle = 0, last = -Infinity;
+    const draw = (now: number) => {
+      // Bound React/kinematics work independently of 60/120/144 Hz displays.
+      // Prediction still uses wall time and the latest authoritative snapshot.
+      if (now - last >= 1000 / 30 - 1) {
+        last = now;
+        const current = latest.current;
+        setFrame({snapshot: current.snapshot, aircraft: predictAircraft(current.snapshot, (now - current.time) / 1000, autoReadback)});
+      }
       handle = requestAnimationFrame(draw);
     };
     handle = requestAnimationFrame(draw); return () => cancelAnimationFrame(handle);

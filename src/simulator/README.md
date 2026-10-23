@@ -376,4 +376,8 @@ New aircraft use randomized operators and numbers from 1 to 9999. Callsign and n
 
 ### Scope navigation
 
+Scope traffic prediction renders at up to 30 frames per second, independently of the monitor refresh rate. Aircraft positions use transforms to avoid relaying out the scope on each animation frame. Prediction uses elapsed wall time between authoritative session updates; simulation timing and commands remain server controlled.
+
+The trainer toolbar's **Mentee view when paused** selector offers **Hide view** and **Keep view visible**. Both freeze exercise time and block mentee commands and radio audio. Visible pause lets the mentee inspect the scope and see trainer edits, with a Viewing only banner. Older snapshots default to hidden pause; finishing an exercise always hides the mentee view.
+
 Drag with one finger or the primary mouse button to pan; a swipe coasts and slows after release. Pinch spacing controls zoom proportionally while the moving midpoint pans the map. After lifting one finger, the remaining finger continues panning without a jump. Double-tap (or double-click), hold the second press, and drag upward to zoom in or downward to zoom out, anchored at that press. Scenario point-placement modes keep successive taps as edits. Mouse wheel and trackpad pinch zoom around the pointer; +/− buttons zoom smoothly. New presses, recentering, Escape, focus loss and canceled gestures stop camera inertia. Aircraft vectoring, label placement and taxi route edits take priority. Gestures do not rotate the scope.

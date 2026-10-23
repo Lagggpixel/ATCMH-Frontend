@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {envelopeSchema} from "../protocol";
+import {invalidRequestMessage} from "../request-validation";
 import {SESSION_FRAME_MS, SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type SessionStore} from "./session-service";
@@ -11,7 +12,8 @@ const seatSchema = z.object({role: z.enum(["staff", "mentee"]), token: z.string(
 const noStore = {"cache-control": "no-store"};
 export function sessionFailure(error: unknown) {
   if (error instanceof SessionError) return Response.json({code: error.code, error: error.message}, {status: error.status, headers: noStore});
-  if (error instanceof z.ZodError || error instanceof SyntaxError) return Response.json({code: "invalid-request", error: "This request is invalid. Refresh and try again."}, {status: 400, headers: noStore});
+  if (error instanceof z.ZodError) return Response.json({code: "invalid-request", error: invalidRequestMessage(error)}, {status: 400, headers: noStore});
+  if (error instanceof SyntaxError) return Response.json({code: "invalid-request", error: "The request body must contain valid JSON."}, {status: 400, headers: noStore});
   console.error("Simulator session request failed", error instanceof Error ? error.name : "Unknown error");
   return Response.json({code: "unavailable", error: "Sessions are temporarily unavailable. Your saved scenarios have not been removed."}, {status: 503, headers: noStore});
 }

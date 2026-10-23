@@ -103,7 +103,7 @@ export interface Atis {
 export interface Exercise {
   callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
-  id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean;
+  id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
   autoReadback?: boolean;
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
   radarEnvironment?: RadarEnvironment;
@@ -112,7 +112,8 @@ export interface Exercise {
   atis: Atis; publishedAtis: string; publishedDraft: Atis | null;
 }
 export type Action =
-  | {kind: "play" | "pause" | "reset"}
+  | {kind: "play" | "reset"}
+  | {kind: "pause"; visibility?: "hidden" | "visible"}
   | {kind: "auto-readback"; enabled: boolean}
   | {kind: "all-full-stop"}
   | {kind: "report-position"; aircraftId: string}
