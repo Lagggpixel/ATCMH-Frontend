@@ -19,7 +19,7 @@ import {radarEnvironmentFor} from "./radar";
 import {catalogFor, positionReportText} from "./catalog";
 import {planTaxiRoute} from "./taxi-routing";
 
-import {gatesFor, standPlacement} from "./scenarios";
+import LocalAircraftDialog from "./LocalAircraftDialog";
 import {arrivalWorkflow} from "./arrival-workflow";
 import { intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
 import {sessionCode, sessionPath} from "./sessions";
@@ -29,7 +29,7 @@ import LandingOutcomeControl from "./LandingOutcomeControl";
 import AutomaticHelp from "./AutomaticHelp";
 import SpeedControls from "./SpeedControls";
 import styles from "./Simulator.module.css";
-interface Props {exercise: Exercise; selected: Aircraft | undefined; dispatch: (a: Action) => void; onSelect: (id: string | null) => void; editMode: string; onEditMode: (mode: string) => void; holdPoint: boolean; onHoldPoint: (value: boolean) => void; owner: boolean; status: string}
+interface Props {exercise: Exercise; selected: Aircraft | undefined; dispatch: (a: Action) => void | boolean | Promise<boolean>; onSelect: (id: string | null) => void; editMode: string; onEditMode: (mode: string) => void; holdPoint: boolean; onHoldPoint: (value: boolean) => void; owner: boolean; status: string}
 
 export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, extra, tutorial}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle: string; scenario?: boolean; onRestart?: () => void; extra?: ReactNode; tutorial?: ReactNode}) {
   const [confirmReset, setConfirmReset] = useState(false);
@@ -45,7 +45,14 @@ export function TrafficRoster({exercise, selected, onSelect, dispatch, owner}: P
     <div data-simulator-tour="automatic" className={styles.automaticRow}><button className={styles.autoReadback} role="switch" aria-checked={!!exercise.autoReadback} disabled={!owner} onClick={() => dispatch({kind: "auto-readback", enabled: !exercise.autoReadback})}><span><strong>Automatic</strong></span><span className={styles.autoReadbackSwitch} aria-hidden="true"/></button><AutomaticHelp/></div>
     <div className={styles.buttonRow}><button disabled={!owner || !exercise.aircraft.length} onClick={() => dispatch({kind: "all-full-stop"})}>All aircraft full stop</button></div>
     {exercise.collisions?.at(-1) ? <p className={styles.controlHint} role="status">Collision: {exercise.collisions.at(-1)!.aircraft.map(a => a.callsign).join(" / ")}. Aircraft removed.</p> : null}
-    {adding ? <form className={styles.addAircraft} onSubmit={e => {e.preventDefault(); const next = newAircraft(crypto.randomUUID(), airborne); if (!airborne && trainingMode(exercise) === "local") {const placement = standPlacement(gatesFor(AIRPORT)[0].id, false, AIRPORT)!; Object.assign(next, placement, {targetHeading: placement.heading});} next.callsign = randomCallsign(exerciseCallsigns(exercise)); dispatch({kind: "spawn", aircraft: next}); onSelect(next.id); setAdding(false);}}><label>Spawn location<select value={airborne ? "air" : "ground"} onChange={e => setAirborne(e.target.value === "air")}><option value="air">Airborne</option>{trainingMode(exercise) === "local" ? <option value="ground">On ground</option> : null}</select></label><div className={styles.buttonRow}><button type="button" onClick={() => setAdding(false)}>Cancel</button><button className={styles.primaryButton} disabled={!owner} type="submit">Add aircraft</button></div></form> : null}
+    {adding && trainingMode(exercise) === "local" ? <LocalAircraftDialog selection={exercise} aircraft={exercise.aircraft} callsigns={exerciseCallsigns(exercise)} enabled={owner} onClose={() => setAdding(false)} onAdd={async aircraft => {
+      const action: Action = {kind: "spawn", aircraft};
+      const invalid = engineFor(exercise).applyEnvelope(exercise, {id: crypto.randomUUID(), time: 0, action}).error;
+      if (invalid) throw new Error(invalid);
+      if (await dispatch(action) === false) return false;
+      onSelect(aircraft.id); return true;
+    }}/> : null}
+    {adding && trainingMode(exercise) !== "local" ? <form className={styles.addAircraft} onSubmit={e => {e.preventDefault(); const next = newAircraft(crypto.randomUUID(), airborne); next.callsign = randomCallsign(exerciseCallsigns(exercise)); dispatch({kind: "spawn", aircraft: next}); onSelect(next.id); setAdding(false);}}><label>Spawn location<select value={airborne ? "air" : "ground"} onChange={e => setAirborne(e.target.value === "air")}><option value="air">Airborne</option>{trainingMode(exercise) === "local" ? <option value="ground">On ground</option> : null}</select></label><div className={styles.buttonRow}><button type="button" onClick={() => setAdding(false)}>Cancel</button><button className={styles.primaryButton} disabled={!owner} type="submit">Add aircraft</button></div></form> : null}
     <div className={styles.trafficList}>{exercise.aircraft.map(a => {const waiting = pendingCommands(exercise, a.id), unanswered = waiting.length; const transfer = waiting.at(-1)?.instruction; return <button key={a.id} className={`${styles.trafficCard} ${a.id === selected?.id ? styles.selectedTraffic : ""}`} aria-pressed={a.id === selected?.id} onClick={() => onSelect(a.id)}><span><strong>{a.callsign}</strong><small>{a.type}</small></span><span><b className={a.mode === "parked" || a.mode === "pushback" || a.mode === "taxi" || a.mode === "lineup" || a.mode === "takeoff" || a.mode === "rollout" ? styles.groundPhase : styles.airPhase}>{a.mode === "parked" || a.mode === "pushback" || a.mode === "taxi" || a.mode === "lineup" || a.mode === "takeoff" || a.mode === "rollout" ? "Ground" : "Airborne"}</b><small>{a.frequency ? `${FREQUENCIES[a.frequency].label} ${FREQUENCIES[a.frequency].value}` : "No frequency"}</small><small>Runway {stripRunway(a)}</small><small>Next landing: {a.landing === "full-stop" ? "Full stop" : "Touch and go"}</small>{transfer?.type === "frequency" && transfer.frequency ? <small>{transfer.whenReady ? "Contact when ready" : "Awaiting switch"}: {FREQUENCIES[transfer.frequency].label}</small> : null}</span>{unanswered ? <em>{unanswered} awaiting response</em> : null}</button>;})}</div>
     <footer>{AIRPORT.icao} · {AIRPORT.name}</footer>
   </aside>;

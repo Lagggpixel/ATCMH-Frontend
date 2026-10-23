@@ -1,0 +1,18 @@
+.dialog {width:540px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);margin:auto;padding:0;border:1px solid var(--dashboard-border,#666);border-radius:8px;background:var(--dashboard-surface,#171b20);color:var(--dashboard-ink,#eee);box-shadow:0 16px 60px #0006;overflow:auto;font:14px/1.45 Arial,sans-serif;color-scheme:dark}
+.dialog::backdrop {background:#111a}
+.form {display:grid;gap:18px;padding:24px}
+.form h2 {font-size:22px;font-weight:500;margin:0}
+.form p {margin:0;color:var(--staff-muted,#abb4be)}
+.form label {display:grid;gap:6px;min-width:0;font-size:13px}
+.form input,.form select {box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--dashboard-border,#666);border-radius:4px;background:var(--dashboard-surface,#171b20);color:inherit;font:inherit}
+.form button {min-height:40px;padding:8px 12px;border:1px solid var(--dashboard-border,#666);border-radius:4px;background:var(--dashboard-surface,#171b20);color:inherit;font:inherit;cursor:pointer;text-align:center}
+.form button:disabled {opacity:.45;cursor:default}
+.form :is(input,select,button):focus-visible {outline:2px solid #80dce8;outline-offset:2px}
+.fields {border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}
+.pair {display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.callsign {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.summary {padding:12px;border:1px solid var(--dashboard-border,#666);border-radius:4px;font-size:13px}
+.error {color:#ffb9a9!important}
+.actions {display:flex;justify-content:flex-end;gap:10px}
+.form .primary {border-color:var(--dashboard-link,#80dce8);background:var(--dashboard-selected,#26343d)}
+@media(max-width:460px) {.form {padding:18px;gap:16px}.pair {grid-template-columns:1fr}.actions button {flex:1}}
