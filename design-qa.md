@@ -1,5 +1,7 @@
 # ATCMH Sweatbox library layout
 
+Deployment follow-up (23 October 2026): frontend **26.10.23**, source commit `7fed31c991adde069f0a41c6d0acff03a38209dd`, is now published and deployed to ATCMH. All 48 affected tests and 22 published-UI browser checks passed, alongside lint, the local Linux production build/TypeScript, live image/configuration/health checks and authentication gates. Browser checks used synthetic identities/data with production writes blocked. The design report below records the earlier local QA phase. Release evidence: `C:/Users/Reid/.codex/visualizations/2026/10/23/01a169a1-53e5-7583-b115-b8aaeb88b7ba/release-26.10.23`.
+
 Date: 23 October 2026 (Europe/London)
 
 final result: passed
