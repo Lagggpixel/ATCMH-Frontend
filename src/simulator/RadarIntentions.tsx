@@ -5,8 +5,10 @@ import styles from "./RadarIntentions.module.css";
 import LandingOutcomeControl, {type LandingChange} from "./LandingOutcomeControl";
 
 /** Shared by live traffic creation, instructor controls and saved scenarios. */
-export default function RadarIntentions({aircraft, airport, environment, onChange, onLandingChange, takeoff = false}: {
+export default function RadarIntentions({aircraft, airport, environment, onChange, onLandingChange, takeoff = false, showLanding = true}: {
   aircraft: Aircraft; airport: Airport; environment: RadarEnvironment; onChange: (radar: RadarState) => void; onLandingChange: LandingChange; takeoff?: boolean;
+  /** Live staff Intentions already shows Next landing beside this form. */
+  showLanding?: boolean;
 }) {
   const r = aircraft.radar!;
   const flight = r.flight;
@@ -21,8 +23,8 @@ export default function RadarIntentions({aircraft, airport, environment, onChang
     </select></label> : flight === "departure" ? <label>Departure direction<select aria-label="Departure direction" value={r.departureDirection ?? "north"} onChange={event => onChange({...r, flight: "departure", departureDirection: event.target.value as Direction})}>
       {(["north", "east", "south", "west"] as const).map(direction => <option key={direction} value={direction}>{direction[0].toUpperCase() + direction.slice(1)}</option>)}
     </select></label> : null}
-    <LandingOutcomeControl value={aircraft.landing} onChange={onLandingChange}/>
-    <small>After Tower handoff, aircraft follow this intention. Touch and go returns to Approach on runway heading at 1,000 ft AGL.</small>
+    {showLanding ? <><LandingOutcomeControl value={aircraft.landing} onChange={onLandingChange}/>
+    <small>After Tower handoff, aircraft follow this intention. Touch and go returns to Approach on runway heading at 1,000 ft AGL.</small></> : null}
     <div className={styles.preview}><span>{takeoff ? "After takeoff" : "Pilot intention"}</span><p>{radarIntentionText(preview, airport, environment)}</p>
       {takeoff ? <small>Automatic takeoff · pilot calls radar at 1,000 ft AGL when Automatic is on.</small> : <small>Requested by the pilot. The controller assigns and clears the approach separately.</small>}
     </div>
