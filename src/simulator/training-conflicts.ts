@@ -85,7 +85,10 @@ export function conflictCommand(state: Exercise, aircraftId: string, command: In
     if (c.kind === "cancel-takeoff" && aircraftId === b.id && applied) {
       if (command.type === "lineup" || command.type === "takeoff") c.linedUp = true;
       if (command.type === "takeoff") {c.takeoffCleared = true; c.rollAt ??= state.elapsed;}
-      if (command.type === "atc" && command.action === "cancel-takeoff") {c.cancelledTakeoff = true; delete b.conflictMotion;}
+      if (command.type === "atc" && command.action === "cancel-takeoff") {
+        c.cancelledTakeoff = true; delete b.conflictMotion;
+        finish(c, c.goAround ? "Go around and takeoff cancellation received" : "Takeoff cancellation received");
+      }
     }
     if (aircraftId === a.id && command.type === "go-around") c.goAround = true;
   }
@@ -135,16 +138,25 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
       else if (c.phase === "active" && state.elapsed > (c.rollAt ?? state.elapsed) + 600) {delete a.conflictMotion; finish(c, "Following arrival did not reach the runway", true);}
     } else {
       delete b.automaticRequest; delete b.contactTowerAtHold;
+      if (c.cancelledTakeoff) {finish(c, c.goAround ? "Go around and takeoff cancellation received" : "Takeoff cancellation received"); continue;}
       if (c.phase === "setup" && a.leg === "final" && engine.distance(a) <= 5.5) {
         c.phase = "requested"; b.frequency = "tower"; b.conflictRequest = {id: "departure", runway: c.runway, remainingInPattern: b.intentions?.flight === "pattern"};
       }
       if (!c.linedUp && (a.mode === "rollout" || a.mode === "takeoff" && a.altitude <= airport.elevation + 1 && (a.circuit ?? 0) > c.circuit)) {finish(c, "Arrival touched down without lineup permission", true); continue;}
       if (c.takeoffCleared && !c.cancelledTakeoff && state.elapsed < (c.rollAt ?? state.elapsed) + 75) motion(b, {holdDeparture: true});
-      if (c.linedUp && a.leg === "final" && airborne(a, airport) && engine.distance(a) < .65 && !c.goAround) {
+      const g = engine.geometry(c.runway);
+      const arrivalAlong = (a.position.x - g.threshold.x) * g.vector.x + (a.position.y - g.threshold.y) * g.vector.y;
+      if (c.linedUp && a.leg === "final" && airborne(a, airport) && engine.distance(a) < .65 && !c.goAround
+        && runwayGoAroundDue(a.altitude, airport.elevation, arrivalAlong)) {
         engine.instruct(a, {type: "go-around"}); a.selfGoAroundPending = true; c.selfGoAround = true;
       }
-      if ((c.goAround || c.selfGoAround) && c.cancelledTakeoff) finish(c, c.goAround ? "Go around and takeoff cancellation received" : "Self go-around; takeoff cancelled");
-      else if ((c.goAround || c.selfGoAround) && a.altitude > airport.elevation + 700 && Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 1) finish(c, c.cancelledTakeoff ? "Conflict resolved" : c.takeoffCleared ? "Aircraft clear; takeoff cancellation missed" : "Go-around; departure remained held");
+      // Ordinary occupied-runway/uncleared-landing safety can also start the go-around.
+      if ((c.linedUp || c.phase === "requested") && a.mode === "go-around" && !c.goAround) c.selfGoAround = true;
+      if (c.selfGoAround) {
+        delete b.conflictMotion;
+        finish(c, c.takeoffCleared ? "Self go-around; takeoff cancellation missed" : "Self go-around; departure remained held");
+      }
+      else if (c.goAround && a.altitude > airport.elevation + 700 && Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 1) {delete b.conflictMotion; finish(c, c.takeoffCleared ? "Aircraft clear; takeoff cancellation missed" : "Go-around; departure remained held");}
     }
   }
 }

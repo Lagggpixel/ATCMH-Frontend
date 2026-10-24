@@ -110,11 +110,93 @@ test("takeoff clearance gets a bounded delay and cancellation/go-around resolve 
   prepareConflicts(h.state, h.airport, h.support); assert.equal(h.state.conflicts![0].phase, "complete"); assert.equal(h.b.conflictMotion?.holdDeparture, undefined);
 });
 test("self go-around is announced once, and a missed cancellation does not force a separated collision", () => {
-  const h = fixture("cancel-takeoff"); h.start(); conflictCommand(h.state, "b", {type: "lineup"}, h.support, true);
+  const h = fixture("cancel-takeoff"); h.start(); conflictCommand(h.state, "b", {type: "takeoff"}, h.support, true);
   const g = h.support.geometry("22L"); h.a.position = {x: g.threshold.x - g.vector.x * .6, y: g.threshold.y - g.vector.y * .6};
+  h.a.altitude = h.airport.elevation + 50;
   prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.mode, "go-around"); assert.equal(h.a.selfGoAroundPending, true);
-  h.state.conflicts![0].takeoffCleared = true; h.a.altitude = h.airport.elevation + 1000; h.a.position.x += 10; prepareConflicts(h.state, h.airport, h.support);
+  assert.equal(h.state.conflicts![0].phase, "complete"); assert.equal(conflictLabels(h.state.conflicts, "a"), ""); assert.equal(conflictLabels(h.state.conflicts, "b"), "");
+  assert.equal(h.b.conflictMotion, undefined);
+  delete h.a.selfGoAroundPending; prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.selfGoAroundPending, undefined);
+  h.a.altitude = h.airport.elevation + 1000; h.a.position.x += 10; prepareConflicts(h.state, h.airport, h.support);
   assert.match(h.state.conflicts![0].outcome!, /cancellation missed/); assert.deepEqual(aircraftCollisionGroups(h.state.aircraft, h.airport.elevation), []);
+});
+
+test("cancel takeoff and GA use the same 50-foot or threshold self-go-around point", () => {
+  for (const [nm, height, expected] of [[.6, 191, false], [.1, 51, false], [.1, 50, true], [.1, 49, true], [0, 100, true], [-.01, 100, true]] as const) {
+    for (const kind of ["ga", "cancel-takeoff"] as const) {
+      const h = fixture(kind); h.start(); const arrival = kind === "ga" ? h.b : h.a, g = h.support.geometry("22L");
+      if (kind === "ga") {h.a.mode = "rollout"; h.a.position = {...g.threshold}; h.a.altitude = h.airport.elevation;}
+      else conflictCommand(h.state, "b", {type: "lineup"}, h.support, true);
+      arrival.position = {x: g.threshold.x - g.vector.x * nm, y: g.threshold.y - g.vector.y * nm}; arrival.altitude = h.airport.elevation + height;
+      prepareConflicts(h.state, h.airport, h.support);
+      assert.equal(arrival.mode === "go-around", expected, `${kind}: ${nm} NM, ${height} ft`);
+      assert.equal(!!arrival.selfGoAroundPending, expected);
+      if (kind === "cancel-takeoff") for (const a of h.state.aircraft) assert.equal(conflictLabels(h.state.conflicts, a.id), expected ? "" : "Cancel Takeoff");
+    }
+  }
+});
+
+test("applied takeoff cancellation clears both conflict labels without requiring a go-around", () => {
+  for (const goAround of [false, true]) {
+    const h = fixture("cancel-takeoff"); h.start(); conflictCommand(h.state, "b", {type: "takeoff"}, h.support, true);
+    prepareConflicts(h.state, h.airport, h.support); assert.equal(h.b.conflictMotion?.holdDeparture, true);
+    if (goAround) conflictCommand(h.state, "a", {type: "go-around"}, h.support, true);
+    const cancel: Instruction = {type: "atc", action: "cancel-takeoff"};
+    conflictCommand(h.state, "b", cancel, h.support, false);
+    assert.equal(conflictLabels(h.state.conflicts, "b"), "Cancel Takeoff", "sending alone does not assign the instruction");
+    conflictCommand(h.state, "b", cancel, h.support, true);
+    assert.equal(h.state.conflicts![0].phase, "complete"); assert.equal(h.state.conflicts![0].cancelledTakeoff, true);
+    assert.equal(h.b.conflictMotion, undefined);
+    for (const a of h.state.aircraft) assert.equal(conflictLabels(h.state.conflicts, a.id), "");
+    const g = h.support.geometry("22L"); h.a.position = {...g.threshold};
+    prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.selfGoAroundPending, undefined, "a completed conflict cannot trigger a later go-around");
+  }
+});
+
+test("ordinary safety go-arounds and restored resolved pairs clear cancel-takeoff labels", () => {
+  for (const takeoffCleared of [true, false]) {
+    const h = fixture("cancel-takeoff"); h.start(); h.state.conflicts![0].phase = "requested";
+    if (takeoffCleared) conflictCommand(h.state, "b", {type: "takeoff"}, h.support, true);
+    h.a.mode = "go-around"; h.a.leg = "upwind";
+    prepareConflicts(h.state, h.airport, h.support);
+    assert.equal(h.state.conflicts![0].phase, "complete"); assert.match(h.state.conflicts![0].outcome!, takeoffCleared ? /cancellation missed/ : /departure remained held/);
+    for (const a of h.state.aircraft) assert.equal(conflictLabels(h.state.conflicts, a.id), "");
+  }
+  const restored = fixture("cancel-takeoff"); restored.start(); restored.state.conflicts![0].cancelledTakeoff = true;
+  prepareConflicts(restored.state, restored.airport, restored.support);
+  assert.equal(restored.state.conflicts![0].phase, "complete"); assert.equal(conflictLabels(restored.state.conflicts, "a"), "");
+});
+
+test("completed cancel-takeoff failures still announce one go-around through the real radio path", () => {
+  for (const autoReadback of [true, false]) {
+    const h = fixture("cancel-takeoff"); h.state.autoReadback = autoReadback; h.start();
+    conflictCommand(h.state, "b", {type: "takeoff"}, h.support, true);
+    const g = h.support.geometry("22L"); h.a.position = {x: g.threshold.x - g.vector.x * .1, y: g.threshold.y - g.vector.y * .1}; h.a.altitude = h.airport.elevation + 49;
+    let state = h.engine.advance(h.state, .1), id = 0;
+    assert.equal(state.aircraft[0].mode, "go-around"); assert.equal(state.aircraft[1].mode, "parked");
+    assert.equal(state.conflicts![0].phase, "complete");
+    for (const a of state.aircraft) assert.equal(conflictLabels(state.conflicts, a.id), "");
+    state = h.engine.autoReadbacks(state, 1000, () => `call-${++id}`);
+    state = h.engine.advance(state, 1); state = h.engine.autoReadbacks(state, 2000, () => `call-${++id}`);
+    assert.equal(state.messages.filter(m => m.aircraftId === "a" && m.sender === "pilot" && m.text === "Test a, going around").length, 1);
+    assert.equal(exerciseSchema.parse(state).conflicts![0].phase, "complete");
+  }
+});
+
+test("real cancellation readback clears the conflict immediately in automatic and manual mode", () => {
+  for (const autoReadback of [true, false]) {
+    const h = fixture("cancel-takeoff"); h.state.autoReadback = autoReadback; h.start(); h.b.frequency = "tower";
+    conflictCommand(h.state, "b", {type: "takeoff"}, h.support, true);
+    const result = h.engine.applyEnvelope(h.state, {id: "cancel", time: 1000, action: {kind: "command", aircraftId: "b", frequency: "tower", text: "Test b, cancel takeoff clearance, hold position", command: {type: "atc", action: "cancel-takeoff"}}});
+    assert.equal(result.error, undefined);
+    assert.equal(conflictLabels(result.state.conflicts, "b"), "Cancel Takeoff");
+    const response = autoReadback ? {state: h.engine.autoReadbacks(h.engine.advance(result.state, 2), 100000, () => "readback")} : h.engine.applyEnvelope(result.state, {id: "readback", time: 100000, action: {kind: "pilot", aircraftId: "b", text: "Wilco, Test b", replyTo: "cancel", assign: true}});
+    assert.equal("error" in response ? response.error : undefined, undefined);
+    assert.equal(response.state.conflicts![0].cancelledTakeoff, true);
+    assert.equal(response.state.conflicts![0].phase, "complete");
+    assert.equal(response.state.aircraft[1].holding, true);
+    for (const a of response.state.aircraft) assert.equal(conflictLabels(response.state.conflicts, a.id), "");
+  }
 });
 test("physical contact merges groups, excludes separated traffic and covers ground/airborne", () => {
   const h = fixture("ga"); h.b.position = {...h.a.position}; h.b.altitude = h.a.altitude;
@@ -215,6 +297,7 @@ test("a go-around is not a touch-and-go takeoff or a touchdown", () => {
 test("a transmitted go-around suppresses self-calling while its readback is pending", () => {
   const h = fixture("cancel-takeoff"); h.start(); conflictCommand(h.state, "b", {type: "lineup"}, h.support, true);
   const g = h.support.geometry(h.a.runway!); h.a.position = {x: g.threshold.x - g.vector.x * .6, y: g.threshold.y - g.vector.y * .6};
+  h.a.altitude = h.airport.elevation + 50;
   conflictCommand(h.state, "a", {type: "go-around"}, h.support, false); prepareConflicts(h.state, h.airport, h.support);
   assert.equal(h.a.mode, "pattern", "the pending readback still controls motion"); assert.equal(h.a.selfGoAroundPending, undefined);
 });
