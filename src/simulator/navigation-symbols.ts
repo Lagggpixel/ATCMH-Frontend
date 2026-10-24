@@ -1,6 +1,6 @@
 /** IF 26.4 MapTilesManager.MapTile glyphs, rendered with the bundled original font. */
 export type NavigationKind = "fix" | "ndb" | "vor" | "tacan";
-export interface NavigationMetadata {waypointType?: string; vorType?: string}
+export interface NavigationMetadata {waypointType?: string; vorType?: string; slavedVariation?: number}
 
 export function navigationKind({waypointType, vorType}: NavigationMetadata): NavigationKind {
   const type = waypointType?.toUpperCase().replace(/[\s_/-]/g, "");

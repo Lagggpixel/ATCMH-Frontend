@@ -1,7 +1,7 @@
 "use client";
-import GroundRouteOverlay from "./GroundRouteOverlay";
+import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type SendGroundClearance} from "./GroundRouteEditor";
-import {canRouteGround, destinationAt, hitGroundRoute} from "./ground-route";
+import {canRouteGround, destinationAt, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import AircraftSymbol from "./AircraftSymbol";
@@ -11,7 +11,7 @@ import {MagnifyingGlassMinus} from "@phosphor-icons/react/dist/csr/MagnifyingGla
 import {Crosshair} from "@phosphor-icons/react/dist/csr/Crosshair";
 import {distance, engineFor} from "./engine";
 import {defaultAirport, runwayEnds, simulatedMetar} from "./airports";
-import {aircraftColor, aircraftTagVisible, EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type GroundRoute, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
+import {aircraftTagVisible, EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type GroundRoute, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
 import {airborne, vectorPreview, radarFlightLabel} from "./radar";
 import {outsideVectorCircle, VECTOR_CANCEL_RADIUS, VECTOR_HOLD_MS, type VectorTarget} from "./vector-drag";
 import {terrainCoordinates} from "./terrain";
@@ -23,12 +23,13 @@ import styles from "./Simulator.module.css";
 import AircraftPopupPresence from "./AircraftPopupPresence";
 import {approachGuide} from "./approach-guides";
 import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
+import {aircraftAppearance} from "./aircraft-flashing";
 import {atisRunwayWind} from "./atis-options";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
 import {hitFixSymbol, layoutFixLabels, projectFixSymbols} from "./scope-fix-labels";
+import {drawCompassRoses, projectCompassRoses} from "./navigation-roses";
 import {drawNavigationSymbol} from "./navigation-symbols";
-import {controllerAircraft} from "./controller-state";
 import type {ScopeContext} from "./MentorContextMenu";
 import {useNavigationCatalog} from "./use-navigation-catalog";
 import {radarEnvironmentFor} from "./radar";
@@ -44,13 +45,15 @@ import ScopeProcedures from "./ScopeProcedures";
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
 const runwayWindColors = {headwind: "#90ee90", crosswind: "#ffa500", tailwind: "#ff0000"};
-interface Props {onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
+const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
+const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
+interface Props {missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
-export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
+export default function Scope({missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
   const AIRPORT = airport, METAR = simulatedMetar(airport, weather);
   const vectorEnabled = measureVectors || !!onVector;
   const navigation = useNavigationCatalog(airport.icao);
-  const catalogueFixes = useMemo(() => navigation.catalog?.fixes.map(fix => ({id: fix.name, point: fix.point, waypointType: fix.point.waypointType, vorType: fix.point.vorType})) ?? [], [navigation.catalog]);
+  const catalogueFixes = useMemo(() => navigation.catalog?.fixes.map(fix => ({id: fix.name, point: fix.point, waypointType: fix.point.waypointType, vorType: fix.point.vorType, slavedVariation: fix.point.slavedVariation})) ?? [], [navigation.catalog]);
   const radarEnvironment = useMemo(() => radarMode ? {...(configuredEnvironment ?? radarEnvironmentFor(airport)),
     fixes: catalogueFixes} : configuredEnvironment,
   [radarMode, configuredEnvironment, airport, catalogueFixes]);
@@ -133,6 +136,7 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
   const flightPlanAircraft = vectorDraft ? snapshot.find(a => a.id === vectorDraft.aircraftId) : selectedAircraft;
   const navigationFixes = useMemo(() => scopeNavigationFixes(catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids), [catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids]);
   const fixSymbols = useMemo(() => projectFixSymbols(navigationFixes, flightPlanAircraft?.flightPlan, camera, size), [navigationFixes, flightPlanAircraft?.flightPlan, camera, size]);
+  const compassRoses = useMemo(() => projectCompassRoses(navigationFixes, camera, size), [navigationFixes, camera, size]);
   const revealedFix = fixSymbols.find(fix => fix.key === revealedFixKey);
   const [popup, setPopup] = useState<"options" | "hide" | "airport" | "procedures" | null>(null);
   useEffect(() => {
@@ -235,6 +239,7 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
     }
     {
       ctx.save();
+      drawCompassRoses(ctx, compassRoses);
       for (const fix of fixSymbols) drawNavigationSymbol(ctx, fix);
       ctx.font = '12px "Simulator Fira", sans-serif';
       ctx.textAlign = "left"; ctx.textBaseline = "top";
@@ -260,11 +265,11 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
       const center = {x: approach.threshold.x - dx * 11, y: approach.threshold.y - dy * 11};
       path([approach.threshold, {x: center.x + dy * .5, y: center.y - dx * .5}, {x: center.x - dy * .5, y: center.y + dx * .5}, approach.threshold], approach.type === "ils" ? "#dc6464" : "#808080", 1.5);
     }
-  }, [scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, airspaces, mapLayers.data, winds.data, displayedWindAltitude, procedureOverlays]);
+  }, [scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, mapLayers.data, winds.data, displayedWindAltitude, procedureOverlays]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const routeEditable = !!taxiAircraft && !!onTaxiPathEdit && editMode !== "position" && editMode !== "flightPlan";
   const taxiPreview = taxiAircraft && routeDraft?.aircraftId === taxiAircraft.id ? {...taxiAircraft, ...(taxiAircraft.runwayExit ? {runwayExit: editedTaxiPath(routeDraft.path, routeDraft.edit)} : {taxiPath: editedTaxiPath(routeDraft.path, routeDraft.edit)})} : taxiAircraft;
-  const taxiLine = sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []);
+  const taxiLine = sentGroundRoute || groundRouteCleared || onTaxiPathEdit || frequency === "all" ? sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []) : [];
   const routeState = taxiPreview ? taxiPathState(taxiPreview) : undefined;
   const nodeIndex = routeDraft?.aircraftId === selected ? routeDraft.edit.index : routeNode?.aircraftId === selected ? routeNode.index : routeHover?.kind === "move" ? routeHover.index : undefined;
   const routeHandle = routeEditable && routeState && nodeIndex !== undefined && nodeIndex >= routeState.index ? routeState.path[nodeIndex] : undefined;
@@ -322,7 +327,7 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
         const hit = hitGroundRoute(routing.draft.route, pointAt(event), 14 / camera.scale);
         if (hit) {
           event.currentTarget.setPointerCapture(event.pointerId);
-          if (hit.insert) routing.move(hit.index, pointAt(event), true);
+          if (hit.insert) routing.move(hit.index, snapGroundControl(airport, pointAt(event), 25 / camera.scale), true);
           groundDrag.current = {pointerId: event.pointerId, aircraftId: routing.draft.aircraftId, index: hit.index, start: {x: event.clientX, y: event.clientY}, last: {x: event.clientX, y: event.clientY}, armed: true};
           return;
         }
@@ -338,7 +343,7 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
     }}
       onPointerMove={event => {
         if (groundDrag.current?.armed) {
-          const drag = groundDrag.current; if (drag.pointerId === event.pointerId && drag.index !== undefined) routing.move(drag.index, pointAt(event));
+          const drag = groundDrag.current; if (drag.pointerId === event.pointerId && drag.index !== undefined) routing.move(drag.index, snapGroundControl(airport, pointAt(event), 25 / camera.scale));
           return;
         }
         if (vectorDrag.current) return;
@@ -365,32 +370,37 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
         if (current?.pointerId === event.pointerId) {
           if (current.moved && current.aircraftId === selected && routeEditable) {onTaxiPathEdit?.(current.aircraftId, current.path, {...current.edit, point: pointAt(event)}); setRouteNode({aircraftId: current.aircraftId, index: current.edit.index});}
           routeDrag.current = null; setRouteDraft(null); setRouteHover(undefined);
-        } else if (tapped) {
+        } else if (tapped && !routing.draft) {
           setRouteNode(null);
           const bounds = event.currentTarget.getBoundingClientRect();
           const fix = !editMode ? hitFixSymbol(fixSymbols, {x: event.clientX - bounds.left, y: event.clientY - bounds.top}, event.pointerType === "touch" ? 22 : 12) : undefined;
           if (fix) {setRevealedFixKey(fix.key); setPopup(null);}
-          else if (routing.draft && !routing.busy) routing.move(routing.draft.controls.length - 1, pointAt(event));
-          else if (onPoint && editMode) onPoint(pointAt(event));
+          else if (!routing.draft && onPoint && editMode) onPoint(pointAt(event));
           else if (!routing.draft) {onSelect(null); setPopup(null);}
         }
       }} onPointerCancel={event => {navigationCamera.cancel(event.pointerId); cancelGroundDrag(); routeDrag.current = null; setRouteDraft(null);}}
       onLostPointerCapture={event => {navigationCamera.cancel(event.pointerId); cancelGroundDrag(); routeDrag.current = null; setRouteDraft(null);}}
       onPointerLeave={event => {setRouteHover(undefined); if (event.pointerType !== "touch") setRevealedFixKey(null);}}><canvas ref={canvas} className={styles.mapCanvas}/><canvas ref={trafficCanvas} className={`${styles.mapCanvas} ${styles.trafficCanvas}`}/>
       {radarMode ? <svg className={styles.holdOverlay} width={size.width} height={size.height} aria-label="Holding patterns">{aircraft.filter(a => trafficVisible(a, options.filter, frequency) && a.atcManeuver?.kind === "hold").map(a => <polyline key={a.id} role="img" aria-label={`${a.callsign} holding pattern${a.atcManeuver?.fixName ? ` at ${a.atcManeuver.fixName}` : ""}`} points={holdingPattern(a).map(p => {const s = project(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`;}).join(" ")} fill="none" stroke={IF_COLORS.warning} strokeWidth="2" strokeLinejoin="round"/>)}</svg> : null}
-      {routing.draft?.route ? <GroundRouteOverlay route={routing.draft.route} aircraftType={draftAircraft?.type} project={project} scale={camera.scale} onMove={routing.move}/> : null}
+      {routing.draft?.route ? <GroundRouteOverlay airport={airport} route={routing.draft.route} aircraftType={draftAircraft?.type} project={project} scale={camera.scale} bounds={size} onMove={(index, point) => routing.move(index, snapGroundControl(airport, point, 25 / camera.scale))}/> : null}
       {taxiAircraft && taxiLine.length > 1 ? <svg className={styles.taxiRouteOverlay} width={size.width} height={size.height} role="group" aria-label={`${taxiAircraft.callsign} taxi route`}>
-        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke={IF_COLORS.cleared} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
-        {taxiLine.map((p, i) => "hold" in p && p.hold ? <text key={`sent-hold-${i}`} x={project(p).x + 10} y={project(p).y - 10} fill="#ffb347" fontSize="13">HOLD{"runway" in p && p.runway ? ` ${p.runway}` : ""}</text> : null)}
+        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke="#000" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke={IF_COLORS.cleared} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        {!routing.draft ? taxiLine.map((p, i) => i === 0 || i === taxiLine.length - 1 || "hold" in p && p.hold || "name" in p && p.name && p.name !== (taxiLine[i - 1] as TaxiPoint).name ? <circle key={`sent-point-${i}`} cx={project(p).x} cy={project(p).y} r="3" fill="none" stroke={IF_COLORS.cleared} strokeWidth="2"/> : null) : null}
         {routeHandle && nodeIndex !== undefined ? <circle className={styles.taxiWaypoint} cx={project(routeHandle).x} cy={project(routeHandle).y} r="7" fill={routeHandle.hold ? "#ff8e8e" : IF_COLORS.cleared} stroke="#14251b" strokeWidth="2" role="button" tabIndex={0} aria-label={`Taxi waypoint ${nodeIndex + 1}${routeHandle.hold ? ", hold short" : ""}`} onFocus={() => setRouteNode({aircraftId: taxiAircraft.id, index: nodeIndex})} onKeyDown={event => {
           const offsets: Record<string, Point> = {ArrowLeft: {x: -1, y: 0}, ArrowRight: {x: 1, y: 0}, ArrowUp: {x: 0, y: 1}, ArrowDown: {x: 0, y: -1}};
           const offset = offsets[event.key]; if (!offset || !onTaxiPathEdit) return; event.preventDefault();
           const step = (event.shiftKey ? 50 : 10) / camera.scale;
           onTaxiPathEdit(taxiAircraft.id, taxiPathState(taxiAircraft).path.map(p => ({...p})), {kind: "move", index: nodeIndex, point: {x: routeHandle.x + offset.x * step, y: routeHandle.y + offset.y * step}});
         }}><title>Drag to move this waypoint. Arrow keys adjust it; Shift moves farther.</title></circle> : null}
-      </svg> : null}</div>
+      </svg> : null}
+      {!routing.draft && taxiLine.length > 1 ? <GroundHoldLabels points={taxiLine} project={project}/> : null}</div>
     {gates?.map(gate => {const p = project(gate.point); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) return null; return <button key={gate.id} type="button" className={`${styles.gateTarget} ${gateDraft?.gateId === gate.id ? styles.hoveredGate : ""}`} style={{left: p.x, top: p.y}} aria-label={gate.label} aria-pressed={selectedGate === gate.id} title={gate.label} onClick={event => onGateSelect?.(event.detail && gates ? gateAtPoint(gates, vectorPoint(event), 24 / camera.scale)?.id ?? gate.id : gate.id)}><span/></button>;})}
-    {draftAircraft ? <GroundRouteEditor airport={airport} aircraft={draftAircraft} routing={routing}/> : onGroundClearance && frequency === "ground" && selectedAircraft && selectedAircraft.frequency === frequency && canRouteGround(selectedAircraft, airport) ? <button className={styles.groundRouteLauncher} onClick={() => routing.start(selectedAircraft, selectedAircraft.position)}>Plan ground route</button> : null}
+    {draftAircraft ? <GroundRouteEditor airport={airport} aircraft={draftAircraft} routing={routing}/> : onGroundClearance && frequency === "ground" && selectedAircraft && selectedAircraft.frequency === frequency && canRouteGround(selectedAircraft, airport) ? <button className={styles.groundRouteLauncher} onClick={() => {
+      const end = runwayEnds(airport).find(end => end.id === (selectedAircraft.departureRunway ?? selectedAircraft.runway));
+      const destination = groundRouteKind(selectedAircraft, airport) === "taxi" ? end?.point : selectedAircraft.taxiPath.find(point => distance(point, selectedAircraft.position) > .01);
+      routing.start(selectedAircraft, destination ?? selectedAircraft.position);
+    }}>Plan ground route</button> : null}
     {gateDraft ? <span className={styles.gatePlacementHint} role="status">{gateDraft.gateId ? `Release to place at ${gates?.find(gate => gate.id === gateDraft.gateId)?.label}` : "Drag onto a blue gate dot · Escape to cancel"}</span> : null}
     {runwayEnds(AIRPORT).map(end => {const p = project(end.point), color = runwayWindColors[atisRunwayWind(end.heading, weather ?? EXERCISE_WEATHER)]; return <span key={end.id} className={styles.runwayTag} style={{left: p.x, top: p.y, color, borderColor: color}}>{end.id}</span>;})}
     <button className={styles.airportMarker} style={{left: project({x: 0, y: 0}).x, top: project({x: 0, y: 0}).y}} aria-label={`${AIRPORT.icao} airport information`} onClick={() => setPopup(popup === "airport" ? null : "airport")}><span>{AIRPORT.icao}</span><Crosshair size={28} weight="fill"/><i/></button>
@@ -417,17 +427,17 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
         while (alertBoxes.some(box => Math.abs(box.x - p.x) < 100 && p.y - 24 - alertOffset - alertHeight < box.top + box.height && p.y - 24 - alertOffset > box.top)) alertOffset += alertHeight + 4;
         alertBoxes.push({x: p.x, top: p.y - 24 - alertOffset - alertHeight, height: alertHeight});
       }
-      const color = conflicts.length ? conflicts.some(c => c.level !== "warning") ? "#ff0000" : "#ffa500" : aircraftColor(a, frequency);
-      const tagColor = tagDraft?.aircraftId === a.id ? IF_COLORS.movingLabel : a.color ?? (a.id === selected && frequency !== "all" && a.frequency !== frequency ? IF_COLORS.selected : controllerAircraft(a).clearedToLand ? IF_COLORS.cleared : IF_COLORS.text);
-      const labelStyle={color:tagColor,backgroundColor:"transparent","--label-text":tagColor} as React.CSSProperties;
+      const appearance = aircraftAppearance(a, frequency, {selected: a.id === selected, open: a.id === openStripId, hasStripControl: !missingStripControls?.includes(a.id), pending: pendingAircraft?.includes(a.id), reminder: a.reminderAt !== null && a.reminderAt <= elapsed, dragging: tagDraft?.aircraftId === a.id, alert: conflicts.length ? conflicts.some(c => c.level !== "warning") ? "alert" : "warning" : undefined});
+      const color = appearance.iconColor, tagColor = appearance.textColor;
+      const labelStyle={color:tagColor,backgroundColor:"transparent","--label-steady":tagColor} as React.CSSProperties;
       const label = radarFlightLabel(a, AIRPORT, radarEnvironment);
       const holding = a.atcManeuver?.kind === "hold";
       const tagAngle = tagDraft?.aircraftId === a.id ? tagDraft.angle : a.tagAngle;
       const tagOffset = tagAngle === undefined ? null : {x: Math.cos(tagAngle * Math.PI / 180) * Math.hypot(28, 25), y: Math.sin(tagAngle * Math.PI / 180) * Math.hypot(28, 25)};
-      return <div key={a.id} className={styles.aircraftPosition} style={{left: 0, top: 0, transform: `translate(${p.x}px, ${p.y}px)`, color}}>
+      return <div key={a.id} className={styles.aircraftPosition} style={{left: 0, top: 0, transform: `translate(${p.x}px, ${p.y}px)`, color, "--aircraft-steady": color} as React.CSSProperties}>
         {giveWayTargets?.includes(a.id) ? <span className={styles.giveWayTarget} role="img" aria-label={`Likely give-way traffic: ${a.callsign}`}/> : null}
         {busting ? <div className={styles.bustingRing} role="status" aria-label={`Busting ${a.callsign}`}><div className={styles.bustingTag} style={{bottom: `calc(100% + ${alertOffset}px)`}}>{conflicts.map(alert => <span key={alert.otherId}>{separationLabel(alert)}</span>)}{agl !== undefined ? <span>{Math.floor(agl)}ft AGL</span> : null}</div></div> : null}
-        <button aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${selected === a.id ? styles.selectedAircraft : ""} ${conflictTargets?.includes(a.id) ? styles.conflictTarget : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onScopeContextMenu) {event.preventDefault(); event.stopPropagation(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}, aircraftId: a.id});} else if (onVector) event.preventDefault();}}
+        <button aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${appearance.iconFlash ? iconFlashClasses[appearance.iconFlash] : ""} ${openStripId === a.id ? styles.extendedAircraftIndicator : selected === a.id ? styles.selectedAircraft : ""} ${conflictTargets?.includes(a.id) ? styles.conflictTarget : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onScopeContextMenu) {event.preventDefault(); event.stopPropagation(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}, aircraftId: a.id});} else if (onVector) event.preventDefault();}}
           onPointerDown={event => {
             suppressClick.current = false;
             if (onGroundClearance && frequency === "ground" && a.frequency === frequency && canRouteGround(a, airport) && event.button === 0 && event.isPrimary && !routing.busy) {
@@ -487,10 +497,10 @@ export default function Scope({onGroundClearance, sentGroundRoute, cameraStore, 
             cancelVector();
           }}
           onPointerCancel={() => {suppressClick.current = true; cancelVector(); cancelGate(); cancelGroundDrag();}} onLostPointerCapture={() => {cancelVector(); cancelGate(); cancelGroundDrag();}}
-          onClick={event => {if (suppressClick.current) {suppressClick.current = false; return;} selectAt(a, event);}}><AircraftSymbol type={a.type} heading={a.heading} className={!busting && pendingAircraft?.includes(a.id) ? styles.pendingAircraft : undefined}/></button>
-        {aircraftTagVisible(a, frequency, selected) ? <>
+          onClick={event => {if (suppressClick.current) {suppressClick.current = false; return;} selectAt(a, event);}}><AircraftSymbol type={a.type} heading={a.heading} /></button>
+        {aircraftTagVisible(a, frequency, openStripId ?? selected) ? <>
           {tagOffset ? <svg className={styles.tagLeader} width="1" height="1" aria-hidden="true"><line x1="0" y1="0" x2={tagOffset.x} y2={tagOffset.y} stroke={IF_MAP_COLORS.labelLeader}/></svg> : null}
-          <button className={`${styles.aircraftTag} ${tagOffset ? styles.rotatedTag : a.tag === "left" || (a.tag === "auto" && p.x > size.width * .7) ? styles.leftTag : ""}`} style={tagOffset ? {...labelStyle, left: tagOffset.x, top: tagOffset.y, right: "auto", bottom: "auto", transform: `translate(${tagOffset.x < 0 ? "-100%" : "0"}, ${tagOffset.y < 0 ? "-100%" : "0"})`, textAlign: tagOffset.x < 0 ? "right" : "left"} : labelStyle}
+          <button className={`${styles.aircraftTag} ${appearance.textFlash ? labelFlashClasses[appearance.textFlash] : ""} ${tagOffset ? styles.rotatedTag : a.tag === "left" || (a.tag === "auto" && p.x > size.width * .7) ? styles.leftTag : ""}`} style={tagOffset ? {...labelStyle, left: tagOffset.x, top: tagOffset.y, right: "auto", bottom: "auto", transform: `translate(${tagOffset.x < 0 ? "-100%" : "0"}, ${tagOffset.y < 0 ? "-100%" : "0"})`, textAlign: tagOffset.x < 0 ? "right" : "left"} : labelStyle}
             aria-label={`Flight label ${a.callsign}`}
             onPointerDown={event => {suppressTagClick.current = false; if (!onTagAngle || event.button !== 0 || !event.isPrimary) return; event.currentTarget.setPointerCapture(event.pointerId); tagDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, at: performance.now(), moved: false};}}
             onPointerMove={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId || !onTagAngle) return; if (!current.moved && distance(current.start, {x: event.clientX, y: event.clientY}) < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressTagClick.current = true; cancelTag(); return;} current.moved = true; const bounds = container.current!.getBoundingClientRect(); const angle = (Math.atan2(event.clientY - bounds.top - p.y, event.clientX - bounds.left - p.x) * 180 / Math.PI + 360) % 360; current.angle = angle; setTagDraft({aircraftId: a.id, angle});}}

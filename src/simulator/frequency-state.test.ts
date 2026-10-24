@@ -9,13 +9,14 @@ const act = (state: Exercise, action: Action) => {
   const result = applyEnvelope(state, {id: `frequency-${++id}`, time: 1791540000000, action});
   assert.equal(result.error, undefined); return result.state;
 };
-test("frequency requests count aircraft awaiting a response, persist when read and follow current strips", () => {
+test("frequency attention counts messages, clears when read and follows current strips", () => {
   let state = initialExercise();
   for (let i = 0; i < 5; i++) state = act(state, {kind: "pilot", aircraftId: "demo-ground", text: `Request ${i}`});
   state = act(state, {kind: "pilot", aircraftId: "demo-air", text: "Request pattern"});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 5, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "read", aircraftId: "demo-ground", frequency: "ground"});
-  assert.deepEqual(frequencyPendingRequests(state), {ground: 1, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
+  assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
+  assert.ok(pendingPilotMessage(state, "demo-ground", "ground"), "Opening a strip must preserve the reply context");
   state = act(state, {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Hold position", command: {type: "stop"}});
   assert.deepEqual(frequencyPendingRequests(state), {ground: 0, tower: 1, atis: 0, approach: 0, center: 0, departure:0, unicom:0});
   state = act(state, {kind: "pilot", aircraftId: "demo-ground", text: "Changing channel"});
@@ -64,10 +65,11 @@ test("readbacks, assignments and Unable replies cannot create pending or unread 
   }
 });
 
-test("Standby keeps request attention until a substantive reply, with no readback reactivation", () => {
+test("Standby clears attention while retaining the unanswered request's reply context", () => {
   let state = act(initialExercise(), {kind: "pilot", aircraftId: "demo-ground", text: "Request taxi"});
   state = act(state, {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Standby", command: {type: "radio", message: "standby"}});
-  assert.equal(frequencyPendingRequests(state).ground, 1);
+  assert.equal(frequencyPendingRequests(state).ground, 0);
+  assert.ok(pendingPilotMessage(state, "demo-ground", "ground"));
   state = act(state, {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Hold position", command: {type: "stop"}});
   assert.equal(frequencyPendingRequests(state).ground, 0);
 });

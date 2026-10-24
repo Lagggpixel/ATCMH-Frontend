@@ -5,7 +5,7 @@ import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
 
-const coordinate = z.object({identifier: z.string().min(1).max(100),waypointType:z.string().max(32).optional(), vorType:z.string().max(32).optional(), lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
+const coordinate = z.object({identifier: z.string().min(1).max(100),waypointType:z.string().max(32).optional(), vorType:z.string().max(32).optional(), slavedVariation:z.number().finite().min(-180).max(180).optional(), lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
 const upstreamSchema = z.object({version: z.literal(1), icao: z.string().length(4), revision: z.string().min(1).max(100),
   waypoints: z.array(coordinate.extend({id: z.string().min(1).max(100)})).max(5000),
   procedures: z.array(z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), type: z.enum(["SID", "STAR", "Approach"]), approachType: z.string().max(100).optional(),
@@ -41,7 +41,7 @@ export function createNavigationApi(load = fetchNavigationData, authorize = auth
       const project = (p: z.infer<typeof coordinate>, id?: string) => {
         const x = (p.lon - airport.origin.lon) * 60 * Math.cos(airport.origin.lat * Math.PI / 180), y = (p.lat - airport.origin.lat) * 60;
         if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 2000 || Math.abs(y) > 2000) throw new SessionError("invalid-navigation", "This route is outside the supported training area.", 422);
-        return {x, y, name: p.identifier,...(p.waypointType?{waypointType:p.waypointType}:{}), ...(p.vorType?{vorType:p.vorType}:{}), ...(id ? {fixId: id} : {})};
+        return {x, y, name: p.identifier,...(p.waypointType?{waypointType:p.waypointType}:{}), ...(p.vorType?{vorType:p.vorType}:{}), ...(p.slavedVariation !== undefined ? {slavedVariation:p.slavedVariation} : {}), ...(id ? {fixId: id} : {})};
       };
       const overlay = query.get("overlay"), routeId = query.get("route") ?? overlay; let value: NavigationCatalog | NavigationRoute;
       if (routeId) {

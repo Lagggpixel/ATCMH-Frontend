@@ -45,9 +45,9 @@ test("selected off-frequency labels become white while custom highlights retain 
   const engine = engineFor({airport: "EGPH"});
   const aircraft = {...engine.newAircraft("color-label", true), position: {x: 0, y: 0}, frequency: "tower" as const, clearedToLand: false, tagAngle: 0};
   const render = (selected: string | null, color: string | null = null) => renderToStaticMarkup(createElement(Scope, {aircraft: [{...aircraft, color}], running: false, frequency: "ground", selected, onSelect() {}}));
-  assert.match(render(aircraft.id), /--label-text:#ffffff/);
+  assert.match(render(aircraft.id), /--label-steady:#ffffff/);
   const custom = render(aircraft.id, "#fc473a");
-  assert.match(custom, /--label-text:#fc473a/);
+  assert.match(custom, /--label-steady:#fc473a/);
   assert.match(custom, /class="tagColorDot" style="background:#fc473a"/);
   assert.ok(custom.includes(`stroke="${IF_MAP_COLORS.labelLeader}"`));
 }));

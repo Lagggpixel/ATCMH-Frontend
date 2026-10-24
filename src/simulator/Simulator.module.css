@@ -1,3 +1,4 @@
+@font-face {font-family:"Simulator Noto Mono";src:url("/simulator/fonts/NotoSansMono-Bold.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
 @font-face {font-family:"Simulator Aircraft";src:url("/simulator/fonts/InfiniteFlight.ttf") format("truetype");font-style:normal;font-weight:400;font-display:block}
 @font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Light.ttf") format("truetype");font-style:normal;font-weight:300;font-display:swap}
 @font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Medium.ttf") format("truetype");font-style:normal;font-weight:500;font-display:swap}
@@ -22,7 +23,7 @@
 .topBanner {grid-column:2/4;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 12px 0 2px;white-space:nowrap;overflow:hidden;font-size:clamp(13px,1.05vw,21px);background:black;z-index:3}
 .topBanner>span:first-child {color:#91e98d;overflow:hidden;text-overflow:ellipsis}
 .topBanner>span:last-child {font-family:"Simulator Mono",monospace;flex-shrink:0}
-.scope {font-family:"Simulator Fira",sans-serif;grid-row:2;grid-column:2;position:relative;overflow:hidden;min-height:0;background:#000;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.scope {font-family:"Simulator Fira",sans-serif;grid-row:2;grid-column:2;position:relative;overflow:clip;min-height:0;background:#000;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .scope :is(input,textarea,[contenteditable="true"]) {-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 .scope :is(.airportMarker,.aircraft,.aircraftTag),.scope :is(.airportMarker,.aircraft,.aircraftTag):hover {background:transparent!important;border:0!important;box-shadow:none;min-height:0;font-weight:400}
 .scope .aircraftTag {display:block;line-height:1.25;border-radius:0}
@@ -61,7 +62,7 @@
 .gateTarget.hoveredGate span {width:11px;height:11px;background:#9bcaff;box-shadow:0 0 0 6px #499cff55}
 .gateTarget:focus-visible {outline:2px solid #9bcaff;outline-offset:2px;border-radius:50%}
 .gatePlacementHint {position:absolute;z-index:6;top:16px;left:50%;transform:translateX(-50%);padding:9px 14px;background:#102133;color:#c8e2ff;border:1px solid #375f87;border-radius:4px;font-size:13px;pointer-events:none}
-.aircraft {transform:translate(-50%,-50%);position:absolute;padding:0!important;width:30px;height:30px;display:grid;place-items:center;color:inherit!important}
+.aircraft {transform:translate(-50%,-50%);position:absolute;padding:0!important;width:30px;height:30px;display:grid;place-items:center;color:var(--aircraft-tint,inherit)!important}
 .simulator .aircraft:hover {background:transparent}
 .aircraft svg {overflow:visible;transform-origin:center}
 .aircraft:hover svg {filter:brightness(1.3)}
@@ -470,19 +471,41 @@
 .frequencyValue {font:12px/1.3 "Simulator Mono",monospace;color:var(--dashboard-ink)}
 .menteeSimulator .sidebar .activeFrequency {background:var(--trainer-selected);color:var(--dashboard-ink);border-color:var(--trainer-accent);box-shadow:inset 3px 0 var(--trainer-accent)}
 .activeFrequency .frequencyValue {color:inherit}
-/* A single, slow pulse ties the channel, radar target and Commands control together. */
-.simulator button.pendingRequest {animation:pendingRequestPulse 1.6s steps(1,end) infinite;border-radius:3px}
-.pendingAircraft {animation:pendingAircraftPulse 1s steps(1,end) infinite}
-@keyframes pendingAircraftPulse {
-  0%,100% {fill:currentColor}
-  50% {fill:#ffa500}
-}
+/* IF 26.4: request/reminder phases are 500 ms; open-strip phases are 250 ms. */
+.simulator button.pendingRequest {animation:pendingRequestPulse 1s steps(1,end) infinite;border-radius:3px}
+.sidebar>button {--request-background:rgb(0 0 0 / calc(40 / 255))}
+.strip .atcButton {--request-background:rgb(0 0 0 / calc(165 / 255))}
+.simulator .sidebar>button.activeFrequency.pendingRequest {animation:none}
+/* Map targets and reminder outlines share IF's clock, including later arrivals. */
+.simulator {animation:aircraftFlashClock 1s steps(1,end) infinite}
+.pendingAircraft {--aircraft-tint:var(--scope-request,var(--aircraft-steady))}
+.pendingAircraftLabel {--label-text:var(--scope-request,var(--label-steady))}
+.reminderAircraft {--aircraft-tint:var(--scope-reminder,var(--aircraft-steady))}
+.reminderAircraftLabel {--label-text:var(--scope-reminder,var(--label-steady))}
+.extendedAircraftPulse {--aircraft-tint:var(--scope-extended)}
+.extendedAircraftLabel {--label-text:var(--scope-extended)}
+.reminder {outline-width:3px;outline-offset:-3px;outline-color:var(--scope-reminder,transparent)}
+.extendedAircraftIndicator {outline:0!important}
+.extendedAircraftIndicator::after {content:"";position:absolute;left:50%;top:50%;width:50px;height:50px;transform:translate(-50%,-50%);border:2px solid #ee82ee;border-radius:50%;pointer-events:none}
 @keyframes pendingRequestPulse {
-  50% {background-color:#fff600;color:#20252a}
+  0%,100% {background-color:#fa9822;color:#fff}
+  50% {background-color:var(--request-background,transparent);color:#fff}
+}
+@keyframes aircraftFlashClock {
+  0%,100% {--scope-request:#ffa500;--scope-reminder:#90ee90;--scope-extended:#ffa500}
+  25% {--scope-request:#ffa500;--scope-reminder:#90ee90;--scope-extended:#90ee90}
+  50% {--scope-request:initial;--scope-reminder:initial;--scope-extended:#ffa500}
+  75% {--scope-request:initial;--scope-reminder:initial;--scope-extended:#90ee90}
 }
 @media (prefers-reduced-motion:reduce) {
-  .simulator button.pendingRequest {animation:none;background-color:#fff600!important;color:#20252a!important}
-  .pendingAircraft {animation:none;fill:#ffa500}
+  .simulator {animation:none;--scope-request:#ffa500;--scope-reminder:#90ee90;--scope-extended:#ffa500}
+  .simulator button.pendingRequest {animation:none;background-color:#fa9822!important;color:#fff!important}
+  .simulator .sidebar>button.activeFrequency.pendingRequest {background:rgb(0 0 0 / calc(81 / 255))!important;color:#fa9822!important}
+  .pendingAircraft,.extendedAircraftPulse {animation:none;--aircraft-tint:#ffa500}
+  .pendingAircraftLabel,.extendedAircraftLabel {animation:none;--label-text:#ffa500}
+  .reminderAircraft {animation:none;--aircraft-tint:#90ee90}
+  .reminderAircraftLabel {animation:none;--label-text:#90ee90}
+  .reminder {animation:none;outline-color:#90ee90}
 }
 .menteeSimulator .sidebar .exit {position:static;font-size:13px;color:var(--dashboard-ink)!important;margin-top:auto;padding:10px 14px;border:1px solid var(--trainer-border);border-radius:3px}
 .menteeSimulator .scope {grid-column:2;grid-row:2}
@@ -862,7 +885,7 @@
 @media(max-height:820px) {.staffSimulator {--staff-dock-height:clamp(240px,38dvh,292px)}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
 @media(max-height:600px) and (orientation:landscape) {.staffSimulator {--staff-dock-height:210px}.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:70dvh}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
 
-.scope .aircraftTag,.scope .aircraftTag:hover {background:transparent!important;color:var(--label-text,#d3d3d3)!important}
+.scope .aircraftTag,.scope .aircraftTag:hover {background:transparent!important;color:var(--label-text,var(--label-steady,#d3d3d3))!important}
 
 /* Suggested replies are additional numbered shortcuts in every appearance mode. */
 .menteeSimulator .commandPanel .messageEntries button.suggestedCommand {color:#8cf5a1;background:#173922}
@@ -875,26 +898,36 @@
 .commandHeading .commandSendError {position:relative;z-index:3;margin:0;max-height:120px;overflow:auto;font-size:12px}
 
 /* Ground route drafts are local until the reviewed clearance is sent. */
-.groundDraftOverlay {position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible;}
-.groundDraftOverlay circle:focus {outline:none;stroke:#ffb347;stroke-width:4;}
-.groundRouteLauncher {position:absolute;left:14px;bottom:60px;z-index:12;padding:10px 14px;min-height:44px;background:#101a20;color:#fff;border:1px solid #88a0a8;border-radius:4px;}
-.groundRouteEditor {position:absolute;left:14px;bottom:58px;z-index:15;width:min(320px,calc(100% - 28px));max-height:calc(100% - 110px);overflow:auto;background:rgba(9,15,20,.96);color:#f5f7fa;border:1px solid #68747e;border-radius:5px;padding:12px;box-shadow:0 8px 30px #0007;user-select:none;touch-action:pan-y;}
-.groundRouteEditor header {display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
-.groundRouteEditor header span {font-size:12px;color:#ff7bed;}
-.groundRouteEditor select {display:block;width:100%;min-height:36px;margin-top:4px;background:#16222b;color:inherit;border:1px solid #77858f;border-radius:3px;}
-.groundRouteHelp {font-size:12px;line-height:1.45;color:#bfcbd1;margin:9px 0;}
-.groundRouteEditor ol {list-style:none;margin:10px 0;padding:0;max-height:180px;overflow:auto;}
-.groundRouteEditor li {display:flex;align-items:center;gap:8px;min-height:36px;padding:4px 0;border-bottom:1px solid #ffffff18;font-size:13px;}
-.groundRouteEditor li>span {flex:1;}
-.groundRouteEditor li label {display:flex;align-items:center;gap:5px;min-height:36px;color:#ffbf69;}
-.groundRouteEditor button {min-height:36px;border:1px solid #72838d;border-radius:3px;background:#16222b;color:inherit;padding:6px 10px;}
-.groundRouteEditor button:disabled {opacity:.5;}
-.groundRouteEditor footer {display:flex;gap:8px;margin-top:10px;}
-.groundRouteEditor footer button {flex:1;min-height:42px;}
-.groundRouteEditor footer button:last-child {background:#154d3a;border-color:#61c797;}
-.groundRouteEditor [role=alert] {font-size:13px;color:#ffb5b5;}
+.groundDraftOverlay {position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
+.groundDraftOverlay circle:focus {outline:none;stroke:#ffa500;stroke-width:2}
+.groundRouteLabels {position:absolute;inset:0;z-index:7;pointer-events:none}
+.groundRouteMapLabel,.groundRouteHoldLabel {position:absolute;transform:translate(-50%,-100%);display:block;white-space:nowrap;text-align:center;background:rgba(0,0,0,.957125);text-shadow:1px 1px #000;box-sizing:border-box}
+.groundRouteMapLabel {white-space:pre;padding:10px;border:2px solid #808080;border-radius:5px;color:#fff;font:400 11px/1.3 "Simulator Fira",sans-serif}
+.groundRouteHoldLabel {padding:2px 6px;border:2px solid #ffa500;color:#ffa500;font:700 10px/1.3 "Simulator Noto Mono",monospace}
+.groundRouteLauncher:not(:focus-visible) {clip-path:inset(50%);width:1px;height:1px;overflow:hidden;white-space:nowrap;min-height:0;padding:0;border:0}
+.groundRouteLauncher {position:absolute;left:5px;bottom:5px;z-index:12;padding:10px 14px;min-height:44px;background:#000;color:#fff;border:1px solid #808080;border-radius:0;font:400 12px "Simulator Fira",sans-serif}
+.groundRouteEditor {position:absolute;left:5px;bottom:5px;z-index:15;width:300px;max-width:calc(100% - 10px);height:min(500px,calc(100% - 10px));display:grid;grid-template-rows:45px minmax(0,1fr) 55px;overflow:hidden;background:#000;color:#fff;border:0;border-radius:0;padding:0;box-shadow:none;font:400 12px/1.3 "Simulator Fira",sans-serif;box-sizing:border-box;user-select:none;touch-action:pan-y}
+.groundRouteEditor>header {display:flex;align-items:center;padding:5px;font-size:12px;font-weight:400}
+.groundRouteList {min-height:0;overflow:auto;margin:5px;scrollbar-width:thin;scrollbar-color:#404040 #000}
+.groundRouteEditor ol {list-style:none;margin:0;padding:0}
+.groundRouteEditor li {height:40px;box-sizing:border-box;border-bottom:1px solid #202020;white-space:nowrap}
+.groundRouteRow {display:flex;align-items:center;min-height:39px;cursor:pointer}
+.groundRouteRow>span {overflow:hidden;text-overflow:ellipsis}
+.groundRouteEditor li[aria-selected=true] {color:#fa9822}
+.groundRouteFixedItem {display:block;padding-left:44px;line-height:39px;overflow:hidden;text-overflow:ellipsis}
+.groundRouteEditor .groundRouteCheckbox {appearance:none;-webkit-appearance:none;position:relative;box-sizing:border-box;flex:0 0 32px;width:32px;height:32px;margin:3px 8px 3px 4px;padding:0;border:1px solid #404040;border-radius:0;background:#202020;color:#404040;cursor:pointer}
+.groundRouteCheckbox::after {content:"\e831";position:absolute;inset:0;display:grid;place-items:center;font:400 10px "Simulator Aircraft"}
+.groundRouteEditor .groundRouteCheckbox:checked {color:#fa9822}
+.groundRouteEditor .groundRouteCheckbox:active {background:#303030}
+.groundRouteEditor .groundRouteCheckbox:focus-visible {outline:1px solid #fa9822;outline-offset:1px}
+.groundRouteEditor footer {display:grid;grid-template-columns:1fr 1fr;gap:0}
+.groundRouteEditor footer button {box-sizing:border-box;min-width:0;height:45px;margin:5px;padding:0;border:1px solid #808080;border-radius:0;background:#000;color:#fff;text-align:center;font:500 12px "Simulator Fira",sans-serif;cursor:pointer}
+.groundRouteEditor footer button:hover {background:#202020}
+.groundRouteEditor footer button:disabled {opacity:.36;cursor:default}
+.groundRouteList p {margin:8px 4px;font-size:12px;white-space:normal}
+.groundRouteEditor [role=alert] {color:#ffb5b5}
 
-/* IF 26.4 static controller colors; request flashing is deliberately unchanged. */
+/* IF 26.4 controller palette and control backgrounds. */
 .simulator.menteeSimulator {--dashboard-bg:#000;--dashboard-canvas:#000;--dashboard-surface:#000;--dashboard-ink:#fff;--dashboard-text:#fff;--dashboard-muted:#d3d3d3;--dashboard-accent:#fa9822;--dashboard-link:#fa9822;--dashboard-selected:#000}
 .menteeSimulator .sidebar .activeFrequency,.menteeSimulator .selectedStrip {box-shadow:none}
 .menteeSimulator .scope .scopeButtons button,.menteeSimulator .scope .optionsMenu button {color:#fff}

@@ -6,7 +6,7 @@ import styles from "./Simulator.module.css";
 
 /** Dismissing a strip only changes this controller's list, never the exercise aircraft. */
 export default function ControllerStrip({aircraft: a, runway, selected, pending, reminder, connected, onSelect, onFocus, onMessages, onDismiss}: {
-  aircraft: Aircraft; runway: string; selected: boolean; pending: boolean; reminder: boolean; connected: boolean;
+  aircraft: Aircraft; runway: string; selected: boolean; pending: boolean | number; reminder: boolean; connected: boolean;
   onSelect: () => void; onFocus: () => void; onMessages: () => void; onDismiss: () => void;
 }) {
   a=controllerAircraft(a);
@@ -23,6 +23,6 @@ export default function ControllerStrip({aircraft: a, runway, selected, pending,
     onPointerCancel={() => {drag.current = null; setOffset(0);}}
     onClickCapture={event => {if (suppressClick.current) {event.stopPropagation(); event.preventDefault(); suppressClick.current = false;}}}>
     <button className={styles.stripBody} onClick={onSelect} onDoubleClick={onFocus} aria-label={`Select strip ${a.callsign}`} title="Double-click to center the view; swipe sideways to dismiss this strip"><span>{a.callsign}</span><span style={{color: a.clearedToLand ? "#90ee90" : undefined}}>{runway}</span><span>{a.type}</span></button>
-    <button className={`${styles.atcButton} ${pending ? styles.pendingRequest : ""}`} disabled={!connected} onClick={event => {event.stopPropagation(); onMessages();}}>ATC{pending ? " (1)" : ""}<i className={a.active ? styles.activePilot : styles.inactivePilot}/></button>
+    <button className={`${styles.atcButton} ${pending ? styles.pendingRequest : ""}`} disabled={!connected} onClick={event => {event.stopPropagation(); onMessages();}}>ATC{pending ? ` (${Number(pending)})` : ""}<i className={a.active ? styles.activePilot : styles.inactivePilot}/></button>
   </div>;
 }

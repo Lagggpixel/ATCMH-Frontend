@@ -1,4 +1,4 @@
-import {runwayEnds} from "./airports";
+import {airportRunways, runwayEnds} from "./airports";
 import {groundReady} from "./ground-ready";
 import {MAX_TAXI_POINTS, type Aircraft, type Airport, type GroundRoute, type GroundRouteDestination, type Point, type TaxiPoint} from "./model";
 import {buildTaxiGraph, planParkingRoute, planTaxiRoute, routeToNodes, TAXI_ROUTING, type TaxiGraph} from "./taxi-routing";
@@ -45,10 +45,39 @@ export function planPointRoute(airport: Airport, start: Point, destination: Poin
 }
 
 export function destinationAt(airport: Airport, p: Point): GroundRouteDestination {
+  const runwayBody = airportRunways(airport).map(pair => ({pair, distance: gap(p, projection(p, pair.ends[0].point, pair.ends[1].point))}))
+    .filter(candidate => candidate.distance <= (candidate.pair.widthFeet ?? 150) / 6076).sort((a, b) => a.distance - b.distance)[0];
+  if (runwayBody) return {type: "runway", id: [...runwayBody.pair.ends].sort((a, b) => gap(a.point, p) - gap(b.point, p))[0].id};
   const stand = airport.features.filter(f => f.kind === "parking_position" && f.points.length > 1).map(f => ({feature: f, distance: gap(standPoints(airport, f).at(-1)!, p)})).filter(f => f.distance < .015).sort((a, b) => a.distance - b.distance)[0]?.feature;
   if (stand) return {type: "parking", id: stand.id};
-  const runway = runwayEnds(airport).find(end => gap(end.point, p) < .07);
+  const graph = buildTaxiGraph(airport);
+  const hold = airportRunways(airport).flatMap(pair => (graph.runwayHolds?.[pair.id] ?? []).map(index => ({point: graph.points[index], pair})))
+    .map(candidate => ({...candidate, distance: gap(candidate.point, p)})).filter(candidate => candidate.distance <= TAXI_ROUTING.snapDistance).sort((a, b) => a.distance - b.distance)[0];
+  const runway = hold ? [...hold.pair.ends].sort((a, b) => gap(a.point, hold.point) - gap(b.point, hold.point))[0]
+    : runwayEnds(airport).filter(end => gap(end.point, p) < .07).sort((a, b) => gap(a.point, p) - gap(b.point, p))[0];
   return runway ? {type: "runway", id: runway.id} : {type: "point"};
+}
+
+/** Existing controls follow mapped lines; a nearby parking endpoint takes priority. */
+export function snapGroundControl(airport: Airport, point: Point, parkingRadius: number): Point {
+  const parking = airport.features.filter(feature => feature.kind === "parking_position" && feature.points.length > 1)
+    .map(feature => standPoints(airport, feature).at(-1)!).map(candidate => ({point: candidate, distance: gap(candidate, point)}))
+    .filter(candidate => candidate.distance <= parkingRadius).sort((a, b) => a.distance - b.distance)[0];
+  if (parking) return {...parking.point};
+  const segments = airport.features.filter(feature => ["taxiway", "taxilane", "parking_position", "runway"].includes(feature.kind))
+    .flatMap(feature => feature.points.slice(1).map((end, i) => projection(point, feature.points[i], end)));
+  return segments.reduce((nearest, candidate) => !nearest || gap(candidate, point) < gap(nearest, point) ? candidate : nearest, undefined as Point | undefined) ?? point;
+}
+
+/** A runway drag targets the nearby entry hold, including intersection entries. */
+function planRunwayDestination(airport: Airport, start: Point, point: Point, runway: string): ReturnType<typeof planTaxiRoute> {
+  const inferred = destinationAt(airport, point);
+  if (inferred.type !== "runway" || inferred.id !== runway) return planTaxiRoute(airport, start, runway);
+  const graph = buildTaxiGraph(airport), pair = airportRunways(airport).find(pair => pair.ends.some(end => end.id === runway))!;
+  const holds = graph.runwayHolds?.[pair.id] ?? [];
+  const nearest = Math.min(...holds.map(index => gap(graph.points[index], point)));
+  if (!Number.isFinite(nearest)) return {error: "No mapped hold-short point is available for this runway."};
+  return routeToNodes(graph, start, holds.filter(index => gap(graph.points[index], point) <= nearest + .001), true, [], pair.id, airport);
 }
 
 function namePoints(airport: Airport, points: TaxiPoint[]) {
@@ -65,11 +94,12 @@ function namePoints(airport: Airport, points: TaxiPoint[]) {
 export function buildGroundRoute(airport: Airport, kind: GroundRoute["kind"], controls: Point[], destination: GroundRouteDestination = {type: "point"}): {route?: GroundRoute; error?: string} {
   if (controls.length < 2 || controls.length > (kind === "pushback" ? 3 : 24)) return {error: kind === "pushback" ? "Pushback supports a push endpoint and one optional pull endpoint." : "Use between 2 and 24 route control points."};
   if (controls.some(p => ![p.x, p.y].every(n => Number.isFinite(n) && Math.abs(n) <= 2000))) return {error: "Place route points within the exercise area."};
+  if (kind === "taxi" && destination.type === "point") destination = destinationAt(airport, controls.at(-1)!);
   const points: TaxiPoint[] = [{...controls[0]}], controlIndices = [0];
   let error: string | undefined;
   for (let i = 1; i < controls.length; i++) {
     const last = i === controls.length - 1;
-    const result = last && kind === "taxi" && destination.type === "runway" ? planTaxiRoute(airport, points.at(-1)!, destination.id!)
+    const result = last && kind === "taxi" && destination.type === "runway" ? planRunwayDestination(airport, points.at(-1)!, controls[i], destination.id!)
       : last && kind === "taxi" && destination.type === "parking" ? planParkingRoute(airport, points.at(-1)!, destination.id)
       : planPointRoute(airport, points.at(-1)!, controls[i]);
     if (!result.path || result.path.length < 2) return {error: result.error ?? "Choose a different destination."};
@@ -115,7 +145,7 @@ export function groundRouteText(route: GroundRoute, airport: Airport, pilot = fa
 }
 
 export function hitGroundRoute(route: GroundRoute, point: Point, tolerance: number): {index: number; insert: boolean} | undefined {
-  for (let i = route.controlIndices.length - 1; i > 0; i--) if (gap(point, route.points[route.controlIndices[i]]) <= tolerance) return {index: i, insert: false};
+  for (let i = route.controls.length - 1; i > 0; i--) if (gap(point, route.controls[i]) <= tolerance) return {index: i, insert: false};
   let nearest: {index: number; distance: number} | undefined;
   for (let i = 1; i < route.points.length; i++) {
     const distance = gap(point, projection(point, route.points[i - 1], route.points[i]));
