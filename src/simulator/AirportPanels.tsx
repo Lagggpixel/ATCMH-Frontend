@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useId, useRef, useState} from "react";
+import {useEffect, useId, useRef, useState, type CSSProperties} from "react";
 import type {AirportInformation, AirportProcedures, AirportWeather, ScopeAirport} from "./airport-display";
 import {runwayWindComponents, weatherCategory} from "./airport-display";
 import {useAirportDisplay} from "./use-airport-display";
@@ -13,15 +13,26 @@ export function AirportPopup({airports, point, size, weather, origin, environmen
   environment?: RadarEnvironment; onInformation: (airport: ScopeAirport) => void; onProcedures: (airport: ScopeAirport) => void; onClose: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [display, setDisplay] = useState({density: 1, scale: .75});
+  useEffect(() => {
+    // Match IF's Android display scaling, using the same CSS-screen approximation
+    // as the extended-strip circle; resizing the scope does not change the class.
+    const update = () => setDisplay({density: window.devicePixelRatio || 1, scale: Math.hypot(window.screen.width, window.screen.height) < 1280 ? .65 : .75});
+    update(); window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
   useEffect(() => {root.current?.querySelector<HTMLButtonElement>("button")?.focus();}, []);
   useEffect(() => {
     const outside = (event: PointerEvent) => {if (event.target instanceof Node && !root.current?.contains(event.target)) onClose();};
     window.addEventListener("pointerdown", outside);
     return () => window.removeEventListener("pointerdown", outside);
   }, [onClose]);
-  const width = Math.min(560, size.width - 16), height = Math.min(size.height - 16, airports.length * 78 + 32);
+  // MapItemContextMenu: 416 wide, 56 per row, 16 padding, rounded separately.
+  const scaled = (value: number) => Math.floor(value * display.density * display.scale + .5) / display.density;
+  const dimensions = Object.fromEntries([2, 3, 4, 5, 6, 8, 10, 11, 12, 16, 24, 40, 44, 56].map(value => [`--airport-${value}`, `${scaled(value)}px`]));
+  const width = Math.max(1, Math.min(scaled(416), size.width - 16)), height = Math.min(size.height - 16, airports.length * scaled(56) + 2 * scaled(16));
   return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports"
-    style={{width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))}}>
+    style={{...dimensions, width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))} as CSSProperties}>
     {airports.map(airport => <AirportPopupRow key={airport.identifier} airport={airport} weather={airport.identifier === origin ? weather : undefined}
       active={airport.identifier === origin && environment?.facilityActivity?.[`${origin}:tower`] !== false} onInformation={onInformation} onProcedures={onProcedures}/>)}
   </div>;
@@ -34,10 +45,10 @@ function AirportPopupRow({airport, weather: exerciseWeather, active, onInformati
   return <div className={styles.airportRow}>
     <button type="button" className={styles.airportSummary} title={exerciseWeather ? "Exercise conditions" : undefined} onClick={() => onInformation(airport)} aria-label={`${airport.identifier} airport details`}>
       <span className={styles.airportGlyph} style={{color: airport.isTowered ? "#2D81F9" : "#EF00FC"}} aria-hidden="true">&#xe84a;</span>
-      <span><strong>{airport.identifier}{airport.elevationFeet !== undefined ? ` - ${Math.round(airport.elevationFeet)}ft` : ""}</strong>{active ? <em>ATC</em> : null}
+      <span><span className={styles.airportTitle}><strong>{airport.identifier}{airport.elevationFeet !== undefined ? ` - ${Math.round(airport.elevationFeet)}ft` : ""}</strong>{active ? <em>ATC</em> : null}</span>
         <small className={styles.airportWeather}>{category ? <b data-category={category} className={styles.category}>{category}</b> : null}{weather ? `${weather.variableWind ? "VRB" : weather.windDirection}@${weather.windSpeed}${weather.windGust ? `G${weather.windGust}` : ""}KT - ${Math.floor(weather.visibilityKm / 1.609344)}SM` : airport.name ?? "Airport"}</small></span>
     </button>
-    <button type="button" className={styles.procShortcut} onClick={() => onProcedures(airport)} aria-label={`${airport.identifier} display procedures`}>PROC</button>
+    <button type="button" className={styles.procShortcut} onClick={() => onProcedures(airport)} aria-label={`${airport.identifier} display procedures`}><span>PROC</span></button>
   </div>;
 }
 
