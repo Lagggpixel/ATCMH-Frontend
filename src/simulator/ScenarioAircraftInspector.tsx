@@ -12,7 +12,6 @@ import {defaultRunway, getAirport, trainingMode, runwayEnds} from "./airports";
 import {engineFor} from "./engine";
 import {gatesFor, isGroundSpawn, normalizeScenarioAircraft, type ScenarioDefinition} from "./scenarios";
 import {placeAircraftAtGate} from "./gate-placement";
-import {planTaxiRoute} from "./taxi-routing";
 import {radarEnvironmentFor, radarAircraft, radarTakeoffAircraft} from "./radar";
 import {RadarSeedControls} from "./RadarControls";
 import IntentionsControls from "./IntentionsControls";
@@ -27,10 +26,10 @@ interface Props {
   readOnly?: boolean; definition: ScenarioDefinition; aircraft: Aircraft;
   onChange: Dispatch<SetStateAction<ScenarioDefinition>>;
   onRemove: () => void; editMode: string; onEditMode: (mode: string) => void;
-  hold: boolean; onHold: (hold: boolean) => void; onError: (message: string) => void;
+  onPlanTaxi: (runway: string) => void; onError: (message: string) => void;
 }
 
-export default function ScenarioAircraftInspector({readOnly = false, definition, aircraft: a, onChange, onRemove, editMode, onEditMode, hold, onHold, onError}: Props) {
+export default function ScenarioAircraftInspector({readOnly = false, definition, aircraft: a, onChange, onRemove, editMode, onEditMode, onPlanTaxi, onError}: Props) {
   const id = useId(), [tab, setTab] = useState<Tab>("Setup");
   const [altitudeReference, setAltitudeReference] = useState<"agl" | "msl">("agl");
   const airport = getAirport(definition), spec = definition.aircraft.find(p => p.key === a.id)!;
@@ -93,8 +92,8 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
         </>}
       </section>
       <section className={styles.panel} role="tabpanel" id={`${id}-Routes-panel`} aria-labelledby={`${id}-Routes-tab`} hidden={tab !== "Routes"}>
-        {!a.radar ? <div className={styles.section}><h3>Taxi route</h3><button type="button" onClick={() => {const route = planTaxiRoute(airport, a.position, a.runway ?? defaultRunway(airport)); if (route.error) onError(route.error); else {patch({taxiPath: route.path}); onError("");}}}>Calculate route to Runway {a.runway}</button>
-          <button type="button" aria-pressed={editMode === "taxi"} onClick={() => toggleMode("taxi")}>{editMode === "taxi" ? "Done drawing taxi route" : "Draw taxi route"}</button><label className={styles.check}><input type="checkbox" checked={hold} onChange={e => onHold(e.target.checked)}/>Next point is hold short</label><button type="button" onClick={() => patch({taxiPath: []})}>Clear {a.taxiPath.length} taxi points</button></div> : null}
+        {!a.radar ? <div className={styles.section}><h3>Taxi route</h3><p className={styles.help}>Plan the route on the scope, or press and hold another aircraft and drag it. Drag the route's end or the green line to change it, tick holds, then save the route.</p><button type="button" onClick={() => {onEditMode(""); onError(""); onPlanTaxi(a.runway ?? defaultRunway(airport));}}>Plan route to Runway {a.runway ?? defaultRunway(airport)}</button>
+          <button type="button" disabled={!a.taxiPath.length} onClick={() => patch({taxiPath: []})}>Clear {a.taxiPath.length} taxi points</button></div> : null}
         <ScenarioFlightPlan aircraft={a} airport={airport} onEdit={patch}/>
       </section>
     </fieldset>

@@ -260,7 +260,8 @@ function validateInstruction(a: Aircraft, command: Instruction, frequency?: stri
   const requestedSequence = command.type === "sequence" ? command : command.type === "pattern" ? command.sequence : undefined;
   if (requestedSequence && requestedSequence.number > 1 && !sequenceTarget(traffic, a, command)) return "That sequence has no eligible predecessor, or would make aircraft follow each other. Review the traffic order.";
   if ((command.type === "taxi" || command.type === "pushback") && command.route) {
-    if (frequency !== "ground") return "Routed ground clearances require Ground frequency.";
+    // Staff maneuvers have no frequency: they apply the route as the pilot, without a clearance.
+    if (frequency !== undefined && frequency !== "ground") return "Routed ground clearances require Ground frequency.";
     if (command.type === "taxi" && ((command.runway && (command.route.destination.type !== "runway" || command.runway !== command.route.destination.id)) || command.destination === "parking" && command.route.destination.type !== "parking")) return "The clearance destination must match its route.";
     return groundRouteError(AIRPORT, command.route, command.type);
   }

@@ -17,8 +17,8 @@ import styles from "./ScenarioFlightPlan.module.css";
 const groups = [{type: "Waypoint", label: "Waypoints", Icon: MapPin}, {type: "SID", label: "Departures", Icon: AirplaneTakeoff}, {type: "STAR", label: "Arrivals", Icon: AirplaneLanding}, {type: "Approach", label: "Approaches", Icon: Path}] as const;
 const filters: {type: NavigationFilter; label: string}[] = [{type: "All", label: "All"}, {type: "Waypoint", label: "Waypoints"}, {type: "SID", label: "SID"}, {type: "STAR", label: "STAR"}, {type: "Approach", label: "Approaches"}];
 
-export default function FlightPlanAddDialog({aircraft: a, airport, onEdit, onClose, onAdded}: {
-  aircraft: Aircraft; airport: Airport; onEdit: (patch: Partial<Aircraft>) => void; onClose: () => void; onAdded: (message: string) => void;
+export default function FlightPlanAddDialog({aircraft: a, airport, live = false, onEdit, onClose, onAdded}: {
+  aircraft: Aircraft; airport: Airport; live?: boolean; onEdit: (patch: Partial<Aircraft>) => void; onClose: () => void; onAdded: (message: string) => void;
 }) {
   const id = useId(), dialog = useRef<HTMLDialogElement>(null), search = useRef<HTMLInputElement>(null);
   const transition = useRef<HTMLSelectElement>(null), add = useRef<HTMLButtonElement>(null);
@@ -58,7 +58,7 @@ export default function FlightPlanAddDialog({aircraft: a, airport, onEdit, onClo
     if (!current || !points || !catalog) return;
     try {
       const imported = detail?.route;
-      onEdit({...flightPlanPatch(a, appendFlightPlan(a.flightPlan, points)), navigationSource: {revision: catalog.revision, ...(imported ? {procedureId: imported.procedureId, routeId: imported.routeId} : {})}, ...(imported?.type === "STAR" ? {arrivalProcedure: imported.name} : {})});
+      onEdit({...flightPlanPatch(a, appendFlightPlan(a.flightPlan, points), live), navigationSource: {revision: catalog.revision, ...(imported ? {procedureId: imported.procedureId, routeId: imported.routeId} : {})}, ...(imported?.type === "STAR" ? {arrivalProcedure: imported.name} : {})});
       onAdded(`Added ${current.name}${route ? ` · ${route.name}` : ""}.`); onClose();
     } catch (reason) {setError(reason instanceof Error ? reason.message : "Unable to add this route.");}
   };

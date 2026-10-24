@@ -27,7 +27,7 @@ function RadarPhaseSpeed({label, value, min, max, onChange}: {label: string; val
     }}/>{invalid ? <small role="alert">Enter a whole speed between {min} and {max} kt, or leave blank for automatic.</small> : null}</label>;
 }
 
-export function RadarSeedControls({aircraft: a, airport, environment, onEdit, includeRoutes = true, staffCompact = false, staffView}: {aircraft: Aircraft; airport: Airport; environment: RadarEnvironment; onEdit: (patch: Partial<Aircraft>) => void | boolean | Promise<boolean>; includeRoutes?: boolean; staffCompact?: boolean; staffView?: "speeds" | "routes"}) {
+export function RadarSeedControls({aircraft: a, airport, environment, onEdit, includeRoutes = true, staffCompact = false, staffView}: {aircraft: Aircraft; airport: Airport; environment: RadarEnvironment; onEdit: (patch: Partial<Aircraft>) => void | boolean | Promise<boolean>; includeRoutes?: boolean; staffCompact?: boolean; staffView?: "speeds"}) {
   const r = a.radar;
   if (!r) return null;
   const phaseSpeeds = ([['inbound', 'Inbound speed'], ['final', 'Final speed'], ['vref', 'Landing speed']] as const).map(([key, label]) => <RadarPhaseSpeed key={`${a.id}:${key}`} label={label} min={radarPerformance(a).min} max={radarPerformance(a).max} value={a.speedTargets?.[key]} onChange={value => onEdit({speedTargets: {...a.speedTargets, [key]: value}})}/>);
@@ -38,10 +38,6 @@ export function RadarSeedControls({aircraft: a, airport, environment, onEdit, in
     <div className={workspace.setupForm}>{speedBehaviour}</div>
     <div className={workspace.controlGroup}><h3>Arrival speed targets</h3><div className={workspace.setupForm}>{phaseSpeeds}</div></div>
     <p>Blank targets are automatic. Existing fixed speeds stay fixed until you select Automatic. ATC speed instructions take priority.</p>
-  </section>;
-  if (staffView === "routes") return <section className={workspace.setupSection} aria-label="Radar route setup">
-    <div className={workspace.setupForm}><label>Initial guidance<select disabled={!!r.departure} value={r.navigation} onChange={e => onEdit({radar: {...r, navigation: e.target.value as "heading" | "route", routeIndex: 0, cleared: undefined, captured: false, localizer: false, glideslope: false, clearanceAltitudeChecked: false}})}><option value="heading">Fly heading</option><option value="route" disabled={!a.flightPlan.length}>Follow route</option>{!["heading", "route"].includes(r.navigation) ? <option value={r.navigation}>{r.navigation}</option> : null}</select></label></div>
-    <NavigationPicker aircraft={a} airport={airport} onEdit={onEdit}/><RouteSetup aircraft={a} onEdit={onEdit}/>
   </section>;
 
   if (staffCompact) return <section className={workspace.setupSection} aria-label="Radar intentions">
