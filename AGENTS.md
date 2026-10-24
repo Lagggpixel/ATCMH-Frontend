@@ -1,5 +1,11 @@
 # ATCMH frontend guidance
 
+## Persistent shared files (user instruction, 2026-10-24)
+
+Natural Earth data and future reusable persistent assets belong in remote persistent storage, outside Docker images. Follow the parent `../AGENTS.md` persistent-shared-files policy and `../Simulator/ops/shared-assets/README.md`. Publish datasets independently, consume versioned URLs/read-only mounts, and keep normal application builds free of dataset downloads or copies. Do not migrate unrelated existing assets implicitly.
+
+The coordinated remote root is `/root/atcmh/shared-assets`: public geography and private speech assets stay separate. Public server stack 68 (`atcmh-shared-assets`) on endpoint 3 serves the same-origin `/shared-data/natural-earth/coastline-10m/bfa04cdbcbef/coastline.geojson` through read-only public/config binds. Do not package this dataset in the frontend image. This publication prepared data delivery only; implementing the radar coastline layer needs a later application change.
+
 ## Verified aircraft-name editing deployment (2026-10-20, 26.10.16)
 
 - User authorized commit, push and deployment to both Sweatbox instances. Standalone **26.10.43** (source commit `a0be7f6ba7dede7287a7ff806b033569c85548ea`) and ATCMH frontend **26.10.16** (source commit `3418d86ec3fb43b57efac67f47cf4465492ad273`) were built locally for `linux/amd64` with `npm run docker:push`, published with versioned/latest tags, and deployed with fresh pulls to verified endpoint **3**, stacks **66 (sweatbox)** and **30 (atcmh)**. Never reuse these published versions or the intermediate ATCMH **26.10.15**, which was deployed and superseded during this release.
