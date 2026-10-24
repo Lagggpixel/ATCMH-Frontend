@@ -20,7 +20,7 @@ for (const airport of airportList) test(`${airport.icao}: explicit surface scena
   assert.equal(exercise.aircraft[0].mode, "parked");
   assert.equal(exercise.aircraft[0].altitude, airport.elevation);
   assert.equal(exercise.aircraft[0].groundReady, true);
-  const airborne = createLocalAircraft({airport: airport.icao}, "inbound", {...options, placement: "circuit", frequency: "tower", flight: "pattern"});
+  const airborne = createLocalAircraft({airport: airport.icao}, "inbound", {...options, placement: "circuit", speed: "auto", frequency: "tower", flight: "pattern"});
   assert.equal(airborne.speedMode, "auto", "new pattern traffic must slow for landing");
 });
 
