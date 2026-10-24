@@ -247,7 +247,7 @@ function clearLanding(a: Aircraft) {a.clearedToLand = false; a.clearedForOption 
 
 function fullStop(a: Aircraft) {a.landing = "full-stop"; delete a.optionHand; if (a.automaticRequest === "inbound-option") a.automaticRequest = "inbound-land";}
 
-function newCircuit(a: Aircraft) {a.circuit = (a.circuit ?? 0) + 1; a.sequence = undefined; a.patternFinalDistance = undefined; delete a.arrivalExit; delete a.arrivalRequest; clearLanding(a);}
+function newCircuit(a: Aircraft) {a.circuit = (a.circuit ?? 0) + 1; a.sequence = undefined; a.patternFinalDistance = undefined; delete a.patternEntry; delete a.arrivalExit; delete a.arrivalRequest; clearLanding(a);}
 /** Sending a clearance never depends on a pilot request or an aircraft's position.
  * Physical prerequisites are checked separately when staff chooses to assign it. */
 
@@ -456,7 +456,13 @@ function queueRunwayExit(a: Aircraft, side: "left" | "right" | "any", instructio
 
 function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   c = roundedHeadingInstruction(c);
+  // A sequenced entry from upwind must establish space before turning into the
+  // predecessor's circuit. Keep the requested leg until the physical merge is safe.
+  const entry = c.type === "pattern" && (c.leg === "crosswind" || c.leg === "downwind")
+    && a.leg === "upwind" && ["pattern", "takeoff", "go-around"].includes(a.mode)
+    && (c.sequence?.number ?? a.sequence?.number ?? 1) > 1 ? c.leg : undefined;
   const leavesHold = ["heading", "route", "pattern", "go-around", "missed-approach"].includes(c.type) || c.type === "vector" && (c.heading !== undefined || c.approachId !== undefined);
+  if (leavesHold || ["extend", "departure", "transition", "takeoff", "lineup", "runway", "frequency"].includes(c.type)) delete a.patternEntry;
   if (leavesHold) {delete a.atcManeuver; delete a.routeNavigation;}
   if (a.atcManeuver?.kind === "hold" && c.type === "vector" && c.altitude) a.atcManeuver.altitude = c.altitude.unit === "feet" ? c.altitude.value : c.altitude.value * 100;
   if (c.type === "radar-speed") {assignRadarSpeed(a, c, EXERCISE_WEATHER); return;}
@@ -541,7 +547,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
     case "land": a.clearedToLand = true; a.clearedForOption = !!c.option; if (!c.option) a.landing = "full-stop"; a.optionHand = c.option ? c.hand : undefined; if (c.number === 1) a.sequence = undefined; break;
     case "cancel-landing": clearLanding(a); break;
     case "go-around": if (a.mode !== "go-around") newCircuit(a); else clearLanding(a); a.mode = "go-around"; a.goAroundRunwayHeading = !!c.runwayHeading; a.leg = "upwind"; a.extended = false; a.targetSpeed = DEFAULTS.airSpeed; if (c.hand) a.hand = c.hand; a.targetHeading = runwayGeometry(a.runway ?? DEFAULT_RUNWAY).heading; break;
-    case "pattern": if (a.leg === "final" && c.leg === "upwind") newCircuit(a); a.mode = "pattern"; a.leg = c.leg; a.extended = false; if (c.hand) a.hand = c.hand; if (c.leg === "base") a.patternFinalDistance = Math.max(defaultBaseDistance(a), -runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).along); break;
+    case "pattern": if (a.leg === "final" && c.leg === "upwind") newCircuit(a); a.mode = "pattern"; a.leg = c.leg; a.extended = false; if (entry) {a.patternEntry = entry; a.leg = "upwind";} if (c.hand) a.hand = c.hand; if (c.leg === "base") a.patternFinalDistance = Math.max(defaultBaseDistance(a), -runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).along); break;
     case "sequence": if (c.cancelLanding) clearLanding(a); break;
     case "extend": a.mode = "pattern"; a.leg = c.leg; a.extended = true; break;
     case "heading": a.mode = "heading"; a.extended = false; a.targetHeading = magneticToTrue(c.value, AIRPORT); break;
@@ -907,7 +913,7 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
 const NEXT_LEG: Record<Leg, Leg> = {upwind: "crosswind", crosswind: "downwind", downwind: "base", base: "final", final: "upwind"};
 // Include roll-in and wind-driven travel when anticipating pattern corners.
 const turnLead = (a: Aircraft) => Math.max(.12, bankTurnLead(a.groundSpeed ?? a.speed) * 1.2);
-interface SequenceGuidance {extendDownwind: boolean; speedLimit?: number}
+interface SequenceGuidance {extendDownwind: boolean; holdEntry?: boolean; speedLimit?: number}
 /** Compare arrival times at the shared final, including traffic on the opposite hand.
  * Wait for the predecessor to turn base: its own downwind may still be extended.
  * Underestimate our turn distance and overestimate theirs to leave a spacing margin. */
@@ -966,15 +972,40 @@ function finalJoinSeparated(a: Aircraft, leader: Aircraft) {
 }
 
 
+function sequenceEntrySeparated(a: Aircraft, following: Aircraft, aircraft: Aircraft[]) {
+  // First create a gap on upwind. A speed cap after both aircraft have turned
+  // cannot recover side-by-side traffic at equal speeds.
+  const margin = DEFAULTS.sequenceDistance + .3;
+  if (distance(a.position, following.position) < margin || following.mode !== "pattern"
+    || !["downwind", "base", "final"].includes(following.leg) || following.extended) return false;
+  const chain = [a, following];
+  for (let i = 1; i < chain.length; i++) {
+    if (chain[i].patternEntry) return false;
+    const leader = followedAircraft(chain[i], aircraft);
+    if (leader && !chain.some(p => p.id === leader.id)) chain.push(leader);
+  }
+  const forecast = chain.map(motionCopy), own = forecast[0], ahead = forecast[1];
+  own.leg = own.patternEntry!; delete own.patternEntry;
+  // Use the same bank, wind, acceleration and sequencing as real flight. There
+  // are no pending entries in this chain, so the forecast cannot recurse here.
+  for (let t = 0; t < 120; t += .5) {
+    stepTraffic(forecast, .5);
+    if (distance(own.position, ahead.position) < margin) return false;
+  }
+  return true;
+}
+
 function sequenceGuidance(a: Aircraft, aircraft: Aircraft[]): SequenceGuidance {
   const following = followedAircraft(a, aircraft);
   if (a.mode !== "pattern" || !following || a.sequence?.departure) return {extendDownwind: false};
+  if (a.patternEntry) return {extendDownwind: false, holdEntry: !sequenceEntrySeparated(a, following, aircraft)};
   const established = following.mode === "pattern" && ["base", "final"].includes(following.leg) && !following.extended;
   // Slow an assigned faster follower before it overtakes on downwind, not only
   // after the base turn. Keep the trainer's target speed unchanged.
   const gap = distance(a.position, following.position);
   const ahead = (following.position.x - a.position.x) * Math.sin(a.heading * radians) + (following.position.y - a.position.y) * Math.cos(a.heading * radians);
-  const inTrailLimit = a.leg === following.leg && a.hand === following.hand && ahead > 0 && gap < 2 && Math.abs((a.heading - following.heading + 540) % 360 - 180) < 30 ? Math.max(radarPerformance(a).min, following.speed) : undefined;
+  const inTrailLimit = a.leg === following.leg && a.hand === following.hand && ahead > 0 && gap < DEFAULTS.sequenceDistance + .3 && Math.abs((a.heading - following.heading + 540) % 360 - 180) < 30
+    ? Math.max(radarPerformance(a).min, following.speed - Math.max(0, DEFAULTS.sequenceDistance - gap) * 60) : undefined;
   if (!established) return {extendDownwind: a.leg === "downwind", ...(inTrailLimit === undefined ? {} : {speedLimit: inTrailLimit})};
   const finalSpeed = (a: Aircraft) => a.speedMode === "manual" ? Math.min(a.speed, a.targetSpeed) : a.speedTargets?.vref ?? 135;
   const spacing = Math.max(DEFAULTS.sequenceSeconds, DEFAULTS.sequenceDistance * 3600 / Math.max(1, Math.min(finalSpeed(a), finalSpeed(following))));
@@ -1126,6 +1157,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     }
     return;
   } else if (a.mode === "pattern") {
+    if (a.patternEntry && !guidance.holdEntry) {a.leg = a.patternEntry; delete a.patternEntry;}
     const finalAlong = runwayCoordinates(a.position, g).along;
     if (a.leg === "final" && finalAlong >= -.65 && finalAlong < .1 && a.clearedToLand
       && runwayGoAroundDue(a.altitude, AIRPORT.elevation, finalAlong)
@@ -1139,7 +1171,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       // original corner. Keep this geometry through base/final and across reloads.
       a.patternFinalDistance = Math.max(defaultBaseDistance(a), a.patternFinalDistance ?? 0, -runwayCoordinates(a.position, g).along + turnLead(a));
     }
-    if (a.extended || a.leg === "upwind" && a.conflictMotion?.upwind || a.leg === "downwind" && (guidance.extendDownwind || !!a.conflictMotion?.extendDownwind) && -runwayCoordinates(a.position, g).along >= defaultBaseDistance(a) - turnLead(a)) a.targetHeading = normalizeHeading(g.heading + (a.leg === "downwind" ? 180 : 0));
+    if (a.patternEntry || a.extended || a.leg === "upwind" && a.conflictMotion?.upwind || a.leg === "downwind" && (guidance.extendDownwind || !!a.conflictMotion?.extendDownwind) && -runwayCoordinates(a.position, g).along >= defaultBaseDistance(a) - turnLead(a)) a.targetHeading = normalizeHeading(g.heading + (a.leg === "downwind" ? 180 : 0));
     else {
       const points = patternTargets(a);
       const previous: Record<Leg, Point> = {upwind: g.threshold, crosswind: points.upwind, downwind: points.crosswind, base: points.downwind, final: points.base};
