@@ -1,13 +1,46 @@
 "use client";
+import {useEffect, useId, useRef, useState} from "react";
 import {LETTERS} from "./catalog";
 import {ATIS_REMARKS, ATIS_NOTAMS, ATIS_DIRECTIONS, atisFrequencies, atisRunwayWind, currentAtisOptions, type AtisDirection} from "./atis-options";
 import {EXERCISE_WEATHER, type Action, type Atis, type Exercise, type ExerciseWeather} from "./model";
-import {getAirport, runwayEnds, simulatedMetar} from "./airports";
+import {getAirport, runwayEnds} from "./airports";
 import {trueToMagnetic} from "./magnetic-headings";
 import {useNavigationCatalog} from "./use-navigation-catalog";
 import styles from "./AtisPanel.module.css";
 
 type Selection = "departures" | "arrivals" | "expectations" | "remarks" | "notams" | "procedures";
+
+function InformationLetter({value, disabled, onChange}: {value: string; disabled: boolean; onChange: (letter: string) => void}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const letters = [...new Set([...LETTERS.map(letter => letter === "XRAY" ? "X-RAY" : letter), value])];
+  const expanded = open && !disabled;
+  useEffect(() => {
+    if (!expanded) return;
+    const selected = menu.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+    selected?.focus({preventScroll: true});
+    if (menu.current) menu.current.scrollTop = 0;
+    const dismiss = (event: PointerEvent) => {if (!root.current?.contains(event.target as Node)) setOpen(false);};
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [expanded]);
+  return <div ref={root} className={styles.information} onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);}} onKeyDown={event => {
+    if (event.key === "Escape" && expanded) {event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus();}
+  }}>
+    <span id={`${id}-label`}>ATIS INFORMATION</span>
+    <button ref={trigger} type="button" aria-label="ATIS information" aria-haspopup="listbox" aria-expanded={expanded} aria-controls={expanded ? id : undefined} disabled={disabled} onClick={() => setOpen(current => !current)} onKeyDown={event => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {event.preventDefault(); setOpen(true);}
+    }}>{value}</button>
+    {expanded ? <div ref={menu} id={id} className={styles.letterMenu} role="listbox" aria-labelledby={`${id}-label`} onKeyDown={event => {
+      const options = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]')];
+      const index = options.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : event.key === "ArrowDown" ? (index + 1) % options.length : event.key === "ArrowUp" ? (index - 1 + options.length) % options.length : undefined;
+      if (next !== undefined) {event.preventDefault(); options[next]?.focus();}
+    }}>{letters.map(letter => <button type="button" role="option" key={letter} aria-selected={value === letter} tabIndex={value === letter ? 0 : -1} onClick={() => {onChange(letter); setOpen(false); trigger.current?.focus();}}><span aria-hidden="true">{value === letter ? "✓" : ""}</span>{letter}</button>)}</div> : null}
+  </div>;
+}
+
 export default function AtisPanel({exercise, dispatch, connected}: {exercise: Exercise; dispatch: (a: Action) => void; connected: boolean}) {
   const airport = getAirport(exercise), weather: ExerciseWeather = exercise.weather ?? EXERCISE_WEATHER;
   const {catalog, error, retry} = useNavigationCatalog(airport.icao);
@@ -22,14 +55,13 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
     const assignments = draft.frequencyAssignments ?? [], directions = assignments.find(a => a.facilityId === facilityId)?.directions ?? [];
     dispatch({kind: "atis", draft: {...draft, frequencyAssignments: [...assignments.filter(a => a.facilityId !== facilityId), {facilityId, directions: directions.includes(direction) ? directions.filter(d => d !== direction) : [...directions, direction]}]}});
   };
-  const tiles = (field: "remarks" | "notams", options: readonly {label: string}[]) => [...new Set([...options.map(o => o.label), ...draft[field]])].map(value =>
-    <button type="button" key={value} disabled={!editable} aria-pressed={draft[field].includes(value)} onClick={() => toggle(field, value)}>{value.toUpperCase()}</button>);
+  const tiles = (field: "remarks" | "notams", options: readonly {label: string; displayLabel?: string}[]) => [...new Set([...options.map(o => o.label), ...draft[field]])].map(value =>
+    <button type="button" key={value} disabled={!editable} aria-label={value.toUpperCase()} aria-pressed={draft[field].includes(value)} onClick={() => toggle(field, value)}>{options.find(option => option.label === value)?.displayLabel ?? value.toUpperCase()}</button>);
   const wind = weather.windSpeed < 3 && (weather.windGust ?? 0) < 3 ? "CALM" : `${weather.variableWind ? "Wind Variable" : `${Math.floor(trueToMagnetic(weather.windDirection, airport) / 10) * 10}°(M)`} at ${weather.windSpeed}${(weather.windGust ?? 0) > 3 ? ` Gust ${weather.windGust}` : ""}`;
   return <section className={styles.panel} aria-label="ATIS editor">
-    <div className={styles.weather}>{simulatedMetar(airport, exercise.weather)}</div>
     <header className={styles.toolbar}>
       <span>WIND: {wind}</span>
-      <label>ATIS INFORMATION<select aria-label="ATIS information" value={draft.letter} disabled={!editable} onChange={e => dispatch({kind: "atis", draft: {...draft, letter: e.target.value}})}>{[...new Set([...LETTERS.map(letter => letter === "XRAY" ? "X-RAY" : letter), draft.letter])].map(letter => <option key={letter}>{letter}</option>)}</select></label>
+      <InformationLetter value={draft.letter} disabled={!editable} onChange={letter => dispatch({kind: "atis", draft: {...draft, letter}})}/>
       <button type="button" disabled={!connected} onClick={() => dispatch({kind: "publish-atis"})}>PUBLISH</button>
     </header>
     <div className={styles.grid}>
