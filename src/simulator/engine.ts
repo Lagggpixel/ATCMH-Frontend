@@ -1166,7 +1166,8 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
         }
       }
     }
-    const height = a.clearedToLand && ["base", "final"].includes(a.leg) ? Math.min(DEFAULTS.patternHeight, (a.leg === "base" ? a.patternFinalDistance ?? defaultBaseDistance(a) : Math.max(0, -runwayCoordinates(a.position, g).along)) * 6076 * Math.tan(3 * radians)) : DEFAULTS.patternHeight;
+    // Follow the approach profile before clearance; permission is checked at touchdown.
+    const height = ["base", "final"].includes(a.leg) ? Math.min(DEFAULTS.patternHeight, (a.leg === "base" ? a.patternFinalDistance ?? defaultBaseDistance(a) : Math.max(0, -runwayCoordinates(a.position, g).along)) * 6076 * Math.tan(3 * radians)) : DEFAULTS.patternHeight;
     if (a.mode === "pattern") a.altitude = approach(a.altitude, AIRPORT.elevation + height, (a.altitude > AIRPORT.elevation + height ? descentRate(a) : climbRate(a)) / 60 * dt);
   } else if (a.mode === "go-around") {
     a.targetHeading = g.heading;
