@@ -22,7 +22,7 @@ import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
 import AircraftPopupPresence from "./AircraftPopupPresence";
-import {approachGuide} from "./approach-guides";
+import {approachGuide, approachGuideFromEndpoints} from "./approach-guides";
 import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 import {aircraftAppearance} from "./aircraft-flashing";
 import {atisRunwayWind} from "./atis-options";
@@ -294,18 +294,18 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const runway = feature.kind === "runway";
       path(feature.points, runway ? IF_MAP_COLORS.runway : ["apron", "terminal", "hangar"].includes(feature.kind) ? "#656565" : IF_MAP_COLORS.taxiway, runway ? 2 : 1);
     }
-    // The active airport's approach guides remain visible in IF when the
-    // Approaches switch hides background-airport approach vectors.
+    // The current airport's cones stay visible independently of background approaches.
     for (const {id} of runwayEnds(AIRPORT)) {
       const g = approachGuide(id, airport);
       path([g.threshold, g.left, g.right, g.threshold], g.color, 1.5);
       path([g.threshold, g.center], g.centerColor, 1.5);
     }
-    if (options.approaches) for (const approach of radarEnvironment?.approaches ?? []) {
-      if (!approach.airportIcao || approach.airportIcao === AIRPORT.icao || approach.type === "visual" || !approach.threshold || !approach.departure) continue;
-      const heading = Math.atan2(approach.departure.x - approach.threshold.x, approach.departure.y - approach.threshold.y), dx = Math.sin(heading), dy = Math.cos(heading);
-      const center = {x: approach.threshold.x - dx * 11, y: approach.threshold.y - dy * 11};
-      path([approach.threshold, {x: center.x + dy * .5, y: center.y - dx * .5}, {x: center.x - dy * .5, y: center.y + dx * .5}, approach.threshold], approach.type === "ils" ? "#dc6464" : "#808080", 1.5);
+    if (options.approaches) for (const approach of mapLayers.data?.approaches ?? []) {
+      if (approach.airportIcao === AIRPORT.icao) continue;
+      const g = approachGuideFromEndpoints(approach.threshold, approach.departure, approach.ils);
+      if (!g) continue;
+      path([g.threshold, g.left, g.right, g.threshold], g.color, 1.5);
+      path([g.threshold, g.center], g.centerColor, 1.5);
     }
   }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
