@@ -12,11 +12,12 @@ async function readJson(url:string, timeoutMs = 12000) {
   if(!response.ok || Number(response.headers.get("content-length")??0)>200000)throw new Error("Unavailable");
   const body=await response.text(); if(body.length>200000)throw new Error("Oversize response"); return JSON.parse(body);
 }
-export function fetchWeatherReport(airport:string, fresh = false):Promise<WeatherReport> {
+export function fetchWeatherReport(airport:string, fresh = false, weatherOnly = false):Promise<WeatherReport> {
   if(!/^[A-Z0-9]{4}$/.test(airport))throw new SessionError("invalid-airport","Enter a four-character ICAO code.",400);
-  const cached=cache.get(airport); if(!fresh && cached && cached.until>Date.now())return cached.data;
+  const key = `${airport}:${weatherOnly ? "weather" : "all"}`;
+  const cached=cache.get(key); if(!fresh && cached && cached.until>Date.now())return cached.data;
   const data=(async()=>{
-    const [observations,broadcasts]=await Promise.allSettled([readJson(`https://aviationweather.gov/api/data/metar?ids=${airport}&format=json`,fresh ? 5000 : 12000),readJson(`https://atis.info/api/${airport}`,fresh ? 5000 : 12000)]);
+    const [observations,broadcasts]=await Promise.allSettled([readJson(`https://aviationweather.gov/api/data/metar?ids=${airport}&format=json`,fresh ? 5000 : 12000),weatherOnly ? Promise.resolve([]) : readJson(`https://atis.info/api/${airport}`,fresh ? 5000 : 12000)]);
     const report:WeatherReport={airport,fetchedAt:new Date().toISOString(),atis:[],warnings:[]};
     if(observations.status==="fulfilled"){
       const parsed=z.array(metar).safeParse(observations.value); const m=parsed.success?parsed.data.find(m=>m.icaoId===airport):undefined;
@@ -28,10 +29,10 @@ export function fetchWeatherReport(airport:string, fresh = false):Promise<Weathe
     }
     if(!report.weather)report.warnings.push("No usable METAR available. Existing exercise weather is retained.");
     if(broadcasts.status==="fulfilled") {const parsed=z.array(datis).safeParse(broadcasts.value); if(parsed.success)report.atis=parsed.data.filter(a=>a.airport===airport);}
-    if(!report.atis.length)report.warnings.push("Public D-ATIS is unavailable at this airport. You can publish ATIS from the weather observation and selected runways.");
+    if(!weatherOnly && !report.atis.length)report.warnings.push("Public D-ATIS is unavailable at this airport. You can publish ATIS from the weather observation and selected runways.");
     if(report.weather && Date.now()-Date.parse(report.weather.observedAt!)>2*3600000)report.warnings.push("This weather observation is more than two hours old.");
     return report;
   })();
   if(cache.size>=100)cache.delete(cache.keys().next().value!);
-  cache.set(airport,{until:Date.now()+300000,data});return data;
+  cache.set(key,{until:Date.now()+300000,data});return data;
 }

@@ -91,7 +91,9 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
   const closest = Math.min(...holds.map(id => distance(source.points[id], threshold)));
   const radius = Math.min(.5, Math.max(TAXI_ROUTING.departureAccessRadius, closest + .001));
   const goals = holds.filter(id => distance(source.points[id], threshold) <= radius);
-  return routeToNodes(source, position, goals, true, blocked, pair.id, airport);
+  const route = routeToNodes(source, position, goals, false, blocked, pair.id, airport);
+  if (route.path) route.path.at(-1)!.runway = runway;
+  return route;
 }
 
 export function routeToNodes(source: TaxiGraph, position: Point, goals: number[], hold: boolean, blocked: Point[] = [], forbidden?: string, airport?: Airport): {path: TaxiPoint[]; distance: number; error?: undefined} | {error: string; path?: undefined; distance?: undefined} {

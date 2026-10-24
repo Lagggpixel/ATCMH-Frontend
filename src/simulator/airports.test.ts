@@ -73,7 +73,7 @@ for (const airport of airportList) {
     for (const end of runwayEnds(airport)) {
       const route = gatesFor(airport).map(gate => planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, end.id)).find(route => route.path);
       assert.ok(route?.path, `${end.id}: no connected route`);
-      assert.equal(route.path.at(-1)!.hold, true);
+      assert.equal(route.path.at(-1)!.hold, undefined); assert.equal(route.path.at(-1)!.runway, end.id);
       assert.ok(exerciseSchema.safeParse({...engineFor({airport: airport.icao}).initialExercise(), aircraft: [{...engineFor({airport: airport.icao}).newAircraft("route", false), taxiPath: route.path}]}).success);
     }
   });
@@ -88,13 +88,14 @@ for (const airport of airportList) {
     for (let seconds = 0; seconds < 1200; seconds += 5) {
       state = advance(state, 5);
       const current = state.aircraft[0];
+      if (current.mode === "parked" && current.taxiIndex >= current.taxiPath.length) break;
       if (!current.holding) continue;
       if (current.taxiIndex === current.taxiPath.length - 1) break;
       const crossing = applyEnvelope(state, send({kind: "maneuver", aircraftId: aircraft.id, command: {type: "cross", runway: current.taxiPath[current.taxiIndex].runway}}));
       assert.equal(crossing.error, undefined); state = crossing.state;
     }
     const final = state.aircraft[0];
-    assert.equal(final.holding, true); assert.equal(final.taxiIndex, final.taxiPath.length - 1);
+    assert.equal(final.holding, false); assert.equal(final.mode, "parked"); assert.equal(final.speed, 0); assert.equal(final.taxiIndex, final.taxiPath.length);
     assert.equal(final.runway, runway); assert.deepEqual(final.position, {x: final.taxiPath.at(-1)!.x, y: final.taxiPath.at(-1)!.y});
   });
   }
