@@ -590,11 +590,16 @@ function retireRetunedCommands(state: Exercise, before: Aircraft[]) {
   });
 }
 
-const conflictEngine = {slowExitSeconds: (a: Aircraft) => {
-  const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), speed = a.speedTargets?.vref ?? performanceFor(a)?.landing ?? 135;
-  const landed = {...a, position: add(g.threshold, g.vector, .1), speed};
-  const exit = runwayExitRoute(landed, "any", true);
-  return exit.path && exit.speed ? distance(landed.position, exit.path[1]) * 7200 / (speed + exit.speed) + distance(exit.path[1], exit.path.at(-1)!) * 3600 / exit.speed : 0;
+const conflictEngine = {vacateSpeed: (a: Aircraft, following: Aircraft) => {
+  // A skipped exit alone can clear seconds before the follower's 50 ft decision.
+  // Pace only automatic vacating along its mapped path, with a small ETA margin.
+  // Explicit exit/taxi instructions retain their normal speeds and can resolve it.
+  if (a.mode !== "taxi" || a.arrivalExit?.instruction !== "automatic" || following.mode !== "pattern" || !["base", "final"].includes(following.leg)) return;
+  let remaining = 0, previous = a.position;
+  for (const point of a.taxiPath.slice(a.taxiIndex)) {remaining += distance(previous, point); previous = point;}
+  const seconds = Math.min(600, approachSeconds(following) + 8);
+  // Never stop or crawl indefinitely to manufacture an unachievable conflict.
+  return Math.max(5, Math.min(a.arrivalExit.speed, remaining * 3600 / Math.max(1, seconds)));
 }, geometry: runwayGeometry, distance: arrivalDistance, instruct: (a: Aircraft, c: Instruction) => instruct(a, c), lineupError: (a: Aircraft) => departureRoute(a, a.runway ?? DEFAULT_RUNWAY).error};
 
 function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatternEntry?: boolean} = {}): {state: Exercise; error?: string} {
@@ -1146,7 +1151,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       return;
     }
     if (a.expedited && a.targetSpeed > 0 && !a.holding) a.targetSpeed = Math.max(a.targetSpeed, 25);
-    const moved = moveGround(a, a.taxiPath, a.taxiIndex, dt, false, ground);
+    const moved = moveGround(a, a.taxiPath, a.taxiIndex, dt, false, {...ground, speedLimit: Math.min(ground.speedLimit, a.conflictMotion?.speedLimit ?? Infinity)});
     if (a.releasedHold !== null && moved.index > a.releasedHold) a.releasedHold = null;
     a.taxiIndex = moved.index;
     if (moved.held) {a.holding = true; a.targetSpeed = 0;}
