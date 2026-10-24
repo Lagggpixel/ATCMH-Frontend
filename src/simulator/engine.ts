@@ -873,7 +873,7 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
     const request = a.automaticRequest!;
     const id = request === "taxi" ? intentionsOf(a).taxi === "parking" ? "taxi-parking" : "taxi-runway" : request === "departure" ? "departure" : request;
     const blockedDeparture = request === "departure" && next.conflicts?.some(c => c.kind === "cancel-takeoff" && c.second === a.id && !["complete", "cancelled"].includes(c.phase));
-    const valid = !blockedDeparture && (request === "taxi" ? a.mode === "parked" && a.frequency === "ground" : request === "departure" ? atDepartureHold(a) && a.frequency === "tower" : a.mode === "heading" && a.frequency === "tower");
+    const valid = !blockedDeparture && (request === "taxi" ? a.mode === "parked" && a.frequency === "ground" : request === "departure" ? atDepartureHold(a) && a.frequency === "tower" : ["heading", "pattern"].includes(a.mode) && a.frequency === "tower");
     next = structuredClone(next); delete next.aircraft.find(other => other.id === a.id)!.automaticRequest; next.revision++;
     const pending = a.frequency ? pendingPilotMessage(next, a.id, a.frequency) : undefined;
     const instruction = pendingCommands(next, a.id).at(-1)?.instruction;

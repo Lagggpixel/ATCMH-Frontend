@@ -5,6 +5,7 @@ import {randomUUID} from "node:crypto";
 import test, {type TestContext} from "node:test";
 import {airportList} from "./airports";
 import {engineFor} from "./engine";
+import type {Exercise} from "./model";
 import {envelopeSchema} from "./protocol";
 import {createSpawnAircraft} from "./spawn-aircraft";
 import {readSpawnPreferences, saveSpawnPreferences} from "./spawn-preferences";
@@ -74,4 +75,37 @@ test("corrupt or inaccessible storage leaves spawning usable with defaults", t =
   Object.defineProperty(window, "localStorage", {get() {throw new Error("Storage blocked");}});
   assert.deepEqual(readSpawnPreferences("mentor", exercise), defaults);
   assert.doesNotThrow(() => saveSpawnPreferences("mentor", exercise, defaults));
+});
+
+for (const airport of airportList) for (const landing of ["touch-and-go", "full-stop"] as const) test(`${airport.icao}: airborne ${landing} spawn calls Tower once when automatic pilots run`, () => {
+  const engine = engineFor({airport: airport.icao, trainingStation: `${airport.icao}:tower`});
+  let state: Exercise = {...engine.initialExercise(), aircraft: [], running: false};
+  const aircraft = createSpawnAircraft(state, randomUUID(), {airborne: true, callsign: "Test 123", type: "A320", landing, position: {x: 4, y: 9}});
+  const envelope = envelopeSchema.parse({id: randomUUID(), time: 0, action: {kind: "spawn", aircraft}});
+  state = engine.applyEnvelope(state, envelope).state;
+  assert.equal(engine.autoReadbacks(state, 0, randomUUID).messages.length, 0, "paused spawns wait for Start");
+  state = {...state, running: true, autoReadback: false};
+  state = engine.autoReadbacks(state, 1, randomUUID);
+  assert.equal(state.messages.length, 0, "manual pilots stay silent");
+  state = engine.autoReadbacks({...state, autoReadback: true}, 2, randomUUID);
+  assert.equal(state.messages.length, 1);
+  assert.equal(state.messages[0].frequency, "tower");
+  assert.equal(state.messages[0].sender, "pilot");
+  assert.equal(state.messages[0].request?.id, landing === "touch-and-go" ? "inbound-option" : "inbound-land");
+  assert.match(state.messages[0].text, landing === "touch-and-go" ? /inbound for Touch and Go/ : /inbound for Landing/);
+  assert.equal(state.aircraft[0].landing, landing);
+  assert.equal(state.aircraft[0].mode, "pattern");
+  assert.equal(state.aircraft[0].clearedToLand, false);
+  assert.equal(state.aircraft[0].automaticRequest, undefined);
+  assert.equal(engine.autoReadbacks(state, 3, randomUUID).messages.length, 1, "later ticks do not repeat the call");
+});
+
+test("surface and radar spawns do not queue a local Tower inbound call", () => {
+  for (const mode of ["tower", "approach", "center"] as const) for (const airborne of [false, true]) {
+    if (mode === "tower" && airborne) continue;
+    const engine = engineFor({trainingStation: `EGPH:${mode}`}), state = engine.initialExercise();
+    const aircraft = createSpawnAircraft(state, randomUUID(), {airborne, callsign: "Test 123", type: "A320", landing: "full-stop"});
+    assert.equal(aircraft.automaticRequest, undefined);
+    if (airborne) assert.equal(aircraft.radar?.report, engine.newAircraft("baseline", true).radar?.report);
+  }
 });
