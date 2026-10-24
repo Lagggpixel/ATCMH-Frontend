@@ -108,6 +108,21 @@ test("All full stop is one idempotent staff-only action and survives overhead tr
   assert.equal(envelopeSchema.safeParse({id: "edit", time: 0, action: {kind: "edit", aircraftId: "air", patch: {towerCheckInPending: true}}}).success, false);
 });
 
+test("Cancelling All full stop restores each aircraft's earlier landing intention, including traffic spawned meanwhile", () => {
+  let state = stateOf([engine.newAircraft("first", true), engine.newAircraft("second", true)]);
+  state.aircraft[0].landing = "touch-and-go"; state.aircraft[1].landing = "full-stop";
+  state = applyEnvelope(state, {id: "fs-on", time: 0, action: {kind: "all-full-stop", enabled: true}}).state;
+  assert.ok(state.aircraft.every(a => a.landing === "full-stop"));
+  const spawned = engine.newAircraft("third", true); spawned.callsign = "Shamrock 77"; spawned.landing = "touch-and-go";
+  const spawn = applyEnvelope(state, {id: "spawn", time: 0, action: {kind: "spawn", aircraft: spawned}});
+  assert.equal(spawn.error, undefined); state = spawn.state;
+  assert.equal(state.aircraft.at(-1)!.landing, "full-stop");
+  assert.ok(exerciseSchema.parse(state).fullStopAll);
+  state = applyEnvelope(state, {id: "fs-off", time: 0, action: {kind: "all-full-stop", enabled: false}}).state;
+  assert.deepEqual(state.aircraft.map(a => a.landing), ["touch-and-go", "full-stop", "touch-and-go"]);
+  assert.equal(state.fullStopAll, undefined);
+});
+
 test("Tower contact before arrival at the hold reports ready exactly once; Automatic off stays manual", () => {
   const runway = "31L", hold = {...point(runway, .15, .04), hold: true};
   const a = {...engine.newAircraft("a", false), mode: "taxi" as const, runway, position: {...hold, x: hold.x + .04}, taxiPath: [hold], taxiIndex: 0, heading: 270, targetHeading: 270, speed: 15, targetSpeed: 15};

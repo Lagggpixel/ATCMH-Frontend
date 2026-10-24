@@ -10,7 +10,7 @@ import type {Aircraft, Leg, Point} from "./model";
 export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom";
 export interface LocalAircraftOptions {
   placement: LocalPlacement; callsign: string; type: string; runway: string; gateId?: string;
-  distance: number; leg: Leg; hand: Aircraft["hand"]; height: number; speed: number; heading: number; position?: Point;
+  distance: number; leg: Leg; hand: Aircraft["hand"]; height: number; speed: number | "auto"; heading: number; position?: Point;
   landing: Aircraft["landing"]; flight: "pattern" | "departure"; frequency: "ground" | "tower" | null;
 }
 
@@ -47,8 +47,7 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
     Object.assign(a, placement, {targetHeading: placement.heading, groundReady: false});
   } else {
     a.altitude = airport.elevation + bounded(options.height, 1, 60000 - airport.elevation, "Height above airport (ft)");
-    a.speed = a.targetSpeed = bounded(options.speed, 80, 600, "Speed (kt)");
-    a.speedMode = "manual";
+    if (options.speed !== "auto") {a.speed = a.targetSpeed = bounded(options.speed, 80, 600, "Speed (kt)"); a.speedMode = "manual";}
     const geometry = engine.runwayGeometry(options.runway);
     if (options.placement === "final") {
       const distance = bounded(options.distance, 1, 25, "Final distance (NM)");
@@ -65,6 +64,7 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
       a.position = options.position ? {...options.position} : {x: geometry.threshold.x - geometry.vector.x * 5, y: geometry.threshold.y - geometry.vector.y * 5};
       a.heading = a.targetHeading = magneticToTrue(bounded(options.heading, 0, 360, "Heading"), airport);
     }
+    if (options.speed === "auto") {a.speedMode = "auto"; a.speed = a.targetSpeed = engine.speedProfile(a).target;}
   }
   const performance=performanceFor(a);
   if(performance && a.altitude>performance.ceiling)throw new Error(`${performance.name} ceiling is ${performance.ceiling.toLocaleString()} ft.`);
