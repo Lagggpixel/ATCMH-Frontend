@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {ATIS_REMARKS, ATIS_NOTAMS, atisFrequencies, atisRunwayWind, currentAtisOptions} from "./atis-options";
-import {applyEnvelope, initialExercise} from "./engine";
+import {applyEnvelope, engineFor, initialExercise} from "./engine";
 import {getAirport} from "./airports";
 import {envelopeSchema, exerciseSchema} from "./protocol";
 import {radarEnvironmentFor} from "./radar";
@@ -67,4 +67,46 @@ test("legacy labels retain IF options and custom text without rewriting archived
   assert.deepEqual(normalized.remarks, ["No pattern work", "FPL Rqd", "Mult. Freq. In Use"]);
   assert.deepEqual(normalized.notams, ["Event", "Low visibility", "Custom notice"]);
   assert.deepEqual(draft, before);
+});
+
+test("generated ATIS rounds weather and follows IF's complete broadcast element order", () => {
+  const state = initialExercise();
+  state.weather = {...EXERCISE_WEATHER, visibilityKm: 9.7, temperature: 18.6, dewpoint: 9.2, rawMetar: "RAW METAR"};
+  state.radarEnvironment = {...radarEnvironmentFor(airport), facilities: [facility("one"), facility("two")]};
+  state.atis = {...state.atis, arrivals: ["24"], departures: ["06"], expectations: ["ILS"],
+    remarks: ["No pattern work"], notams: ["Event"], procedures: ["TWEED3A\nSTAR", "TLA1A\nSID"],
+    frequencyAssignments: [{facilityId: "one", directions: ["North"]}]};
+  const before = structuredClone(state);
+  const published = engineFor(state).applyEnvelope(state, {id: "publish-order", time: 0, action: {kind: "publish-atis"}});
+  assert.equal(published.error, undefined);
+  const elements = ["information ALPHA", "Wind ", "Visibility 10 kilometres.", "Temperature 19 degrees Celsius.",
+    "Dew Point 9 degrees Celsius.", "QNH ", "Remarks, no pattern work.", "Landing runway 24.", "Expect ILS approach.",
+    "Departing runway 06.", "Notams, event in progress", "Recommended Departure Procedures, TLA1A.",
+    "Recommended Arrival Procedures, TWEED3A.", "contact approach on 121.20", "Advise on initial contact"];
+  let previous = -1;
+  for (const element of elements) {
+    const index = published.state.publishedAtis.indexOf(element);
+    assert.ok(index > previous, `${element} must follow the preceding element: ${published.state.publishedAtis}`);
+    previous = index;
+  }
+  assert.doesNotMatch(published.state.publishedAtis, /RAW METAR|9\.7|18\.6|9\.2/);
+  assert.deepEqual(state, before, "formatting must preserve the source weather and draft");
+  assert.deepEqual(published.state.weather, before.weather);
+});
+
+test("ATIS rounds signed temperatures and omits unavailable weather and unselected runways", () => {
+  for (const [visibilityKm, temperature, dewpoint, expected] of [
+    [4.4, -2.6, -8.2, ["Visibility 4 kilometres.", "Temperature -3 degrees Celsius.", "Dew Point -8 degrees Celsius."]],
+    [4.5, 2.5, -0.2, ["Visibility 5 kilometres.", "Temperature 3 degrees Celsius.", "Dew Point 0 degrees Celsius."]],
+  ] as const) {
+    const engine = engineFor({weather: {...EXERCISE_WEATHER, visibilityKm, temperature, dewpoint}});
+    const text = engine.atisText(engine.initialExercise().atis);
+    for (const element of expected) assert.ok(text.includes(element), text);
+  }
+  const state = initialExercise();
+  const draft = {...state.atis, arrivals: [], departures: [], expectations: ["ILS"]};
+  const text = engineFor(state).atisText(draft);
+  assert.doesNotMatch(text, /Temperature|Dew Point|Landing runway|Departing runway|Expect ILS/);
+  assert.ok(text.includes("Visibility"));
+  assert.equal(engineFor(state).atisText({...draft, publicText: "Imported original ATIS 9.7"}), "Imported original ATIS 9.7");
 });

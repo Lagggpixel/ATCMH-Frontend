@@ -25,10 +25,10 @@ function People({replay}: {replay: ReplaySummary}) {
 }
 export default function ReplayLibrary({id}: {id?: string}) {
   return <div className={id ? replayStyles.dark : undefined}><LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo={id ? `/sweatbox/replays/${id}` : "/sweatbox/replays"}>
-    {() => id ? <ReplayViewer key={id} id={id}/> : <ReplayIndex canViewOthers/>}
+    {(_csrf, accountId) => id ? <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId}/> : <ReplayIndex canViewOthers/>}
   </SessionAccess></LearningFrame></div>;
 }
-function ReplayViewer({id}: {id: string}) {
+function ReplayViewer({id, accountId}: {id: string; accountId: string}) {
   const [detail, setDetail] = useState<ReplayDetail | null>(null), [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -57,12 +57,12 @@ function ReplayViewer({id}: {id: string}) {
         {detail ? <div className={replayStyles.recordMeta}><span><LockSimple size={14} aria-hidden="true"/>Read only</span><p>Session ended <time dateTime={new Date(detail.replay.endedAt).toISOString()}>{date(detail.replay.endedAt)}</time></p></div> : null}
       </header>
       {error ? <div><p role="alert" className={libraryStyles.error}>{error}</p><button onClick={() => {setError(""); setRetry(value => value + 1);}}>Try again</button></div>
-        : detail ? <Playback key={detail.replay.id} detail={detail}/> : <p role="status">Loading recording…</p>}
+        : detail ? <Playback key={detail.replay.id} detail={detail} accountId={accountId}/> : <p role="status">Loading recording…</p>}
       <LibraryFooter/>
     </div>
   </main>;
 }
-function Playback({detail}: {detail: ReplayDetail}) {
+function Playback({detail, accountId}: {detail: ReplayDetail; accountId: string}) {
   const {replay, initial, frames} = detail;
   const timeline = useMemo(() => initial ? new ReplayTimeline(initial, frames) : null, [initial, frames]);
   const [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1);
@@ -95,6 +95,6 @@ function Playback({detail}: {detail: ReplayDetail}) {
       <div className={replayStyles.speedControl}><span>Playback speed</span><div role="group" aria-label="Playback speed">{[.5, 1, 2, 4].map(value => <button key={value} aria-label={`${value}× speed`} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}×</button>)}</div></div>
     </div> : null}
     {bookmarks.length ? <label>Replay bookmarks<select aria-label="Replay bookmarks" value="" onChange={event => {const bookmark = bookmarks.find(mark => mark.id === event.target.value); if (bookmark) {setPlaying(false); position.current = bookmark.elapsed; setTime(bookmark.elapsed);}}}><option value="">Jump to bookmark</option>{bookmarks.map(mark => <option key={mark.id} value={mark.id}>{timeLabel(mark.elapsed)} · {mark.label}</option>)}</select></label> : null}
-    {exercise ? <div className={replayStyles.workspace}><div className={replayStyles.scope}><Scope showProjectedPaths={false} radarEnvironment={exercise.radarEnvironment} radarMode={trainingMode(exercise) === "local" ? undefined : trainingMode(exercise) as "approach" | "center"} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div><aside className={replayStyles.replaySidebar}><section className={replayStyles.broadcast}><h2>Broadcast ATIS</h2><p>{exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "No ATIS broadcast at this point."}</p></section><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></aside></div> : null}
+    {exercise ? <div className={replayStyles.workspace}><div className={replayStyles.scope}><Scope accountId={accountId} showProjectedPaths={false} radarEnvironment={exercise.radarEnvironment} radarMode={trainingMode(exercise) === "local" ? undefined : trainingMode(exercise) as "approach" | "center"} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div><aside className={replayStyles.replaySidebar}><section className={replayStyles.broadcast}><h2>Broadcast ATIS</h2><p>{exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "No ATIS broadcast at this point."}</p></section><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></aside></div> : null}
   </section>;
 }

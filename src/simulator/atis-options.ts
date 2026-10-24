@@ -57,8 +57,12 @@ export function atisSelectionText(draft: Atis, frequencies: RadioFacility[]): st
   ];
   const procedures = (type: string) => draft.procedures.filter(value => value.endsWith(`\n${type}`)).map(value => value.slice(0, -type.length - 1));
   const departures = procedures("SID"), arrivals = procedures("STAR");
+  // IF 26.4 GetATISMessage / AppendRunwayInfo: remarks precede landing,
+  // expected approach and departure runways; NOTAMs follow the runways.
   return [
     ...(draft.remarks.length ? [`Remarks, ${selected(draft.remarks, ATIS_REMARKS).join(", ")}.`] : []),
+    ...(draft.arrivals.length ? [`Landing runway ${draft.arrivals.join(" and ")}.`, ...draft.expectations.slice(0, 1).map(x => `Expect ${x} approach.`)] : []),
+    ...(draft.departures.length ? [`Departing runway ${draft.departures.join(" and ")}.`] : []),
     ...(draft.notams.length ? [`Notams, ${selected(draft.notams, ATIS_NOTAMS).join(", ")}.`] : []),
     ...(departures.length ? [`Recommended Departure Procedures, ${departures.join(", ")}.`] : []),
     ...(arrivals.length ? [`Recommended Arrival Procedures, ${arrivals.join(", ")}.`] : []),

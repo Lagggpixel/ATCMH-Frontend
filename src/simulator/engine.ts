@@ -16,18 +16,18 @@ import {currentAtisOptions, atisFrequencies, atisSelectionText} from "./atis-opt
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
 import {assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
-import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
+import {runwayGoAroundDue, runwayLateralClear, runwayOccupied} from "./runway-safety";
 import {automaticRadarUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed, radarPerformance} from "./radar-speed";
 import {gpsApproachJoin} from "./gps-approach";
 
 import {controlledFrequencies, defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
 import {catalogFor, positionReportText} from "./catalog";
-import {radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
+import {radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type ExerciseWeather, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
 
 
 export function createAirportEngine(AIRPORT: Airport, selection: AirportSelection = {}) {
-const EXERCISE_WEATHER = selection.weather ?? DEFAULT_WEATHER;
+const EXERCISE_WEATHER: ExerciseWeather = selection.weather ?? DEFAULT_WEATHER;
 const radarEnvironment = environmentWithDestinations(AIRPORT,{...(selection.radarEnvironment ?? radarEnvironmentFor(AIRPORT)), airportName: airportCallsign(AIRPORT)}, selection.traffic);
 const DEFAULT_RUNWAY = defaultRunway(AIRPORT), FREQUENCIES = frequenciesFor(AIRPORT), METAR = simulatedMetar(AIRPORT, EXERCISE_WEATHER);
 const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(AIRPORT, radarEnvironment, EXERCISE_WEATHER);
@@ -571,11 +571,11 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
 
 function atisText(draft: Atis): string {
   if(draft.publicText) return draft.publicText;
-  return [`${airportCallsign(AIRPORT)} information ${draft.letter}.`, `${selection.weather ? "Observed weather." : "Simulated weather."} Wind ${EXERCISE_WEATHER.windDirection} degrees at ${EXERCISE_WEATHER.windSpeed} knots. Visibility ${EXERCISE_WEATHER.visibilityKm} kilometres. QNH ${EXERCISE_WEATHER.qnh}.`,
-    `Departing runway ${draft.departures.join(" and ") || "none"}. Landing runway ${draft.arrivals.join(" and ") || "none"}.`,
-    ...(selection.weather?.temperature!==undefined?[`Temperature ${selection.weather.temperature} degrees Celsius${selection.weather.dewpoint!==undefined?`, dewpoint ${selection.weather.dewpoint} degrees Celsius`:""}.`]:[]),
-    ...(selection.weather?.rawMetar?[`Weather report ${selection.weather.rawMetar}.`]:[]),
-    ...(draft.arrivals.length ? draft.expectations.slice(0, 1).map(x => `Expect ${x} approach.`) : []), ...atisSelectionText(draft, atisFrequencies(AIRPORT, selection.radarEnvironment)),
+  return [`${airportCallsign(AIRPORT)} information ${draft.letter}.`, `${selection.weather ? "Observed weather." : "Simulated weather."} Wind ${EXERCISE_WEATHER.windDirection} degrees at ${EXERCISE_WEATHER.windSpeed} knots. Visibility ${Math.round(EXERCISE_WEATHER.visibilityKm)} kilometres.`,
+    ...(selection.weather?.temperature !== undefined ? [`Temperature ${Math.round(selection.weather.temperature)} degrees Celsius.`] : []),
+    ...(selection.weather?.dewpoint !== undefined ? [`Dew Point ${Math.round(selection.weather.dewpoint)} degrees Celsius.`] : []),
+    `QNH ${EXERCISE_WEATHER.qnh}.`,
+    ...atisSelectionText(draft, atisFrequencies(AIRPORT, selection.radarEnvironment)),
     `Advise on initial contact you have information ${draft.letter}.`].join(" ");
 }
 
@@ -1081,7 +1081,7 @@ function advance(state: Exercise, seconds: number): Exercise {
       delete a.contactTowerAtHold;
     }
     for (const a of next.aircraft) if (state.autoReadback && a.towerCheckInPending && a.frequency === "tower" && atDepartureHold(a)) a.automaticRequest = "departure";
-    for (const a of next.aircraft) if (!a.radar?.arrival && a.arrivalExit && !a.runwayExit && ["taxi", "parked"].includes(a.mode) && Math.abs(runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).lateral) >= runwayGeometry(a.runway ?? DEFAULT_RUNWAY).clearance - 1e-7) {
+    for (const a of next.aircraft) if (!a.radar?.arrival && a.arrivalExit && !a.runwayExit && ["taxi", "parked"].includes(a.mode) && runwayLateralClear(runwayCoordinates(a.position, runwayGeometry(a.runway ?? DEFAULT_RUNWAY)).lateral, runwayGeometry(a.runway ?? DEFAULT_RUNWAY).clearance)) {
       a.intentions = {...intentionsOf(a), taxi: "parking"};
       if (state.autoReadback && ["parking", "exit-runway"].includes(a.arrivalExit.instruction) && !(a.arrivalExit.followOn && a.holding) && (a.frequency === "tower" || a.frequency === "ground")) {a.frequency = "ground"; a.arrivalRequest = "taxi-parking";}
       else if (state.autoReadback && a.arrivalExit.instruction === "automatic") {if (a.frequency === "tower") a.arrivalRequest = "frequency-change"; else if (a.frequency === "ground") a.arrivalRequest = "taxi-parking";}
@@ -1151,7 +1151,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     if (moved.held) {a.holding = true; a.targetSpeed = 0;}
     if (a.taxiIndex >= a.taxiPath.length && !liningUp) {a.mode = "parked"; a.speed = 0; a.targetSpeed = 0; if (a.backTaxi) {const back = a.backTaxi; delete a.backTaxi; if (back.contactGround) {a.frequency = "ground"; a.arrivalRequest = "taxi-parking";} if (back.lineup) {a.mode = "lineup"; a.lineupWait = true; a.taxiPath = [];}}}
     a.altitude = AIRPORT.elevation;
-    if (a.radar?.arrival && Math.abs(runwayCoordinates(a.position, g).lateral) >= g.clearance - 1e-7) {
+    if (a.radar?.arrival && runwayLateralClear(runwayCoordinates(a.position, g).lateral, g.clearance)) {
       a.radar.arrival.phase = "vacated"; a.active = false; a.mode = "parked"; a.speed = 0; a.targetSpeed = 0;
       delete a.arrivalExit; delete a.runwayExit;
     }
