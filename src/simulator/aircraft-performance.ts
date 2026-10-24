@@ -27,20 +27,25 @@ export function climbRate(a: Aircraft) {const p=performanceFor(a);return p ? p.c
 export const descentRate = (a: Aircraft) => performanceFor(a)?.descent ?? 1500;
 export const acceleration = (a: Aircraft) => performanceFor(a)?.acceleration ?? 3;
 export const rotationSpeed = (a: Aircraft) => performanceFor(a)?.rotation ?? 140;
+export const airTemperatureKelvin = (altitude: number, weather?: Pick<ExerciseWeather, "temperature">) => Math.max(216.65, (weather?.temperature === undefined ? 288.15 : weather.temperature + 273.15) - .0065 * altitude * .3048);
 export function densityRatio(altitude: number, temperature?: number, qnh=1013.25) {
   const pressureAltitude=Math.max(-2000,altitude+(1013.25-qnh)*27), temperatureIsa=Math.max(216.65,288.15-.0065*pressureAltitude*.3048);
-  const actual=temperature===undefined?temperatureIsa:Math.max(190,temperature+273.15-.0065*altitude*.3048);
+  const actual=temperature===undefined?temperatureIsa:airTemperatureKelvin(altitude, {temperature});
   return Math.max(.1,(Math.max(.05,1-.00000687535*pressureAltitude)**5.2561)*288.15/actual);
 }
 export const trueAirspeed = (ias: number,altitude: number,weather?: ExerciseWeather) => ias/Math.sqrt(densityRatio(altitude,weather?.temperature,weather?.qnh));
+export function headingForGroundTrack(track: number, a: Aircraft, weather?: ExerciseWeather) {
+  const crosswind = (weather?.windSpeed ?? 0) * Math.sin(((weather?.windDirection ?? 0) - track) * Math.PI / 180);
+  return (track + Math.asin(Math.max(-.95, Math.min(.95, crosswind / Math.max(1, trueAirspeed(a.speed, a.altitude, weather))))) * 180 / Math.PI + 360) % 360;
+}
 export function flightVelocity(a: Aircraft, weather?: ExerciseWeather) {
-  const tas = a.performanceProfile ? trueAirspeed(a.speed,a.altitude,weather) : a.speed, h=a.heading*Math.PI/180;
-  const w=(weather?.windDirection ?? 0)*Math.PI/180, wind=a.performanceProfile ? weather?.windSpeed ?? 0 : 0;
+  const tas = trueAirspeed(a.speed,a.altitude,weather), h=a.heading*Math.PI/180;
+  const w=(weather?.windDirection ?? 0)*Math.PI/180, wind=weather?.windSpeed ?? 0;
   return {x:tas*Math.sin(h)-wind*Math.sin(w),y:tas*Math.cos(h)-wind*Math.cos(w)};
 }
 export function advancePerformance(a: Aircraft, previous: {x:number;y:number;altitude:number},dt:number,weather?: ExerciseWeather) {
   a.verticalSpeed=(a.altitude-previous.altitude)/dt*60;
-  if(!a.performanceProfile || a.altitude<=0 || ["parked","pushback","taxi","lineup","rollout"].includes(a.mode)){a.groundSpeed=a.speed; a.track=a.heading; return;}
+  if(["parked","pushback","taxi","lineup","rollout"].includes(a.mode)){a.groundSpeed=a.speed; a.track=a.heading; return;}
   const velocity=flightVelocity(a,weather), h=a.heading*Math.PI/180;
   // Motion guidance already advanced IAS along heading; apply only TAS/wind delta.
   a.position.x+=(velocity.x-a.speed*Math.sin(h))*dt/3600;

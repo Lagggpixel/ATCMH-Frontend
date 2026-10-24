@@ -31,7 +31,7 @@ export default function RadarQuickPopup({aircraft, exercise, frequency, heading,
     const invalid = validateControllerMessage(exercise, aircraft, command, frequency);
     if (invalid) {setError(invalid); return;}
     inFlight.current = true; setSending(true); setError("");
-    try {const sent = await dispatch({kind: "command", aircraftId: aircraft.id, frequency, command, text: instructionText(aircraft, command)}); if (sent !== false) onSent(); else setError("Instruction was not sent. Check the session connection and try again.");}
+    try {const delivery = dispatch({kind: "command", aircraftId: aircraft.id, frequency, command, text: instructionText(aircraft, command)}); onSent(); const sent = await delivery; if (sent === false) setError("Instruction was not sent. Check the session connection and try again.");}
     catch {setError("Instruction was not sent. Check the session connection and try again.");}
     finally {inFlight.current = false; setSending(false);}
   };

@@ -40,6 +40,7 @@ test("map data projects real towered/uncontrolled airports without exposing upst
   };
   try {
     const result = await fetchScopeMap("EGPH");
+    assert.equal(result.navaids?.[0].waypointType, "VOR"); assert.equal(result.navaids?.[0].id, "TST");
     assert.equal(result.airports[0].isTowered, false); assert.ok(Math.abs(result.airports[0].point.y - 1) < 1e-8);
     assert.doesNotMatch(JSON.stringify(result), /"lat"|"lon"|test-only/);
   } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}

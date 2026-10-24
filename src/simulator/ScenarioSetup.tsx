@@ -17,9 +17,8 @@ export default function ScenarioSetup({definition, onChange, locked = false, com
   return <section className={`${styles.setup} ${compact ? styles.compact : ""}`} aria-labelledby="scenario-setup-title">
     <h2 id="scenario-setup-title">Frequency & airport</h2>
     <div className={styles.fields}>
-      <label>Training frequency<select disabled={locked} value={mode} onChange={e => {const service = e.target.value as "approach" | "center"; onChange({...definition, schema: 2, ...airportSelection(airport, service), radarEnvironment: definition.radarEnvironment ?? radarEnvironmentFor(airport)});}}>
-        <option value="approach">Approach</option>
-        <option value="center">Center</option>
+      <label>Training frequency<select disabled={locked} value={mode} onChange={e => {const service = e.target.value as "local"; onChange({...definition, schema: 2, ...airportSelection(airport, service), radarEnvironment: definition.radarEnvironment ?? radarEnvironmentFor(airport)});}}>
+        <option value="local">Ground &amp; Tower</option>
       </select></label>
       <label>Airport<select value={airport.icao} disabled={locked} onChange={e => changeAirport(e.target.value as AirportId)} aria-describedby={locked ? "airport-locked" : undefined}>
         {airportList.map(a => <option key={a.icao} value={a.icao}>{a.icao} · {a.name}</option>)}

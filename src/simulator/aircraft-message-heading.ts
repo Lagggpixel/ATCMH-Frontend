@@ -15,8 +15,8 @@ export function aircraftMessageHeading(a: Aircraft, airport: Airport, weather?: 
   const ground = ["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode);
   const velocity = flightVelocity(a, weather);
   const groundSpeed = a.groundSpeed ?? (ground ? a.speed : Math.hypot(velocity.x, velocity.y));
-  const tas = a.performanceProfile && !ground ? trueAirspeed(a.speed, a.altitude, weather) : a.speed;
-  const mach = Math.max(0, tas / machKnots(1, a.altitude));
+  const tas = !ground ? trueAirspeed(a.speed, a.altitude, weather) : a.speed;
+  const mach = Math.max(0, tas / machKnots(1, a.altitude, weather));
   const trueHeading = Math.round((a.heading % 360 + 360) % 360);
   const magneticHeading = Math.round(trueToMagnetic(a.heading, airport));
   return {

@@ -47,14 +47,14 @@ test("full-stop touchdowns automatically choose a reachable exit on both runways
   }
 });
 
-test("first reachable connected exit uses 35 knots forward and 15 knots for an ordinary exit", () => {
+test("forward connected exits use rapid-exit speeds without choosing backward connectors", () => {
   for (const runway of ["24", "06"] as const) for (const speed of [0, 70, 135]) {
     let state = rollout(runway, speed), a = state.aircraft[0];
     const route = runwayExitRoute(a, "any"); assert.equal(route.error, undefined);
-    assert.equal(route.speed, speed === 0 ? 15 : 35);
+    assert.equal(route.speed, 35);
     const g = runwayGeometry(runway), entry = route.path![1];
     const along = (entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y;
-    if (speed === 70) assert.ok(along > .3 && along < .4, "use the intermediate connector and its joined taxiway");
+    if (speed === 70) assert.ok(runway === "24" ? along > .3 && along < .4 : along > .9 && along < 1.1, "skip connectors that lead backwards along the runway");
     if (speed === 135) assert.ok(along > .9 && along < 1.1, "skip exits before the braking distance");
     let entered = false;
     for (let i = 0; i < 10000; i++) {

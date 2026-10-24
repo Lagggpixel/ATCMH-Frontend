@@ -21,6 +21,9 @@ function cardinal(value: number): string {
 }
 /** Speech-only formatting: logs/replays retain their original numeric values and ICAO codes. */
 export function aviationSpeech(text: string, callsigns: readonly string[] = []): string {
+  text = text.replace(/\b(via\s+)(.*?)(?=,\s*(?:hold|will hold|contact|cleared)\b|[.;]|$)/gi, (_, prefix: string, route: string) =>
+    prefix + route.replace(/\b[A-Z]{1,3}\d{0,2}\b/g, identifier))
+    .replace(/\b(taxiway\s+)([A-Z]{1,3}\d{0,2})\b/gi, (_, prefix: string, name: string) => prefix + identifier(name));
   const names = [...new Set(callsigns.map(c => c.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
   if (names.length) {
     const escaped = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));

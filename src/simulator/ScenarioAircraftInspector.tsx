@@ -1,4 +1,6 @@
 "use client";
+import AircraftTypeSelect from "./AircraftTypeSelect";
+import {profileForType} from "./aircraft-performance";
 import PerformanceControls from "./PerformanceControls";
 import {magneticHeadingLabel, magneticToTrue} from "./magnetic-headings";
 import {useId, useState, type Dispatch, type SetStateAction} from "react";
@@ -55,21 +57,21 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
       <section className={styles.panel} role="tabpanel" id={`${id}-Setup-panel`} aria-labelledby={`${id}-Setup-tab`} hidden={tab !== "Setup"}>
         <div className={styles.section}>
           <label>Callsign<input value={a.callsign} maxLength={80} onChange={e => patch({callsign: e.target.value})}/></label>
-          <div className={styles.pair}><label>Type<input value={a.type} maxLength={12} onChange={e => patch({type: e.target.value})}/></label>
+          <div className={styles.pair}><label>Type<AircraftTypeSelect value={a.type} onChange={type => patch({type, performanceProfile: profileForType(type)})}/></label>
             <label>Frequency<select value={a.frequency ?? "none"} onChange={e => patch({frequency: e.target.value === "none" ? null : e.target.value as Frequency})}><option value="ground">Ground</option><option value="tower">Tower</option>{radarMode !== "local" ? <><option value="approach">Approach</option><option value="center">Center</option></> : null}<option value="none">None</option></select></label></div>
           <label>Appears<select value={spec.initial ? "initial" : "scheduled"} onChange={e => schedule(e.target.value === "initial")}><option value="initial">At Start</option><option value="scheduled">From a timeline event</option></select></label>
         </div>
         <div className={styles.section}>
-          <h3>{a.radar?.departure ? "Runway departure" : ground ? "Gate placement" : "Spawn position"}</h3>
+          <h3>{a.radar?.departure ? "Runway departure" : ground ? spec.gateId ? "Gate placement" : "Surface placement" : "Spawn position"}</h3>
           {a.radar ? <><label>Spawn location<select value={a.radar.departure ? "takeoff" : "airborne"} onChange={e => {
             const next = e.target.value === "takeoff" ? radarTakeoffAircraft(a, airport) : {...radarAircraft(a, a.radar!.station, airport), radar: {...a.radar!, departure: undefined, targetAltitude: undefined, report: "check-in" as const}};
             patch(next);
           }}><option value="airborne">Airborne</option><option value="takeoff">Take off from {airport.icao}</option></select></label>{a.radar.departure ? <label>Departure runway<select value={a.runway ?? defaultRunway(airport)} onChange={e => patch(radarTakeoffAircraft(a, airport, e.target.value))}>{runwayEnds(airport).map(end => <option key={end.id} value={end.id}>Runway {end.id}</option>)}</select></label> : null}</> : null}
-          {a.radar?.departure ? <p className={styles.hint}>Automatic takeoff, then radar check-in at 1,000 ft AGL. Set the pilot’s request in Intentions.</p> : ground ? <><label><span className={styles.srOnly}>Gate</span><select value={spec.gateId ?? ""} onChange={e => {const gateId = e.target.value; onChange(d => ({...d, aircraft: d.aircraft.map(p => p.key === a.id ? placeAircraftAtGate(p, gateId, airport) : p)}));}}>{gatesFor(airport).map(g => <option key={g.id} value={g.id}>Gate {g.name || g.id}</option>)}</select></label>
+          {a.radar?.departure ? <p className={styles.hint}>Automatic takeoff, then radar check-in at 1,000 ft AGL. Set the pilot’s request in Intentions.</p> : ground && spec.gateId ? <><label><span className={styles.srOnly}>Gate</span><select value={spec.gateId ?? ""} onChange={e => {const gateId = e.target.value; onChange(d => ({...d, aircraft: d.aircraft.map(p => p.key === a.id ? placeAircraftAtGate(p, gateId, airport) : p)}));}}>{gatesFor(airport).map(g => <option key={g.id} value={g.id}>Gate {g.name || g.id}</option>)}</select></label>
             <p className={styles.hint}><Info size={19} aria-hidden="true"/>Drag onto a blue gate dot</p></> : <>
             <div className={styles.pair}><label>East (NM)<input type="number" step=".01" value={a.position.x} onChange={e => patch({position: {...a.position, x: Number(e.target.value)}})}/></label><label>North (NM)<input type="number" step=".01" value={a.position.y} onChange={e => patch({position: {...a.position, y: Number(e.target.value)}})}/></label></div>
             <button type="button" aria-pressed={editMode === "position"} onClick={() => toggleMode("position")}>Place on scope</button>
-            <button type="button" onClick={() => {const g = engineFor(definition).runwayGeometry(a.runway ?? defaultRunway(airport)); patch({position: {x: g.threshold.x - g.vector.x * 5, y: g.threshold.y - g.vector.y * 5}, heading: g.heading, targetHeading: g.heading, speed: 160, targetSpeed: 160, altitude: airport.elevation + 1500, mode: "heading"});}}>Place on runway approach</button>
+            {!ground ? <button type="button" onClick={() => {const g = engineFor(definition).runwayGeometry(a.runway ?? defaultRunway(airport)); patch({position: {x: g.threshold.x - g.vector.x * 5, y: g.threshold.y - g.vector.y * 5}, heading: g.heading, targetHeading: g.heading, speed: 160, targetSpeed: 160, altitude: airport.elevation + 1500, mode: "heading"});}}>Place on runway approach</button> : null}
           </>}
           <div className={styles.pair}><label>Heading °M<input type="number" min={0} max={360} step={1} disabled={!!a.radar?.departure} value={magneticHeadingLabel(a.heading, airport)} onChange={e => patch({heading: magneticToTrue(Number(e.target.value), airport), targetHeading: magneticToTrue(Number(e.target.value), airport)})}/></label>
             <div className={styles.alignedAction}><span>Reverse</span><button type="button" aria-label="Reverse heading" disabled={!!a.radar?.departure} onClick={() => patch({heading: (a.heading + 180) % 360, targetHeading: (a.heading + 180) % 360})}><ArrowClockwise size={17} aria-hidden="true"/>180°</button></div></div>

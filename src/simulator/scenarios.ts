@@ -134,7 +134,7 @@ export function seedFromAircraft(a: Aircraft) {return seedSchema.parse(a);}
 
 export function scenarioFromExercise(exercise: Exercise, title: string): ScenarioDefinition {
   const airport = getAirport(exercise);
-  return {schema: 2, ...airportSelection(airport), trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.weather ? {weather:structuredClone(exercise.weather)}:{}), ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
+  return {schema: 2, ...airportSelection(airport), airportDataVersion: exercise.airportDataVersion ?? airport.dataVersion, trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.weather ? {weather:structuredClone(exercise.weather)}:{}), ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
 }
 
 export const blankScenario = (selection: AirportSelection = {}): ScenarioDefinition => scenarioFromExercise({...engineFor(selection).initialExercise(), ...(selection.trainingStation ? {trainingStation: selection.trainingStation} : {}), aircraft: []}, "Untitled scenario");
@@ -170,7 +170,10 @@ export function normalizeScenarioAircraft(spec: ScenarioDefinition["aircraft"][n
   if (spec.seed.radar) return {...spec, gateId: undefined, seed: {...spec.seed, radar: {...spec.seed.radar, transferred: spec.seed.frequency !== (spec.seed.radar.returningToApproach ? "approach" : spec.seed.radar.station)}}};
   if (!isGroundSpawn(spec.seed, AIRPORT)) return {...spec, gateId: undefined};
   const scenarioGates = gatesFor(AIRPORT);
-  if (!scenarioGates.length) throw new Error("No mapped gates are available at this airport.");
+  // Explicit surface placements are not gate spawns. Airports without stands
+  // still support ground scenarios at their authored coordinates.
+  if (!scenarioGates.length || !spec.gateId && spec.seed.groundReady) return {...spec, gateId: undefined,
+    seed: {...spec.seed, mode: "parked", altitude: AIRPORT.elevation, speed: 0, targetSpeed: 0, groundReady: true, enginesRunning: true}};
   const nearest = scenarioGates.reduce((best, gate) => {
     const p = standPlacement(gate.id, false, AIRPORT)!.position, b = standPlacement(best.id, false, AIRPORT)!.position;
     return Math.hypot(p.x - spec.seed.position.x, p.y - spec.seed.position.y) < Math.hypot(b.x - spec.seed.position.x, b.y - spec.seed.position.y) ? gate : best;

@@ -8,7 +8,7 @@ import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 const runwayCapabilities: Record<string, Record<string, {localizer: boolean; glideslope: boolean}>> = runwayIls.airports;
 
 export function approachGuide(runway: Runway, airport: Airport = defaultAirport) {
-  const {threshold, vector} = engineFor({airport: airport.icao}).runwayGeometry(runway);
+  const {threshold, vector} = engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion}).runwayGeometry(runway);
   const center = {x: threshold.x - vector.x * 11, y: threshold.y - vector.y * 11};
   const side = {x: vector.y * .5, y: -vector.x * .5};
   const identifier = runway.trim().toUpperCase().replace(/^\d{1,2}/, number => number.padStart(2, "0"));

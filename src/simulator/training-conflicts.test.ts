@@ -40,7 +40,7 @@ test("UWC moves continuously after staging, waits for takeoff, and requests the 
   const h = fixture(); h.b.position = {...h.a.position};
   assert.equal(h.start(), undefined); const positions = h.state.aircraft.map(a => ({...a.position})); prepareConflicts(h.state, h.airport, h.support);
   assert.deepEqual(h.state.aircraft.map(a => a.position), positions); assert.equal(h.a.conflictRequest, undefined);
-  h.a.mode = "takeoff"; h.a.leg = "upwind"; prepareConflicts(h.state, h.airport, h.support);
+  h.a.mode = "takeoff"; h.a.leg = "upwind"; h.b.mode = "takeoff"; h.b.leg = "upwind"; prepareConflicts(h.state, h.airport, h.support);
   assert.deepEqual(h.a.conflictRequest, {id: "runway-change", runway: "22R"}); assert.equal(h.a.runway, "22L");
   delete h.a.conflictRequest; prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.conflictRequest, undefined);
 });
@@ -187,20 +187,20 @@ test("real UWC flight and radio timing reaches takeoff, keeps both extending and
 });
 
 
-test("GA preserves an already feasible gap and rejects a close follower without repositioning", () => {
+test("GA schedules both wide and close final gaps without repositioning", () => {
   const h = fixture("ga"), g = h.support.geometry(h.b.runway!);
   h.b.position = {x: g.threshold.x - g.vector.x * 5.5, y: g.threshold.y - g.vector.y * 5.5};
   const before = structuredClone(h.state.aircraft); assert.equal(h.start(), undefined);
   assert.deepEqual(h.state.aircraft, before); assert.ok(h.support.distance(h.b) - h.support.distance(h.a) > 3);
   const close = fixture("ga"); close.b.position = {x: g.threshold.x - g.vector.x * 3, y: g.threshold.y - g.vector.y * 3};
-  const unchanged = structuredClone(close.state); assert.match(close.start()!, /3 NM/); assert.deepEqual(close.state, unchanged);
+  const unchanged = structuredClone(close.state.aircraft); assert.equal(close.start(), undefined); assert.deepEqual(close.state.aircraft, unchanged);
 });
-test("UWC preserves naturally aligned aircraft and atomically rejects an unsuitable pair", () => {
+test("UWC preserves aircraft positions while accepting different initial altitudes", () => {
   const h = fixture(), g = h.support.geometry(h.b.runway!);
   h.b.position = {x: g.threshold.x - g.vector.x * 2.1, y: g.threshold.y - g.vector.y * 2.1};
   const before = structuredClone(h.state.aircraft); assert.equal(h.start(), undefined); assert.deepEqual(h.state.aircraft, before);
-  const unsuitable = fixture(); unsuitable.b.altitude += 1000; const unchanged = structuredClone(unsuitable.state);
-  assert.match(unsuitable.start()!, /similar altitudes/); assert.deepEqual(unsuitable.state, unchanged);
+  const unsuitable = fixture(); unsuitable.b.altitude += 1000; const unchanged = structuredClone(unsuitable.state.aircraft);
+  assert.equal(unsuitable.start(), undefined); assert.deepEqual(unsuitable.state.aircraft, unchanged);
 });
 
 

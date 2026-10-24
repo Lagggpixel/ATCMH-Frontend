@@ -39,7 +39,7 @@ test("runway sequence numbers and a single final resolve the actual predecessor"
   assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "first");
   state = send(state, sequence(3, "Left Base"));
   assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "second");
-  state = send(state, sequence(3, "Final")); assert.equal(state.aircraft[0].sequence, undefined, "wrong preceding leg does not assign a sequence");
+  state = send(state, sequence(3, "Final")); assert.equal(state.aircraft[0].sequence?.followingId, "second", "a leg change cannot discard the numbered predecessor");
   state = send(state, {...sequence(), followingId: "other"} as Instruction);
   assert.equal(state.aircraft[0].sequence?.followingId, "first", "arbitrary id is ignored");
   assert.equal(patternLegLabel({...state.aircraft[0], leg: "final", hand: "right"}), "final");

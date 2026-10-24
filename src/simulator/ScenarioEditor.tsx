@@ -115,11 +115,11 @@ function Editor({id, csrf}: {id: string; csrf: string}) {
       const trigger = {...event.trigger, condition: {...event.trigger.condition, point: p}};
       setDraft(d => ({...d, events: d.events.map(e => e.id === event.id ? {...e, trigger} : e)})); setEditMode(""); return;
     }
-    if (!selected || ground && editMode === "position") return;
+    if (!selected || ground && !!spec?.gateId && editMode === "position") return;
     setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key !== selected ? spec : {...spec, seed: {...spec.seed,
       ...(editMode === "position" ? {position: p} : editMode === "taxi" ? {taxiPath: [...spec.seed.taxiPath, {...p, hold}]} : {flightPlan: [...spec.seed.flightPlan, p]})}})}));
     if (editMode === "position") setEditMode("");
-  }, [editMode, event, ground, selected, hold, setEditMode]);
+  }, [editMode, event, ground, spec?.gateId, selected, hold, setEditMode]);
   const test = () => {
     const result = scenarioSchemaFor(record?.draft).safeParse(draft); if (!result.success) {setError(result.error.issues.map(i => i.message).join(" ")); return;}
     setPreview(createScenarioExercise(result.data, "scenario-preview", crypto.randomUUID())); setEditMode(""); setError("");

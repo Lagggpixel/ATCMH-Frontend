@@ -19,8 +19,10 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   useEffect(() => {
     const activate = player.activate;
     window.addEventListener("pointerdown", activate);
+    window.addEventListener("pointerup", activate);
+    window.addEventListener("touchend", activate);
     window.addEventListener("keydown", activate);
-    return () => {window.removeEventListener("pointerdown", activate); window.removeEventListener("keydown", activate);};
+    return () => {window.removeEventListener("pointerdown", activate); window.removeEventListener("pointerup", activate); window.removeEventListener("touchend", activate); window.removeEventListener("keydown", activate);};
   }, [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused);}, [player, exercise, connected, scope, paused]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);

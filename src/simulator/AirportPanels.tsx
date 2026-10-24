@@ -19,7 +19,7 @@ export function AirportPopup({airports, point, size, weather, origin, environmen
     window.addEventListener("pointerdown", outside);
     return () => window.removeEventListener("pointerdown", outside);
   }, [onClose]);
-  const width = Math.min(416, size.width - 16), height = Math.min(size.height - 16, airports.length * 56 + 32);
+  const width = Math.min(560, size.width - 16), height = Math.min(size.height - 16, airports.length * 78 + 32);
   return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports"
     style={{width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))}}>
     {airports.map(airport => <AirportPopupRow key={airport.identifier} airport={airport} weather={airport.identifier === origin ? weather : undefined}

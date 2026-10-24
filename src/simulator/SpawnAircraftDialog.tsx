@@ -1,4 +1,5 @@
 "use client";
+import AircraftTypeSelect from "./AircraftTypeSelect";
 import {AIRCRAFT_PERFORMANCE} from "./aircraft-performance";
 import {useEffect, useRef, useState} from "react";
 import {getAirport, runwayEnds, trainingMode} from "./airports";
@@ -43,7 +44,7 @@ function RadarSpawnAircraftDialog({accountId, exercise, position, enabled, dispa
     }}><h2 id="spawn-aircraft-title">Spawn aircraft</h2>
       {position ? <p>Position: {position.x.toFixed(2)} NM east, {position.y.toFixed(2)} NM north</p> : null}
       <label>Callsign<input required maxLength={60} value={callsign} onChange={event => setCallsign(event.target.value)}/></label>
-      <label>Aircraft type<select aria-label="Aircraft type" value={type} onChange={event => {setType(event.target.value);const p=AIRCRAFT_PERFORMANCE.find(p=>p.id===event.target.value)!;setSpeed(p.inbound);setAltitude(value=>Math.min(value,p.ceiling));}}>{AIRCRAFT_PERFORMANCE.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <label>Aircraft type<AircraftTypeSelect value={type} onChange={type => {setType(type);const p=AIRCRAFT_PERFORMANCE.find(p=>p.id===type);setSpeed(p?.inbound ?? 250);setAltitude(value=>Math.min(value,p?.ceiling ?? 43000));}}/></label>
       <label>Spawn location<select aria-label="Spawn location" value={airborne ? "air" : "ground"} onChange={event => setAirborne(event.target.value === "air")}><option value="air">Airborne{position ? " at clicked position" : ""}</option><option value="ground">Take off from {airport.icao}</option></select></label>
       {airborne ? <><label>Heading (°M)<input required type="number" min={0} max={360} value={heading} onChange={event => setHeading(Number(event.target.value))}/></label><label>Altitude (ft MSL)<input required type="number" min={airport.elevation + 1} max={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.ceiling??65000} value={altitude} onChange={event => setAltitude(Number(event.target.value))}/></label><label>Speed (knots)<input required type="number" min={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.min??80} max={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.max??600} value={speed} onChange={event => setSpeed(Number(event.target.value))}/></label></> : <label>Departure runway<select aria-label="Departure runway" value={runway} onChange={event => setRunway(event.target.value)}>{runwayEnds(airport).map(end => <option key={end.id} value={end.id}>Runway {end.id}</option>)}</select></label>}
       {mode !== "local" ? <RadarIntentions aircraft={sample} airport={airport} environment={environment} takeoff={!airborne} onChange={radar => setIntentions({flight: radar.flight ?? "return", requestedApproach: radar.requestedApproach, departureDirection: radar.departureDirection})} onLandingChange={setLanding}/> : null}

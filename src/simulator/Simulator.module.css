@@ -792,10 +792,6 @@
 .menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button:active:not(:disabled) {background:#272727;color:#fff}
 .menteeSimulator .commandPanel button:disabled,.simulator .aircraftMenu button:disabled {opacity:.5}
 .simulator .aircraftInformation {background:#15181e}
-/* Only a pending selection's background flashes; its text stays fully visible. */
-.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button[aria-busy=true] {animation:messageSelectionPending .15s steps(1,end) infinite}
-@keyframes messageSelectionPending {0%,100% {background-color:#272727} 50% {background-color:rgb(39 39 39 / 50%)}}
-@media(prefers-reduced-motion:reduce) {.menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button[aria-busy=true] {animation:none}}
 
 @media(orientation:landscape) and (max-height:550px) and (min-width:568px) {.menteeSimulator .sidebar>button {font-size:9px}.menteeSimulator .facilityLabel small {font-size:9px}.menteeSimulator .frequencyValue {font-size:7px;letter-spacing:-.2px;white-space:nowrap}}
 
@@ -956,3 +952,12 @@
 @media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
   .menteeSimulator {grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * .75px)}
 }
+
+/* The installed iOS app draws behind system chrome; keep every role inside its safe rectangle. */
+.simulator {box-sizing:border-box;height:100dvh;bottom:auto}
+.simulator.staffSimulator {padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.simulator::before {content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top);background:#000;z-index:100;pointer-events:none}
+.simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
+@media(max-width:600px) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
+
+.airspaceLabel {position:absolute;top:10px;left:12px;pointer-events:none;color:#75a6ba;font:13px "Simulator Fira",sans-serif;text-shadow:1px 1px #000;z-index:1}

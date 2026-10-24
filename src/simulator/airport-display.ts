@@ -46,7 +46,7 @@ export function runwayWindComponents(heading: number, weather: ExerciseWeather) 
 export function weatherCategory(weather?: ExerciseWeather) {
   if (!weather) return;
   const ceiling = [...(weather.rawMetar ?? "").matchAll(/\b(?:BKN|OVC|VV)(\d{3})/g)].map(match => Number(match[1]) * 100);
-  const feet = ceiling.length ? Math.min(...ceiling) : /\b(?:CLR|SKC|NSC|NCD|CAVOK)\b/.test(weather.rawMetar ?? "") ? Infinity : undefined;
+  const feet = ceiling.length ? Math.min(...ceiling) : /\b(?:CLR|SKC|NSC|NCD|CAVOK|FEW\d{3}|SCT\d{3})\b/.test(weather.rawMetar ?? "") ? Infinity : undefined;
   const miles = weather.visibilityKm / 1.609344;
   if (miles < 1 || feet !== undefined && feet < 500) return "LIFR";
   if (miles < 3 || feet !== undefined && feet < 1000) return "IFR";

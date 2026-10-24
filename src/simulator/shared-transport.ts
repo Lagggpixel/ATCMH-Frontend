@@ -3,6 +3,7 @@ import type {ScenarioStaffView} from "./scenarios";
 import {initialExercise} from "./engine";
 import {envelopeSchema, exerciseSchema, motionSchema} from "./protocol";
 import {invalidRequestMessage} from "./request-validation";
+import {recordControllerAssignment} from "./controller-state";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionMode, SessionSummary} from "./sessions";
 
@@ -20,6 +21,7 @@ export class SharedSession {
   private shortcutPaths = new Map<string, string[]>();
   private authoritativeExercise = INITIAL.exercise;
   private pendingTagAngles = new Map<string, {angle: number; revision?: number}>();
+  private optimistic = new Map<string, {envelope: Envelope; revision?: number}>();
   private listeners = new Set<() => void>();
   private manageEvent: ((eventId: string, decision: "run" | "retry" | "skip") => void) | null = null;
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
@@ -27,7 +29,7 @@ export class SharedSession {
   private controlsEnabled = false;
   private queued = new Map<string, {cancelled: boolean; inFlight: boolean}>();
   cancelQueued = () => {
-    for (const job of this.queued.values()) if (!job.inFlight) job.cancelled = true;
+    for (const [id, job] of this.queued) if (!job.inFlight) {job.cancelled = true; this.optimistic.delete(id);}
     this.update({error: null});
   };
   constructor(private role: SessionMode, private id: string, private csrf: string) {}
@@ -49,10 +51,23 @@ export class SharedSession {
         this.pendingTagAngles.delete(id);
     }
     // Keep dropped tags in place through stale stream frames until the accepted revision arrives.
-    const exercise = this.pendingTagAngles.size ? {...saved, aircraft: saved.aircraft.map(a => {
+    let exercise = this.pendingTagAngles.size ? {...saved, aircraft: saved.aircraft.map(a => {
       const pending = this.pendingTagAngles.get(a.id);
       return pending ? {...a, tagAngle: pending.angle} : a;
     })} : saved;
+    for (const [id, pending] of this.optimistic) {
+      if (saved.processed.includes(id) || saved.messages.some(m => m.id === id)) {
+        this.optimistic.delete(id); continue;
+      }
+      const {action, time} = pending.envelope;
+      if (action.kind === "atis") exercise = {...exercise, atis: action.draft};
+      if (action.kind === "command") {
+        exercise = {...exercise, aircraft: exercise.aircraft.map(a => {
+          if (a.id !== action.aircraftId) return a;
+          const updated = {...a}; recordControllerAssignment(updated, action.command, saved.radarEnvironment); return updated;
+        }), messages: [...exercise.messages, {id, aircraftId: action.aircraftId, frequency: action.frequency, time, sender: "controller", text: action.text, instruction: action.command, ...(action.replyTo ? {replyTo: action.replyTo} : {})}]};
+      }
+    }
     this.view = {...this.view, ...patch, exercise}; this.listeners.forEach(listener => listener());
   }
   clearError = () => this.update({error: null});
@@ -87,6 +102,8 @@ export class SharedSession {
       const tagId = action.kind === "edit" && Object.keys(action.patch).length === 1 && typeof action.patch.tagAngle === "number" ? action.aircraftId : undefined;
       const pending: {angle: number; revision?: number} | undefined = tagId && action.kind === "edit" ? {angle: action.patch.tagAngle!} : undefined;
       if (tagId && pending) {this.pendingTagAngles.set(tagId, pending); this.update({});}
+      const optimistic = action.kind === "command" || action.kind === "atis" ? {envelope} as {envelope: Envelope; revision?: number} : undefined;
+      if (optimistic) this.optimistic.set(envelope.id, optimistic);
       let sent = false;
       const job = {cancelled: false, inFlight: false};
       this.queued.set(envelope.id, job);
@@ -101,6 +118,7 @@ export class SharedSession {
               const result = await post("commands", {envelope}); sent = true;
               if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
               if (pending) pending.revision = result.revision;
+              if (optimistic) optimistic.revision = result.revision;
               this.update({error: null, status: this.view.connected ? "Session connected" : this.view.status, quickCommands: this.quickCommands.ranked()}); return;
             } catch (reason) {
               const error = reason as Error & {status?: number; code?: string};
@@ -123,6 +141,7 @@ export class SharedSession {
         } finally {
           this.queued.delete(envelope.id);
           if (!sent && tagId && this.pendingTagAngles.get(tagId) === pending) this.pendingTagAngles.delete(tagId);
+          if (!sent) this.optimistic.delete(envelope.id);
           this.update({queuedCommands: this.queued.size});
         }
       }).catch(reason => {this.update({error: reason instanceof Error ? reason.message : "Command could not be sent."});});
@@ -142,8 +161,8 @@ export class SharedSession {
         this.update({exercise, scenario: value.scenario, connected: true, owner: this.canControl(), session: value.session, status: "Session connected", fatal: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);
-        if (motion.id === this.id && motion.revision >= this.view.exercise.revision)
-          this.update({exercise: {...this.view.exercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
+        if (motion.id === this.id && motion.revision >= this.authoritativeExercise.revision)
+          this.update({exercise: {...this.authoritativeExercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
       } else if (value.type === "presence") this.update({session: value.session});
     };
     const connect = async () => {

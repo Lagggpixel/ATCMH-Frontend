@@ -147,7 +147,7 @@ for (const [start, target] of [[0, 90], [90, 180], [0, 180], [350, 20], [10, 340
   state = fly(state, 120, step); near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
   near(state.aircraft[0].bankAngle!, 0);
   near(fly(state, 10, step).aircraft[0].heading, magneticToTrue(target, getAirport()));
-  const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), magneticToTrue(target, getAirport()));
+  const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), state.aircraft[0].track!);
 });
 test("combined heading/altitude sends once and waits for manual assignment", () => {
   let state = exercise(); state.aircraft[0].heading = 0; const before = structuredClone(state.aircraft[0]);

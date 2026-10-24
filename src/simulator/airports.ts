@@ -1,3 +1,6 @@
+import kbhmLegacy from "./data/kbhm-before-runway-repair.json";
+import sbbrLegacy from "./data/sbbr-before-runway-repair.json";
+import rjttLegacy from "./data/rjtt-before-runway-repair.json";
 import {AIRPORT_RADIO_NAMES} from "./radio-identifiers";
 import kase from "./data/kase.json";
 import vnlk from "./data/vnlk.json";
@@ -69,11 +72,13 @@ const snapshots: Record<AirportId, Airport> = {
 export const defaultAirport = snapshots.EGPH;
 // Keep saved exercises on the geometry against which their positions were captured.
 const legacyDublin: Airport = {...eidwLegacy, runway: eidwLegacy.runways[0]};
+const legacyRunways: Partial<Record<AirportId, Airport>> = {KBHM: {...kbhmLegacy, runway: kbhmLegacy.runways[0]}, SBBR: {...sbbrLegacy, runway: sbbrLegacy.runways[0]}, RJTT: {...rjttLegacy, runway: rjttLegacy.runways[0]}};
 export type AirportSelection = {traffic?: readonly Pick<Aircraft,"destination">[];airport?: string; airportDataVersion?: string; trainingStation?: string; weather?: import("./model").ExerciseWeather; radarEnvironment?: import("./model").RadarEnvironment};
 export function getAirport(selection: AirportSelection = {}): Airport {
   const id = selection.airport ?? "EGPH";
   if (!Object.hasOwn(snapshots, id)) throw new Error("This airport is not available.");
-  const airport = id === "EIDW" && selection.airportDataVersion === legacyDublin.dataVersion ? legacyDublin : snapshots[id as AirportId];
+  const legacy = id === "EIDW" ? legacyDublin : legacyRunways[id as AirportId];
+  const airport = legacy && selection.airportDataVersion === legacy.dataVersion ? legacy : snapshots[id as AirportId];
   if (selection.airportDataVersion && selection.airportDataVersion !== airport.dataVersion)
     throw new Error("This airport data version is unavailable. Restore its pinned snapshot before opening this exercise.");
   return airport;
