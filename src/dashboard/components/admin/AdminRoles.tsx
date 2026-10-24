@@ -82,6 +82,9 @@ export default function AdminRoles() {
     const role = roles.find(value => value.id === selected);
     const actionRole = roles.find(value => value.id === action?.role);
     const members = role?.members.filter(member => `${member.displayName} ${member.discordId}`.toLowerCase().includes(filter.toLowerCase())) ?? [];
+    const discordId = /^[1-9][0-9]{16,19}$/.test(query.trim()) ? query.trim() : null;
+    const directMember = discordId ? candidates.find(member => member.discordId === discordId) ?? {discordId, displayName: discordId} : null;
+    const directExists = actionRole?.members.some(member => member.discordId === discordId);
 
     return <main className={styles.page} data-roles-page>
         <div className={styles.breadcrumb}><span>Administration</span><CaretRightIcon size={14} aria-hidden="true"/><span>Roles</span></div>
@@ -102,8 +105,9 @@ export default function AdminRoles() {
             <div className={styles.dialogHeader}><h3 id="role-dialog-title">{action?.member ? `Remove from ${actionRole?.name}?` : `Add member to ${actionRole?.name}`}</h3><button type="button" className={styles.close} aria-label="Close" disabled={busy} onClick={() => setAction(null)}><XIcon size={22}/></button></div>
             {dialogError ? <p className={styles.error} role="alert">{dialogError}</p> : null}
             {action?.member ? <><p>Remove <strong>{action.member.displayName}</strong> from {actionRole?.name}? Access granted by this role will end immediately. Other roles will remain.</p><div className={styles.dialogActions}><button type="button" className={styles.secondary} disabled={busy} onClick={() => setAction(null)}>Cancel</button><button type="button" className={styles.primary} disabled={busy} onClick={() => void change(action.member!)}>{busy ? "Removing…" : "Remove member"}</button></div></> : <>
-                <p>Choose an active account with a linked Discord identity.</p><label className={styles.search}><MagnifyingGlassIcon size={20} aria-hidden="true"/><input ref={searchInput} aria-label="Find an account" placeholder="Search by name or Discord ID…" maxLength={100} value={query} disabled={busy} onChange={event => setQuery(event.target.value)}/></label>
-                <div className={styles.candidates} aria-busy={searching}>{searching ? <p role="status">Searching accounts…</p> : !candidates.length && !dialogError ? <p>No matching accounts.</p> : candidates.map(member => {
+                <p id="role-member-help">Search existing accounts or enter a Discord user ID. Users can be added before they sign up; their role applies when they sign in with that Discord account.</p><label className={styles.search}><MagnifyingGlassIcon size={20} aria-hidden="true"/><input ref={searchInput} aria-label="Find an account or enter a Discord ID" aria-describedby="role-member-help" placeholder="Search by name or Discord ID…" maxLength={100} value={query} disabled={busy} onChange={event => setQuery(event.target.value)}/></label>
+                {directMember ? <div className={styles.candidate}><div><strong>{directMember.displayName === discordId ? "Discord user ID" : directMember.displayName}</strong><small>{discordId}</small></div><button type="button" className={styles.textButton} aria-label={`Add Discord ID ${discordId}`} disabled={busy || directExists} onClick={() => void change(directMember)}>{directExists ? "Already a member" : busy ? "Saving…" : "Add by Discord ID"}</button></div> : null}
+                <div className={styles.candidates} aria-busy={searching}>{searching ? <p role="status">Searching accounts…</p> : !candidates.length && !dialogError && !directMember ? <p>No matching accounts. Enter a Discord user ID to add someone who hasn’t signed up.</p> : candidates.filter(member => member.discordId !== discordId).map(member => {
                     const exists = actionRole?.members.some(value => value.discordId === member.discordId);
                     return <div className={styles.candidate} key={member.discordId}><div><strong>{member.displayName}</strong><small>{member.discordId}</small></div><button type="button" className={styles.textButton} aria-label={`Add ${member.displayName}`} disabled={busy || exists} onClick={() => void change(member)}>{exists ? "Already a member" : busy ? "Saving…" : "Add"}</button></div>;
                 })}</div>
