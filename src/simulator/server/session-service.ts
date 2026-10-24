@@ -4,19 +4,23 @@ import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise} from "../engine";
 import {menteeActionAllowed} from "../protocol";
 import type {Envelope, Exercise} from "../model";
-import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
+import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type AssignedSession, type SessionPreview, type SessionRole, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 
-export interface Actor {accountId: string; staff: boolean; displayName?: string}
-export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string}
+/** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee. */
+export interface Actor {accountId: string; staff: boolean; displayName?: string; discordId?: string; simulatorAccess?: boolean; canAssign?: boolean}
+export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string; discordId?: string}
+export interface SessionAssignment {discordId: string; name?: string; assignedAt: number; assignedBy: string; assignedByName?: string}
+export interface SessionLookup {id: string; title: string; airport: string; ownerName?: string; assignedDiscordId?: string}
 export interface SessionRecord {
   id: string; ownerId: string; ownerName?: string; title: string; createdAt: number; updatedAt: number;
   tickAt: number; contentRevision: number; exercise: Exercise;
   staff: Seat | null; mentee: Seat | null;
   scenario?: ScenarioRuntime;
+  assignment?: SessionAssignment | null;
 }
 export interface SessionStore {
   autoReadback(accountId: string): Promise<boolean | undefined>;
@@ -25,6 +29,15 @@ export interface SessionStore {
   create(record: SessionRecord): Promise<void>;
   transaction<T>(id: string, run: (record: SessionRecord) => T | Promise<T>): Promise<T>;
   end(id: string, accountId: string, now: number): Promise<void>;
+  assigned(discordId: string, now: number): Promise<AssignedSession[]>;
+  hasAssignment(discordId: string): Promise<boolean>;
+  lookup(entry: {code: string} | {id: string}): Promise<SessionLookup | null>;
+}
+/** An assignment reserves the mentee seat; without one, only users with Sweatbox access may take it. */
+export function menteeAccess(record: Pick<SessionRecord, "assignment">, actor: Actor) {
+  const assigned = record.assignment?.discordId;
+  if (assigned ? assigned !== actor.discordId : actor.simulatorAccess === false)
+    throw new SessionError("not-assigned", assigned ? "This session is assigned to another mentee." : "This session isn't assigned to you. Ask your trainer to assign it to you.", 403);
 }
 export function availableControl(record: SessionRecord, actor: Actor, now: number) {
   if (record.staff && record.staff.expiresAt > now && record.staff.accountId !== actor.accountId)
@@ -35,13 +48,14 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.staff && record.staff.expiresAt > now ? {staffId: record.staff.accountId, staffName: record.staff.displayName} : {}),
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now,
-    ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {})};
+    ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {}),
+    ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {})};
 }
 export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionRole, token: string, now: number) {
-    if (role === "staff") this.staff(actor);
+    if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
     const seat = record[role];
     if (!seat || seat.token !== token || seat.accountId !== actor.accountId || seat.expiresAt <= now)
       throw new SessionError("seat-lost", "This page no longer holds its seat. Return to the session and join again.", 409);
@@ -101,12 +115,12 @@ export class SessionService {
   }
   join(actor: Actor, id: string, role: SessionRole, token: string) {
     return this.store.transaction(id, record => {
-      if (role === "staff") this.staff(actor);
+      if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
       const now = this.now(), current = record[role];
       if (current && current.expiresAt > now && (current.token !== token || current.accountId !== actor.accountId))
         throw new SessionError("seat-occupied", `The ${role === "staff" ? "control" : "mentee"} page is already open. Close the existing page before joining here.`, 409);
       this.tick(record, now);
-      record[role] = {token, accountId: actor.accountId, displayName: actor.displayName, expiresAt: now + SESSION_LEASE_MS};
+      record[role] = {token, accountId: actor.accountId, displayName: actor.displayName, expiresAt: now + SESSION_LEASE_MS, ...(actor.discordId ? {discordId: actor.discordId} : {})};
       record.updatedAt = now;
       return this.view(record, role, now);
     });
@@ -170,4 +184,27 @@ export class SessionService {
     });
   }
   end(actor: Actor, id: string) {this.staff(actor); return this.store.end(id, actor.accountId, this.now());}
+  async assign(actor: Actor, id: string, mentee: {discordId: string; name?: string} | null) {
+    this.staff(actor);
+    if (!actor.canAssign) throw new SessionError("forbidden", "Only trainers with Sweatbox access or administrators can assign mentees.", 403);
+    return this.store.transaction(id, record => {
+      const now = this.now(), previous = record.assignment?.discordId, changed = previous !== mentee?.discordId;
+      if (!changed && mentee && record.assignment) record.assignment = {...record.assignment, ...(mentee.name ? {name: mentee.name} : {})};
+      else record.assignment = mentee ? {discordId: mentee.discordId, ...(mentee.name ? {name: mentee.name} : {}), assignedAt: now, assignedBy: actor.accountId, ...(actor.displayName ? {assignedByName: actor.displayName} : {})} : null;
+      // A held mentee seat belongs to the new assignee or nobody.
+      if (changed && record.mentee && (!mentee || record.mentee.discordId !== mentee.discordId)) {this.tick(record, now); record.mentee = null;}
+      record.updatedAt = now;
+      return {session: summary(record, now), changed};
+    });
+  }
+  assigned(actor: Actor) {return actor.discordId ? this.store.assigned(actor.discordId, this.now()) : Promise.resolve([]);}
+  async preview(actor: Actor, entry: {code: string} | {id: string}): Promise<SessionPreview> {
+    const found = await this.store.lookup(entry);
+    const missing = new SessionError("not-found", "No live session matches that code. Check it with your trainer.", 404);
+    if (!found) throw missing;
+    // Without Sweatbox access, a session not assigned to you is indistinguishable from no session.
+    if (actor.simulatorAccess === false && (!actor.discordId || found.assignedDiscordId !== actor.discordId)) throw missing;
+    menteeAccess({assignment: found.assignedDiscordId ? {discordId: found.assignedDiscordId, assignedAt: 0, assignedBy: ""} : null}, actor);
+    return {id: found.id, title: found.title, airport: found.airport, ...(found.ownerName ? {trainerName: found.ownerName} : {}), assignedToYou: !!actor.discordId && found.assignedDiscordId === actor.discordId};
+  }
 }

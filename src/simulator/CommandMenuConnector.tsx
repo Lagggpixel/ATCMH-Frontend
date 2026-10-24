@@ -31,12 +31,13 @@ export default function CommandMenuConnector({aircraftId, rootRef}: {aircraftId:
       if (aircraft && panel?.dataset.aircraftMessages === aircraftId) {
         const origin = root.getBoundingClientRect(), target = aircraft.getBoundingClientRect(), menu = panel.getBoundingClientRect();
         const scope = aircraft.closest('[aria-label$="radar scope"]')?.getBoundingClientRect();
-        const x = target.left + target.width / 2, y = target.top + target.height / 2;
+        const anchor = aircraft.querySelector<SVGSVGElement>("[data-aircraft-symbol]")?.getScreenCTM();
+        const x = anchor?.e ?? target.left + target.width / 2, y = anchor?.f ?? target.top + target.height / 2;
         if (scope && target.right >= scope.left && target.left <= scope.right && target.bottom >= scope.top && target.top <= scope.bottom && target.width && menu.width) {
           const clip = clipRef.current!;
           clip.setAttribute("x", String(scope.left - origin.left)); clip.setAttribute("y", String(scope.top - origin.top));
           clip.setAttribute("width", String(scope.width)); clip.setAttribute("height", String(scope.height));
-          const cx = Math.trunc(x * density) / density - origin.left, cy = Math.trunc(y * density) / density - origin.top;
+          const cx = x - origin.left, cy = y - origin.top;
           next = `${cx},${cy},${radius},${stroke},${menu.left},${menu.top},${menu.bottom},${x},${y},${origin.left},${origin.top}`;
           if (next !== previous) {
             circle.setAttribute("cx", String(cx)); circle.setAttribute("cy", String(cy)); circle.setAttribute("r", String(radius));

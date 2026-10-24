@@ -7,6 +7,7 @@ import styles from "./Simulator.module.css";
 
 export type GroundClearance = Extract<Instruction, {type: "taxi" | "pushback"}>;
 export type SendGroundClearance = (aircraftId: string, command: GroundClearance) => Promise<boolean>;
+export type PlanGroundTaxi = (runway?: string) => void;
 interface Draft {aircraftId: string; kind: GroundRoute["kind"]; controls: Point[]; destination: GroundRouteDestination; route?: GroundRoute; error?: string; holds: Record<string, boolean>; pending: boolean; invalid?: boolean}
 
 export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected: string | null, enabled: boolean, onSend?: SendGroundClearance) {
@@ -24,9 +25,9 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
     }, 60);
     return () => clearTimeout(timer);
   }, [airport, controls, destination, kind]);
-  const start = (a: Aircraft, point: Point, destination: GroundRouteDestination = {type: "point"}) => {
+  const start = (a: Aircraft, point: Point, destination: GroundRouteDestination = {type: "point"}, kind = groundRouteKind(a, airport)) => {
     if (!enabled || sending.current || !canRouteGround(a, airport) || a.frequency !== "ground") return;
-    setDraft({aircraftId: a.id, kind: groundRouteKind(a, airport), controls: [{...a.position}, {...point}], destination, holds: {}, pending: true});
+    setDraft({aircraftId: a.id, kind, controls: [{...a.position}, {...point}], destination, holds: {}, pending: true});
   };
   const move = (index: number, point: Point, insert = false) => setDraft(current => {
     if (!current || sending.current || index < 1 || index >= current.controls.length) return current;

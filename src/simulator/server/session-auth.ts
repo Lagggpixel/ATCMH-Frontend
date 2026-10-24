@@ -1,11 +1,18 @@
 import {allowedMutationOrigins} from "../../lib/browser-session";
 import {csrfMatches, introspectCentralSession, sessionTokenFromCookieHeader, sessionCookie, loopbackSessionCookie} from "../../lib/central-auth";
 import {websiteAccessReportedHeaders} from "../../lib/website-access";
-import {canAccessStaffSimulator, simulatorEnabled} from "../feature";
+import {canAccessStaffSimulator, canAssignMentees, simulatorEnabled} from "../feature";
 import {SessionError} from "../sessions";
 import type {Actor} from "./session-service";
 
-export async function authorizeSessionRequest(request: Request, staff: boolean): Promise<Actor> {
+export interface MenteeAdmission {
+  /** Admit a signed-in user without Sweatbox access when this resolves true for their Discord account. */
+  hasAssignment?: (discordId: string) => Promise<boolean>;
+  /** Admit any signed-in user; the caller limits what they can see (their own assignments, a code they hold). */
+  anySignedIn?: boolean;
+}
+
+export async function authorizeSessionRequest(request: Request, staff: boolean, admission: MenteeAdmission = {}): Promise<Actor> {
   if (!simulatorEnabled({SIMULATOR_ENABLED: process.env.SIMULATOR_ENABLED})) throw new SessionError("not-found", "Sweatbox unavailable.", 404);
   const token = sessionTokenFromCookieHeader(request.headers.get("cookie"));
   if (!token) throw new SessionError("unauthorized", "Sign in to join this session.", 401);
@@ -34,7 +41,15 @@ export async function authorizeSessionRequest(request: Request, staff: boolean):
     throw new SessionError("unavailable", "Sweatbox access verification is temporarily unavailable. Try again.", 503);
   } finally {controller.abort();}
   if (!session) throw new SessionError("unauthorized", "Your sign-in has expired. Sign in again to continue.", 401);
-  if (!canAccessStaffSimulator(user)) throw new SessionError("forbidden", "Sweatbox access is limited to staff, administrators and Sweatbox Testers.", 403);
   const displayName = session.displayName || session.discordDisplayName || (typeof user?.username === "string" ? user.username : undefined);
-  return {accountId: session.accountId, staff, ...(displayName ? {displayName: displayName.slice(0, 128)} : {})};
+  const actor: Actor = {accountId: session.accountId, staff, ...(displayName ? {displayName: displayName.slice(0, 128)} : {}), ...(session.discordId ? {discordId: session.discordId} : {})};
+  if (canAccessStaffSimulator(user)) return canAssignMentees(user) ? {...actor, canAssign: true} : actor;
+  const denied = new SessionError("forbidden", "Sweatbox access is limited to staff, administrators, Sweatbox Testers and assigned mentees.", 403);
+  if (staff || !session.discordId) throw denied;
+  if (admission.anySignedIn) return {...actor, simulatorAccess: false};
+  let assigned = false;
+  try {assigned = !!admission.hasAssignment && await admission.hasAssignment(session.discordId);}
+  catch {throw new SessionError("unavailable", "Sweatbox access verification is temporarily unavailable. Try again.", 503);}
+  if (!assigned) throw denied;
+  return {...actor, simulatorAccess: false};
 }

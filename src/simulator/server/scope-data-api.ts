@@ -4,6 +4,7 @@ import {localPoint} from "../aviation";
 import type {ScopeMapData, ScopeWinds, WindLevel} from "../scope-map-data";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
+import {assignedMentee} from "./session-store";
 import {sessionFailure} from "./session-api";
 
 const location = z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), name: z.string().max(300).nullable(), lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
@@ -67,7 +68,7 @@ export function createScopeDataApi(loadMap = fetchScopeMap, loadWinds = fetchSco
   const cache = new Map<string, {until: number; data: Promise<ScopeMapData | ScopeWinds>}>();
   return async (request: Request) => {
     try {
-      await authorize(request, false);
+      await authorize(request, false, assignedMentee);
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "", layer = query.get("layer");
       try {getAirport({airport: code});} catch {throw new SessionError("invalid-airport", "Choose an available training airport.", 400);}
       if (layer !== "map" && layer !== "winds") throw new SessionError("invalid-layer", "Choose a scope layer.", 400);

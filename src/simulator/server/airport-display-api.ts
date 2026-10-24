@@ -6,6 +6,7 @@ import {fetchNavigationData} from "./navigation-api";
 import {fetchWeatherReport} from "./weather-provider";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
+import {assignedMentee} from "./session-store";
 import {sessionFailure} from "./session-api";
 
 const coordinate = z.object({lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
@@ -76,7 +77,7 @@ export function createAirportDisplayApi(loadInfo = fetchAirportInformation, load
   const cache = new Map<string, {until: number; data: Promise<AirportDisplayData>}>();
   return async (request: Request) => {
     try {
-      await authorize(request, false);
+      await authorize(request, false, assignedMentee);
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "", layer = query.get("layer"), origin = query.get("origin") ?? code;
       if (!/^[A-Z0-9]{4}$/.test(code)) throw new SessionError("invalid-airport", "Choose a four-character airport identifier.", 400);
       if (layer !== "info" && layer !== "weather" && layer !== "procedures") throw new SessionError("invalid-layer", "Choose airport information, weather or procedures.", 400);

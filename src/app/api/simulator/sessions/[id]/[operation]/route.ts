@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 type Context = {params: Promise<{id: string; operation: string}>};
 export async function POST(request: Request, context: Context) {
   const {id, operation} = await context.params;
-  if (!["join", "leave", "commands"].includes(operation)) return new Response(null, {status: 404});
+  if (!["join", "leave", "commands", "assign"].includes(operation)) return new Response(null, {status: 404});
   return sessionOperation(request, id, operation);
 }
 export async function GET(request: Request, context: Context) {

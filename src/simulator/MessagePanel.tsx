@@ -9,6 +9,7 @@ import type {Instruction} from "./model";
 import RadarVectorComposer from "./RadarVectorComposer";
 import {quickCommandAction, visibleQuickCommands, type QuickCommand} from "./quick-commands";
 import {radioDisplayText} from "./radio-text";
+import {aircraftMessageHeading} from "./aircraft-message-heading";
 import {IF_COLORS, pilotMessageColor} from "./if-colors";
 import styles from "./Simulator.module.css";
 
@@ -128,8 +129,9 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
           if (await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}, [...path, item].map(entry => entry.label), item.label)) setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.id ?? entry.label), item.id ?? item.label]);}
-      }}><span>{i + 1}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && (item.sendLabel || item.label !== "Send") ? <b className={styles.sendLabel}>{item.sendLabel ?? "Send"}</b> : null}</button>;
+      }}><span>{i + 1 + (path.length ? 1 : 0)}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && (item.sendLabel || item.label !== "Send") ? <b className={styles.sendLabel}>{item.sendLabel ?? "Send"}</b> : null}</button>;
     };
+  const heading = aircraftMessageHeading(aircraft, getAirport(exercise), exercise.weather);
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;
   const speechDraft = dialog === "voice" && input.trim() ? instructionText(aircraft, {type: "atc", action: "voice", text: input.trim()}) : entry?.instruction && !invalid ? composed : "";
   useEffect(() => {if (connected && speechDraft) return prepareSpeech?.(speechDraft);}, [connected, speechDraft, prepareSpeech]);
@@ -150,12 +152,12 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
         return <button key={shortcut.name} aria-label={`Send quick command ${shortcut.name}`} title={blocked ?? action.text} disabled={!connected || Boolean(blocked)} aria-busy={pendingLabel === shortcut.name || undefined} aria-disabled={pendingLabel !== null || undefined} onClick={() => {void send(action, shortcut.path, shortcut.name);}}>{shortcut.name}</button>;
       })}</div>
       <div className={styles.commandMain}>
-    <header className={styles.commandHeading}>{sendError ? <p className={styles.commandSendError} role="alert">{sendError}<button onClick={() => setSendError(null)}>Dismiss</button></p> : null}<h2 className={styles.visuallyHidden}>{aircraft.callsign}</h2><button className={styles.keyboardClose} aria-label="Close aircraft messages" onClick={onClose}><X size={20}/></button></header>
+    <header className={styles.commandHeading}>{sendError ? <p className={styles.commandSendError} role="alert">{sendError}<button onClick={() => setSendError(null)}>Dismiss</button></p> : null}<h2 className={styles.commandIdentity} style={{color: pilotMessageColor(aircraft.id)}}><span aria-label="IFC username" title={heading.username}>{heading.username}</span><span title={aircraft.callsign}>{aircraft.callsign}</span></h2><div className={styles.commandFlightData} aria-label="Aircraft flight data"><span>{heading.position}</span><span>{heading.speed}</span></div><button className={styles.keyboardClose} aria-label="Close aircraft messages" onClick={onClose}><X size={20}/></button></header>
     {entry?.input ? <form className={styles.compose} onSubmit={async event => {event.preventDefault(); const command = entry.input === "heading" ? {type: "vector" as const, heading: Math.round(Number(input) / 10) * 10 % 360} : {type: "speed" as const, value: Number(input)}; if (!input || validateControllerMessage(exercise, aircraft, command, frequency)) return; if (await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}, undefined, "Send")) {setPath([]); setInput("");}}}><label>{entry.input === "heading" ? "Heading (°M)" : "Speed (knots)"}<input autoFocus type="number" required min={entry.input === "heading" ? 0 : 80} max={entry.input === "heading" ? 360 : 600} step={entry.input === "heading" ? 10 : 1} value={input} onChange={e => setInput(e.target.value)}/></label><button type="submit" disabled={!connected || !input}>Send</button></form> : null}
     {vector ? <RadarVectorComposer prepareSpeech={prepareSpeech} initial={vector} aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} onBack={() => setVector(null)} onSend={async command => {
       const result = await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command), ...(pilotMessage ? {replyTo: pilotMessage.id} : {})}, undefined, "Send vector");
       if (result !== false) {setVector(null); setPath([]);} return result !== false;
-    }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries} hidden={Boolean(entry?.input)}>{path.length ? <button onClick={() => {if (sending.current) return; setPath(path.map(item => item.id ?? item.label).slice(0, -1)); setInput("");}}><span>‹</span><div>Back</div></button> : null}{entries.map(renderEntry)}</div>}
+    }}/> : <div key={path.map(item => item.label).join("/")} className={styles.messageEntries} hidden={Boolean(entry?.input)}>{path.length ? <button className={styles.commandBack} aria-label="Back" onClick={() => {if (sending.current) return; setPath(path.map(item => item.id ?? item.label).slice(0, -1)); setInput("");}}><span aria-hidden="true">1</span><b aria-hidden="true"/></button> : null}{entries.map(renderEntry)}</div>}
     {entry && !entry.children && !entry.input ? <div className={styles.compose}><p>{composed}</p><small>{reason ?? "This message is unavailable."}</small></div> : null}
     <div className={styles.commandHistory}><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency={frequency} aircraftId={aircraft.id} compact/></div>
       </div>

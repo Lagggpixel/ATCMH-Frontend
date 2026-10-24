@@ -567,3 +567,11 @@ sweatbox 26.10.58: index **sha256:1ba9051bdad124eb6fb3308249b2c9aa6ba8513acbedca
 atcmh 26.10.28: index **sha256:833243a8c2e6ded040370bd815ef77ddca0d95e04f59a464ce988478c14afdd4**; linux/amd64 manifest **sha256:a8243be9d9c43b64955fa4e9ae67c86ed543f1ab2f7410e49b78bf68e786fd74**; runtime **sha256:c8fed1e1db03848817fa46c97139e43354459bad7d073959f902d9167dd03ba5**.
 
 Round-trip-verified DPAPI-encrypted stack/Compose/container recovery snapshots, immutable committed-source hashes, local/public browser receipts/screenshots and build/deployment/runtime verification: **C:/Users/Reid/.codex/visualizations/2026/10/24/01a16d58-bcf4-7920-abea-a96db6604149/circle/release** (browser evidence in its parent). Never expose decrypted backups or rerun guarded one-release helpers blindly.
+
+## Follow-up publication stopped before deployment (2026-10-24)
+
+The user explicitly instructed: "Don't deploy here all other chats are now clean. Only make the changes you need." No follow-up stack update was performed. Read-only public checks confirm live Sweatbox **26.10.58** and ATCMH frontend **26.10.28**.
+
+Before that instruction, isolated Sweatbox **26.10.59** (release commit **7498153**, branch **release/26.10.59-ground-followup**) was published with index digest **sha256:cc8c80fa02f061aaa4ba05327244ae77b81c42e65059c21d0452e21f59ac0892**, but was **not deployed**. That tag is consumed; never reuse it, including for the complete main checkout. Frontend **26.10.29** publication was interrupted; a subsequent registry check returned not found. Prepared **26.10.60 / 26.10.30** images were never built or published, and the unnecessary working-tree version bumps were removed. The final map-menu Current Path approval change is source-only and is not in the published 26.10.59 image. Further publication/deployment requires a later user instruction.
+
+Source and native-touch verification evidence is under **C:/Users/Reid/.codex/visualizations/2026/10/24/01a16d58-bcf4-7920-abea-a96db6604149/followup**. Its task-specific deployment helper is explicitly disabled. No schema, manual production session data or stack configuration changed. Preserve other chats' current source changes.

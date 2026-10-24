@@ -28,7 +28,7 @@ export function safeLoginReturnTo(application: LoginApplication, value: string |
     || path === "/leaderboard" || path === "/pilot-guide" || path === "/dashboard" || path.startsWith("/dashboard/")
     || /^\/(?:sweatbox|simulator)(?:\/about)?$/i.test(path)
     || /^\/(?:sweatbox|simulator)\/replays(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/i.test(path)
-    || /^\/(?:sweatbox|simulator)\/staff$/i.test(path) || /^\/(?:sweatbox|simulator)\/(mentee|staff)\/[0-9a-f-]{36}$/i.test(path)
+    || /^\/(?:sweatbox|simulator)\/(?:staff|mentee|join)$/i.test(path) || /^\/(?:sweatbox|simulator)\/(mentee|staff)\/[0-9a-f-]{36}$/i.test(path)
     || /^\/(?:sweatbox|simulator)\/scenarios(?:\/(?:new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.test(path)
     || path === "/exams" || path.startsWith("/exams/") ? value : fallback;
 }

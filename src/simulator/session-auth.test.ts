@@ -40,17 +40,24 @@ test("every simulator seat enforces staff/admin/tester access, central sign-in, 
     : {active, displayName, accountId: "101", discordId: "650180912486678528", expiresAt: "2099-01-01T00:00:00Z", impersonating: false}), {status: String(input).includes("/admin/me") ? permissionStatus : 200, headers: {"content-type": "application/json"}});
   const request = (method = "GET", origin = "https://atcmh.test", supplied = csrf) => new Request("https://atcmh.test/api/simulator/sessions", {method, headers: {cookie: `__Host-atcmh_session=${token}`, origin, "x-csrf-token": supplied}});
   const status = (expected: number) => (e: unknown) => e instanceof SessionError && e.status === expected;
+  const discordId = "650180912486678528", trainer = (staff: boolean) => ({accountId: "101", staff, discordId, canAssign: true});
   try {
-    assert.deepEqual(await authorizeSessionRequest(request(), true), {accountId: "101", staff: true});
+    assert.deepEqual(await authorizeSessionRequest(request(), true), trainer(true));
     await assert.rejects(authorizeSessionRequest(new Request("https://atcmh.test"), false), status(401));
     moderator = false;
     await assert.rejects(authorizeSessionRequest(request(), true), status(403));
     await assert.rejects(authorizeSessionRequest(request(), false), status(403));
 
-    // Real route handlers must reject learner links, codes, commands and streams before storage.
-    const api = createSessionApi({} as SessionStore), id = "11111111-1111-4111-8111-111111111111", seat = "22222222-2222-4222-8222-222222222222";
-    const codeRequest = new Request(`${request().url}?code=EGPH-1234ABCD`, request());
-    assert.equal((await api.sessionCollection(codeRequest)).status, 403);
+    // Without access or an assignment, real route handlers reject links, commands and streams before session storage,
+    // and a code finds nothing. Assigned mentees are admitted, but only to their own session's mentee seat.
+    const api = createSessionApi({hasAssignment: async () => false, lookup: async () => null, assigned: async () => []} as unknown as SessionStore), id = "11111111-1111-4111-8111-111111111111", seat = "22222222-2222-4222-8222-222222222222";
+    const codeRequest = new Request(`${request().url}?code=EGPH-1234ABCD5678`, request());
+    assert.equal((await api.sessionCollection(codeRequest)).status, 404);
+    assert.equal((await api.sessionCollection(new Request(`${request().url}?mine=1`, request()))).status, 200);
+    assert.equal((await api.sessionCollection(request())).status, 403);
+    await assert.rejects(authorizeSessionRequest(request(), false, {hasAssignment: async () => false}), status(403));
+    assert.deepEqual(await authorizeSessionRequest(request(), false, {hasAssignment: async () => true}), {accountId: "101", staff: false, discordId, simulatorAccess: false});
+    await assert.rejects(authorizeSessionRequest(request(), true, {hasAssignment: async () => true}), status(403));
     for (const operation of ["join", "command", "leave"]) {
       const call = new Request(request("POST"), {body: JSON.stringify({role: "mentee", token: seat})});
       assert.equal((await api.sessionOperation(call, id, operation)).status, 403, operation);
@@ -61,12 +68,12 @@ test("every simulator seat enforces staff/admin/tester access, central sign-in, 
     assert.equal((await createTrainingApi()(request(), "scenarios")).status, 403);
 
     tester = true;
-    assert.deepEqual(await authorizeSessionRequest(request("POST"), true), {accountId: "101", staff: true});
-    assert.deepEqual(await authorizeSessionRequest(request(), false), {accountId: "101", staff: false});
+    assert.deepEqual(await authorizeSessionRequest(request("POST"), true), trainer(true));
+    assert.deepEqual(await authorizeSessionRequest(request(), false), trainer(false));
     tester = false;
     for (const permittedRole of ["staff", "admin", "super_admin"]) {
       role = permittedRole; allowed = true;
-      for (const staff of [true, false]) assert.deepEqual(await authorizeSessionRequest(request(), staff), {accountId: "101", staff});
+      for (const staff of [true, false]) assert.deepEqual(await authorizeSessionRequest(request(), staff), trainer(staff));
       allowed = false;
       for (const staff of [true, false]) await assert.rejects(authorizeSessionRequest(request(), staff), status(403));
     }
