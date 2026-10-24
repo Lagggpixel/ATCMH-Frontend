@@ -1,4 +1,4 @@
-import {runwayOccupied} from "./runway-safety";
+import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
 import {radarArrivalFrequency} from "./model";
 import {airportApproaches, environmentWithDestinations} from "./aviation";
 import {climbRate, descentRate, acceleration, headingForGroundTrack} from "./aircraft-performance";
@@ -380,7 +380,7 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
         groundTrack = a.targetHeading = radarHeading(a.position, {x: g.threshold.x + g.vector.x * trackAlong, y: g.threshold.y + g.vector.y * trackAlong});
         if (r.captured && (approach.type!=="ils" || approach.glideslope!==false)) altitude = Math.min(a.altitude, along < 0 ? glideHeight : destinationElevation + Math.max(0, 50 - along * 500));
         const towerLanding = r.transferred && radarArrivalFrequency(a.frequency) && r.captured;
-        if (towerLanding && along >= -.65 && along < .1 && runwayOccupied(airport, approach.runway, traffic, a.id)) {
+        if (towerLanding && along >= -.65 && along < .1 && runwayGoAroundDue(a.altitude, destinationElevation, along) && runwayOccupied(airport, approach.runway, traffic, a.id)) {
           automaticMissed(a, airport, environment, "Landing runway is occupied.");
           moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
         }

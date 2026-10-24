@@ -28,6 +28,7 @@ for (const airport of airportList) test(`${airport.icao}: forward exits, bounded
     for (let t = 0; t < 600 && state.aircraft[0].mode !== "parked"; t++) {
       state = engine.advance(state, 1);
       const a = state.aircraft[0];
+      if (a.mode === "rollout" && a.runwayExit) assert.ok(a.speed >= 15 - 1e-8, `${end.id}: keep at least 15 kt toward an exit`);
       if (a.mode === "rollout") assert.ok(along(a.position) <= length + 1e-7, `${end.id}: rollout overrun`);
     }
     assert.equal(state.aircraft[0].mode, "parked", `${end.id}: must vacate or stop for instructions`);
@@ -35,7 +36,7 @@ for (const airport of airportList) test(`${airport.icao}: forward exits, bounded
       const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
       assert.deepEqual(engine.advance(restored, 5).aircraft[0].position, state.aircraft[0].position);
     }
-    const arrival = {...aircraft("arrival", -.6), altitude: airport.elevation + 150, clearedToLand: true};
+    const arrival = {...aircraft("arrival", -.6), altitude: airport.elevation + 50, clearedToLand: true};
     const blocker = {...aircraft("blocker", .2), mode: "parked" as const, altitude: airport.elevation, speed: 0};
     assert.ok(runwayOccupied(airport, end.id, [arrival, blocker], arrival.id));
     const occupied = engine.advance({...engine.initialExercise(), aircraft: [arrival, blocker], running: true}, .1).aircraft[0];
@@ -81,7 +82,7 @@ test("transferred radar arrivals also go missed for an occupied runway at every 
     const engine = engineFor({airport: airport.icao}), environment = radarEnvironmentFor(airport);
     for (const end of runwayEnds(airport)) {
       const g = engine.runwayGeometry(end.id), approach = environment.approaches.find(p => p.runway === end.id && p.type === "visual")!;
-      const arrival: Aircraft = {...engine.newAircraft("arrival", true), runway: end.id, mode: "heading", frequency: "tower", altitude: airport.elevation + 150,
+      const arrival: Aircraft = {...engine.newAircraft("arrival", true), runway: end.id, mode: "heading", frequency: "tower", altitude: airport.elevation + 50,
         position: {x: g.threshold.x - g.vector.x * .5, y: g.threshold.y - g.vector.y * .5}, heading: g.heading, targetHeading: g.heading,
         radar: {station: "approach", navigation: "approach", routeIndex: 0, cleared: approach.id, captured: true, transferred: true, clearanceAltitudeChecked: true}};
       const blocker: Aircraft = {...engine.newAircraft("blocker", false), runway: end.id, mode: "rollout", altitude: airport.elevation,
