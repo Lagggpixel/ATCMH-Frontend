@@ -597,7 +597,7 @@ const conflictEngine = {slowExitSeconds: (a: Aircraft) => {
   return exit.path && exit.speed ? distance(landed.position, exit.path[1]) * 7200 / (speed + exit.speed) + distance(exit.path[1], exit.path.at(-1)!) * 3600 / exit.speed : 0;
 }, geometry: runwayGeometry, distance: arrivalDistance, instruct: (a: Aircraft, c: Instruction) => instruct(a, c), lineupError: (a: Aircraft) => departureRoute(a, a.runway ?? DEFAULT_RUNWAY).error};
 
-function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; error?: string} {
+function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatternEntry?: boolean} = {}): {state: Exercise; error?: string} {
   if (state.processed.includes(envelope.id)) return {state};
   const next = structuredClone(state);
   let action = envelope.action;
@@ -716,7 +716,8 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
         if (action.replyTo || action.assign) return {state, error: "A pilot request cannot also answer a controller command."};
         const request = resolvePilotRequest({requestId: action.request.id});
         if (["minimum-fuel","emergency-fuel"].includes(action.request.id) && !action.request.confirmed) return {state,error:"Confirm the fuel endurance disclosure before sending."};
-        if (!request || !pilotRequests(aircraft!).some(r => r.id === request.id)) return {state, error: "This pilot request is unavailable for the aircraft's phase or frequency."};
+        const legacyEntry = options.legacyPatternEntry && request?.id === "pattern-entry" && aircraft!.frequency === "tower";
+        if (!request || !legacyEntry && !pilotRequests(aircraft!).some(r => r.id === request.id)) return {state, error: "This pilot request is unavailable for the aircraft's phase or frequency."};
         pilotText = pilotRequestText(aircraft!, request, action.request.runway, action.request.remainingInPattern, {...action.request, exercise: next});
         if (aircraft!.radar?.report === "intentions" && ["request-approach", "departure-direction"].includes(request.id) || ["approach-request", "check-in"].includes(aircraft!.radar?.report ?? "") && ["request-approach", "check-in"].includes(request.id)) delete aircraft!.radar!.report;
         if (request.id === "departure") {aircraft!.requestedPatternDeparture = !!action.request.remainingInPattern; delete aircraft!.towerCheckInPending;aircraft!.intentions = {...intentionsOf(aircraft!), taxi: "runway", flight: action.request.remainingInPattern ? "pattern" : "departure"}; delete aircraft!.automaticRequest;}
