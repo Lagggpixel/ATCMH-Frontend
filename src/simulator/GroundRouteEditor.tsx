@@ -55,6 +55,7 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
 
 export default function GroundRouteEditor({airport, aircraft, routing}: {airport: Airport; aircraft: Aircraft; routing: ReturnType<typeof useGroundRoute>}) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const sendPressed = useRef(false);
   const {draft, busy} = routing;
   if (!draft || draft.aircraftId !== aircraft.id) return null;
   const route = draft.route, items = route ? groundRouteItems(airport, route) : [];
@@ -66,6 +67,10 @@ export default function GroundRouteEditor({airport, aircraft, routing}: {airport
       </li>)}</ol>
       {draft.pending ? <p role="status">FINDING PATH...</p> : draft.error ? <p role={draft.controls.length === 2 && draft.controls[0].x === draft.controls[1].x && draft.controls[0].y === draft.controls[1].y ? "status" : "alert"}>{draft.controls[0].x === draft.controls[1].x && draft.controls[0].y === draft.controls[1].y ? "Drag the destination onto a taxiway, runway or stand." : draft.error}</p> : null}
     </div>
-    <footer><button disabled={busy} onClick={routing.cancel}>Cancel</button><button disabled={busy || draft.pending || draft.invalid || !route} onClick={() => void routing.send()}>{busy ? "Sending…" : draft.kind === "pushback" ? draft.invalid ? "Invalid Path" : "Send Pushback" : "Send Taxi"}</button></footer>
+    <footer><button disabled={busy} onClick={routing.cancel}>Cancel</button><button disabled={busy || draft.pending || draft.invalid || !route} onPointerDown={() => {sendPressed.current = true;}} onPointerCancel={() => {sendPressed.current = false;}} onClick={event => {
+      const pressed = sendPressed.current; sendPressed.current = false;
+      if (event.detail && !pressed) return;
+      void routing.send();
+    }}>{busy ? "Sending…" : draft.kind === "pushback" ? draft.invalid ? "Invalid Path" : "Send Pushback" : "Send Taxi"}</button></footer>
   </section>;
 }

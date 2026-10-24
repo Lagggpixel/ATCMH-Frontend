@@ -1,0 +1,1 @@
+{"extends": "./tsconfig.json", "compilerOptions": {"noEmit": true, "incremental": false}, "include": ["next-env.d.ts", "src/**/*.d.ts", "src/dashboard/components/admin/AdminMentees.tsx", "src/dashboard/utils/MenteeListModel.test.ts", "src/dashboard/utils/MenteeProfileUtils.test.ts", "src/dashboard/components/admin/AdminMentees.test.ts"]}

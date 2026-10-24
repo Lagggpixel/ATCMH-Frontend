@@ -10,7 +10,7 @@ import {MagnifyingGlassPlus} from "@phosphor-icons/react/dist/csr/MagnifyingGlas
 import {MagnifyingGlassMinus} from "@phosphor-icons/react/dist/csr/MagnifyingGlassMinus";
 import {Crosshair} from "@phosphor-icons/react/dist/csr/Crosshair";
 import {distance, engineFor} from "./engine";
-import {defaultAirport, runwayEnds, simulatedMetar} from "./airports";
+import {defaultAirport, runwayEnds} from "./airports";
 import {aircraftTagVisible, EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type GroundRoute, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
 import {airborne, vectorPreview, radarFlightLabel} from "./radar";
 import {outsideVectorCircle, VECTOR_CANCEL_RADIUS, VECTOR_HOLD_MS, type VectorTarget} from "./vector-drag";
@@ -39,7 +39,9 @@ import {initialOptions, scopeOptionRows, trafficFilters, toggleTrafficFilter, tr
 import {facilities, localPoint} from "./aviation";
 import {useScopeMapData} from "./use-scope-map-data";
 import {windAltitudeChoices, windAtAltitude, type ScopeMapData, type ScopeWinds} from "./scope-map-data";
-import type {NavigationRoute} from "./navigation-data";
+import {hitAirports, procedureKey, procedureColor, visibleProcedures, type AirportProcedure, type AirportProcedures, type ScopeAirport} from "./airport-display";
+import AirportDetails, {AirportPopup} from "./AirportPanels";
+import {useAirportDisplay} from "./use-airport-display";
 import ScopeProcedures from "./ScopeProcedures";
 
 export {initialOptions, trafficVisible} from "./scope-options";
@@ -50,7 +52,7 @@ const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: style
 interface Props {missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; onTaxiPathEdit?: (aircraftId: string, path: TaxiPoint[], edit: TaxiPathEdit) => void; editMode?: string; context?: (aircraft: Aircraft) => React.ReactNode}
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
 export default function Scope({missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
-  const AIRPORT = airport, METAR = simulatedMetar(airport, weather);
+  const AIRPORT = airport;
   const vectorEnabled = measureVectors || !!onVector;
   const navigation = useNavigationCatalog(airport.icao);
   const catalogueFixes = useMemo(() => navigation.catalog?.fixes.map(fix => ({id: fix.name, point: fix.point, waypointType: fix.point.waypointType, vorType: fix.point.vorType, slavedVariation: fix.point.slavedVariation})) ?? [], [navigation.catalog]);
@@ -124,7 +126,15 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
   const winds = useScopeMapData<ScopeWinds>(airport.icao, "winds", options.windsAloft);
   const [windAltitude, setWindAltitude] = useState(-1);
-  const [procedureOverlays, setProcedureOverlays] = useState<NavigationRoute[]>([]);
+  const [procedureOverlays, setProcedureOverlays] = useState<AirportProcedure[]>([]);
+  const [procedureOpacity, setProcedureOpacity] = useState(1);
+  const [airportView, setAirportView] = useState<{kind: "menu" | "details" | "procedures"; airports: ScopeAirport[]; point: Point} | null>(null);
+  const airportSymbols = useMemo<ScopeAirport[]>(() => [{identifier: AIRPORT.icao, name: AIRPORT.name, elevationFeet: AIRPORT.elevation, point: {x: 0, y: 0},
+    isTowered: mapLayers.data?.airports.find(item => item.identifier === AIRPORT.icao)?.isTowered ?? facilities.some(item => item.airport === AIRPORT.icao && item.type === "tower")},
+    ...(mapLayers.data?.airports ?? []).filter(item => item.identifier !== AIRPORT.icao && (item.isTowered || options.uncontrolledAirports))], [AIRPORT, mapLayers.data, options.uncontrolledAirports]);
+  const procedureData = useAirportDisplay<AirportProcedures>(airportView?.kind === "procedures" ? airportView.airports[0].identifier : undefined, "procedures", AIRPORT.icao);
+  const displayProcedures = useMemo(() => visibleProcedures(procedureOverlays, airportView?.kind === "procedures" ? procedureData.data : undefined), [procedureOverlays, airportView?.kind, procedureData.data]);
+  const closeAirport = useCallback(() => {setAirportView(null); container.current?.focus({preventScroll: true});}, [setAirportView]);
   const airspaces = useMemo(() => facilities.filter(facility => Array.isArray(facility.boundary)).map(facility => {
     const points = (facility.boundary as number[][]).map(([lon, lat]) => localPoint(airport, lat, lon));
     return {id: facility.id, points, left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)), bottom: Math.min(...points.map(p => p.y)), top: Math.max(...points.map(p => p.y))};
@@ -138,13 +148,14 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const fixSymbols = useMemo(() => projectFixSymbols(navigationFixes, flightPlanAircraft?.flightPlan, camera, size), [navigationFixes, flightPlanAircraft?.flightPlan, camera, size]);
   const compassRoses = useMemo(() => projectCompassRoses(navigationFixes, camera, size), [navigationFixes, camera, size]);
   const revealedFix = fixSymbols.find(fix => fix.key === revealedFixKey);
-  const [popup, setPopup] = useState<"options" | "hide" | "airport" | "procedures" | null>(null);
+  const [popup, setPopup] = useState<"options" | "hide" | null>(null);
   useEffect(() => {
-    const close = (event: KeyboardEvent) => {if (event.key === "Escape") {setPopup(null); setRevealedFixKey(null); suppressClick.current = !!vectorDrag.current || !!groundDrag.current; cancelVector(); cancelGroundDrag(); routingRef.current.cancel(); suppressTagClick.current = !!tagDrag.current?.moved; tagDrag.current = null; setTagDraft(null); routeDrag.current = null; setRouteDraft(null); setRouteNode(null); gateDrag.current = null; setGateDraft(null);}};
+    const close = (event: KeyboardEvent) => {if (event.key === "Escape") {if (event.target instanceof Element && event.target.closest("[data-airport-panel]")) container.current?.focus({preventScroll: true}); setAirportView(null); setPopup(null); setRevealedFixKey(null); suppressClick.current = !!vectorDrag.current || !!groundDrag.current; cancelVector(); cancelGroundDrag(); routingRef.current.cancel(); suppressTagClick.current = !!tagDrag.current?.moved; tagDrag.current = null; setTagDraft(null); routeDrag.current = null; setRouteDraft(null); setRouteNode(null); gateDrag.current = null; setGateDraft(null);}};
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [cancelVector, cancelGroundDrag]);
   const project = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
+  const openAirport = (airports: ScopeAirport[], point: Point) => {setAirportView({kind: "menu", airports, point}); setPopup(null); setRevealedFixKey(null); setTap(null); onSelect(null);};
   useEffect(() => {
     if (!focusRequest) return;
     const target = snapshot.find(a => a.id === focusRequest.id);
@@ -166,7 +177,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     const bounds = node.getBoundingClientRect(); measure(bounds.width, bounds.height);
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     resize.observe(node);
-    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, .${styles.airportPopup}, .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
+    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
     const manipulatingAircraft = () => !!(routeDrag.current || vectorDrag.current || groundDrag.current || tagDrag.current || gateDrag.current);
     let gestureScale: number | null = null;
     const wheel = (event: WheelEvent) => {
@@ -217,7 +228,13 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       if (airspace.right < camera.center.x - halfWidth || airspace.left > camera.center.x + halfWidth || airspace.top < camera.center.y - halfHeight || airspace.bottom > camera.center.y + halfHeight) continue;
       path([...airspace.points, airspace.points[0]], "#326d7e", 1);
     }
-    for (const overlay of procedureOverlays) path(overlay.points, overlay.type === "SID" ? "#d9a4d9" : overlay.type === "STAR" ? "#87b8e1" : "#a2c49a", 1.5);
+    ctx.save(); ctx.globalAlpha = procedureOpacity;
+    for (const overlay of displayProcedures) for (const route of overlay.routes) {
+      const color = procedureColor(overlay);
+      path(route.points, color, 1.5); ctx.fillStyle = color;
+      for (const point of route.points) {const at = screen(point); ctx.fillRect(at.x - 2, at.y - 2, 4, 4); if (point.name) ctx.fillText(point.name, at.x + 5, at.y - 5);}
+    }
+    ctx.restore();
     for (const item of mapLayers.data?.airports ?? []) {
       if (item.identifier === AIRPORT.icao || !item.isTowered && !options.uncontrolledAirports) continue;
       const p = screen(item.point); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) continue;
@@ -266,7 +283,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const center = {x: approach.threshold.x - dx * 11, y: approach.threshold.y - dy * 11};
       path([approach.threshold, {x: center.x + dy * .5, y: center.y - dx * .5}, {x: center.x - dy * .5, y: center.y + dx * .5}, approach.threshold], approach.type === "ils" ? "#dc6464" : "#808080", 1.5);
     }
-  }, [scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, mapLayers.data, winds.data, displayedWindAltitude, procedureOverlays]);
+  }, [scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const routeEditable = !!taxiAircraft && !!onTaxiPathEdit && editMode !== "position" && editMode !== "flightPlan";
   const taxiPreview = taxiAircraft && routeDraft?.aircraftId === taxiAircraft.id ? {...taxiAircraft, ...(taxiAircraft.runwayExit ? {runwayExit: editedTaxiPath(routeDraft.path, routeDraft.edit)} : {taxiPath: editedTaxiPath(routeDraft.path, routeDraft.edit)})} : taxiAircraft;
@@ -317,11 +334,11 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     const point = event.detail ? {x: event.clientX, y: event.clientY} : {x: bounds.left + at.x, y: bounds.top + at.y};
     const choices = context && frequency !== "all" && event.detail ? aircraft.filter(other => trafficVisible(other, options.filter, frequency) && distance(project(other.position), at) < 24).map(other => other.id) : [];
     setTap({id: a.id, point, choices: choices.length > 1 ? choices : []});
-    onSelect(a.id); setPopup(null);
+    onSelect(a.id); setPopup(null); setAirportView(null);
   };
   const aircraftContext = selectedAircraft && !vectorDraft && !routing.draft && context ? context(selectedAircraft) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a")) return; event.preventDefault(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
     <div className={styles.mapSurface} style={routeEditable && routeHover ? {cursor: "crosshair"} : undefined} onPointerDown={event => {
       if (event.button !== 0 || vectorDrag.current) return;
       if (routing.draft?.route && !routing.busy && !groundDrag.current) {
@@ -375,7 +392,10 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
           setRouteNode(null);
           const bounds = event.currentTarget.getBoundingClientRect();
           const fix = !editMode ? hitFixSymbol(fixSymbols, {x: event.clientX - bounds.left, y: event.clientY - bounds.top}, event.pointerType === "touch" ? 22 : 12) : undefined;
-          if (fix) {setRevealedFixKey(fix.key); setPopup(null);}
+          const point = {x: event.clientX - bounds.left, y: event.clientY - bounds.top};
+          const airports = !editMode ? hitAirports(airportSymbols, point, project) : [];
+          if (airports.length) openAirport(airports, point);
+          else if (fix) {setRevealedFixKey(fix.key); setPopup(null);}
           else if (!routing.draft && onPoint && editMode) onPoint(pointAt(event));
           else if (!routing.draft) {onSelect(null); setPopup(null);}
         }
@@ -404,7 +424,11 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     }}>Plan ground route</button> : null}
     {gateDraft ? <span className={styles.gatePlacementHint} role="status">{gateDraft.gateId ? `Release to place at ${gates?.find(gate => gate.id === gateDraft.gateId)?.label}` : "Drag onto a blue gate dot · Escape to cancel"}</span> : null}
     {runwayEnds(AIRPORT).map(end => {const p = project(end.point), color = runwayWindColors[atisRunwayWind(end.heading, weather ?? EXERCISE_WEATHER)]; return <span key={end.id} className={styles.runwayTag} style={{left: p.x, top: p.y, color, borderColor: color}}>{end.id}</span>;})}
-    <button className={styles.airportMarker} style={{left: project({x: 0, y: 0}).x, top: project({x: 0, y: 0}).y}} aria-label={`${AIRPORT.icao} airport information`} onClick={() => setPopup(popup === "airport" ? null : "airport")}><span>{AIRPORT.icao}</span><Crosshair size={28} weight="fill"/><i/></button>
+    <button className={styles.airportMarker} style={{left: project({x: 0, y: 0}).x, top: project({x: 0, y: 0}).y}} aria-label={`${AIRPORT.icao} airport information`} onClick={event => {
+      const bounds = container.current!.getBoundingClientRect(), point = event.detail ? {x: event.clientX - bounds.left, y: event.clientY - bounds.top} : project({x: 0, y: 0});
+      const choices = hitAirports(airportSymbols, point, project);
+      openAirport(choices.length ? choices : [airportSymbols[0]], point);
+    }}><span>{AIRPORT.icao}</span><Crosshair size={28} weight="fill"/><i/></button>
     {vectorAircraft && vectorEnabled ? <>
       <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#ff69bd" strokeWidth="4">
         <circle aria-label="Vector cancellation circle" cx={project(vectorAircraft.position).x} cy={project(vectorAircraft.position).y} r={VECTOR_CANCEL_RADIUS}/>
@@ -525,7 +549,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route{routeEditable ? <><br/>Drag the green line to reshape · drag a waypoint to move it</> : null}</> : <>Projected path · {selectedAircraft.mode}<br/>{!selectedAircraft.radar && ["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>{editMode === "taxi-preview" ? "Taxi route · drag the green line to adjust" : editMode === "taxi" ? "Click to extend route · drag the line or a waypoint to reshape" : editMode === "flightPlan" ? "Click to add flight-plan waypoint" : "Click to reposition selected aircraft"}</div> : null}
     <div className={styles.scopeButtons}>
-      <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => setPopup(popup === "options" || popup === "hide" ? null : "options")}><Gear size={32} weight="fill"/></button>
+      <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => {setAirportView(null); setPopup(popup === "options" || popup === "hide" ? null : "options");}}><Gear size={32} weight="fill"/></button>
       <button aria-label="Zoom in" onClick={() => zoom(1.4)}><MagnifyingGlassPlus size={32} weight="bold"/></button>
       <button aria-label="Zoom out" onClick={() => zoom(1 / 1.4)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
       <button aria-label="Recenter airport" onClick={() => navigationCamera.reset(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
@@ -533,8 +557,13 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     {popup === "options" ? <div className={styles.optionsMenu} role="menu" aria-label="Scope options">{scopeOptionRows.map(([key, label]) => <button key={key} role="menuitemcheckbox" aria-checked={options[key]} onClick={() => setOptions(o => ({...o, [key]: !o[key]}))}><span aria-hidden="true">{options[key] ? "✓" : ""}</span>{label}</button>)}<button role="menuitem" aria-haspopup="menu" onClick={() => setPopup("hide")}><span aria-hidden="true">{options.filter !== "none" ? "✓" : ""}</span>Hide Traffic <span className={styles.arrow} aria-hidden="true">›</span></button><button role="menuitemcheckbox" aria-checked={options.windsAloft} onClick={() => setOptions(o => ({...o, windsAloft: !o.windsAloft}))}><span aria-hidden="true">{options.windsAloft ? "✓" : ""}</span>Winds Aloft</button><button role="menuitem" onClick={() => {setProcedureOverlays([]); setPopup(null);}}><span aria-hidden="true">×</span>Clear All Procedures</button></div> : null}
     {revealedFix ? <span role="tooltip" className={styles.fixTooltip} style={{left: Math.max(6, Math.min(size.width - 130, revealedFix.x + 12)), top: Math.max(6, Math.min(size.height - 32, revealedFix.y - 30))}}>{revealedFix.id} · {revealedFix.route && !revealedFix.background ? "Flight plan" : revealedFix.kind === "fix" ? "Fix" : revealedFix.kind.toUpperCase()}</span> : null}
     {popup === "hide" ? <div className={styles.optionsMenu} role="menu" aria-label="Hide Traffic">{trafficFilters.map(([value, label]) => <button key={value} role="menuitemcheckbox" aria-checked={options.filter === value} onClick={() => {setOptions(o => ({...o, filter: toggleTrafficFilter(o.filter, value)})); setPopup(null);}}><span aria-hidden="true">{options.filter === value ? "✓" : ""}</span>{label}</button>)}</div> : null}
-    {popup === "airport" ? <div className={styles.airportPopup}><div><strong>{AIRPORT.name} training area · {AIRPORT.icao} · {AIRPORT.elevation}ft</strong><p>{METAR}<br/>{weather?.reference ?? EXERCISE_WEATHER.reference}</p><p>Instructor routes and final guides are schematic, not navigation charts.</p><button type="button" onClick={() => setPopup("procedures")}>Procedures{procedureOverlays.length ? ` (${procedureOverlays.length})` : ""}</button><a href="/sweatbox/about" target="_blank" rel="noreferrer">Sources and training limits</a></div></div> : null}
-    {popup === "procedures" ? <ScopeProcedures catalog={navigation.catalog} selected={procedureOverlays} onAdd={route => setProcedureOverlays(previous => [...previous.filter(item => item.routeId !== route.routeId), route])} onRemove={id => setProcedureOverlays(previous => previous.filter(item => item.routeId !== id))} onClose={() => setPopup(null)}/> : null}
+    {airportView?.kind === "menu" ? <AirportPopup airports={airportView.airports} point={airportView.point} size={size} weather={weather ?? EXERCISE_WEATHER} origin={AIRPORT.icao} environment={radarEnvironment}
+      onInformation={airport => setAirportView({...airportView, kind: "details", airports: [airport]})} onProcedures={airport => setAirportView({...airportView, kind: "procedures", airports: [airport]})} onClose={closeAirport}/> : null}
+    {airportView?.kind === "details" ? <AirportDetails key={airportView.airports[0].identifier} airport={airportView.airports[0]} origin={AIRPORT.icao} exerciseWeather={weather ?? EXERCISE_WEATHER} environment={radarEnvironment}
+      onClose={closeAirport}/> : null}
+    {airportView?.kind === "procedures" ? <ScopeProcedures key={airportView.airports[0].identifier} airport={airportView.airports[0].identifier} data={procedureData.data} error={procedureData.error} selected={procedureOverlays} opacity={procedureOpacity}
+      onToggle={procedure => setProcedureOverlays(previous => previous.some(item => procedureKey(item) === procedureKey(procedure)) ? previous.filter(item => procedureKey(item) !== procedureKey(procedure)) : [...previous, procedure])}
+      onClear={() => setProcedureOverlays(previous => previous.filter(item => item.airport !== airportView.airports[0].identifier))} onOpacity={setProcedureOpacity} onRetry={procedureData.retry} onClose={closeAirport}/> : null}
     {options.windsAloft ? <div className={styles.windsPanel}><label>WINDS<select aria-label="Winds Aloft altitude" value={windAltitude} onChange={event => setWindAltitude(Number(event.target.value))}>{windAltitudeChoices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{winds.data ? <small><a href={winds.data.source} target="_blank" rel="noreferrer">Open-Meteo</a> · {new Date(winds.data.validAt).toISOString().slice(11, 16)}Z forecast</small> : <small role="status">{winds.error ?? "Loading winds…"}{winds.error ? <button type="button" onClick={winds.retry}>Retry</button> : null}</small>}</div> : null}
     {mapLayers.error ? <div className={styles.mapLayerStatus} role="status">Airport layer unavailable. <button type="button" onClick={mapLayers.retry}>Retry</button></div> : null}
     <span className={styles.attribution}><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>{radarMode ? <> · Terrain: InfiniteTerrain</> : null}</span>

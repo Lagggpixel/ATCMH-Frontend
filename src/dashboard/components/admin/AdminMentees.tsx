@@ -1,15 +1,23 @@
-import {memo, startTransition, type ChangeEvent, type FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
+import {memo, startTransition, type ChangeEvent, type FormEvent, type MouseEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
+import {ArrowLeftIcon as ArrowLeft} from "@phosphor-icons/react/ArrowLeft";
 import {CalendarBlankIcon as CalendarBlank} from "@phosphor-icons/react/CalendarBlank";
 import {CaretDownIcon as CaretDown} from "@phosphor-icons/react/CaretDown";
 import {CaretRightIcon as CaretRight} from "@phosphor-icons/react/CaretRight";
+import {CaretUpIcon as CaretUp} from "@phosphor-icons/react/CaretUp";
+import {CaretUpDownIcon as CaretUpDown} from "@phosphor-icons/react/CaretUpDown";
+import {CheckCircleIcon as CheckCircle} from "@phosphor-icons/react/CheckCircle";
 import {CircleIcon as Circle} from "@phosphor-icons/react/Circle";
 import {ClockIcon as Clock} from "@phosphor-icons/react/Clock";
 import {GlobeIcon as Globe} from "@phosphor-icons/react/Globe";
+import {MagnifyingGlassIcon as MagnifyingGlass} from "@phosphor-icons/react/MagnifyingGlass";
+import {MinusCircleIcon as MinusCircle} from "@phosphor-icons/react/MinusCircle";
 import {NoteIcon as Note} from "@phosphor-icons/react/Note";
+import {SparkleIcon as Sparkle} from "@phosphor-icons/react/Sparkle";
 import {UserIcon as User} from "@phosphor-icons/react/User";
 import {UserPlusIcon as UserPlus} from "@phosphor-icons/react/UserPlus";
 import {UsersIcon as Users} from "@phosphor-icons/react/Users";
 import {XIcon as X} from "@phosphor-icons/react/X";
+import {XCircleIcon as XCircle} from "@phosphor-icons/react/XCircle";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
 import type {AdminMentee} from "../../types/AdminMentee.ts";
 import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} from "../../types/AutoMatchCandidate.ts";
@@ -29,7 +37,27 @@ import {createSessionEditForm, toSessionUpdatePayload, type SessionEditForm} fro
 import {generateHalfHourLocalSuggestions} from "../../utils/SessionTime.ts";
 import SessionTimeDisplay, {SessionTimePreview} from "./SessionTimeDisplay";
 import {getMenteeActionPolicy} from "../../utils/AdminMenteeActionPolicy.ts";
-import {getMenteeAvailabilityRows, getMenteeLifecycle} from "../../utils/MenteeProfileUtils.ts";
+import {getMenteeAvailabilityRows, getMenteeTimeline, type MenteeTimelineStep} from "../../utils/MenteeProfileUtils.ts";
+import {
+    MENTEE_STATUS_FILTERS,
+    countHeldSessions,
+    countMenteesByStatus,
+    daysBetween,
+    defaultMenteeSort,
+    describeMenteeSince,
+    formatDayCount,
+    formatDaysAgo,
+    formatShortUtcDate,
+    getLastSession,
+    getNextSession,
+    nextMenteeSort,
+    normalizeMenteeStatusFilter,
+    sortMentees,
+    toTimestamp,
+    type MenteeSort,
+    type MenteeSortKey,
+    type MenteeStatusFilter,
+} from "../../utils/MenteeListModel.ts";
 import {
     autoFillAssignmentSlots,
     generateAssignmentText,
@@ -78,10 +106,12 @@ const stateLabels: Record<AdminMentee["state"], string> = {
     terminated: "Terminated",
 };
 
-type MentorFilter = "all" | "mine" | "waitlist";
+type MentorFilter = "all" | "mine" | "unassigned";
 type MenteeView = "cards" | "table";
 type MenteeStateAction = "pickup" | "pass";
+type ProfileTab = "sessions" | "signups" | "notes";
 const MENTOR_FILTER_PARAM = "mentorFilter";
+const STATUS_FILTER_PARAM = "status";
 const MENTEE_SEARCH_PARAM = "search";
 const MENTEE_VIEW_PARAM = "view";
 const MAX_ASSIGNMENT_CODE_POINTS = 1500;
@@ -96,10 +126,13 @@ const countUnicodeCodePoints = (value: string): number => {
 type MenteeActionPolicy = ReturnType<typeof getMenteeActionPolicy>;
 type SessionFormState = {mentorId: string; airport: string; pilots: string; time: string};
 
-const normalizeMenteeView = (value: string | null): MenteeView => value === "table" ? "table" : "cards";
+// The table is the default because it compares mentees at a glance; cards stay one click away.
+const normalizeMenteeView = (value: string | null): MenteeView => value === "cards" ? "cards" : "table";
 
+// "waitlist" was the old combined filter, so old links still land on unassigned mentees.
 const normalizeMentorFilter = (value: string | null): MentorFilter => {
-    return value === "mine" || value === "waitlist" ? value : "all";
+    if (value === "waitlist") return "unassigned";
+    return value === "mine" || value === "unassigned" ? value : "all";
 };
 
 const stateActionCopy: Record<MenteeStateAction, { title: string; description: string; confirmLabel: string }> = {
@@ -163,6 +196,13 @@ const AdminMentees = ({
     const view = normalizeMenteeView(searchParams.get(MENTEE_VIEW_PARAM));
     const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
+    const statusFilter: MenteeStatusFilter = normalizeMenteeStatusFilter(searchParams.get(STATUS_FILTER_PARAM))
+        ?? (searchParams.get(MENTOR_FILTER_PARAM) === "waitlist" ? "waitlisted" : "all");
+    const [sortState, setSortState] = useState<{status: MenteeStatusFilter; sort: MenteeSort}>();
+    const menteeSort = useMemo(
+        () => sortState?.status === statusFilter ? sortState.sort : defaultMenteeSort(statusFilter),
+        [sortState, statusFilter],
+    );
     const preferenceAccountId = accountId ?? adminUser?.id;
     const usersById = useMemo(() => new Map(users?.map(user => [user.id, user]) ?? []), [users]);
     const autoMatchCandidateIds = useMemo(
@@ -204,17 +244,18 @@ const AdminMentees = ({
         }));
     }, [mentees, usersById]);
 
-    const displayedMentees = useMemo(() => {
+    // Refreshes whenever records change, which keeps "days ago" text honest without a ticking clock.
+    const listNow = useMemo(() => mentees ? Date.now() : 0, [mentees]);
+
+    // Search and mentor filters apply first so the status tabs can show how many records each tab holds.
+    const searchedMentees = useMemo(() => {
         const normalized = deferredSearchInput.trim().toLowerCase();
         if (!mentees) return [];
         return mentees.filter(mentee => {
             if (mentorFilter === "mine" && adminUser && getAssignedMentorId(mentee) !== adminUser.id) {
                 return false;
             }
-            if (mentorFilter === "waitlist" && (getAssignedMentorId(mentee) != null || mentee.state !== "waitlisted")) {
-                return false;
-            }
-            if (mentorFilter === "waitlist" && autoMatchSearched && !autoMatchCandidateIds.has(mentee.id)) {
+            if (mentorFilter === "unassigned" && getAssignedMentorId(mentee) != null) {
                 return false;
             }
             if (!normalized) {
@@ -222,7 +263,24 @@ const AdminMentees = ({
             }
             return menteeSearchTextById.get(mentee.id)?.includes(normalized) ?? false;
         });
-    }, [adminUser, autoMatchCandidateIds, autoMatchSearched, deferredSearchInput, menteeSearchTextById, mentees, mentorFilter]);
+    }, [adminUser, deferredSearchInput, menteeSearchTextById, mentees, mentorFilter]);
+
+    const statusCounts = useMemo(() => countMenteesByStatus(searchedMentees), [searchedMentees]);
+
+    const displayedMentees = useMemo(() => {
+        const filtered = searchedMentees.filter(mentee => {
+            if (statusFilter !== "all" && mentee.state !== statusFilter) return false;
+            return !(statusFilter === "waitlisted" && autoMatchSearched && !autoMatchCandidateIds.has(mentee.id));
+        });
+        return sortMentees(filtered, menteeSort, {
+            now: listNow,
+            getName: mentee => formatUserName(mentee.mentee, usersById.get(mentee.mentee)?.username, mentee.ifcName),
+            getMentorName: mentee => {
+                const mentorId = getAssignedMentorId(mentee);
+                return mentorId == null ? undefined : getUserNameFromMap(usersById, mentorId);
+            },
+        });
+    }, [autoMatchCandidateIds, autoMatchSearched, listNow, menteeSort, searchedMentees, statusFilter, usersById]);
 
     const menteePagination = usePagination(displayedMentees, 50);
     const resetMenteePagination = menteePagination.reset;
@@ -239,7 +297,7 @@ const AdminMentees = ({
         return listQuery ? `${path}?${listQuery}` : path;
     }, [listQuery]);
 
-    const updateListQuery = useCallback((updates: {search?: string; mentorFilter?: MentorFilter; view?: MenteeView}) => {
+    const updateListQuery = useCallback((updates: {search?: string; mentorFilter?: MentorFilter; status?: MenteeStatusFilter; view?: MenteeView}) => {
         const nextParams = new URLSearchParams(listQuery);
         if (updates.search !== undefined) {
             if (updates.search.trim()) nextParams.set(MENTEE_SEARCH_PARAM, updates.search);
@@ -248,6 +306,10 @@ const AdminMentees = ({
         if (updates.mentorFilter !== undefined) {
             if (updates.mentorFilter === "all") nextParams.delete(MENTOR_FILTER_PARAM);
             else nextParams.set(MENTOR_FILTER_PARAM, updates.mentorFilter);
+        }
+        if (updates.status !== undefined) {
+            if (updates.status === "all") nextParams.delete(STATUS_FILTER_PARAM);
+            else nextParams.set(STATUS_FILTER_PARAM, updates.status);
         }
         if (updates.view !== undefined) nextParams.set(MENTEE_VIEW_PARAM, updates.view);
         const query = nextParams.toString();
@@ -273,6 +335,16 @@ const AdminMentees = ({
         resetMenteePagination();
         updateListQuery({mentorFilter: nextFilter});
     }, [resetMenteePagination, updateListQuery]);
+
+    const handleStatusFilterChange = useCallback((status: MenteeStatusFilter) => {
+        resetMenteePagination();
+        updateListQuery({status});
+    }, [resetMenteePagination, updateListQuery]);
+
+    const handleSortChange = useCallback((key: MenteeSortKey) => {
+        resetMenteePagination();
+        setSortState({status: statusFilter, sort: nextMenteeSort(menteeSort, key)});
+    }, [menteeSort, resetMenteePagination, statusFilter]);
 
     useEffect(() => {
         let current = true;
@@ -356,22 +428,28 @@ const AdminMentees = ({
         searchInputRef.current = "";
         setSearchInput("");
         resetMenteePagination();
-        updateListQuery({search: "", mentorFilter: "all"});
+        updateListQuery({search: "", mentorFilter: "all", status: "all"});
     }, [resetMenteePagination, searchParam, updateListQuery]);
 
     const handleViewChange = useCallback((nextView: MenteeView) => updateListQuery({view: nextView}), [updateListQuery]);
-    const handleAutoMatchToggleOpen = useCallback(() => setAutoMatchOpen(open => !open), []);
+    // The helper only matches waitlisted mentees, so opening it from another tab moves to the waitlist first.
+    const handleAutoMatchToggleOpen = useCallback(() => {
+        if (statusFilter === "waitlisted") {
+            setAutoMatchOpen(open => !open);
+            return;
+        }
+        resetMenteePagination();
+        updateListQuery({status: "waitlisted"});
+        setAutoMatchOpen(true);
+    }, [resetMenteePagination, statusFilter, updateListQuery]);
 
     useEffect(() => {
-        if (mentorFilter !== "waitlist") {
-            setAutoMatchCandidates([]);
-            setAutoMatchSearched(false);
-            setAutoMatchError(undefined);
-            setAutoMatchOpen(false);
-        } else {
-            setAutoMatchOpen(true);
-        }
-    }, [mentorFilter]);
+        if (statusFilter === "waitlisted") return;
+        setAutoMatchCandidates([]);
+        setAutoMatchSearched(false);
+        setAutoMatchError(undefined);
+        setAutoMatchOpen(false);
+    }, [statusFilter]);
 
     const selectedSessions = useMemo(() => {
         const sessions = selectedMentee?.sessions ?? [];
@@ -619,11 +697,17 @@ const AdminMentees = ({
                     pagination={menteePagination}
                     filter={searchInput}
                     mentorFilter={mentorFilter}
+                    statusFilter={statusFilter}
+                    statusCounts={statusCounts}
+                    sort={menteeSort}
+                    now={listNow}
                     view={view}
                     adminUser={adminUser}
                     getUserName={getUserName}
                     onSearchChange={handleMenteeSearchChange}
                     onMentorFilterChange={handleMentorFilterChange}
+                    onStatusFilterChange={handleStatusFilterChange}
+                    onSortChange={handleSortChange}
                     onViewChange={handleViewChange}
                     onClearFilters={clearMenteeFilters}
                     onOpenMentee={handleOpenMentee}
@@ -675,11 +759,17 @@ interface MenteeListPageProps {
     pagination: PaginationResult<AdminMentee>;
     filter: string;
     mentorFilter: MentorFilter;
+    statusFilter: MenteeStatusFilter;
+    statusCounts: Record<MenteeStatusFilter, number>;
+    sort: MenteeSort | undefined;
+    now: number;
     view: MenteeView;
     adminUser: AdminUser | undefined;
     getUserName: (id?: string) => string;
     onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
     onMentorFilterChange: (value: string) => void;
+    onStatusFilterChange: (status: MenteeStatusFilter) => void;
+    onSortChange: (key: MenteeSortKey) => void;
     onViewChange: (view: MenteeView) => void;
     onClearFilters: () => void;
     onOpenMentee: (id: number) => void;
@@ -700,11 +790,17 @@ const MenteeListPage = ({
                             pagination,
                             filter,
                             mentorFilter,
+                            statusFilter,
+                            statusCounts,
+                            sort,
+                            now,
                             view,
                             adminUser,
                             getUserName,
                             onSearchChange,
                             onMentorFilterChange,
+                            onStatusFilterChange,
+                            onSortChange,
                             onViewChange,
                             onClearFilters,
                             onOpenMentee,
@@ -720,62 +816,78 @@ const MenteeListPage = ({
                             onAutoMatchLeniencyChange,
                             onAutoMatchSearch,
                         }: MenteeListPageProps) => {
-    const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all";
+    const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all" || statusFilter !== "all";
     const autoMatchCandidateById = useMemo(
         () => new Map(autoMatchCandidates.map(candidate => [candidate.id, candidate])),
         [autoMatchCandidates],
     );
-    const autoMatchActive = mentorFilter === "waitlist" && autoMatchSearched;
+    const autoMatchVisible = statusFilter === "waitlisted" && autoMatchOpen;
+    const autoMatchActive = statusFilter === "waitlisted" && autoMatchSearched;
     return (
         <main className={styles.menteesListPage} aria-label="Mentees">
+            <div className={styles.menteesIntro}>
+                <p>Track the waitlist, your mentees and their mentorship.</p>
+                <button
+                    type="button"
+                    className={styles.autoMatchToggleButton}
+                    aria-controls="auto-match-panel"
+                    aria-expanded={autoMatchVisible}
+                    onClick={onAutoMatchToggleOpen}
+                >
+                    <Sparkle size={17} aria-hidden="true"/>
+                    <span>{autoMatchVisible ? "Hide match helper" : "Match helper"}</span>
+                    {autoMatchActive ? <span className={styles.autoMatchToggleCount}>{autoMatchCandidates.length}</span> : null}
+                </button>
+            </div>
+
+            <div className={styles.statusTabs} role="group" aria-label="Filter by status">
+                {MENTEE_STATUS_FILTERS.map(option => (
+                    <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={statusFilter === option.value}
+                        className={statusFilter === option.value ? styles.statusTabActive : undefined}
+                        onClick={() => onStatusFilterChange(option.value)}
+                    >
+                        <span>{option.label}</span>
+                        <span className={styles.statusTabCount}>{statusCounts[option.value]}</span>
+                    </button>
+                ))}
+            </div>
+
             <section className={styles.menteesToolbar} aria-label="Mentee filters and view options">
-                <div className={styles.filterField}>
-                    <div className={styles.filterFieldHeader}>
-                        <label className={styles.filterFieldLabel} htmlFor="mentee-search">Search</label>
-                        <div className={styles.filterFieldMeta}>
-                            <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
-                            {hasFilters ? (
-                                <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
-                            ) : null}
-                        </div>
-                    </div>
-                    <div className={`${styles.searchInputRow} ${mentorFilter === "waitlist" ? styles.searchInputRowWithToggle : ""}`}>
-                        <input
-                            id="mentee-search"
-                            type="search"
-                            value={filter}
-                            onChange={onSearchChange}
-                            placeholder="Name, Discord ID, IFC, recruiter..."
-                        />
-                        {mentorFilter === "waitlist" ? (
-                            <button
-                                type="button"
-                                className={styles.autoMatchToggleButton}
-                                aria-controls="auto-match-panel"
-                                aria-expanded={autoMatchOpen}
-                                onClick={onAutoMatchToggleOpen}
-                            >
-                                <span>{autoMatchOpen ? "Hide helper" : "Match helper"}</span>
-                                {autoMatchSearched ? <span className={styles.autoMatchToggleCount}>{autoMatchCandidates.length}</span> : null}
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
-                <label className={styles.filterField} htmlFor="mentor-filter">
+                <label className={styles.searchField} htmlFor="mentee-search">
+                    <span className={styles.visuallyHidden}>Search mentees</span>
+                    <MagnifyingGlass size={18} aria-hidden="true"/>
+                    <input
+                        id="mentee-search"
+                        type="search"
+                        value={filter}
+                        onChange={onSearchChange}
+                        placeholder="Search name, Discord ID, IFC, recruiter..."
+                    />
+                </label>
+                <label className={styles.mentorField} htmlFor="mentor-filter">
                     <span>Mentor</span>
                     <select id="mentor-filter" value={mentorFilter} onChange={event => onMentorFilterChange(event.target.value)}>
-                        <option value="all">All mentees</option>
+                        <option value="all">Anyone</option>
                         <option value="mine" disabled={!adminUser}>My mentees</option>
-                        <option value="waitlist">Unassigned waitlist</option>
+                        <option value="unassigned">Unassigned</option>
                     </select>
                 </label>
+                <div className={styles.filterFieldMeta}>
+                    <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
+                    {hasFilters ? (
+                        <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                    ) : null}
+                </div>
                 <div className={styles.viewSwitcher} role="group" aria-label="Mentee list view">
-                    <button type="button" aria-pressed={view === "cards"} className={view === "cards" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("cards")}>Cards</button>
                     <button type="button" aria-pressed={view === "table"} className={view === "table" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("table")}>Table</button>
+                    <button type="button" aria-pressed={view === "cards"} className={view === "cards" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("cards")}>Cards</button>
                 </div>
             </section>
 
-            {mentorFilter === "waitlist" && autoMatchOpen ? (
+            {autoMatchVisible ? (
                 <AutoMatchPanel
                     candidates={autoMatchCandidates}
                     availability={autoMatchAvailability}
@@ -796,6 +908,7 @@ const MenteeListPage = ({
                             <MenteeCard
                                 key={mentee.id}
                                 mentee={mentee}
+                                now={now}
                                 getUserName={getUserName}
                                 onOpen={onOpenMentee}
                                 match={autoMatchActive ? autoMatchCandidateById.get(mentee.id) : undefined}
@@ -805,8 +918,12 @@ const MenteeListPage = ({
                 ) : (
                     <MenteeTable
                         mentees={pagination.paginatedItems}
+                        now={now}
+                        sort={sort}
+                        statusFilter={statusFilter}
                         getUserName={getUserName}
                         onOpen={onOpenMentee}
+                        onSortChange={onSortChange}
                         autoMatchActive={autoMatchActive}
                         candidateById={autoMatchCandidateById}
                     />
@@ -815,7 +932,7 @@ const MenteeListPage = ({
                 <div className={styles.menteesEmptyState}>
                     <h3>No mentees match these filters</h3>
                     <p>Try a broader search or clear the filters to see the full queue.</p>
-                    <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                    {hasFilters ? <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button> : null}
                 </div>
             )}
 
@@ -829,6 +946,7 @@ const MenteeListPage = ({
 };
 
 interface AutoMatchPanelProps {
+
     candidates: AutoMatchCandidate[];
     availability: string;
     leniency: AutoMatchLeniency;
@@ -888,12 +1006,14 @@ const AutoMatchPanel = memo(function AutoMatchPanel({
 
 interface MenteeCardProps {
     mentee: AdminMentee;
+    now: number;
     getUserName: (id?: string, fallback?: string | null) => string;
     onOpen: (id: number) => void;
     match?: AutoMatchCandidate;
 }
 
-const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}: MenteeCardProps) {
+const MenteeCard = memo(function MenteeCard({mentee, now, getUserName, onOpen, match}: MenteeCardProps) {
+    const nextSession = getNextSession(mentee, now);
     return (
     <article className={styles.menteeCard}>
         {match ? (
@@ -906,18 +1026,18 @@ const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}
             <span className={styles.menteeCardHeader}>
                 <span>
                     <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
-                    <small>Record #{mentee.id}</small>
+                    <small>#{mentee.id} · {formatIfcDisplay(mentee)}</small>
                 </span>
                 <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
             </span>
             <span className={styles.menteeCardDetails}>
-                <span><small>Mentor</small><strong>{getMentorDisplayName(mentee, getUserName)}</strong></span>
+                <span><small>Mentor</small><strong>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Unassigned"}</strong></span>
                 <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
-                <span><small>IFC</small><strong>{formatIfcDisplay(mentee)}</strong></span>
+                <span><small>Next session</small><strong>{nextSession ? formatNextSession(nextSession) : "None booked"}</strong></span>
                 <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
             </span>
             <span className={styles.menteeCardFooter}>
-                <span>Joined {formatAdminUtcDate(mentee.waitlistTime)}</span>
+                <span>{describeMenteeSince(mentee, now)}</span>
                 <span>Open profile</span>
             </span>
         </button>
@@ -925,54 +1045,90 @@ const MenteeCard = memo(function MenteeCard({mentee, getUserName, onOpen, match}
     );
 });
 
+const MENTEE_TABLE_COLUMNS: {key: MenteeSortKey; label: string}[] = [
+    {key: "name", label: "Mentee"},
+    {key: "status", label: "Status"},
+    {key: "mentor", label: "Mentor"},
+    {key: "since", label: "Waiting / since"},
+    {key: "next", label: "Next session"},
+    {key: "last", label: "Last session"},
+    {key: "sessions", label: "Sessions"},
+];
+
 interface MenteeTableProps {
     mentees: AdminMentee[];
+    now: number;
+    sort: MenteeSort | undefined;
+    statusFilter: MenteeStatusFilter;
     getUserName: (id?: string, fallback?: string | null) => string;
     onOpen: (id: number) => void;
+    onSortChange: (key: MenteeSortKey) => void;
     autoMatchActive: boolean;
     candidateById: Map<number, AutoMatchCandidate>;
 }
 
-const MenteeTable = memo(function MenteeTable({mentees, getUserName, onOpen, autoMatchActive, candidateById}: MenteeTableProps) {
+// Rows open the profile from anywhere; the name button keeps that reachable by keyboard and screen readers.
+const openRowUnlessControl = (event: MouseEvent<HTMLTableRowElement>, open: () => void) => {
+    if ((event.target as HTMLElement).closest("button, a, input, select")) return;
+    open();
+};
+
+const MenteeTable = memo(function MenteeTable({mentees, now, sort, statusFilter, getUserName, onOpen, onSortChange, autoMatchActive, candidateById}: MenteeTableProps) {
     return (
     <div className={styles.menteesTableWrap}>
         <table className={styles.menteesTable}>
-            <caption className={styles.visuallyHidden}>Mentee records</caption>
+            <caption className={styles.visuallyHidden}>Mentee records. Select a row to open the mentee profile.</caption>
             <thead>
             <tr>
-                <th scope="col">Mentee</th>
-                <th scope="col">Status</th>
-                <th scope="col">Mentor</th>
-                <th scope="col">Recruiter</th>
-                <th scope="col">IFC</th>
-                <th scope="col">Sessions</th>
-                <th scope="col"><span className={styles.visuallyHidden}>Profile</span></th>
+                {MENTEE_TABLE_COLUMNS.map(column => {
+                    const active = sort?.key === column.key;
+                    const label = column.key === "since" && statusFilter === "waitlisted" ? "Waiting" : column.label;
+                    return (
+                        <th key={column.key} scope="col" aria-sort={active ? (sort?.direction === "asc" ? "ascending" : "descending") : undefined}>
+                            <button type="button" className={styles.sortButton} onClick={() => onSortChange(column.key)}>
+                                {label}
+                                {active
+                                    ? <CaretUp size={13} aria-hidden="true" className={sort?.direction === "desc" ? styles.sortIconDesc : undefined}/>
+                                    : <CaretUpDown size={13} aria-hidden="true" className={styles.sortIconIdle}/>}
+                            </button>
+                        </th>
+                    );
+                })}
+                <th scope="col"><span className={styles.visuallyHidden}>Open profile</span></th>
             </tr>
             </thead>
             <tbody>
-            {mentees.map(mentee => (
-                <tr key={mentee.id}>
-                    <th scope="row">
-                        <div className={styles.tableMenteeIdentity}>
-                            <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
-                                <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
-                                <small>#{mentee.id} · {formatAdminUtcDate(mentee.waitlistTime)}</small>
-                            </button>
-                            {autoMatchActive && candidateById.get(mentee.id) ? (
-                                <small className={styles.tableMatchSummary}>
-                                    {formatAutoMatchSummary(candidateById.get(mentee.id)!)} · {candidateById.get(mentee.id)?.timezone || "Timezone not provided"}
-                                </small>
-                            ) : null}
-                        </div>
-                    </th>
-                    <td><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
-                    <td>{getMentorDisplayName(mentee, getUserName)}</td>
-                    <td>{mentee.recruiter || "Not set"}</td>
-                    <td>{formatIfcDisplay(mentee)}</td>
-                    <td>{mentee.sessions.length}</td>
-                    <td><button type="button" className={styles.tableOpenButton} onClick={() => onOpen(mentee.id)}>Open</button></td>
-                </tr>
-            ))}
+            {mentees.map(mentee => {
+                const match = autoMatchActive ? candidateById.get(mentee.id) : undefined;
+                const nextSession = getNextSession(mentee, now);
+                const lastSession = getLastSession(mentee, now);
+                const lastSessionTime = toTimestamp(lastSession?.time);
+                const hasMentor = getAssignedMentorId(mentee) != null;
+                return (
+                    <tr key={mentee.id} className={styles.menteeRow} onClick={event => openRowUnlessControl(event, () => onOpen(mentee.id))}>
+                        <th scope="row" data-label="Mentee">
+                            <div className={styles.tableMenteeIdentity}>
+                                <button type="button" className={styles.tableMenteeButton} onClick={() => onOpen(mentee.id)}>
+                                    <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
+                                    <small>#{mentee.id} · {formatIfcDisplay(mentee)}</small>
+                                </button>
+                                {match ? (
+                                    <small className={styles.tableMatchSummary}>
+                                        {formatAutoMatchSummary(match)} · {match.timezone || "Timezone not provided"}
+                                    </small>
+                                ) : null}
+                            </div>
+                        </th>
+                        <td data-label="Status"><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
+                        <td data-label="Mentor" className={hasMentor ? undefined : styles.mutedCell}>{hasMentor ? getMentorDisplayName(mentee, getUserName) : "Unassigned"}</td>
+                        <td data-label="Waiting / since">{describeMenteeSince(mentee, now)}</td>
+                        <td data-label="Next session" className={nextSession ? undefined : styles.mutedCell}>{nextSession ? formatNextSession(nextSession) : "None booked"}</td>
+                        <td data-label="Last session" className={lastSessionTime == null ? styles.mutedCell : undefined}>{lastSessionTime == null ? "None yet" : formatDaysAgo(lastSessionTime, now)}</td>
+                        <td data-label="Sessions" className={styles.numericCell}>{mentee.sessions.length}</td>
+                        <td className={styles.rowChevron} aria-hidden="true"><CaretRight size={16}/></td>
+                    </tr>
+                );
+            })}
             </tbody>
         </table>
     </div>
@@ -1036,129 +1192,185 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                               onCancelSession,
                               onOpenAssignmentGenerator,
                           }: MenteeProfilePageProps) => {
+    const [activeTab, setActiveTab] = useState<ProfileTab>("sessions");
+    const [scheduleOpen, setScheduleOpen] = useState(false);
+    const tabsRef = useRef<HTMLElement>(null);
+    const now = useMemo(() => selectedMentee ? Date.now() : 0, [selectedMentee]);
+
     if (!selectedMentee) {
         return (
             <main className={styles.profileNotFound}>
-                <button type="button" className={styles.profileBackButton} onClick={onBack}>Back to mentees</button>
+                <button type="button" className={styles.profileBackButton} onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>Back to mentees</button>
                 <h2>Mentee not found</h2>
                 <p>This mentee record may have been removed or you may not have access to it.</p>
             </main>
         );
     }
 
+    const nextSession = getNextSession(selectedMentee, now);
+    const showSessions = () => {
+        setActiveTab("sessions");
+        tabsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
+    };
+    const sessionSectionProps = {
+        getUserName,
+        busyAction,
+        attendeeInputs,
+        assignments,
+        sessionTimeSuggestions,
+        onAttendeeInputChange,
+        onUpdateSession,
+        onAddAttendee,
+        onRemoveAttendee,
+        onCancelSession,
+        onOpenAssignmentGenerator,
+    };
+    const tabs: {id: ProfileTab; label: string; count: number}[] = [
+        {id: "sessions", label: "Training sessions", count: selectedMentee.sessions.length},
+        {id: "signups", label: "Session sign-up history", count: attendedSessions.length},
+        {id: "notes", label: "Notes", count: selectedMenteeNotes.length},
+    ];
+
     return (
         <main className={styles.profilePage} aria-labelledby="mentee-profile-title">
-            <div className={styles.profileBreadcrumb}>
-                <button type="button" className={styles.profileBackButton} onClick={onBack}>Back to mentees</button>
-                <span aria-hidden="true">/</span>
-                <span>Mentee profile</span>
-            </div>
+            <nav className={styles.profileBreadcrumb} aria-label="Breadcrumb">
+                <button type="button" className={styles.profileBackButton} onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>Back to mentees</button>
+            </nav>
             <MenteeProfileEditor key={selectedMentee.id} mentee={selectedMentee} token={profileToken} onSaved={onProfileChanged} triggerClassName={styles.profileEditButton}>
                 {editProfileButton => <>
-                    <header className={styles.profileHeader}>
-                        <div className={styles.profileIdentity}>
-                            <div className={styles.profileTitleRow}>
-                                <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
-                                <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
+                    <section className={styles.profileHeaderCard}>
+                        <header className={styles.profileHeader}>
+                            <div className={styles.profileIdentity}>
+                                <div className={styles.profileTitleRow}>
+                                    <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
+                                    <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
+                                </div>
+                                <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
                             </div>
-                            <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
-                        </div>
-                        <div className={styles.profileActionButtons}>
-                            {editProfileButton}
-                            {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
-                            {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}>Pass</button> : null}
-                            {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
-                        </div>
-                    </header>
+                            <div className={styles.profileActionButtons}>
+                                {editProfileButton}
+                                {selectedActionPolicy?.canSchedule ? <button type="button" className={styles.profileSecondaryAction} onClick={() => setScheduleOpen(true)}><CalendarBlank size={18} aria-hidden="true"/>Schedule session</button> : null}
+                                {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
+                                {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}><CheckCircle size={18} aria-hidden="true"/>Pass</button> : null}
+                                {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
+                            </div>
+                        </header>
+                        <MenteeMentorshipProgress mentee={selectedMentee} now={now}/>
+                    </section>
 
                     <AdminToast message={actionError} onDismiss={onDismissActionError}/>
 
-                    <MenteeProfileOverview mentee={selectedMentee} getUserName={getUserName}/>
+                    <MenteeProfileOverview
+                        mentee={selectedMentee}
+                        getUserName={getUserName}
+                        nextSession={nextSession}
+                        canSchedule={selectedActionPolicy?.canSchedule ?? false}
+                        assignmentsAvailable={assignments.length > 0}
+                        onSchedule={() => setScheduleOpen(true)}
+                        onShowSessions={showSessions}
+                        onOpenAssignmentGenerator={onOpenAssignmentGenerator}
+                    />
                 </>}
             </MenteeProfileEditor>
 
-            {selectedActionPolicy?.canSchedule ? (
-                <details className={styles.schedulingPanel}>
-                    <summary><CalendarBlank size={21} aria-hidden="true"/>Schedule session<CaretDown size={16} aria-hidden="true"/></summary>
-                    <form className={styles.actionPanel} onSubmit={onSchedule}>
-                        <p className={styles.actionPanelDescription}>Create the next practical session for this mentee.</p>
-                        <label>Mentor Discord ID<input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Blank for you"/></label>
-                        <div className={styles.inlineInputs}>
-                            <label>Airport<input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="ICAO code" maxLength={5} required/></label>
-                            <label>Pilot places<input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/></label>
-                        </div>
-                        <label className={styles.utcDateTimeLabel}>
-                            <span>Session time (your local time)</span>
-                            <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
-                            <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
-                            <SessionTimePreview value={sessionForm.time}/>
-                        </label>
-                        <button type="submit" disabled={busyAction === "schedule"}>Schedule session</button>
-                    </form>
-                </details>
-            ) : null}
-
-            <section className={styles.profileTraining} aria-labelledby="mentee-training-title">
-                <div className={styles.profileSectionHeading}>
-                    <CalendarBlank size={23} aria-hidden="true"/>
-                    <div><h3 id="mentee-training-title">Training sessions</h3>{selectedMentee.sessions.length === 0 ? <p>No mentee training sessions scheduled or previously held.</p> : null}</div>
-                    {selectedMentee.sessions.length === 0 ? <span className={styles.profileQuietStatus}>None yet</span> : null}
+            <section ref={tabsRef} className={styles.profileTabsCard} aria-label="Mentee records">
+                <div className={styles.profileTabs} role="tablist" aria-label="Mentee records">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            id={`mentee-tab-${tab.id}`}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === tab.id}
+                            aria-controls={`mentee-panel-${tab.id}`}
+                            tabIndex={activeTab === tab.id ? 0 : -1}
+                            onClick={() => setActiveTab(tab.id)}
+                            onKeyDown={event => {
+                                if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                                const index = tabs.findIndex(candidate => candidate.id === activeTab);
+                                const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+                                setActiveTab(next.id);
+                                document.getElementById(`mentee-tab-${next.id}`)?.focus();
+                            }}
+                        >
+                            {tab.label}<span className={styles.statusTabCount}>{tab.count}</span>
+                        </button>
+                    ))}
                 </div>
-                {selectedSessions.future.length > 0 ? (
-                <SessionSection
-                title="Upcoming sessions"
-                sessions={selectedSessions.future}
-                getUserName={getUserName}
-                editable
-                busyAction={busyAction}
-                attendeeInputs={attendeeInputs}
-                assignments={assignments}
-                sessionTimeSuggestions={sessionTimeSuggestions}
-                onAttendeeInputChange={onAttendeeInputChange}
-                onUpdateSession={onUpdateSession}
-                onAddAttendee={onAddAttendee}
-                onRemoveAttendee={onRemoveAttendee}
-                onCancelSession={onCancelSession}
-                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
-                />) : null}
-                {selectedSessions.past.length > 0 ? (
-                <SessionSection
-                title="Past sessions"
-                sessions={selectedSessions.past}
-                getUserName={getUserName}
-                editable
-                busyAction={busyAction}
-                attendeeInputs={attendeeInputs}
-                assignments={assignments}
-                sessionTimeSuggestions={sessionTimeSuggestions}
-                onAttendeeInputChange={onAttendeeInputChange}
-                onUpdateSession={onUpdateSession}
-                onAddAttendee={onAddAttendee}
-                onRemoveAttendee={onRemoveAttendee}
-                onCancelSession={onCancelSession}
-                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
-                />) : null}
+
+                <div id="mentee-panel-sessions" role="tabpanel" aria-labelledby="mentee-tab-sessions" hidden={activeTab !== "sessions"} className={styles.profileTraining}>
+                    {selectedMentee.sessions.length === 0 ? (
+                        <div className={styles.profileTabEmpty}>
+                            <p>No mentee training sessions scheduled or previously held.</p>
+                            {selectedActionPolicy?.canSchedule ? <button type="button" className={styles.secondaryButton} onClick={() => setScheduleOpen(true)}>Schedule session</button> : null}
+                        </div>
+                    ) : null}
+                    {selectedSessions.future.length > 0 ? (
+                        <SessionSection title="Upcoming sessions" sessions={selectedSessions.future} editable {...sessionSectionProps}/>
+                    ) : null}
+                    {selectedSessions.past.length > 0 ? (
+                        <SessionSection title="Past sessions" sessions={selectedSessions.past} editable {...sessionSectionProps}/>
+                    ) : null}
+                </div>
+                <div id="mentee-panel-signups" role="tabpanel" aria-labelledby="mentee-tab-signups" hidden={activeTab !== "signups"}>
+                    <AttendedSessionSection title="Session sign-up history" sessions={attendedSessions} editable={false} {...sessionSectionProps}/>
+                </div>
+                <div id="mentee-panel-notes" role="tabpanel" aria-labelledby="mentee-tab-notes" hidden={activeTab !== "notes"}>
+                    <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
+                </div>
             </section>
+
             <RecentTrainingFeedback menteeRecordId={selectedMentee.id}/>
-            <AttendedSessionSection
-                title="Session sign-up history"
-                sessions={attendedSessions}
-                getUserName={getUserName}
-                editable={false}
-                busyAction={busyAction}
-                attendeeInputs={attendeeInputs}
-                assignments={assignments}
-                sessionTimeSuggestions={sessionTimeSuggestions}
-                onAttendeeInputChange={onAttendeeInputChange}
-                onUpdateSession={onUpdateSession}
-                onAddAttendee={onAddAttendee}
-                onRemoveAttendee={onRemoveAttendee}
-                onCancelSession={onCancelSession}
-                onOpenAssignmentGenerator={onOpenAssignmentGenerator}
-            />
-            <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
+
+            {scheduleOpen && selectedActionPolicy?.canSchedule ? (
+                <MenteeScheduleDialog
+                    sessionForm={sessionForm}
+                    onSessionFormChange={onSessionFormChange}
+                    sessionTimeSuggestions={sessionTimeSuggestions}
+                    busy={busyAction === "schedule"}
+                    onCancel={() => setScheduleOpen(false)}
+                    onSubmit={event => {
+                        onSchedule(event);
+                        setScheduleOpen(false);
+                    }}
+                />
+            ) : null}
         </main>
     );
+};
+
+const MenteeScheduleDialog = ({sessionForm, onSessionFormChange, sessionTimeSuggestions, busy, onCancel, onSubmit}: {
+    sessionForm: SessionFormState;
+    onSessionFormChange: (changes: Partial<SessionFormState>) => void;
+    sessionTimeSuggestions: string[];
+    busy: boolean;
+    onCancel: () => void;
+    onSubmit: (event: FormEvent) => void;
+}) => {
+    const dialogRef = useMenteeDialogFocus(onCancel);
+    return <div className={styles.modalBackdrop} role="presentation" onClick={onCancel}>
+        <div ref={dialogRef} className={styles.scheduleModal} role="dialog" aria-modal="true" aria-labelledby="mentee-schedule-title" onClick={event => event.stopPropagation()}>
+            <h3 id="mentee-schedule-title">Schedule session</h3>
+            <form className={styles.actionPanel} onSubmit={onSubmit}>
+                <p className={styles.actionPanelDescription}>Create the next practical session for this mentee.</p>
+                <label>Mentor Discord ID<input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Blank for you"/></label>
+                <div className={styles.inlineInputs}>
+                    <label>Airport<input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="ICAO code" maxLength={5} required/></label>
+                    <label>Pilot places<input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/></label>
+                </div>
+                <label className={styles.utcDateTimeLabel}>
+                    <span>Session time (your local time)</span>
+                    <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
+                    <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
+                    <SessionTimePreview value={sessionForm.time}/>
+                </label>
+                <div className={styles.modalActions}>
+                    <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
+                    <button type="submit" disabled={busy}>Schedule session</button>
+                </div>
+            </form>
+        </div>
+    </div>;
 };
 
 const MenteeActionConfirmation = ({
@@ -1281,46 +1493,140 @@ const MenteeProfileActionMenu = ({onTerminate, busy}: {onTerminate: () => void; 
     </details>;
 };
 
-const MenteeProfileOverview = ({mentee, getUserName}: {mentee: AdminMentee; getUserName: (id?: string) => string}) => {
+const timelineIcons: Record<MenteeTimelineStep["state"], typeof Circle> = {
+    complete: CheckCircle,
+    current: Circle,
+    upcoming: Circle,
+    skipped: MinusCircle,
+    passed: CheckCircle,
+    terminated: XCircle,
+};
+
+const isTimelineEnd = (step: MenteeTimelineStep) => step.state === "current" || step.state === "passed" || step.state === "terminated";
+
+const describeTimelineStep = (step: MenteeTimelineStep) => {
+    if (step.time != null) return formatAdminUtcDate(step.time);
+    if (step.state === "upcoming") return "Not yet";
+    if (step.state === "skipped") return "Skipped";
+    return "Date not recorded";
+};
+
+// One headline duration per state, plus held sessions and how long the mentee waited for a mentor.
+const getMentorshipStats = (mentee: AdminMentee, now: number) => {
+    const waitlisted = toTimestamp(mentee.waitlistTime);
+    const pickedUp = toTimestamp(mentee.pickupTime);
+    const ended = toTimestamp(mentee.state === "passed" ? mentee.passedTime : mentee.terminatedTime);
+    const span = (from?: number, to?: number) => from == null || to == null ? "Not recorded" : formatDayCount(daysBetween(from, to));
+    const headline = mentee.state === "waitlisted"
+        ? {label: "Waiting", value: span(waitlisted, now)}
+        : mentee.state === "picked_up"
+            ? {label: "Mentored for", value: span(pickedUp, now)}
+            : mentee.state === "terminated" && pickedUp == null
+                ? {label: "On waitlist for", value: span(waitlisted, ended)}
+                : {label: "Mentored for", value: span(pickedUp, ended)};
+    const waited = mentee.state === "waitlisted"
+        ? {label: "Joined waitlist", value: waitlisted == null ? "Not recorded" : formatShortUtcDate(waitlisted)}
+        : pickedUp == null
+            ? {label: "Waited", value: mentee.state === "terminated" ? "Never picked up" : "Not recorded"}
+            : {label: "Waited", value: span(waitlisted, pickedUp)};
+    return [headline, {label: "Sessions held", value: String(countHeldSessions(mentee, now))}, waited];
+};
+
+const MenteeMentorshipProgress = ({mentee, now}: {mentee: AdminMentee; now: number}) => (
+    <div className={styles.profileProgress}>
+        <ol className={styles.profileTimeline} aria-label="Mentorship timeline">
+            {getMenteeTimeline(mentee).map(step => {
+                const Icon = timelineIcons[step.state];
+                return <li key={step.key} data-state={step.state} aria-current={isTimelineEnd(step) ? "step" : undefined}>
+                    <Icon size={24} weight={step.state === "upcoming" ? "regular" : "fill"} aria-hidden="true"/>
+                    <strong>{step.label}</strong>
+                    <span>{describeTimelineStep(step)}</span>
+                </li>;
+            })}
+        </ol>
+        <dl className={styles.profileStats}>
+            {getMentorshipStats(mentee, now).map(stat => <div key={stat.label}>
+                <dt>{stat.label}</dt>
+                <dd>{stat.value}</dd>
+            </div>)}
+        </dl>
+    </div>
+);
+
+const MenteeProfileOverview = ({mentee, getUserName, nextSession, canSchedule, assignmentsAvailable, onSchedule, onShowSessions, onOpenAssignmentGenerator}: {
+    mentee: AdminMentee;
+    getUserName: (id?: string) => string;
+    nextSession: Session | undefined;
+    canSchedule: boolean;
+    assignmentsAvailable: boolean;
+    onSchedule: () => void;
+    onShowSessions: () => void;
+    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
+}) => {
     const availability = getMenteeAvailabilityRows(mentee.availability);
-    return <>
-        <section className={styles.profileLifecycle} aria-label="Mentorship timeline">
-            <ol>
-                {getMenteeLifecycle(mentee).map(stage => <li key={stage.state} data-reached={stage.reached} data-current={stage.current} aria-current={stage.current ? "step" : undefined}>
-                    <Circle size={21} weight={stage.current ? "fill" : "regular"} aria-hidden="true"/>
-                    <strong>{stage.label}</strong>
-                    <span>{stage.time != null ? formatAdminUtcDate(stage.time) : stage.reached ? "Date not recorded" : "Not yet"}</span>
-                </li>)}
-            </ol>
-        </section>
-        <section className={styles.profileOverview} aria-label="Availability and ownership">
-            <div className={styles.profileAvailability}>
-                <h3>Weekly availability (UTC)</h3>
-                <p>Times shown in UTC. 00:00 means midnight at the end of the day.</p>
+    return (
+        <div className={styles.profileCards}>
+            <section className={styles.profileCard} aria-labelledby="mentee-next-session-title">
+                <div className={styles.profileCardHeading}>
+                    <CalendarBlank size={21} aria-hidden="true"/>
+                    <h3 id="mentee-next-session-title">Next session</h3>
+                </div>
+                {nextSession ? <>
+                    <p className={styles.profileNextSessionTime}><SessionTimeDisplay value={nextSession.time}/></p>
+                    <dl className={styles.profileFactList}>
+                        <div><dt>Airport</dt><dd>{nextSession.airport || "Not set"}</dd></div>
+                        <div><dt>Mentor</dt><dd>{getUserName(nextSession.mentor)}</dd></div>
+                        <div><dt>Pilots</dt><dd>{formatPilotCount(nextSession)}</dd></div>
+                    </dl>
+                    <div className={styles.profileCardActions}>
+                        <button type="button" className={styles.assignmentButton} disabled={!assignmentsAvailable} onClick={() => onOpenAssignmentGenerator(nextSession)}>
+                            {nextSession.hasAssignment ? "Edit assignment" : "Generate assignment"}
+                        </button>
+                        <button type="button" className={styles.profileLinkButton} onClick={onShowSessions}>All sessions<CaretRight size={14} aria-hidden="true"/></button>
+                    </div>
+                </> : <>
+                    <p className={styles.profileCardEmpty}>No session booked.</p>
+                    <div className={styles.profileCardActions}>
+                        {canSchedule ? <button type="button" className={styles.secondaryButton} onClick={onSchedule}>Schedule session</button> : null}
+                        {mentee.sessions.length > 0 ? <button type="button" className={styles.profileLinkButton} onClick={onShowSessions}>Past sessions<CaretRight size={14} aria-hidden="true"/></button> : null}
+                    </div>
+                </>}
+            </section>
+
+            <section className={`${styles.profileCard} ${styles.profileOwnership}`} aria-labelledby="mentee-ownership-title">
+                <div className={styles.profileCardHeading}>
+                    <Users size={21} aria-hidden="true"/>
+                    <h3 id="mentee-ownership-title">Ownership details</h3>
+                </div>
+                <dl>
+                    <div><User size={18} aria-hidden="true"/><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
+                    <div><Users size={18} aria-hidden="true"/><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
+                    <div><Globe size={18} aria-hidden="true"/><dt>Mentee region</dt><dd>{mentee.region || "Not provided"}</dd></div>
+                    <div><Clock size={18} aria-hidden="true"/><dt>Mentee timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
+                </dl>
+                {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}
+            </section>
+
+            <section className={`${styles.profileCard} ${styles.profileAvailability}`} aria-labelledby="mentee-availability-title">
+                <div className={styles.profileCardHeading}>
+                    <Clock size={21} aria-hidden="true"/>
+                    <h3 id="mentee-availability-title">Weekly availability (UTC)</h3>
+                </div>
+                <p>00:00 means midnight at the end of the day.</p>
                 {availability.length > 0 ? <dl className={styles.profileAvailabilityList}>
                     {availability.map(({day, label, segments}, index) => <div key={`${day}-${index}`}>
                         <dt>{day}</dt>
                         <dd>
                             <div className={styles.availabilityTrack} aria-hidden="true">
-                                {segments.map((segment, segmentIndex) => <span key={segmentIndex} style={{left: `${segment.start / 1440 * 100}%`, width: `${(segment.end - segment.start) / 1440 * 100}%`}}><Circle size={8} weight="fill"/><Circle size={8} weight="fill"/></span>)}
+                                {segments.map((segment, segmentIndex) => <span key={segmentIndex} style={{left: `${segment.start / 1440 * 100}%`, width: `${(segment.end - segment.start) / 1440 * 100}%`}}/>)}
                             </div>
                             <span>{label}</span>
                         </dd>
                     </div>)}
                 </dl> : <p className={styles.profileMissingAvailability}>Availability not provided.</p>}
-            </div>
-            <aside className={styles.profileOwnership} aria-label="Ownership details">
-                <h3>Ownership details</h3>
-                <dl>
-                    <div><User size={22} aria-hidden="true"/><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
-                    <div><Users size={22} aria-hidden="true"/><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
-                    <div><Globe size={22} aria-hidden="true"/><dt>Mentee region</dt><dd>{mentee.region || "Not provided"}</dd></div>
-                    <div><Clock size={22} aria-hidden="true"/><dt>Mentee timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
-                </dl>
-                {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}
-            </aside>
-        </section>
-    </>;
+            </section>
+        </div>
+    );
 };
 
 const UserNotesSection = ({notes, getUserName}: { notes: UserNote[]; getUserName: (id?: string) => string }) => (
@@ -2347,6 +2653,12 @@ const getMenteeSessionCount = (mentee: AdminMentee, session: Session) => {
     });
 
     return pastRunningSessions.length + 1;
+};
+
+const formatNextSession = (session: Session) => {
+    const time = toTimestamp(session.time);
+    const date = time == null ? "Date not set" : formatShortUtcDate(time);
+    return session.airport ? `${date} · ${session.airport}` : date;
 };
 
 const formatAutoMatchSummary = (candidate: AutoMatchCandidate) => {

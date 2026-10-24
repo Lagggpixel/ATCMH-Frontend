@@ -21,7 +21,7 @@ test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting int
       const a = {...taxi(feature.id, position.x, position.y), taxiPath: route.path};
       let index = 0, held = false, rotation = 0;
       const label = `${feature.name}/${runway}`;
-      for (let frame = 0; frame < 36000 && !held; frame++) {
+      for (let frame = 0; frame < 36000 && !held && index < route.path.length; frame++) {
         const oldIndex = index, oldPosition = {...a.position}, oldHeading = a.heading;
         ({index, held} = moveGround(a, route.path, index, .05, false, {speedLimit: Infinity, travelLimit: Infinity}));
         assert.ok(distance(oldPosition, a.position) <= 15 / 3600 * .05 + 1e-7, `${label}: no teleporting`);
@@ -30,7 +30,8 @@ test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting int
         assert.ok(rotation < 360, `${label}: orbiting waypoint ${oldIndex} (${rotation} degrees)`);
         if (index !== oldIndex) rotation = 0;
       }
-      assert.equal(held, true, `${label}: reaches the final hold`);
+      assert.equal(held, false, `${label}: destination entry is not an active Hold instruction`);
+      assert.equal(index, route.path.length, `${label}: reaches the final entry`);
       assert.deepEqual(a.position, {x: route.path.at(-1)!.x, y: route.path.at(-1)!.y});
       completed++;
     }

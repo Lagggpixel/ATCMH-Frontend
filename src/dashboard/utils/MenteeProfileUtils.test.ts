@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {getMenteeAvailabilityRows, getMenteeLifecycle} from "./MenteeProfileUtils.ts";
+import {getMenteeAvailabilityRows, getMenteeTimeline} from "./MenteeProfileUtils.ts";
 import type {AdminMentee} from "../types/AdminMentee.ts";
 
 test("availability represents midnight, overnight and full-day windows without losing the original day", () => {
@@ -23,19 +23,26 @@ test("legacy and malformed availability stays readable rather than becoming a fa
 });
 
 const record: AdminMentee = {id: 266, mentee: "ray", channel: "channel", state: "waitlisted", waitlistTime: 0, sessions: []};
-test("lifecycle retains epoch timestamps and distinguishes missing dates from stages not yet reached", () => {
-    const waitlisted = getMenteeLifecycle(record);
+test("timeline keeps epoch timestamps and always ends on Passed unless the mentee was terminated", () => {
+    const waitlisted = getMenteeTimeline(record);
+    assert.deepEqual(waitlisted.map(step => step.key), ["waitlisted", "picked_up", "passed"]);
     assert.equal(waitlisted[0].time, 0);
-    assert.equal(waitlisted[0].current, true);
-    assert.equal(waitlisted[1].reached, false);
-    const passed = getMenteeLifecycle({...record, state: "passed"});
-    assert.equal(passed[1].reached, true);
+    assert.deepEqual(waitlisted.map(step => step.state), ["current", "upcoming", "upcoming"]);
+
+    const pickedUp = getMenteeTimeline({...record, state: "picked_up", pickupTime: 100});
+    assert.deepEqual(pickedUp.map(step => step.state), ["complete", "current", "upcoming"]);
+
+    const passed = getMenteeTimeline({...record, state: "passed"});
+    assert.deepEqual(passed.map(step => step.state), ["complete", "complete", "passed"]);
     assert.equal(passed[1].time, undefined);
-    assert.equal(passed[2].current, true);
-    assert.equal(passed[3].reached, false);
-    const terminated = getMenteeLifecycle({...record, state: "terminated", pickupTime: 100, terminatedTime: 200});
-    assert.equal(terminated[1].reached, true);
-    assert.equal(terminated[2].reached, false);
-    assert.equal(terminated[3].current, true);
-    assert.equal(terminated[3].time, 200);
+
+    const terminated = getMenteeTimeline({...record, state: "terminated", pickupTime: 100, terminatedTime: 200});
+    assert.deepEqual(terminated.map(step => step.key), ["waitlisted", "picked_up", "terminated"]);
+    assert.deepEqual(terminated.map(step => step.state), ["complete", "complete", "terminated"]);
+    assert.equal(terminated[2].time, 200);
+});
+
+test("a mentee terminated from the waitlist shows pickup as skipped", () => {
+    const terminated = getMenteeTimeline({...record, state: "terminated", terminatedTime: 200});
+    assert.deepEqual(terminated.map(step => step.state), ["complete", "skipped", "terminated"]);
 });

@@ -30,12 +30,29 @@ export function getMenteeAvailabilityRows(value?: string | null): AvailabilityRo
         });
 }
 
-export function getMenteeLifecycle(mentee: AdminMentee) {
-    const stages: {state: AdminMentee["state"]; label: string; time?: ApiTimestamp; reached: boolean}[] = [
-        {state: "waitlisted", label: "Waitlisted", time: mentee.waitlistTime, reached: true},
-        {state: "picked_up", label: "Picked up", time: mentee.pickupTime, reached: mentee.pickupTime != null || mentee.state === "picked_up" || mentee.state === "passed"},
-        {state: "passed", label: "Passed", time: mentee.passedTime, reached: mentee.passedTime != null || mentee.state === "passed"},
-        {state: "terminated", label: "Terminated", time: mentee.terminatedTime, reached: mentee.terminatedTime != null || mentee.state === "terminated"},
+export type MenteeTimelineStepState = "complete" | "current" | "upcoming" | "skipped" | "passed" | "terminated";
+
+export interface MenteeTimelineStep {
+    key: "waitlisted" | "picked_up" | "passed" | "terminated";
+    label: string;
+    time?: ApiTimestamp;
+    state: MenteeTimelineStepState;
+}
+
+// Passed is the only planned outcome; a termination replaces it and may happen before any pickup.
+export function getMenteeTimeline(mentee: AdminMentee): MenteeTimelineStep[] {
+    const terminated = mentee.state === "terminated";
+    const pickedUp = mentee.pickupTime != null || mentee.state === "picked_up" || mentee.state === "passed";
+    return [
+        {key: "waitlisted", label: "Waitlisted", time: mentee.waitlistTime, state: mentee.state === "waitlisted" ? "current" : "complete"},
+        {
+            key: "picked_up",
+            label: "Picked up",
+            time: mentee.pickupTime,
+            state: mentee.state === "picked_up" ? "current" : pickedUp ? "complete" : terminated ? "skipped" : "upcoming",
+        },
+        terminated
+            ? {key: "terminated", label: "Terminated", time: mentee.terminatedTime, state: "terminated"}
+            : {key: "passed", label: "Passed", time: mentee.passedTime, state: mentee.state === "passed" ? "passed" : "upcoming"},
     ];
-    return stages.map(stage => ({...stage, current: stage.state === mentee.state}));
 }

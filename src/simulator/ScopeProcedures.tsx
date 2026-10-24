@@ -1,37 +1,24 @@
 "use client";
-import {useEffect, useRef, useState} from "react";
-import type {NavigationCatalog, NavigationRoute} from "./navigation-data";
-import styles from "./Simulator.module.css";
+import {useEffect, useRef} from "react";
+import type {AirportProcedure, AirportProcedures} from "./airport-display";
+import {procedureColor, procedureKey, procedureRunwaySummary} from "./airport-display";
+import styles from "./AirportDisplay.module.css";
 
-export default function ScopeProcedures({catalog, selected, onAdd, onRemove, onClose}: {
-  catalog?: NavigationCatalog; selected: readonly NavigationRoute[];
-  onAdd: (route: NavigationRoute) => void; onRemove: (id: string) => void; onClose: () => void;
+export default function ScopeProcedures({airport, data, error, selected, opacity, onToggle, onClear, onOpacity, onRetry, onClose}: {
+  airport: string; data?: AirportProcedures; error?: string; selected: readonly AirportProcedure[]; opacity: number;
+  onToggle: (procedure: AirportProcedure) => void; onClear: () => void; onOpacity: (value: number) => void; onRetry: () => void; onClose: () => void;
 }) {
-  const [search, setSearch] = useState(""), [busy, setBusy] = useState(""), [error, setError] = useState("");
-  const pending = useRef<AbortController | null>(null);
-  useEffect(() => () => pending.current?.abort(), []);
-  const toggle = async (id: string) => {
-    if (!catalog || pending.current) return;
-    if (selected.some(route => route.routeId === id)) {onRemove(id); return;}
-    const controller = new AbortController(); pending.current = controller; setBusy(id); setError("");
-    try {
-      const response = await fetch(`/api/simulator/navigation?${new URLSearchParams({airport: catalog.airport, overlay: id, revision: catalog.revision})}`, {credentials: "same-origin", signal: controller.signal});
-      const value = await response.json();
-      if (!response.ok) throw new Error(value.error?.message ?? value.error ?? "Procedure unavailable.");
-      if (!controller.signal.aborted) onAdd(value as NavigationRoute);
-    } catch (reason) {if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Procedure unavailable.");}
-    finally {if (!controller.signal.aborted) {setBusy(""); pending.current = null;}}
-  };
-  const matches = catalog?.procedures.flatMap(procedure => procedure.routes.map(route => ({...route, label: `${procedure.type} · ${procedure.name} · ${route.name}`})))
-    .filter(route => route.label.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ?? [];
-  return <div className={`${styles.optionsMenu} ${styles.proceduresMenu}`} role="dialog" aria-label="Procedures">
-    <div className={styles.scopePanelHeader}><strong>Procedures</strong><button type="button" onClick={onClose} aria-label="Close procedures">×</button></div>
-    <label>Find procedure<input aria-label="Find procedure" value={search} onChange={event => setSearch(event.target.value)}/></label>
-    {!catalog ? <p>Navigation data unavailable.</p> : !matches.length ? <p>No matching procedures.</p> : matches.slice(0, 100).map(route => <label key={route.id} className={styles.scopeProcedureChoice}>
-      <input type="checkbox" checked={selected.some(item => item.routeId === route.id)} disabled={!!busy} onChange={() => void toggle(route.id)}/>
-      {route.label}{busy === route.id ? " · Loading…" : ""}
-    </label>)}
-    {matches.length > 100 ? <p>Search to narrow the {matches.length} routes.</p> : null}
-    {error ? <p role="alert">{error}</p> : null}
-  </div>;
+  const root = useRef<HTMLElement>(null);
+  useEffect(() => {root.current?.querySelector<HTMLButtonElement>("button")?.focus();}, []);
+  const keys = new Set(selected.map(procedureKey));
+  return <section ref={root} className={styles.procedures} data-airport-panel="procedures" role="dialog" aria-label={`${airport} Select Procedures`}>
+    <header><span>Select Procedures</span><button type="button" onClick={onClose} aria-label="Close procedures"><span aria-hidden="true">&#xe82e;</span></button></header>
+    <div className={styles.procedureList}>{error ? <p role="status">{error} <button type="button" onClick={onRetry}>Retry procedures</button></p> : !data ? <p role="status">Loading procedures…</p> : !data.procedures.length ? <p>No published procedures available.</p> : data.procedures.map(procedure => <label key={procedure.id} className={styles.procedureChoice}>
+      <span className={styles.procedureName} style={{color: procedureColor(procedure)}}>{procedure.type} - {procedure.name}</span><span className={styles.runwaySummary}>{procedureRunwaySummary(procedure)}</span>
+      <input type="checkbox" aria-label={`${procedure.type} - ${procedure.name}`} checked={keys.has(procedureKey(procedure))} onChange={() => onToggle(procedure)}/>
+      <span className={styles.procedureCheck} aria-hidden="true">{keys.has(procedureKey(procedure)) ? "\ue834" : "\ue833"}</span>
+    </label>)}</div>
+    <footer><label>OPACITY<input aria-label="Procedure opacity" aria-valuetext={`${Math.round(opacity * 100)}%`} type="range" min="0.1" max="1" step="0.1" value={opacity} onChange={event => onOpacity(Number(event.target.value))}/></label>
+      <button type="button" onClick={onClear}>CLEAR</button></footer>
+  </section>;
 }
