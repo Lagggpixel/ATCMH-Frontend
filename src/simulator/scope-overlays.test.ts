@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AIRPORT, applyEnvelope, followedAircraft, initialExercise, newAircraft, patternTargets, predictAircraft, runwayGeometry} from "./engine";
-import {scopeFollowTarget} from "./scope-overlays";
+import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
+
+test("hiding background waypoints keeps only the selected flight plan, including saved fixes during a navigation outage", () => {
+  const fixes = [{id: "FIRST", point: {x: 1, y: 2}}, {id: "OTHER", point: {x: 3, y: 4}}];
+  const route = [{x: 1, y: 2}, {x: 5, y: 6, name: "SAVED"}, {x: 7, y: 8}];
+  assert.equal(scopeNavigationFixes(fixes, [route[0]], true), fixes);
+  assert.deepEqual(scopeNavigationFixes(fixes, route, true), [...fixes, {id: "SAVED", point: route[1], routeOnly: true}, {id: "Waypoint 3", point: route[2], routeOnly: true}]);
+  assert.deepEqual(scopeNavigationFixes(fixes, undefined, false), []);
+  assert.deepEqual(scopeNavigationFixes(fixes, [], false), []);
+  assert.deepEqual(scopeNavigationFixes(fixes, route, false), [
+    {id: "FIRST", point: route[0], routeOnly: true}, {id: "SAVED", point: route[1], routeOnly: true}, {id: "Waypoint 3", point: route[2], routeOnly: true},
+  ]);
+  assert.deepEqual(scopeNavigationFixes([], [route[1]], false), [{id: "SAVED", point: route[1], routeOnly: true}]);
+  assert.deepEqual(scopeNavigationFixes(fixes, [{x: 30, y: 40, name: "FIRST"}], false), [{id: "FIRST", point: {x: 30, y: 40, name: "FIRST"}, routeOnly: true}]);
+  assert.deepEqual(scopeNavigationFixes(fixes, [fixes[1].point], false), [{id: "OTHER", point: fixes[1].point, routeOnly: true}]);
+});
 
 test("follow circles use the authoritative sequence even when a predicted circuit change expires it early", () => {
   let state = initialExercise();

@@ -3,6 +3,7 @@ import {defaultAirport} from "./airports";
 import type {Airport} from "./model";
 import type {Runway} from "./model";
 import runwayIls from "./data/runway-ils.json";
+import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 
 const runwayCapabilities: Record<string, Record<string, {localizer: boolean; glideslope: boolean}>> = runwayIls.airports;
 
@@ -12,6 +13,8 @@ export function approachGuide(runway: Runway, airport: Airport = defaultAirport)
   const side = {x: vector.y * .5, y: -vector.x * .5};
   const identifier = runway.trim().toUpperCase().replace(/^\d{1,2}/, number => number.padStart(2, "0"));
   const capability = runwayCapabilities[airport.icao]?.[identifier];
-  const color = capability?.localizer && capability.glideslope ? "#f04444" : "#808080";
-  return {threshold, center, left: {x: center.x + side.x, y: center.y + side.y}, right: {x: center.x - side.x, y: center.y - side.y}, color};
+  const ils = capability?.localizer && capability.glideslope;
+  const color = ils ? IF_MAP_COLORS.ilsEdge : IF_COLORS.offFrequency;
+  const centerColor = ils ? IF_MAP_COLORS.ilsCenter : IF_COLORS.offFrequency;
+  return {threshold, center, left: {x: center.x + side.x, y: center.y + side.y}, right: {x: center.x - side.x, y: center.y - side.y}, color, centerColor};
 }

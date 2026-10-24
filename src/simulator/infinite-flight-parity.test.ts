@@ -35,7 +35,12 @@ test("airborne takeoff gets airborne Tower menu and label fill never changes sym
 test("handoffs follow geography, equipment destinations and active facilities",()=>{
  const a=fixture().aircraft[0],airport=getAirport();a.position={x:0,y:0};
  const facilities=[{id:"near",name:"Near Approach",type:"approach" as const,mhz:"123.45",lat:airport.origin.lat,lon:airport.origin.lon,active:true},{id:"far",name:"Far Approach",type:"approach" as const,mhz:"124.45",lat:0,lon:0,active:true},{id:"closed",name:"Closed Tower",type:"tower" as const,mhz:"118.00",lat:airport.origin.lat,lon:airport.origin.lon,active:false}];
- assert.deepEqual(availableHandoffs(a,airport,"center",facilities).map(f=>f.id),["near"]);
+ for (const station of ["approach", "center"] as const) {
+   const choices = availableHandoffs(a, airport, station, facilities);
+   assert.equal(choices.length, 1); assert.equal(choices[0].name, "Traffic"); assert.equal(choices[0].type, "unicom");
+   assert.equal(choices[0].airport, airport.icao);
+ }
+ for (const [station, target] of [["ground", "tower"], ["tower", "ground"]] as const) assert.ok(availableHandoffs(a, airport, station).every(item => item.type === target && item.airport === airport.icao));
  assert.equal(insideAirspace([[-4,55],[-2,55],[-2,57],[-4,57]],56,-3),true);
  const ase=getAirport({airport:"KASE"});assert.deepEqual(airportApproaches(ase).filter(p=>p.type==="ils").map(p=>p.runway),["15"]);assert.ok(!airportApproaches(getAirport({airport:"VNLK"})).some(p=>p.type==="ils"));
  a.destination={name:"EGLL",point:{x:0,y:0}};const p=approachOptions(a,airport,radarEnvironmentFor(airport).approaches);assert.ok(p.length);assert.ok(p.every(p=>p.airportIcao==="EGLL"));
@@ -44,7 +49,7 @@ test("handoffs follow geography, equipment destinations and active facilities",(
 test("context replies keep registration order and STAR visibility needs only a STAR",()=>{
  const state=fixture(),a=state.aircraft[0];a.arrivalProcedure="OCK1F";
  const catalog=catalogFor(getAirport(),state.radarEnvironment),request={id:"check",aircraftId:a.id,time:0,frequency:"approach" as const,sender:"pilot" as const,text:"Scottish Approach, Speedbird, with you at 5,000ft",request:{id:"check-in" as const,runway:"24"}};
- const menu=catalog.requestMessageMenu("approach",a,request);assert.equal(menu[0].label,"Vectoring Instructions");assert.equal(menu.find(m=>m.label==="Radar Contact")?.suggested,true);assert.equal(menu.filter(m=>m.label==="Radar Contact").length,1);assert.ok(menu.some(m=>m.label.includes("OCK1F STAR")));
+ const menu=catalog.requestMessageMenu("approach",a,request);assert.equal(menu[0].label,"Radar Contact");assert.equal(menu[1].label,"Vectoring Instructions");assert.equal(menu.find(m=>m.label==="Radar Contact")?.suggested,true);assert.equal(menu.filter(m=>m.label==="Radar Contact").length,2);assert.notEqual(menu[0].id, menu.find(m=>m.label==="Radar Contact" && !m.suggested)!.id);assert.ok(menu.some(m=>m.label.includes("OCK1F STAR")));
 });
 test("Tower inbound call retains choices, ATIS, position and landing intention",()=>{
  const a=engineFor().newAircraft("a",true),state=engineFor().initialExercise();state.publishedDraft={...state.atis,letter:"BRAVO"};

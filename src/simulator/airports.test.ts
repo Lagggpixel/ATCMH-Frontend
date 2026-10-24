@@ -15,6 +15,14 @@ import {MemoryStore} from "./session-test-store";
 import type {Action} from "./model";
 
 const send = (action: Action) => ({id: randomUUID(), time: 0, action});
+test("Dublin's north runway spans every pinned centerline segment", () => {
+  const airport = getAirport({airport: "EIDW"}), pair = airport.runways!.find(r => r.id === "10L/28R")!;
+  const geometry = engineFor({airport: "EIDW"}).runwayGeometry("10L");
+  const length = Math.hypot(geometry.departure.x - geometry.threshold.x, geometry.departure.y - geometry.threshold.y);
+  assert.ok(Math.abs(length * 6076 / pair.lengthFeet! - 1) < .02, "a short displaced-threshold segment cannot replace the whole runway");
+  assert.deepEqual(geometry.threshold, airport.features.find(f => f.id === "1105001551")!.points[0]);
+  assert.deepEqual(geometry.departure, airport.features.find(f => f.id === "1240373477")!.points.at(-1));
+});
 for (const airport of airportList) {
   test(`${airport.icao}: new scenarios group Ground and Tower while legacy opening frequencies remain readable`, () => {
     const definition = scenarioSchema.parse(blankScenario({airport: airport.icao}));

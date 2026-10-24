@@ -3,6 +3,7 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {catalogFor, type MenuEntry} from "./catalog";
 import {engineFor} from "./engine";
+const menuContent = (entries: MenuEntry[]): unknown[] => entries.map(({id: _id, ...entry}) => ({...entry, ...(entry.children ? {children: menuContent(entry.children)} : {})}));
 import {getAirport} from "./airports";
 import {ALTITUDES, altitudeFeet} from "./radar";
 import {KNOT_SPEEDS_HIGH, MACH_SPEEDS} from "./radar-speed";
@@ -142,7 +143,7 @@ test("the highlighted reply to a pilot go-around uses roger and the dedicated ac
   const e = engineFor(), a = e.newAircraft("go", true), c = catalogFor();
   const request: Message = {id: "go-request", aircraftId: a.id, time: 0, sender: "pilot", frequency: "tower", text: "Speedbird 124, going around", request: {id: "go-around", runway: "24"}};
   const menu = c.requestMessageMenu("tower", a, request);
-  const reply=menu.find(e=>e.label==="Respond to Go Around")!;assert.equal(reply.suggested,true);assert.equal(menu.filter(e=>e.label==="Respond to Go Around").length,1);
+  const reply=menu.find(e=>e.label==="Respond to Go Around")!;assert.equal(reply.suggested,true);assert.equal(menu.filter(e=>e.label==="Respond to Go Around").length,2);assert.equal(menu[0],reply);
   const instruction = find(menu, "Respond to Go Around", "Make Left Traffic", "Runway 24").instruction!;
   assert.equal(c.instructionText(a, instruction), "Speedbird 124, roger, make left traffic runway 24");
   assert.equal(e.readbackText(a.callsign, c.instructionText(a, instruction), instruction), "Roger, Speedbird 124");
@@ -163,7 +164,7 @@ test("missed-approach calls keep the ordinary menu without suggestions", () => {
     for (const request of [base, {...base, request: {id: "missed-approach" as const, runway: "24"}}]) {
       const menu = catalog.requestMessageMenu(frequency, aircraft, request);
       assert.ok(!menu.some(entry => entry.suggested), `${frequency}: no missed-approach suggestions`);
-      assert.deepEqual(menu, catalog.messageMenu(frequency, aircraft, [], request));
+      assert.deepEqual(menuContent(menu), menuContent(catalog.messageMenu(frequency, aircraft, [], request)));
       assert.ok(menu.some(entry => entry.label === "Vectoring Instructions"));
       assert.ok(menu.some(entry => entry.label === "Missed Approach Instructions"));
     }
@@ -179,7 +180,7 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
     const base: Message = {id: "approach-request", aircraftId: aircraft.id, sender: "pilot", frequency, time: 0, text: `${aircraft.callsign}, requesting ILS approach at EGPH`};
     for (const request of [base, {...base, request: {id: "request-approach" as const, runway: "24"}}, {...base, text: `${aircraft.callsign}, requesting GPS approach at EGPH`}, {...base, text: `${aircraft.callsign}, requesting visual approach at EGPH`}]) {
       const menu = catalog.requestMessageMenu(frequency, aircraft, request);
-      const approachReply=menu.find(e=>e.label==="Expect Approach...")!;assert.ok(menu.indexOf(approachReply)>0);
+      const approachReply=menu.find(e=>e.label==="Expect Approach...")!;assert.equal(menu.indexOf(approachReply),0);
       assert.equal(approachReply.suggested, true);
       assert.equal(menu.filter(entry => entry.suggested).length, 1);
       const vectors = find(menu, "Expect Approach...", "Radar Vectors");
@@ -195,9 +196,9 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
       assert.deepEqual(sent.state.messages.at(-1)?.instruction, command);
       assert.equal(sent.state.messages.at(-1)?.replyTo, request.id);
       const ordinary = catalog.messageMenu(frequency, aircraft, [], request);
-      assert.deepEqual(menu.map(({suggested,...entry})=>entry), ordinary, "context replies retain the ordinary registration order");
+      assert.deepEqual(menuContent(menu.filter(entry => !entry.suggested)), menuContent(ordinary), "the original command tree retains its registration order and instructions");
       assert.ok(find(menu, "Expect Approach...", "Radar Vectors").children?.every(entry => /^Runway /.test(entry.label)));
-      assert.deepEqual(find(menu, "Expect Approach...", "ILS Approach"), find(ordinary, "Expect Approach...", "ILS Approach"));
+      assert.deepEqual(menuContent([find(menu, "Expect Approach...", "ILS Approach")]), menuContent([find(ordinary, "Expect Approach...", "ILS Approach")]));
     }
     assert.ok(!catalog.requestMessageMenu(frequency, aircraft).some(entry => entry.suggested));
     aircraft.runway = undefined;

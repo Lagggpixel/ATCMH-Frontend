@@ -1,3 +1,4 @@
+import {radarArrivalFrequency} from "./model";
 import {airportApproaches, environmentWithDestinations} from "./aviation";
 import {climbRate, descentRate, acceleration} from "./aircraft-performance";
 import {controllerAircraft} from "./controller-state";
@@ -117,18 +118,18 @@ export function radarTrafficStateError(a: Pick<Aircraft, "mode" | "altitude" | "
   if (!a.radar) return "Radar traffic requires radar navigation.";
   if (a.radar.arrival) {
     const arrival = a.radar.arrival;
-    return !a.radar.departure && arrival.runway === a.runway && runwayEnds(airport).some(end => end.id === arrival.runway) && a.frequency === "tower" && a.radar.transferred && a.altitude === airport.elevation && a.mode === (["stopped", "vacated"].includes(arrival.phase) ? "parked" : arrival.phase === "vacating" ? "taxi" : "rollout") ? null : "Landing traffic must remain on its Tower runway.";
+    return !a.radar.departure && arrival.runway === a.runway && runwayEnds(airport).some(end => end.id === arrival.runway) && radarArrivalFrequency(a.frequency) && a.radar.transferred && a.altitude === airport.elevation && a.mode === (["stopped", "vacated"].includes(arrival.phase) ? "parked" : arrival.phase === "vacating" ? "taxi" : "rollout") ? null : "Landing traffic must remain on its arrival runway.";
   }
   if (a.radar.departure && (a.radar.flight || a.radar.departure.touchAndGo) && (a.mode === "takeoff" || a.mode === "rollout" && a.radar.departure.touchAndGo)) {
     if (a.radar.departure.runway !== a.runway || !runwayEnds(airport).some(end => end.id === a.radar!.departure!.runway)) return "Choose a departure runway at this airport.";
     return a.altitude >= airport.elevation ? null : "Takeoff traffic cannot start below airport elevation.";
   }
-  const pattern = a.radar.patternJoin && a.radar.patternJoin.status !== "unable" && a.radar.guidance === "vectors" && a.radar.transferred && a.frequency === "tower" && ["pattern", "go-around"].includes(a.mode);
+  const pattern = a.radar.patternJoin && a.radar.patternJoin.status !== "unable" && a.radar.guidance === "vectors" && a.radar.transferred && radarArrivalFrequency(a.frequency) && ["pattern", "go-around"].includes(a.mode);
   // A captured final can reach runway elevation before the next movement step
   // changes its mode to rollout. Saved sessions/replays must remain readable,
   // while new scenario seeds and manual edits still require an airborne start.
   if (allowLandingTransition && a.mode === "heading" && !a.radar.departure && a.altitude === airport.elevation
-    && a.frequency === "tower" && a.radar.transferred && a.radar.navigation === "approach" && a.radar.captured && a.radar.cleared) return null;
+    && radarArrivalFrequency(a.frequency) && a.radar.transferred && a.radar.navigation === "approach" && a.radar.captured && a.radar.cleared) return null;
   return (a.mode === "heading" || pattern) && !a.radar.departure && a.altitude > airport.elevation ? null : "Radar traffic must be airborne or taking off from this airport.";
 }
 /** Unspecified radar arrivals default to landing; explicit departures and onward destinations check in. */
@@ -374,7 +375,7 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
         const trackAlong = Math.min(1, along + lookAhead);
         a.targetHeading = radarHeading(a.position, {x: g.threshold.x + g.vector.x * trackAlong, y: g.threshold.y + g.vector.y * trackAlong});
         if (r.captured && (approach.type!=="ils" || approach.glideslope!==false)) altitude = Math.min(a.altitude, along < 0 ? glideHeight : destinationElevation + Math.max(0, 50 - along * 500));
-        const towerLanding = r.transferred && a.frequency === "tower" && r.captured;
+        const towerLanding = r.transferred && radarArrivalFrequency(a.frequency) && r.captured;
         if (towerLanding && along >= .1 && Math.abs(lateral) < .012 && a.altitude <= airport.elevation + 5) {
           touchdownRadar(a, airport, approach.runway); return;
         }
@@ -385,8 +386,8 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
     }
   }
   a.altitude = towards(a.altitude, altitude, (altitude < a.altitude ? descentRate(a) : climbRate(a)) / 60 * dt);
-  // Tower owns final; Approach resumes control during missed-approach climbout.
-  if (r.navigation === "missed" && a.frequency === "tower" && a.altitude >= Math.min(airport.elevation + 1000, altitude)) {
+  // Transferred arrivals complete final; Approach resumes control during missed-approach climbout.
+  if (r.navigation === "missed" && radarArrivalFrequency(a.frequency) && a.altitude >= Math.min(airport.elevation + 1000, altitude)) {
     a.frequency = "approach"; r.returningToApproach = true; r.transferred = false; r.report = "missed";
   }
   updateRadarSpeed(a, traffic, finalDistance, automaticTarget);

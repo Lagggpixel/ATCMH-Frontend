@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
-import {instructionText, messageMenu, pilotRequests, requestMessageMenu} from "./catalog";
+import {instructionText, messageMenu, pilotRequests, requestMessageMenu, type MenuEntry} from "./catalog";
 import {applyEnvelope, initialExercise} from "./engine";
 import {pendingPilotMessage, type Action, type Exercise, type Message, type PilotRequestSelection} from "./model";
 
+const menuContent = (entries: MenuEntry[]): unknown[] => entries.map(({id: _id, ...entry}) => ({...entry, ...(entry.children ? {children: menuContent(entry.children)} : {})}));
 function act(state: Exercise, action: Action) {
   const result = applyEnvelope(state, {id: randomUUID(), time: 1000, action});
   assert.equal(result.error, undefined); return result.state;
@@ -17,8 +18,8 @@ function start(id: PilotRequestSelection["id"]) {
   return {state, a: aircraft, message: pendingPilotMessage(state, a.id, a.frequency!)!};
 }
 
-test("contextual replies are highlighted once in their ordinary registration position", () => {
-  for (const [id, label, originalLabel] of [
+test("contextual replies add a first shortcut and retain the complete ordinary command tree", () => {
+  for (const [id, _label, originalLabel] of [
     ["pushback", "Pushback Approved", "Pushback Approved"],
     ["runway-change", "Unable", "Unable"],
     ["cross-runway", "Cross Runway", "Cross Runway..."],
@@ -26,12 +27,12 @@ test("contextual replies are highlighted once in their ordinary registration pos
   ] as const) {
     const {a, message} = start(id), ordinary = messageMenu(a.frequency!, a, [], message);
     const menu = requestMessageMenu(a.frequency!, a, message);
-    const reply=menu.find(entry=>entry.label===originalLabel)!;assert.ok(reply);assert.equal(reply.suggested,true);assert.equal(menu.filter(entry=>entry.label===originalLabel).length,1);
+    const reply=menu.find(entry=>entry.label===originalLabel)!;assert.ok(reply);assert.equal(reply.suggested,true);assert.equal(menu.filter(entry=>entry.label===originalLabel).length,2);assert.equal(menu[0],reply);
     assert.equal(menu.filter(entry => entry.suggested).length, 1);
-    assert.deepEqual(menu.filter(e=>e.label!=="Unable").map(({suggested,...entry})=>entry),ordinary);
+    assert.deepEqual(menuContent(menu.filter(e=>!e.suggested && e.label!=="Unable")),menuContent(ordinary));
     const original = ordinary.find(entry=>entry.label===originalLabel) ?? reply;
     assert.ok(original); assert.ok(original===reply || !original.suggested);
-    assert.deepEqual(reply.children, original.children);
+    assert.deepEqual(menuContent(reply.children ?? []), menuContent(original.children ?? []));
     assert.deepEqual(reply.instruction, original.instruction);
   }
 });
@@ -42,7 +43,7 @@ test("all other requests retain the normal menu with no suggested command or gen
     if (["pushback", "runway-change", "cross-runway", "go-around", "transition"].includes(request.id)) continue;
     const message: Message = {id: "request", aircraftId: a.id, sender: "pilot", text: "pilot request", frequency: a.frequency!, time: 1, request: {id: request.id, runway: "24"}};
     const menu = requestMessageMenu(a.frequency!, a, message);
-    assert.deepEqual(menu, messageMenu(a.frequency!, a, [], message));
+    assert.deepEqual(menuContent(menu), menuContent(messageMenu(a.frequency!, a, [], message)));
     assert.ok(!menu.some(entry => entry.label === "Unable" || entry.suggested));
   }
 });
@@ -70,10 +71,10 @@ test("shortcuts stay while the controller is on standby and disappear when the r
   send({type: "radio", message: "standby"});
   assert.equal(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!)).find(e=>e.label==="Pushback Approved")?.suggested, true);
   send({type: "pushback", tail: "north"});
-  assert.deepEqual(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!)), messageMenu(a.frequency!, a));
+  assert.deepEqual(menuContent(requestMessageMenu(a.frequency!, a, pendingPilotMessage(state, a.id, a.frequency!))), menuContent(messageMenu(a.frequency!, a)));
   message = {...message, commandId: "pilot-readback"};
-  assert.deepEqual(requestMessageMenu(a.frequency!, a, message), messageMenu(a.frequency!, a));
-  assert.deepEqual(requestMessageMenu("tower", a, {...message, commandId: undefined}), messageMenu("tower", a));
+  assert.deepEqual(menuContent(requestMessageMenu(a.frequency!, a, message)), menuContent(messageMenu(a.frequency!, a)));
+  assert.deepEqual(menuContent(requestMessageMenu("tower", a, {...message, commandId: undefined})), menuContent(messageMenu("tower", a)));
 });
 
 test("runway-change Unable shortcut sends the same contextual rejection as the ordinary button", () => {

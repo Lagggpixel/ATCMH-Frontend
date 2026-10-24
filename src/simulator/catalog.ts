@@ -1,3 +1,4 @@
+import {groundRouteText} from "./ground-route";
 import {orderedMenu} from "./menu-order";
 import {ATIS_REMARKS} from "./atis-options";
 import {approachOptions, destinationCode} from "./aviation";
@@ -9,7 +10,7 @@ import {defaultAirport, defaultRunway, runwayEnds, airportCallsign, frequenciesF
 import type {RadarEnvironment} from "./model";
 import {checkInTransmission, radarEnvironmentFor, radarInstructionText, radarRequestedApproach, roundedHeadingInstruction} from "./radar";
 
-export interface MenuEntry {label: string; instruction?: Instruction; children?: MenuEntry[]; note?: string; suggested?: boolean; sendLabel?: "SEND" | "NOW"; input?: "heading" | "speed"; composeVector?: boolean; dialog?: "voice" | "report" | "bookmark"; resend?: boolean; requiresRequest?: string[]; replyOnly?: boolean}
+export interface MenuEntry {id?: string; label: string; instruction?: Instruction; children?: MenuEntry[]; note?: string; suggested?: boolean; sendLabel?: "SEND" | "NOW"; input?: "heading" | "speed"; composeVector?: boolean; dialog?: "voice" | "report" | "bookmark"; resend?: boolean; requiresRequest?: string[]; replyOnly?: boolean}
 export const HEADING_CHOICES = Array.from({length: 36}, (_, i) => (i + 1) * 10);
 export function radarSpeedMenu(): MenuEntry[] {return referenceSpeedMenu();}
 export const TASK_GROUPS = ["Ground movement", "Departures", "Arrivals and circuit", "Sequence", "Frequency"] as const;
@@ -46,7 +47,7 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
       text = `${exit}${instruction.holdShort ? `, hold short runway ${instruction.holdShort}` : instruction.crossRunway ? `, cross runway ${instruction.crossRunway} and contact ground` : instruction.expedite ? " and contact ground" : ", contact ground on the taxiway"}${instruction.expedite ? ", please expedite" : ""}${instruction.traffic ? ", traffic on " + instruction.traffic : ""}`; break;
     }
     case "pushback": text = `pushback approved${instruction.tail ? `, tail to the ${instruction.tail}` : ""}${instruction.runway ? `, expect runway ${instruction.runway}` : ""}`; break;
-    case "taxi": text = instruction.destination === "parking" ? "taxi to parking, at your discretion" : instruction.destination === "continue" || (!instruction.destination && !instruction.runway) ? "continue taxi" : `taxi to runway ${runway}${instruction.contactTowerWhenReady !== false ? ", contact tower when ready" : ""}`; break;
+    case "taxi": text = instruction.route ? groundRouteText(instruction.route, airport) : instruction.destination === "parking" ? "taxi to parking, at your discretion" : instruction.destination === "continue" || (!instruction.destination && !instruction.runway) ? "continue taxi" : `taxi to runway ${runway}${instruction.contactTowerWhenReady !== false ? ", contact tower when ready" : ""}`; break;
     case "give-way": text = `give way to ${instruction.description}`; break;
     case "stop": text = "hold position"; break;
     case "hold-short": text = `hold short of runway ${runway}`; break;
@@ -149,7 +150,17 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
 /** A shortcut duplicates the ordinary command; its submenu and send behavior stay identical. */
 
 function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message, traffic: Aircraft[] = [], messages: Message[] = []): MenuEntry[] {
-  const entries = orderedMenu(messageMenu(frequency, a, traffic, request, messages),frequency);
+  const identify = (items: MenuEntry[], prefix: string): MenuEntry[] => {const seen = new Map<string, number>(); return items.map(item => {
+    const occurrence = seen.get(item.label) ?? 0; seen.set(item.label, occurrence + 1);
+    const id = prefix + "/" + encodeURIComponent(item.label) + ":" + occurrence;
+    return {...item, id, ...(item.children ? {children: identify(item.children, id)} : {})};
+  });};
+  const entries = identify(orderedMenu(messageMenu(frequency, a, traffic, request, messages),frequency), frequency);
+  const suggest = (original?: MenuEntry) => {
+    if (!original) return entries;
+    const clone = (item: MenuEntry): MenuEntry => ({...item, id: "suggested:" + item.id, ...(item.children ? {children: item.children.map(clone)} : {})});
+    return [{...clone(original), suggested: true}, ...entries];
+  };
   if (!request || request.sender !== "pilot" || request.commandId || request.aircraftId !== a.id || request.frequency !== frequency || a.frequency !== frequency || frequency === "atis") return entries;
   // Older snapshots and automatic go-arounds contain radio text without structured request data.
   const phrase = request.text.slice(request.text.indexOf(",") + 1).trim();
@@ -161,13 +172,12 @@ function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message
     /^executing missed approach\b/i.test(phrase) ? "missed-approach" : /^going around\.?$/i.test(phrase) ? "go-around" : /^with you at\b/i.test(phrase) ? "check-in" : /requesting transition\.?$/i.test(request.text) ? "transition" : undefined);
   if (requestId === "request-approach" && (frequency === "approach" || frequency === "center")) {
     const approach = entries.find(entry => entry.label === "Expect Approach...");
-    if(approach)approach.suggested=true;
+    return suggest(approach);
   }
   const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Respond to Go Around", transition: "Respond to Transition", "check-in": "Radar Contact", "flight-following":"Respond to Flight Following Request", "radar-vectors":"Respond to Radar Vectors Request", "star-descent":"Respond to STAR Descent Request", "diversion":"Respond to Diversion Request", "minimum-fuel":"Respond to Emergency", "emergency-fuel":"Respond to Emergency"};
   if (requestId === "runway-change") entries.push({label: "Unable", children: [{label: "Confirm", instruction: {type: "radio", message: "unable"}}]});
   const original = entries.find(entry => entry.label === (requestId ? labels[requestId] : undefined));
-  if(original)original.suggested=true;
-  return orderedMenu(entries,frequency);
+  return suggest(original);
 }
 
 

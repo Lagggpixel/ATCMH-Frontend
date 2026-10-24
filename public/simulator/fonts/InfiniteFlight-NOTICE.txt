@@ -1,11 +1,13 @@
 InfiniteFlight.ttf is the original, unmodified Infinite Flight 26.4 icon font,
-provided by the user for matching the trainer's aircraft map symbols.
+provided by the user for matching the trainer's aircraft and navigation map symbols.
 
 Source: com.fds.infiniteflight_26.4/installtimecontent.apk
 ZIP entry: assets/content/UI/Fonts/InfiniteFlight.ttf
 Size: 60356 bytes
 SHA256: 0fd62b73edda8c8304cf2867fdb5acf01261c2b7e1b4409c17174ad97786177b
 Mapping: Infinite Flight 26.4 Fds.InfiniteRunway/Theme.cs, Glyphs.Aircraft
+Navigation mapping: MapTilesManager.MapTile.IconTypeToGlyph (Fix U+E871,
+NDB U+E870, VOR/VORTAC U+E8E7, TACAN U+E907).
 Rendering reference: Infinite Flight 26.4 Fds.InfiniteRunway/MapControl.cs
 
 This font is an Infinite Flight asset. It is not licensed under the neighbouring

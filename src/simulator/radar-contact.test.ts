@@ -76,7 +76,7 @@ test("onward traffic checks in and manual arrival requests clear the pending ent
 });
 
 for (const station of ["approach", "center"] as const) {
-  test(`${station}: automatic, manual and legacy check-ins highlight Radar Contact in registration order`, () => {
+  test(`${station}: automatic, manual and legacy check-ins prepend Radar Contact while preserving its ordinary registration`, () => {
     const {engine, state, catalog} = fixture(station);
     const automatic = engine.autoReadbacks(state, 1000, randomUUID);
     const a = automatic.aircraft[0];
@@ -85,9 +85,13 @@ for (const station of ["approach", "center"] as const) {
     for (const request of [checkIn, {...checkIn, request: {id: "check-in" as const, runway: a.runway!}}]) {
       const menu = catalog.requestMessageMenu(station, a, request);
       const contact = menu.find(entry => entry.label === "Radar Contact")!;
-      assert.equal(menu[0].label, "Vectoring Instructions");
+      assert.equal(menu[0].label, "Radar Contact");
+      assert.equal(menu[1].label, "Vectoring Instructions");
       assert.equal(contact.suggested, true);
-      assert.equal(menu.filter(entry => entry.label === "Radar Contact").length, 1);
+      assert.equal(menu.filter(entry => entry.label === "Radar Contact").length, 2);
+      const ordinary = menu.find(entry => entry.label === "Radar Contact" && !entry.suggested)!;
+      assert.ok(ordinary); assert.notEqual(contact.id, ordinary.id);
+      assert.deepEqual(contact.children?.map(entry => entry.instruction), ordinary.children?.map(entry => entry.instruction));
       assert.deepEqual(contact.children?.map(entry => [entry.label, entry.sendLabel, entry.instruction]), [
         ["Send", "SEND", {type: "atc", action: "radar-contact"}],
         ["Send and Ask Approach Request", "NOW", {type: "atc", action: "radar-contact", variant: "request"}],

@@ -1,3 +1,4 @@
+import {frequenciesFor} from "./airports";
 import raw from "./data/aviation.json";
 import type {Aircraft, Airport, Frequency, Point, RadarApproach} from "./model";
 
@@ -26,13 +27,13 @@ export function insideAirspace(boundary:unknown,lat:number,lon:number){
   }return inside;
 }
 export function availableHandoffs(a: Aircraft, airport: Airport, frequency: Frequency, configured = facilities): RadioFacility[] {
-  const point = {lat:airport.origin.lat+a.position.y/60,lon:airport.origin.lon+a.position.x/(60*Math.cos(airport.origin.lat*Math.PI/180))};
-  const destination = destinationCode(a,airport);
-  const allowed = frequency === "ground" ? ["ground","tower"] : frequency === "center" ? ["ground","tower","departure","approach","center","unicom"] : ["tower","departure","approach","center","unicom",...(frequency === "tower" ? ["ground"] : [])];
-  return configured.filter(f => f.active && allowed.includes(f.type) && (a.facilityId ? f.id !== a.facilityId : !(f.type === a.frequency && f.airport === airport.icao)) && (
-    f.type === "tower" && f.airport === destination || f.type === "unicom" && f.airport === destination ||
-    (f.type === "center" && f.boundary ? insideAirspace(f.boundary,point.lat,point.lon) : Math.hypot((f.lat-point.lat)*60,(f.lon-point.lon)*60*Math.cos(point.lat*Math.PI/180)) <= (f.type === "ground" ? 10000/1852 : f.type === "tower" ? 50000/1852 : f.type === "center" ? 250 : 125000/1852))
-  )).filter((f,index,all)=>all.findIndex(other=>other.id===f.id)===index);
+  const target = frequency === "ground" ? "tower" : frequency === "tower" ? "ground" : frequency === "approach" || frequency === "center" ? "unicom" : undefined;
+  if (!target) return [];
+  const local = configured.find(f => f.type === target && f.airport === airport.icao);
+  if (local) return local.active ? [{...local, ...(target === "unicom" ? {name: "Traffic"} : {})}] : [];
+  const service = frequenciesFor(airport)[target];
+  if (!service) return [];
+  return [{id: airport.icao + ":" + target, airport: airport.icao, name: target === "unicom" ? "Traffic" : service.name, type: target, mhz: service.value, lat: airport.origin.lat, lon: airport.origin.lon, active: true}];
 }
 export function environmentWithDestinations(airport:Airport,environment:import("./model").RadarEnvironment,aircraft:readonly Pick<Aircraft,"destination">[]=[]){
   const codes=[...new Set(aircraft.map(a=>destinationCode(a,airport)).filter(code=>code!==airport.icao))];

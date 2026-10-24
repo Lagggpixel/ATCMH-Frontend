@@ -17,7 +17,7 @@ function fixture(kind: ConflictKind = "uwc") {
     return a;
   };
   const a = plane("a", "27L", kind === "cancel-takeoff" ? 6 : 2);
-  const b = plane("b", kind === "uwc" ? "27R" : "27L", 5);
+  const b = plane("b", kind === "uwc" ? "27R" : "27L", kind === "uwc" ? 2 : 5);
   if (kind === "ga") a.landing = "full-stop";
   if (kind === "cancel-takeoff") Object.assign(b, {mode: "parked", altitude: airport.elevation, frequency: "ground", speed: 0, targetSpeed: 0, position: {...engine.runwayGeometry("27L").threshold}, groundReady: true});
   state.aircraft = [a, b];
@@ -126,11 +126,13 @@ test("authoritative UWC holds both upwinds without mutating the input snapshot",
   const before = structuredClone(h.state); const next = h.engine.advance(h.state, 5);
   assert.deepEqual(h.state, before); assert.ok(next.aircraft.every(a => a.leg === "upwind"));
 });
-test("authoritative crash removes aircraft once and survives recovery schemas", () => {
-  const h = fixture("ga"); h.b.position = {...h.a.position}; h.b.altitude = h.a.altitude;
-  const next = h.engine.advance(h.state, .1); assert.equal(next.aircraft.length, 0); assert.equal(next.collisions?.length, 1);
+test("authoritative Radar contact crash removes aircraft once and survives recovery schemas", () => {
+  const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
+  state.running = true; const a = state.aircraft[0];
+  state.aircraft = [a, {...structuredClone(a), id: "other", callsign: "Test other"}];
+  const next = engine.advance(state, .1); assert.equal(next.aircraft.length, 0); assert.equal(next.collisions?.length, 1);
   assert.equal(exerciseSchema.parse(next).collisions?.length, 1); assert.equal(motionSchema.parse(next).collisions?.length, 1);
-  assert.equal(h.engine.advance(next, 1).collisions?.length, 1);
+  assert.equal(engine.advance(next, 1).collisions?.length, 1);
 });
 test("custom ground spawn retains exact scope coordinates and uses taxi controls", () => {
   const h = fixture(), position = {x: 1.25, y: -2.75};
@@ -169,13 +171,20 @@ test("real UWC flight and radio timing reaches takeoff, keeps both extending and
 });
 
 
-test("GA stages an established follower exactly three track miles behind the leader", () => {
-  const h = fixture("ga"), first = {...h.a.position}; assert.equal(h.start(), undefined);
-  assert.deepEqual(h.a.position, first); assert.ok(Math.abs(h.support.distance(h.b) - h.support.distance(h.a) - 3) < 1e-8);
+test("GA preserves an already feasible gap and rejects a close follower without repositioning", () => {
+  const h = fixture("ga"), g = h.support.geometry(h.b.runway!);
+  h.b.position = {x: g.threshold.x - g.vector.x * 5.5, y: g.threshold.y - g.vector.y * 5.5};
+  const before = structuredClone(h.state.aircraft); assert.equal(h.start(), undefined);
+  assert.deepEqual(h.state.aircraft, before); assert.ok(h.support.distance(h.b) - h.support.distance(h.a) > 3);
+  const close = fixture("ga"); close.b.position = {x: g.threshold.x - g.vector.x * 3, y: g.threshold.y - g.vector.y * 3};
+  const unchanged = structuredClone(close.state); assert.match(close.start()!, /3 NM/); assert.deepEqual(close.state, unchanged);
 });
-test("UWC stages the partner abeam on its own runway before continuous motion begins", () => {
-  const h = fixture(); assert.equal(h.start(), undefined);
-  assert.ok(Math.abs(h.support.distance(h.a) - h.support.distance(h.b)) < 1e-8); assert.equal(h.a.altitude, h.b.altitude);
+test("UWC preserves naturally aligned aircraft and atomically rejects an unsuitable pair", () => {
+  const h = fixture(), g = h.support.geometry(h.b.runway!);
+  h.b.position = {x: g.threshold.x - g.vector.x * 2.1, y: g.threshold.y - g.vector.y * 2.1};
+  const before = structuredClone(h.state.aircraft); assert.equal(h.start(), undefined); assert.deepEqual(h.state.aircraft, before);
+  const unsuitable = fixture(); unsuitable.b.altitude += 1000; const unchanged = structuredClone(unsuitable.state);
+  assert.match(unsuitable.start()!, /similar altitudes/); assert.deepEqual(unsuitable.state, unchanged);
 });
 
 
@@ -196,7 +205,9 @@ test("a transmitted go-around suppresses self-calling while its readback is pend
 
 
 test("valid cross-kind exercises can overlap and display combined labels", () => {
-  const h = fixture(); h.start();
+  const h = fixture();
+  for (const a of [h.a, h.b]) {const g = h.support.geometry(a.runway!); a.position = {x: g.threshold.x - g.vector.x * 4, y: g.threshold.y - g.vector.y * 4};}
+  assert.equal(h.start(), undefined);
   const leader = {...h.a, id: "third", callsign: "Test third", landing: "full-stop" as const, position: {...h.a.position}};
   const g = h.support.geometry(leader.runway!); leader.position = {x: g.threshold.x - g.vector.x * .5, y: g.threshold.y - g.vector.y * .5};
   h.state.aircraft.push(leader);

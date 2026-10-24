@@ -143,18 +143,18 @@ test("intersection lineups/takeoffs stay at their entry, including lineup then t
   }
 });
 
-test("colliding approved pushbacks disappear together on any frequency, with durable replay events", () => {
+test("overlapping Local pushbacks remain visible on both frequencies and survive replay recovery", () => {
   const create = (id: string, x: number, heading: number): Aircraft => ({...engine.newAircraft(id, false), mode: "pushback", position: {x, y: 0}, heading, targetHeading: heading, speed: 3, targetSpeed: 3, pushback: {path: [{x: -x, y: 0}, {x: -x * 2, y: 0}], index: 0}});
   const before = stateOf([create("a", -.04, 270), {...create("b", .04, 90), frequency: "tower"}]);
   let state = before;
   for (let t = 0; t < 60 && state.aircraft.some(a=>a.active); t++) state = advance(state, 1);
-  assert.equal(state.aircraft.filter(a=>a.active).length, 0); assert.equal(state.collisions?.length, 1);
-  assert.deepEqual(state.collisions[0].aircraft.map(a => a.id), ["a", "b"]);
-  assert.equal(motionSchema.parse(state).collisions?.length, 1);
+  assert.equal(state.aircraft.filter(a=>a.active).length, 2); assert.equal(state.collisions?.length ?? 0, 0);
+  assert.deepEqual(state.aircraft.map(a => a.id), ["a", "b"]);
+  assert.equal(motionSchema.parse(state).collisions?.length ?? 0, 0);
   assert.deepEqual(applyReplayDelta(before, replayDelta(before, state)), state);
   const reloaded = restoreExercise(exerciseSchema.parse(state));
   assert.deepEqual(reloaded.collisions, state.collisions);
-  assert.equal(advance(reloaded, 5).collisions?.length, 1);
+  assert.equal(advance(reloaded, 5).collisions?.length ?? 0, 0);
   let reverse = {...before, aircraft: before.aircraft.toReversed()};
   for (let t = 0; t < 60 && reverse.aircraft.length; t++) reverse = advance(reverse, 1);
   assert.deepEqual(reverse.collisions, state.collisions);
@@ -191,7 +191,7 @@ test("default spacing is 3 NM for every airport engine", () => {
   for (const airport of airportList) assert.ok(engineFor({airport: airport.icao}).initialExercise());
 });
 
-test("conflicting real KDAL gate pushbacks collide only when their mapped paths meet", () => {
+test("conflicting real KDAL gate pushbacks never crash or disappear in Local training", () => {
   for (const tail of ["east", "west"] as const) {
     let state = stateOf(["13", "15"].map(name => {
       const gate = gatesFor(kdal).find(g => g.name === name)!;
@@ -199,12 +199,12 @@ test("conflicting real KDAL gate pushbacks collide only when their mapped paths 
     }));
     for (const aircraft of state.aircraft) state = act(state, {kind: "maneuver", aircraftId: aircraft.id, command: {type: "pushback", tail}});
     for (let t = 0; t < 180 && state.aircraft.length === 2; t++) state = advance(state, 1);
-    assert.equal(state.aircraft.length, tail === "west" ? 0 : 2);
-    assert.equal(state.collisions?.length ?? 0, tail === "west" ? 1 : 0);
+    assert.equal(state.aircraft.length, 2);
+    assert.equal(state.collisions?.length ?? 0, 0);
   }
 });
 
-test("session service rejects learner bulk/report actions and marks collision frames as content", async () => {
+test("session service rejects learner bulk/report actions and preserves overlapping Local aircraft", async () => {
   const store = new MemoryStore(); let now = 1000;
   const service = new SessionService(store, () => now), staff = {accountId: "mentor", staff: true}, learner = {accountId: "learner", staff: false, learnerSession:""};
   const created = await service.create(staff, "Synthetic controls", stateOf([engine.newAircraft("a", true)]));
@@ -221,6 +221,6 @@ test("session service rejects learner bulk/report actions and marks collision fr
   for (let t = 0; t < 30 && store.records.get(created.id)!.exercise.aircraft.some(a=>a.active); t++) {now += 1000; await service.join(staff, created.id, "staff", "staff-seat");await service.frame(staff, created.id, "staff", "staff-seat");}
   await service.join(learner, created.id, "mentee", "learner-seat");
   const frame = await service.frame(learner, created.id, "mentee", "learner-seat");
-  assert.equal(frame.exercise.aircraft.length, 0); assert.equal(frame.exercise.collisions?.length, 1);
-  assert.ok(frame.contentRevision > before, "stream and replay must receive the collision as a content update");
+  assert.equal(frame.exercise.aircraft.length, 2); assert.equal(frame.exercise.collisions?.length ?? 0, 0);
+  assert.equal(frame.contentRevision, before, "Local overlap must not invent a crash content update");
 });
