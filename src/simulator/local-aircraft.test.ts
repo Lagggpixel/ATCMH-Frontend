@@ -99,3 +99,12 @@ test("scenario gates survive normalization; event and aircraft limits are respec
   const events = Array.from({length: 200}, () => saved.events[0]);
   assert.throws(() => addLocalScenarioAircraft({...blankScenario(), events}, a, gate, 30), /200/);
 });
+
+test("automatic speed follows the IAS profile, and the clicked position keeps the scope point", () => {
+  const selection = {airport: "EGPH"}, engine = engineFor(selection), position = {x: 3, y: -2};
+  const auto = createLocalAircraft(selection, "auto", options({placement: "custom", position, speed: "auto"}));
+  assert.equal(auto.speedMode, "auto"); assert.deepEqual(auto.position, position);
+  assert.equal(auto.speed, engine.speedProfile(auto).target); assert.equal(auto.targetSpeed, auto.speed);
+  const manual = createLocalAircraft(selection, "manual", options({placement: "circuit", speed: 140}));
+  assert.equal(manual.speedMode, "manual"); assert.equal(manual.speed, 140);
+});

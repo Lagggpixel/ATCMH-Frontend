@@ -16,3 +16,6 @@
 .actions {display:flex;justify-content:flex-end;gap:10px}
 .form .primary {border-color:var(--dashboard-link,#80dce8);background:var(--dashboard-selected,#26343d)}
 @media(max-width:460px) {.form {padding:18px;gap:16px}.pair {grid-template-columns:1fr}.actions button {flex:1}}
+@keyframes pop {from {opacity:0;transform:translateY(8px) scale(.98)}}
+@keyframes fade {from {opacity:0}}
+@media(prefers-reduced-motion:no-preference) {.dialog[open] {animation:pop .18s ease-out}.dialog[open]::backdrop {animation:fade .18s ease-out}}

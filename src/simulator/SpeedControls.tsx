@@ -42,28 +42,18 @@ export default function SpeedControls({airport = defaultAirport, aircraft: a, on
   const value = draft ?? String(Math.round(target));
   const valid = value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 600;
   return <section className={styles.speedControls} aria-label="Airspeed controls">
-    <header className={styles.header}>
-      <h2>Airspeed</h2>
-      <div className={styles.liveSpeed}>
-        <div><span>{airborne ? "Current IAS" : "Current speed"}</span><strong>{Math.round(a.speed)}<small> kt</small></strong></div>
-        <ArrowRight size={20} aria-hidden="true"/>
-        <div><span>{airborne ? "Target IAS" : "Target speed"}</span><strong>{Math.round(target)}<small> kt</small></strong></div>
-        <p>{Math.abs(a.speed - target) < 1 ? "At target" : a.speed < target ? "Accelerating to target" : "Decelerating to target"}</p>
-      </div>
-    </header>
+    <h3>Airspeed</h3>
+    <p className={styles.liveSpeed}><span><strong>{Math.round(a.speed)}</strong> kt {airborne ? "IAS" : "now"}</span><ArrowRight size={14} aria-hidden="true"/><span><strong>{Math.round(target)}</strong> kt target</span><em>{Math.abs(a.speed - target) < 1 ? "At target" : a.speed < target ? "Accelerating" : "Decelerating"}</em></p>
     <div className={styles.manualControls}>
-      <div className={styles.modes} aria-label="Speed control mode">
+      <div className={styles.modes} role="group" aria-label="Speed control mode">
         <button type="button" aria-pressed={!manual} onClick={() => onEdit({speedMode: "auto"})}>{semi ? "Semi-auto" : "Auto"}</button>
         <button type="button" aria-pressed={manual} onClick={() => onEdit({speedMode: "manual", targetSpeed: Math.round(a.speed)})}>Manual</button>
       </div>
-      <div className={styles.manualTarget}>
-      <label>Manual IAS override<input aria-label="Speed override" type="number" min="0" max="600" value={value} onChange={e => setDraft(e.target.value)}/></label>
+      <input aria-label="Speed override" title="Manual IAS override" type="number" min="0" max="600" value={value} onChange={e => setDraft(e.target.value)}/>
       <button type="button" className={styles.setSpeed} disabled={!valid} onClick={() => {onSpeed(Number(value)); setDraft(null);}}>Set speed</button>
-      </div>
     </div>
-    <div className={styles.phaseControls}><h3>Phase speeds (IAS)</h3>
-      <SpeedTargetsEditor targets={a.speedTargets} activePhase={airborne && !manual ? speedProfile(a).segment : undefined} onChange={speedTargets => onEdit({speedTargets, speedMode: "auto"})}/>
-      <p>Blank = automatic</p>
+    <div className={styles.phaseControls}><h3>Phase speeds (IAS) · blank = automatic</h3>
+      <SpeedTargetsEditor compact targets={a.speedTargets} activePhase={airborne && !manual ? speedProfile(a).segment : undefined} onChange={speedTargets => onEdit({speedTargets, speedMode: "auto"})}/>
     </div>
   </section>;
 }
