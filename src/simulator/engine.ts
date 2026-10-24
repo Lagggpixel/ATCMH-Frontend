@@ -245,6 +245,8 @@ function arrivalNumber(a: Aircraft, aircraft: Aircraft[], runway = a.runway): nu
 
 function clearLanding(a: Aircraft) {a.clearedToLand = false; a.clearedForOption = false; a.optionHand = undefined; if (a.assigned) a.assigned = {...a.assigned, landing: false};}
 
+function fullStop(a: Aircraft) {a.landing = "full-stop"; delete a.optionHand; if (a.automaticRequest === "inbound-option") a.automaticRequest = "inbound-land";}
+
 function newCircuit(a: Aircraft) {a.circuit = (a.circuit ?? 0) + 1; a.sequence = undefined; a.patternFinalDistance = undefined; delete a.arrivalExit; delete a.arrivalRequest; clearLanding(a);}
 /** Sending a clearance never depends on a pilot request or an aircraft's position.
  * Physical prerequisites are checked separately when staff chooses to assign it. */
@@ -651,15 +653,20 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       break;
     }
     case "all-full-stop":
-      for (const a of next.aircraft) {a.landing = "full-stop"; delete a.optionHand; if (a.automaticRequest === "inbound-option") a.automaticRequest = "inbound-land";}
+      if (action.enabled === false) {
+        for (const a of next.aircraft) {const landing = next.fullStopAll?.[a.id]; if (landing) a.landing = landing;}
+        delete next.fullStopAll; break;
+      }
+      next.fullStopAll = {...next.fullStopAll};
+      for (const a of next.aircraft) {next.fullStopAll[a.id] ??= a.landing; fullStop(a);}
       break;
     case "report-position": {
       if (!aircraft!.active || aircraft!.frequency !== "tower" || !["pattern", "heading", "go-around"].includes(aircraft!.mode)) return {state, error: "Position reports require airborne traffic on Tower."};
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: "tower", sender: "pilot", text: positionReportText(aircraft!, AIRPORT), read: false});
       break;
     }
-    case "spawn": if (next.aircraft.length >= 50) return {state, error: "This exercise supports up to 50 aircraft."}; if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."}; next.aircraft.push(action.aircraft); break;
-    case "remove": reserveCallsigns(next, [aircraft!]); next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); removeConflictAircraft(next, action.aircraftId); break;
+    case "spawn": if (next.aircraft.length >= 50) return {state, error: "This exercise supports up to 50 aircraft."}; if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."}; next.aircraft.push(action.aircraft); if (next.fullStopAll) {next.fullStopAll[action.aircraft.id] = action.aircraft.landing; fullStop(next.aircraft.at(-1)!);} break;
+    case "remove": if (next.fullStopAll) delete next.fullStopAll[action.aircraftId]; reserveCallsigns(next, [aircraft!]); next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); removeConflictAircraft(next, action.aircraftId); break;
     case "taxi-path": {const error = applyTaxiPathEdit(aircraft!, action.path, action.edit); if (error) return {state, error}; break;}
     case "edit":
       if (["runway","altitude","heading","radar","targetSpeed","speedTargets"].some(key=>key in action.patch)) delete aircraft!.assigned;

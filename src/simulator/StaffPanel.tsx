@@ -1,15 +1,15 @@
 "use client";
 import FacilityControls from "./FacilityControls";
-import PerformanceControls from "./PerformanceControls";
+import PerformanceControls, {AircraftTypeSelect} from "./PerformanceControls";
 import {approachOptions} from "./aviation";
 import {ALTITUDES, altitudeLabel} from "./radar";
 import {magneticHeadingLabel} from "./magnetic-headings";
 import {useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode} from "react";
 import Link from "next/link";
-import {Airplane} from "@phosphor-icons/react/dist/csr/Airplane";
 import {ArrowsClockwise} from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
-import {ArrowsInSimple} from "@phosphor-icons/react/dist/csr/ArrowsInSimple";
-import {ArrowsOutSimple} from "@phosphor-icons/react/dist/csr/ArrowsOutSimple";
+import {ArrowSquareOut} from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
+import {CaretLeft} from "@phosphor-icons/react/dist/csr/CaretLeft";
+import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
 import PauseControls from "./PauseControls";
 
 import {Plus} from "@phosphor-icons/react/dist/csr/Plus";
@@ -37,7 +37,6 @@ import DeleteAircraftDialog from "./DeleteAircraftDialog";
 import styles from "./Simulator.module.css";
 import workspace from "./StaffWorkspace.module.css";
 import {CaretDown} from "@phosphor-icons/react/dist/csr/CaretDown";
-import {CaretUp} from "@phosphor-icons/react/dist/csr/CaretUp";
 import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 interface Props {exercise: Exercise; selected: Aircraft | undefined; dispatch: (a: Action) => void | boolean | Promise<boolean>; onSelect: (id: string | null) => void; editMode: string; onEditMode: (mode: string) => void; holdPoint: boolean; onHoldPoint: (value: boolean) => void; owner: boolean; status: string; prepareSpeech?: (text: string) => () => void}
 
@@ -71,19 +70,23 @@ function aircraftPhase(a: Aircraft) {
 export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, extra, tutorial, observer}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle: string; scenario?: boolean; onRestart?: () => void; extra?: ReactNode; tutorial?: ReactNode; observer?: {enabled: boolean; connected: boolean; onToggle: () => void}}) {
   const [confirmReset, setConfirmReset] = useState(false);
   const elapsed = `${String(Math.floor(exercise.elapsed / 60)).padStart(2, "0")}:${String(Math.floor(exercise.elapsed % 60)).padStart(2, "0")}`;
-  return <header data-simulator-tour="toolbar" className={styles.staffToolbar}><Link data-simulator-tour="return-sessions" href="/sweatbox/staff" aria-label="Return to sessions">ATCMH Sweatbox</Link><span className={styles.staffTitle} title={`${sessionTitle} · ${sessionId}`}>/ <span>{sessionCode(sessionId, exercise.airport)}</span></span>{audio}{observer ? <div className={styles.ownerObserver}><span>Owner observing</span><button type="button" aria-pressed={observer.enabled} disabled={!observer.connected} onClick={observer.onToggle}>{observer.enabled ? "Disable controls" : "Enable controls"}</button></div> : null}<span className={styles.exerciseStatus} title={status}><span>{owner ? exercise.running ? "Running" : "Paused" : status}</span> <time>{elapsed}</time></span><PauseControls exercise={exercise} owner={owner} dispatch={dispatch}/>{extra}<StaffMenu>
-    <FacilityControls exercise={exercise} dispatch={dispatch} connected={owner}/>
-    <section className={workspace.menuGroup} aria-label="Pilot automation"><h2>Pilot automation</h2><div data-simulator-tour="automatic" className={styles.automaticRow}><button className={styles.autoReadback} role="switch" aria-checked={!!exercise.autoReadback} disabled={!owner} onClick={() => dispatch({kind: "auto-readback", enabled: !exercise.autoReadback})}><span><strong>Automatic pilot actions</strong></span><span className={styles.autoReadbackSwitch} aria-hidden="true"/></button><AutomaticHelp/></div></section>
-    <section className={workspace.menuGroup} aria-label="Help"><h2>Help</h2>{tutorial}<a href="/sweatbox/about" target="_blank" rel="noreferrer" title="Independent training tool; simulation only">About & sources</a></section>
-    <section className={workspace.menuGroup} aria-label="Session"><h2>Session</h2>{!observer ? <><button disabled={!owner || !exercise.aircraft.length} onClick={() => dispatch({kind: "all-full-stop"})}>All aircraft full stop</button><a className={styles.openMentee} href={sessionPath("mentee", sessionId)} target="_blank" rel="noreferrer"><Users aria-hidden="true"/>Open mentee</a></> : null}<button className={workspace.menuDanger} disabled={!owner} onClick={() => setConfirmReset(true)}><ArrowsClockwise aria-hidden="true"/>{scenario ? "Restart attempt…" : "Reset exercise…"}</button></section>
+  return <header data-simulator-tour="toolbar" className={`${styles.staffToolbar} ${workspace.toolbar}`}><Link data-simulator-tour="return-sessions" href="/sweatbox/staff" aria-label="Return to sessions">ATCMH Sweatbox</Link><span className={styles.staffTitle} title={`${sessionTitle} · ${sessionId}`}>/ <span>{sessionCode(sessionId, exercise.airport)}</span></span>{observer ? <div className={styles.ownerObserver}><span>Owner observing</span><button type="button" aria-pressed={observer.enabled} disabled={!observer.connected} onClick={observer.onToggle}>{observer.enabled ? "Disable controls" : "Enable controls"}</button></div> : null}<span className={`${styles.exerciseStatus} ${workspace.clock}`} data-running={exercise.running || undefined} title={status}><span>{owner ? exercise.running ? "Running" : "Paused" : status}</span> <time>{elapsed}</time></span><PauseControls exercise={exercise} owner={owner} dispatch={dispatch}/>{extra}<span className={workspace.divider} aria-hidden="true"/>{audio}<StaffMenu>
+    <div data-simulator-tour="automatic" className={`${styles.automaticRow} ${workspace.menuRow}`}><button className={styles.autoReadback} role="switch" aria-checked={!!exercise.autoReadback} disabled={!owner} onClick={() => dispatch({kind: "auto-readback", enabled: !exercise.autoReadback})}><span><strong>Automatic pilot actions</strong></span><span className={styles.autoReadbackSwitch} aria-hidden="true"/></button><AutomaticHelp/></div>
+    <div className={workspace.menuFacilities}><FacilityControls exercise={exercise} dispatch={dispatch} connected={owner}/></div>
+    <span className={workspace.menuDivider} aria-hidden="true"/>
+    {!observer ? <a className={workspace.menuItem} href={sessionPath("mentee", sessionId)} target="_blank" rel="noreferrer"><Users aria-hidden="true"/>Open mentee view<ArrowSquareOut className={workspace.menuTrail} aria-hidden="true"/></a> : null}
+    <div className={workspace.menuLinks}>{tutorial}<a href="/sweatbox/about" target="_blank" rel="noreferrer" title="Independent training tool; simulation only">About & sources</a></div>
+    <span className={workspace.menuDivider} aria-hidden="true"/>
+    <button className={`${workspace.menuItem} ${workspace.menuDanger}`} disabled={!owner} onClick={() => setConfirmReset(true)}><ArrowsClockwise aria-hidden="true"/>{scenario ? "Restart attempt…" : "Reset exercise…"}</button>
   </StaffMenu>{confirmReset ? <div className={styles.resetBackdrop}><section role="alertdialog" aria-modal="true" aria-labelledby="reset-exercise-title" aria-describedby="reset-exercise-description" className={styles.resetDialog} onKeyDown={e => {if (e.key === "Escape") setConfirmReset(false); if (e.key === "Tab") {const buttons = e.currentTarget.querySelectorAll("button"); if (e.shiftKey && document.activeElement === buttons[0]) {e.preventDefault(); buttons[1].focus();} else if (!e.shiftKey && document.activeElement === buttons[1]) {e.preventDefault(); buttons[0].focus();}}}}><h2 id="reset-exercise-title">{scenario ? "Restart attempt?" : "Reset exercise?"}</h2><p id="reset-exercise-description">Restore the sample traffic and clear this session’s changes and messages.</p><div><button autoFocus onClick={() => setConfirmReset(false)}>Cancel</button><button className={styles.primaryButton} disabled={!owner} onClick={() => {if (scenario) onRestart?.(); else dispatch({kind: "reset"}); onReset(); setConfirmReset(false);}}>{scenario ? "Restart attempt" : "Reset exercise"}</button></div></section></div> : null}</header>;
 }
 
-export function TrafficRoster({exercise, selected, onSelect, owner, onSpawn}: Pick<Props, "exercise" | "selected" | "onSelect" | "dispatch" | "owner"> & {onSpawn: () => void}) {
+export function TrafficRoster({exercise, selected, onSelect, dispatch, owner, onSpawn}: Pick<Props, "exercise" | "selected" | "onSelect" | "dispatch" | "owner"> & {onSpawn: () => void}) {
   const AIRPORT = getAirport(exercise), FREQUENCIES = frequenciesFor(AIRPORT);
   const [query, setQuery] = useState("");
   const matches = exercise.aircraft.filter(a => `${a.callsign} ${a.type}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <aside data-simulator-tour="traffic" className={`${styles.trafficRoster} ${workspace.roster}`} aria-label="Traffic"><header><h1>Aircraft <small>{exercise.aircraft.length}</small></h1><button className={workspace.addButton} disabled={!owner || exercise.aircraft.length >= 50} onClick={onSpawn}><Plus aria-hidden="true"/>Add aircraft</button></header>
+  const fullStop = !!exercise.fullStopAll;
+  return <aside data-simulator-tour="traffic" className={`${styles.trafficRoster} ${workspace.roster}`} aria-label="Traffic"><header><h1>Aircraft <small>{exercise.aircraft.length}</small></h1><div className={workspace.rosterActions}><button className={`${workspace.addButton} ${workspace.fullStop}`} aria-pressed={fullStop} aria-label="All aircraft full stop" title={fullStop ? "All aircraft full stop is on. Click to restore each aircraft's landing." : "All aircraft full stop"} disabled={!owner || !fullStop && !exercise.aircraft.length} onClick={() => dispatch({kind: "all-full-stop", enabled: !fullStop})}>FS</button><button className={workspace.addButton} disabled={!owner || exercise.aircraft.length >= 50} onClick={onSpawn}><Plus aria-hidden="true"/>Add</button></div></header>
     <label className={workspace.search}><span className={workspace.srOnly}>Search aircraft</span><input type="search" placeholder="Search callsign or type" value={query} onChange={event => setQuery(event.target.value)}/><MagnifyingGlass aria-hidden="true"/></label>
 
     <div className={`${styles.trafficList} ${workspace.list}`}>
@@ -105,11 +108,11 @@ type Tab = "Radio" | "Flight" | "Setup";
 interface Task {id: string; label: string}
 const tabs: readonly Tab[] = ["Radio", "Flight", "Setup"];
 const radioTasks: readonly Task[] = [
-  {id: "reply", label: "Reply to controller"}, {id: "request", label: "Pilot request"}, {id: "custom", label: "Custom message"},
-  {id: "aircraft-log", label: "Aircraft history"}, {id: "expectations", label: "Arrival expectations"},
+  {id: "reply", label: "Reply"}, {id: "request", label: "Pilot request"}, {id: "custom", label: "Custom"},
+  {id: "aircraft-log", label: "History"}, {id: "expectations", label: "Expectations"},
 ];
-const sessionTask: Task = {id: "global-log", label: "Session message log"};
-const setupTasks: readonly Task[] = [{id: "intentions", label: "Intentions"}, {id: "routes", label: "Routes & position"}, {id: "speeds", label: "Speed settings"}, {id: "details", label: "Aircraft details"}];
+const sessionTask: Task = {id: "global-log", label: "Session log"};
+const setupTasks: readonly Task[] = [{id: "intentions", label: "Intentions"}, {id: "routes", label: "Routes & position"}, {id: "speeds", label: "Speeds"}, {id: "details", label: "Details"}];
 const flightTasksFor = (a: Aircraft | undefined): readonly Task[] => a?.radar
   ? [{id: "flight", label: "Vectors & speed"}, {id: "navigation", label: "Approach & recovery"}]
   : [{id: "flight", label: "Heading & speed"}, {id: "pattern", label: "Pattern & landing"}];
@@ -132,7 +135,7 @@ export default function StaffPanel(props: Props) {
   const [tab, setTab] = useState<Tab>("Radio");
   const [radioTask, setRadioTask] = useState<string>("reply"), [setupTask, setSetupTask] = useState<string>("intentions");
   const [flightTask, setFlightTask] = useState("flight");
-  const [expanded, setExpanded] = useState(false), [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const id = useId();
   const flightTasks = flightTasksFor(a);
   const activeFlight = flightTasks.some(task => task.id === flightTask) ? flightTask : "flight";
@@ -144,39 +147,34 @@ export default function StaffPanel(props: Props) {
     if (tab === "Radio") setRadioTask(task); else if (tab === "Setup") setSetupTask(task); else setFlightTask(task);
     onEditMode("");
   };
-  const taskButton = (task: Task) => <button key={task.id} type="button" aria-current={section === task.id ? "true" : undefined} disabled={!a && task.id !== "global-log"} onClick={() => chooseTask(task.id)}>
-    <span>{task.label}</span>{task.id === "reply" && waiting > 0 ? <em className={workspace.count} aria-label={`${waiting} awaiting ${waiting === 1 ? "reply" : "replies"}`}>{waiting}</em> : null}
-  </button>;
-  return <section data-simulator-tour="aircraft-controls" className={`${styles.staffPanel} ${workspace.panel}`} aria-label="Staff controls" data-section={section} data-expanded={expanded} data-collapsed={collapsed}>
+  const taskButton = (task: Task) => <button key={task.id} type="button" aria-current={section === task.id ? "true" : undefined} onClick={() => chooseTask(task.id)}>{task.label}</button>;
+  return <section data-simulator-tour="aircraft-controls" className={`${styles.staffPanel} ${workspace.panel}`} aria-label="Staff controls" data-section={a ? section : "global-log"} data-collapsed={collapsed}>
     <header className={workspace.identity}>
-      {a ? <div className={workspace.selectedIdentity}><strong>{a.callsign}</strong><small>{a.type} · {aircraftPhase(a)}</small></div> : <div className={workspace.selectedIdentity}><strong>No aircraft selected</strong><small>Choose a callsign in the aircraft list or on the radar</small></div>}
-      {a ? <div className={workspace.identityFacts}><label className={workspace.frequency}>Frequency<select aria-label="Aircraft frequency" disabled={!props.owner} value={a.frequency ?? "none"} onChange={e => props.dispatch({kind: "edit", aircraftId: a.id, patch: {frequency: e.target.value === "none" ? null : e.target.value as Frequency}})}>
+      <div className={workspace.who}>
+        {a ? <div className={workspace.selectedIdentity}><strong>{a.callsign}</strong><small>{a.type} · {aircraftPhase(a)}</small></div> : <div className={workspace.selectedIdentity}><strong>No aircraft selected</strong><small>Pick a callsign in the list or on the radar</small></div>}
+        <button type="button" className={workspace.collapse} aria-label={collapsed ? "Show controls" : "Hide controls"} title={collapsed ? "Show controls" : "Hide controls"} aria-expanded={!collapsed} aria-controls={`${id}-content`} onClick={() => {setCollapsed(value => !value); onEditMode("");}}>{collapsed ? <CaretLeft aria-hidden="true"/> : <CaretRight aria-hidden="true"/>}</button>
+      </div>
+      {a && !collapsed ? <div key={a.id} className={workspace.identityFacts}><label className={workspace.frequency}>Frequency<select aria-label="Aircraft frequency" disabled={!props.owner} value={a.frequency ?? "none"} onChange={e => props.dispatch({kind: "edit", aircraftId: a.id, patch: {frequency: e.target.value === "none" ? null : e.target.value as Frequency}})}>
           <option value="ground">{frequencies.ground.label} · {frequencies.ground.value}</option><option value="tower">{frequencies.tower.label} · {frequencies.tower.value}</option>
           {trainingMode(props.exercise) !== "local" ? <><option value="approach">Approach</option><option value="center">Center</option></> : null}
           <option value="none">No frequency</option>{a.frequency === "atis" ? <option value="atis" disabled>ATIS</option> : null}
         </select></label><div className={workspace.runway}><small>Runway</small><span>{stripRunway(a)}</span></div></div> : null}
-      <div role="tablist" aria-label="Aircraft controls" className={workspace.tabs}>
-        {tabs.map(label => <button key={label} role="tab" id={`${id}-${label}`} aria-selected={!collapsed && tab === label} aria-controls={`${id}-content`} tabIndex={tab === label ? 0 : -1} disabled={!a && label !== "Radio"} onClick={() => changeTab(label)} onKeyDown={event => {
-          const available: readonly Tab[] = a ? tabs : ["Radio"];
-          const index = available.indexOf(label);
-          const next = event.key === "Home" ? available[0] : event.key === "End" ? available.at(-1) : event.key === "ArrowRight" ? available[(index + 1) % available.length] : event.key === "ArrowLeft" ? available[(index + available.length - 1) % available.length] : undefined;
+      {a && !collapsed ? <div role="tablist" aria-label="Aircraft controls" className={workspace.tabs}>
+        {tabs.map(label => <button key={label} role="tab" id={`${id}-${label}`} aria-selected={tab === label} aria-controls={`${id}-content`} tabIndex={tab === label ? 0 : -1} onClick={() => changeTab(label)} onKeyDown={event => {
+          const index = tabs.indexOf(label);
+          const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : undefined;
           if (next) {event.preventDefault(); changeTab(next); document.getElementById(`${id}-${next}`)?.focus();}
         }}>{label}{label === "Radio" && waiting > 0 ? <em className={workspace.count}><span className={workspace.srOnly}>, </span>{waiting}<span className={workspace.srOnly}> awaiting {waiting === 1 ? "reply" : "replies"}</span></em> : null}</button>)}
-      </div>
-      <div className={workspace.dockActions}>
-        {!collapsed ? <button type="button" aria-pressed={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <ArrowsInSimple aria-hidden="true"/> : <ArrowsOutSimple aria-hidden="true"/>}{expanded ? "Reduce panel" : "Expand panel"}</button> : null}
-        <button type="button" className={workspace.collapse} aria-expanded={!collapsed} aria-controls={`${id}-content`} onClick={() => {setCollapsed(value => !value); onEditMode("");}}>{collapsed ? <CaretUp aria-hidden="true"/> : <CaretDown aria-hidden="true"/>}{collapsed ? "Show controls" : "Hide controls"}</button>
-      </div>
+      </div> : null}
     </header>
-    {!collapsed ? <div className={workspace.body} id={`${id}-content`} role="tabpanel" aria-labelledby={`${id}-${tab}`}>
-      <nav className={workspace.taskRail} aria-label={`${tab} tasks`} onKeyDown={event => moveFocus(event, "vertical")}>
-        {a ? tasks.map(taskButton) : null}
-        {tab === "Radio" ? <>{a ? <span className={workspace.railDivider} aria-hidden="true"/> : null}{taskButton(sessionTask)}</> : null}
-      </nav>
-      <div className={`${styles.controlContent} ${workspace.content}`}>
-        {section === "global-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/> : section === "aircraft-log" && a ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/> : a ? <AircraftControls key={a.id} {...props} selected={a} section={section}/> : <div className={styles.staffEmpty}><Airplane size={28} aria-hidden="true"/><strong>Select an aircraft to begin</strong><p>Radio, Flight and Setup open for the selected aircraft. The session message log is available at any time.</p><button type="button" className={workspace.textButton} onClick={() => {setTab("Radio"); setRadioTask("global-log");}}>Open session message log</button></div>}
+    {!collapsed ? <>
+      {a ? <nav className={workspace.taskRail} aria-label={`${tab} tasks`} onKeyDown={event => moveFocus(event, "horizontal")}>
+        {tasks.map(taskButton)}{tab === "Radio" ? taskButton(sessionTask) : null}
+      </nav> : null}
+      <div key={a?.id ?? "log"} className={`${styles.controlContent} ${workspace.content}`} id={`${id}-content`} role={a ? "tabpanel" : undefined} aria-labelledby={a ? `${id}-${tab}` : undefined} data-log={!a || section === "global-log" || undefined}>
+        {!a || section === "global-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/> : section === "aircraft-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
       </div>
-    </div> : null}
+    </> : null}
   </section>;
 }
 
@@ -244,10 +242,7 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
         <button className={styles.primaryButton} disabled={!lastCommand || !canMessage || !!assignmentError} title={lastCommand ? assignmentError ?? "Acknowledge and follow this instruction" : undefined} onClick={() => reply(false, true)}>{switching ? lastCommand.instruction!.type === "frequency" && lastCommand.instruction!.whenReady ? "Readback & queue switch" : "Readback & switch" : "Readback & follow"}</button>
         <div><button disabled={!lastCommand || !canMessage} title={switching ? "Read back only; the aircraft stays on its current frequency." : "Read back without assigning the instruction"} onClick={() => reply()}>Readback only</button><button disabled={!lastCommand || !canMessage} onClick={() => reply(true)}>Unable</button></div>
       </div>
-      <div className={workspace.replyHelp}>
-        {!canMessage || lastCommand && assignmentError ? <p className={styles.controlHint} role="status">{!canMessage ? "Select a controller frequency to send messages." : assignmentError}</p> : null}
-        <p className={styles.controlHint}>{switching ? "Readback only keeps the aircraft on its current frequency. Readback & switch also changes frequency." : "Readback only leaves aircraft movement unchanged. Readback & follow also flies the instruction."}</p>
-      </div>
+      {!canMessage || lastCommand && assignmentError ? <p className={styles.controlHint} role="status">{!canMessage ? "Select a controller frequency to send messages." : assignmentError}</p> : null}
     </section> : null}
     {section === "custom" ? <section className={workspace.task} aria-label="Custom pilot message">
       <div className={workspace.sendRow}><label>Pilot message<input aria-label="Other pilot response" placeholder="Enter a pilot message" maxLength={1000} value={response} onChange={e => setResponse(e.target.value)} onKeyDown={e => {if (e.key === "Enter" && canMessage && response.trim()) {dispatch({kind: "pilot", aircraftId: a.id, text: `${response.trim()}, ${a.callsign}`}); setResponse("");}}}/></label><button className={styles.primaryButton} disabled={!canMessage || !response.trim()} onClick={() => {dispatch({kind: "pilot", aircraftId: a.id, text: `${response.trim()}, ${a.callsign}`}); setResponse("");}}>Send response</button></div>
@@ -260,8 +255,8 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       <LocalSpeed aircraft={a} onSpeed={value => maneuver({type: "speed", value})}/>
       {["parked", "pushback", "taxi", "lineup"].includes(a.mode) ? <label>Engines<select aria-label="Simulated engines" value={(a.enginesRunning ?? groundReady(a, AIRPORT)) ? "running" : "off"} onChange={event => edit({enginesRunning: event.target.value === "running"})}><option value="off">Off · routed pushback while stopped</option><option value="running">Running · taxi routing</option></select></label> : null}
     </div><p>Staff override · changes aircraft movement without a radio call. Pattern legs and landing are in Pattern & landing.</p></section> : null}
-    {section === "speeds" ? <PerformanceControls aircraft={a} onEdit={edit}/>:null}
     {section === "speeds" ? a.radar ? <RadarSeedControls aircraft={a} airport={AIRPORT} environment={exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT)} onEdit={edit} staffView="speeds"/> : <SpeedControls airport={AIRPORT} aircraft={a} onEdit={edit} onSpeed={value => maneuver({type: "speed", value})}/> : null}
+    {section === "speeds" ? <div className={workspace.performance}><h3>Performance &amp; fuel</h3><PerformanceControls aircraft={a} onEdit={edit} typeSelect={false}/></div> : null}
     {section === "pattern" && !a.radar ? <section className={workspace.patternView} aria-label="Pattern controls">
       <div className={workspace.formRow}><label>Assigned runway<select aria-label="Assigned runway" value={a.runway ?? defaultRunway(AIRPORT)} onChange={e => maneuver({type: "runway", runway: e.target.value as Runway})}>{runwayEnds(AIRPORT).map(end => <option key={end.id}>{end.id}</option>)}</select></label><label>Pattern direction<select value={a.hand} onChange={e => edit({hand: e.target.value as "left" | "right"})}><option value="left">Left traffic</option><option value="right">Right traffic</option></select></label><LandingOutcomeControl compact value={a.landing} onChange={outcome => maneuver({type: "outcome", outcome})}/></div>
       <div className={workspace.controlGroup}><h3 id={`${a.id}-legs`}>Pattern leg</h3><div className={workspace.segmented} role="group" aria-labelledby={`${a.id}-legs`}>{(["upwind", "crosswind", "downwind", "base", "final"] as Leg[]).map(leg => <button key={leg} disabled={!!validateInstruction(a, {type: "pattern", leg})} aria-pressed={a.mode === "pattern" && a.leg === leg} onClick={() => maneuver({type: "pattern", leg})}>{leg}</button>)}</div></div>
@@ -273,11 +268,11 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       <div className={workspace.routeGrid}>{!a.radar ? <section aria-label="Taxi route"><h3>Taxi route</h3><div className={workspace.vectorGroup}><label>Taxi destination<select value={runway} onChange={e => setRunway(e.target.value as Runway)}>{runwayEnds(AIRPORT).map(end => <option key={end.id} value={end.id}>Runway {end.id}</option>)}</select></label><button disabled={!["parked", "pushback", "taxi", "rollout"].includes(a.mode)} onClick={() => {const route = planTaxiRoute(AIRPORT, a.position, runway); setRouteError(route.error ?? ""); if (route.path) {edit({taxiPath: route.path, taxiIndex: 0, holding: true, speed: 0, targetSpeed: 0, runway}); onEditMode("taxi-preview");}}}>Calculate route</button></div>{routeError ? <p className={styles.routeError} role="alert">{routeError}</p> : null}<div className={workspace.actionRow}><button aria-pressed={editMode === "taxi"} onClick={() => onEditMode(editMode === "taxi" ? "" : "taxi")}>{editMode === "taxi" ? "Done drawing" : "Draw taxi path"}</button><button onClick={() => edit({taxiPath: [], taxiIndex: 0, holding: true, speed: 0, targetSpeed: 0})}>Clear path</button></div><label className={styles.checkLabel}><input type="checkbox" checked={holdPoint} onChange={e => onHoldPoint(e.target.checked)}/>Hold-short at next point</label><div className={workspace.actionRow}>{([{type: "taxi", label: "Start taxi"}, {type: "stop", label: "Stop"}, {type: "cross", label: "Release crossing"}] as const).map(c => <button key={c.type} disabled={!!validateInstruction(a, {type: c.type})} onClick={() => maneuver({type: c.type})}>{c.label}</button>)}</div></section> : null}<section aria-label="Flight plan"><h3>Flight plan <small>{a.flightPlan.length} points · {a.radar ? "radar route" : "display only"}</small></h3><div className={workspace.actionRow}><button aria-pressed={editMode === "flightPlan"} onClick={() => onEditMode(editMode === "flightPlan" ? "" : "flightPlan")}>{editMode === "flightPlan" ? "Done drawing" : "Draw flight plan"}</button><button onClick={() => edit({flightPlan: []})}>Clear plan</button></div></section><section aria-label="Position"><h3>Position</h3><div className={workspace.actionRow}><button aria-pressed={editMode === "position"} onClick={() => onEditMode(editMode === "position" ? "" : "position")}>Reposition on radar</button><button onClick={() => {const g = runwayGeometry(a.runway ?? defaultRunway(AIRPORT)); edit({position: g.threshold, heading: g.heading, targetHeading: g.heading});}}>At runway threshold</button></div>{editMode ? <p className={styles.controlHint} role="status">{editMode === "taxi-preview" ? "Drag route to adjust." : "Click radar to place a point."}</p> : null}</section></div>
     </> : null}
     {section === "details" ? <>
-      <dl className={workspace.operationalDetails}><div><dt>Frequency</dt><dd>{a.frequency ? `${frequenciesFor(AIRPORT)[a.frequency].label} ${frequenciesFor(AIRPORT)[a.frequency].value}` : "No frequency"}</dd></div><div><dt>Runway</dt><dd>{stripRunway(a)}</dd></div><div><dt>Next landing</dt><dd>{a.landing === "full-stop" ? "Full stop" : "Touch and go"}</dd></div>{a.radar ? <div><dt>Guidance</dt><dd>{radarGuidanceLabel(a, exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT))}</dd></div> : null}{a.radar?.flight ? <div><dt>Flight intention</dt><dd>{a.radar.flight === "departure" ? "Depart sector" : "Return for approach"}</dd></div> : null}{lastCommand?.instruction?.type === "frequency" && lastCommand.instruction.frequency ? <div><dt>{lastCommand.instruction.whenReady ? "Contact when ready" : "Awaiting switch"}</dt><dd>{frequenciesFor(AIRPORT)[lastCommand.instruction.frequency].label}</dd></div> : null}</dl>
-      <div className={workspace.formRow}><label className={workspace.wide}>Callsign<input aria-label="Callsign" defaultValue={a.callsign} maxLength={80} onBlur={e => edit({callsign: e.target.value.trim() || a.callsign})}/></label><label>Aircraft type<input aria-label="Aircraft type" defaultValue={a.type} maxLength={12} onBlur={e => edit({type: e.target.value.trim() || a.type})}/></label><label>Altitude (ft MSL)<input aria-label="Aircraft altitude" type="number" min="0" max="60000" defaultValue={Math.round(a.altitude)} onBlur={e => {if (e.target.value.trim() && e.currentTarget.checkValidity()) edit({altitude: Number(e.target.value)}); else if (!e.currentTarget.validity.valid) e.currentTarget.reportValidity();}}/></label></div>
+      <dl className={workspace.operationalDetails}><div><dt>Next landing</dt><dd>{a.landing === "full-stop" ? "Full stop" : "Touch and go"}</dd></div>{a.radar ? <div><dt>Guidance</dt><dd>{radarGuidanceLabel(a, exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT))}</dd></div> : null}{a.radar?.flight ? <div><dt>Flight intention</dt><dd>{a.radar.flight === "departure" ? "Depart sector" : "Return for approach"}</dd></div> : null}{lastCommand?.instruction?.type === "frequency" && lastCommand.instruction.frequency ? <div><dt>{lastCommand.instruction.whenReady ? "Contact when ready" : "Awaiting switch"}</dt><dd>{frequenciesFor(AIRPORT)[lastCommand.instruction.frequency].label}</dd></div> : null}</dl>
+      <div className={workspace.formRow}><label className={workspace.wide}>Callsign<input aria-label="Callsign" defaultValue={a.callsign} maxLength={80} onBlur={e => edit({callsign: e.target.value.trim() || a.callsign})}/></label><AircraftTypeSelect aircraft={a} onEdit={edit}/><label>Altitude (ft MSL)<input aria-label="Aircraft altitude" type="number" min="0" max="60000" defaultValue={Math.round(a.altitude)} onBlur={e => {if (e.target.value.trim() && e.currentTarget.checkValidity()) edit({altitude: Number(e.target.value)}); else if (!e.currentTarget.validity.valid) e.currentTarget.reportValidity();}}/></label></div>
       <p className={styles.controlHint}>Changes save when you leave a field. {AIRPORT.icao} elevation {AIRPORT.elevation} ft.</p>
       {deleteOpen ? <DeleteAircraftDialog aircraft={a} enabled={owner} dispatch={dispatch} onDeleted={() => {onSelect(null); onEditMode("");}} onClose={() => setDeleteOpen(false)}/> : null}
-      <details className={workspace.advanced}><summary>Remove aircraft</summary><div className={workspace.removeArea}><p>Removes {a.callsign} from this exercise. Earlier radio messages stay in the session log.</p><button className={styles.removeButton} onClick={() => setDeleteOpen(true)}><X aria-hidden="true"/>Remove aircraft…</button></div></details>
+      <div className={workspace.removeArea}><p>Earlier messages stay in the session log.</p><button className={styles.removeButton} onClick={() => setDeleteOpen(true)}><X aria-hidden="true"/>Remove aircraft…</button></div>
     </> : null}
   </fieldset>;
 }

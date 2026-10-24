@@ -140,6 +140,7 @@ export interface Exercise {
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
   autoReadback?: boolean;
+  fullStopAll?: Record<string, Aircraft["landing"]>; // Landing intentions to restore when staff cancel All full stop.
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
   radarEnvironment?: RadarEnvironment;
   terrainStatus?: "checking" | "available" | "unavailable";
@@ -149,7 +150,7 @@ export interface Exercise {
 }
 export type Action =
   | {kind:"facilities";activity:Record<string,boolean>}
-  | {kind: "all-full-stop"}
+  | {kind: "all-full-stop"; enabled?: boolean}
   | {kind: "report-position"; aircraftId: string}
   | {kind: "weather"; weather: ExerciseWeather}
   | {kind: "conflict"; conflict: import("./training-conflicts").ConflictKind; aircraftId: string; otherId: string}
