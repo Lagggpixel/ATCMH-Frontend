@@ -62,7 +62,9 @@ export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntim
           action = {kind: "pilot", aircraftId, text: pilotRequestText(aircraft, request, spec.runway, spec.remainingInPattern, {...spec, exercise: next}), request: pilotRequestSchema.parse({...spec,id:request.id})};
         }
       }
-      const result = applyEnvelope(next, {id: `${runtime.generation}:${event.id}:${i}`, time: now, action});
+      const result = applyEnvelope(next, {id: `${runtime.generation}:${event.id}:${i}`, time: now, action}, {
+        legacyPatternEntry: spec.type === "request" && action.kind === "pilot" && action.request?.id === "pattern-entry",
+      });
       if (result.error) throw new Error(result.error);
       next = result.state;
     }
