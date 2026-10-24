@@ -445,7 +445,7 @@
   --trainer-accent:#27c9d6;
   --trainer-selected:#17343a;
   --controller-unit:1px;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * var(--controller-unit));
+  padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * var(--controller-unit));
   grid-template-rows:64px minmax(0,1fr);
   background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:15px;
   scrollbar-color:#52616c var(--trainer-surface);scrollbar-width:thin;
@@ -693,7 +693,7 @@
 /* Keep the tablet workspace available on short, landscape phone screens too. */
 @media (orientation:landscape) and (min-width:568px) and (min-height:280px) {
   .menteeSimulator .rotatePrompt {display:none}
-  .menteeSimulator {height:100dvh;bottom:auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .menteeSimulator {height:100dvh;bottom:auto;padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 }
 @media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
   .menteeSimulator {--controller-unit:.8px;grid-template-rows:44px minmax(0,1fr)}
@@ -751,7 +751,7 @@
 .menteeSimulator .rightPanel {grid-template-rows:minmax(0,1fr) minmax(0,calc(166 * var(--controller-unit)));min-width:0;padding:0 10px 0}
 .messageBackdrop {position:absolute;inset:0;z-index:31;width:100%;height:100%;padding:0!important;background:transparent!important;cursor:default!important}
 .commandConnector {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
-.menteeSimulator .commandPanel {position:absolute;grid-area:auto;right:calc(env(safe-area-inset-right) + 5 * var(--controller-unit));bottom:calc(env(safe-area-inset-bottom) + 5 * var(--controller-unit));top:auto;width:calc(562 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10 * var(--controller-unit)));max-width:none;max-height:none;padding:0;border:0;outline:1px solid var(--trainer-border);border-radius:5px;box-shadow:0 6px 24px #0008;z-index:32}
+.menteeSimulator .commandPanel {position:absolute;grid-area:auto;right:calc(env(safe-area-inset-right) + 5 * var(--controller-unit));bottom:calc(env(safe-area-inset-bottom) + 5 * var(--controller-unit));top:auto;width:calc(562 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - var(--simulator-safe-top) - env(safe-area-inset-bottom) - 10 * var(--controller-unit)));max-width:none;max-height:none;padding:0;border:0;outline:1px solid var(--trainer-border);border-radius:5px;box-shadow:0 6px 24px #0008;z-index:32}
 .contextAnchor {width:320px;z-index:30}
 .contextAnchor>.aircraftMenu {width:100%;min-width:0;max-height:var(--popup-available-height,calc(100dvh - 10px));padding:0;scrollbar-width:auto;animation:aircraftMenuEnter .12s ease-out}
 .simulator .aircraftMenu {background:#050505;color:#eee;border-color:#353535}
@@ -759,13 +759,13 @@
 .simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:#263a42;color:#fff}
 .simulator .aircraftMenu button:active:not(:disabled) {background:#d3f3fb;color:#07191e}
 .contextAnchor .altitudeChoices {max-height:none;overflow:visible}
-.aircraftInformation {top:calc(env(safe-area-inset-top) + 74px);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit) + 5px);left:auto;transform:none;box-shadow:0 6px 24px #0008;max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 10px)}
+.aircraftInformation {top:calc(var(--simulator-safe-top) + 74px);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit) + 5px);left:auto;transform:none;box-shadow:0 6px 24px #0008;max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 10px)}
 @keyframes aircraftMenuEnter {from {opacity:0;transform:translateX(var(--popup-direction,-8px))} to {opacity:1;transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce) {.contextAnchor>.aircraftMenu {animation:none}}
 
 
 /* Controller overlays stay above the audio/header layer and inside fullscreen. */
-.aircraftInformation {z-index:35;max-height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 84px)}
+.aircraftInformation {z-index:35;max-height:calc(100% - var(--simulator-safe-top) - env(safe-area-inset-bottom) - 84px)}
 .menteeSimulator .rotatePrompt {z-index:100}
 
 /* Infinite Flight 26.4 settled backgrounds; alpha values are bytes / 255. */
@@ -844,7 +844,7 @@
 .menteeSimulator .strip .atcButton {padding:calc(4 * var(--controller-unit))!important;font-size:calc(14 * var(--controller-unit))!important;border:0}
 .menteeSimulator .strips {overflow-x:hidden}
 .menteeSimulator .stripsHeader {display:none}
-.menteeSimulator .aircraftInformation {top:calc(env(safe-area-inset-top) + 34 * var(--controller-unit));bottom:env(safe-area-inset-bottom);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit));width:calc(458 * var(--controller-unit));max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 60 * var(--controller-unit));height:auto;max-height:none;box-shadow:none;border:0;border-radius:0;overflow-y:auto}
+.menteeSimulator .aircraftInformation {top:calc(var(--simulator-safe-top) + 34 * var(--controller-unit));bottom:env(safe-area-inset-bottom);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit));width:calc(458 * var(--controller-unit));max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 60 * var(--controller-unit));height:auto;max-height:none;box-shadow:none;border:0;border-radius:0;overflow-y:auto}
 .menteeSimulator .commandMain>.commandHistory {grid-row:4;grid-column:1;min-height:0}
 .menteeSimulator .commandMain>.messageEntries {grid-column:1}
 .menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit));border:0}
@@ -957,10 +957,10 @@
   .menteeSimulator {grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * .75px)}
 }
 
-/* The installed iOS app draws behind system chrome; keep every role inside its safe rectangle. */
-.simulator {box-sizing:border-box;height:100dvh;bottom:auto}
-.simulator.staffSimulator {padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.simulator::before {content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top);background:#000;z-index:100;pointer-events:none}
+/* Keep the top clear even when landscape provides only a bottom safe-area inset. */
+.simulator {--simulator-safe-top:max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));box-sizing:border-box;height:100dvh;bottom:auto}
+.simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.simulator::before {content:"";position:fixed;inset:0 0 auto;height:var(--simulator-safe-top);background:#000;z-index:100;pointer-events:none}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
 @media(max-width:600px) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
 
