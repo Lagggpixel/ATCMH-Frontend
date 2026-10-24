@@ -37,9 +37,6 @@
 .aircraftTag .holdStatus {color:#ffa500}
 .fixTooltip {position:absolute;z-index:6;max-width:calc(100% - 12px);padding:5px 8px;background:#101820;color:#b7d8ff;border:1px solid #2a82e6;font:12px/1.3 "Simulator Fira",sans-serif;overflow-wrap:anywhere;pointer-events:none}
 .taxiRouteOverlay {position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
-.taxiWaypoint {pointer-events:all;cursor:grab;outline:none}
-.taxiWaypoint:active {cursor:grabbing}
-.taxiWaypoint:focus-visible {stroke:#fff;stroke-width:3}
 .pathLegend {position:absolute;bottom:26px;left:12px;padding:8px 10px;background:#101518e8;border:1px solid #34434b;color:#d6e2e7;font-size:11px;line-height:1.6;pointer-events:none}
 .scopeButtons {position:absolute;right:5px;bottom:26px;display:grid;width:clamp(46px,3.8vw,72px);border:1px solid #aaa;background:#090909;z-index:5}
 .scopeButtons button {height:clamp(46px,3.8vw,72px);border-bottom:1px solid #aaa;display:flex;align-items:center;justify-content:center;padding:0}

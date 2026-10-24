@@ -35,10 +35,12 @@ test("Current Path retains native item ordering, editable taxiway rows and separ
 test("the native path menu contains route rows and Send/Cancel without the extra form", () => withCss(() => {
   const {aircraft, route} = fixture();
   const Editor = require("./GroundRouteEditor").default as typeof import("./GroundRouteEditor").default;
-  const routing = {draft: {aircraftId: aircraft.id, kind: route.kind, controls: route.controls, destination: route.destination, route, holds: {}, pending: false}, busy: false,
+  const routing = {draft: {aircraftId: aircraft.id, kind: route.kind, controls: route.controls, destination: route.destination, route, holds: {}, pending: false}, busy: false, mode: "controller" as const,
     start() {}, move() {}, choose() {}, cancel() {}, remove() {}, hold() {}, async send() {}};
   const html = renderToStaticMarkup(createElement(Editor, {airport: AIRPORT, aircraft, routing}));
   assert.match(html, /<header>Current Path<\/header>/);
+  assert.ok(renderToStaticMarkup(createElement(Editor, {airport: AIRPORT, aircraft, routing: {...routing, mode: "staff" as const}})).includes(`Start ${route.kind === "pushback" ? "Pushback" : "Taxi"}`));
+  assert.ok(renderToStaticMarkup(createElement(Editor, {airport: AIRPORT, aircraft, routing: {...routing, mode: "scenario" as const}})).includes("Save Route"));
   assert.match(html, /06-24 \[Threshold\]/);
   assert.match(html, /aria-label="Hold at 06-24 threshold"/);
   assert.doesNotMatch(html, /checked=""/);
@@ -60,7 +62,7 @@ test("draft markers are hollow native rings and the committed HOLD is a separate
   assert.ok(!committed.includes("HOLD 24"));
 }));
 
-test("a seeded physical taxi path is not a cleared green route; issued routes and trainer editing remain visible", () => withCss(() => {
+test("a seeded physical taxi path is not a cleared green route; issued routes and the staff view remain visible", () => withCss(() => {
   const {aircraft, route} = fixture();
   const Scope = require("./Scope").default as typeof import("./Scope").default;
   const props = {airport: AIRPORT, aircraft: [aircraft], running: false, frequency: "ground" as const, selected: aircraft.id, onSelect() {}};
@@ -68,8 +70,7 @@ test("a seeded physical taxi path is not a cleared green route; issued routes an
   assert.ok(!render().includes(`aria-label="${aircraft.callsign} taxi route"`));
   assert.ok(render({groundRouteCleared: true}).includes(`aria-label="${aircraft.callsign} taxi route"`));
   assert.ok(render({sentGroundRoute: route}).includes(`aria-label="${aircraft.callsign} taxi route"`));
-  assert.ok(!render({onTaxiPathEdit() {}}).includes(`aria-label="${aircraft.callsign} taxi route"`));
-  assert.ok(render({editMode: "taxi-preview", onTaxiPathEdit() {}}).includes(`aria-label="${aircraft.callsign} taxi route"`));
+  assert.ok(render({frequency: "all"}).includes(`aria-label="${aircraft.callsign} taxi route"`));
 }));
 
 test("staff see the aircraft's automatic runway exit without a historic taxi clearance", () => withCss(() => {
