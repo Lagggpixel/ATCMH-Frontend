@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {getAirport, airportRunways} from "../airports";
 import {facilities, localPoint} from "../aviation";
 import type {AirportInformation, AirportProcedures, AirportWeather, AirportDisplayData} from "../airport-display";

@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {getAirport} from "../airports";
 import type {NavigationCatalog, NavigationRoute} from "../navigation-data";
 import {SessionError} from "../sessions";

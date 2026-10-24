@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {scenarioSchema, storedScenarioSchema} from "../scenarios";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";

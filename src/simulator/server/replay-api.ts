@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
 import {listReplays, readReplay} from "./replay-store";

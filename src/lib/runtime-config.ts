@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export interface RuntimeEnvironment {
   readonly [name: string]: string | undefined;

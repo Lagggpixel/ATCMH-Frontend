@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {getAirport} from "../airports";
 import {localPoint} from "../aviation";
 import type {ScopeMapData, ScopeWinds, WindLevel} from "../scope-map-data";

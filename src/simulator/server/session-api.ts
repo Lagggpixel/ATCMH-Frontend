@@ -1,6 +1,6 @@
 import {fetchWeatherReport} from "./weather-provider";
 import type {SessionWeatherLoader} from "./session-weather";
-import {z} from "zod";
+import {z} from "zod/v3";
 import {envelopeSchema} from "../protocol";
 import {invalidRequestMessage} from "../request-validation";
 import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";

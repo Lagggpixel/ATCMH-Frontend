@@ -1,6 +1,6 @@
 import {standPoints} from "./stand-geometry";
 import {REQUEST_IDS} from "./catalog";
-import {z} from "zod";
+import {z} from "zod/v3";
 import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema, weatherSchema, pilotRequestSchema} from "./protocol";
 import {radarEnvironmentFor, radarTrafficStateError} from "./radar";
 import {callsignConflict} from "./callsigns";
