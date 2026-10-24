@@ -12,7 +12,7 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
   const sources: Record<string, NavigationSource> = {};
   for (const code of ["KDAL", "PHOG", "EGPH"]) {
     const airport = getAirport({airport: code});
-    const fix = {identifier: "TEST", waypointType: "VOR", vorType: "TACAN", lat: airport.origin.lat, lon: airport.origin.lon};
+    const fix = {identifier: "TEST", waypointType: "VOR", vorType: "TACAN", slavedVariation: -11.5, lat: airport.origin.lat, lon: airport.origin.lon};
     sources[code] = {version: 1, icao: code, revision: `${code}-revision`, waypoints: [{...fix, id: "fix-1"}], procedures: [
       {id: "procedure-1", identifier: "TEST1", type: "SID", routes: [
         {id: "single", transition: null, points: [fix]},
@@ -47,11 +47,12 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
       assert.equal(catalogue.fixes.length, 1);
       assert.equal(catalogue.fixes[0].point.waypointType, "VOR");
       assert.equal(catalogue.fixes[0].point.vorType, "TACAN");
+      assert.equal(catalogue.fixes[0].point.slavedVariation, -11.5);
       assert.deepEqual(catalogue.procedures[0].routes.map((route: {pointCount: number}) => route.pointCount), [1, 2]);
       const single = await api(request(code, "single"));
       assert.equal(single.status, 200);
       const route = await single.json();
-      assert.deepEqual(route.points, [{x: 0, y: 0, name: "TEST", waypointType: "VOR", vorType: "TACAN"}]);
+      assert.deepEqual(route.points, [{x: 0, y: 0, name: "TEST", waypointType: "VOR", vorType: "TACAN", slavedVariation: -11.5}]);
       assert.deepEqual(appendFlightPlan([], route.points), route.points);
       const complete = await (await api(request(code, "complete"))).json();
       assert.deepEqual(complete.points.map((point: {name: string}) => point.name), ["TEST", "NEXT"]);

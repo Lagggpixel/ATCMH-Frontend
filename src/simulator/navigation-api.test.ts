@@ -82,13 +82,14 @@ test("radar catalogue retains every provider fix beyond the old manual and picke
 
 test("navaid type and TACAN subtype survive catalogue projection, route import and saved snapshots", async () => {
   const typed = structuredClone(source);
-  Object.assign(typed.waypoints[0], {waypointType: "VOR", vorType: "TACAN"});
+  Object.assign(typed.waypoints[0], {waypointType: "VOR", vorType: "TACAN", slavedVariation: 0});
   Object.assign(typed.procedures[0].routes[0].points[0], {waypointType: "NDB"});
-  Object.assign(typed.procedures[0].routes[0].points[1], {waypointType: "VOR", vorType: "VORTAC"});
+  Object.assign(typed.procedures[0].routes[0].points[1], {waypointType: "VOR", vorType: "VORTAC", slavedVariation: 14.2});
   const api = createNavigationApi(async () => typed, staff);
   const catalogue = await (await api(req())).json();
   assert.equal(catalogue.fixes[0].point.waypointType, "VOR");
   assert.equal(catalogue.fixes[0].point.vorType, "TACAN");
+  assert.equal(catalogue.fixes[0].point.slavedVariation, 0);
   const route = await (await api(req("airport=EGPH&route=route-1&revision=revision-a"))).json();
   const exercise = engineFor({trainingStation: "EGPH:approach"}).initialExercise();
   exercise.aircraft[0].flightPlan = route.points;
@@ -96,4 +97,7 @@ test("navaid type and TACAN subtype survive catalogue projection, route import a
   assert.equal(saved[0].waypointType, "NDB");
   assert.equal(saved[1].waypointType, "VOR");
   assert.equal(saved[1].vorType, "VORTAC");
+  assert.equal(saved[1].slavedVariation, 14.2);
+  exercise.radarEnvironment!.fixes = [{id: "VOR", point: {x: 0, y: 0}, waypointType: "VOR", slavedVariation: 0}];
+  assert.equal(exerciseSchema.parse(exercise).radarEnvironment!.fixes[0].slavedVariation, 0);
 });

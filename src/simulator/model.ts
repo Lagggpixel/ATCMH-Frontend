@@ -7,7 +7,7 @@ export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
 /** missedHeading is a true course, preserving existing scenario geometry. */
 export interface RadarApproach {glideslope?:boolean;airportIcao?: string; airportName?: string; elevation?: number; threshold?: Point; departure?: Point; id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
-export interface RadarEnvironment {facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point; waypointType?:string; vorType?:string}[]; approaches: RadarApproach[]}
+export interface RadarEnvironment {facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point; waypointType?:string; vorType?:string; slavedVariation?:number}[]; approaches: RadarApproach[]}
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
   approachIntercept?: {seconds: number; entered: boolean};
   gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
@@ -25,7 +25,7 @@ export const radarControlFrequency = (a: Pick<Aircraft, "radar">) => a.radar?.re
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
 /** Published hold courses use true north, like the simulator's local map geometry. */
 export interface PublishedHold {inbound: number; hand: "left" | "right"; maxSpeed?: number; legSeconds?: number}
-export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; waypointType?: string; vorType?: string; hold?: PublishedHold; finalApproachFix?: boolean};
+export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; waypointType?: string; vorType?: string; slavedVariation?: number; hold?: PublishedHold; finalApproachFix?: boolean};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";
@@ -205,10 +205,23 @@ export const emptyAtis = (): Atis => ({letter: "ALPHA", departures: ["24"], arri
 export const aircraftColor = (aircraft: Aircraft, frequency: Frequency | "all") => ((frequency === "all" ? aircraft.frequency !== null && aircraft.frequency !== "atis" : aircraft.frequency === frequency) ? "#87cefa" : "#808080");
 export const stripRunway = (aircraft: Aircraft) => aircraft.assigned?.runway ?? aircraft.runway ?? aircraft.lastRunway ?? "----";
 export const unreadMessages = (exercise: Exercise, aircraftId: string, frequency?: Frequency) => exercise.messages.filter(m => m.aircraftId === aircraftId && m.sender === "pilot" && !m.commandId && m.read === false && (!frequency || m.frequency === frequency)).length;
-/** Requests stay active after opening the log, until the controller responds. */
+/** Attention counts are separate from actionable requests: viewing a strip or
+ * sending a message clears the flashes without discarding its reply context. */
+export function pendingRequestCount(exercise: Exercise, aircraftId: string, frequency: Frequency): number {
+  if (frequency === "atis" || frequency === "unicom") return 0;
+  let count = 0;
+  for (const message of exercise.messages) {
+    if (message.aircraftId !== aircraftId || message.frequency !== frequency) continue;
+    if (message.sender === "controller") {
+      if (!(message.instruction?.type === "atc" && ["broadcast", "bookmark"].includes(message.instruction.action))) count = 0;
+    } else if (message.read === false && !message.commandId && !message.acknowledged &&
+      !["roger", "wilco", "unable", "standby", "excellent-service", "back-with-you"].includes(message.request?.id ?? "")) count++;
+  }
+  return count;
+}
 export function frequencyPendingRequests(exercise: Exercise): Record<Frequency, number> {
   const counts = {ground: 0, tower: 0, atis: 0, approach: 0, center: 0, departure: 0, unicom: 0};
-  for (const a of exercise.aircraft) if (a.frequency && pendingPilotMessage(exercise, a.id, a.frequency)) counts[a.frequency]++;
+  for (const a of exercise.aircraft) if (a.frequency) counts[a.frequency] += pendingRequestCount(exercise, a.id, a.frequency);
   return counts;
 }
 /** A reply to the latest command consumes its pending batch, never exposes older commands. */
