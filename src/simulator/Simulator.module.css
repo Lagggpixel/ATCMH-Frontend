@@ -963,5 +963,3 @@
 .simulator::before {content:"";position:fixed;inset:0 0 auto;height:var(--simulator-safe-top);background:#000;z-index:100;pointer-events:none}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
 @media(max-width:600px) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
-
-.airspaceLabel {position:absolute;top:10px;left:12px;pointer-events:none;color:#75a6ba;font:13px "Simulator Fira",sans-serif;text-shadow:1px 1px #000;z-index:1}
