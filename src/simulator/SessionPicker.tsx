@@ -134,6 +134,6 @@ function MenteeCell({session, canAssign, onAssign}: {session: SessionSummary; ca
     return canAssign ? <div className={styles.menteeCell}>{session.menteeOccupied ? <span>{current}</span> : null}<button type="button" className={styles.assignButton} onClick={onAssign}><UserPlus size={18} aria-hidden="true"/>Assign mentee<span className={styles.srOnly}> to {session.title}</span></button></div> : <>{current}</>;
   }
   const name = session.assignedMenteeName || session.assignedMenteeId, state = session.menteeOccupied ? "In session" : "Assigned · not joined yet";
-  const content = <><span className={styles.avatar} aria-hidden="true">{initials(name)}</span><span className={styles.personText}><strong>{name}</strong><small className={session.menteeOccupied ? styles.live : undefined}>{state}</small></span></>;
+  const content = <><span className={styles.avatar} aria-hidden="true">{initials(name)}</span><span className={styles.personText} title={`${name} · ${state}`}><strong>{name}</strong><small className={session.menteeOccupied ? styles.live : undefined}>{state}</small></span></>;
   return canAssign ? <button type="button" className={styles.assignedButton} aria-label={`Change assigned mentee for ${session.title}: ${name}, ${state}`} onClick={onAssign}>{content}<CaretDown size={16} aria-hidden="true"/></button> : <span className={styles.assignedButton}>{content}</span>;
 }
