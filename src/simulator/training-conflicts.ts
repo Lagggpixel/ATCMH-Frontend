@@ -46,6 +46,7 @@ export function startConflict(state: Exercise, airport: Airport, engine: Conflic
     if (a.runway !== b.runway) return "Both aircraft must use the same runway.";
     if (kind === "ga") {
       if (a.landing !== "full-stop") return "GA requires full-stop intentions for the first aircraft.";
+      if (!a.clearedToLand || a.clearedForOption) return "Clear the leading aircraft to land for a full stop before starting a GA conflict.";
       if (!approachTraffic(b, airport) || engine.distance(a) >= engine.distance(b)) return "Select the leading arrival first and the following arrival second.";
       const followingSpeed = Math.max(1, b.speed), leadingSpeed = Math.max(1, a.speed);
       const gapAtTouchdown = engine.distance(b) - engine.distance(a) * followingSpeed / leadingSpeed;

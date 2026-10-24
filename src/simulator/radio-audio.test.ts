@@ -59,12 +59,13 @@ test("new controller and pilot transmissions play in order once across repeated 
   h.played[1].end(); h.observe(messages); assert.equal(h.played.length, 2);
   h.close();
 });
-test("muted messages and initial/recovered history never replay on enabling", () => {
+test("muted history stays silent but an unseen readback arriving during reconnect is retained", () => {
   const h = harness(); h.player.setEnabled(false); h.observe([message("old")]); h.enable();
   h.observe([message("old")]); assert.equal(h.played.length, 0);
   h.observe([message("old")], false); h.observe([message("old"), message("while-offline")], true);
-  assert.equal(h.played.length, 0);
-  h.observe([message("old"), message("while-offline"), message("new")]); assert.equal(h.played.length, 1);
+  assert.equal(h.played.length, 1);
+  h.played[0].end();
+  h.observe([message("old"), message("while-offline"), message("new")]); assert.equal(h.played.length, 2);
   h.close();
 });
 
@@ -119,6 +120,18 @@ test("disconnect and exercise reset cancel queued speech", () => {
   h.played[0].end(); assert.equal(h.played.length, 1);
   h.observe([], true); h.observe([message("fresh")]); assert.equal(h.played.length, 2);
   h.observe([]); assert.equal(h.cancelled(), 2); h.close();
+});
+test("Delta 64's takeoff readback is played once after a brief connection interruption", () => {
+  const h = harness(); h.enable();
+  const clearance = {...message("delta-clearance", "tower"), text: "Delta 64, cleared for takeoff runway 31L"};
+  const readback = {...message("delta-readback", "tower", "pilot"), commandId: clearance.id, text: "Cleared for takeoff runway 31L, Delta 64"};
+  h.observe([clearance]); h.played[0].end();
+  h.observe([clearance], false);
+  h.observe([clearance, readback], false);
+  assert.equal(h.played.length, 1);
+  h.observe([clearance, readback], true);
+  assert.equal(h.played.length, 2); assert.match(h.played[1].text, /Runway three one left/i);
+  h.played[1].end(); h.observe([clearance, readback]); assert.equal(h.played.length, 2); h.close();
 });
 test("changing exercise or resetting elapsed time establishes a fresh baseline", () => {
   const h = harness(); h.enable();

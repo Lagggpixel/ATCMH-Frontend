@@ -1,5 +1,4 @@
 "use client";
-import WeatherControls from "./WeatherControls";
 import {LETTERS} from "./catalog";
 import {ATIS_REMARKS, ATIS_NOTAMS, ATIS_DIRECTIONS, atisFrequencies, atisRunwayWind, currentAtisOptions, type AtisDirection} from "./atis-options";
 import {EXERCISE_WEATHER, type Action, type Atis, type Exercise, type ExerciseWeather} from "./model";
@@ -33,7 +32,7 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
       <label>ATIS INFORMATION<select aria-label="ATIS information" value={draft.letter} disabled={!editable} onChange={e => dispatch({kind: "atis", draft: {...draft, letter: e.target.value}})}>{[...new Set([...LETTERS.map(letter => letter === "XRAY" ? "X-RAY" : letter), draft.letter])].map(letter => <option key={letter}>{letter}</option>)}</select></label>
       <button type="button" disabled={!connected} onClick={() => dispatch({kind: "publish-atis"})}>PUBLISH</button>
     </header>
-    {draft.publicText ? <div className={styles.imported} role="status">Imported public ATIS is selected. <button disabled={!connected} onClick={() => {const generated = {...draft}; delete generated.publicText; delete generated.publicSource; delete generated.observedAt; dispatch({kind: "atis", draft: generated});}}>Use generated ATIS</button></div> : null}
+    {draft.publicText ? <div className={styles.imported} role="status">Public ATIS loaded automatically.</div> : null}
     <div className={styles.grid}>
       <section className={styles.runways} aria-labelledby="atis-runways"><h2 id="atis-runways">RUNWAYS</h2><div className={styles.runwayChoices}>
         {runwayEnds(airport).toSorted((a, b) => a.id.localeCompare(b.id)).flatMap(runway => (["departures", "arrivals"] as const).map(field => <button type="button" key={`${runway.id}-${field}`} aria-label={`${runway.id} ${field === "departures" ? "DEP" : "LDG"}`} disabled={!editable} className={styles[atisRunwayWind(runway.heading, weather)]} aria-pressed={draft[field].includes(runway.id)} onClick={() => toggle(field, runway.id)}>{runway.id}<br/>{field === "departures" ? "DEP" : "LDG"}</button>))}
@@ -49,6 +48,5 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
       </div>
     </div>
     <section className={styles.published} aria-label="Published ATIS" aria-live="polite">{exercise.publishedAtis}</section>
-    <details className={styles.sources}><summary>Weather sources</summary><WeatherControls exercise={exercise} dispatch={dispatch} connected={connected}/></details>
   </section>;
 }

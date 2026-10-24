@@ -196,7 +196,8 @@ export function browserRecordingPlayback(): RecordingPlayback {
       if (unlocked || url) return;
       const current = generation;
       // Prime the same media element synchronously in the user's gesture.
-      audio.src = "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
+      url = URL.createObjectURL(new Blob([recordingWav(new Float32Array(1), 24000)], {type: "audio/wav"}));
+      audio.src = url;
       void audio.play().then(() => {if (current === generation) unlocked = true;}).catch(() => {});
     },
     async play(samples, sampleRate, settings) {

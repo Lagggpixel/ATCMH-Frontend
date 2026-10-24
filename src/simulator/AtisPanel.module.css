@@ -1,4 +1,4 @@
-.panel {grid-column:2/-1;grid-row:2;display:flex;flex-direction:column;min-height:0;overflow:auto;background:#222;color:#eee;font:300 clamp(13px,1.05vw,19px)/1.3 "Simulator Fira",sans-serif;padding:2px;gap:2px;color-scheme:dark}
+.panel {grid-column:2/-1;grid-row:2;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#222;color:#eee;font:300 clamp(13px,1.05vw,19px)/1.3 "Simulator Fira",sans-serif;padding:2px;gap:2px;color-scheme:dark}
 .panel * {box-sizing:border-box}
 .panel button,.panel select {font:inherit;color:inherit;background:#151515;border:1px solid transparent;border-radius:0;cursor:pointer}
 .panel button:disabled,.panel select:disabled {opacity:.45;cursor:default}
@@ -11,38 +11,41 @@
 .toolbar label {display:flex;align-items:center;gap:10px;white-space:nowrap}
 .toolbar select {width:108px;min-height:48px;padding:5px}
 .toolbar>button {min-width:129px;min-height:48px;padding:8px}
-.grid {display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);gap:2px;flex:1;min-height:510px}
-.grid section {min-width:0;background:#171717;display:flex;flex-direction:column}
-.panel h2 {background:#101010;font:inherit;margin:0 0 5px;padding:12px 5px;min-height:44px}
-.runwayChoices {display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;align-content:start}
+.grid {display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);grid-auto-rows:minmax(0,1fr);gap:2px;flex:1;min-height:0;overflow:hidden}
+.grid section {min-width:0;min-height:0;overflow:hidden;background:#171717;display:flex;flex-direction:column}
+.panel h2 {background:#101010;font:inherit;margin:0 0 5px;padding:12px 5px;min-height:44px;flex:none}
+.runwayChoices {display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;align-content:start;min-height:0;overflow:auto}
 .runwayChoices button {aspect-ratio:1;min-height:62px;text-align:center;padding:5px}
 .runwayChoices .headwind {color:lightgreen}
 .runwayChoices .crosswind {color:orange}
 .runwayChoices .tailwind {color:#ff0000}
-.middle,.right {display:flex;flex-direction:column;gap:2px;min-width:0}
-.middle>section:first-child {min-height:244px}
-.right>section:first-child {min-height:179px}
-.tiles {display:flex;flex-wrap:wrap;gap:5px;padding:5px;align-content:start}
+.middle,.right {display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1.3fr);gap:2px;min-width:0;min-height:0}
+.tiles {display:flex;flex-wrap:wrap;gap:5px;padding:5px;align-content:start;min-height:0;overflow:auto}
 .tiles button {width:125px;min-height:75px;padding:7px;text-align:center;overflow-wrap:anywhere}
 .procedures,.frequencies {flex:1}
-.procedureChoices {display:flex;flex-wrap:wrap;gap:5px;padding:5px;max-height:360px;overflow:auto;align-content:start}
+.procedureChoices {display:flex;flex-wrap:wrap;gap:5px;padding:5px;min-height:0;overflow:auto;align-content:start;flex:1}
 .procedureChoices button {width:75px;min-height:75px;padding:5px;font-size:.9em;white-space:pre-line;overflow-wrap:anywhere}
 .panel .procedureChoices button {text-align:center}
 .grid p {font-size:.85em;padding:8px}
 .noFrequencies {margin:auto;text-align:center}
-.frequencyCards {display:flex;flex-wrap:wrap;gap:5px;padding:5px;max-height:400px;overflow:auto}
+.frequencyCards {display:flex;flex-wrap:wrap;gap:5px;padding:5px;min-height:0;overflow:auto;align-content:start;flex:1}
 .frequencyCard {width:250px;max-width:100%;background:#111}
 .frequencyCard header {font-size:.75em;text-align:center;background:#080808;padding:6px;min-height:50px}
 .compass {display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,48px);gap:2px;padding:5px}
 .compass button {font-size:.7em;padding:2px}
 .north {grid-area:1/2}.east {grid-area:2/3}.south {grid-area:3/2}.west {grid-area:2/1}
-.published {flex:none;min-height:66px;max-height:160px;overflow:auto;padding:10px 5px;background:#171717;white-space:pre-wrap}
-.sources {flex:none;background:#171717;padding:8px;font-size:.8em}
-.sources summary {cursor:pointer}
-.sources section {padding:8px}
-.sources textarea {width:100%;min-height:110px}
-.sources button,.imported button {padding:8px;border-color:#777}
+.published {flex:none;min-height:66px;max-height:30%;overflow:auto;padding:10px 8px 14px;background:#171717;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;scroll-padding-block:10px 14px}
 .imported {padding:8px;background:#302a15;font-size:.85em}
-.panel {touch-action:pan-y pinch-zoom;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+.panel :is(.runwayChoices,.tiles,.procedureChoices,.frequencyCards,.published) {touch-action:pan-y pinch-zoom;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
 @media(max-width:1050px) {.grid {grid-template-columns:140px minmax(0,1fr) minmax(0,1fr)}.toolbar {flex-wrap:wrap}.toolbar>span {flex-basis:100%}.toolbar label {flex:1}.tiles button {width:calc(50% - 3px);min-width:0;font-size:.85em}.frequencyCard {width:100%}}
-@media(max-width:600px) {.grid {grid-template-columns:110px minmax(0,1fr)}.right {grid-column:1/-1}.toolbar {gap:5px}.toolbar label {gap:5px;font-size:.85em}.toolbar select {width:95px}.toolbar>button {min-width:85px}.runwayChoices button {min-height:48px}.right>section:first-child {min-height:125px}.tiles button {min-height:70px}.right .tiles button {width:125px}}
+@media(max-width:600px) {.grid {grid-template-columns:110px minmax(0,1fr)}.right {grid-column:1/-1}.toolbar {gap:5px}.toolbar label {gap:5px;font-size:.85em}.toolbar select {width:95px}.toolbar>button {min-width:85px}.runwayChoices button {min-height:48px}.tiles button {min-height:70px}.right .tiles button {width:125px}}
+@media(orientation:landscape) and (max-height:550px) {
+  .weather {padding:4px 5px;font-size:11px}
+  .toolbar {min-height:42px;flex-wrap:nowrap;padding:3px 5px;gap:8px;font-size:11px}
+  .toolbar>span {flex-basis:auto;white-space:nowrap}
+  .toolbar label {flex:none;gap:5px}
+  .toolbar select {min-height:32px;width:90px}
+  .toolbar>button {min-height:32px;min-width:85px;padding:5px}
+  .panel h2 {min-height:28px;padding:5px;margin-bottom:2px;font-size:11px}
+  .published {min-height:66px;max-height:66px;font-size:12px}
+}

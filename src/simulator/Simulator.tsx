@@ -27,6 +27,7 @@ import DeleteAircraftDialog from "./DeleteAircraftDialog";
 import MentorContextMenu, {type ScopeContext} from "./MentorContextMenu";
 import AtisPanel from "./AtisPanel";
 import MessagePanel, {MessageLog} from "./MessagePanel";
+import CommandMenuConnector from "./CommandMenuConnector";
 import RadioAudio from "./RadioAudio";
 import {RadioAudio as RadioPlayer} from "./radio-audio";
 import StaffTutorial from "./StaffTutorial";
@@ -53,6 +54,7 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   const [vectorAnchor, setVectorAnchor] = useState<Point>();
   const [quickHidden, setQuickHidden] = useState(false);
   const [messagePath, setMessagePath] = useState<string[]>([]);
+  const menuPaths = useRef(new Map<string, {frequency: Frequency; path: string[]}>());
   const [messageId, setMessageId] = useState<string | null>(null);
   const [utility, setUtility] = useState<ContextAction | null>(null);
   const [scopeContext, setScopeContext] = useState<ScopeContext | null>(null);
@@ -94,6 +96,11 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   const frequencyPending = frequencyPendingRequests(exercise);
   const pendingAircraft = exercise.aircraft.filter(a => a.frequency && pendingRequestCount(exercise, a.id, a.frequency) > 0).map(a => a.id);
   const missingStripControls = role === "mentee" ? exercise.aircraft.filter(a => a.frequency && Object.hasOwn(dismissedStrips, `${a.frequency}:${a.id}`) && dismissedStrips[`${a.frequency}:${a.id}`] === (exercise.messages.filter(m => m.aircraftId === a.id && m.frequency === a.frequency && m.sender === "pilot").at(-1)?.id ?? null)).map(a => a.id) : [];
+  useEffect(() => {
+    for (const [id, saved] of menuPaths.current) {
+      if (exercise.aircraft.find(a => a.id === id)?.frequency !== saved.frequency) menuPaths.current.delete(id);
+    }
+  }, [exercise.aircraft]);
   const giveWayTargets = role === "staff" ? [
     ...exercise.aircraft.flatMap(a => a.giveWay ? [a.giveWay.aircraftId] : []),
     ...exercise.messages.flatMap(m => m.sender === "controller" && !m.retractedBy && m.instruction?.type === "give-way" && m.instruction.aircraftId && now !== null && now - m.time < 30_000 ? [m.instruction.aircraftId] : []),
@@ -107,12 +114,19 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") {setPair(null); setSpawnAt(null); setDeleteId(null); setScopeContext(null); setMessageId(null); setUtility(null); setScopeContext(null); setSelectedId(null); setVectorHeading(undefined); setVectorTarget(undefined); setEditMode("");}};
     window.addEventListener("keydown", escape); return () => window.removeEventListener("keydown", escape);
   }, []);
-  const openMessages = (a: Aircraft, path: string[] = []) => {setMessagePath(path);setSelectedId(null); setMessageId(a.id); setUtility(null); if (!paused && !observing) dispatch({kind: "read", aircraftId: a.id, frequency});};
+  const openMessages = (a: Aircraft, path?: string[]) => {const saved = menuPaths.current.get(a.id); setMessagePath(path ?? (saved?.frequency === frequency ? saved.path : []));setSelectedId(null); setMessageId(a.id); setUtility(null); if (!paused && !observing) dispatch({kind: "read", aircraftId: a.id, frequency});};
   const select = (id: string | null) => {
     if (pair && id) {
       if (!view.owner || !view.connected) {setPair(null); return;}
       if (id === pair.first) return;
       void dispatch({kind: "conflict", conflict: pair.kind, aircraftId: pair.first, otherId: id}); setPair(null); return;
+    }
+    if (role === "mentee" && id && exercise.aircraft.some(a => a.id === id && a.frequency === frequency)) {
+      const key = `${frequency}:${id}`;
+      setDismissedStrips(previous => {
+        if (!Object.hasOwn(previous, key)) return previous;
+        const next = {...previous}; delete next[key]; return next;
+      });
     }
 setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); setEditMode(""); setSelectedId(id); setUtility(null); if (id !== messageId) setMessageId(null);};
   const contextAction = (action: ContextAction, a: Aircraft) => {
@@ -138,7 +152,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     {frequency === "atis" && role === "mentee" ? <AtisPanel exercise={exercise} dispatch={dispatch} connected={!paused && !view.fatal}/> : <>
       <Scope missingStripControls={missingStripControls} elapsed={exercise.elapsed} openStripId={role === "mentee" && messaging?.frequency === frequency ? messaging.id : undefined} weather={exercise.weather} conflictTags={role === "staff" ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined} conflictTargets={pair ? exercise.aircraft.filter(a => a.id !== pair.first && a.active && (pair.kind !== "cancel-takeoff" || a.altitude <= AIRPORT.elevation + 1)).map(a => a.id) : undefined} focusRequest={focusRequest} onScopeContextMenu={role === "staff" && view.owner && view.connected ? target => {setScopeContext(target); setEditMode("");} : undefined} cameraStore={scopeCameras} cameraKey={`${AIRPORT.icao}:${mode}:${role === "staff" ? "all" : frequency}`} key={`${AIRPORT.icao}:${mode}:${role === "staff" ? "all" : frequency}`} airport={AIRPORT} radarEnvironment={exercise.radarEnvironment} radarMode={mode === "local" ? undefined : mode} measureVectors={role === "staff" && mode !== "local" && !editMode} onVector={role === "mentee" && mode !== "local" && !view.fatal && !paused ? (id, heading, release, target) => {select(id); setVectorHeading(heading); setVectorTarget(target); setVectorAnchor(release);} : undefined} contextPoint={vectorHeading === undefined ? undefined : vectorAnchor} onGroundClearance={role === "mentee" && mode === "local" && frequency === "ground" && !view.fatal && !paused ? async (id, command) => {const a = exercise.aircraft.find(a => a.id === id); if (!a) return false; const request = pendingPilotMessage(exercise, id, frequency); return await dispatch({kind: "command", aircraftId: id, command, frequency, text: catalogFor(AIRPORT, exercise.radarEnvironment).instructionText(a, command), ...(request ? {replyTo: request.id} : {})}) !== false;} : undefined} sentGroundRoute={sentGroundRoute} groundRouteCleared={!!lastGroundMessage} onTagAngle={view.connected && !paused && (role === "mentee" || view.owner) ? (id, angle) => void dispatch({kind: "edit", aircraftId: id, patch: {tagAngle: angle}}) : undefined} pendingAircraft={pendingAircraft} autoReadback={exercise.autoReadback} running={exercise.running} aircraft={exercise.aircraft} frequency={role === "staff" ? "all" : frequency} giveWayTargets={giveWayTargets} selected={selected?.id ?? null} onSelect={select} onPoint={point} onTaxiPathEdit={role === "staff" && view.owner ? (aircraftId, path, edit) => dispatch({kind: "taxi-path", aircraftId, path, edit}) : undefined} editMode={role === "staff" && view.owner ? editMode : ""} context={context}/>
       {role === "staff" ? <StaffPanel prepareSpeech={radioPlayer.prepareDraft} exercise={exercise} selected={selected} dispatch={dispatch} onSelect={select} editMode={editMode} onEditMode={setEditMode} holdPoint={holdPoint} onHoldPoint={setHoldPoint} owner={view.owner} status={view.status}/> : <aside className={styles.rightPanel} aria-label="Flight strips and messages" inert={Boolean(messaging)} aria-hidden={Boolean(messaging) || undefined}>
-        <div className={styles.strips} aria-label="Flight strips">{Object.keys(dismissedStrips).length ? <button className={styles.restoreStrips} onClick={() => setDismissedStrips({})}>Restore dismissed strips</button> : null}<header className={styles.stripsHeader}><h2>{FREQUENCIES[frequency].label} traffic</h2><span>{exercise.aircraft.filter(a => a.frequency === frequency).length}</span></header>{exercise.aircraft.filter(a => a.frequency === frequency).map(a => {
+        <div className={styles.strips} aria-label="Flight strips"><header className={styles.stripsHeader}><h2>{FREQUENCIES[frequency].label} traffic</h2><span>{exercise.aircraft.filter(a => a.frequency === frequency).length}</span></header>{exercise.aircraft.filter(a => a.frequency === frequency).map(a => {
           const pending = pendingRequestCount(exercise, a.id, frequency);
           const stripKey = `${frequency}:${a.id}`, latestRequest = exercise.messages.filter(m => m.aircraftId === a.id && m.frequency === frequency && m.sender === "pilot").at(-1)?.id ?? null;
           if (Object.hasOwn(dismissedStrips, stripKey) && dismissedStrips[stripKey] === latestRequest) return null;
@@ -147,7 +161,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
         <MessageLog airport={AIRPORT} messages={exercise.messages} frequency={frequency} compact/>
       </aside>}
     </>}
-    {messaging && role === "mentee" && messaging.frequency === frequency ? <><button className={styles.messageBackdrop} aria-label="Dismiss aircraft messages" onClick={() => setMessageId(null)}/><MessagePanel prepareSpeech={radioPlayer.prepareDraft} key={`${messaging.id}:${frequency}:${messagePath.join("/")}`} initialPath={messagePath} holdTarget={vectorTarget} aircraft={messaging} exercise={exercise} frequency={frequency} quickCommands={view.quickCommands} connected={!paused && !view.fatal} dispatch={dispatch} onClose={() => setMessageId(null)}/></> : null}
+    {messaging && role === "mentee" && messaging.frequency === frequency ? <><CommandMenuConnector aircraftId={messaging.id} rootRef={fullscreenRoot}/><button className={styles.messageBackdrop} aria-label="Dismiss aircraft messages" onClick={() => setMessageId(null)}/><MessagePanel prepareSpeech={radioPlayer.prepareDraft} key={`${messaging.id}:${frequency}:${messagePath.join("/")}`} initialPath={messagePath} onPathChange={path => menuPaths.current.set(messaging.id, {frequency, path})} holdTarget={vectorTarget} aircraft={messaging} exercise={exercise} frequency={frequency} quickCommands={view.quickCommands} connected={!paused && !view.fatal} dispatch={dispatch} onClose={() => setMessageId(null)}/></> : null}
     {scopeContext && role === "staff" ? <MentorContextMenu local={mode === "local"} onConflict={kind => {const a = exercise.aircraft.find(a => a.id === scopeContext.aircraftId); if (!a || a.altitude <= AIRPORT.elevation + 1 || !["pattern", "heading"].includes(a.mode)) {setTrainingError("Select an airborne arrival first."); setScopeContext(null); return;} if (kind === "uwc" && a.landing !== "touch-and-go") {setTrainingError("UWC requires touch-and-go intentions."); setScopeContext(null); return;} if (kind === "ga" && a.landing !== "full-stop") {setTrainingError("GA requires full-stop intentions for the first aircraft."); setScopeContext(null); return;} setPair({kind, first: a.id}); setSelectedId(a.id); setScopeContext(null); setEditMode("");}} target={scopeContext} callsign={exercise.aircraft.find(a => a.id === scopeContext.aircraftId)?.callsign} enabled={view.owner && view.connected} onClose={() => setScopeContext(null)} onSpawn={() => {setSpawnAt({point: scopeContext.point}); setScopeContext(null);}} onDelete={() => {setDeleteId(scopeContext.aircraftId!); setScopeContext(null);}}/> : null}
     {spawnAt && role === "staff" ? <SpawnAircraftDialog accountId={accountId} exercise={exercise} position={spawnAt.point} enabled={view.owner && view.connected} dispatch={dispatch} onSpawned={select} onClose={() => setSpawnAt(null)}/> : null}
     {deleteId && role === "staff" && exercise.aircraft.find(a => a.id === deleteId) ? <DeleteAircraftDialog aircraft={exercise.aircraft.find(a => a.id === deleteId)!} enabled={view.owner && view.connected} dispatch={dispatch} onDeleted={() => {if (selectedId === deleteId) select(null);}} onClose={() => setDeleteId(null)}/> : null}
@@ -155,7 +169,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     {role === "staff" && exercise.conflicts?.length ? <div className={styles.conflictList} aria-label="Training conflicts">{exercise.conflicts.slice(-6).map(c => <div key={c.id}>{CONFLICT_LABELS[c.kind]} · {c.outcome ?? c.phase}{!["complete", "cancelled"].includes(c.phase) ? <button disabled={!view.owner || !view.connected} onClick={() => void dispatch({kind: "cancel-conflict", conflictId: c.id})}>Cancel conflict</button> : null}</div>)}</div> : null}
     {utility && selected && !paused ? <UtilityPanel airport={AIRPORT} label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
     {paused && !hiddenByPause ? <div className={styles.visiblePause} role="status">Exercise paused · Viewing only</div> : null}
-    {!view.connected || view.queuedCommands > 0 ? <div className={styles.connectionBanner} role="status" aria-live="polite">{view.connected ? "Sending commands…" : view.status}<span>{view.queuedCommands > 0 ? `${view.queuedCommands} command${view.queuedCommands === 1 ? "" : "s"} waiting for acknowledgement` : "Your scenario is saved. Waiting for the connection to return."}</span>{view.queuedCommands > 0 ? <button onClick={transport.cancelQueued}>Cancel unsent commands</button> : null}</div> : null}
+    {!view.connected || view.status.startsWith("Connection interrupted") ? <div className={styles.connectionBanner} role="status" aria-live="polite">{view.status}<span>{view.queuedCommands > 0 ? `${view.queuedCommands} command${view.queuedCommands === 1 ? "" : "s"} waiting for acknowledgement` : "Your scenario is saved. Waiting for the connection to return."}</span>{view.queuedCommands > 0 ? <button onClick={transport.cancelQueued}>Cancel unsent commands</button> : null}</div> : null}
     {role === "staff" && mode !== "local" && exercise.terrainStatus === "unavailable" ? <div className={styles.terrainImpactStatus} role="status">Terrain impact checks are delayed or unavailable. Unsampled terrain is not assumed clear.</div> : null}
     {trainingError ? <div className={styles.error} role="alert">{trainingError}<button aria-label="Dismiss scenario error" onClick={() => setTrainingError("")}>×</button></div> : null}
     {view.error ? <div className={styles.error} role="alert">{view.error}<button aria-label="Dismiss error" onClick={transport.clearError}>×</button></div> : null}

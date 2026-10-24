@@ -101,7 +101,7 @@ export class SharedSession {
               const result = await post("commands", {envelope}); sent = true;
               if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
               if (pending) pending.revision = result.revision;
-              this.update({error: null, quickCommands: this.quickCommands.ranked()}); return;
+              this.update({error: null, status: this.view.connected ? "Session connected" : this.view.status, quickCommands: this.quickCommands.ranked()}); return;
             } catch (reason) {
               const error = reason as Error & {status?: number; code?: string};
               if (stopped || job.cancelled) return;

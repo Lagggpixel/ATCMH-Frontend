@@ -30,13 +30,13 @@ test("a dragged destination on the same edge travels directly; a via forces a co
   assert.match(planPointRoute(square, {x: 10, y: 10}, {x: 50, y: 50}).error!, /No compatible/);
 });
 
-test("dragging onto the departure hold infers the runway and checks its destination HOLD", () => {
+test("dragging onto the departure hold infers the runway without an automatic HOLD", () => {
   const {a, route} = departure(), hold = route.points.at(-1)!;
   assert.deepEqual(destinationAt(AIRPORT, hold), {type: "runway", id: "24"});
   const dragged = buildGroundRoute(AIRPORT, "taxi", [a.position, hold]);
   assert.equal(dragged.error, undefined);
   assert.deepEqual(dragged.route!.destination, {type: "runway", id: "24"});
-  assert.equal(dragged.route!.points.at(-1)!.hold, true);
+  assert.equal(dragged.route!.points.at(-1)!.hold, undefined);
   assert.equal(dragged.route!.points.at(-1)!.runway, "24");
   assert.equal(groundRouteError(AIRPORT, dragged.route!, "taxi"), null);
   const nearHold = {...hold, x: hold.x + .005};
@@ -63,14 +63,16 @@ test("destination HOLD remains independent of an intermediate runway crossing", 
   const airport: Airport = {...AIRPORT, runway: runways[0], runways, features: [{id: "taxi", kind: "taxiway", name: "A", points: [{x: 10, y: 10}, {x: 12, y: 10}]}]};
   const {route, error} = buildGroundRoute(airport, "taxi", [{x: 10, y: 10}, {x: 11.5, y: 10}]);
   assert.equal(error, undefined);
-  assert.deepEqual(route!.points.filter(point => point.hold).map(point => point.runway), ["01", "02"]);
-  route!.points.at(-1)!.hold = false;
+  assert.deepEqual(route!.points.filter(point => point.hold).map(point => point.runway), ["01"]);
+  assert.equal(route!.points.at(-1)!.hold, undefined);
+  route!.points.at(-1)!.hold = true;
   assert.equal(route!.points.find(point => point.runway === "01")!.hold, true);
   assert.equal(groundRouteError(airport, route!, "taxi"), null);
 });
 
-test("an assigned dragged route physically stops at its destination HOLD", () => {
+test("an explicitly reviewed destination HOLD stops taxi and removes the Tower handoff", () => {
   const fixture = departure(), {a, route} = fixture;
+  route.points.at(-1)!.hold = true;
   fixture.state.aircraft = [a];
   const command: Instruction = {type: "taxi", route, runway: "24"};
   const result = applyEnvelope(fixture.state, {id: "dragged-taxi", time: 1, action: {kind: "command", aircraftId: a.id, frequency: "ground", command, text: catalogFor(AIRPORT).instructionText(a, command)}});
@@ -103,6 +105,18 @@ test("reviewed route, names and Hold choices survive send, readback, assignment 
   const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))))!;
   assert.deepEqual(restored.aircraft[1].taxiPath, route.points);
   assert.deepEqual(restored.messages.find(m => m.id === "taxi")!.instruction, command);
+});
+test("a route without intermediate HOLD reaches the departure entry and automatically contacts Tower when ready", () => {
+  const fixture = departure(), {a, route} = fixture; fixture.state.aircraft = [a];
+  const command: Instruction = {type: "taxi", runway: "24", route};
+  const sent = applyEnvelope(fixture.state, {id: "handoff-taxi", time: 1, action: {kind: "command", aircraftId: a.id, frequency: "ground", command, text: "Taxi"}});
+  assert.equal(sent.error, undefined);
+  assert.match(sent.state.messages.at(-1)!.text, /contact tower when ready/i);
+  let state = autoReadbacks(advance(sent.state, 1.5), 2, () => "handoff-readback");
+  for (let i = 0; i < 1000 && state.aircraft[0].frequency === "ground"; i++) state = advance(state, 1);
+  assert.equal(state.aircraft[0].frequency, "tower");
+  assert.equal(state.aircraft[0].speed, 0);
+  assert.ok(Math.hypot(state.aircraft[0].position.x - route.points.at(-1)!.x, state.aircraft[0].position.y - route.points.at(-1)!.y) < .005);
 });
 
 test("manual delayed assignment rejects a route that no longer reaches the aircraft without teleporting", () => {

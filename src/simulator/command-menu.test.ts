@@ -32,8 +32,22 @@ test("Tower restores landing, option, pattern turn and departure choices with ex
   const turn = find(entries, "Pattern Instructions", "Turn base");
   assert.equal(instructionText(a, turn.instruction!, [turn]), "Speedbird 124, turn base");
   assert.deepEqual(find(entries, "Go Around", "Make Right Traffic", "Runway 24").instruction, {type: "go-around", hand: "right", runway: "24"});
-  assert.deepEqual(find(messageMenu("tower", newAircraft("ground", false)), "Cleared for Takeoff", "Runway 06", "Make Left Traffic", "Send").instruction,
+  assert.deepEqual(find(messageMenu("tower", {...newAircraft("ground", false), requestedPatternDeparture: true}), "Cleared for Takeoff", "Runway 06", "Make Left Traffic", "Send").instruction,
     {type: "takeoff", runway: "06", hand: "left"});
+});
+test("takeoff traffic directions require the pilot's pattern request and reset on leaving the frequency", () => {
+  let state = initialExercise(); state.aircraft[1].frequency = "tower";
+  const choices = () => find(messageMenu("tower", state.aircraft[1], state.aircraft, undefined, state.messages), "Cleared for Takeoff", "Runway 24").children!.map(e => e.label);
+  assert.ok(!choices().includes("Make Left Traffic"));
+  const apply = (action: import("./model").Action) => {const r = applyEnvelope(state, {id: `pattern-request-${state.revision}`, time: 1, action}); assert.equal(r.error, undefined); state = r.state;};
+  apply({kind: "pilot", aircraftId: state.aircraft[1].id, text: "", request: {id: "departure", runway: "24", remainingInPattern: true}});
+  assert.ok(choices().includes("Make Left Traffic")); assert.ok(choices().includes("Make Right Traffic"));
+  apply({kind: "read", aircraftId: state.aircraft[1].id, frequency: "tower"}); assert.ok(choices().includes("Make Left Traffic"));
+  apply({kind: "edit", aircraftId: state.aircraft[1].id, patch: {frequency: "ground"}});
+  apply({kind: "edit", aircraftId: state.aircraft[1].id, patch: {frequency: "tower"}});
+  assert.ok(!choices().includes("Make Left Traffic"));
+  apply({kind: "pilot", aircraftId: state.aircraft[1].id, text: "", request: {id: "departure", runway: "24", remainingInPattern: false}});
+  assert.ok(!choices().includes("Make Right Traffic"));
 });
 
 test("Exit runway appears only for aircraft on the ground, including before and after takeoff", () => {

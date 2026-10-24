@@ -1,3 +1,6 @@
+import {getAirport} from "../airports";
+import {fetchWeatherReport} from "./weather-provider";
+import {applySessionWeather, requestSessionWeather} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction} from "../../lib/db";
@@ -79,7 +82,7 @@ export class TrainingService {
     const attemptId = requestId ?? randomUUID(), generation = randomUUID();
     const created = createScenarioExercise(definition, "pending", generation);
     Object.assign(created.runtime, {scenarioId, revision, attemptId});
-    const session = await new SessionService(sqlSessionStore).create(actor, definition.title, created.exercise, created.runtime);
+    const session = await new SessionService(sqlSessionStore, undefined, undefined, undefined, undefined, fetchWeatherReport).create(actor, definition.title, created.exercise, created.runtime);
     await withWriteTransaction(async connection => {
       await connection.execute("INSERT INTO simulator_attempts (id,owner_id,scenario_id,revision,session_id,started_at,status,feedback) VALUES (?,?,?,?,?,?, 'active','')", [attemptId, actor.accountId, scenarioId, revision, session.id, Date.now()]);
     });
@@ -124,6 +127,8 @@ export class TrainingService {
   }
   async restart(actor: Actor, sessionId: string, attemptId: string) {
     staff(actor);
+    const airport = await sqlSessionStore.transaction(sessionId, record => {availableControl(record, actor, Date.now()); return getAirport(record.exercise).icao;});
+    const report = await requestSessionWeather(airport, fetchWeatherReport);
     return withWriteTransaction(async connection => {
       const value = await sqlSessionStore.transaction(sessionId, record => {
         if (!record.scenario?.attemptId) throw unavailable();
@@ -136,7 +141,7 @@ export class TrainingService {
         created.exercise.autoReadback = record.exercise.autoReadback ?? false;
         record.scenario = {...created.runtime, scenarioId: old.scenarioId, revision: old.revision, attemptId: randomUUID()};
         created.exercise.revision = record.exercise.revision + 1;
-        record.exercise = created.exercise; record.tickAt = Date.now(); record.contentRevision++;
+        record.exercise = applySessionWeather(created.exercise, report); record.tickAt = Date.now(); record.contentRevision++;
         return {old, elapsed, result, runtime: record.scenario};
       });
       await connection.execute("UPDATE simulator_attempts SET status='restarted',finished_at=?,elapsed=?,result=? WHERE id=? AND status='active'", [Date.now(), value.elapsed, value.result, value.old.attemptId!]);
