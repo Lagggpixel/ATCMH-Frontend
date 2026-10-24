@@ -80,24 +80,6 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
     finally {sending.current = false; setPendingLabel(null);}
   };
   const [input, setInput] = useState("");
-  const [dialog, setDialog] = useState<"voice" | null>(null);
-  const voiceDialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {if (dialog === "voice") voiceDialog.current?.showModal();}, [dialog]);
-  const [recording, setRecording] = useState(false), [recordingUrl, setRecordingUrl] = useState("");
-  const [recordError, setRecordError] = useState("");
-  const recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null);
-  useEffect(() => () => {if (recorder.current?.state === "recording") recorder.current.stop(); stream.current?.getTracks().forEach(track => track.stop());}, []);
-  useEffect(() => () => {if (recordingUrl) URL.revokeObjectURL(recordingUrl);}, [recordingUrl]);
-  const record = async () => {
-    if (recording) {recorder.current?.stop(); setRecording(false); return;}
-    try {
-      stream.current = await navigator.mediaDevices.getUserMedia({audio: true});
-      const next = new MediaRecorder(stream.current), chunks: BlobPart[] = [];
-      next.ondataavailable = event => chunks.push(event.data);
-      next.onstop = () => {setRecordingUrl(URL.createObjectURL(new Blob(chunks, {type: next.mimeType}))); stream.current?.getTracks().forEach(track => track.stop());};
-      recorder.current = next; next.start(); setRecording(true); setRecordError("");
-    } catch {setRecordError("Microphone unavailable. You can enter and review the message below.");}
-  };
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
   const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
   const menuAircraft = holdTarget && aircraft.radar ? {...aircraft, radar: {...aircraft.radar, routeIndex: holdTarget.index}} : aircraft;
@@ -118,8 +100,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
       const blocked = item.note ?? (item.instruction ? validateControllerMessage(exercise, aircraft, item.instruction, frequency, pilotMessage?.id) : null);
       return <button key={item.id ?? `${i}-${item.label}`} style={item.label === "Misc. Messages" || path[0]?.label === "Misc. Messages" ? undefined : {textTransform: "none"}} className={`${item.suggested ? styles.suggestedCommand : ""} ${hoveredOption === hoverKey ? styles.pointerHovered : ""}`} onPointerMove={() => {if (!sending.current) setHoveredOption(hoverKey);}} onPointerLeave={() => setHoveredOption(null)} disabled={pendingLabel !== null || Boolean(item.note) || (direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-busy={pendingLabel === item.label || undefined} aria-disabled={pendingLabel !== null || undefined} aria-label={direct ? `Send ${item.label}` : undefined} onClick={async () => {
         if (sending.current) {setSendError("A command is still waiting for acknowledgement."); return;}
-        if (item.dialog === "voice") {setDialog("voice"); setInput("");}
-        else if (item.resend) {
+        if (item.resend) {
           const previous = exercise.messages.filter(m => m.aircraftId === aircraft.id && m.sender === "controller" && m.frequency === frequency && m.instruction).at(-1);
           if (previous?.instruction && await send({kind: "command", aircraftId: aircraft.id, command: previous.instruction, frequency, text: previous.text, resendOf: previous.id}, undefined, item.label)) setPath([]);
         }
@@ -133,18 +114,9 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
     };
   const heading = aircraftMessageHeading(aircraft, getAirport(exercise), exercise.weather);
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;
-  const speechDraft = dialog === "voice" && input.trim() ? instructionText(aircraft, {type: "atc", action: "voice", text: input.trim()}) : entry?.instruction && !invalid ? composed : "";
+  const speechDraft = entry?.instruction && !invalid ? composed : "";
   useEffect(() => {if (connected && speechDraft) return prepareSpeech?.(speechDraft);}, [connected, speechDraft, prepareSpeech]);
   return <section className={`${styles.extendedPanel} ${styles.commandPanel}`} data-aircraft-messages={aircraft.id} aria-label={`${aircraft.callsign} messages`}>
-    {dialog === "voice" ? <dialog ref={voiceDialog} aria-label="Voice Message" className={styles.compose} onCancel={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>
-      <p>Record and review your training message. Enter the reviewed transcript to transmit it in this exercise.</p>
-      <button disabled={!connected} onClick={() => void record()}>{recording ? "Stop recording" : "Record"}</button>
-      {recordingUrl ? <audio controls src={recordingUrl}/> : null}
-      <label>Reviewed message<textarea maxLength={256} value={input} onChange={event => setInput(event.target.value)}/></label>
-      {recordError ? <p role="alert">{recordError}</p> : null}
-      <button disabled={!connected || recording || !input.trim()} onClick={async () => {const command: Instruction = {type: "atc", action: "voice", text: input.trim()}; const sent = await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command)}, undefined, "SEND"); if (sent !== false) {setDialog(null); setInput("");}}}>SEND</button>
-      <button onClick={() => {if (recorder.current?.state === "recording") recorder.current.stop(); setRecording(false); setDialog(null); setInput("");}}>Cancel</button>
-    </dialog> : null}
     <div className={styles.commandWorkspace}>
       <div className={styles.quickCommands} role="group" aria-label="Quick commands">{visibleQuickCommands(quickCommands, exercise, aircraft, frequency).map(shortcut => {
         const action = quickCommandAction(shortcut, exercise, aircraft, frequency);
