@@ -4,7 +4,7 @@
 
 Natural Earth data and future reusable persistent assets belong in remote persistent storage, outside Docker images. Follow the parent `../AGENTS.md` persistent-shared-files policy and `../Simulator/ops/shared-assets/README.md`. Publish datasets independently, consume versioned URLs/read-only mounts, and keep normal application builds free of dataset downloads or copies. Do not migrate unrelated existing assets implicitly.
 
-The coordinated remote root is `/root/atcmh/shared-assets`: public geography and private speech assets stay separate. Public server stack 68 (`atcmh-shared-assets`) on endpoint 3 serves the same-origin `/shared-data/natural-earth/coastline-10m/bfa04cdbcbef/coastline.geojson` through read-only public/config binds. Do not package this dataset in the frontend image. This publication prepared data delivery only; implementing the radar coastline layer needs a later application change.
+The coordinated remote root is `/root/atcmh/shared-assets`: public geography and private speech assets stay separate. Public server stack 68 (`atcmh-shared-assets`) on endpoint 3 serves the same-origin `/shared-data/natural-earth/coastline-10m/bfa04cdbcbef/coastline.geojson` through read-only public/config binds. Do not package this dataset in the frontend image. The local radar integration now uses the shared loader/renderer in `coastlines.ts` / `use-coastlines.ts`; it remains **not deployed**, per the user's explicit 24 October instruction.
 
 ## Verified aircraft-name editing deployment (2026-10-20, 26.10.16)
 
