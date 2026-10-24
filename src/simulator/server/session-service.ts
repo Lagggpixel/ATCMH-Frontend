@@ -37,7 +37,7 @@ export interface SessionStore {
 export function menteeAccess(record: Pick<SessionRecord, "assignment">, actor: Actor) {
   const assigned = record.assignment?.discordId;
   if (assigned ? assigned !== actor.discordId : actor.simulatorAccess === false)
-    throw new SessionError("not-assigned", assigned ? "This session is assigned to another mentee." : "This session isn't assigned to you. Ask your trainer to assign it to you.", 403);
+    throw new SessionError("not-assigned", assigned ? "This session is assigned to another mentee." : "This session isn't assigned to you. Ask your mentor to assign it to you.", 403);
 }
 export function availableControl(record: SessionRecord, actor: Actor, now: number) {
   if (record.staff && record.staff.expiresAt > now && record.staff.accountId !== actor.accountId)
@@ -186,7 +186,7 @@ export class SessionService {
   end(actor: Actor, id: string) {this.staff(actor); return this.store.end(id, actor.accountId, this.now());}
   async assign(actor: Actor, id: string, mentee: {discordId: string; name?: string} | null) {
     this.staff(actor);
-    if (!actor.canAssign) throw new SessionError("forbidden", "Only trainers with Sweatbox access or administrators can assign mentees.", 403);
+    if (!actor.canAssign) throw new SessionError("forbidden", "Only mentors with Sweatbox access or administrators can assign mentees.", 403);
     return this.store.transaction(id, record => {
       const now = this.now(), previous = record.assignment?.discordId, changed = previous !== mentee?.discordId;
       if (!changed && mentee && record.assignment) record.assignment = {...record.assignment, ...(mentee.name ? {name: mentee.name} : {})};
@@ -200,7 +200,7 @@ export class SessionService {
   assigned(actor: Actor) {return actor.discordId ? this.store.assigned(actor.discordId, this.now()) : Promise.resolve([]);}
   async preview(actor: Actor, entry: {code: string} | {id: string}): Promise<SessionPreview> {
     const found = await this.store.lookup(entry);
-    const missing = new SessionError("not-found", "No live session matches that code. Check it with your trainer.", 404);
+    const missing = new SessionError("not-found", "No live session matches that code. Check it with your mentor.", 404);
     if (!found) throw missing;
     // Without Sweatbox access, a session not assigned to you is indistinguishable from no session.
     if (actor.simulatorAccess === false && (!actor.discordId || found.assignedDiscordId !== actor.discordId)) throw missing;

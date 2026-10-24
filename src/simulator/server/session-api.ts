@@ -48,7 +48,7 @@ async function sessionCollection(request: Request) {
     if (request.method === "GET" && (params.has("code") || params.has("session"))) {
       const actor = await authorize(request, false, {anySignedIn: true});
       const entry = params.has("session") ? {id: idSchema.parse(params.get("session"))} : parseSessionEntry(params.get("code") ?? "");
-      if (!entry) throw new SessionError("invalid-code", "Enter a session code like EGPH-0123456789AB, or paste the link from your trainer.", 400);
+      if (!entry) throw new SessionError("invalid-code", "Enter a session code like EGPH-0123456789AB, or paste the link from your mentor.", 400);
       limitLookups(actor.accountId);
       return Response.json({session: await service.preview(actor, entry)}, {headers: noStore});
     }
@@ -71,7 +71,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
       const actor = await authorize(request, true);
       const value = assignSchema.parse(await body(request));
       const result = await service.assign(actor, id, value.mentee ?? null);
-      if (result.changed && value.mentee) void notify({discordId: value.mentee.discordId, title: result.session.title, airport: result.session.airport ?? "EGPH", trainer: actor.displayName ?? "Your trainer"});
+      if (result.changed && value.mentee) void notify({discordId: value.mentee.discordId, title: result.session.title, airport: result.session.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor"});
       return Response.json({session: result.session}, {headers: noStore});
     }
     const raw = await body(request), seat = seatSchema.parse(raw);

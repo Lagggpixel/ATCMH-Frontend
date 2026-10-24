@@ -21,9 +21,9 @@ const ago = (time: number, now: number) => {
 };
 function status(session: AssignedSession) {
   if (session.youConnected) return {label: "Open on another page", tone: styles.statusMuted};
-  if (session.paused) return {label: "Paused by your trainer", tone: styles.statusMuted};
-  if (session.trainerConnected) return {label: `${session.trainerName ?? "Your trainer"} is in the session`, tone: styles.statusLive};
-  return {label: "Waiting for your trainer", tone: styles.statusMuted};
+  if (session.paused) return {label: "Paused by your mentor", tone: styles.statusMuted};
+  if (session.trainerConnected) return {label: `${session.trainerName ?? "Your mentor"} is in the session`, tone: styles.statusLive};
+  return {label: "Waiting for your mentor", tone: styles.statusMuted};
 }
 
 /** True only in iOS/iPadOS Safari tabs, where Add to Home Screen is the reliable full-screen route. */
@@ -56,16 +56,16 @@ function Assigned() {
   }, []);
   return <div className={styles.page}>
     <main className={styles.content}>
-      <div className={styles.heading}><h1>Your sweatbox</h1><p>Sessions your trainer has assigned to you.</p></div>
+      <div className={styles.heading}><h1>Your sweatbox</h1><p>Sessions your mentor has assigned to you.</p></div>
       {error ? <p role="alert" className={styles.error}>Could not refresh your sessions: {error}</p> : null}
       <section aria-label="Assigned sessions" className={styles.assigned} aria-busy={sessions === null}>
-        {sessions === null ? <p role="status" className={styles.muted}>Loading your sessions…</p> : !sessions.length ? <div className={styles.empty}><h2>No sessions assigned yet</h2><p>When your trainer assigns you a session it appears here automatically. You can also join with a code or link below.</p></div> :
+        {sessions === null ? <p role="status" className={styles.muted}>Loading your sessions…</p> : !sessions.length ? <div className={styles.empty}><h2>No sessions assigned yet</h2><p>When your mentor assigns you a session it appears here automatically. You can also join with a code or link below.</p></div> :
           sessions.map((session, index) => {
             const state = status(session);
             return <article key={session.id} className={`${styles.card} ${index === 0 && session.trainerConnected ? styles.cardActive : ""}`}>
               <div className={styles.cardText}>
                 <div className={styles.cardTitle}><h2>{session.title}</h2><span className={`${styles.status} ${state.tone}`}>{state.label}</span></div>
-                <p>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · Trainer ${session.trainerName}` : ""} · Assigned {ago(session.assignedAt, now)}</p>
+                <p>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · Mentor ${session.trainerName}` : ""} · Assigned {ago(session.assignedAt, now)}</p>
               </div>
               <Link className={session.trainerConnected ? styles.primary : styles.secondary} href={sessionPath("mentee", session.id)}>Enter session<ArrowRight size={18} aria-hidden="true"/><span className={styles.srOnly}> {session.title}</span></Link>
             </article>;
@@ -74,7 +74,7 @@ function Assigned() {
       <div className={styles.lower}>
         <section aria-labelledby="join-heading" className={styles.panel}>
           <h2 id="join-heading">Have a code or link?</h2>
-          <p>Paste the link your trainer sent, or type the session code.</p>
+          <p>Paste the link your mentor sent, or type the session code.</p>
           <SessionEntryForm/>
         </section>
         {tip ? <section aria-labelledby="tip-heading" className={styles.tip}>
