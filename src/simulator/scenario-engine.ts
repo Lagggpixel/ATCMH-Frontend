@@ -1,6 +1,6 @@
 import {pilotRequestSchema} from "./protocol";
 import {reserveCallsigns} from "./callsigns";
-import {engineFor, distance} from "./engine";
+import {advance, engineFor, distance} from "./engine";
 import {getAirport} from "./airports";
 import {catalogFor} from "./catalog";
 
@@ -26,8 +26,8 @@ function conditionMet(event: ScenarioEvent, exercise: Exercise, runtime: Scenari
 /** Atomic event batch: either every aircraft/message/action commits or none does. */
 
 export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntime, eventId: string, now: number): Exercise {
-  const {validateAssignment, applyEnvelope} = engineFor(runtime.definition);
-  const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(getAirport(runtime.definition));
+  const {validateAssignment, applyEnvelope} = engineFor(exercise);
+  const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather);
   const event = runtime.definition.events.find(e => e.id === eventId), state = runtime.events[eventId];
   if (!event || !state || ["completed", "skipped"].includes(state.status) || runtime.finished) return exercise;
   let next = exercise;
@@ -95,7 +95,6 @@ function fireDue(exercise: Exercise, runtime: ScenarioRuntime, now: number): Exe
 /** Simulation-time scheduling only. No browser timers and no offline catch-up. */
 
 export function advanceScenario(exercise: Exercise, runtime: ScenarioRuntime, seconds: number, now: number): {exercise: Exercise; changed: boolean} {
-  const {advance} = engineFor(runtime.definition);
   if (!exercise.running || runtime.finished) return {exercise, changed: false};
   const before = JSON.stringify(runtime.events);
   runtime.started = true;
@@ -107,6 +106,8 @@ export function advanceScenario(exercise: Exercise, runtime: ScenarioRuntime, se
       const at = e.trigger.type === "time" ? e.trigger.at : e.trigger.type === "condition" && runtime.events[e.id].conditionAt !== undefined ? runtime.events[e.id].conditionAt! + e.trigger.delay : Infinity;
       if (at > exercise.elapsed + 1e-8) dt = Math.min(dt, at - exercise.elapsed);
     }
+    // Session weather can differ from the immutable template after METAR loading
+    // or a staff edit. Use the same live context as Scope's motion prediction.
     exercise = advance(exercise, dt); remaining -= dt;
     exercise = fireDue(exercise, runtime, now);
   }
