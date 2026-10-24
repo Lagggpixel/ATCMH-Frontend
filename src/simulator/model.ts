@@ -98,6 +98,7 @@ export interface Aircraft {
   sequence?: TrafficSequence; optionHand?: "left" | "right"; circuit?: number;
   pushback?: {path: Point[]; index: number; pullFrom?: number; tail?: "north" | "east" | "south" | "west"};
   patternFinalDistance?: number; // Extended base/final geometry for this circuit, in NM.
+  patternEntry?: "crosswind" | "downwind"; // Sequenced entry awaiting space while continuing upwind.
   radar?: RadarState;
   atcManeuver?: AtcManeuver;
   backTaxi?: {lineup: boolean; contactGround: boolean};

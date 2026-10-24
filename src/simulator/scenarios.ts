@@ -12,7 +12,7 @@ const key = z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/);
 const seconds = z.number().finite().min(0).max(86400);
 const point = z.object({x: z.number().finite().min(-2000).max(2000), y: z.number().finite().min(-2000).max(2000)});
 
-export const seedSchema = aircraftSchema.omit({airportSighting: true, reportAirportInSight: true, id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, contactTowerAtHold: true, towerCheckInPending: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
+export const seedSchema = aircraftSchema.omit({patternEntry: true, airportSighting: true, reportAirportInSight: true, id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, contactTowerAtHold: true, towerCheckInPending: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
   .refine(seed => seed.mode !== "pushback", "Start aircraft parked and schedule a pushback manoeuvre instead.");
 
 export const conditionSchema = z.discriminatedUnion("type", [
