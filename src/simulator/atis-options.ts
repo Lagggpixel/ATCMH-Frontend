@@ -4,16 +4,16 @@ import type {Airport, Atis, Exercise, ExerciseWeather} from "./model";
 
 // IF 26.4: ATISRemarks.Properties, in source order. Labels and broadcast words differ.
 export const ATIS_REMARKS = [
-  {label: "No intersection dept.", text: "no intersection departures"},
-  {label: "No pattern work", text: "no pattern work"},
+  {label: "No intersection dept.", displayLabel: "NO\nINTERSECTION\nDEPT.", text: "no intersection departures"},
+  {label: "No pattern work", displayLabel: "NO PATTERN\nWORK", text: "no pattern work"},
   {label: "Gate Hold", text: "gate hold in effect"},
-  {label: "No Light Aircraft", text: "no light aircraft accepted at this time"},
+  {label: "No Light Aircraft", displayLabel: "NO LIGHT\nAIRCRAFT", text: "no light aircraft accepted at this time"},
   {label: "Rolling dept", text: "rolling departures only"},
   {label: "FPL Rqd", text: "file flight plan prior to contacting ATC"},
-  {label: "Straight out dept", text: "straight out departures only"},
-  {label: "Mult. Freq. In Use", text: "multiple frequencies in use"},
-  {label: "SID/STAR Use Rcmd", text: "use of Departure and Arrival procedures recommended"},
-  {label: "SID/STAR Use Req", text: "use of Departure and Arrival procedures required"},
+  {label: "Straight out dept", displayLabel: "STRAIGHT OUT\nDEPT", text: "straight out departures only"},
+  {label: "Mult. Freq. In Use", displayLabel: "MULT. FREQ. IN\nUSE", text: "multiple frequencies in use"},
+  {label: "SID/STAR Use Rcmd", displayLabel: "SID/STAR USE\nRCMD", text: "use of Departure and Arrival procedures recommended"},
+  {label: "SID/STAR Use Req", displayLabel: "SID/STAR USE\nREQ", text: "use of Departure and Arrival procedures required"},
 ] as const;
 export const ATIS_NOTAMS = [
   {label: "Event", text: "event in progress, check forum for event information and expect delays"},
