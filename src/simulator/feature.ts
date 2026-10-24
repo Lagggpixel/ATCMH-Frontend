@@ -7,3 +7,8 @@ export function canAccessStaffSimulator(user: Pick<AdminUser, "role" | "canManag
   if (user?.canAccessSimulator !== undefined) return user.canAccessSimulator === true;
   return user?.canManageAllAssignments === true || user?.role === "admin" || user?.role === "super_admin";
 }
+
+/** Assigning a mentee needs explicit Sweatbox access or an administrator role, not only the mentor default. */
+export function canAssignMentees(user: Pick<AdminUser, "role" | "canAccessSimulator"> | {role?: unknown; canAccessSimulator?: unknown} | null | undefined) {
+  return user?.canAccessSimulator === true || user?.role === "admin" || user?.role === "super_admin";
+}

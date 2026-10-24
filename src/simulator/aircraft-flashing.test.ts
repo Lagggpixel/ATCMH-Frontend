@@ -88,9 +88,9 @@ test("rendered aircraft pair icon/text flashes, show open-strip state and retain
     const a = {...aircraft(), position: {x: 0, y: 0}};
     const props = {aircraft: [a], frequency: "tower" as const, running: false, selected: null, onSelect() {}};
     const pending = renderToStaticMarkup(createElement(Scope, {...props, pendingAircraft: [a.id]}));
-    assert.match(pending, /class="aircraft pendingAircraft /); assert.match(pending, /class="aircraftTag pendingAircraftLabel /);
+    assert.match(pending, /class="aircraft pendingAircraft /); assert.match(pending, /class="aircraftTag pendingAircraftLabel(?: |")/);
     const open = renderToStaticMarkup(createElement(Scope, {...props, openStripId: a.id}));
-    assert.match(open, /class="aircraft extendedAircraftPulse extendedAircraftIndicator/); assert.match(open, /class="aircraftTag extendedAircraftLabel /);
+    assert.match(open, /class="aircraft extendedAircraftPulse extendedAircraftIndicator/); assert.match(open, /class="aircraftTag extendedAircraftLabel(?: |")/);
     const off = renderToStaticMarkup(createElement(Scope, {...props, frequency: "ground", selected: a.id, pendingAircraft: [a.id]}));
     assert.ok(!off.includes("pendingAircraftLabel")); assert.ok(!off.includes("aircraft pendingAircraft "));
     const strip = renderToStaticMarkup(createElement(Strip, {aircraft: a, runway: "24", selected: false, pending: 3, reminder: true, connected: true, onSelect() {}, onFocus() {}, onMessages() {}, onDismiss() {}}));

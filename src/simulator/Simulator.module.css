@@ -71,13 +71,9 @@
 @keyframes giveWayPulse {50%{opacity:.45}}
 @media (prefers-reduced-motion:reduce) {.giveWayTarget{animation:none}}
 .aircraftTag {position:absolute;bottom:25px;left:28px;white-space:nowrap;font-size:clamp(11px,.9vw,17px)!important;padding:2px!important;color:inherit!important;text-shadow:0 1px 2px black;text-align:left}
-.aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:#f5f5f5;transform:rotate(-35deg);transform-origin:right}
 .aircraftTag span {display:block}
 .aircraftTag {touch-action:none}
-.rotatedTag:before {display:none}
-.tagLeader {position:absolute;overflow:visible;pointer-events:none}
-.leftTag {left:auto;right:28px;text-align:right!important}
-.leftTag:before {left:100%;right:auto;transform:rotate(35deg);transform-origin:left}
+.tagLeader {position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .contextAnchor {position:absolute;left:24px;top:26px;z-index:10;color:white;width:230px}
 .contextAnchor>.aircraftMenu {max-width:100%;max-height:min(55vh,var(--popup-available-height,55vh));box-sizing:border-box;overflow:auto}
 .aircraftMenu {background:#050505;border:1px solid #242424;border-radius:5px;box-shadow:0 4px 20px #0009;max-height:54vh;overflow:auto;padding:12px 0}
@@ -789,7 +785,7 @@
 .simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:#171717;color:#fff}
 .simulator .aircraftMenu button:active:not(:disabled) {background:#272727;color:#fff}
 .menteeSimulator .commandPanel,.menteeSimulator .commandPanel header {background:#000}
-.menteeSimulator .commandPanel .quickCommands {background:rgb(0 0 0 / calc(170 / 255))}
+.menteeSimulator .commandPanel .quickCommands {background:transparent}
 .menteeSimulator .commandMain,.menteeSimulator .commandPanel .messageEntries {background:#171717}
 .menteeSimulator .commandPanel :is(.messageEntries,.quickCommands) button {background:#272727}
 .menteeSimulator .commandPanel .messageEntries button.pointerHovered:not(:disabled),.menteeSimulator .commandPanel .quickCommands button:hover:not(:disabled) {background:#333}
@@ -805,12 +801,12 @@
 
 /* Controller messaging: 141:659 columns span all 562 scaled units. */
 .menteeSimulator .commandPanel {animation:none;transition:none}
-.menteeSimulator .commandWorkspace {grid-template-columns:minmax(0,141fr) minmax(0,659fr);gap:0;padding:0;width:100%;height:100%;flex:1}
+.menteeSimulator .commandWorkspace {position:relative;grid-template-columns:minmax(0,141fr) minmax(0,659fr);gap:0;padding:0;width:100%;height:100%;flex:1}
 .menteeSimulator .commandPanel .quickCommands {margin:calc(2 * var(--controller-unit));min-width:0}
 .menteeSimulator .commandPanel .commandMain {background:#000;min-width:0}
 .menteeSimulator .commandMain>header {margin:0 calc(8 * var(--controller-unit));padding:calc(8 * var(--controller-unit)) 0;font-size:calc(18 * var(--controller-unit));min-height:calc(55 * var(--controller-unit))}
 .menteeSimulator .commandMain>:is(.messageEntries,.compose,section) {margin:calc(8 * var(--controller-unit));min-width:0}
-.menteeSimulator .commandPanel :is(.messageEntries) button {height:calc(55 * var(--controller-unit));min-height:calc(55 * var(--controller-unit));width:100%;flex:none;margin:0;overflow:hidden;padding:calc(8 * var(--controller-unit)) calc(12 * var(--controller-unit));font-size:calc(14 * var(--controller-unit));line-height:1.25}
+.menteeSimulator .commandPanel :is(.messageEntries) button {height:calc(55 * var(--controller-unit));min-height:calc(55 * var(--controller-unit));width:100%;flex:none;margin:0;overflow:hidden;padding:calc(8 * var(--controller-unit)) calc(12 * var(--controller-unit));font-size:calc(12 * var(--command-text-unit,var(--controller-unit)));line-height:1.25}
 .menteeSimulator .commandPanel :is(.messageEntries) button>div {min-width:0;overflow-wrap:anywhere}
 .commandHistory {flex:0 0 23%;min-height:0;min-width:0;margin:calc(8 * var(--controller-unit));background:#171717;overflow:hidden}
 .commandHistory>.messageLog {height:100%;width:100%}
@@ -818,15 +814,15 @@
 
 /* 26.4 controller message rows: 38, 100*, 126, 69*. */
 .menteeSimulator .commandPanel {background:transparent;border-radius:0;outline:0;box-shadow:none}
-.menteeSimulator .commandPanel .commandMain {display:grid;grid-template-rows:calc(38 * var(--controller-unit)) minmax(0,100fr) minmax(0,69fr);background:#000}
+.menteeSimulator .commandPanel .commandMain {display:grid;grid-template-rows:calc(38 * var(--controller-unit)) minmax(0,100fr) calc(126 * var(--controller-unit)) minmax(0,69fr);background:#000}
 .menteeSimulator .commandMain>.commandHeading {grid-row:1;margin:0;padding:0;min-height:0;height:auto;border:0;background:#000}
 .keyboardClose {opacity:0;position:absolute;right:0;top:0}
 .keyboardClose:focus-visible {opacity:1}
-.menteeSimulator .commandMain>.messageEntries {grid-row:2;min-height:0}
-.menteeSimulator .commandMain>.compose,.menteeSimulator .commandMain>section {grid-row:2;min-height:0}
+.menteeSimulator .commandMain>.messageEntries {grid-row:2 / span 2;min-height:0}
+.menteeSimulator .commandMain>.compose,.menteeSimulator .commandMain>section {grid-row:2 / span 2;min-height:0}
 .menteeSimulator .commandMain>[hidden] {display:none}
-.commandHistory {grid-row:3;margin:calc(8 * var(--controller-unit));min-height:0}
-.menteeSimulator .commandPanel .quickCommands button {background:rgb(0 0 0 / calc(170 / 255));border:0;border-radius:0;margin:calc(2 * var(--controller-unit));width:calc(100% - 4 * var(--controller-unit));padding:calc(5 * var(--controller-unit));font-size:calc(10 * var(--controller-unit))}
+.commandHistory {grid-row:4;margin:calc(8 * var(--controller-unit));min-height:0}
+.menteeSimulator .commandPanel .quickCommands button {position:relative;height:calc(61 * var(--controller-unit));min-height:calc(61 * var(--controller-unit));overflow:hidden;background:rgb(0 0 0 / calc(170 / 255));border:0;border-radius:0;margin:calc(2 * var(--controller-unit));width:calc(100% - 4 * var(--controller-unit));padding:calc(5 * var(--controller-unit));font-size:calc(10 * var(--command-text-unit,var(--controller-unit)))}
 .visuallyHidden {position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
 .menteeSimulator .compactMessageLog {font-size:calc(14 * var(--controller-unit));line-height:1.25}
 .menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit)) 0;border:0}
@@ -854,7 +850,7 @@
 .menteeSimulator .strips {overflow-x:hidden}
 .menteeSimulator .stripsHeader {display:none}
 .menteeSimulator .aircraftInformation {top:calc(env(safe-area-inset-top) + 34 * var(--controller-unit));bottom:env(safe-area-inset-bottom);right:calc(env(safe-area-inset-right) + 365 * var(--controller-unit));width:calc(458 * var(--controller-unit));max-width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 60 * var(--controller-unit));height:auto;max-height:none;box-shadow:none;border:0;border-radius:0;overflow-y:auto}
-.menteeSimulator .commandMain>.commandHistory {grid-row:3;grid-column:1;min-height:0}
+.menteeSimulator .commandMain>.commandHistory {grid-row:4;grid-column:1;min-height:0}
 .menteeSimulator .commandMain>.messageEntries {grid-column:1}
 .menteeSimulator .compactMessageLog>div {padding:calc(3 * var(--controller-unit));border:0}
 .menteeSimulator .compactMessageLog p {margin:0}
@@ -932,3 +928,31 @@
 .menteeSimulator .scope .scopeButtons button,.menteeSimulator .scope .optionsMenu button {color:#fff}
 .simulator .controllerMessage {color:#90ee90}
 .scope .tagColorDot {position:absolute;left:-12px;top:2px;width:8px;height:8px;border-radius:50%;box-shadow:1px 1px #000}
+
+/* Calibrated against the supplied iPad Pro screenshots; native iOS scaling is
+   unavailable in the Android reference. Keep this local to the command popup. */
+@media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
+  .menteeSimulator .commandPanel {--controller-unit:.75px;--command-text-unit:.9px}
+}
+.menteeSimulator .commandPanel .messageEntries button {gap:calc(12 * var(--controller-unit));border-bottom-width:calc(3 * var(--controller-unit))}
+.menteeSimulator .commandPanel .messageEntries button>span,.menteeSimulator .commandPanel .messageEntries .sendLabel {font-size:calc(11 * var(--command-text-unit,var(--controller-unit)))}
+.menteeSimulator .commandPanel .messageEntries b:not(.sendLabel) {font-size:0}
+.menteeSimulator .commandPanel .messageEntries b:not(.sendLabel)::before {content:"\e83b";font:calc(14 * var(--command-text-unit,var(--controller-unit))) "Simulator Aircraft";color:#fa9822}
+.menteeSimulator .commandPanel .compactMessageLog {font-size:calc(14 * var(--command-text-unit,var(--controller-unit)))}
+.menteeSimulator .commandPanel .messageEntries .commandBack b {margin-left:0}
+.menteeSimulator .commandPanel .messageEntries .commandBack b::before {content:"\e83e";font-size:calc(18 * var(--command-text-unit,var(--controller-unit)));color:#fff}
+
+/* Native shortcuts: one alpha-170 rail layer, then alpha-170 tile interiors. */
+.menteeSimulator .commandWorkspace::before {content:"";position:absolute;inset:0 auto 0 0;width:17.625%;background:rgb(0 0 0 / calc(170 / 255));pointer-events:none}
+.menteeSimulator .commandPanel .quickCommands {position:relative;z-index:1}
+.menteeSimulator .commandPanel .quickCommands button:hover:not(:disabled),.menteeSimulator .commandPanel .quickCommands button:active:not(:disabled) {background:rgb(0 0 0 / calc(170 / 255));color:#fff}
+.menteeSimulator .commandPanel .quickCommands button::after {content:"";position:absolute;left:calc(15 * var(--controller-unit));right:0;bottom:calc(-2 * var(--controller-unit));height:.5px;background:#2e3036;pointer-events:none}
+.menteeSimulator .commandMain>.commandHeading {position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:calc(5 * var(--controller-unit));padding:calc(3 * var(--controller-unit)) calc(8 * var(--controller-unit));overflow:visible}
+.commandHeading .commandIdentity {display:grid;min-width:0;margin:0;padding:0;border:0;background:transparent;font:400 calc(10 * var(--command-text-unit,var(--controller-unit)))/1.25 "Simulator Fira",sans-serif}
+.commandIdentity span {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.commandHeading .commandFlightData {display:grid;justify-items:end;white-space:nowrap;color:#fff;font:400 calc(10 * var(--command-text-unit,var(--controller-unit)))/1.25 "Simulator Mono",monospace}
+.commandFlightData span {display:block}
+.commandHeading .commandSendError {position:absolute;top:100%;left:0;right:0;z-index:4;background:#000}
+@media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
+  .menteeSimulator {grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * .75px)}
+}

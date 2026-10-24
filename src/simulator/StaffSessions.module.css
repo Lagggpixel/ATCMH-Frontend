@@ -116,3 +116,32 @@
  .rowActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
  .library .rowActions :is(button,a){padding:10px 6px;font-size:14px}
 }
+
+/* Mentee assignment and sharing (Your sweatbox). */
+.menteeCell{display:grid;gap:8px}
+.library .assignButton{width:100%;border-style:dashed;background:var(--dashboard-secondary,var(--dashboard-surface));color:var(--dashboard-link);padding:8px 10px;font-size:14px;white-space:normal}
+.library .assignedButton{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:6px 10px;border:1px solid var(--dashboard-border);border-radius:8px;background:var(--dashboard-surface);color:var(--dashboard-ink);text-align:left;font-weight:400}
+.library button.assignedButton:hover{border-color:var(--dashboard-link)}
+.avatar{width:30px;height:30px;flex:none;border-radius:50%;background:var(--dashboard-selected);color:var(--dashboard-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.personText{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
+.personText strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tableWrap .personText small,.personText small{margin:0;font-size:12px;color:var(--dashboard-muted)}
+.personText small.live{color:var(--dashboard-success-text,#1e6b3a)}
+.shareMenu{position:relative;display:inline-flex}
+.shareOptions{position:absolute;top:calc(100% + 6px);left:0;z-index:20;display:grid;min-width:240px;padding:6px;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-surface);box-shadow:0 10px 28px var(--dashboard-shadow-color)}
+.library .shareOptions button{justify-content:space-between;gap:12px;border:0;background:transparent;font-weight:600;width:100%}
+.library .shareOptions button:hover{background:var(--dashboard-selected)}
+.shareOptions code{font-size:12px;color:var(--dashboard-muted)}
+.picker{display:grid;gap:10px;margin-top:16px}
+.dialog .picker label{margin-top:0}
+.searchField{display:flex;align-items:center;gap:8px;border:1px solid var(--dashboard-input-border,var(--dashboard-border));border-radius:8px;padding:0 12px;background:var(--dashboard-surface)}
+.library .searchField input,.dialog .searchField input{border:0;outline:0;min-height:44px;padding:0;font-size:16px;background:transparent}
+.pickerResults{display:grid;gap:6px;max-height:260px;overflow:auto}
+.pickerHint{margin:0;font-size:14px}
+.dialog .personOption{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 12px;border:1px solid var(--dashboard-border);border-radius:8px;background:var(--dashboard-surface);color:var(--dashboard-ink);text-align:left;cursor:pointer;font:inherit}
+.dialog .personOption[aria-pressed="true"]{border:2px solid var(--dashboard-link);background:var(--dashboard-selected);color:var(--dashboard-link)}
+.dialog .personOption[aria-pressed="true"] .personText{color:var(--dashboard-ink)}
+.pickerFieldset{border:0;padding:0;margin:24px 0 0}
+.pickerFieldset legend{font-size:14px;font-weight:650;padding:0}.pickerFieldset legend span{font-weight:400;color:var(--dashboard-muted)}
+.dialog .assignNote{margin:16px 0 0;padding:12px 14px;border:1px solid var(--dashboard-border);border-radius:8px;background:var(--dashboard-secondary,var(--dashboard-surface));color:var(--dashboard-ink);font-size:14px}
+.dialog form>p:first-of-type{margin:0}

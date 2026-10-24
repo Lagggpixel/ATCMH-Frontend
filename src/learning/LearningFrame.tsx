@@ -12,7 +12,7 @@ import SweatboxWorkspace from "./SweatboxWorkspace";
 
 export default function LearningFrame({product, children}: {product: "Courses" | "Pilot Guide" | "Careers" | "Sweatbox"; children: ReactNode}) {
     const pathname = usePathname();
-    if (product === "Sweatbox" && /^\/(?:sweatbox|simulator)\/(?:staff|scenarios|replays)\/?$/.test(pathname))
+    if (product === "Sweatbox" && /^\/(?:sweatbox|simulator)\/(?:staff|mentee|join|scenarios|replays)\/?$/.test(pathname))
         return <DashboardThemeProvider><SweatboxWorkspace>{children}</SweatboxWorkspace></DashboardThemeProvider>;
     return <DashboardThemeProvider><div className={styles.frame} data-learning-product={product}>
         <a className={styles.skipLink} href="#learning-content">Skip to content</a>

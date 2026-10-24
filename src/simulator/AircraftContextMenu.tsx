@@ -1,6 +1,7 @@
 "use client";
 import {IF_TAG_COLORS} from "./if-colors";
 import GroundQuickActions from "./GroundQuickActions";
+import type {PlanGroundTaxi} from "./GroundRouteEditor";
 import {useState} from "react";
 import {CONTEXT_ACTIONS, contextMenu, type ContextAction} from "./catalog";
 import type {Action, Aircraft, Exercise, Frequency} from "./model";
@@ -20,16 +21,17 @@ export function AircraftOptionPicker({picker, elapsed, connected, onEdit}: {
   </div>;
 }
 
-export default function AircraftContextMenu({aircraft, exercise, frequency, elapsed, connected, dispatch, onAction, onClose}: {
+export default function AircraftContextMenu({aircraft, exercise, frequency, elapsed, connected, dispatch, onAction, onClose, onPlanTaxi}: {
   aircraft: Aircraft; exercise?: Exercise; frequency: Frequency; elapsed: number; connected: boolean;
   dispatch: (action: Action) => void; onAction: (action: ContextAction) => void; onClose: () => void;
+  onPlanTaxi?: PlanGroundTaxi;
 }) {
   const [picker, setPicker] = useState<"reminder" | "color" | null>(null);
   const edit = (patch: Partial<Aircraft>) => {dispatch({kind: "edit", aircraftId: aircraft.id, patch}); onClose();};
   return <div className={`${styles.aircraftMenu} ${styles.radarQuick}`} role="menu" aria-label="Aircraft options">
     {picker ? <><button role="menuitem" onClick={() => setPicker(null)}>‹ Back</button>
       <AircraftOptionPicker picker={picker} elapsed={elapsed} connected={connected} onEdit={edit}/>
-    </> : <>{exercise ? <GroundQuickActions aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} dispatch={dispatch} onSent={onClose}/> : null}{contextMenu(frequency, aircraft).map(action => <button key={action} role="menuitem" disabled={!connected} onClick={() => {
+    </> : <>{exercise ? <GroundQuickActions aircraft={aircraft} exercise={exercise} frequency={frequency} connected={connected} dispatch={dispatch} onSent={onClose} onPlanTaxi={onPlanTaxi}/> : null}{contextMenu(frequency, aircraft).map(action => <button key={action} role="menuitem" disabled={!connected} onClick={() => {
       if (action === "reminder" || action === "color") setPicker(action);
       else {onAction(action); if (action === "remove-reminder") onClose();}
     }}>{CONTEXT_ACTIONS[action]}</button>)}</>}

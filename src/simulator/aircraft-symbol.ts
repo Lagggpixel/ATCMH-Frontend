@@ -24,3 +24,12 @@ export const aircraftGlyphs: Record<AircraftSymbol, string> = {
   jet: "\ue866", regional: "\ue873", turboprop: "\ue8cc", military: "\ue867",
   fighter: "\ue868", warbird: "\ue869", "single-turboprop": "\ue86a",
 };
+
+/** Ink bounding-box centres from the bundled InfiniteFlight.ttf (1000 units/em).
+ * Advance width is 1000 for every glyph; the aircraft shapes are not centred in it. */
+export const aircraftGlyphCenters: Record<AircraftSymbol, readonly [number, number]> = {
+  ga: [466, 338], jumbo: [489.5, 350], heavy: [469, 350], medium: [456.5, 350],
+  jet: [436.5, 350], regional: [392.5, 350.5], turboprop: [438.5, 350],
+  military: [482.5, 350.5], fighter: [395.5, 350], warbird: [477, 350],
+  "single-turboprop": [448, 347.5],
+};

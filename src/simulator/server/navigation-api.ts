@@ -3,6 +3,7 @@ import {getAirport} from "../airports";
 import type {NavigationCatalog, NavigationRoute} from "../navigation-data";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
+import {assignedMentee} from "./session-store";
 import {sessionFailure} from "./session-api";
 
 const coordinate = z.object({identifier: z.string().min(1).max(100),waypointType:z.string().max(32).optional(), vorType:z.string().max(32).optional(), slavedVariation:z.number().finite().min(-180).max(180).optional(), lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
@@ -35,7 +36,7 @@ export function createNavigationApi(load = fetchNavigationData, authorize = auth
     try {
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "";
       // Learners can display procedure overlays; aircraft route imports remain staff-only.
-      await authorize(request, query.has("route"));
+      await authorize(request, query.has("route"), assignedMentee);
       let airport; try {airport = getAirport({airport: code});} catch {throw new SessionError("invalid-airport", "Choose an available training airport.", 400);}
       const source = await load(code);
       const project = (p: z.infer<typeof coordinate>, id?: string) => {
