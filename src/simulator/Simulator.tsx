@@ -13,7 +13,7 @@ import {catalogFor, CONTEXT_ACTIONS, type ContextAction} from "./catalog";
 import {getAirport, frequenciesFor, simulatedMetar, openingFrequency, controlledFrequencies, trainingMode} from "./airports";
 import RadarQuickPopup from "./RadarQuickPopup";
 import type {VectorTarget} from "./vector-drag";
-import {airborne, radarEnvironmentFor, radarStripRunway} from "./radar";
+import {airborne, radarEnvironmentFor} from "./radar";
 import {frequencyPendingRequests, pendingPilotMessage, pendingRequestCount, unreadMessages, type Action, type Aircraft, type Frequency, type Point} from "./model";
 import {SharedSession} from "./shared-transport";
 import SessionAccess, {SessionNotice} from "./SessionAccess";
@@ -22,6 +22,7 @@ import LiveScenarioPanel from "./LiveScenarioPanel";
 import {trainingRequest} from "./TrainingLibrary";
 import Scope from "./Scope";
 import ControllerStrip from "./ControllerStrip";
+import {controllerStripText} from "./controller-strip";
 import {flightStrips} from "./flight-strip-order";
 import StaffPanel, {StaffToolbar, TrafficRoster} from "./StaffPanel";
 import SpawnAircraftDialog from "./SpawnAircraftDialog";
@@ -160,7 +161,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
           const pending = pendingRequestCount(exercise, a.id, frequency);
           const stripKey = `${frequency}:${a.id}`, latestRequest = exercise.messages.filter(m => m.aircraftId === a.id && m.frequency === frequency && m.sender === "pilot").at(-1)?.id ?? null;
           if (Object.hasOwn(dismissedStrips, stripKey) && dismissedStrips[stripKey] === latestRequest) return null;
-          return <ControllerStrip key={a.id} aircraft={a} runway={radarStripRunway(a, exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT))} selected={selectedId === a.id} pending={pending} reminder={a.reminderAt !== null && a.reminderAt <= exercise.elapsed} connected={view.connected} onSelect={() => {setQuickHidden(true); setSelectedId(a.id); setVectorHeading(undefined); setVectorTarget(undefined); setMessageId(null);}} onFocus={() => {setSelectedId(null); setFocusRequest({id: a.id, serial: Date.now()});}} onMessages={() => openMessages(a)} onDismiss={() => {setDismissedStrips(previous => ({...previous, [stripKey]: latestRequest})); if (selectedId === a.id) select(null);}}/>;
+          return <ControllerStrip key={a.id} aircraft={a} {...controllerStripText(a, AIRPORT, exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT), exercise.messages)} selected={selectedId === a.id} pending={pending} reminder={a.reminderAt !== null && a.reminderAt <= exercise.elapsed} connected={view.connected} onSelect={() => {setQuickHidden(true); setSelectedId(a.id); setVectorHeading(undefined); setVectorTarget(undefined); setMessageId(null);}} onFocus={() => {setSelectedId(null); setFocusRequest({id: a.id, serial: Date.now()});}} onMessages={() => openMessages(a)} onDismiss={() => {setDismissedStrips(previous => ({...previous, [stripKey]: latestRequest})); if (selectedId === a.id) select(null);}}/>;
         })}</div>
         <MessageLog airport={AIRPORT} messages={exercise.messages} frequency={frequency} compact/>
       </aside>}

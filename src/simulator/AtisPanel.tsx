@@ -3,7 +3,7 @@ import {useEffect, useId, useRef, useState} from "react";
 import {LETTERS} from "./catalog";
 import {ATIS_REMARKS, ATIS_NOTAMS, ATIS_DIRECTIONS, atisFrequencies, atisRunwayWind, currentAtisOptions, type AtisDirection} from "./atis-options";
 import {EXERCISE_WEATHER, type Action, type Atis, type Exercise, type ExerciseWeather} from "./model";
-import {getAirport, runwayEnds} from "./airports";
+import {getAirport, runwayEnds, trainingMode} from "./airports";
 import {trueToMagnetic} from "./magnetic-headings";
 import {useNavigationCatalog} from "./use-navigation-catalog";
 import styles from "./AtisPanel.module.css";
@@ -79,5 +79,10 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
       </div>
     </div>
     <section className={styles.published} aria-label="Published ATIS" aria-live="polite">{exercise.publishedAtis}</section>
+    <footer className={styles.credits} aria-label="Map credits">
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
+      <span>Coastlines: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a></span>
+      {trainingMode(exercise) !== "local" ? <span>Terrain: InfiniteTerrain</span> : null}
+    </footer>
   </section>;
 }

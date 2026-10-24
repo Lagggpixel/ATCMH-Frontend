@@ -6,6 +6,7 @@
 @font-face {font-family:"Simulator Mono";src:url("/simulator/fonts/B612Mono-Bold.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
 @font-face {font-family:"Simulator Fira";src:url("/simulator/fonts/FiraSans-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
 @font-face {font-family:"Simulator Mono";src:url("/simulator/fonts/B612Mono-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face {font-family:"Simulator IF Fira";src:url("/simulator/fonts/FiraSans-IF26.4-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
 .simulator {position:fixed;inset:0;display:grid;grid-template-columns:5.85% minmax(0,1fr) 23.4%;padding:0 1.7% 2.2%;grid-template-rows:40px minmax(0,1fr);background:#000;color:#eee;font:clamp(14px,1.15vw,21px)/1.25 "Simulator Fira",sans-serif;isolation:isolate;overflow:hidden;color-scheme:dark}
 .simulator * {box-sizing:border-box}
 .simulator button,.simulator input,.simulator select {font:inherit}
@@ -93,7 +94,6 @@
 .procedurePanel footer label {border:0}
 .procedurePanel footer input {width:140px}
 .procedurePanel footer>button {border:1px solid #aaa;width:100px;text-align:center}
-.attribution {position:absolute;bottom:2px;left:5px;font-size:9px;color:#777!important;z-index:2}
 .navigationStatus {position:absolute;bottom:26px;left:8px;z-index:3;padding:5px 8px;background:#111d;color:#ddd;font-size:12px}
 .navigationStatus button {margin-left:6px;color:inherit;text-decoration:underline}
 .mapLayerStatus {position:absolute;left:8px;top:8px;z-index:3;max-width:calc(100% - 75px);padding:5px 8px;background:#111e;color:#ddd;font-size:12px}
@@ -553,7 +553,6 @@
 .pilotReply p {margin:0;line-height:1.5}
 .unableReason {color:#a3adb7}
 .withdrawnMessage {display:block;font-size:11px;color:var(--trainer-muted);margin-top:4px}
-.menteeSimulator .attribution {font-size:11px;color:var(--dashboard-ink)!important;background:var(--dashboard-surface);padding:4px 8px;bottom:5px;left:8px;border-radius:3px}
 .menteeSimulator .airportPopup {background:var(--trainer-surface);border-color:var(--trainer-border);line-height:1.5;max-width:440px;min-width:300px}
 .menteeSimulator .airportPopup p {font-size:13px;color:var(--trainer-muted)}
 .trainingAtis {grid-column:2/-1;grid-row:2;overflow:auto;padding:24px 32px;background:var(--dashboard-surface);gap:20px}
@@ -661,8 +660,6 @@
 .menteeSimulator .commandPreview button:hover:not(:disabled) {background:var(--dashboard-button-hover)}
 .menteeSimulator .taskChoices button[aria-pressed=true] {color:var(--dashboard-link)}
 .staffSimulator .controlContent>.messageLog {--trainer-surface:var(--dashboard-surface);--trainer-border:var(--dashboard-border);--trainer-muted:var(--dashboard-muted)}
-.staffSimulator .scope .attribution a {color:#b7d8e8}
-.menteeSimulator .attribution a {color:var(--dashboard-link)}
 /* Popovers use the same theme as the surrounding live controls. */
 .simulator .aircraftMenu {background:var(--dashboard-surface);color:var(--dashboard-ink);border-color:var(--dashboard-border)}
 .simulator .aircraftMenu button:hover {background:var(--dashboard-selected)}
@@ -718,7 +715,6 @@
   .menteeSimulator .messageLogTitle {padding:6px 0;font-size:12px}
   .menteeSimulator .messageLog>div {padding:6px 0}
   .menteeSimulator .scopeButtons {right:6px;bottom:22px}
-  .menteeSimulator .attribution {font-size:9px;max-width:calc(100% - 8px)}
 }
 
 .ownerObserver { display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:0; font-size:10px; line-height:12px; }
@@ -959,4 +955,41 @@
 .simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 .simulator::before {content:"";position:fixed;inset:0 0 auto;height:var(--simulator-safe-top);background:#000;z-index:100;pointer-events:none}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
-@media(max-width:600px) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
+@media(max-width:600px) and (orientation:portrait) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
+/* IF 26.4 DisplayInformation uses a .65 display scale for phones. Keep the
+   frequency rail readable and let the radar use the space the strips release. */
+@media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
+  .menteeSimulator {--controller-unit:.65px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit));grid-template-rows:32px minmax(0,1fr)}
+  .menteeSimulator .topBanner {height:32px;min-height:0;flex-wrap:nowrap;font-size:11px}
+  .menteeSimulator .topBanner>span:nth-of-type(2) {display:none}
+  .menteeSimulator .topBanner>.fullscreenControl {display:flex}
+  .menteeSimulator .topBanner :is(.radioAudio button,.fullscreenControl button) {height:30px;font-size:11px}
+  .menteeSimulator .sidebar>button {font-size:11px;gap:4px}
+  .menteeSimulator .facilityLabel small {font-size:10px}
+  .menteeSimulator .frequencyValue {max-width:100%;white-space:normal;font-size:9px;letter-spacing:normal}
+  .menteeSimulator .scopeButtons {width:36px}
+  .menteeSimulator .scopeButtons button {height:36px}
+  .menteeSimulator .scopeButtons svg {width:26px;height:26px}
+  .menteeSimulator .optionsMenu {right:46px;max-width:calc(100% - 52px)}
+}
+/* IF 26.4: shared native font and display scale, 5:3:2 strip columns. */
+.menteeSimulator .rightPanel {padding:0 calc(2 * var(--controller-unit));border-left:0}
+.menteeSimulator .strip {grid-template-columns:minmax(0,8fr) minmax(0,2fr);font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .stripBody {grid-template-columns:minmax(0,5fr) minmax(0,3fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:0;padding:0!important;font:inherit!important;min-width:0;min-height:0}
+.menteeSimulator .stripBody>span {display:flex;align-items:center;min-width:0;overflow:hidden;font:inherit;white-space:normal;overflow-wrap:normal}
+.menteeSimulator .stripBody>span:first-child {font:inherit;margin-left:calc(4 * var(--controller-unit));white-space:nowrap}
+.menteeSimulator .stripBody>span:nth-child(2) {justify-content:center;font:400 calc(14 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .stripBody>span:nth-child(2)::before {content:none}
+.menteeSimulator .stripBody>span:nth-child(3) {font:inherit;margin-left:calc(4 * var(--controller-unit))}
+.menteeSimulator .stripBody>span:nth-child(4) {justify-content:center;text-align:center}
+.menteeSimulator .strip .atcButton {font:inherit!important;margin:calc(3 * var(--controller-unit));padding:0!important;min-width:0;overflow-wrap:normal}
+.menteeSimulator .atcButton i {width:calc(12 * var(--controller-unit));height:calc(12 * var(--controller-unit));bottom:calc(12 * var(--controller-unit));right:calc(12 * var(--controller-unit))}
+.menteeSimulator .compactMessageLog,.menteeSimulator .commandPanel .compactMessageLog {font:400 calc(14 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .commandPanel {--command-text-unit:var(--controller-unit);font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
+.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
+.menteeSimulator .commandPanel .messageEntries button>span,.menteeSimulator .commandPanel .messageEntries .sendLabel {font:inherit}
+.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400;text-transform:uppercase}
+.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400}
+@media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
+  .menteeSimulator {--controller-unit:.75px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit))}
+}

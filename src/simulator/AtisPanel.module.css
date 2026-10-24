@@ -42,6 +42,8 @@
 .north {grid-area:1/2}.east {grid-area:2/3}.south {grid-area:3/2}.west {grid-area:2/1}
 .published {flex:none;min-height:66px;max-height:30%;overflow:auto;padding:10px 8px 14px;background:rgb(0 0 0 / .317647);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;scroll-padding-block:10px 14px}
 .panel :is(.runwayChoices,.tiles,.procedureChoices,.frequencyCards,.published) {touch-action:pan-y pinch-zoom;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+.credits {flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:6px 8px;color:#b3b3b3;font-size:11px;line-height:1.35}
+.credits a {color:inherit;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:1050px) {.grid {grid-template-columns:140px minmax(0,1fr) minmax(0,1fr)}.toolbar {flex-wrap:wrap}.toolbar>span {flex-basis:100%}.information {flex:1}.panel .tiles button {width:calc(50% - 3px);min-width:0;font-size:.85em}.frequencyCard {width:100%}}
 @media(max-width:600px) {.grid {grid-template-columns:110px minmax(0,1fr)}.right {grid-column:1/-1}.toolbar {gap:5px}.information {gap:5px;font-size:.85em}.information>button {width:95px}.toolbar>button {min-width:85px}.panel .runwayChoices button {min-height:48px}.panel .tiles button {min-height:70px}.right .tiles button {width:125px}}
 @media(orientation:landscape) and (max-height:550px) {

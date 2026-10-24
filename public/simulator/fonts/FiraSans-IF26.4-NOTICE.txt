@@ -1,0 +1,11 @@
+Original, unmodified Fira Sans Regular used by Infinite Flight 26.4.
+Source: user-provided com.fds.infiniteflight_26.4/installtimecontent.apk
+ZIP entry: assets/content/UI/Fonts/FiraSans/FiraSans-Regular.ttf
+Bytes: 440560
+SHA-256: b89e7484258508a768db6059a1de1a6229a9fa66a25b6f97804429afbb878d1d
+Licence: SIL Open Font License 1.1; see FiraSans-OFL.txt beside this file.
+Reference: UIControl.ControlDefault (12), FlightProgressStrip runway (14),
+MessageLogListBox (14), ATCMessagingItemButton (12), all regular/upright.
+Native display scale: Android density times .65 on phones / .75 on tablets.
+Browser rendering uses the same source sizes times --controller-unit; native
+device-pixel rounding and platform rasterization can differ from the browser.
