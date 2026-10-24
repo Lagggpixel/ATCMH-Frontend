@@ -36,7 +36,7 @@ import {useNavigationCatalog} from "./use-navigation-catalog";
 import {radarEnvironmentFor} from "./radar";
 import {holdingPattern} from "./holding";
 import {useScopeCamera} from "./use-scope-camera";
-import {initialOptions, scopeOptionRows, trafficFilters, toggleTrafficFilter, trafficVisible} from "./scope-options";
+import {scopeOptionRows, trafficFilters, toggleTrafficFilter, trafficVisible} from "./scope-options";
 import {facilities} from "./aviation";
 import {projectAirspaces, airspaceOutlines, hitAirspaces} from "./scope-airspaces";
 import {useScopeMapData} from "./use-scope-map-data";
@@ -47,14 +47,20 @@ import {useAirportDisplay} from "./use-airport-display";
 import ScopeProcedures from "./ScopeProcedures";
 import {drawCoastlines} from "./coastlines";
 import {useCoastlines} from "./use-coastlines";
+import {readScopePreferences, scopePreferenceKey} from "./scope-preferences";
+import {useSaveScopePreferences} from "./use-scope-preferences";
 
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
 const runwayWindColors = {headwind: "#90ee90", crosswind: "#ffa500", tailwind: "#ff0000"};
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
-interface Props {missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number}}
-export default function Scope({missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest}: Props) {
+interface Props {accountId?: string; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number}}
+export default function Scope(props: Props) {
+  const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
+  return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
+}
+function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
   const coastlines = useCoastlines();
   const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
@@ -140,18 +146,20 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       suppressClick.current = true; cancelVector();
     }
   }, [snapshot, vectorEnabled, measureVectors, frequency, airport, selected, cancelVector]);
-  const fitted = useRef(Boolean(cameraStore?.has(cameraKey)));
+  // All callers mount the scope after SessionAccess resolves the browser's identity.
+  const [preferences] = useState(() => readScopePreferences(preferenceKey));
+  const fitted = useRef(Boolean(preferences.camera || cameraStore?.has(cameraKey)));
   const [size, setSize] = useState({width: 1000, height: 800});
-  const [camera, setCamera] = useState<MapCamera>(() => cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
+  const [camera, setCamera] = useState<MapCamera>(() => preferences.camera ? {...preferences.camera, scale: Math.max(radarMode ? .5 : 8, preferences.camera.scale)} : cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
   useEffect(() => {cameraStore?.set(cameraKey, camera);}, [cameraStore, cameraKey, camera]);
-  const [options, setOptions] = useState(() => {
-    try {return {...initialOptions, airspaces: localStorage.getItem(`sweatbox:airspaces:${frequency}`) !== "false"};} catch {return initialOptions;}
-  });
+  const [options, setOptions] = useState(preferences.options);
   const [selectedAirspaces, setSelectedAirspaces] = useState<string[]>([]);
   const winds = useScopeMapData<ScopeWinds>(airport.icao, "winds", options.windsAloft);
-  const [windAltitude, setWindAltitude] = useState(-1);
+  const [windAltitude, setWindAltitude] = useState(preferences.windAltitude);
   const [procedureOverlays, setProcedureOverlays] = useState<AirportProcedure[]>([]);
-  const [procedureOpacity, setProcedureOpacity] = useState(1);
+  const [procedureOpacity, setProcedureOpacity] = useState(preferences.procedureOpacity);
+  const savedPreferences = useMemo(() => ({options, camera, windAltitude, procedureOpacity}), [options, camera, windAltitude, procedureOpacity]);
+  useSaveScopePreferences(preferenceKey, savedPreferences);
   const [airportView, setAirportView] = useState<{kind: "menu" | "details" | "procedures"; airports: ScopeAirport[]; point: Point} | null>(null);
   const airportSymbols = useMemo<ScopeAirport[]>(() => [{identifier: AIRPORT.icao, name: AIRPORT.name, elevationFeet: AIRPORT.elevation, point: {x: 0, y: 0},
     isTowered: mapLayers.data?.airports.find(item => item.identifier === AIRPORT.icao)?.isTowered ?? facilities.some(item => item.airport === AIRPORT.icao && item.type === "tower")},
@@ -556,7 +564,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       <button aria-label="Zoom out" onClick={() => zoom(1 / 1.4)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
       <button aria-label="Recenter airport" onClick={() => navigationCamera.reset(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
     </div>
-    {popup === "options" ? <div className={styles.optionsMenu} role="menu" aria-label="Scope options">{scopeOptionRows.map(([key, label]) => <button key={key} role="menuitemcheckbox" aria-checked={options[key]} onClick={() => {const enabled = !options[key]; setOptions(o => ({...o, [key]: enabled})); if (key === "airspaces") {try {localStorage.setItem(`sweatbox:airspaces:${frequency}`, String(enabled));} catch {} setPopup(null);}}}><span aria-hidden="true">{options[key] ? "✓" : ""}</span>{label}</button>)}<button role="menuitem" aria-haspopup="menu" onClick={() => setPopup("hide")}><span aria-hidden="true">{options.filter !== "none" ? "✓" : ""}</span>Hide Traffic <span className={styles.arrow} aria-hidden="true">›</span></button><button role="menuitemcheckbox" aria-checked={options.windsAloft} onClick={() => setOptions(o => ({...o, windsAloft: !o.windsAloft}))}><span aria-hidden="true">{options.windsAloft ? "✓" : ""}</span>Winds Aloft</button><button role="menuitem" onClick={() => {setProcedureOverlays([]); setPopup(null);}}><span aria-hidden="true">×</span>Clear All Procedures</button></div> : null}
+    {popup === "options" ? <div className={styles.optionsMenu} role="menu" aria-label="Scope options">{scopeOptionRows.map(([key, label]) => <button key={key} role="menuitemcheckbox" aria-checked={options[key]} onClick={() => {const enabled = !options[key]; setOptions(o => ({...o, [key]: enabled})); if (key === "airspaces") setPopup(null);}}><span aria-hidden="true">{options[key] ? "✓" : ""}</span>{label}</button>)}<button role="menuitem" aria-haspopup="menu" onClick={() => setPopup("hide")}><span aria-hidden="true">{options.filter !== "none" ? "✓" : ""}</span>Hide Traffic <span className={styles.arrow} aria-hidden="true">›</span></button><button role="menuitemcheckbox" aria-checked={options.windsAloft} onClick={() => setOptions(o => ({...o, windsAloft: !o.windsAloft}))}><span aria-hidden="true">{options.windsAloft ? "✓" : ""}</span>Winds Aloft</button><button role="menuitem" onClick={() => {setProcedureOverlays([]); setPopup(null);}}><span aria-hidden="true">×</span>Clear All Procedures</button></div> : null}
     {revealedFix ? <span role="tooltip" className={styles.fixTooltip} style={{left: Math.max(6, Math.min(size.width - 130, revealedFix.x + 12)), top: Math.max(6, Math.min(size.height - 32, revealedFix.y - 30))}}>{revealedFix.id} · {revealedFix.route && !revealedFix.background ? "Flight plan" : revealedFix.kind === "fix" ? "Fix" : revealedFix.kind.toUpperCase()}</span> : null}
     {popup === "hide" ? <div className={styles.optionsMenu} role="menu" aria-label="Hide Traffic">{trafficFilters.map(([value, label]) => <button key={value} role="menuitemcheckbox" aria-checked={options.filter === value} onClick={() => {setOptions(o => ({...o, filter: toggleTrafficFilter(o.filter, value)})); setPopup(null);}}><span aria-hidden="true">{options.filter === value ? "✓" : ""}</span>{label}</button>)}</div> : null}
     {airportView?.kind === "menu" ? <AirportPopup airports={airportView.airports} point={airportView.point} size={size} weather={weather ?? EXERCISE_WEATHER} origin={AIRPORT.icao} environment={radarEnvironment}

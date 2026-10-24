@@ -171,9 +171,32 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
     if (gap <= Math.max(1e-6, lead)) {index++; waypoint = path[index]; gap = distance(a.position, waypoint);}
   }
   const stopping = mustStop(index);
-  const budget = Math.min(Math.max(a.speed, 1) / 3600 * dt, guidance.travelLimit);
-  if (gap <= Math.max(1e-7, budget) && (gap < 1e-6 || Math.abs(angleTo(a.heading, heading(a.position, waypoint) + (reverse ? 180 : 0))) < 5)) {
+  // Brake for the next hold/end across intermediate nodes. Short exit segments
+  // otherwise hide the stop until it is too late to slow down continuously.
+  let stopDistance = Infinity, cornerLimit = Infinity;
+  for (let i = index; i < path.length; i++) {
+    // Turns cut across mapped nodes; the straight-line distance is the safe
+    // lower bound for braking, even as corner anticipation advances the cursor.
+    if (mustStop(i)) {stopDistance = distance(a.position, path[i]); break;}
+    if (path[i + 1]) {
+      const previous = i === index ? a.position : path[i - 1], next = path[i + 1];
+      const bend = Math.abs(angleTo(heading(previous, path[i]), heading(path[i], next)));
+      if (bend > 1) {
+        // Match the available corner lead to our bounded turn rate, and brake
+        // before reaching it rather than clamping speed after the nose turns.
+        const lead = Math.min(.012, distance(previous, path[i]) * .35, distance(path[i], next) * .35);
+        const speed = Math.min(maximum, lead * 3600 * GROUND.turnRate * radians / Math.tan(Math.min(150, bend) * radians / 2));
+        cornerLimit = Math.min(cornerLimit, Math.sqrt(speed ** 2 + 2 * DEFAULTS.acceleration * 3600 * distance(a.position, path[i])));
+      }
+    }
+  }
+  const stepSpeed = DEFAULTS.acceleration * dt;
+  const stoppingSpeed = Math.sqrt(stepSpeed ** 2 + 2 * DEFAULTS.acceleration * 3600 * stopDistance) - stepSpeed;
+  const waypointSpeed = approach(a.speed, Math.min(a.targetSpeed, maximum, stoppingSpeed, cornerLimit, guidance.speedLimit), stepSpeed);
+  const budget = Math.min(waypointSpeed / 3600 * dt, guidance.travelLimit);
+  if ((!stopping || a.speed <= DEFAULTS.acceleration * dt) && gap <= Math.max(1e-7, budget) && (gap < 1e-6 || Math.abs(angleTo(a.heading, heading(a.position, waypoint) + (reverse ? 180 : 0))) < 5)) {
     if (gap <= guidance.travelLimit) {
+      a.speed = waypointSpeed;
       a.position = {x: waypoint.x, y: waypoint.y};
       if (stopping) {
         a.speed = 0;
@@ -190,9 +213,7 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
   // A target must remain outside our turning circle. This bounds curvature even
   // in the last centimetres, so a tiny heading error cannot cause endless orbits.
   const steeringSpeed = gap * 3600 * GROUND.turnRate * radians / Math.max(.01, 2 * Math.sin(Math.abs(angle) * radians));
-  const stoppingSpeed = stopping ? Math.min(Math.sqrt(2 * DEFAULTS.acceleration * 3600 * gap), steeringSpeed) : Infinity;
-  a.speed = approach(a.speed, Math.min(a.targetSpeed, maximum, turningSpeed, stoppingSpeed, guidance.speedLimit), DEFAULTS.acceleration * dt);
-  a.speed = Math.min(a.speed, steeringSpeed, turningSpeed);
+  a.speed = approach(a.speed, Math.min(a.targetSpeed, maximum, turningSpeed, steeringSpeed, stoppingSpeed, cornerLimit, guidance.speedLimit), DEFAULTS.acceleration * dt);
   const stride = Math.min(a.speed / 3600 * dt, guidance.travelLimit, gap);
   const course = (a.heading + turn / 2) * radians;
   a.position = {x: a.position.x + Math.sin(course) * stride * (reverse ? -1 : 1), y: a.position.y + Math.cos(course) * stride * (reverse ? -1 : 1)};

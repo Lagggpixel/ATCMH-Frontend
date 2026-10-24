@@ -16,14 +16,16 @@ test("session creation and reset load weather without importing public ATIS", as
   const service = new SessionService(store, () => 1000, randomUUID, undefined, undefined, async (airport, fresh, weatherOnly) => {calls.push([airport, fresh, weatherOnly]); return observation;});
   const actor = {accountId: "weather-trainer", staff: true}, token = randomUUID();
   const created = await service.create(actor, "Weather check");
-  assert.match(store.records.get(created.id)!.exercise.publishedAtis, /EGPH TEST METAR/);
+  assert.match(store.records.get(created.id)!.exercise.publishedAtis, /Observed weather\. Wind 240 degrees at 12 knots/);
+  assert.equal(store.records.get(created.id)!.exercise.weather!.rawMetar, "EGPH TEST METAR");
   assert.equal(store.records.get(created.id)!.exercise.atis.publicText, undefined);
   assert.equal(store.records.get(created.id)!.exercise.weather!.windSpeed, 12);
   await service.join(actor, created.id, "staff", token);
   observation = report("Edinburgh information Bravo. Fresh after reset.");
   const envelope = {id: randomUUID(), time: 1000, action: {kind: "reset" as const}};
   await service.dispatch(actor, created.id, "staff", token, envelope);
-  assert.match(store.records.get(created.id)!.exercise.publishedAtis, /EGPH TEST METAR/);
+  assert.match(store.records.get(created.id)!.exercise.publishedAtis, /Observed weather\. Wind 240 degrees at 12 knots/);
+  assert.equal(store.records.get(created.id)!.exercise.weather!.rawMetar, "EGPH TEST METAR");
   assert.ok(!store.records.get(created.id)!.exercise.publishedAtis.includes("Fresh after reset"));
   assert.deepEqual(calls, [["EGPH", true, true], ["EGPH", true, true]]);
   const revision = store.records.get(created.id)!.exercise.revision;
@@ -48,7 +50,9 @@ test("weather updates preserve controller ATIS choices and exclude external broa
 test("METAR-only airports publish generated ATIS, and an unavailable source preserves the exercise", async () => {
   const state = initialExercise(), source = report(); source.atis = [];
   const updated = applySessionWeather(state, source);
-  assert.match(updated.publishedAtis, /EGPH TEST METAR/);
+  assert.match(updated.publishedAtis, /Observed weather\. Wind/);
+  assert.doesNotMatch(updated.publishedAtis, /EGPH TEST METAR/, "the raw report stays in weather data rather than duplicating the ATIS weather");
+  assert.equal(updated.weather?.rawMetar, "EGPH TEST METAR");
   assert.equal(updated.atis.publicText, undefined);
   assert.deepEqual(updated.publishedDraft, updated.atis);
   assert.equal(await requestSessionWeather("EGPH", async () => {throw new Error("Offline");}), undefined);

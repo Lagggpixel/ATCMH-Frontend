@@ -1,5 +1,5 @@
 import {airportRunways, trainingMode} from "./airports";
-import {runwayGoAroundDue} from "./runway-safety";
+import {runwayGoAroundDue, runwayLateralClear} from "./runway-safety";
 import type {Aircraft, Airport, Exercise, Instruction, Point} from "./model";
 
 export type ConflictKind = "uwc" | "ga" | "cancel-takeoff";
@@ -128,7 +128,7 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
       if (b.leg === "downwind" && gap < 3) motion(b, {extendDownwind: true});
       if (a.mode === "rollout" || a.arrivalExit) {c.phase = "active"; c.rollAt ??= state.elapsed; motion(a, {slowExit: true});}
       const g = engine.geometry(c.runway), dx = a.position.x - g.threshold.x, dy = a.position.y - g.threshold.y;
-      const offRunway = Math.abs(dx * g.vector.y - dy * g.vector.x) > (g.clearance ?? .06);
+      const offRunway = runwayLateralClear(dx * g.vector.y - dy * g.vector.x, g.clearance ?? .06);
       const followingAlong = (b.position.x - g.threshold.x) * g.vector.x + (b.position.y - g.threshold.y) * g.vector.y;
       if (c.phase === "active" && !offRunway && b.leg === "final" && airborne(b, airport) && engine.distance(b) < .65 && b.mode !== "go-around"
         && runwayGoAroundDue(b.altitude, airport.elevation, followingAlong)) {

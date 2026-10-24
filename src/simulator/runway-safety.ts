@@ -1,6 +1,9 @@
 import {airportRunways} from "./airports";
 import type {Aircraft, Airport} from "./model";
 
+/** Mapped exits end exactly on this boundary; allow projection round-off. */
+export const runwayLateralClear = (lateral: number, clearance: number) => Math.abs(lateral) >= clearance - 1e-7;
+
 /** Final automatic go-arounds wait for 50 ft AAL or the landing threshold. */
 export function runwayGoAroundDue(altitude: number, elevation: number, along: number) {
   return altitude <= elevation + 50 || along >= 0;
@@ -21,6 +24,6 @@ export function runwayOccupied(airport: Airport, runway: string, aircraft: reado
       || !["parked", "pushback", "taxi", "lineup", "rollout", "takeoff"].includes(other.mode)) return false;
     const px = other.position.x - start.point.x, py = other.position.y - start.point.y;
     const along = px * x + py * y;
-    return along >= -.02 && along <= length + .02 && Math.abs(px * -y + py * x) < clearance;
+    return along >= -.02 && along <= length + .02 && !runwayLateralClear(px * -y + py * x, clearance);
   });
 }
