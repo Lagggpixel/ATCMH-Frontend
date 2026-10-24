@@ -24,7 +24,7 @@ export interface PilotRequestOptions {direction?: Direction; takeoffDirection?: 
 export const LETTERS = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT", "GOLF", "HOTEL", "INDIA", "JULIET", "KILO", "LIMA", "MIKE", "NOVEMBER", "OSCAR", "PAPA", "QUEBEC", "ROMEO", "SIERRA", "TANGO", "UNIFORM", "VICTOR", "WHISKEY", "XRAY", "YANKEE", "ZULU"];
 export const REMARKS = ATIS_REMARKS.map(option => option.label);
 function createCatalog(airport: Airport, environment = radarEnvironmentFor(airport), weather: ExerciseWeather = DEFAULT_WEATHER) {
-const EXERCISE_WEATHER = weather;
+const wind = weather.windSpeed < 3 && (weather.windGust ?? 0) < 3 ? "wind calm" : `wind ${weather.windDirection} at ${weather.windSpeed}`;
 const FREQUENCIES = frequenciesFor(airport);
 
 
@@ -52,8 +52,8 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
     case "stop": text = "hold position"; break;
     case "hold-short": text = `hold short of runway ${runway}`; break;
     case "cross": text = `cross runway ${runway}${instruction.expedite ? ", please expedite" : ""}`; break;
-    case "takeoff": text = `wind ${EXERCISE_WEATHER.windDirection} at ${EXERCISE_WEATHER.windSpeed}, runway ${runway}, cleared for ${instruction.immediate ? "immediate " : ""}takeoff${instruction.hand ? `, make ${instruction.hand} traffic` : instruction.straightOut ? `${instruction.unablePattern ? ", unable pattern work" : ""}, fly runway heading until at or above ${instruction.straightOut} feet` : ""}`; break;
-    case "land": text = `wind ${EXERCISE_WEATHER.windDirection} at ${EXERCISE_WEATHER.windSpeed}, ${instruction.number ? `number ${instruction.number}, ` : ""}runway ${runway}, cleared ${instruction.option ? "for the option" : "to land"}${instruction.option && instruction.hand ? `, after the option, make ${instruction.hand} traffic` : ""}`; break;
+    case "takeoff": text = `${wind}, runway ${runway}, cleared for ${instruction.immediate ? "immediate " : ""}takeoff${instruction.hand ? `, make ${instruction.hand} traffic` : instruction.straightOut ? `${instruction.unablePattern ? ", unable pattern work" : ""}, fly runway heading until at or above ${instruction.straightOut} feet` : ""}`; break;
+    case "land": text = `${wind}, ${instruction.number ? `number ${instruction.number}, ` : ""}runway ${runway}, cleared ${instruction.option ? "for the option" : "to land"}${instruction.option && instruction.hand ? `, after the option, make ${instruction.hand} traffic` : ""}`; break;
     case "sequence": text = instruction.departure ? `you're number ${instruction.number} for departure` : `${instruction.cancelLanding ? "cancel landing clearance, " : ""}number ${instruction.number}, traffic to follow is on ${instruction.traffic?.toLowerCase() ?? "final"}`; break;
     case "go-around": text = `${instruction.response ? "roger" : "go around"}, ${instruction.runwayHeading ? "fly runway heading" : `make ${instruction.hand ?? a.hand} traffic`} runway ${runway}`; break;
     case "cancel-landing": text = "cancel landing clearance"; break;

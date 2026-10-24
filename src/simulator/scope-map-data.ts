@@ -3,6 +3,7 @@ import type {Point} from "./model";
 export interface ScopeMapData {
   airport: string;
   airports: {id: string; identifier: string; name: string | null; point: Point; isTowered: boolean; elevationFeet?: number}[];
+  navaids?: {id: string; point: Point; waypointType: string; vorType?: string}[];
 }
 export interface WindLevel {altitude: number; direction: number; speed: number}
 export interface ScopeWinds {airport: string; validAt: string; source: string; points: {point: Point; surface: WindLevel; levels: WindLevel[]}[]}

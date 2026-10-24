@@ -88,7 +88,8 @@ test("departing and transitioning traffic cannot keep another aircraft extending
     state = assign(state, command, 0);
     assert.equal(state.aircraft[1].sequence, undefined);
     state = restore(state);
-    state = assign(state, {type: "sequence", number: 2, traffic: "Final"}, 1);
+    const rejected = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: follower.id, command: {type: "sequence", number: 2, traffic: "Final"}}});
+    assert.match(rejected.error!, /eligible predecessor/);
     assert.equal(state.aircraft[1].sequence, undefined, "departures must not be selected as arrivals");
     state = assign(state, {type: "pattern", leg: "final"}, 0);
     assert.equal(state.aircraft[0].leavingCircuit, undefined);

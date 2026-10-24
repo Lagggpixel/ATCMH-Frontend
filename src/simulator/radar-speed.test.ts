@@ -6,6 +6,8 @@ import {catalogFor, HEADING_CHOICES, radarSpeedMenu} from "./catalog";
 import {getAirport, openingFrequency} from "./airports";
 import {approachGeometry} from "./radar";
 import {KNOT_SPEEDS_LOW, KNOT_SPEEDS_HIGH, MACH_SPEEDS, radarSpeedText, machKnots, updateRadarSpeed} from "./radar-speed";
+import {trueAirspeed} from "./aircraft-performance";
+import {EXERCISE_WEATHER} from "./model";
 import {exerciseSchema, instructionSchema, menteeActionAllowed} from "./protocol";
 import type {Action, Exercise, RadarSpeedInstruction} from "./model";
 function fixture(mode: "approach" | "center" = "approach") {
@@ -66,7 +68,7 @@ test("minimum and maximum instructions preserve already compliant speeds; exact 
   state = assign(state, {type: "radar-speed", mode: "maintain", unit: "knots", value: 250, relation: "minimum"}); assert.equal(state.aircraft[0].targetSpeed, 300);
   state = assign(state, {type: "radar-speed", mode: "maintain", unit: "knots", value: 220, relation: "maximum"}); assert.equal(state.aircraft[0].targetSpeed, 220);
   state = assign(state, {type: "radar-speed", mode: "maintain", unit: "knots", value: 250, relation: "exact"}); assert.equal(state.aircraft[0].targetSpeed, 250);
-  state = assign(state, {type: "radar-speed", mode: "maintain", unit: "mach", value: .67, relation: "exact"}); assert.ok(Math.abs(state.aircraft[0].targetSpeed - machKnots(.67, state.aircraft[0].altitude)) < .001);
+  state = assign(state, {type: "radar-speed", mode: "maintain", unit: "mach", value: .67, relation: "exact"}); assert.ok(Math.abs(trueAirspeed(state.aircraft[0].targetSpeed, state.aircraft[0].altitude, state.weather ?? EXERCISE_WEATHER) / machKnots(1, state.aircraft[0].altitude, state.weather ?? EXERCISE_WEATHER) - .67) < .001);
 });
 test("approach speed holds until the selected distance on final and then releases to automatic speed", () => {
   let state = fixture(); const a = state.aircraft[0], g = approachGeometry(getAirport(state), a.runway!);

@@ -198,7 +198,8 @@ export function browserRecordingPlayback(): RecordingPlayback {
       // Prime the same media element synchronously in the user's gesture.
       url = URL.createObjectURL(new Blob([recordingWav(new Float32Array(1), 24000)], {type: "audio/wav"}));
       audio.src = url;
-      void audio.play().then(() => {if (current === generation) unlocked = true;}).catch(() => {});
+      audio.onended = () => {if (current === generation) cancel();};
+      void audio.play().then(() => {if (current === generation) unlocked = true;}).catch(() => {if (current === generation) cancel();});
     },
     async play(samples, sampleRate, settings) {
       cancel(); const current = generation;

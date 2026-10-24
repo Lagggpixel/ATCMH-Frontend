@@ -37,7 +37,7 @@ import {radarEnvironmentFor} from "./radar";
 import {holdingPattern} from "./holding";
 import {useScopeCamera} from "./use-scope-camera";
 import {initialOptions, scopeOptionRows, trafficFilters, toggleTrafficFilter, trafficVisible} from "./scope-options";
-import {facilities, localPoint} from "./aviation";
+import {facilities, localPoint, insideAirspace} from "./aviation";
 import {useScopeMapData} from "./use-scope-map-data";
 import {windAltitudeChoices, windAtAltitude, type ScopeMapData, type ScopeWinds} from "./scope-map-data";
 import {hitAirports, procedureKey, procedureColor, visibleProcedures, type AirportProcedure, type AirportProcedures, type ScopeAirport} from "./airport-display";
@@ -54,13 +54,21 @@ interface Props {missingStripControls?: readonly string[]; elapsed?: number; ope
 type RouteDrag = {aircraftId: string; pointerId: number; path: TaxiPoint[]; edit: TaxiPathEdit; start: Point; moved: boolean};
 export default function Scope({missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, onTaxiPathEdit, editMode, context, gates, selectedGate, onGateSelect, onGateDrop}: Props) {
   const AIRPORT = airport;
+  const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
   const vectorEnabled = measureVectors || !!onVector;
   const navigation = useNavigationCatalog(airport.icao);
-  const catalogueFixes = useMemo(() => navigation.catalog?.fixes.map(fix => ({id: fix.name, point: fix.point, waypointType: fix.point.waypointType, vorType: fix.point.vorType, slavedVariation: fix.point.slavedVariation})) ?? [], [navigation.catalog]);
+  const catalogueFixes = useMemo(() => {
+    const beacons = mapLayers.data?.navaids ?? [];
+    const fixes = navigation.catalog?.fixes.map(fix => {
+      const beacon = beacons.find(b => b.id === fix.name && distance(b.point, fix.point) < .01);
+      return {id: fix.name, point: fix.point, waypointType: fix.point.waypointType ?? beacon?.waypointType, vorType: fix.point.vorType ?? beacon?.vorType, slavedVariation: fix.point.slavedVariation};
+    }) ?? [];
+    return [...fixes, ...beacons.filter(b => !fixes.some(f => f.id === b.id && distance(f.point, b.point) < .01))];
+  }, [navigation.catalog, mapLayers.data]);
   const radarEnvironment = useMemo(() => radarMode ? {...(configuredEnvironment ?? radarEnvironmentFor(airport)),
     fixes: catalogueFixes} : configuredEnvironment,
   [radarMode, configuredEnvironment, airport, catalogueFixes]);
-  const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
+  const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
   const airportCamera = useMemo(() => {
     const points = airport.features.flatMap(f => f.points);
     const bounds = {left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)), bottom: Math.min(...points.map(p => p.y)), top: Math.max(...points.map(p => p.y))};
@@ -124,7 +132,6 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const [camera, setCamera] = useState<MapCamera>(() => cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
   useEffect(() => {cameraStore?.set(cameraKey, camera);}, [cameraStore, cameraKey, camera]);
   const [options, setOptions] = useState(initialOptions);
-  const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
   const winds = useScopeMapData<ScopeWinds>(airport.icao, "winds", options.windsAloft);
   const [windAltitude, setWindAltitude] = useState(-1);
   const [procedureOverlays, setProcedureOverlays] = useState<AirportProcedure[]>([]);
@@ -140,6 +147,10 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     const points = (facility.boundary as number[][]).map(([lon, lat]) => localPoint(airport, lat, lon));
     return {id: facility.id, points, left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)), bottom: Math.min(...points.map(p => p.y)), top: Math.max(...points.map(p => p.y))};
   }), [airport]);
+  const airspaceNames = useMemo(() => {
+    const lat = airport.origin.lat + camera.center.y / 60, lon = airport.origin.lon + camera.center.x / (60 * Math.cos(airport.origin.lat * Math.PI / 180));
+    return [...new Set(facilities.filter(f => insideAirspace(f.boundary, lat, lon)).map(f => `${f.name} Center`))];
+  }, [airport, camera.center.x, camera.center.y]);
   const [revealedFixKey, setRevealedFixKey] = useState<string | null>(null);
   const [tap, setTap] = useState<{id: string; point: Point; choices: string[]} | null>(null);
   const selectedAircraft = snapshot.find(a => a.id === selected);
@@ -254,7 +265,6 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const feathers = Math.min(10, Math.round(wind.speed / 10));
       for (let feather = 0; feather < feathers; feather++) {const offset = 12 - feather * 3; ctx.moveTo(p.x + dx * offset, p.y + dy * offset); ctx.lineTo(p.x + dx * (offset - 3) - dy * 7, p.y + dy * (offset - 3) + dx * 7);}
       ctx.stroke();
-      ctx.fillText(`${Math.round(wind.direction).toString().padStart(3, "0")}° ${Math.round(wind.speed)}kt`, p.x + 16, p.y + 4);
     }
     {
       ctx.save();
@@ -288,7 +298,8 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const routeEditable = !!taxiAircraft && !!onTaxiPathEdit && editMode !== "position" && editMode !== "flightPlan";
   const taxiPreview = taxiAircraft && routeDraft?.aircraftId === taxiAircraft.id ? {...taxiAircraft, ...(taxiAircraft.runwayExit ? {runwayExit: editedTaxiPath(routeDraft.path, routeDraft.edit)} : {taxiPath: editedTaxiPath(routeDraft.path, routeDraft.edit)})} : taxiAircraft;
-  const taxiLine = sentGroundRoute || groundRouteCleared || editMode === "taxi" || editMode === "taxi-preview" ? sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []) : [];
+  const arrivalRoute = frequency === "all" && taxiPreview && (taxiPreview.runwayExit || taxiPreview.arrivalExit) ? remainingTaxiPath(taxiPreview) : undefined;
+  const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || editMode === "taxi" || editMode === "taxi-preview" ? sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []) : []);
   const routeState = taxiPreview ? taxiPathState(taxiPreview) : undefined;
   const nodeIndex = routeDraft?.aircraftId === selected ? routeDraft.edit.index : routeNode?.aircraftId === selected ? routeNode.index : routeHover?.kind === "move" ? routeHover.index : undefined;
   const routeHandle = routeEditable && routeState && nodeIndex !== undefined && nodeIndex >= routeState.index ? routeState.path[nodeIndex] : undefined;
@@ -312,8 +323,8 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     for (const a of aircraft) {
       if (!trafficVisible(a, options.filter, frequency)) continue;
       if (options.trails && (frequency === "all" || !options.frequencyTrails || a.frequency === frequency)) path([...a.trail, a.position], "#808080", 1, true);
-      if (!(a.id === selected && taxiLine.length > 1)) path(headingProjection(a), IF_COLORS.text, 1.5);
-      if (a.id === flightPlanAircraft?.id) path(a.flightPlan, IF_MAP_COLORS.flightPlan, 1.5);
+      path(headingProjection(a), IF_COLORS.text, 1.5);
+      if (a.id === flightPlanAircraft?.id && !["parked", "taxi", "lineup", "rollout"].includes(a.mode)) path(a.flightPlan, IF_MAP_COLORS.flightPlan, 1.5);
       if (showProjectedPaths && a.id === selected && frequency === "all" && taxiLine.length < 2) {
         if (!a.radar && (["pattern", "takeoff", "lineup", "go-around"].includes(a.mode) || a.landing === "touch-and-go" && a.mode === "rollout")) {
           path(patternOutline(a), "#64b4d2", 1.5);
@@ -433,7 +444,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const bounds = container.current!.getBoundingClientRect(), point = event.detail ? {x: event.clientX - bounds.left, y: event.clientY - bounds.top} : project({x: 0, y: 0});
       const choices = hitAirports(airportSymbols, point, project);
       openAirport(choices.length ? choices : [airportSymbols[0]], point);
-    }}><span>{AIRPORT.icao}</span><Crosshair size={28} weight="fill"/><i/></button>
+    }}><span>{AIRPORT.icao}</span><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M14 1v5m0 16v5M1 14h5m16 0h5" stroke="currentColor" strokeWidth="2"/><circle cx="14" cy="14" r="5" fill="#90ee90"/></svg></button>
     {vectorAircraft && vectorEnabled ? <>
       <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#ff69bd" strokeWidth="4">
         <circle aria-label="Vector cancellation circle" cx={project(vectorAircraft.position).x} cy={project(vectorAircraft.position).y} r={VECTOR_CANCEL_RADIUS}/>
@@ -570,16 +581,17 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       onToggle={procedure => setProcedureOverlays(previous => previous.some(item => procedureKey(item) === procedureKey(procedure)) ? previous.filter(item => procedureKey(item) !== procedureKey(procedure)) : [...previous, procedure])}
       onClear={() => setProcedureOverlays(previous => previous.filter(item => item.airport !== airportView.airports[0].identifier))} onOpacity={setProcedureOpacity} onRetry={procedureData.retry} onClose={closeAirport}/> : null}
     {options.windsAloft ? <div className={styles.windsPanel}><label>WINDS<select aria-label="Winds Aloft altitude" value={windAltitude} onChange={event => setWindAltitude(Number(event.target.value))}>{windAltitudeChoices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{winds.data ? <small><a href={winds.data.source} target="_blank" rel="noreferrer">Open-Meteo</a> · {new Date(winds.data.validAt).toISOString().slice(11, 16)}Z forecast</small> : <small role="status">{winds.error ?? "Loading winds…"}{winds.error ? <button type="button" onClick={winds.retry}>Retry</button> : null}</small>}</div> : null}
+    {options.airspaces && airspaceNames.length ? <div className={styles.airspaceLabel} aria-label="Airspaces">{airspaceNames.join(" · ")}</div> : null}
     {mapLayers.error ? <div className={styles.mapLayerStatus} role="status">Airport layer unavailable. <button type="button" onClick={mapLayers.retry}>Retry</button></div> : null}
     <span className={styles.attribution}><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>{radarMode ? <> · Terrain: InfiniteTerrain</> : null}</span>
     {terrainSamples.unavailable ? <span role="status" className={styles.terrainUnavailable}>Terrain data unavailable for {terrainSamples.unavailable} aircraft</span> : null}
-    {(options.waypoints || options.navaids) && !navigation.catalog ? <div className={styles.navigationStatus} role="status">{navigation.error ? <>Navigation fixes unavailable. <button type="button" onClick={navigation.retry}>Retry navigation</button></> : "Loading navigation fixes…"}</div> : null}
+    {(options.waypoints || options.navaids) && !navigation.catalog && !mapLayers.data?.navaids?.length ? <div className={styles.navigationStatus} role="status">{navigation.error ? <>Navigation fixes unavailable. <button type="button" onClick={navigation.retry}>Retry navigation</button></> : "Loading navigation fixes…"}</div> : null}
   </div>;
 }
 /** Both roles animate at the display's frame rate between authoritative motion
  * frames. A background staff tab's throttled timer no longer makes the mentee jump. */
 function useRadarAircraft(snapshot: Aircraft[], running: boolean, autoReadback: boolean, airport: Airport, radarEnvironment?: RadarEnvironment, weather?: import("./model").ExerciseWeather) {
-  const {predictAircraft} = useMemo(() => engineFor({airport: airport.icao, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
+  const {predictAircraft} = useMemo(() => engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
   const latest = useRef({snapshot, time: 0});
   const [frame, setFrame] = useState<{snapshot: Aircraft[]; aircraft: Aircraft[]} | null>(null);
   useEffect(() => {latest.current = {snapshot, time: performance.now()};}, [snapshot]);

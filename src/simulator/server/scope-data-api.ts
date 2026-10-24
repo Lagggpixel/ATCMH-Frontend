@@ -8,7 +8,7 @@ import {assignedMentee} from "./session-store";
 import {sessionFailure} from "./session-api";
 
 const location = z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), name: z.string().max(300).nullable(), lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
-const mapSchema = z.object({icao: z.string().length(4), airports: z.array(location.extend({isTowered: z.boolean(), altitudeM: z.number().finite().nullable().optional()})).max(150)});
+const mapSchema = z.object({icao: z.string().length(4), airports: z.array(location.extend({isTowered: z.boolean(), altitudeM: z.number().finite().nullable().optional()})).max(150), vors: z.array(location.extend({vorType: z.string().nullable().optional()})).max(500).optional()});
 async function readJson(url: URL, headers?: Record<string, string>) {
   const response = await fetch(url, {headers, signal: AbortSignal.timeout(15000), cache: "no-store", redirect: "error"});
   if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3_000_000) throw new Error("Source unavailable");
@@ -20,11 +20,12 @@ export async function fetchScopeMap(code: string): Promise<ScopeMapData> {
   const base = process.env.INFINITE_HORIZON_API_URL, key = process.env.INFINITE_HORIZON_API_KEY;
   if (!base || !key) throw new Error("Navigation source unavailable");
   const url = new URL(`/navigation/airports/${code}/map-overlay`, base);
-  url.searchParams.set("radiusNm", "100"); url.searchParams.set("layers", "airports");
+  url.searchParams.set("radiusNm", "100"); url.searchParams.set("layers", "airports,vors");
   const source = mapSchema.parse(await readJson(url, {"x-api-key": key}));
   if (source.icao !== code) throw new Error("Airport mismatch");
   return {airport: code,
     airports: source.airports.map(item => ({id: item.id, identifier: item.identifier, name: item.name, point: localPoint(airport, item.lat, item.lon), isTowered: item.isTowered, ...(item.altitudeM != null ? {elevationFeet: item.altitudeM * 3.28084} : {})})),
+    navaids: (source.vors ?? []).map(item => ({id: item.identifier, point: localPoint(airport, item.lat, item.lon), waypointType: "VOR", ...(item.vorType ? {vorType: item.vorType} : {})})),
   };
 }
 

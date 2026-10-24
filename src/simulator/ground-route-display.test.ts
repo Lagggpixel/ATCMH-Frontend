@@ -71,3 +71,15 @@ test("a seeded physical taxi path is not a cleared green route; issued routes an
   assert.ok(!render({onTaxiPathEdit() {}}).includes(`aria-label="${aircraft.callsign} taxi route"`));
   assert.ok(render({editMode: "taxi-preview", onTaxiPathEdit() {}}).includes(`aria-label="${aircraft.callsign} taxi route"`));
 }));
+
+test("staff see the aircraft's automatic runway exit without a historic taxi clearance", () => withCss(() => {
+  const {aircraft} = fixture();
+  const Scope = require("./Scope").default as typeof import("./Scope").default;
+  const arrival = {...aircraft, mode: "rollout" as const, runwayExit: [aircraft.position, {x: 1, y: 1}, {x: 2, y: 1}],
+    arrivalExit: {instruction: "automatic" as const, speed: 15 as const}, taxiPath: [], taxiIndex: 0};
+  const props = {airport: AIRPORT, aircraft: [arrival], running: false, selected: arrival.id, onSelect() {}};
+  const staff = renderToStaticMarkup(createElement(Scope, {...props, frequency: "all"}));
+  assert.ok(staff.includes(`aria-label="${arrival.callsign} taxi route"`));
+  const tower = renderToStaticMarkup(createElement(Scope, {...props, frequency: "tower"}));
+  assert.ok(!tower.includes(`aria-label="${arrival.callsign} taxi route"`));
+}));

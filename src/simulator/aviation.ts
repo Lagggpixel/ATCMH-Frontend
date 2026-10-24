@@ -20,9 +20,15 @@ export function destinationCode(a: Pick<Aircraft,"destination">, airport: Airpor
 export const localPoint = (airport: Airport, lat: number, lon: number): Point => ({x:(lon-airport.origin.lon)*60*Math.cos(airport.origin.lat*Math.PI/180), y:(lat-airport.origin.lat)*60});
 export function insideAirspace(boundary:unknown,lat:number,lon:number){
   if(!Array.isArray(boundary)||boundary.length<3)return false;
+  if(boundary.some(p => !Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return false;
+  // Unwrap the ring before casting a ray; Pacific FIRs cross the antimeridian.
+  let previous = boundary[0][0];
+  const ring = boundary.map(p => {const x = previous + ((p[0] - previous + 540) % 360) - 180; previous = x; return [x, p[1]];});
+  const center = ring.reduce((sum, p) => sum + p[0], 0) / ring.length;
+  lon += Math.round((center - lon) / 360) * 360;
   let inside=false;
-  for(let i=0,j=boundary.length-1;i<boundary.length;j=i++){
-    const a=boundary[i],b=boundary[j];if(!Array.isArray(a)||!Array.isArray(b))return false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const a=ring[i],b=ring[j];
     if((a[1]>lat)!==(b[1]>lat) && lon<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])inside=!inside;
   }return inside;
 }

@@ -2,8 +2,10 @@
  * Glyphs come from the original IF 26.4 InfiniteFlight.ttf font.
  * Aircraft types are editable, so unrecognised equipment uses the GA fallback.
  */
+import {aircraftCatalogEntry} from "./aircraft-catalog";
 export type AircraftSymbol = "ga" | "jumbo" | "heavy" | "medium" | "jet" | "regional" | "turboprop" | "military" | "fighter" | "warbird" | "single-turboprop";
 export function aircraftSymbol(type: string): AircraftSymbol {
+  const known = aircraftCatalogEntry(type); if (known) return known.symbol;
   const equipment = type.toUpperCase().replace(/^BOEING\s*B?/, "B").replace(/^AIRBUS\s*A?/, "A").replace(/[^A-Z0-9]/g, "");
   if (/^(A38|B74)/.test(equipment)) return "jumbo";
   if (/^(A33|A34|A35|B77|MD11|DC10|C17(?:[A-Z]|$))/.test(equipment)) return "heavy";

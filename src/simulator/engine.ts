@@ -1,5 +1,5 @@
 import {availableHandoffs, environmentWithDestinations} from "./aviation";
-import {advancePerformance, climbRate, descentRate, acceleration, rotationSpeed, performanceFor} from "./aircraft-performance";
+import {advancePerformance, climbRate, descentRate, acceleration, rotationSpeed, performanceFor, headingForGroundTrack} from "./aircraft-performance";
 import {recordControllerAssignment} from "./controller-state";
 import {startConflict, prepareConflicts, conflictCommand, aircraftCollisionGroups, removeConflictAircraft} from "./training-conflicts";
 import {groundReady} from "./ground-ready";
@@ -16,13 +16,14 @@ import {currentAtisOptions, atisFrequencies, atisSelectionText} from "./atis-opt
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
 import {assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
+import {runwayOccupied} from "./runway-safety";
 import {automaticRadarUnable} from "./radar-safety";
-import {assignRadarSpeed, updateRadarSpeed} from "./radar-speed";
+import {assignRadarSpeed, updateRadarSpeed, radarPerformance} from "./radar-speed";
 import {gpsApproachJoin} from "./gps-approach";
 
 import {controlledFrequencies, defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
 import {catalogFor, positionReportText} from "./catalog";
-import {radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, patternLegLabel, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
+import {radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
 
 
 export function createAirportEngine(AIRPORT: Airport, selection: AirportSelection = {}) {
@@ -33,7 +34,7 @@ const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(AIRPOR
 const radians = Math.PI / 180;
 // Begin the base/final turn one base-speed turn radius beyond the desired join.
 // Otherwise turn anticipation establishes final almost a mile too close in.
-const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + bankTurnLead(a.speedTargets?.base ?? 180);
+const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + bankTurnLead(a.speedTargets?.base ?? 180) * 1.2;
 
 const normalizeHeading = (heading: number) => (heading % 360 + 360) % 360;
 
@@ -194,7 +195,7 @@ function arrivalDistance(a: Aircraft): number {
   return remaining;
 }
 
-function assignSequence(aircraft: Aircraft[], a: Aircraft, instruction: Instruction) {
+function sequenceTarget(aircraft: Aircraft[], a: Aircraft, instruction: Instruction) {
   const requested = instruction.type === "sequence" ? instruction : instruction.type === "pattern" ? instruction.sequence : undefined;
   if (!requested) return;
   const runway = instruction.type === "pattern" ? instruction.runway ?? a.runway : a.runway;
@@ -202,10 +203,17 @@ function assignSequence(aircraft: Aircraft[], a: Aircraft, instruction: Instruct
     ? departureTraffic(other)
     : arrivalTraffic(other))).sort((x, y) => (requested.departure ? distance(x.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) - distance(y.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) : arrivalDistance(x) - arrivalDistance(y)) || x.id.localeCompare(y.id));
   const following = queue[requested.number - 2];
-  // A clearance number or an arbitrary aircraft id cannot manufacture a sequence.
-  a.sequence = following && (requested.departure || patternLegLabel(following).toLowerCase() === requested.traffic?.toLowerCase())
-    ? {number: requested.number, traffic: requested.traffic, departure: requested.departure, followingId: following.id, runway: runway ?? undefined, circuit: a.circuit ?? 0, followingCircuit: following.circuit ?? 0}
-    : undefined;
+  // The number identifies the predecessor. Its spoken leg can change while the command travels.
+  const visited = new Set([a.id]);
+  let current: Aircraft | undefined = following;
+  while (current) {if (visited.has(current.id)) return; visited.add(current.id); current = aircraft.find(other => other.id === current!.sequence?.followingId);}
+  return following;
+}
+function assignSequence(aircraft: Aircraft[], a: Aircraft, instruction: Instruction) {
+  const requested = instruction.type === "sequence" ? instruction : instruction.type === "pattern" ? instruction.sequence : undefined;
+  if (!requested) return;
+  const following = sequenceTarget(aircraft, a, instruction), runway = instruction.type === "pattern" ? instruction.runway ?? a.runway : a.runway;
+  a.sequence = following ? {number: requested.number, traffic: requested.traffic, departure: requested.departure, followingId: following.id, runway: runway ?? undefined, circuit: a.circuit ?? 0, followingCircuit: following.circuit ?? 0} : undefined;
 }
 
 function followedAircraft(a: Aircraft, aircraft: Aircraft[]): Aircraft | undefined {
@@ -213,6 +221,8 @@ function followedAircraft(a: Aircraft, aircraft: Aircraft[]): Aircraft | undefin
   if (!s?.followingId || s.number < 2 || s.runway !== a.runway || s.circuit !== (a.circuit ?? 0)) return;
   const target = aircraft.find(other => other.id === s.followingId);
   if (!target || target.id === a.id || target.runway !== a.runway || (target.circuit ?? 0) !== s.followingCircuit) return;
+  const visited = new Set([a.id]); let leader: Aircraft | undefined = target;
+  while (leader) {if (visited.has(leader.id)) return; visited.add(leader.id); leader = aircraft.find(other => other.id === leader!.sequence?.followingId);}
   return (s.departure ? departureTraffic(a) && departureTraffic(target) : arrivalTraffic(a) && arrivalTraffic(target)) ? target : undefined;
 }
 
@@ -233,7 +243,7 @@ function arrivalNumber(a: Aircraft, aircraft: Aircraft[], runway = a.runway): nu
   return 1 + aircraft.filter(other => other.id !== a.id && other.runway === runway && arrivalTraffic(other) && (arrivalDistance(other) < arrivalDistance(arrival) || arrivalDistance(other) === arrivalDistance(arrival) && other.id < a.id)).length;
 }
 
-function clearLanding(a: Aircraft) {a.clearedToLand = false; a.clearedForOption = false; a.optionHand = undefined;}
+function clearLanding(a: Aircraft) {a.clearedToLand = false; a.clearedForOption = false; a.optionHand = undefined; if (a.assigned) a.assigned = {...a.assigned, landing: false};}
 
 function newCircuit(a: Aircraft) {a.circuit = (a.circuit ?? 0) + 1; a.sequence = undefined; a.patternFinalDistance = undefined; delete a.arrivalExit; delete a.arrivalRequest; clearLanding(a);}
 /** Sending a clearance never depends on a pilot request or an aircraft's position.
@@ -245,6 +255,8 @@ function validateInstruction(a: Aircraft, command: Instruction, frequency?: stri
   if ("runway" in command && command.runway && !runwayEnds(AIRPORT).some(end => end.id === command.runway)) return "Runway is not in this airport snapshot.";
   if (frequency && a.frequency !== frequency) return "Aircraft is not on this frequency.";
   if (frequency === "atis") return "ATIS cannot issue aircraft instructions.";
+  const requestedSequence = command.type === "sequence" ? command : command.type === "pattern" ? command.sequence : undefined;
+  if (requestedSequence && requestedSequence.number > 1 && !sequenceTarget(traffic, a, command)) return "That sequence has no eligible predecessor, or would make aircraft follow each other. Review the traffic order.";
   if ((command.type === "taxi" || command.type === "pushback") && command.route) {
     if (frequency !== "ground") return "Routed ground clearances require Ground frequency.";
     if (command.type === "taxi" && ((command.runway && (command.route.destination.type !== "runway" || command.runway !== command.route.destination.id)) || command.destination === "parking" && command.route.destination.type !== "parking")) return "The clearance destination must match its route.";
@@ -359,6 +371,9 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
   const trace = (path: Point[], points: Point[], visited: Set<string>): Point[][] => {
     for (const next of points) {
       const previous = path.at(-1)!, prior = runwayCoordinates(previous, g).lateral, lateral = runwayCoordinates(next, g).lateral;
+      // A connector must lead forwards until it clears the runway. Merely
+      // placing its entrance ahead still allowed a turn back along the pavement.
+      if (runwayCoordinates(next, g).along < runwayCoordinates(previous, g).along - .0001) return [];
       if (Math.abs(lateral) < 1e-7) continue;
       if (side !== "any" && side !== (lateral > 0 ? "left" : "right") || prior * lateral < -1e-8 || Math.abs(lateral) + .0001 < Math.abs(prior)) return [];
       if (Math.abs(lateral) >= g.clearance) {
@@ -393,21 +408,20 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
           // Measure near the runway, before a connector joins a perpendicular taxiway.
           const departure = runwayCoordinates(path.find(p => Math.abs(runwayCoordinates(p, g).lateral) >= .015) ?? path.at(-1)!, g);
           const speed = departure.along - along >= Math.abs(departure.lateral) / Math.sqrt(3) ? 35 : 15;
-          const brakingDistance = Math.max(0, (a.speed ** 2 - speed ** 2) / (2 * acceleration(a) * 3600));
-          if (a.radar?.arrival || along >= q.along + brakingDistance + entryMargin) candidates.push({along, path: [{...a.position}, ...path], speed});
+          if (along >= q.along + entryMargin) candidates.push({along, path: [{...a.position}, ...path], speed});
         }
       }
     }
   }
   const exits = candidates.sort((x, y) => x.along - y.along).filter((entry, index, all) => index === 0 || entry.along - all[index - 1].along > .02);
-  // Prefer normal braking; short radar runways may need stronger landing braking
-  // towards the last forward connector, rather than overrunning and backtracking.
+  // Prefer a connector reachable with normal braking. If none remain, brake
+  // for the last forward connector instead of overrunning or backtracking.
   const reachable = exits.filter(exit => exit.along >= q.along + Math.max(0, (a.speed ** 2 - exit.speed ** 2) / (2 * acceleration(a) * 3600)) + entryMargin);
-  const planned = reachable.length ? reachable : a.radar?.arrival ? exits.slice(-1) : [];
+  const planned = reachable.length ? reachable : exits.slice(-1);
   // Skip at most one reachable exit. A long rollout keeps moving forwards.
   const skip = slow && !a.arrivalExit?.skippedExit && planned.length > 1;
   const chosen = planned[skip ? 1 : 0];
-  if (chosen) return {...chosen, skippedExit: !!a.arrivalExit?.skippedExit || skip, ...(slow || a.radar?.arrival ? {braking: Math.max(slow ? .0001 : acceleration(a), (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600))} : {})};
+  if (chosen) return {...chosen, skippedExit: !!a.arrivalExit?.skippedExit || skip, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
   return {error: `No reachable mapped ${side === "any" ? "" : side + " "}exit ahead. Slow down or reposition before assigning an exit.`};
 }
 
@@ -422,7 +436,8 @@ function queueRunwayExit(a: Aircraft, side: "left" | "right" | "any", instructio
   const route = command ? exitRunwayPlan(a, command) : runwayExitRoute(a, side, !!a.conflictMotion?.slowExit);
   if (!route.path || !route.speed) return;
   a.runwayExit = route.path; a.arrivalExit = {instruction, ...("skippedExit" in route ? {skippedExit: route.skippedExit} : {}), ...("braking" in route && typeof route.braking === "number" ? {braking: route.braking} : {}), speed: command?.expedite && route.speed === 15 ? 25 : route.speed, ...(command?.crossRunway || command?.holdShort ? {followOn: true} : {})};
-  a.targetSpeed = a.arrivalExit.speed;
+  // The rollout computes braking from the remaining distance to this exit.
+  a.targetSpeed = a.speed;
 }
 
 function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
@@ -430,7 +445,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   const leavesHold = ["heading", "route", "pattern", "go-around", "missed-approach"].includes(c.type) || c.type === "vector" && (c.heading !== undefined || c.approachId !== undefined);
   if (leavesHold) {delete a.atcManeuver; delete a.routeNavigation;}
   if (a.atcManeuver?.kind === "hold" && c.type === "vector" && c.altitude) a.atcManeuver.altitude = c.altitude.unit === "feet" ? c.altitude.value : c.altitude.value * 100;
-  if (c.type === "radar-speed") {assignRadarSpeed(a, c); return;}
+  if (c.type === "radar-speed") {assignRadarSpeed(a, c, EXERCISE_WEATHER); return;}
   if (["vector", "expect-approach", "missed-approach", "route"].includes(c.type)) {assignRadar(a, c, AIRPORT, radarEnvironment); return;}
   if (a.radar && c.type === "heading") {assignRadar(a, {type: "vector", heading: c.value}, AIRPORT, radarEnvironment); return;}
   if (c.type === "atc") {assignReference(a, c, AIRPORT, traffic); return;}
@@ -871,7 +886,8 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
   return next;
 }
 const NEXT_LEG: Record<Leg, Leg> = {upwind: "crosswind", crosswind: "downwind", downwind: "base", base: "final", final: "upwind"};
-const turnLead = (a: Aircraft) => Math.max(.12, bankTurnLead(a.speed));
+// Include roll-in and wind-driven travel when anticipating pattern corners.
+const turnLead = (a: Aircraft) => Math.max(.12, bankTurnLead(a.groundSpeed ?? a.speed) * 1.2);
 interface SequenceGuidance {extendDownwind: boolean; speedLimit?: number}
 /** Compare arrival times at the shared final, including traffic on the opposite hand.
  * Wait for the predecessor to turn base: its own downwind may still be extended.
@@ -908,6 +924,8 @@ function approachSeconds(a: Aircraft, joiningBase = false) {
 
 const deniedJoins = new WeakMap<Aircraft,{leader:Aircraft; own:Point; ahead:Point; heading:number; leaderHeading:number; speed:number; leaderSpeed:number}>();
 function finalJoinSeparated(a: Aircraft, leader: Aircraft) {
+  // Allow for the half-second forecast steps and wind/bank changes before the join.
+  const joinMargin = .1;
   const denied=deniedJoins.get(a);
   // Reuse only a denied turn while both aircraft move less than 0.03 NM.
   // This can delay release slightly; it can never approve an unchecked turn.
@@ -916,11 +934,14 @@ function finalJoinSeparated(a: Aircraft, leader: Aircraft) {
   const own = motionCopy(a), ahead = motionCopy(leader), circuit = ahead.circuit ?? 0;
   const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), unlimited = {speedLimit: Infinity, travelLimit: Infinity};
   for (let t = 0; t < 300; t += .5) {
+    const ownPrevious = {...own.position, altitude: own.altitude}, aheadPrevious = {...ahead.position, altitude: ahead.altitude};
     move(own, .5, {extendDownwind: false}, unlimited, false, []);
     move(ahead, .5, {extendDownwind: false}, unlimited, false, []);
+    if (own.altitude > AIRPORT.elevation + 1) advancePerformance(own, ownPrevious, .5, EXERCISE_WEATHER);
+    if (ahead.altitude > AIRPORT.elevation + 1) advancePerformance(ahead, aheadPrevious, .5, EXERCISE_WEATHER);
     const ownAlong = runwayCoordinates(own.position, g).along, leaderAlong = runwayCoordinates(ahead.position, g).along;
-    if ((ahead.circuit ?? 0) !== circuit) return ownAlong <= -DEFAULTS.sequenceDistance || deny();
-    if (own.leg === "final" && leaderAlong - ownAlong < DEFAULTS.sequenceDistance) return deny();
+    if ((ahead.circuit ?? 0) !== circuit) return ownAlong <= -(DEFAULTS.sequenceDistance + joinMargin) || deny();
+    if (own.leg === "final" && leaderAlong - ownAlong < DEFAULTS.sequenceDistance + joinMargin) return deny();
   }
   return deny();
 }
@@ -934,7 +955,7 @@ function sequenceGuidance(a: Aircraft, aircraft: Aircraft[]): SequenceGuidance {
   // after the base turn. Keep the trainer's target speed unchanged.
   const gap = distance(a.position, following.position);
   const ahead = (following.position.x - a.position.x) * Math.sin(a.heading * radians) + (following.position.y - a.position.y) * Math.cos(a.heading * radians);
-  const inTrailLimit = a.leg === following.leg && a.hand === following.hand && ahead > 0 && gap < 2 && Math.abs((a.heading - following.heading + 540) % 360 - 180) < 30 ? Math.max(80, following.speed) : undefined;
+  const inTrailLimit = a.leg === following.leg && a.hand === following.hand && ahead > 0 && gap < 2 && Math.abs((a.heading - following.heading + 540) % 360 - 180) < 30 ? Math.max(radarPerformance(a).min, following.speed) : undefined;
   if (!established) return {extendDownwind: a.leg === "downwind", ...(inTrailLimit === undefined ? {} : {speedLimit: inTrailLimit})};
   const finalSpeed = (a: Aircraft) => a.speedMode === "manual" ? Math.min(a.speed, a.targetSpeed) : a.speedTargets?.vref ?? 135;
   const spacing = Math.max(DEFAULTS.sequenceSeconds, DEFAULTS.sequenceDistance * 3600 / Math.max(1, Math.min(finalSpeed(a), finalSpeed(following))));
@@ -947,7 +968,7 @@ function sequenceGuidance(a: Aircraft, aircraft: Aircraft[]): SequenceGuidance {
   }
   if (a.leg === "base" || a.leg === "final") {
     const remaining = Math.max(0, arrivalDistance(a) - (a.leg === "base" ? 2 * turnLead(a) : 0));
-    const minimum = a.speedMode === "manual" ? DEFAULTS.minimumPatternSpeed : speedProfile(a).minimum;
+    const minimum = radarPerformance(a).min;
     const delay = leaderSeconds + spacing;
     return {extendDownwind: false, speedLimit: approachSeconds(a) >= delay ? undefined : Math.max(minimum, remaining * 3600 / delay)};
   }
@@ -1048,7 +1069,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     automaticSpeed(a);
     if (a.radar.arrival.phase === "stopped") return;
   }
-  if (a.radar && !a.radar.arrival && (!a.radar.patternJoin || a.radar.patternJoin.status === "unable")) {moveRadar(a, dt, AIRPORT, radarEnvironment, traffic, autoGoAround); return;}
+  if (a.radar && !a.radar.arrival && (!a.radar.patternJoin || a.radar.patternJoin.status === "unable")) {moveRadar(a, dt, AIRPORT, radarEnvironment, traffic, autoGoAround, EXERCISE_WEATHER); return;}
   const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY);
   let target: Point | null = null;
   if (a.mode === "parked") return;
@@ -1086,6 +1107,12 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     }
     return;
   } else if (a.mode === "pattern") {
+    const finalAlong = runwayCoordinates(a.position, g).along;
+    if (a.leg === "final" && finalAlong >= -.65 && finalAlong < .1 && a.clearedToLand
+      && runwayOccupied(AIRPORT, a.runway ?? DEFAULT_RUNWAY, traffic, a.id)) {
+      instruct(a, {type: "go-around"}); a.selfGoAroundPending = true;
+      move(a, dt, guidance, ground, false, traffic); return;
+    }
     if (a.radar?.patternJoin && radarArrivalFrequency(a.frequency)) {a.clearedToLand = true; a.clearedForOption = a.landing === "touch-and-go";}
     if (a.leg === "downwind") {
       // Move the base turn with the extension instead of steering back toward the
@@ -1110,9 +1137,10 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
         if (a.radar) {touchdownRadar(a, AIRPORT, a.runway ?? DEFAULT_RUNWAY); return;}
         if (!option) a.landing = "full-stop";
         a.optionHand = optionHand;
+        a.taxiPath = []; a.taxiIndex = 0; a.releasedHold = null; a.flightPlan = [];
         a.mode = "rollout"; a.bankAngle = 0; a.altitude = AIRPORT.elevation; a.targetSpeed = a.landing === "touch-and-go" ? DEFAULTS.airSpeed : 0; a.targetHeading = g.heading; a.heading = g.heading;
         a.position = add(g.threshold, g.vector, Math.max(0, runwayCoordinates(a.position, g).along));
-      } else if (crossedThreshold && !permitted && autoGoAround) {
+      } else if (crossedThreshold && (permitted || autoGoAround)) {
         a.mode = "go-around"; a.leg = "upwind"; a.extended = false; a.targetHeading = g.heading; a.selfGoAroundPending = true;
       } else if (crossedThreshold || (a.leg !== "final" && segment.along >= segment.length - lead - 1e-8)) {
         // Crossing the end plane, rather than chasing a point, prevents circling
@@ -1121,7 +1149,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       }
       if (a.mode === "pattern") {
         // Allow a full roll-out interval while acquiring the next straight leg.
-        const lookahead = Math.max(.25, lead * 1.3 + a.speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate);
+        const lookahead = a.leg === "final" ? Math.max(.25, lead * .8) : Math.max(.25, lead * 1.3 + a.speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate);
         target = add(start, segment.vector, Math.max(0, segment.along) + lookahead);
         a.targetHeading = bearing(a.position, target);
         if (a.radar?.patternJoin?.status === "joining") {
@@ -1150,34 +1178,44 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   } else if (a.mode === "rollout") {
     a.targetHeading = g.heading;
     if (a.holding) {a.speed = 0; return;}
+    if (a.conflictMotion?.holdRunway) {
+      const along = Math.max(0, runwayCoordinates(a.position, g).along), remaining = Math.max(.01, distance(g.threshold, g.departure) - along - .03);
+      const previous = a.speed; a.targetSpeed = 0;
+      a.speed = approach(a.speed, 0, Math.max(acceleration(a), a.speed ** 2 / (2 * remaining * 3600)) * dt);
+      a.position = add(g.threshold, g.vector, Math.min(distance(g.threshold, g.departure) - .02, along + (previous + a.speed) / 2 * dt / 3600));
+      a.heading = g.heading; return;
+    }
     if (!a.radar?.arrival && !a.runwayExit && a.landing === "touch-and-go") {a.mode = "takeoff"; a.takeoffPattern = true; a.targetSpeed = DEFAULTS.airSpeed; if (a.optionHand) a.hand = a.optionHand; a.optionHand = undefined; a.leg = "upwind";}
     else {
       if (!a.runwayExit || a.conflictMotion?.slowExit && a.arrivalExit?.instruction === "automatic" && a.arrivalExit.braking === undefined) queueRunwayExit(a, "any", "automatic");
       else if (!a.arrivalExit) a.arrivalExit = {instruction: "exit-runway", speed: 15}; // Legacy assigned exits.
-      a.targetSpeed = a.arrivalExit?.speed ?? (a.radar?.arrival ? 0 : 15);
-      // Short radar runways need enough braking to stop before their far end;
-      // otherwise a full stop can overrun the mapped area and never find an exit.
-      const remaining = Math.max(.01, distance(g.threshold, g.departure) - runwayCoordinates(a.position, g).along - .02);
-      const braking = a.arrivalExit?.braking ?? (a.radar?.arrival ? Math.max(acceleration(a), (a.speed ** 2 - a.targetSpeed ** 2) / (2 * remaining * 3600)) : acceleration(a));
-      const previousSpeed = a.speed;
-      a.speed = approach(a.speed, a.targetSpeed, braking * dt);
-      a.heading = g.heading;
       const along = runwayCoordinates(a.position, g).along;
       const entry = a.runwayExit?.[1], entryAlong = entry ? runwayCoordinates(entry, g).along : Infinity;
+      if (entry && entryAlong < along - .001) {
+        delete a.runwayExit; delete a.arrivalExit; return;
+      }
+      const exitSpeed = entry ? a.arrivalExit?.speed ?? 15 : 0;
+      const stopAlong = Math.max(along, distance(g.threshold, g.departure) - .02);
+      const remaining = Math.max(.00001, (entry ? entryAlong : stopAlong) - along);
+      // Spread braking over the distance to the chosen connector instead of
+      // reaching taxi speed early and crawling down the rest of the runway.
+      const required = Math.max(.0001, (a.speed ** 2 - exitSpeed ** 2) / (2 * remaining * 3600));
+      const braking = a.speed > exitSpeed ? required : acceleration(a);
+      const previousSpeed = a.speed;
+      a.targetSpeed = exitSpeed;
+      a.speed = approach(a.speed, exitSpeed, braking * dt);
+      a.heading = g.heading;
       const nextAlong = along + (previousSpeed + a.speed) / 7200 * dt;
-      a.position = add(g.threshold, g.vector, nextAlong);
-      if (entry && nextAlong >= entryAlong - 1e-8 && a.speed <= a.targetSpeed + 1e-8) {
+      a.position = add(g.threshold, g.vector, Math.min(nextAlong, entry ? entryAlong : stopAlong));
+      if (entry && nextAlong >= entryAlong - 1e-8) {
+        a.speed = Math.min(a.speed, exitSpeed);
         a.position = {...entry}; a.taxiPath = a.runwayExit!; delete a.runwayExit;
         a.taxiIndex = 2; a.mode = "taxi"; a.releasedHold = null;
         if (a.radar?.arrival) a.radar.arrival.phase = "vacating";
-      } else if (!entry && a.radar?.arrival && a.speed === 0) {
-        // Persist the unavailable-exit stop; predictions and reloads must not
-        // repeatedly replan or start an automatic back-taxi.
-        a.radar.arrival.phase = "stopped"; a.mode = "parked"; a.holding = true;
-      } else if (entry && nextAlong > entryAlong + .001) {
-        // A missed connector is behind us; never clamp position backwards or reverse.
-        delete a.runwayExit;
-        a.arrivalExit = {...a.arrivalExit!, braking: undefined, skippedExit: true};
+      } else if (!entry && (a.speed === 0 || nextAlong >= stopAlong)) {
+        if (a.radar?.arrival) a.radar.arrival.phase = "stopped";
+        a.mode = "parked"; a.holding = true; a.speed = a.targetSpeed = 0;
+        delete a.arrivalExit;
       }
 
       return;
@@ -1188,10 +1226,10 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   automaticSpeed(a);
   const final = runwayCoordinates(a.position, g);
   const finalDistance = a.leg === "final" && final.along < 0 && Math.abs(final.lateral) <= .5 && Math.abs((a.heading - g.heading + 540) % 360 - 180) <= 30 ? -final.along : undefined;
-  updateRadarSpeed(a, traffic, finalDistance);
+  updateRadarSpeed(a, traffic, finalDistance, a.targetSpeed, EXERCISE_WEATHER);
   moveOwnRoute(a);
   a.speed = approach(a.speed, Math.min(a.targetSpeed, guidance.speedLimit ?? Infinity, a.conflictMotion?.speedLimit ?? Infinity), acceleration(a) * dt);
-  if (a.altitude > AIRPORT.elevation + 1) turnAircraft(a, dt);
+  if (a.altitude > AIRPORT.elevation + 1) {if (a.mode === "pattern") a.targetHeading = headingForGroundTrack(a.targetHeading, a, EXERCISE_WEATHER); turnAircraft(a, dt);}
   else a.bankAngle = 0;
   const stride = a.speed / 3600 * dt;
   a.position = {x: a.position.x + Math.sin(a.heading * radians) * stride, y: a.position.y + Math.cos(a.heading * radians) * stride};
@@ -1217,8 +1255,9 @@ function projectedPath(aircraft: Aircraft, seconds = 120, traffic: Aircraft[] = 
 }
 /** Straight-line velocity projection; historical reference exposure is recorded in docs/simulator-sources.md. */
 
-function headingProjection(a: Pick<Aircraft, "position" | "heading" | "speed">): Point[] {
-  return [a.position, add(a.position, {x: Math.sin(a.heading * radians), y: Math.cos(a.heading * radians)}, a.speed * DEFAULTS.radarSeconds / 3600)];
+function headingProjection(a: Pick<Aircraft, "position" | "heading" | "speed" | "groundSpeed" | "track">): Point[] {
+  const heading = a.track ?? a.heading, speed = a.groundSpeed ?? a.speed;
+  return [a.position, add(a.position, {x: Math.sin(heading * radians), y: Math.cos(heading * radians)}, speed * DEFAULTS.radarSeconds / 3600)];
 }
 
 function patternOutline(a: Pick<Aircraft, "runway" | "hand" | "patternFinalDistance" | "speedTargets">): Point[] {

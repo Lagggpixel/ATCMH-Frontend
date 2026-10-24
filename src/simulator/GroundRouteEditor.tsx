@@ -19,11 +19,11 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
   const controls = draft?.controls, destination = draft?.destination, kind = draft?.kind;
   useEffect(() => {
     if (!controls || !destination || !kind) return;
-    const timer = setTimeout(() => {
+    const timer = requestAnimationFrame(() => {
       const built = buildGroundRoute(airport, kind, controls, destination);
-      setDraft(current => current?.controls === controls ? {...current, ...built, invalid: !!built.error, route: built.route && {...built.route, points: built.route.points.map(p => ({...p, ...(groundPointKey(p) in current.holds ? {hold: current.holds[groundPointKey(p)]} : {})}))}, pending: false} : current);
-    }, 60);
-    return () => clearTimeout(timer);
+      setDraft(current => current?.controls === controls ? {...current, ...built, invalid: !!built.error, route: built.route ? {...built.route, points: built.route.points.map(p => ({...p, ...(groundPointKey(p) in current.holds ? {hold: current.holds[groundPointKey(p)]} : {})}))} : current.route, pending: false} : current);
+    });
+    return () => cancelAnimationFrame(timer);
   }, [airport, controls, destination, kind]);
   const start = (a: Aircraft, point: Point, destination: GroundRouteDestination = {type: "point"}, kind = groundRouteKind(a, airport)) => {
     if (!enabled || sending.current || !canRouteGround(a, airport) || a.frequency !== "ground") return;
@@ -33,7 +33,7 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
     if (!current || sending.current || index < 1 || index >= current.controls.length) return current;
     const controls = current.controls.map(p => ({...p}));
     if (insert) controls.splice(index, 0, {...point}); else controls[index] = {...point};
-    return {...current, controls, destination: !insert && index === controls.length - 1 ? destinationAt(airport, point) : current.destination, route: undefined, error: undefined, pending: true};
+    return {...current, controls, destination: !insert && index === controls.length - 1 ? destinationAt(airport, point) : current.destination, error: undefined, pending: true};
   });
   const cancel = () => {if (!sending.current) setDraft(null);};
   const send = async () => {
@@ -43,13 +43,13 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
     const route = structuredClone(draft.route);
     const command: GroundClearance = route.kind === "pushback" ? {type: "pushback", route} : {type: "taxi", route, ...(route.destination.type === "runway" ? {runway: route.destination.id, destination: "runway", contactTowerWhenReady: !route.points.some(p => p.hold)} : route.destination.type === "parking" ? {destination: "parking"} : {})};
     try {
-      if (await onSend(draft.aircraftId, command)) setDraft(current => current === submitted ? null : current);
-      else setDraft(current => current === submitted ? {...current, error: "Route was not sent. Review the connection or error, then retry."} : current);
-    } catch {setDraft(current => current === submitted ? {...current, error: "Route was not sent. Try again."} : current);}
+      const delivery = onSend(draft.aircraftId, command); setDraft(null);
+      if (!await delivery) setDraft(current => current ?? {...submitted, error: "Route was not sent. Review the connection or error, then retry."});
+    } catch {setDraft(current => current ?? {...submitted, error: "Route was not sent. Try again."});}
     finally {sending.current = false; setBusy(false);}
   };
   return {draft: available ? draft : null, busy, start, move, cancel, send,
-    choose: (point: Point, destination: GroundRouteDestination) => setDraft(current => current && !sending.current ? {...current, controls: [current.controls[0], point], destination, holds: {}, route: undefined, error: undefined, pending: true} : current),
+    choose: (point: Point, destination: GroundRouteDestination) => setDraft(current => current && !sending.current ? {...current, controls: [current.controls[0], point], destination, holds: {}, error: undefined, pending: true} : current),
     hold: (index: number, hold: boolean) => setDraft(current => current?.route && !sending.current ? {...current, holds: {...current.holds, [groundPointKey(current.route.points[index])]: hold}, route: {...current.route, points: current.route.points.map((p, i) => i === index ? {...p, hold} : p)}} : current),
   };
 }

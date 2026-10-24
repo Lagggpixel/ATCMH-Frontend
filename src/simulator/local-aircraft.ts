@@ -47,8 +47,8 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
     Object.assign(a, placement, {targetHeading: placement.heading, groundReady: false});
   } else {
     a.altitude = airport.elevation + bounded(options.height, 1, 60000 - airport.elevation, "Height above airport (ft)");
-    a.speed = a.targetSpeed = bounded(options.speed, 80, 600, "Speed (kt)");
-    a.speedMode = "manual";
+    a.speed = a.targetSpeed = bounded(options.speed, performanceFor(a)?.min ?? 80, performanceFor(a)?.max ?? 600, "Speed (kt)");
+    a.speedMode = options.placement === "custom" ? "manual" : "auto";
     const geometry = engine.runwayGeometry(options.runway);
     if (options.placement === "final") {
       const distance = bounded(options.distance, 1, 25, "Final distance (NM)");

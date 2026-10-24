@@ -3,7 +3,7 @@ import {randomUUID} from "node:crypto";
 import test from "node:test";
 import {engineFor} from "./engine";
 import {flightVelocity} from "./aircraft-performance";
-import type {Action, Exercise} from "./model";
+import {EXERCISE_WEATHER, type Action, type Exercise} from "./model";
 import {exerciseSchema} from "./protocol";
 import {createScenarioExercise, scenarioFromExercise, type ScenarioRuntime} from "./scenarios";
 import {MemoryStore} from "./session-test-store";
@@ -20,6 +20,8 @@ function flight(mode: "local" | "approach", speed = 360): Exercise {
   if (mode === "approach") {a.radar = {station: "approach", navigation: "heading", routeIndex: 0}; a.frequency = "approach";}
   exercise.aircraft = [a]; return exerciseSchema.parse(exercise);
 }
+const eastward = (seconds: number) => {const sample = flight("approach"); return flightVelocity(sample.aircraft[0], sample.weather ?? EXERCISE_WEATHER).x * seconds / 3600;};
+
 async function setup(exercise = flight("approach"), runtime?: ScenarioRuntime) {
   const store = new MemoryStore(); let now = 1_000_000;
   const service = new SessionService(store, () => now, randomUUID);
@@ -46,8 +48,9 @@ for (const mode of ["local", "approach"] as const) for (const speed of [180, 360
       const h = await setup(flight(mode, speed)), before = (await h.frame()).exercise.aircraft[0];
       const exercise = await fly(h, 60000, cadence), after = exercise.aircraft[0];
       near(exercise.elapsed, 60); near(after.speed, speed);
-      near(after.position.x - before.position.x, speed / 60);
-      near(after.position.y, before.position.y);
+      const velocity = flightVelocity(before, exercise.weather ?? EXERCISE_WEATHER);
+      near(after.position.x - before.position.x, velocity.x / 60);
+      near(after.position.y - before.position.y, velocity.y / 60);
     });
   }
 }
@@ -84,7 +87,7 @@ test("delayed scenario frames spawn traffic at the authored time, not at the end
   definition.events = [{id: "arrival", title: "Arrival", trigger: {type: "time", at: 6}, actions: [{type: "spawn", aircraftKey: key}]}];
   const created = createScenarioExercise(definition, randomUUID(), randomUUID()), h = await setup(created.exercise, created.runtime);
   h.delay(12000); const frame = await h.frame(), a = frame.exercise.aircraft[0];
-  near(frame.exercise.elapsed, 12); near(a.position.x - definition.aircraft[0].seed.position.x, .6);
+  near(frame.exercise.elapsed, 12); near(a.position.x - definition.aircraft[0].seed.position.x, eastward(6));
   assert.equal(frame.scenario!.events[0].status, "completed"); near(frame.scenario!.events[0].completedAt!, 6);
 });
 
@@ -93,7 +96,7 @@ test("pausing excludes the delayed interval and resuming does not catch it up", 
   const paused = (await h.frame()).exercise; h.delay(12000);
   assert.deepEqual((await h.frame()).exercise, paused);
   await h.send({kind: "play"}); const resumed = await fly(h, 6000, [6000]);
-  near(resumed.elapsed, 12); near(resumed.aircraft[0].position.x - 50, 1.2);
+  near(resumed.elapsed, 12); near(resumed.aircraft[0].position.x - 50, eastward(12));
 });
 
 test("leaving all seats prevents offline catch-up even for a short disconnection", async () => {
@@ -101,7 +104,7 @@ test("leaving all seats prevents offline catch-up even for a short disconnection
   await h.service.leave(staff, h.session.id, "staff", h.token); h.delay(6000);
   const joined = await h.service.join(staff, h.session.id, "staff", h.token);
   assert.deepEqual(joined.exercise, before);
-  const after = await fly(h, 6000, [6000]); near(after.elapsed, 6); near(after.aircraft[0].position.x - 50, .6);
+  const after = await fly(h, 6000, [6000]); near(after.elapsed, 6); near(after.aircraft[0].position.x - 50, eastward(6));
 });
 
 test("an expired connection cannot advance traffic; rejoining resumes without the offline gap", async () => {
@@ -110,19 +113,19 @@ test("an expired connection cannot advance traffic; rejoining resumes without th
   await assert.rejects(h.frame(), {code: "seat-lost"});
   const joined = await h.service.join(staff, h.session.id, "staff", h.token);
   assert.deepEqual(joined.exercise, before);
-  const after = await fly(h, 6000, [6000]); near(after.elapsed, 6); near(after.aircraft[0].position.x - 50, .6);
+  const after = await fly(h, 6000, [6000]); near(after.elapsed, 6); near(after.aircraft[0].position.x - 50, eastward(6));
 });
 
 test("staff and mentee frames at the same time cannot double-count a delayed interval", async () => {
   const h = await setup(), mentee: Actor = {accountId: "102", staff: false}, token = randomUUID();
   await h.service.join(mentee, h.session.id, "mentee", token); h.delay(6000);
   const frames = await Promise.all([h.frame(), h.service.frame(mentee, h.session.id, "mentee", token), h.frame()]);
-  for (const frame of frames) {near(frame.exercise.elapsed, 6); near(frame.exercise.aircraft[0].position.x - 50, .6);}
+  for (const frame of frames) {near(frame.exercise.elapsed, 6); near(frame.exercise.aircraft[0].position.x - 50, eastward(6));}
 });
 
 test("a delayed command first advances movement, then applies the command", async () => {
   const h = await setup(); h.delay(6000); await h.send({kind: "pause"});
-  const frame = await h.frame(); near(frame.exercise.elapsed, 6); near(frame.exercise.aircraft[0].position.x - 50, .6);
+  const frame = await h.frame(); near(frame.exercise.elapsed, 6); near(frame.exercise.aircraft[0].position.x - 50, eastward(6));
   assert.equal(frame.exercise.running, false);
 });
 

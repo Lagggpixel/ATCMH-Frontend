@@ -21,18 +21,19 @@ test("3 NM final spacing holds after transition joins, on every KDAL runway and 
     const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: "follower", command: {type: "pattern", leg: "downwind", hand, runway, sequence: {number: 2, traffic: `${leaderHand} downwind`}}}});
     assert.equal(result.error, undefined); state = result.state;
     assert.equal(state.aircraft[0].sequence?.followingId, "leader");
-    let first = 0, second = 0, minimum = Infinity, thresholdGap = 0;
+    let first = 0, second = 0, minimum = Infinity, thresholdGap = 0, maximumGap = 5;
     const label = `${runway}/${hand}/${opposite}/${speeds}`;
     for (let t = 1; t <= 900 && !second; t++) {
       if (t === 100) state = restoreExercise(exerciseSchema.parse(state));
       state = advance(state, 1); const [a, b] = state.aircraft;
       if (!first && a.leg === "final" && b.leg === "final") minimum = Math.min(minimum, along(b) - along(a));
-      if (!first && b.circuit) {first = t; thresholdGap = -along(a);}
+      if (!first && b.circuit) {first = t; thresholdGap = -along(a); maximumGap = 5 * Math.max(1, (a.groundSpeed ?? a.speed) / a.speed); }
       if (a.circuit) second = t;
     }
     assert.ok(first && second, label);
     assert.ok(minimum >= DEFAULTS.sequenceDistance - .02, `${label}: final gap ${minimum}`);
-    assert.ok(thresholdGap >= 2.98 && thresholdGap < 5, `${label}: threshold gap ${thresholdGap}`);
+    // The upper bound detects excessive delay; scale it with actual travel now that GS differs from IAS.
+    assert.ok(thresholdGap >= 2.98 && thresholdGap < maximumGap, `${label}: threshold gap ${thresholdGap}`);
     assert.ok(second - first >= DEFAULTS.sequenceSeconds, label);
   }
 });

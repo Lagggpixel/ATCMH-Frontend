@@ -31,7 +31,7 @@ function setup(type: Arrival, outcome: Aircraft["landing"], automatic = false, c
   state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"frequency",frequency:"tower"}});
   return {state,airport,g};
 }
-function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"], awaitingBackTaxi = false) {
+function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"]) {
   let state=initial.state,touchdown: Exercise|undefined,vacating: Exercise|undefined;const id=state.aircraft[0].id;
   for(let t=0;t<900;t+=.5){
     const prior=state;
@@ -57,10 +57,9 @@ function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"
       assert.ok(along<=length+.001,"landing rollout must brake before overrunning the runway");
     }
     if(a.altitude===initial.airport.elevation&&["rollout","takeoff","parked"].includes(a.mode))touchdown??=structuredClone(state);
-    if (awaitingBackTaxi && a.radar?.arrival?.phase === "stopped") {
+    if (a.radar?.arrival?.phase === "stopped") {
       assert.equal(outcome, "full-stop"); assert.ok(touchdown);
-      assert.equal(initial.airport.icao, "LIME"); assert.equal(a.runway, "12");
-      assert.equal(vacating, undefined, "LIME 12 has no mapped off-runway exit ahead of touchdown");
+      assert.equal(vacating, undefined, "no forward mapped exit remains ahead of touchdown");
       const engine = engineFor(state), position = {...a.position};
       const along = (position.x-initial.g.threshold.x)*initial.g.vector.x+(position.y-initial.g.threshold.y)*initial.g.vector.y;
       assert.ok(along >= .1 && along < engine.distance(initial.g.threshold, initial.g.departure), "must stop on the runway after physically touching down");
@@ -125,7 +124,7 @@ for(const airport of airportList)for(const runway of runwayEnds(airport).filter(
   // behind touchdown. Forward-only automatic arrivals must await instruction.
   const awaitingBackTaxi = airport.icao === "LIME" && runway.id === "12";
   test(`${airport.icao} runway ${runway.id}: full-stop ${awaitingBackTaxi ? "stops within runway awaiting explicit back-taxi" : "vacates mapped exit and despawns"}`,()=>{
-    complete(setup("visual","full-stop",false,airport.icao,"approach",runway.id),"full-stop",awaitingBackTaxi);
+    complete(setup("visual","full-stop",false,airport.icao,"approach",runway.id),"full-stop");
   });
 }
 

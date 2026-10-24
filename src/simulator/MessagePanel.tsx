@@ -75,7 +75,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
     if (sending.current) {setSendError("Another command is waiting for acknowledgement. Wait or cancel it in the connection banner."); return false;}
     if (!connected) {setSendError("This exercise is paused or no longer available."); return false;}
     sending.current = true; setPendingLabel(label); setSendError(null); setHoveredOption(null);
-    try {const sent = await dispatch(action, path) !== false; if (!sent) setSendError("Command was not sent. Check the session message for the reason, then retry."); return sent;}
+    try {const delivery = dispatch(action, path); onClose(); const sent = await delivery !== false; if (!sent) setSendError("Command was not sent. Check the session message for the reason, then retry."); return sent;}
     catch (error) {setSendError(error instanceof Error ? error.message : "Command was not sent. Try again."); return false;}
     finally {sending.current = false; setPendingLabel(null);}
   };

@@ -33,7 +33,7 @@ export function SpeedTargetsEditor({targets, activePhase, onChange, compact = fa
 }
 
 export default function SpeedControls({airport = defaultAirport, aircraft: a, onEdit, onSpeed}: {airport?: Airport; aircraft: Aircraft; onEdit: (patch: Partial<Aircraft>) => void; onSpeed: (value: number) => void}) {
-  const {speedProfile} = engineFor({airport: airport.icao});
+  const {speedProfile} = engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion});
   const [draft, setDraft] = useState<string | null>(null);
   const manual = a.speedMode === "manual";
   const semi = Object.values(a.speedTargets ?? {}).some(value => value != null);

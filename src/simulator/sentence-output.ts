@@ -57,7 +57,9 @@ export function createSentenceSpeechOutput(loadSpeech: SentenceLoader, playback:
     cancelDraft,
     warm,
     speak(text, settings, end, error) {
-      generation++; const current = generation; playback.cancel();
+      generation++; const current = generation;
+      // Let the gesture's primer finish while the first sentence loads on iOS.
+      if (active) playback.cancel();
       if (disposed) {error(); return;}
       active = true; status("Preparing radio voice…");
       void (async () => {

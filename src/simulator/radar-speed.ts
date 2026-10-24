@@ -1,5 +1,5 @@
-import {performanceFor, densityRatio} from "./aircraft-performance";
-import {radarControlFrequency, type Aircraft, type RadarSpeedInstruction} from "./model";
+import {performanceFor, densityRatio, airTemperatureKelvin} from "./aircraft-performance";
+import {radarControlFrequency, type Aircraft, type RadarSpeedInstruction, type ExerciseWeather} from "./model";
 
 /** Simplified trainer envelopes, not certified performance data. Unknown types
  * retain instructor control rather than assuming an airliner envelope. */
@@ -27,7 +27,8 @@ export function validRadarSpeed(c: RadarSpeedInstruction) {
 }
 /** Simulator conversion to true knots, using standard-atmosphere temperature.
  * The existing motion model treats its single speed as knots, without a wind/IAS model. */
-export const machKnots = (mach: number, altitude: number) => mach * 661.4786 * Math.sqrt(Math.max(216.65, 288.15 - .0065 * altitude * .3048) / 288.15);
+export const machKnots = (mach: number, altitude: number, weather?: ExerciseWeather) => mach * 661.4786 * Math.sqrt(airTemperatureKelvin(altitude, weather) / 288.15);
+const machIAS = (mach: number, altitude: number, weather?: ExerciseWeather) => machKnots(mach, altitude, weather) * Math.sqrt(densityRatio(altitude, weather?.temperature, weather?.qnh));
 /** Training profiles in the existing single-speed motion model, not certified V-speeds. */
 export function radarPerformance(a: Aircraft) {
   const selected=performanceFor(a);
@@ -56,7 +57,7 @@ const digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "
 const spokenMach = (value: number) => `Mach point ${value.toFixed(2).slice(2).split("").map(digit => digits[Number(digit)]).join(" ")}`;
 export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
   if (c.mode === "maintain") {
-    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude)*(a.performanceProfile ? Math.sqrt(densityRatio(a.altitude)):1) : c.value!;
+    const target = c.unit === "mach" ? machIAS(c.value!, a.altitude) : c.value!;
     const value = c.unit === "mach" ? spokenMach(c.value!) : `${c.value} knots`;
     if (c.relation === "minimum") return `maintain ${value} or greater`;
     if (c.relation === "maximum") return `do not exceed ${value}`;
@@ -65,13 +66,13 @@ export function radarSpeedText(a: Aircraft, c: RadarSpeedInstruction) {
   if (c.mode === "approach") return `maintain ${String(c.value).split("").map(digit => digits[Number(digit)]).join(" ")} knots until ${digits[c.until!]} mile final`;
   return {present: "maintain present speed", discretion: "speed at your discretion", slowest: "maintain slowest practical speed", "best-forward": "maintain best forward speed", follow: "adjust speed to follow aircraft ahead"}[c.mode];
 }
-export function assignRadarSpeed(a: Aircraft, c: RadarSpeedInstruction) {
+export function assignRadarSpeed(a: Aircraft, c: RadarSpeedInstruction, weather?: ExerciseWeather) {
   if (c.mode === "present") {if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed; return;}
   if (c.mode === "discretion") {if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar || performanceFor(a) ? automaticRadarTarget(a) : 250; return;}
   if (a.radar) a.radar.speed = {...c}; else a.speedInstruction = {...c}; a.speedMode = "manual"; a.targetSpeed = a.speed;
-  updateRadarSpeed(a, []);
+  updateRadarSpeed(a, [], undefined, a.targetSpeed, weather);
 }
-export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance?: number, automaticTarget = a.targetSpeed) {
+export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance?: number, automaticTarget = a.targetSpeed, weather?: ExerciseWeather) {
   const c = a.radar?.speed ?? a.speedInstruction;
   if (!c) return;
   if (c.mode === "approach" && finalDistance !== undefined && finalDistance <= c.until!) {
@@ -79,7 +80,7 @@ export function updateRadarSpeed(a: Aircraft, traffic: Aircraft[], finalDistance
     if (a.radar) delete a.radar.speed; else delete a.speedInstruction; a.speedMode = "auto"; a.targetSpeed = a.radar ? automaticRadarTarget(a, finalDistance) : finalDistance <= 2 ? 135 : finalDistance <= 5 ? 160 : 180; return;
   }
   if (c.mode === "maintain") {
-    const target = c.unit === "mach" ? machKnots(c.value!, a.altitude)*(a.performanceProfile ? Math.sqrt(densityRatio(a.altitude)):1) : c.value!;
+    const target = c.unit === "mach" ? machIAS(c.value!, a.altitude, weather) : c.value!;
     a.targetSpeed = c.relation === "minimum" ? Math.max(automaticTarget, target) : c.relation === "maximum" ? Math.min(automaticTarget, target) : target;
   } else if (c.mode === "approach") a.targetSpeed = c.value!;
   else if (c.mode === "slowest") a.targetSpeed = a.radar || performanceFor(a) ? radarPerformance(a).min : 135;

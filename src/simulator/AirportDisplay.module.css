@@ -3,15 +3,15 @@
 .popup{overflow:auto;background:#000;border:0;border-radius:8px;padding:16px;box-shadow:none}
 .popup header{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:6px 12px;border-bottom:1px solid #555}
 .popup button,.details button,.procedures button{font:inherit;color:inherit;background:transparent;border:0;border-radius:0;padding:0;min-height:0;cursor:pointer;box-shadow:none}
-.popup button:hover,.details button:hover,.procedures button:hover{background:#ffffff0a}
+.popup button:hover,.details button:hover,.procedures button:hover{background:transparent}
 .popup button:focus-visible,.details :is(button,a,input,[tabindex]):focus-visible,.procedures :is(button,input):focus-visible{outline:2px solid #ffa500;outline-offset:-2px}
 .popup header button{width:40px;height:36px;font-size:23px}
 .popup small,.details small{display:block;color:#a2a2a8;font-size:12px;white-space:normal}
-.airportRow{display:flex;height:56px;align-items:stretch;gap:0}
+.airportRow{display:flex;min-height:78px;align-items:center;gap:12px}
 .popup .airportSummary{display:flex;flex:1;gap:16px;align-items:center;text-align:left;min-width:0;padding:0}
-.airportGlyph{font:16px "Simulator Aircraft";width:24px;flex:none}.airportSummary em{font-style:normal;background:#202020;color:#90ee90;padding:2px 4px;font-size:10px;margin-left:6px;border-radius:3px}
-.airportSummary strong{font-size:12px;font-weight:500}.popup .airportWeather{display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap}.airportWeather .category{background:#202020;padding:2px 4px;border-radius:3px;font-size:10px}
-.popup .procShortcut{width:44px;flex:none;align-self:center;font-size:10px;font-weight:700;padding:2px 4px;margin:0;height:18px;border:1px solid #999;border-radius:3px}
+.airportGlyph{font:28px "Simulator Aircraft";width:32px;flex:none}.airportSummary em{font-style:normal;background:#202020;color:#90ee90;padding:2px 4px;font-size:14px;margin-left:6px;border-radius:3px}
+.airportSummary strong{font-size:18px;font-weight:500}.popup .airportWeather{display:flex;align-items:center;gap:6px;font-size:16px;white-space:nowrap}.airportWeather .category{background:#202020;padding:2px 4px;border-radius:3px;font-size:14px}
+.popup .procShortcut,.popup .procShortcut:hover{width:58px;flex:none;align-self:center;font-size:14px;font-weight:700;padding:2px 4px;margin:0;height:34px;border:0;border-radius:5px;background:#fff;color:#000;text-align:center}
 .category{color:#90ee90;font-size:12px}.category[data-category="MVFR"]{color:#add8e6}.category[data-category="IFR"]{color:#f00}.category[data-category="LIFR"]{color:#f0f}
 /* Theme.Dimensions.PassWidth=458, header=72, tabs band=60, corners=8. */
 .details{right:0;top:0;bottom:0;width:min(458px,100%);display:grid;grid-template-rows:72px 60px minmax(0,1fr);background:#15181e;border:1px solid #43464d;border-radius:8px}
@@ -56,3 +56,6 @@
 .procedures input[type="range"]::-moz-range-track{height:25px;background:transparent}.procedures input[type="range"]::-moz-range-thumb{width:25px;height:25px;background:rgba(153,153,153,.5);border:0;border-radius:0}
 .procedures footer button{width:90px;height:35px;margin:5px;border:1px solid #c0c0c0;text-align:center;font-size:12px}
 @media(max-width:400px){.content{padding-right:4px;padding-left:4px}.runwayTop,.runwayBottom{gap:3px}.windSummary{gap:4px;font-size:10px}.details .runway{padding-right:6px;padding-left:6px;gap:6px}}
+
+.popup .airportSummary:hover {background:transparent}
+@media(max-width:420px){.popup {padding:10px}.popup .airportSummary {gap:8px}.airportSummary strong {font-size:16px}.popup .airportWeather {font-size:12px}.airportGlyph {width:24px;font-size:24px}}

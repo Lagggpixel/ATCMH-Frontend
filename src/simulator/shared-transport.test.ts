@@ -117,3 +117,39 @@ test("tag drops stay immediate through delayed acknowledgements, stale frames an
     assert.equal(client.getSnapshot().error, "Read only");
   } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
 });
+
+test("commands and successive ATIS choices update locally, survive stale frames, and roll back rejection", async () => {
+  const originalFetch = globalThis.fetch, originalWindow = globalThis.window;
+  globalThis.window = new EventTarget() as unknown as Window & typeof globalThis;
+  const id = randomUUID(), initial = initialExercise(id), requests: {resolve: (response: Response) => void; envelope: {id: string}}[] = [];
+  let stream: ReadableStreamDefaultController<Uint8Array>;
+  const frame = (exercise = initial) => stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({type: "snapshot", exercise, session: {id}})}\n\n`));
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/commands")) return new Promise<Response>(resolve => requests.push({resolve, envelope: JSON.parse(String(init!.body)).envelope}));
+    if (!String(input).endsWith("/stream")) return Response.json({});
+    return new Response(new ReadableStream<Uint8Array>({start(controller) {stream = controller; frame(); init?.signal?.addEventListener("abort", () => controller.close(), {once: true});}}));
+  };
+  const client = new SharedSession("mentee", id, "csrf"), stop = client.start();
+  const until = async (condition: () => boolean) => {const deadline = Date.now() + 2000; while (!condition()) {assert.ok(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5));}};
+  try {
+    await until(() => client.getSnapshot().connected);
+    const command = client.dispatch({kind: "command", aircraftId: initial.aircraft[0].id, frequency: "tower", command: {type: "land", option: true}, text: "Cleared for the option"});
+    assert.equal(client.getSnapshot().exercise.messages.at(-1)?.text, "Cleared for the option");
+    assert.equal(client.getSnapshot().exercise.aircraft[0].assigned?.landing, true);
+    assert.equal(client.getSnapshot().exercise.aircraft[0].clearedToLand, initial.aircraft[0].clearedToLand, "pilot motion remains authoritative");
+    frame(); await new Promise(resolve => setTimeout(resolve, 10)); assert.equal(client.getSnapshot().exercise.messages.length, initial.messages.length + 1);
+    await until(() => requests.length === 1); const rejected = requests.shift()!; rejected.resolve(Response.json({error: "Rejected by server"}, {status: 422}));
+    assert.equal(await command, false); assert.equal(client.getSnapshot().exercise.messages.length, initial.messages.length); assert.equal(client.getSnapshot().error, "Rejected by server");
+    const firstDraft = {...initial.atis, arrivals: ["06"]};
+    const first = client.dispatch({kind: "atis", draft: firstDraft});
+    const nextDraft = {...client.getSnapshot().exercise.atis, departures: ["24"]};
+    const second = client.dispatch({kind: "atis", draft: nextDraft});
+    assert.deepEqual(client.getSnapshot().exercise.atis.arrivals, ["06"]); assert.deepEqual(client.getSnapshot().exercise.atis.departures, ["24"]);
+    await until(() => requests.length === 1); const a = requests.shift()!; a.resolve(Response.json({revision: 1})); assert.equal(await first, true);
+    frame({...initial, revision: 1, atis: firstDraft, processed: [a.envelope.id]});
+    await until(() => requests.length === 1); assert.deepEqual(client.getSnapshot().exercise.atis.departures, ["24"], "an earlier server draft cannot erase the next choice");
+    const b = requests.shift()!; b.resolve(Response.json({revision: 2})); assert.equal(await second, true);
+    frame({...initial, revision: 2, atis: nextDraft, processed: [a.envelope.id, b.envelope.id]});
+    await until(() => client.getSnapshot().exercise.revision === 2); assert.deepEqual(client.getSnapshot().exercise.atis, nextDraft);
+  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
+});
