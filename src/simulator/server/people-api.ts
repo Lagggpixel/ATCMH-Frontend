@@ -33,7 +33,7 @@ export function createPeopleApi(authorize = authorizeSessionRequest, fetchImpl: 
   return async function people(request: Request) {
     try {
       const actor = await authorize(request, true);
-      if (!actor.canAssign) throw new SessionError("forbidden", "Only trainers with Sweatbox access or administrators can assign mentees.", 403);
+      if (!actor.canAssign) throw new SessionError("forbidden", "Only mentors with Sweatbox access or administrators can assign mentees.", 403);
       const query = z.string().max(80).parse(new URL(request.url).searchParams.get("q") ?? "");
       return Response.json({people: searchPeople(await directory(), query)}, {headers: {"cache-control": "no-store"}});
     } catch (error) {return sessionFailure(error);}

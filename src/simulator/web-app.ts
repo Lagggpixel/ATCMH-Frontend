@@ -8,7 +8,7 @@ export const sweatboxManifest = {
   id: "/sweatbox/mentee",
   name: "ATCMH Sweatbox",
   short_name: "Sweatbox",
-  description: "Join Sweatbox sessions your ATCMH trainer assigns to you.",
+  description: "Join Sweatbox sessions your ATCMH mentor assigns to you.",
   start_url: "/sweatbox/mentee",
   scope: "/",
   display: "standalone",

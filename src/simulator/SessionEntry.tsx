@@ -7,7 +7,7 @@ import styles from "./MenteeHome.module.css";
 
 export async function previewSession(input: string, signal?: AbortSignal): Promise<SessionPreview> {
   const entry = parseSessionEntry(input);
-  if (!entry) throw new Error("Enter a session code like EGPH-0123456789AB, or paste the link from your trainer.");
+  if (!entry) throw new Error("Enter a session code like EGPH-0123456789AB, or paste the link from your mentor.");
   const query = "id" in entry ? `session=${entry.id}` : `code=${encodeURIComponent(entry.code)}`;
   return (await fetch(`/api/simulator/sessions?${query}`, {cache: "no-store", signal}).then(sessionJson)).session as SessionPreview;
 }
