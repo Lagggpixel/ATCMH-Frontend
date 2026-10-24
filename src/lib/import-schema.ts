@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const feedbackModes = ["after_submission", "after_each_question", "none"] as const;
 

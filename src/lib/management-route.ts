@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { ZodError } from "zod/v3";
 
 export interface ManagementIssue {
   path: string;

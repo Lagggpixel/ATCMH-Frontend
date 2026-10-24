@@ -1,7 +1,7 @@
 import {environmentWithDestinations} from "./aviation";
 import {REFERENCE_ACTIONS} from "./reference-commands";
 import {radarControlFrequency, DEFAULTS, MAX_TAXI_POINTS, type Exercise} from "./model";
-import {z} from "zod";
+import {z} from "zod/v3";
 import {REQUEST_IDS} from "./catalog";
 import {controlledFrequencies, AIRPORT_IDS, getAirport, trainingStation, trainingMode, runwayReferenceError} from "./airports";
 import {validAltitude, radarEnvironmentFor, radarTrafficStateError} from "./radar";

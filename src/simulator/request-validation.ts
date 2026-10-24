@@ -1,4 +1,4 @@
-import type {ZodError} from "zod";
+import type {ZodError} from "zod/v3";
 
 /** Describe the failing fields without echoing submitted values. */
 export function invalidRequestMessage(error: ZodError) {

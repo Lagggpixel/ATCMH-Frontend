@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import {defaultRunway, getAirport, runwayEnds} from "./airports";
 import {engineFor} from "./engine";
 import {radarEnvironmentFor} from "./radar";

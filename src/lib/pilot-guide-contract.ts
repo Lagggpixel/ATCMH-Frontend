@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z} from "zod/v3";
 import type {PilotGuide, PilotGuideResponse, PilotGuideUpdate} from "@/src/learning/pilot-guide";
 
 const guideDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
