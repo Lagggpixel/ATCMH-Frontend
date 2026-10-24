@@ -35,16 +35,36 @@ test("map data projects real towered/uncontrolled airports without exposing upst
   const origin = getAirport().origin;
   globalThis.fetch = async input => {
     assert.match(String(input), /layers=airports/);
+    assert.equal(new URL(String(input)).searchParams.get("includeApproaches"), "1");
     return Response.json({icao: "EGPH", airports: [{id: "airport", identifier: "TEST", name: "Test field", lat: origin.lat + 1 / 60, lon: origin.lon, isTowered: false}],
-      vors: [{id: "vor", identifier: "TST", name: null, lat: origin.lat, lon: origin.lon, vorType: "VOR", frequencyMhz: 115.5}]});
+      vors: [{id: "vor", identifier: "TST", name: null, lat: origin.lat, lon: origin.lon, vorType: "VOR", frequencyMhz: 115.5}],
+      approaches: [{airportIcao: "TEST", runway: "01", threshold: {lat: origin.lat + 1 / 60, lon: origin.lon}, departure: {lat: origin.lat + 2 / 60, lon: origin.lon}, ils: true},
+        {airportIcao: "TEST", runway: "19", threshold: {lat: origin.lat + 2 / 60, lon: origin.lon}, departure: {lat: origin.lat + 1 / 60, lon: origin.lon}, ils: false}]});
   };
   try {
     const result = await fetchScopeMap("EGPH");
     assert.equal(result.navaids?.[0].waypointType, "VOR"); assert.equal(result.navaids?.[0].id, "TST");
     assert.equal(result.airports[0].isTowered, false); assert.ok(Math.abs(result.airports[0].point.y - 1) < 1e-8);
+    assert.equal(result.approaches?.length, 2);
+    assert.equal(result.approaches?.[0].ils, true); assert.equal(result.approaches?.[1].ils, false);
+    assert.ok(Math.abs(result.approaches![0].threshold.y - 1) < 1e-8);
+    assert.deepEqual(result.approaches?.[0].threshold, result.approaches?.[1].departure);
     assert.doesNotMatch(JSON.stringify(result), /"lat"|"lon"|test-only/);
   } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
 });
+test("missing nearby approach geometry is unavailable rather than silently empty", async () => {
+  const originalFetch = globalThis.fetch, base = process.env.INFINITE_HORIZON_API_URL, key = process.env.INFINITE_HORIZON_API_KEY;
+  process.env.INFINITE_HORIZON_API_URL = "https://navigation.test"; process.env.INFINITE_HORIZON_API_KEY = "test-only";
+  globalThis.fetch = async () => Response.json({icao: "EGPH", airports: [], vors: []});
+  try {
+    const api = createScopeDataApi(fetchScopeMap, async () => winds, actor);
+    const response = await api(req()); assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /test-only|navigation.test/);
+    globalThis.fetch = async () => Response.json({icao: "EGPH", airports: [], vors: [], approaches: []});
+    assert.equal((await api(req())).status, 200);
+  } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
+});
+
 test("winds use model geopotential heights, knots and a consistent forecast time", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async input => {
