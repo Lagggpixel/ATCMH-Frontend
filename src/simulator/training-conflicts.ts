@@ -1,4 +1,5 @@
 import {airportRunways, trainingMode} from "./airports";
+import {runwayGoAroundDue} from "./runway-safety";
 import type {Aircraft, Airport, Exercise, Instruction, Point} from "./model";
 
 export type ConflictKind = "uwc" | "ga" | "cancel-takeoff";
@@ -122,12 +123,14 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
     } else if (c.kind === "ga") {
       const gap = engine.distance(b) - engine.distance(a);
       if (b.leg === "downwind" && gap < 3) motion(b, {extendDownwind: true});
-      if (a.mode === "rollout" || a.arrivalExit) {c.phase = "active"; c.rollAt ??= state.elapsed; motion(a, {slowExit: true, holdRunway: a.mode === "rollout"});}
-      if (c.phase === "active" && b.leg === "final" && airborne(b, airport) && engine.distance(b) < .65 && b.mode !== "go-around") {
-        engine.instruct(b, {type: "go-around"}); b.selfGoAroundPending = true; c.selfGoAround = true;
-      }
+      if (a.mode === "rollout" || a.arrivalExit) {c.phase = "active"; c.rollAt ??= state.elapsed; motion(a, {slowExit: true});}
       const g = engine.geometry(c.runway), dx = a.position.x - g.threshold.x, dy = a.position.y - g.threshold.y;
       const offRunway = Math.abs(dx * g.vector.y - dy * g.vector.x) > (g.clearance ?? .06);
+      const followingAlong = (b.position.x - g.threshold.x) * g.vector.x + (b.position.y - g.threshold.y) * g.vector.y;
+      if (c.phase === "active" && !offRunway && b.leg === "final" && airborne(b, airport) && engine.distance(b) < .65 && b.mode !== "go-around"
+        && runwayGoAroundDue(b.altitude, airport.elevation, followingAlong)) {
+        engine.instruct(b, {type: "go-around"}); b.selfGoAroundPending = true; c.selfGoAround = true;
+      }
       if (c.phase === "active" && (offRunway || b.mode === "go-around" || b.leg === "upwind")) {delete a.conflictMotion; finish(c, b.mode === "go-around" ? "Following aircraft went around" : "Runway conflict ended");}
       else if (c.phase === "active" && state.elapsed > (c.rollAt ?? state.elapsed) + 600) {delete a.conflictMotion; finish(c, "Following arrival did not reach the runway", true);}
     } else {

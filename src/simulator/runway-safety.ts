@@ -1,6 +1,11 @@
 import {airportRunways} from "./airports";
 import type {Aircraft, Airport} from "./model";
 
+/** Final automatic go-arounds wait for 50 ft AAL or the landing threshold. */
+export function runwayGoAroundDue(altitude: number, elevation: number, along: number) {
+  return altitude <= elevation + 50 || along >= 0;
+}
+
 /** Occupancy lasts until the aircraft clears the protected runway area,
  * including reciprocal runways and traffic crossing the landing runway. */
 export function runwayOccupied(airport: Airport, runway: string, aircraft: readonly Aircraft[], ownId: string) {

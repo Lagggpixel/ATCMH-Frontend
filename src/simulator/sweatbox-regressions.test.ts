@@ -75,14 +75,19 @@ test("GA can be scheduled on every supported runway, including KDAL 31R", () => 
   }
 });
 
-test("KDAL GA exercises retain runway occupancy until the following aircraft goes around", () => {
+test("KDAL GA exercises keep the leader moving and finish when it clears or the follower goes around", () => {
   const airport = getAirport({airport: "KDAL"}), e = engineFor({airport: "KDAL"});
   for (const pair of airportRunways(airport)) for (const end of pair.ends) {
     const g = e.runwayGeometry(end.id); let state = e.initialExercise(); state.running = true;
     state.aircraft = ["a", "b"].map((id, i) => ({...e.newAircraft(id, true), runway: end.id, mode: "pattern", leg: "final", frequency: "tower", landing: "full-stop", clearedToLand: true, speed: 135, targetSpeed: 135, altitude: airport.elevation + (i ? 5.5 : 2) * 318, heading: g.heading, targetHeading: g.heading, position: {x: g.threshold.x - g.vector.x * (i ? 5.5 : 2), y: g.threshold.y - g.vector.y * (i ? 5.5 : 2)}}));
     state = e.applyEnvelope(state, {id: "ga", time: 1, action: {kind: "conflict", conflict: "ga", aircraftId: "a", otherId: "b"}}).state;
-    for (let i = 0; i < 500 && state.conflicts![0].phase !== "complete"; i++) state = e.advance(state, 1);
-    assert.equal(state.conflicts![0].outcome, "Following aircraft went around", end.id); assert.equal(state.collisions?.length ?? 0, 0);
+    for (let i = 0; i < 500 && state.conflicts![0].phase !== "complete"; i++) {
+      state = e.advance(state, 1);
+      const leader = state.aircraft[0];
+      if (leader.mode === "rollout" && leader.runwayExit) assert.ok(leader.speed >= 15 - 1e-8, `${end.id}: GA must not stop the leader`);
+    }
+    assert.equal(state.conflicts![0].phase, "complete", end.id);
+    assert.ok(["Following aircraft went around", "Runway conflict ended"].includes(state.conflicts![0].outcome!), end.id); assert.equal(state.collisions?.length ?? 0, 0);
     assert.equal(state.aircraft[0].conflictMotion, undefined, "the leader is released after the exercise");
   }
 });

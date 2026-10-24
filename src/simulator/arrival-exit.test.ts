@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import test from "node:test";
-import {AIRPORT, advance, applyEnvelope, autoReadbacks, distance, initialExercise, predictAircraft, restoreExercise, runwayExitRoute, runwayGeometry, validateAssignment} from "./engine";
+import {AIRPORT, advance, applyEnvelope, autoReadbacks, createAirportEngine, distance, initialExercise, predictAircraft, restoreExercise, runwayExitRoute, runwayGeometry, validateAssignment} from "./engine";
 import {messageMenu} from "./catalog";
 import {exerciseSchema, envelopeSchema} from "./protocol";
-import type {Aircraft, Exercise, Instruction, Runway} from "./model";
+import type {Aircraft, Airport, Exercise, Instruction, Runway} from "./model";
 
 const save = (state: Exercise) => restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
 const act = (state: Exercise, command: Instruction) => {
@@ -30,6 +30,39 @@ const lateral = (a: Aircraft) => {
   return (a.position.x - g.threshold.x) * -g.vector.y + (a.position.y - g.threshold.y) * g.vector.x;
 };
 
+function mappedExit(widthFeet: number, join: number, end: number, along = .1, speed = 0) {
+  const runway = {id: "18/36", lengthFeet: 6076, widthFeet, ends: [
+    {id: "36", heading: 0, point: {x: 0, y: 0}}, {id: "18", heading: 180, point: {x: 0, y: 1}},
+  ]};
+  const airport: Airport = {...AIRPORT, runway, runways: [runway], features: [
+    {id: "exit", kind: "taxiway", name: "A", points: [{x: join, y: .4}, {x: end, y: .4}]},
+  ]};
+  const engine = createAirportEngine(airport), a = engine.newAircraft("exit-test", false);
+  Object.assign(a, {runway: "36", position: {x: 0, y: along}, mode: "rollout", speed, targetSpeed: 0});
+  return {engine, a, route: engine.runwayExitRoute(a, "any")};
+}
+
+test("mapped exits can join the pavement edge but cannot bridge an off-runway gap", () => {
+  const connected = mappedExit(200, -.014, -.08);
+  assert.equal(connected.route.error, undefined);
+  assert.equal(connected.route.speed, 15, "a perpendicular exit retains its ordinary turn speed");
+  assert.deepEqual(connected.route.path?.slice(0, 2), [{x: 0, y: .1}, {x: 0, y: .4}]);
+  assert.ok(mappedExit(200, -.025, -.08).route.error, "a parallel taxiway outside the pavement is not a runway exit");
+});
+
+test("narrow-runway exits clear the pavement plus its safety margin before completing", () => {
+  const {route} = mappedExit(59, 0, .05);
+  assert.equal(route.error, undefined);
+  assert.ok(route.path!.at(-1)!.x >= .04 + 59 / (2 * 6076) - 1e-7);
+  assert.ok(route.path!.at(-1)!.x < .05, "a narrow runway does not require a nonexistent wide-runway connector");
+  assert.ok(mappedExit(200, 0, .05).route.error, "the same short connector does not clear a wider runway");
+});
+
+test("stopped traffic can reach a close exit while fast traffic still needs braking distance", () => {
+  assert.equal(mappedExit(200, 0, .08, .395).route.error, undefined);
+  assert.ok(mappedExit(200, 0, .08, .395, 70).route.error);
+});
+
 test("full-stop touchdowns automatically choose a reachable exit on both runways", () => {
   for (const runway of ["24", "06"] as const) {
     let state = rollout(runway);
@@ -54,7 +87,7 @@ test("forward connected exits use rapid-exit speeds without choosing backward co
     assert.equal(route.speed, 35);
     const g = runwayGeometry(runway), entry = route.path![1];
     const along = (entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y;
-    if (speed === 70) assert.ok(runway === "24" ? along > .3 && along < .4 : along > .9 && along < 1.1, "skip connectors that lead backwards along the runway");
+    if (speed === 70) assert.ok(along > .3 && along < .4, "near-perpendicular mapped drift does not hide a reachable forward exit");
     if (speed === 135) assert.ok(along > .9 && along < 1.1, "skip exits before the braking distance");
     let entered = false;
     for (let i = 0; i < 10000; i++) {

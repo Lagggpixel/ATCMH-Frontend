@@ -16,7 +16,7 @@ import {currentAtisOptions, atisFrequencies, atisSelectionText} from "./atis-opt
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
 import {assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
-import {runwayOccupied} from "./runway-safety";
+import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
 import {automaticRadarUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed, radarPerformance} from "./radar-speed";
 import {gpsApproachJoin} from "./gps-approach";
@@ -375,7 +375,9 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
       const previous = path.at(-1)!, prior = runwayCoordinates(previous, g).lateral, lateral = runwayCoordinates(next, g).lateral;
       // A connector must lead forwards until it clears the runway. Merely
       // placing its entrance ahead still allowed a turn back along the pavement.
-      if (runwayCoordinates(next, g).along < runwayCoordinates(previous, g).along - .0001) return [];
+      // Near-perpendicular mapped connectors can drift by a few feet. Bound
+      // that skew against the furthest point, then straighten the chosen path.
+      if (runwayCoordinates(next, g).along < Math.max(...path.map(p => runwayCoordinates(p, g).along)) - 3 / 6076) return [];
       if (Math.abs(lateral) < 1e-7) continue;
       if (side !== "any" && side !== (lateral > 0 ? "left" : "right") || prior * lateral < -1e-8 || Math.abs(lateral) + .0001 < Math.abs(prior)) return [];
       if (Math.abs(lateral) >= g.clearance) {
@@ -423,7 +425,16 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
   // Skip at most one reachable exit. A long rollout keeps moving forwards.
   const skip = slow && !a.arrivalExit?.skippedExit && planned.length > 1;
   const chosen = planned[skip ? 1 : 0];
-  if (chosen) return {...chosen, skippedExit: !!a.arrivalExit?.skippedExit || skip, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
+  if (chosen) {
+    let forward = chosen.along;
+    const path = chosen.path.map((p, index) => {
+      if (index === 0) return p;
+      const along = runwayCoordinates(p, g).along;
+      forward = Math.max(forward, along);
+      return add(p, g.vector, forward - along);
+    });
+    return {...chosen, path, skippedExit: !!a.arrivalExit?.skippedExit || skip, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
+  }
   return {error: `No reachable mapped ${side === "any" ? "" : side + " "}exit ahead. Slow down or reposition before assigning an exit.`};
 }
 
@@ -1116,6 +1127,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   } else if (a.mode === "pattern") {
     const finalAlong = runwayCoordinates(a.position, g).along;
     if (a.leg === "final" && finalAlong >= -.65 && finalAlong < .1 && a.clearedToLand
+      && runwayGoAroundDue(a.altitude, AIRPORT.elevation, finalAlong)
       && runwayOccupied(AIRPORT, a.runway ?? DEFAULT_RUNWAY, traffic, a.id)) {
       instruct(a, {type: "go-around"}); a.selfGoAroundPending = true;
       move(a, dt, guidance, ground, false, traffic); return;
@@ -1186,13 +1198,6 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   } else if (a.mode === "rollout") {
     a.targetHeading = g.heading;
     if (a.holding) {a.speed = 0; return;}
-    if (a.conflictMotion?.holdRunway) {
-      const along = Math.max(0, runwayCoordinates(a.position, g).along), remaining = Math.max(.01, distance(g.threshold, g.departure) - along - .03);
-      const previous = a.speed; a.targetSpeed = 0;
-      a.speed = approach(a.speed, 0, Math.max(acceleration(a), a.speed ** 2 / (2 * remaining * 3600)) * dt);
-      a.position = add(g.threshold, g.vector, Math.min(distance(g.threshold, g.departure) - .02, along + (previous + a.speed) / 2 * dt / 3600));
-      a.heading = g.heading; return;
-    }
     if (!a.radar?.arrival && !a.runwayExit && a.landing === "touch-and-go") {a.mode = "takeoff"; a.takeoffPattern = true; a.targetSpeed = DEFAULTS.airSpeed; if (a.optionHand) a.hand = a.optionHand; a.optionHand = undefined; a.leg = "upwind";}
     else {
       if (!a.runwayExit || a.conflictMotion?.slowExit && a.arrivalExit?.instruction === "automatic" && a.arrivalExit.braking === undefined) queueRunwayExit(a, "any", "automatic");
