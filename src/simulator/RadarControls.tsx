@@ -46,9 +46,8 @@ export function RadarSeedControls({aircraft: a, airport, environment, onEdit, in
 
   if (staffCompact) return <section className={workspace.setupSection} aria-label="Radar intentions">
     <div className={workspace.setupForm}>
-      <LandingOutcomeControl compact value={a.landing} onChange={landing => onEdit({landing})}/>
       <label>Expected approach<select value={r.expected ?? ""} onChange={e => onEdit({radar: {...r, expected: e.target.value || undefined, cleared: undefined, captured: false, localizer: false, glideslope: false, clearanceAltitudeChecked: false}})}><option value="">None</option>{environment.approaches.map(p => <option key={p.id} value={p.id}>{p.type.toUpperCase()} · Runway {p.runway}</option>)}</select></label>
-    </div><p>Pilot intentions do not grant an ATC clearance. After Tower handoff, aircraft follow Next landing; touch and go returns to Approach on runway heading at 1,000 ft AGL. Speed behaviour and arrival speeds are in Speed settings.</p>
+    </div><p>Pilot intentions do not grant an ATC clearance. Set Next landing in Flight → Approach & recovery. Speed behaviour and arrival speeds are in Speed settings.</p>
     <details className={workspace.advanced}><summary>Flight intention & arrival details</summary><div>
       <RadarIntentions aircraft={a} airport={airport} environment={environment} takeoff={!!r.departure} showLanding={false} onChange={radar => onEdit({radar})} onLandingChange={landing => onEdit({landing})}/>
       <label>Arrival STAR<input maxLength={100} value={a.arrivalProcedure ?? ""} onChange={event => onEdit({arrivalProcedure: event.target.value.trim() || undefined})} placeholder="Optional procedure name"/></label>
@@ -99,6 +98,7 @@ export function RadarStaffControls({aircraft, exercise, onManeuver, staffView}: 
         {headingField}{altitudeField}
         <button className={workspace.primary} disabled={!heading || !!clearanceError} title={clearanceError ?? undefined} onClick={() => onManeuver({...command, approachId: aircraft.radar!.expected})}>Clear for expected approach</button>
       </div></div>
+      <LandingOutcomeControl compact value={aircraft.landing} onChange={outcome => onManeuver({type: "outcome", outcome})}/>
       <div className={workspace.controlGroup}><h3>Recovery</h3><div className={workspace.actionRow}>
         <button disabled={!!missedError} title={missedError ?? "Climbs to the assigned altitude"} onClick={() => onManeuver({type: "missed-approach", altitude: command.altitude!})}>Execute missed approach</button>
         <button disabled={!aircraft.flightPlan.length} title={aircraft.flightPlan.length ? undefined : "No flight plan"} onClick={() => onManeuver({type: "route", index: Math.min(aircraft.radar?.routeIndex ?? 0, aircraft.flightPlan.length - 1)})}>Resume route</button>
