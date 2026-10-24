@@ -18,7 +18,10 @@ for (const airport of airportList) test(`${airport.icao}: paired and ordinary ar
       const state = {...engine.initialExercise(), running: true, aircraft: structuredClone([leader, follower]), conflicts: paired ? [{id: "ga", kind: "ga" as const, first: leader.id, second: follower.id, runway: end.id, otherRunway: end.id, phase: "active" as const, started: 0, circuit: 0, rollAt: 0}] : []};
       const next = engine.advance(state, .00001);
       assert.equal(next.aircraft[1].mode === "go-around", occupied, `${end.id}/${side}/${offset}: paired=${paired}`);
-      if (paired) assert.equal(next.conflicts![0].phase, "complete");
+      if (paired) {
+        assert.equal(next.conflicts![0].phase, occupied ? "complete" : "cancelled");
+        if (!occupied) assert.match(next.conflicts![0].outcome!, /did not materialise/);
+      }
     }
   }
 });
@@ -30,5 +33,6 @@ test("recorded Swiss 8668 KDAL exit endpoint cannot trigger a late go-around aft
   const state = {...engine.initialExercise(), running: true, aircraft: [leader, follower], conflicts: [{id: "ga", kind: "ga" as const, first: leader.id, second: follower.id, runway: "31R", otherRunway: "31R", phase: "active" as const, circuit: 0, started: 0, rollAt: 0}]};
   const next = engine.advance(engine.restoreExercise(JSON.parse(JSON.stringify(state))), .05);
   assert.equal(next.aircraft[1].mode, "pattern");
-  assert.equal(next.conflicts![0].outcome, "Runway conflict ended");
+  assert.equal(next.conflicts![0].phase, "cancelled");
+  assert.match(next.conflicts![0].outcome!, /did not materialise/);
 });
