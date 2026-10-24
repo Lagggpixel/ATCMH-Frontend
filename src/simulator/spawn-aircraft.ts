@@ -23,6 +23,7 @@ export function createSpawnAircraft(exercise: Exercise, id: string, options: Spa
     if (!options.airborne) a = radarTakeoffAircraft(a, airport, options.runway ?? defaultRunway(airport));
   }
   if (options.airborne) {
+    if (mode === "local") a.automaticRequest = a.landing === "touch-and-go" ? "inbound-option" : "inbound-land";
     if (options.position) a.position = {...options.position};
     if (options.heading !== undefined) {a.heading = a.targetHeading = magneticToTrue(options.heading, airport); a.bankAngle = 0;}
     if (options.altitude !== undefined) a.altitude = options.altitude;
