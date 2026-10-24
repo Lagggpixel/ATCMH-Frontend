@@ -109,7 +109,7 @@ type Tab = "Radio" | "Flight" | "Setup";
 interface Task {id: string; label: string}
 const tabs: readonly Tab[] = ["Radio", "Flight", "Setup"];
 const radioTasks: readonly Task[] = [
-  {id: "reply", label: "Reply"}, {id: "request", label: "Pilot request"}, {id: "custom", label: "Custom"},
+  {id: "reply", label: "Reply"}, {id: "request", label: "Pilot request"},
   {id: "aircraft-log", label: "History"}, {id: "expectations", label: "Expectations"},
 ];
 const sessionTask: Task = {id: "global-log", label: "Session log"};
@@ -194,7 +194,6 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
   const [inbound,setInbound]=useState<"default"|"runway"|"ils"|"gps"|"visual">("default"), [requestAltitude,setRequestAltitude]=useState(5000),[position,setPosition]=useState<NonNullable<import("./model").PilotRequestSelection["position"]>>("Final"),[outcome,setOutcome]=useState<Aircraft["landing"]|undefined>(),[confirmed,setConfirmed]=useState(false),[approachId,setApproachId]=useState("");
   const approaches=approachOptions(a,AIRPORT,(exercise.radarEnvironment??radarEnvironmentFor(AIRPORT)).approaches);
   const [runway, setRunway] = useState<Runway>(a.runway ?? defaultRunway(AIRPORT));
-  const [response, setResponse] = useState("");
   const pushback = groundRouteKind(a, AIRPORT) === "pushback";
   const edit = (patch: Partial<Aircraft>) => dispatch({kind: "edit", aircraftId: a.id, patch});
   const maneuver = (command: Instruction) => dispatch({kind: "maneuver", aircraftId: a.id, command});
@@ -209,8 +208,8 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
   const radio = latestController?.instruction?.type === "radio" ? latestController.instruction.message : undefined;
   const assignmentError = lastCommand?.instruction ? validateInstruction(a, lastCommand.instruction, lastCommand.frequency) : "Older message: use flight controls to assign manually.";
   const canMessage = !!a.frequency && a.frequency !== "atis";
-  const speechDraft = response.trim() ? `${response.trim()}, ${a.callsign}` : request ? preview : "";
-  useEffect(() => {if (owner && canMessage && (section === "request" || section === "custom") && speechDraft) return prepareSpeech?.(speechDraft);}, [owner, canMessage, section, speechDraft, prepareSpeech]);
+  const speechDraft = request ? preview : "";
+  useEffect(() => {if (owner && canMessage && section === "request" && speechDraft) return prepareSpeech?.(speechDraft);}, [owner, canMessage, section, speechDraft, prepareSpeech]);
   const arrival = arrivalWorkflow(exercise, a);
   const reply = (unable = false, assign = false) => {if (lastCommand) dispatch({kind: "pilot", aircraftId: a.id, text: unable ? `Unable, ${a.callsign}` : readbackText(a.callsign, lastCommand.text, lastCommand.instruction), replyTo: lastCommand.id, assign});};
   const switching = lastCommand?.instruction?.type === "frequency" && lastCommand.instruction.frequency;
@@ -244,10 +243,6 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
         <div><button disabled={!lastCommand || !canMessage} title={switching ? "Read back only; the aircraft stays on its current frequency." : "Read back without assigning the instruction"} onClick={() => reply()}>Readback only</button><button disabled={!lastCommand || !canMessage} onClick={() => reply(true)}>Unable</button></div>
       </div>
       {!canMessage || lastCommand && assignmentError ? <p className={styles.controlHint} role="status">{!canMessage ? "Select a controller frequency to send messages." : assignmentError}</p> : null}
-    </section> : null}
-    {section === "custom" ? <section className={workspace.task} aria-label="Custom pilot message">
-      <div className={workspace.sendRow}><label>Pilot message<input aria-label="Other pilot response" placeholder="Enter a pilot message" maxLength={1000} value={response} onChange={e => setResponse(e.target.value)} onKeyDown={e => {if (e.key === "Enter" && canMessage && response.trim()) {dispatch({kind: "pilot", aircraftId: a.id, text: `${response.trim()}, ${a.callsign}`}); setResponse("");}}}/></label><button className={styles.primaryButton} disabled={!canMessage || !response.trim()} onClick={() => {dispatch({kind: "pilot", aircraftId: a.id, text: `${response.trim()}, ${a.callsign}`}); setResponse("");}}>Send response</button></div>
-      <p className={styles.controlHint}>{canMessage ? `Sent as “${response.trim() || "…"}, ${a.callsign}”.` : "Select a controller frequency to send messages."}</p>
     </section> : null}
     {section === "intentions" ? a.radar ? <RadarSeedControls aircraft={a} airport={AIRPORT} environment={exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT)} onEdit={edit} staffCompact includeRoutes={false}/> : <IntentionsControls airport={AIRPORT} aircraft={a} onEdit={edit} staffCompact/> : null}
     {(section === "flight" || section === "navigation") && a.radar ? <RadarStaffControls aircraft={a} exercise={exercise} onManeuver={maneuver} staffView={section === "navigation" ? "navigation" : "flight"}/> : null}
