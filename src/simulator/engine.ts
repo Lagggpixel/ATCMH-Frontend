@@ -486,7 +486,12 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
         if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null;}
         a.intentions = {...intentionsOf(a), taxi: "parking"};
       }
-      if (c.runway) {a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway; if (c.contactTowerWhenReady) a.contactTowerAtHold = true; else delete a.contactTowerAtHold; const route = planTaxiRoute(AIRPORT, a.position, c.runway); if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}} a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
+      if (c.runway) {
+        a.intentions = {...intentionsOf(a), taxi: "runway"}; a.departureRunway = c.runway;
+        const route = planTaxiRoute(AIRPORT, a.position, c.runway);
+        if (c.contactTowerWhenReady && !route.path?.some(p => p.hold)) a.contactTowerAtHold = true; else delete a.contactTowerAtHold;
+        if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}
+      } a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "stop": a.holding = true; a.targetSpeed = 0; a.releasedHold = null; break;
     case "hold-short": a.releasedHold = null; a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "cross": {
@@ -707,6 +712,9 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       let c = roundedHeadingInstruction(action.command);
       if ((c.type === "taxi" || c.type === "pushback") && c.route) c = {...c, route: structuredClone(c.route)};
       if (c.type === "taxi" && c.route) c.contactTowerWhenReady = c.route.destination.type === "runway" && !c.route.points.some(p => p.hold);
+      const calculatedTaxi = c.type === "taxi" && c.runway && !c.route ? planTaxiRoute(AIRPORT, aircraft!.position, c.runway) : undefined;
+      const calculatedHold = calculatedTaxi?.path?.find(p => p.hold);
+      if (c.type === "taxi" && calculatedTaxi?.path) c = {...c, contactTowerWhenReady: c.contactTowerWhenReady !== false && !calculatedHold};
       if(c.type==="atc" && c.action==="hold"){const point=c.index===undefined?undefined:aircraft!.flightPlan[c.index];c={...c,...(point?{point:{x:point.x,y:point.y},...(point.waypointType?{waypointType:point.waypointType}:{}),name:point.name??radarEnvironment.fixes.find(f=>distance(f.point,point)<.001)?.id??`Waypoint ${c.index!+1}`} : {}),inbound:trueToMagnetic(point?bearing(aircraft!.position,point):aircraft!.heading,AIRPORT)};}
       conflictCommand(next, aircraft!.id, c, conflictEngine, false);
       if (c.type === "missed-approach" && !action.resendOf) c = {...c, fromAltitude: aircraft!.altitude};
@@ -725,7 +733,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       const original = action.resendOf ? next.messages.find(m => m.id === action.resendOf && m.sender === "controller" && m.aircraftId === aircraft!.id && m.frequency === action.frequency) : undefined;
       if (action.resendOf && (!original?.instruction || JSON.stringify(original.instruction) !== JSON.stringify(c))) return {state, error: "The original controller message is unavailable."};
       const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment, AIRPORT);
-      const groundText = c.type === "taxi" && c.route ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) : undefined;
+      const groundText = c.type === "taxi" ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) + (calculatedHold ? `, hold short${calculatedHold.runway ? ` of runway ${calculatedHold.runway}` : " at waypoint"}` : "") : undefined;
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
     }
   }

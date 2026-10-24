@@ -32,7 +32,6 @@ export default function AtisPanel({exercise, dispatch, connected}: {exercise: Ex
       <label>ATIS INFORMATION<select aria-label="ATIS information" value={draft.letter} disabled={!editable} onChange={e => dispatch({kind: "atis", draft: {...draft, letter: e.target.value}})}>{[...new Set([...LETTERS.map(letter => letter === "XRAY" ? "X-RAY" : letter), draft.letter])].map(letter => <option key={letter}>{letter}</option>)}</select></label>
       <button type="button" disabled={!connected} onClick={() => dispatch({kind: "publish-atis"})}>PUBLISH</button>
     </header>
-    {draft.publicText ? <div className={styles.imported} role="status">Public ATIS loaded automatically.</div> : null}
     <div className={styles.grid}>
       <section className={styles.runways} aria-labelledby="atis-runways"><h2 id="atis-runways">RUNWAYS</h2><div className={styles.runwayChoices}>
         {runwayEnds(airport).toSorted((a, b) => a.id.localeCompare(b.id)).flatMap(runway => (["departures", "arrivals"] as const).map(field => <button type="button" key={`${runway.id}-${field}`} aria-label={`${runway.id} ${field === "departures" ? "DEP" : "LDG"}`} disabled={!editable} className={styles[atisRunwayWind(runway.heading, weather)]} aria-pressed={draft[field].includes(runway.id)} onClick={() => toggle(field, runway.id)}>{runway.id}<br/>{field === "departures" ? "DEP" : "LDG"}</button>))}

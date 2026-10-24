@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {aStar, buildTaxiGraph, planTaxiRoute, TAXI_ROUTING, type TaxiGraph} from "./taxi-routing";
-import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, predictAircraft, readbackText, restoreExercise} from "./engine";
+import {AIRPORT, advance, applyEnvelope, autoReadbacks, engineFor, initialExercise, predictAircraft, readbackText, restoreExercise} from "./engine";
+import {getAirport} from "./airports";
+import {gatesFor, standPlacement} from "./scenarios";
 import {commandTasks, instructionText} from "./catalog";
 import {exerciseSchema} from "./protocol";
 import {radioMessageText} from "./radio-audio";
@@ -15,7 +17,7 @@ test("EGPH routes reach both runway hold points exclusively over mapped network 
   const start = initialExercise().aircraft[1].position, graph = buildTaxiGraph(AIRPORT);
   for (const runway of ["06", "24"] as const) {
     const result = planTaxiRoute(AIRPORT, start, runway); assert.equal(result.error, undefined); const path = result.path!;
-    assert.ok(path.length > 2 && path.length <= 200); assert.equal(path.at(-1)!.hold, true); assert.ok(result.distance! > .1);
+    assert.ok(path.length > 2 && path.length <= 200); assert.equal(path.at(-1)!.hold, undefined); assert.equal(path.at(-1)!.runway, runway); assert.ok(result.distance! > .1);
     assert.ok(gap(path.at(-1)!, AIRPORT.runway.ends.find(end => end.id === runway)!.point) <= TAXI_ROUTING.departureAccessRadius);
     for (let i = 2; i < path.length; i++) {
       const from = graph.points.findIndex(p => gap(p, path[i - 1]) < 1e-7), to = graph.points.findIndex(p => gap(p, path[i]) < 1e-7);
@@ -30,14 +32,14 @@ test("routing refuses off-airport positions and runway shortcuts", () => {
 });
 test("taxi-to-runway assignment calculates a route and simulated traffic stops short", () => {
   let state = initialExercise(); const a = state.aircraft[1]; a.taxiPath = [];
-  const entry = {instruction: {...commandTasks("ground", a).find(t => t.id === "taxi")!.command, runway: "06" as const}};
-  assert.deepEqual(entry.instruction, {type: "taxi", destination: "runway", runway: "06"});
+  const entry = {instruction: {...commandTasks("ground", a).find(t => t.id === "taxi")!.command, runway: "06" as const, contactTowerWhenReady: false}};
+  assert.deepEqual(entry.instruction, {type: "taxi", destination: "runway", runway: "06", contactTowerWhenReady: false});
   state = applyEnvelope(state, {id: "taxi", time: 1, action: {kind: "command", aircraftId: a.id, command: entry.instruction!, frequency: "ground", text: "Taxi to Runway 06"}}).state;
   assert.equal(state.aircraft[1].taxiPath.length, 0);
   const assigned = applyEnvelope(state, {id: "assign", time: 2, action: {kind: "pilot", aircraftId: a.id, text: "Taxiing", replyTo: "taxi", assign: true}});
   assert.equal(assigned.error, undefined); state = assigned.state; state.running = true; state.autoReadback = true;
   for (let i = 0; i < 600; i++) state = advance(state, 1);
-  const traffic = state.aircraft[1]; assert.equal(traffic.runway, "06"); assert.equal(traffic.holding, true); assert.equal(traffic.speed, 0);
+  const traffic = state.aircraft[1]; assert.equal(traffic.runway, "06"); assert.equal(traffic.mode, "parked"); assert.equal(traffic.holding, false); assert.equal(traffic.speed, 0);
   assert.equal(traffic.frequency, "ground"); assert.equal(traffic.contactTowerAtHold, undefined);
   assert.ok(gap(traffic.position, traffic.taxiPath.at(-1)!) < 1e-7);
 });
@@ -54,7 +56,36 @@ test("runway taxi command and automatic readback retain the requested instructio
   assert.equal(reply.text, "Taxi to runway 24, Easy 571");
   assert.equal(reply.text, readbackText(a.callsign, text, command));
   assert.equal(radioMessageText(reply), "Taxi to Runway two four, Easy 571");
-  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, undefined);
+  assert.equal(state.aircraft[1].frequency, "ground"); assert.equal(state.aircraft[1].contactTowerAtHold, true);
+});
+
+test("menu taxi holds only for intermediate runway crossings and removes the Tower phrase", () => {
+  const airport = getAirport({airport: "ROAH"}), engine = engineFor({airport: "ROAH"});
+  let state = engine.initialExercise(); const a = {...engine.newAircraft("crossing-menu", false), ...standPlacement(gatesFor(airport)[0].id, false, airport)!};
+  state.aircraft = [a]; state.running = true; state.autoReadback = true;
+  const sent = engine.applyEnvelope(state, {id: "menu-taxi", time: 1, action: {kind: "command", aircraftId: a.id, frequency: "ground", command: {type: "taxi", runway: "18R", contactTowerWhenReady: true}, text: "Taxi to runway 18R, contact tower when ready"}});
+  assert.equal(sent.error, undefined); state = sent.state;
+  const message = state.messages.at(-1)!;
+  assert.match(message.text, /hold short of runway 18L/); assert.doesNotMatch(message.text, /contact tower/i);
+  assert.equal(message.instruction!.type === "taxi" && message.instruction!.contactTowerWhenReady, false);
+  state = engine.autoReadbacks(engine.advance(state, 2), 2000, () => "menu-taxi-reply");
+  assert.equal(state.aircraft[0].taxiPath.at(-1)!.hold, undefined);
+  assert.equal(state.aircraft[0].taxiPath.at(-1)!.runway, "18R");
+  assert.deepEqual(state.aircraft[0].taxiPath.filter(p => p.hold).map(p => p.runway), ["18L"]);
+  assert.equal(state.aircraft[0].contactTowerAtHold, undefined);
+  for (let i = 0; i < 1000 && !state.aircraft[0].holding; i++) state = engine.advance(state, 1);
+  assert.equal(state.aircraft[0].holding, true); assert.equal(state.aircraft[0].frequency, "ground");
+});
+
+test("ordinary menu taxi without crossings stops at the entry and follows its Tower instruction", () => {
+  let state = initialExercise(); state.aircraft = [state.aircraft[1]]; state.running = true; state.autoReadback = true;
+  const id = state.aircraft[0].id;
+  state = applyEnvelope(state, {id: "menu-handoff", time: 1, action: {kind: "command", aircraftId: id, frequency: "ground", command: {type: "taxi", runway: "24"}, text: "Taxi to runway 24"}}).state;
+  assert.match(state.messages.at(-1)!.text, /contact tower when ready/);
+  state = autoReadbacks(advance(state, 2), 2000, () => "menu-handoff-reply");
+  assert.equal(state.aircraft[0].taxiPath.at(-1)!.hold, undefined);
+  for (let i = 0; i < 1000 && state.aircraft[0].frequency === "ground"; i++) state = advance(state, 1);
+  assert.equal(state.aircraft[0].frequency, "tower"); assert.equal(state.aircraft[0].speed, 0);
 });
 
 test("handover waits for the final hold, survives snapshot recovery, and is never predicted early", () => {

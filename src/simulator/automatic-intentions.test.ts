@@ -39,7 +39,7 @@ test("mapped EGPH S/G apron traffic progresses to the runway queue instead of mu
   });
   let state = stateOf(aircraft, false);
   for (let i = 0; i < 700; i++) state = advance(state, 1);
-  assert.ok(state.aircraft.some(a => a.holding), "one aircraft reaches the departure hold");
+  assert.ok(state.aircraft.some(a => a.mode === "parked" && a.taxiIndex >= a.taxiPath.length && distance(a.position, a.taxiPath.at(-1)!) < 1e-7), "one aircraft stops at the departure entry without an active Hold instruction");
   for (const [index, a] of state.aircraft.entries()) assert.ok(distance(a.position, positions[index]) > .2, a.id);
 });
 
@@ -105,7 +105,7 @@ test("Tower when ready waits for an assigned departure hold and requests the act
   let state = assign(stateOf([a]), {type: "taxi", runway: "06", contactTowerWhenReady: true});
   assert.equal(state.aircraft[0].frequency, "ground");
   const hold = state.aircraft[0].taxiPath.at(-1)!;
-  Object.assign(state.aircraft[0], {position: {...hold}, taxiIndex: state.aircraft[0].taxiPath.length - 1, holding: true, speed: 0});
+  Object.assign(state.aircraft[0], {position: {...hold}, taxiIndex: state.aircraft[0].taxiPath.length, mode: "parked", holding: false, speed: 0});
   const off = tick({...structuredClone(state), autoReadback: false}); assert.equal(off.aircraft[0].frequency, "ground"); assert.equal(off.messages.length, 0);
   const prediction = predictAircraft(state.aircraft, 1); assert.equal(prediction[0].frequency, "ground");
   state = tick(state); state = tick(state);

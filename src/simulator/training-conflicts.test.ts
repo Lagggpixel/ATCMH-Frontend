@@ -9,17 +9,17 @@ import {createLocalAircraft, type LocalAircraftOptions} from "./local-aircraft";
 import type {Aircraft, Instruction} from "./model";
 
 function fixture(kind: ConflictKind = "uwc") {
-  const selection = {airport: "EGLL"}, engine = engineFor(selection), airport = getAirport(selection);
+  const selection = {airport: "KJFK"}, engine = engineFor(selection), airport = getAirport(selection);
   const state = engine.initialExercise(); state.running = true; state.autoReadback = true;
   const plane = (id: string, runway: string, nm: number) => {
     const a = engine.newAircraft(id, true), g = engine.runwayGeometry(runway);
     Object.assign(a, {callsign: `Test ${id}`, runway, mode: "pattern", leg: "final", landing: "touch-and-go", clearedToLand: true, clearedForOption: true, frequency: "tower", speed: 135, targetSpeed: 135, heading: g.heading, targetHeading: g.heading, altitude: airport.elevation + nm * 318, position: {x: g.threshold.x - g.vector.x * nm, y: g.threshold.y - g.vector.y * nm}});
     return a;
   };
-  const a = plane("a", "27L", kind === "cancel-takeoff" ? 6 : 2);
-  const b = plane("b", kind === "uwc" ? "27R" : "27L", kind === "uwc" ? 2 : 5);
+  const a = plane("a", "22L", kind === "cancel-takeoff" ? 6 : 2);
+  const b = plane("b", kind === "uwc" ? "22R" : "22L", kind === "uwc" ? 2 : 5);
   if (kind === "ga") {a.landing = "full-stop"; a.clearedForOption = false;}
-  if (kind === "cancel-takeoff") Object.assign(b, {mode: "parked", altitude: airport.elevation, frequency: "ground", speed: 0, targetSpeed: 0, position: {...engine.runwayGeometry("27L").threshold}, groundReady: true});
+  if (kind === "cancel-takeoff") Object.assign(b, {mode: "parked", altitude: airport.elevation, frequency: "ground", speed: 0, targetSpeed: 0, position: {...engine.runwayGeometry("22L").threshold}, groundReady: true});
   state.aircraft = [a, b];
   const support = {geometry: engine.runwayGeometry, distance: (p: Aircraft) => {
     const g = engine.runwayGeometry(p.runway!); return -(p.position.x - g.threshold.x) * g.vector.x - (p.position.y - g.threshold.y) * g.vector.y;
@@ -31,7 +31,7 @@ function fixture(kind: ConflictKind = "uwc") {
   return {state, a, b, engine, airport, support, start};
 }
 test("UWC rejects non-TNG intentions, same runway, reciprocal runway, and self-pair atomically", () => {
-  for (const change of [(h: ReturnType<typeof fixture>) => {h.a.landing = "full-stop";}, (h: ReturnType<typeof fixture>) => {h.b.runway = "27L";}, (h: ReturnType<typeof fixture>) => {h.b.runway = "09R";}]) {
+  for (const change of [(h: ReturnType<typeof fixture>) => {h.a.landing = "full-stop";}, (h: ReturnType<typeof fixture>) => {h.b.runway = "22L";}, (h: ReturnType<typeof fixture>) => {h.b.runway = "04R";}]) {
     const h = fixture(); change(h); const before = structuredClone(h.state); assert.ok(h.start()); assert.deepEqual(h.state, before);
   }
   const h = fixture(); assert.match(startConflict(h.state, h.airport, h.support, "pair", "uwc", "a", "a")!, /different/);
@@ -41,7 +41,7 @@ test("UWC moves continuously after staging, waits for takeoff, and requests the 
   assert.equal(h.start(), undefined); const positions = h.state.aircraft.map(a => ({...a.position})); prepareConflicts(h.state, h.airport, h.support);
   assert.deepEqual(h.state.aircraft.map(a => a.position), positions); assert.equal(h.a.conflictRequest, undefined);
   h.a.mode = "takeoff"; h.a.leg = "upwind"; prepareConflicts(h.state, h.airport, h.support);
-  assert.deepEqual(h.a.conflictRequest, {id: "runway-change", runway: "27R"}); assert.equal(h.a.runway, "27L");
+  assert.deepEqual(h.a.conflictRequest, {id: "runway-change", runway: "22R"}); assert.equal(h.a.runway, "22L");
   delete h.a.conflictRequest; prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.conflictRequest, undefined);
 });
 test("UWC holds both upwinds until the applied instruction and releases only the partner", () => {
@@ -56,13 +56,29 @@ test("UWC holds both upwinds until the applied instruction and releases only the
 test("Unable cancels UWC and releases both aircraft into their original circuits", () => {
   const h = fixture(); h.start(); h.state.conflicts![0].phase = "requested"; h.a.leg = h.b.leg = "upwind";
   conflictCommand(h.state, "a", {type: "radio", message: "unable"}, h.support, false);
-  assert.equal(h.state.conflicts![0].phase, "cancelled"); assert.equal(h.a.runway, "27L"); assert.equal(h.b.runway, "27R"); assert.equal(h.a.leg, "crosswind"); assert.equal(h.b.leg, "crosswind");
+  assert.equal(h.state.conflicts![0].phase, "cancelled"); assert.equal(h.a.runway, "22L"); assert.equal(h.b.runway, "22R"); assert.equal(h.a.leg, "crosswind"); assert.equal(h.b.leg, "crosswind");
 });
 test("GA validates leader order/full-stop runway and slows only the landed leader", () => {
   const h = fixture("ga"); h.a.landing = "touch-and-go"; assert.match(h.start()!, /full-stop/); h.a.landing = "full-stop";
-  h.b.runway = "27R"; assert.match(h.start()!, /same runway/); h.b.runway = "27L"; assert.equal(h.start(), undefined);
+  h.b.runway = "22R"; assert.match(h.start()!, /same runway/); h.b.runway = "22L"; assert.equal(h.start(), undefined);
   h.a.mode = "rollout"; h.a.altitude = h.airport.elevation; prepareConflicts(h.state, h.airport, h.support);
   assert.equal(h.a.conflictMotion?.slowExit, true); assert.equal(h.b.conflictMotion?.slowExit, undefined);
+});
+test("mentors can prepare GA before clearance or with option clearance and full-stop intentions", () => {
+  for (const [clearedToLand, clearedForOption] of [[false, false], [true, false], [true, true]]) {
+    const h = fixture("ga"); Object.assign(h.a, {clearedToLand, clearedForOption}); h.b.clearedToLand = false;
+    const aircraft = structuredClone(h.state.aircraft), messages = structuredClone(h.state.messages);
+    assert.equal(h.start(), undefined);
+    assert.deepEqual(h.state.aircraft, aircraft, "pairing never grants or replaces a clearance");
+    assert.deepEqual(h.state.messages, messages);
+    assert.equal(h.state.conflicts![0].phase, "setup");
+  }
+});
+
+test("mentors can prepare UWC with uncleared circuit traffic", () => {
+  const h = fixture("uwc"); h.a.clearedToLand = false; h.b.clearedToLand = false;
+  assert.equal(h.start(), undefined);
+  assert.equal(h.a.clearedToLand, false); assert.equal(h.b.clearedToLand, false);
 });
 test("GA extends the following downwind to obtain three-mile spacing", () => {
   const h = fixture("ga"); h.start(); h.b.position = {...h.a.position}; h.b.leg = "downwind";
@@ -70,14 +86,14 @@ test("GA extends the following downwind to obtain three-mile spacing", () => {
 });
 test("cancel takeoff rejects airborne targets, prior departure requests, missing routes and late arrivals", () => {
   const h = fixture("cancel-takeoff"); h.b.altitude += 100; assert.match(h.start()!, /ground/); h.b.altitude = h.airport.elevation;
-  h.state.messages.push({id: "prior", aircraftId: "b", sender: "pilot", time: 0, text: "departure", frequency: "tower", request: {id: "departure", runway: "27L"}, requestCircuit: 0});
+  h.state.messages.push({id: "prior", aircraftId: "b", sender: "pilot", time: 0, text: "departure", frequency: "tower", request: {id: "departure", runway: "22L"}, requestCircuit: 0});
   assert.match(h.start()!, /already requested/); h.state.messages = [];
   assert.match(startConflict(h.state, h.airport, {...h.support, lineupError: () => "No route"}, "pair", "cancel-takeoff", "a", "b")!, /No route/);
-  const g = h.support.geometry("27L"); h.a.position = {x: g.threshold.x - g.vector.x * 4, y: g.threshold.y - g.vector.y * 4}; assert.match(h.start()!, /inside 5/);
+  const g = h.support.geometry("22L"); h.a.position = {x: g.threshold.x - g.vector.x * 4, y: g.threshold.y - g.vector.y * 4}; assert.match(h.start()!, /inside 5/);
 });
 test("departure request fires once at 5.5 NM and never creates takeoff authority", () => {
   const h = fixture("cancel-takeoff"); h.start(); prepareConflicts(h.state, h.airport, h.support); assert.equal(h.b.conflictRequest, undefined);
-  const g = h.support.geometry("27L"); h.a.position = {x: g.threshold.x - g.vector.x * 5.4, y: g.threshold.y - g.vector.y * 5.4};
+  const g = h.support.geometry("22L"); h.a.position = {x: g.threshold.x - g.vector.x * 5.4, y: g.threshold.y - g.vector.y * 5.4};
   prepareConflicts(h.state, h.airport, h.support); assert.equal(h.b.conflictRequest?.id, "departure"); assert.equal(h.b.mode, "parked");
   delete h.b.conflictRequest; prepareConflicts(h.state, h.airport, h.support); assert.equal(h.b.conflictRequest, undefined); assert.equal(h.state.conflicts![0].takeoffCleared, undefined);
 });
@@ -95,7 +111,7 @@ test("takeoff clearance gets a bounded delay and cancellation/go-around resolve 
 });
 test("self go-around is announced once, and a missed cancellation does not force a separated collision", () => {
   const h = fixture("cancel-takeoff"); h.start(); conflictCommand(h.state, "b", {type: "lineup"}, h.support, true);
-  const g = h.support.geometry("27L"); h.a.position = {x: g.threshold.x - g.vector.x * .6, y: g.threshold.y - g.vector.y * .6};
+  const g = h.support.geometry("22L"); h.a.position = {x: g.threshold.x - g.vector.x * .6, y: g.threshold.y - g.vector.y * .6};
   prepareConflicts(h.state, h.airport, h.support); assert.equal(h.a.mode, "go-around"); assert.equal(h.a.selfGoAroundPending, true);
   h.state.conflicts![0].takeoffCleared = true; h.a.altitude = h.airport.elevation + 1000; h.a.position.x += 10; prepareConflicts(h.state, h.airport, h.support);
   assert.match(h.state.conflicts![0].outcome!, /cancellation missed/); assert.deepEqual(aircraftCollisionGroups(h.state.aircraft, h.airport.elevation), []);
@@ -136,7 +152,7 @@ test("authoritative Radar contact crash removes aircraft once and survives recov
 });
 test("custom ground spawn retains exact scope coordinates and uses taxi controls", () => {
   const h = fixture(), position = {x: 1.25, y: -2.75};
-  const options: LocalAircraftOptions = {placement: "ground", position, callsign: "Test 42", type: "A320", runway: "27L", distance: 5, leg: "final", hand: "left", height: 1500, speed: 160, heading: 220, landing: "full-stop", flight: "departure", frequency: "ground"};
+  const options: LocalAircraftOptions = {placement: "ground", position, callsign: "Test 42", type: "A320", runway: "22L", distance: 5, leg: "final", hand: "left", height: 1500, speed: 160, heading: 220, landing: "full-stop", flight: "departure", frequency: "ground"};
   const a = createLocalAircraft(h.state, "new", options); assert.deepEqual(a.position, position); assert.equal(a.altitude, h.airport.elevation); assert.equal(a.speed, 0); assert.equal(groundReady(a, h.airport), true);
 });
 
@@ -156,7 +172,7 @@ test("live conflict requests survive the real radio path once, including manual 
   }
 });
 test("real UWC flight and radio timing reaches takeoff, keeps both extending and accepts pattern entry", () => {
-  const h = fixture(); const ga = h.engine.runwayGeometry("27L"), gb = h.engine.runwayGeometry("27R");
+  const h = fixture(); const ga = h.engine.runwayGeometry("22L"), gb = h.engine.runwayGeometry("22R");
   h.b.position = {x: gb.threshold.x - gb.vector.x * 2, y: gb.threshold.y - gb.vector.y * 2}; h.b.altitude = h.a.altitude;
   let state = h.engine.applyEnvelope(h.state, {id: "uwc-real", time: 1, action: {kind: "conflict", conflict: "uwc", aircraftId: "a", otherId: "b"}}).state;
   let id = 0;
@@ -165,7 +181,7 @@ test("real UWC flight and radio timing reaches takeoff, keeps both extending and
   assert.equal(state.messages.filter(m => m.request?.id === "runway-change").length, 1);
   state = h.engine.advance(state, 90); // advance is intentionally capped to five seconds
   assert.equal(state.conflicts![0].phase, "requested");
-  const result = h.engine.applyEnvelope(state, {id: "entry", time: 200000, action: {kind: "maneuver", aircraftId: "a", command: {type: "pattern", leg: "downwind", runway: "27R", hand: "right"}}});
+  const result = h.engine.applyEnvelope(state, {id: "entry", time: 200000, action: {kind: "maneuver", aircraftId: "a", command: {type: "pattern", leg: "downwind", runway: "22R", hand: "right"}}});
   assert.equal(result.error, undefined); assert.equal(result.state.conflicts![0].phase, "complete"); assert.equal(result.state.aircraft.find(a => a.id === "b")!.leg, "crosswind");
   assert.ok(ga.heading > 0);
 });
