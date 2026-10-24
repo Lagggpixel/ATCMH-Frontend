@@ -23,6 +23,14 @@ test("Dublin's north runway spans every pinned centerline segment", () => {
   assert.deepEqual(geometry.threshold, airport.features.find(f => f.id === "1105001551")!.points[0]);
   assert.deepEqual(geometry.departure, airport.features.find(f => f.id === "1240373477")!.points.at(-1));
 });
+test("saved Dublin exercises retain their original pinned runway geometry", () => {
+  const selection = {airport: "EIDW", airportDataVersion: "342650e6f7fccc9fac48f6e72ed00a8c309eab5a580c5d1dc8cebbc48038a10e", trainingStation: "EIDW:approach"};
+  const airport = getAirport(selection), engine = engineFor(selection), state = engine.initialExercise();
+  assert.deepEqual(airport.runways![0].ends[0].point, {x: .61398, y: .38946});
+  assert.notEqual(airport.dataVersion, getAirport({airport: "EIDW"}).dataVersion);
+  assert.equal(restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state)))).airportDataVersion, selection.airportDataVersion);
+  assert.equal(scenarioSchema.parse(scenarioFromExercise(state, "Saved Dublin")).airportDataVersion, selection.airportDataVersion);
+});
 for (const airport of airportList) {
   test(`${airport.icao}: new scenarios group Ground and Tower while legacy opening frequencies remain readable`, () => {
     const definition = scenarioSchema.parse(blankScenario({airport: airport.icao}));

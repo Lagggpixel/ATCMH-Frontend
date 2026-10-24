@@ -30,6 +30,7 @@ import lqsa from "./data/lqsa.json";
 import edds from "./data/edds.json";
 import ltfm from "./data/ltfm.json";
 import eidw from "./data/eidw.json";
+import eidwLegacy from "./data/eidw-2026-10-17.json";
 import rjtt from "./data/rjtt.json";
 import {EXERCISE_WEATHER, type Aircraft, type Airport, type Frequency} from "./model";
 
@@ -66,11 +67,13 @@ const snapshots: Record<AirportId, Airport> = {
   VNLK: {...vnlk, runway: vnlk.runways[0]},
 };
 export const defaultAirport = snapshots.EGPH;
+// Keep saved exercises on the geometry against which their positions were captured.
+const legacyDublin: Airport = {...eidwLegacy, runway: eidwLegacy.runways[0]};
 export type AirportSelection = {traffic?: readonly Pick<Aircraft,"destination">[];airport?: string; airportDataVersion?: string; trainingStation?: string; weather?: import("./model").ExerciseWeather; radarEnvironment?: import("./model").RadarEnvironment};
 export function getAirport(selection: AirportSelection = {}): Airport {
   const id = selection.airport ?? "EGPH";
   if (!Object.hasOwn(snapshots, id)) throw new Error("This airport is not available.");
-  const airport = snapshots[id as AirportId];
+  const airport = id === "EIDW" && selection.airportDataVersion === legacyDublin.dataVersion ? legacyDublin : snapshots[id as AirportId];
   if (selection.airportDataVersion && selection.airportDataVersion !== airport.dataVersion)
     throw new Error("This airport data version is unavailable. Restore its pinned snapshot before opening this exercise.");
   return airport;
