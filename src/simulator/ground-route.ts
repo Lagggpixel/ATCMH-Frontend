@@ -109,7 +109,12 @@ export function buildGroundRoute(airport: Airport, kind: GroundRoute["kind"], co
     controlIndices.push(points.length - 1);
   }
   if (points.length > MAX_TAXI_POINTS) return {error: `A route supports up to ${MAX_TAXI_POINTS} waypoints.`};
-  if (kind === "taxi" && destination.type === "runway") points.at(-1)!.runway = destination.id;
+  if (kind === "taxi" && destination.type === "runway") {
+    // The entry endpoint is where taxi ends, not an intermediate Hold instruction.
+    // Reviewed explicit holds are reapplied by the editor after this calculation.
+    delete points.at(-1)!.hold;
+    points.at(-1)!.runway = destination.id;
+  }
   return {route: {airport: airport.icao, kind, controls: controls.map(p => ({...p})), destination: {...destination}, points: namePoints(airport, points), controlIndices}, ...(error ? {error} : {})};
 }
 

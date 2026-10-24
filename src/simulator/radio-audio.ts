@@ -79,8 +79,13 @@ export class RadioAudio {
   observe(exercise: Exercise, connected: boolean, _scope: Frequency | "all", paused = false) {
     this.callsigns = exercise.aircraft.map(a => a.callsign);
     const previous = this.previous;
-    const baseline = !previous || !previous.connected || !connected || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
+    const baseline = !previous || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
     if (baseline) this.stop();
+    else if (!connected && previous.connected) {
+      const interrupted = this.state.speaking;
+      this.generation++; this.output?.cancel(); this.update({speaking: ""});
+      if (interrupted) this.queue.unshift(interrupted);
+    }
     if (paused && !this.paused && this.state.speaking) {
       const interrupted = this.state.speaking;
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
@@ -88,8 +93,8 @@ export class RadioAudio {
     }
     if (paused) this.cancelDraft();
     this.paused = paused;
-    const fresh = baseline ? [] : exercise.messages.filter(m => !this.seen.has(m.id));
-    this.seen = new Set(exercise.messages.map(m => m.id));
+    const fresh = baseline || !connected ? [] : exercise.messages.filter(m => !this.seen.has(m.id));
+    if (baseline || connected) this.seen = new Set(exercise.messages.map(m => m.id));
     this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis};
     if (this.state.enabled && connected) {
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
@@ -129,7 +134,7 @@ export class RadioAudio {
     if (this.state.speaking) this.update({speaking: ""});
   }
   private next() {
-    if (!this.output || !this.state.enabled || this.paused || this.waitingForRetry || !this.queue.length) return;
+    if (!this.output || !this.state.enabled || this.previous?.connected === false || this.paused || this.waitingForRetry || !this.queue.length) return;
     // Load one transmission ahead while the current one plays, without reordering radio calls.
     if (this.state.speaking) {this.output.prepare?.(this.queue[0], this.state); return;}
     // Device voices often arrive asynchronously, after the first radio frame.

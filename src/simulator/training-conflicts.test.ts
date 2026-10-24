@@ -18,7 +18,7 @@ function fixture(kind: ConflictKind = "uwc") {
   };
   const a = plane("a", "27L", kind === "cancel-takeoff" ? 6 : 2);
   const b = plane("b", kind === "uwc" ? "27R" : "27L", kind === "uwc" ? 2 : 5);
-  if (kind === "ga") a.landing = "full-stop";
+  if (kind === "ga") {a.landing = "full-stop"; a.clearedForOption = false;}
   if (kind === "cancel-takeoff") Object.assign(b, {mode: "parked", altitude: airport.elevation, frequency: "ground", speed: 0, targetSpeed: 0, position: {...engine.runwayGeometry("27L").threshold}, groundReady: true});
   state.aircraft = [a, b];
   const support = {geometry: engine.runwayGeometry, distance: (p: Aircraft) => {
@@ -208,7 +208,7 @@ test("valid cross-kind exercises can overlap and display combined labels", () =>
   const h = fixture();
   for (const a of [h.a, h.b]) {const g = h.support.geometry(a.runway!); a.position = {x: g.threshold.x - g.vector.x * 4, y: g.threshold.y - g.vector.y * 4};}
   assert.equal(h.start(), undefined);
-  const leader = {...h.a, id: "third", callsign: "Test third", landing: "full-stop" as const, position: {...h.a.position}};
+  const leader = {...h.a, id: "third", callsign: "Test third", landing: "full-stop" as const, clearedForOption: false, position: {...h.a.position}};
   const g = h.support.geometry(leader.runway!); leader.position = {x: g.threshold.x - g.vector.x * .5, y: g.threshold.y - g.vector.y * .5};
   h.state.aircraft.push(leader);
   assert.equal(startConflict(h.state, h.airport, h.support, "ga-pair", "ga", "third", "a"), undefined);

@@ -1,3 +1,5 @@
+import {fetchWeatherReport} from "./weather-provider";
+import type {SessionWeatherLoader} from "./session-weather";
 import {z} from "zod";
 import {envelopeSchema} from "../protocol";
 import {invalidRequestMessage} from "../request-validation";
@@ -22,8 +24,8 @@ async function body(request: Request) {
   if (text.length > 2_000_000) throw new SessionError("too-large", "This exercise is too large to save.", 413);
   return JSON.parse(text) as unknown;
 }
-export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}) {
-const service = new SessionService(store);
+export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport) {
+const service = new SessionService(store, undefined, undefined, undefined, undefined, weather);
 async function sessionCollection(request: Request) {
   try {
     const actor = await authorize(request, true);

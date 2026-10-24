@@ -76,6 +76,7 @@ export interface Aircraft {
   selfGoAroundPending?: boolean; // Authoritative tick emits this announcement once.
   taxiPath: TaxiPoint[]; taxiIndex: number; holding: boolean; releasedHold: number | null;
   contactTowerAtHold?: boolean; towerCheckInPending?: boolean; // Deferred Contact Tower when ready; absent in legacy snapshots.
+  requestedPatternDeparture?: boolean; // The pilot's actual departure request on this frequency.
   intentions?: Intentions;
   giveWay?: {aircraftId: string; description: string};
   groundYield?: {aircraftId: string; point: Point};

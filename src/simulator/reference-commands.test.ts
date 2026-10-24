@@ -47,7 +47,7 @@ test("Ground and Tower paths follow Send, immediate and Confirm terminals", () =
   assert.deepEqual(find(ground, "Cross Runway...", "Runway 24", "Expedite").instruction, {type: "cross", runway: "24", expedite: true});
   assert.ok(!ground.some(e => e.label === "Tow Approved"));
   assert.equal(find(ground, "Ask for Intentions", "Confirm?").instruction?.type, "radio");
-  const tower = catalog.messageMenu("tower", {...a, frequency: "tower"});
+  const tower = catalog.messageMenu("tower", {...a, frequency: "tower", requestedPatternDeparture: true});
   assert.equal(find(tower, "Line up and Wait", "Runway 24").instruction?.type, "lineup");
   assert.equal(find(tower, "Cleared for Takeoff", "Runway 24", "Make Left Traffic", "Send").instruction?.type, "takeoff");
   assert.equal(find(tower, "Back Taxi", "Runway 24", "Contact ground when off the runway", "Expedite").instruction?.type, "atc");

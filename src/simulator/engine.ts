@@ -543,6 +543,7 @@ function atisText(draft: Atis): string {
 function retireRetunedCommands(state: Exercise, before: Aircraft[]) {
   const changed = new Map(state.aircraft.filter(a => before.some(old => old.id === a.id && old.frequency !== a.frequency)).map(a => [a.id, a.frequency]));
   if (!changed.size) return;
+  for (const a of state.aircraft) if (changed.has(a.id)) a.requestedPatternDeparture = false;
   state.messages = state.messages.map(message => {
     if (!changed.has(message.aircraftId) || changed.get(message.aircraftId) === message.frequency || message.sender !== "controller" || message.acknowledged || !commandHasReadback(message.instruction)) return message;
     const retired = {...message, acknowledged: true}; delete retired.autoReadbackAt; return retired;
@@ -673,7 +674,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
         if (!request || !pilotRequests(aircraft!).some(r => r.id === request.id)) return {state, error: "This pilot request is unavailable for the aircraft's phase or frequency."};
         pilotText = pilotRequestText(aircraft!, request, action.request.runway, action.request.remainingInPattern, {...action.request, exercise: next});
         if (aircraft!.radar?.report === "intentions" && ["request-approach", "departure-direction"].includes(request.id) || ["approach-request", "check-in"].includes(aircraft!.radar?.report ?? "") && ["request-approach", "check-in"].includes(request.id)) delete aircraft!.radar!.report;
-        if (request.id === "departure") {delete aircraft!.towerCheckInPending;aircraft!.intentions = {...intentionsOf(aircraft!), taxi: "runway", flight: action.request.remainingInPattern ? "pattern" : "departure"}; delete aircraft!.automaticRequest;}
+        if (request.id === "departure") {aircraft!.requestedPatternDeparture = !!action.request.remainingInPattern; delete aircraft!.towerCheckInPending;aircraft!.intentions = {...intentionsOf(aircraft!), taxi: "runway", flight: action.request.remainingInPattern ? "pattern" : "departure"}; delete aircraft!.automaticRequest;}
         if (["minimum-fuel","emergency-fuel"].includes(request.id) && aircraft!.fuel) aircraft!.fuel={...aircraft!.fuel,declared:request.id==="minimum-fuel"?"minimum":"emergency"};
         if (["report-position","unicom-inbound"].includes(request.id) && action.request.outcome) aircraft!.landing=action.request.outcome;
         if(request.id === "inbound-option") aircraft!.landing="touch-and-go";
@@ -705,6 +706,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
     case "command": {
       let c = roundedHeadingInstruction(action.command);
       if ((c.type === "taxi" || c.type === "pushback") && c.route) c = {...c, route: structuredClone(c.route)};
+      if (c.type === "taxi" && c.route) c.contactTowerWhenReady = c.route.destination.type === "runway" && !c.route.points.some(p => p.hold);
       if(c.type==="atc" && c.action==="hold"){const point=c.index===undefined?undefined:aircraft!.flightPlan[c.index];c={...c,...(point?{point:{x:point.x,y:point.y},...(point.waypointType?{waypointType:point.waypointType}:{}),name:point.name??radarEnvironment.fixes.find(f=>distance(f.point,point)<.001)?.id??`Waypoint ${c.index!+1}`} : {}),inbound:trueToMagnetic(point?bearing(aircraft!.position,point):aircraft!.heading,AIRPORT)};}
       conflictCommand(next, aircraft!.id, c, conflictEngine, false);
       if (c.type === "missed-approach" && !action.resendOf) c = {...c, fromAltitude: aircraft!.altitude};
@@ -723,7 +725,8 @@ function applyEnvelope(state: Exercise, envelope: Envelope): {state: Exercise; e
       const original = action.resendOf ? next.messages.find(m => m.id === action.resendOf && m.sender === "controller" && m.aircraftId === aircraft!.id && m.frequency === action.frequency) : undefined;
       if (action.resendOf && (!original?.instruction || JSON.stringify(original.instruction) !== JSON.stringify(c))) return {state, error: "The original controller message is unavailable."};
       const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment, AIRPORT);
-      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`, instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
+      const groundText = c.type === "taxi" && c.route ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) : undefined;
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
     }
   }
   for (const a of next.aircraft) {

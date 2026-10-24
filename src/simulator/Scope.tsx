@@ -3,7 +3,7 @@ import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type SendGroundClearance} from "./GroundRouteEditor";
 import {canRouteGround, destinationAt, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import type {MapCamera} from "./scope-camera";
-import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 import AircraftSymbol from "./AircraftSymbol";
 import {Gear} from "@phosphor-icons/react/dist/csr/Gear";
 import {MagnifyingGlassPlus} from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
@@ -85,7 +85,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; last: Point; selection: string | null; armed: boolean; timer?: ReturnType<typeof setTimeout>} | null>(null);
   const suppressClick = useRef(false);
   const routing = useGroundRoute(airport, snapshot, selected, !!onGroundClearance && frequency === "ground", onGroundClearance);
-  const groundDrag = useRef<{pointerId: number; aircraftId: string; start: Point; last: Point; armed: boolean; index?: number; timer?: ReturnType<typeof setTimeout>} | null>(null);
+  const groundDrag = useRef<{pointerId: number; aircraftId: string; start: Point; last: Point; armed: boolean; started?: boolean; index?: number; timer?: ReturnType<typeof setTimeout>} | null>(null);
   const cancelGroundDrag = useCallback(() => {clearTimeout(groundDrag.current?.timer); groundDrag.current = null;}, []);
   useEffect(() => () => cancelGroundDrag(), [cancelGroundDrag]);
   const routingRef = useRef(routing); useEffect(() => {routingRef.current = routing;}, [routing]);
@@ -156,14 +156,15 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const minimumScale = radarMode ? .5 : 8;
   const navigationCamera = useScopeCamera(camera, setCamera, size, minimumScale);
   const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !routeDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = container.current;
     if (!node) return;
-    const resize = new ResizeObserver(([entry]) => {
-      const width = entry.contentRect.width;
-      setSize(previous => previous.width === width && previous.height === entry.contentRect.height ? previous : {width, height: entry.contentRect.height});
-      if (!fitted.current) {fitted.current = true; navigationCamera.reset(airportCamera(width, entry.contentRect.height, frequency === "all"));}
-    });
+    const measure = (width: number, height: number) => {
+      setSize(previous => previous.width === width && previous.height === height ? previous : {width, height});
+      if (!fitted.current) {fitted.current = true; navigationCamera.reset(airportCamera(width, height, frequency === "all"));}
+    };
+    const bounds = node.getBoundingClientRect(); measure(bounds.width, bounds.height);
+    const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     resize.observe(node);
     const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, .${styles.airportPopup}, .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
     const manipulatingAircraft = () => !!(routeDrag.current || vectorDrag.current || groundDrag.current || tagDrag.current || gateDrag.current);
@@ -196,7 +197,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     node.addEventListener("gestureend", gestureEnd);
     return () => {resize.disconnect(); node.removeEventListener("wheel", wheel); node.removeEventListener("gesturestart", gestureStart); node.removeEventListener("gesturechange", gestureChange); node.removeEventListener("gestureend", gestureEnd);};
   }, [frequency, airportCamera, navigationCamera]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = canvas.current;
     if (!node) return;
     const ratio = window.devicePixelRatio || 1;
@@ -269,7 +270,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const routeEditable = !!taxiAircraft && !!onTaxiPathEdit && editMode !== "position" && editMode !== "flightPlan";
   const taxiPreview = taxiAircraft && routeDraft?.aircraftId === taxiAircraft.id ? {...taxiAircraft, ...(taxiAircraft.runwayExit ? {runwayExit: editedTaxiPath(routeDraft.path, routeDraft.edit)} : {taxiPath: editedTaxiPath(routeDraft.path, routeDraft.edit)})} : taxiAircraft;
-  const taxiLine = sentGroundRoute || groundRouteCleared || onTaxiPathEdit || frequency === "all" ? sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []) : [];
+  const taxiLine = sentGroundRoute || groundRouteCleared || editMode === "taxi" || editMode === "taxi-preview" ? sentGroundRoute?.points ?? (taxiPreview ? taxiPreview.mode === "pushback" && taxiPreview.pushback ? [taxiPreview.position, ...taxiPreview.pushback.path.slice(taxiPreview.pushback.index)] : remainingTaxiPath(taxiPreview).length > 1 ? remainingTaxiPath(taxiPreview) : [] : []) : [];
   const routeState = taxiPreview ? taxiPathState(taxiPreview) : undefined;
   const nodeIndex = routeDraft?.aircraftId === selected ? routeDraft.edit.index : routeNode?.aircraftId === selected ? routeNode.index : routeHover?.kind === "move" ? routeHover.index : undefined;
   const routeHandle = routeEditable && routeState && nodeIndex !== undefined && nodeIndex >= routeState.index ? routeState.path[nodeIndex] : undefined;
@@ -278,7 +279,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     return a && showProjectedPaths && frequency === "all" && remainingTaxiPath(a).length < 2 ? projectedPath(a, 120, snapshot, autoReadback) : [];
   }, [snapshot, selected, frequency, autoReadback, projectedPath, showProjectedPaths]);
   const following = frequency === "all" ? scopeFollowTarget(snapshot, aircraft, selected, followedAircraft) : undefined;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = trafficCanvas.current; if (!node) return;
     const ratio = window.devicePixelRatio || 1;
     if (node.width !== Math.round(size.width * ratio) || node.height !== Math.round(size.height * ratio)) {node.width = Math.round(size.width * ratio); node.height = Math.round(size.height * ratio);}
@@ -318,7 +319,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
     setTap({id: a.id, point, choices: choices.length > 1 ? choices : []});
     onSelect(a.id); setPopup(null);
   };
-  const aircraftContext = selectedAircraft && !vectorDraft && context ? context(selectedAircraft) : null;
+  const aircraftContext = selectedAircraft && !vectorDraft && !routing.draft && context ? context(selectedAircraft) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
   return <div data-simulator-tour="radar" className={styles.scope} ref={container} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a")) return; event.preventDefault(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
     <div className={styles.mapSurface} style={routeEditable && routeHover ? {cursor: "crosshair"} : undefined} onPointerDown={event => {
@@ -435,16 +436,17 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const tagAngle = tagDraft?.aircraftId === a.id ? tagDraft.angle : a.tagAngle;
       const tagOffset = tagAngle === undefined ? null : {x: Math.cos(tagAngle * Math.PI / 180) * Math.hypot(28, 25), y: Math.sin(tagAngle * Math.PI / 180) * Math.hypot(28, 25)};
       return <div key={a.id} className={styles.aircraftPosition} style={{left: 0, top: 0, transform: `translate(${p.x}px, ${p.y}px)`, color, "--aircraft-steady": color} as React.CSSProperties}>
+        {a.id === selected || a.id === openStripId ? <svg className={styles.selectionRing} viewBox="-27 -27 54 54" width="54" height="54" aria-hidden="true"><circle cx="0" cy="0" r="25" fill="none" stroke="#ee82ee" strokeWidth="2"/></svg> : null}
         {giveWayTargets?.includes(a.id) ? <span className={styles.giveWayTarget} role="img" aria-label={`Likely give-way traffic: ${a.callsign}`}/> : null}
         {busting ? <div className={styles.bustingRing} role="status" aria-label={`Busting ${a.callsign}`}><div className={styles.bustingTag} style={{bottom: `calc(100% + ${alertOffset}px)`}}>{conflicts.map(alert => <span key={alert.otherId}>{separationLabel(alert)}</span>)}{agl !== undefined ? <span>{Math.floor(agl)}ft AGL</span> : null}</div></div> : null}
-        <button aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${appearance.iconFlash ? iconFlashClasses[appearance.iconFlash] : ""} ${openStripId === a.id ? styles.extendedAircraftIndicator : selected === a.id ? styles.selectedAircraft : ""} ${conflictTargets?.includes(a.id) ? styles.conflictTarget : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onScopeContextMenu) {event.preventDefault(); event.stopPropagation(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}, aircraftId: a.id});} else if (onVector) event.preventDefault();}}
+        <button data-scope-aircraft={a.id} aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${appearance.iconFlash ? iconFlashClasses[appearance.iconFlash] : ""} ${openStripId === a.id ? styles.extendedAircraftIndicator : selected === a.id ? styles.selectedAircraft : ""} ${conflictTargets?.includes(a.id) ? styles.conflictTarget : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onScopeContextMenu) {event.preventDefault(); event.stopPropagation(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}, aircraftId: a.id});} else if (onVector) event.preventDefault();}}
           onPointerDown={event => {
             suppressClick.current = false;
             if (onGroundClearance && frequency === "ground" && a.frequency === frequency && canRouteGround(a, airport) && event.button === 0 && event.isPrimary && !routing.busy) {
               cancelGroundDrag(); event.currentTarget.setPointerCapture(event.pointerId);
               const drag: NonNullable<typeof groundDrag.current> = {pointerId: event.pointerId, aircraftId: a.id, start: {x: event.clientX, y: event.clientY}, last: {x: event.clientX, y: event.clientY}, armed: false};
               groundDrag.current = drag;
-              drag.timer = setTimeout(() => {if (groundDrag.current !== drag) return; drag.armed = true; suppressClick.current = true; onSelect(a.id); setPopup(null); const point = vectorPoint({clientX: drag.last.x, clientY: drag.last.y}); routingRef.current.start(a, point);}, 250);
+              drag.timer = setTimeout(() => {if (groundDrag.current === drag) drag.armed = true;}, VECTOR_HOLD_MS);
               return;
             }
             if (onGateDrop && gates?.length && a.id === selected && !running && event.button === 0 && event.isPrimary) {event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); gateDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, moved: false}; return;}
@@ -456,17 +458,20 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
             vectorDrag.current = current;
             current.timer = setTimeout(() => {
               if (vectorDrag.current !== current) return;
-              current.armed = true; suppressClick.current = true;
-              setPopup(null); setRevealedFixKey(null);
-              setVectorDraft({aircraftId: a.id, point: vectorPoint({clientX: current.last.x, clientY: current.last.y})});
+              current.armed = true;
             }, VECTOR_HOLD_MS);
           }}
           onPointerMove={event => {
             const drag = groundDrag.current;
             if (drag?.pointerId === event.pointerId) {
               drag.last = {x: event.clientX, y: event.clientY};
-              if (!drag.armed) {if (distance(drag.start, drag.last) > 8) {suppressClick.current = true; cancelGroundDrag();} return;}
-              event.stopPropagation(); routing.move(1, vectorPoint(event)); return;
+              if (!drag.armed) {if (distance(drag.start, drag.last) > 20) {suppressClick.current = true; cancelGroundDrag();} return;}
+              const point = vectorPoint(event);
+              if (!drag.started && !outsideVectorCircle(a.position, point, camera.scale)) return;
+              event.stopPropagation(); suppressClick.current = true;
+              if (!drag.started) {drag.started = true; onSelect(a.id); setPopup(null); routing.start(a, point);}
+              else routing.move(1, point);
+              return;
             }
             const placement = gateDrag.current;
             if (placement?.pointerId === event.pointerId && gates) {event.stopPropagation(); if (!placement.moved && distance(placement.start, {x: event.clientX, y: event.clientY}) < 4) return; placement.moved = true; const point = vectorPoint(event); setGateDraft({aircraftId: a.id, point, gateId: gateAtPoint(gates, point, 24 / camera.scale)?.id}); return;}
@@ -474,19 +479,23 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
             if (!current || current.pointerId !== event.pointerId || !vectorEnabled) return;
             current.last = {x: event.clientX, y: event.clientY};
             if (!current.armed) {
-              if (distance(current.start, current.last) > 8) {suppressClick.current = true; cancelVector();}
+              if (distance(current.start, current.last) > 20) {suppressClick.current = true; cancelVector();}
               return;
             }
-            setVectorDraft({aircraftId: a.id, point: vectorPoint(event)});
+            const point = vectorPoint(event);
+            if (outsideVectorCircle(a.position, point, camera.scale) || suppressClick.current) {
+              suppressClick.current = true; setPopup(null); setRevealedFixKey(null);
+              setVectorDraft({aircraftId: a.id, point});
+            }
           }}
           onPointerUp={event => {
             const drag = groundDrag.current;
-            if (drag?.pointerId === event.pointerId) {if (drag.armed) {event.stopPropagation(); navigationCamera.cancel(event.pointerId); suppressClick.current = true; if (distance(drag.start, {x: event.clientX, y: event.clientY}) > 25) {const point = vectorPoint(event); routing.choose(point, destinationAt(airport, point));} else routing.cancel();} cancelGroundDrag(); return;}
+            if (drag?.pointerId === event.pointerId) {if (drag.started) {event.stopPropagation(); navigationCamera.cancel(event.pointerId); suppressClick.current = true; const point = vectorPoint(event); if (outsideVectorCircle(a.position, point, camera.scale)) routing.choose(point, destinationAt(airport, point));} cancelGroundDrag(); return;}
             const placement = gateDrag.current;
             if (placement?.pointerId === event.pointerId) {event.stopPropagation(); if (placement.moved) {suppressClick.current = true; const gate = gates && gateAtPoint(gates, vectorPoint(event), 24 / camera.scale); if (gate && placement.aircraftId === selected) onGateDrop?.(placement.aircraftId, gate.id);} cancelGate(); return;}
             const current = vectorDrag.current;
             if (!current || current.pointerId !== event.pointerId) return;
-            if (current.armed) {
+            if (current.armed && suppressClick.current) {
               suppressClick.current = true;
               const point = vectorPoint(event);
               if (!measureVectors && onVector && a.frequency === frequency && !a.radar?.transferred && airborne(a, airport) && outsideVectorCircle(a.position, point, camera.scale)) {

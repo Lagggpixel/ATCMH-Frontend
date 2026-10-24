@@ -1,3 +1,5 @@
+import {getAirport} from "../airports";
+import {applySessionWeather, requestSessionWeather, type SessionWeatherLoader} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise} from "../engine";
 import {menteeActionAllowed} from "../protocol";
@@ -36,7 +38,7 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {})};
 }
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionRole, token: string, now: number) {
     if (role === "staff") this.staff(actor);
@@ -91,6 +93,7 @@ export class SessionService {
     // Every new session starts automatic, including imported/scenario exercises.
     // Rejoining an existing session still retains its explicit staff choice.
     exercise = applyEnvelope(exercise, {id: this.uuid(), time: now, action: {kind: "auto-readback", enabled: true}}).state;
+    exercise = applySessionWeather(exercise, await requestSessionWeather(getAirport(exercise).icao, this.weather));
     const record: SessionRecord = {id, ownerId: actor.accountId, ownerName: actor.displayName, title, createdAt: now, updatedAt: now,
       tickAt: now, contentRevision: 0, exercise, staff: null, mentee: null, ...(scenario ? {scenario} : {})};
     await this.store.create(record);
@@ -119,7 +122,12 @@ export class SessionService {
     this.terrain.request(view.exercise);
     return view;
   }
-  dispatch(actor: Actor, id: string, role: SessionRole, token: string, envelope: Envelope) {
+  async dispatch(actor: Actor, id: string, role: SessionRole, token: string, envelope: Envelope) {
+    let report: Awaited<ReturnType<typeof requestSessionWeather>>;
+    if (envelope.action.kind === "reset" && this.weather) {
+      const airport = await this.store.transaction(id, record => {this.staff(actor); this.seat(record, actor, role, token, this.now()); return getAirport(record.exercise).icao;});
+      report = await requestSessionWeather(airport, this.weather);
+    }
     return this.store.transaction(id, async record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
       if (role === "mentee" && !menteeActionAllowed(envelope.action, record.exercise)) throw new SessionError("forbidden", "This action is unavailable for this training mode or frequency.", 403);
@@ -130,7 +138,7 @@ export class SessionService {
       const result = applyEnvelope(record.exercise, {...envelope, time: now});
       if (result.error) throw new SessionError("invalid-command", result.error, 422);
       if (result.state !== record.exercise) record.contentRevision++;
-      record.exercise = result.state; record.updatedAt = now;
+      record.exercise = envelope.action.kind === "reset" && result.state !== record.exercise ? applySessionWeather(result.state, report) : result.state; record.updatedAt = now;
       if (record.scenario && envelope.action.kind === "play") {
         const result = advanceScenario(record.exercise, record.scenario, 0, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
