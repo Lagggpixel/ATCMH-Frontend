@@ -18,7 +18,7 @@
 .runwayChoices button {aspect-ratio:1;min-height:62px;text-align:center;padding:5px}
 .runwayChoices .headwind {color:lightgreen}
 .runwayChoices .crosswind {color:orange}
-.runwayChoices .tailwind {color:#ff4040}
+.runwayChoices .tailwind {color:#ff0000}
 .middle,.right {display:flex;flex-direction:column;gap:2px;min-width:0}
 .middle>section:first-child {min-height:244px}
 .right>section:first-child {min-height:179px}

@@ -5,7 +5,7 @@ import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
 
-const coordinate = z.object({identifier: z.string().min(1).max(100),waypointType:z.string().max(32).optional(), lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
+const coordinate = z.object({identifier: z.string().min(1).max(100),waypointType:z.string().max(32).optional(), vorType:z.string().max(32).optional(), lat: z.number().finite().min(-90).max(90), lon: z.number().finite().min(-180).max(180)});
 const upstreamSchema = z.object({version: z.literal(1), icao: z.string().length(4), revision: z.string().min(1).max(100),
   waypoints: z.array(coordinate.extend({id: z.string().min(1).max(100)})).max(5000),
   procedures: z.array(z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), type: z.enum(["SID", "STAR", "Approach"]), approachType: z.string().max(100).optional(),
@@ -34,21 +34,21 @@ export function createNavigationApi(load = fetchNavigationData, authorize = auth
   return async (request: Request) => {
     try {
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "";
-      // Learners need the same radar fixes as staff; procedure imports remain staff-only.
+      // Learners can display procedure overlays; aircraft route imports remain staff-only.
       await authorize(request, query.has("route"));
       let airport; try {airport = getAirport({airport: code});} catch {throw new SessionError("invalid-airport", "Choose an available training airport.", 400);}
       const source = await load(code);
       const project = (p: z.infer<typeof coordinate>, id?: string) => {
         const x = (p.lon - airport.origin.lon) * 60 * Math.cos(airport.origin.lat * Math.PI / 180), y = (p.lat - airport.origin.lat) * 60;
         if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 2000 || Math.abs(y) > 2000) throw new SessionError("invalid-navigation", "This route is outside the supported training area.", 422);
-        return {x, y, name: p.identifier,...(p.waypointType?{waypointType:p.waypointType}:{}), ...(id ? {fixId: id} : {})};
+        return {x, y, name: p.identifier,...(p.waypointType?{waypointType:p.waypointType}:{}), ...(p.vorType?{vorType:p.vorType}:{}), ...(id ? {fixId: id} : {})};
       };
-      const routeId = query.get("route"); let value: NavigationCatalog | NavigationRoute;
+      const overlay = query.get("overlay"), routeId = query.get("route") ?? overlay; let value: NavigationCatalog | NavigationRoute;
       if (routeId) {
         if (query.get("revision") !== source.revision) throw new SessionError("navigation-changed", "Navigation data changed. Reload the catalogue before selecting a route.", 409);
         const procedure = source.procedures.find(p => p.routes.some(r => r.id === routeId)), route = procedure?.routes.find(r => r.id === routeId);
         if (!procedure || !route) throw new SessionError("not-found", "This procedure route is unavailable.", 404);
-        if (route.points.length > 200) throw new SessionError("route-too-large", "This complete route exceeds the 200-waypoint exercise limit.", 422);
+        if (!overlay && route.points.length > 200) throw new SessionError("route-too-large", "This complete route exceeds the 200-waypoint exercise limit.", 422);
         value = {airport: code, revision: source.revision, procedureId: procedure.id, routeId, name: procedure.type === "Approach" && procedure.approachType ? `${procedure.approachType} ${procedure.identifier}` : procedure.identifier, type: procedure.type, points: route.points.map(p => project(p))};
       } else value = {airport: code, revision: source.revision,
         fixes: source.waypoints.map(p => ({id: p.id, name: p.identifier, point: project(p, p.id)})),

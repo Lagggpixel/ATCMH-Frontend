@@ -76,7 +76,7 @@ function visibility(c: Instruction): QuickCommand["state"] {
 
 export function prepareQuickCommand(action: Command, exercise: Exercise, path: string[] = []): QuickCommand | null {
   const a = exercise.aircraft.find(a => a.id === action.aircraftId);
-  if (!a) return null;
+  if (!a || (action.command.type === "taxi" || action.command.type === "pushback") && action.command.route) return null;
   const name = quickCommandName(action.command, exercise, a, path);
   if (!name) return null;
   const command = structuredClone(action.command);

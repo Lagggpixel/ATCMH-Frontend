@@ -9,7 +9,7 @@ let vite: ViteDevServer;
 let MemoryRouter: React.ComponentType<{initialEntries?: string[]; children: React.ReactNode}>;
 const root = fileURLToPath(new URL("../../../..", import.meta.url));
 test.before(async () => {
-    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true}, logLevel: "silent"});
+    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true, watch: null}, logLevel: "silent"});
     ({MemoryRouter} = await vite.ssrLoadModule("/src/dashboard/next-navigation.tsx") as {MemoryRouter: typeof MemoryRouter});
 });
 test.after(async () => { await vite.close(); });

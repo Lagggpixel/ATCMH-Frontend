@@ -6,8 +6,8 @@ import {invalidRequestMessage} from "./request-validation";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionMode, SessionSummary} from "./sessions";
 
-export interface SharedSessionView {quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
-const INITIAL: SharedSessionView = {quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
+export interface SharedSessionView {queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
+const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
   if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status, retryAt: value.retryAt});
@@ -25,6 +25,11 @@ export class SharedSession {
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
   private send: ((action: Action, path?: string[]) => Promise<boolean>) | null = null;
   private controlsEnabled = false;
+  private queued = new Map<string, {cancelled: boolean; inFlight: boolean}>();
+  cancelQueued = () => {
+    for (const job of this.queued.values()) if (!job.inFlight) job.cancelled = true;
+    this.update({error: null});
+  };
   constructor(private role: SessionMode, private id: string, private csrf: string) {}
   private canControl() {return this.role === "staff" || this.role === "spectator" && this.controlsEnabled;}
   setControlsEnabled = (enabled: boolean) => {
@@ -53,7 +58,9 @@ export class SharedSession {
   clearError = () => this.update({error: null});
   dispatch = (action: Action, path?: string[]) => {
     if (this.role === "spectator" && !this.controlsEnabled) return Promise.resolve(false);
-    if (!this.view.connected || !this.send) {this.update({error: "Wait for the session to reconnect before sending."}); return Promise.resolve(false);}
+    if (!this.send || this.view.fatal) {this.update({error: this.view.fatal ?? "Join the session before sending."}); return Promise.resolve(false);}
+    if (this.view.exercise.pausedByStaff && this.role === "mentee") {this.update({error: "Staff has paused this exercise."}); return Promise.resolve(false);}
+    if (this.queued.size >= 100) {this.update({error: "The command queue is full. Wait for delivery or cancel unsent commands."}); return Promise.resolve(false);}
     return this.send(action, path);
   };
   start(): () => void {
@@ -72,7 +79,7 @@ export class SharedSession {
     };
     let commands = Promise.resolve();
     this.send = (action, path) => {
-      const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action};
+      const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action: structuredClone(action)};
       const validation = envelopeSchema.safeParse(envelope);
       if (!validation.success) {this.update({error: invalidRequestMessage(validation.error)}); return Promise.resolve(false);}
       const shortcutPath = path ?? (action.kind === "command" && action.resendOf ? this.shortcutPaths.get(action.resendOf) : undefined);
@@ -81,28 +88,45 @@ export class SharedSession {
       const pending: {angle: number; revision?: number} | undefined = tagId && action.kind === "edit" ? {angle: action.patch.tagAngle!} : undefined;
       if (tagId && pending) {this.pendingTagAngles.set(tagId, pending); this.update({});}
       let sent = false;
+      const job = {cancelled: false, inFlight: false};
+      this.queued.set(envelope.id, job);
+      this.update({queuedCommands: this.queued.size});
       commands = commands.then(async () => {
-        for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
-          if (this.role === "spectator" && !this.controlsEnabled) return;
-          try {
-            const result = await post("commands", {envelope}); sent = true;
-            if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
-            if (pending) pending.revision = result.revision;
-            this.update({error: null, quickCommands: this.quickCommands.ranked()}); return;
+        let attempt = 0;
+        try {
+          while (!stopped && !job.cancelled && !this.view.fatal) {
+            if (this.role === "spectator" && !this.controlsEnabled) return;
+            try {
+              job.inFlight = true;
+              const result = await post("commands", {envelope}); sent = true;
+              if (shortcut) {this.quickCommands.add(shortcut); this.shortcutPaths.set(envelope.id, shortcut.path);}
+              if (pending) pending.revision = result.revision;
+              this.update({error: null, quickCommands: this.quickCommands.ranked()}); return;
+            } catch (reason) {
+              const error = reason as Error & {status?: number; code?: string};
+              if (stopped || job.cancelled) return;
+              if (error.code === "seat-lost") {
+                // Reclaim only this page's own seat. An occupied/revoked seat is a hard failure.
+                try {await post("join"); claimed = this.role !== "spectator";}
+                catch (reason) {
+                  const failure = reason as Error & {status?: number};
+                  if (failure.status && failure.status < 500) {fatal(reason); return;}
+                }
+              } else if (error.status && error.status < 500 && error.status !== 408 && error.status !== 429) {
+                this.update({error: error.message}); return;
+              }
+              this.update({status: "Connection interrupted · Commands queued"});
+            } finally {job.inFlight = false;}
+            // Preserve the envelope ID across uncertain replies; server processing is idempotent.
+            await new Promise(resolve => setTimeout(resolve, Math.min(3000, 500 * ++attempt)));
           }
-          catch (reason) {
-            const error = reason as Error & {status?: number};
-            if (error.status && error.status < 500 || attempt === 2) {
-              if (!stopped) this.update({error: error.message}); return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
+        } finally {
+          this.queued.delete(envelope.id);
+          if (!sent && tagId && this.pendingTagAngles.get(tagId) === pending) this.pendingTagAngles.delete(tagId);
+          this.update({queuedCommands: this.queued.size});
         }
-      });
-      return commands.then(() => {
-        if (!sent && tagId && this.pendingTagAngles.get(tagId) === pending) {this.pendingTagAngles.delete(tagId); this.update({});}
-        return sent;
-      });
+      }).catch(reason => {this.update({error: reason instanceof Error ? reason.message : "Command could not be sent."});});
+      return commands.then(() => sent);
     };
     this.manageEvent = (eventId, decision) => {
       if (!this.view.connected || !this.canControl()) return;

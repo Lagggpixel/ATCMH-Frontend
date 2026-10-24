@@ -1,3 +1,4 @@
+import {trainingMode} from "./airports";
 import type {Exercise} from "./model";
 
 export interface CollisionSound {activate(): void; play(volume: number): void; close(): void}
@@ -9,7 +10,7 @@ export class CollisionAudio {
   private seen = new Set<string>();
   constructor(private sound: CollisionSound, private onCrash?: (event: NonNullable<Exercise["collisions"]>[number] | null) => void) {}
   observe(exercise: Exercise, connected: boolean, enabled: boolean, paused: boolean, volume: number) {
-    const previous = this.previous, events = exercise.collisions ?? [];
+    const previous = this.previous, events = trainingMode(exercise) === "local" ? [] : exercise.collisions ?? [];
     const baseline = !previous || !previous.connected || !connected || previous.id !== exercise.id || exercise.elapsed < previous.elapsed;
     if (baseline) this.onCrash?.(null);
     if (!baseline && enabled && !paused) for (const event of events) if (!this.seen.has(event.id)) {this.sound.play(volume); this.onCrash?.(event);}

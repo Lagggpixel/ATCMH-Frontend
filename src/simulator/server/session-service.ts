@@ -5,6 +5,7 @@ import type {Envelope, Exercise} from "../model";
 import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type SessionRole, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
+import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 
 export interface Actor {accountId: string; staff: boolean; displayName?: string}
@@ -35,7 +36,7 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {})};
 }
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionRole, token: string, now: number) {
     if (role === "staff") this.staff(actor);
@@ -59,6 +60,7 @@ export class SessionService {
       ...(record.scenario && role === "staff" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }
   private tick(record: SessionRecord, now: number) {
+    if (this.terrain.apply(record.exercise)) record.contentRevision++;
     const occupied = [record.staff, record.mentee].some(seat => seat && seat.expiresAt > now);
     const gap = (now - record.tickAt) / 1000;
     // Recover delayed connected updates, but never simulate an offline interval.
@@ -114,6 +116,7 @@ export class SessionService {
       return this.view(record, role, now);
     });
     this.sightings.request(view.exercise);
+    this.terrain.request(view.exercise);
     return view;
   }
   dispatch(actor: Actor, id: string, role: SessionRole, token: string, envelope: Envelope) {

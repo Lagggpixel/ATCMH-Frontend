@@ -10,7 +10,7 @@ let vite: ViteDevServer;
 let Sessions: React.ComponentType<{rows: RecentFeedback[]}>;
 test.before(async () => {
     const root = fileURLToPath(new URL("../../../..", import.meta.url));
-    vite = await createServer({root, appType: "custom", resolve: {alias: {"@": root}}, ssr: {noExternal: ["@phosphor-icons/react"]}, server: {middlewareMode: true}, logLevel: "silent"});
+    vite = await createServer({root, appType: "custom", resolve: {alias: {"@": root}}, ssr: {noExternal: ["@phosphor-icons/react"]}, server: {middlewareMode: true, watch: null}, logLevel: "silent"});
     ({RecentTrainingFeedbackSessions: Sessions} = await vite.ssrLoadModule("/src/dashboard/components/admin/RecentTrainingFeedback.tsx"));
 });
 test.after(async () => {await vite?.close();});

@@ -1,14 +1,18 @@
 import type {Aircraft, RadarEnvironment} from "./model";
+import {navigationKind} from "./navigation-symbols";
+
+export type ScopeNavigationFix = RadarEnvironment["fixes"][number] & {routeOnly?: true};
 
 /** Hidden background fixes leave the selected aircraft's saved route visible. */
-export function scopeNavigationFixes(fixes: RadarEnvironment["fixes"], flightPlan: Aircraft["flightPlan"] | undefined, showAll: boolean): RadarEnvironment["fixes"] {
+export function scopeNavigationFixes(fixes: RadarEnvironment["fixes"], flightPlan: Aircraft["flightPlan"] | undefined, showFixes: boolean, showNavaids = showFixes): ScopeNavigationFix[] {
   const routeFixes = (flightPlan ?? []).map((point, index) => ({
     id: point.name ?? fixes.find(fix => Math.hypot(fix.point.x - point.x, fix.point.y - point.y) < .001)?.id ?? `Waypoint ${index + 1}`,
     point,
   }));
-  if (!showAll) return routeFixes;
-  const savedOnly = routeFixes.filter(route => !fixes.some(fix => Math.hypot(fix.point.x - route.point.x, fix.point.y - route.point.y) < .001));
-  return savedOnly.length ? [...fixes, ...savedOnly] : fixes;
+  const visible = fixes.filter(fix => navigationKind(fix) === "fix" ? showFixes : showNavaids);
+  const savedOnly = routeFixes.filter(route => !visible.some(fix => Math.hypot(fix.point.x - route.point.x, fix.point.y - route.point.y) < .001))
+    .map(route => ({...route, routeOnly: true as const}));
+  return savedOnly.length ? [...visible, ...savedOnly] : visible.length === fixes.length ? fixes : visible;
 }
 
 /** Predictions supply smooth positions, but only the saved frame decides whom to follow. */

@@ -33,7 +33,7 @@
 .mapCanvas {width:100%;height:100%;display:block}
 .trafficCanvas {position:absolute;inset:0;pointer-events:none}
 .holdOverlay {position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.aircraftTag .holdStatus {color:inherit}
+.aircraftTag .holdStatus {color:#ffa500}
 .fixTooltip {position:absolute;z-index:6;max-width:calc(100% - 12px);padding:5px 8px;background:#101820;color:#b7d8ff;border:1px solid #2a82e6;font:12px/1.3 "Simulator Fira",sans-serif;overflow-wrap:anywhere;pointer-events:none}
 .taxiRouteOverlay {position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
 .taxiWaypoint {pointer-events:all;cursor:grab;outline:none}
@@ -48,10 +48,10 @@
 .scope .scopeButtons button:hover {background:#253039}
 .scope .optionsMenu button {background:transparent;color:#e8edf2;border:0;border-radius:0;font-weight:400}
 .scope .optionsMenu button:hover {background:#253039}
-.airportMarker {position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;padding:0!important;color:#298aff!important;z-index:2}
-.airportMarker>span {position:absolute;bottom:34px;left:-10px;white-space:nowrap;color:#91e98d;font-size:clamp(12px,1vw,19px)}
+.airportMarker {position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;padding:0!important;color:#2d81f9!important;z-index:2}
+.airportMarker>span {position:absolute;bottom:34px;left:-10px;white-space:nowrap;color:#90ee90;font-size:clamp(12px,1vw,19px)}
 .airportMarker small {font-size:9px;background:#91e98d;color:#254222;padding:1px 2px;border-radius:2px}
-.airportMarker i {position:absolute;left:10px;top:10px;width:10px;height:10px;background:#91e98d;border-radius:50%;pointer-events:none}
+.airportMarker i {position:absolute;left:10px;top:10px;width:10px;height:10px;background:#90ee90;border-radius:50%;pointer-events:none}
 .runwayTag {position:absolute;background:black;border:1px solid;transform:translate(-50%,-50%);font-size:clamp(12px,1vw,19px);font-weight:bold;padding:0 3px;pointer-events:none;z-index:3;border-radius:2px}
 .aircraftPosition {position:absolute;width:0;height:0;z-index:4}
 .aircraftPosition:has(.contextAnchor) {z-index:10}
@@ -70,7 +70,7 @@
 @keyframes giveWayPulse {50%{opacity:.45}}
 @media (prefers-reduced-motion:reduce) {.giveWayTarget{animation:none}}
 .aircraftTag {position:absolute;bottom:25px;left:28px;white-space:nowrap;font-size:clamp(11px,.9vw,17px)!important;padding:2px!important;color:inherit!important;text-shadow:0 1px 2px black;text-align:left}
-.aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:currentColor;transform:rotate(-35deg);transform-origin:right}
+.aircraftTag:before {content:"";position:absolute;top:100%;right:100%;height:1px;width:32px;background:#f5f5f5;transform:rotate(-35deg);transform-origin:right}
 .aircraftTag span {display:block}
 .aircraftTag {touch-action:none}
 .rotatedTag:before {display:none}
@@ -102,6 +102,19 @@
 .attribution {position:absolute;bottom:2px;left:5px;font-size:9px;color:#777!important;z-index:2}
 .navigationStatus {position:absolute;bottom:26px;left:8px;z-index:3;padding:5px 8px;background:#111d;color:#ddd;font-size:12px}
 .navigationStatus button {margin-left:6px;color:inherit;text-decoration:underline}
+.mapLayerStatus {position:absolute;left:8px;top:8px;z-index:3;max-width:calc(100% - 75px);padding:5px 8px;background:#111e;color:#ddd;font-size:12px}
+.mapLayerStatus button,.windsPanel button {color:inherit;text-decoration:underline;margin-left:6px}
+.windsPanel {position:absolute;left:8px;bottom:62px;z-index:4;max-width:min(300px,calc(100% - 75px));padding:8px;background:#111e;border:1px solid #454d52;color:#e8edf2;font-size:12px}
+.windsPanel label {display:flex;align-items:center;gap:12px;font-weight:500}
+.windsPanel select {min-width:110px;background:#172126;color:#e8edf2;border:1px solid #59646c;padding:6px}
+.windsPanel small {display:block;margin-top:6px}
+.windsPanel a {color:#8ad6b4}
+.scopePanelHeader {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.scope .scopePanelHeader button {width:36px;min-width:36px;justify-content:center;padding:4px;font-size:22px}
+.proceduresMenu>label {display:grid;gap:6px;padding:8px 4px;font-size:14px}
+.proceduresMenu input[type="text"],.proceduresMenu input:not([type]) {width:100%;background:#151d22;color:#edf2f5;border:1px solid #56636d;padding:8px}
+.proceduresMenu .scopeProcedureChoice {display:flex;align-items:center;gap:10px;min-height:42px;cursor:pointer}
+.scopeProcedureChoice input {flex:none;width:18px;height:18px}
 .nearbyAirport {position:absolute;left:12%;top:15%;color:#999!important;font-size:13px!important}
 .wind {position:absolute;left:20px;bottom:30px;padding:12px;background:#111b;font-family:"Simulator Mono",monospace;font-size:12px;line-height:1.6;pointer-events:none}
 .editHint {position:absolute;top:12px;left:12px;right:80px;text-align:center;background:#1d252add;padding:8px;font-size:13px;color:#d4e5ef;pointer-events:none}
@@ -119,7 +132,7 @@
 .inactivePilot {border:2px solid #eeb45f}
 .selectedStrip {background:#1a1a1a}
 .otherFrequency {color:#888}
-.reminder {outline:2px solid #91e98d;outline-offset:-2px}
+.reminder {outline:2px solid #90ee90;outline-offset:-2px}
 .messageLog {min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:safe flex-end;font-size:clamp(14px,1.16vw,20px);padding:0 4px 3px 0;overflow-wrap:anywhere}
 .messageLog>div {padding:3px 0;border-bottom:1px solid #333;background:#151515}
 .messageLog>div:nth-child(even) {background:#000}
@@ -850,3 +863,40 @@
 @media(max-height:600px) and (orientation:landscape) {.staffSimulator {--staff-dock-height:210px}.staffSimulator:has(.staffPanel[data-expanded=true]) {--staff-dock-height:70dvh}.staffSimulator:has(.staffPanel[data-collapsed=true]) {--staff-dock-height:50px}}
 
 .scope .aircraftTag,.scope .aircraftTag:hover {background:transparent!important;color:var(--label-text,#d3d3d3)!important}
+
+/* Suggested replies are additional numbered shortcuts in every appearance mode. */
+.menteeSimulator .commandPanel .messageEntries button.suggestedCommand {color:#8cf5a1;background:#173922}
+.menteeSimulator .commandPanel .messageEntries button.suggestedCommand:hover:not(:disabled) {color:#b5ffc5;background:#21502e}
+.commandSendError {padding:8px 12px;color:#ffb4ad;background:#341b1b;grid-row:1;overflow-wrap:anywhere}
+.commandSendError button {margin-left:8px}
+.connectionBanner button {margin-left:12px;padding:5px 10px}
+
+.terrainImpactStatus {position:fixed;left:50%;top:55px;transform:translateX(-50%);z-index:85;max-width:80vw;padding:8px 14px;background:#45391d;color:#ffe1a1;border:1px solid #a98c48;border-radius:4px;font-size:13px}
+.commandHeading .commandSendError {position:relative;z-index:3;margin:0;max-height:120px;overflow:auto;font-size:12px}
+
+/* Ground route drafts are local until the reviewed clearance is sent. */
+.groundDraftOverlay {position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible;}
+.groundDraftOverlay circle:focus {outline:none;stroke:#ffb347;stroke-width:4;}
+.groundRouteLauncher {position:absolute;left:14px;bottom:60px;z-index:12;padding:10px 14px;min-height:44px;background:#101a20;color:#fff;border:1px solid #88a0a8;border-radius:4px;}
+.groundRouteEditor {position:absolute;left:14px;bottom:58px;z-index:15;width:min(320px,calc(100% - 28px));max-height:calc(100% - 110px);overflow:auto;background:rgba(9,15,20,.96);color:#f5f7fa;border:1px solid #68747e;border-radius:5px;padding:12px;box-shadow:0 8px 30px #0007;user-select:none;touch-action:pan-y;}
+.groundRouteEditor header {display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.groundRouteEditor header span {font-size:12px;color:#ff7bed;}
+.groundRouteEditor select {display:block;width:100%;min-height:36px;margin-top:4px;background:#16222b;color:inherit;border:1px solid #77858f;border-radius:3px;}
+.groundRouteHelp {font-size:12px;line-height:1.45;color:#bfcbd1;margin:9px 0;}
+.groundRouteEditor ol {list-style:none;margin:10px 0;padding:0;max-height:180px;overflow:auto;}
+.groundRouteEditor li {display:flex;align-items:center;gap:8px;min-height:36px;padding:4px 0;border-bottom:1px solid #ffffff18;font-size:13px;}
+.groundRouteEditor li>span {flex:1;}
+.groundRouteEditor li label {display:flex;align-items:center;gap:5px;min-height:36px;color:#ffbf69;}
+.groundRouteEditor button {min-height:36px;border:1px solid #72838d;border-radius:3px;background:#16222b;color:inherit;padding:6px 10px;}
+.groundRouteEditor button:disabled {opacity:.5;}
+.groundRouteEditor footer {display:flex;gap:8px;margin-top:10px;}
+.groundRouteEditor footer button {flex:1;min-height:42px;}
+.groundRouteEditor footer button:last-child {background:#154d3a;border-color:#61c797;}
+.groundRouteEditor [role=alert] {font-size:13px;color:#ffb5b5;}
+
+/* IF 26.4 static controller colors; request flashing is deliberately unchanged. */
+.simulator.menteeSimulator {--dashboard-bg:#000;--dashboard-canvas:#000;--dashboard-surface:#000;--dashboard-ink:#fff;--dashboard-text:#fff;--dashboard-muted:#d3d3d3;--dashboard-accent:#fa9822;--dashboard-link:#fa9822;--dashboard-selected:#000}
+.menteeSimulator .sidebar .activeFrequency,.menteeSimulator .selectedStrip {box-shadow:none}
+.menteeSimulator .scope .scopeButtons button,.menteeSimulator .scope .optionsMenu button {color:#fff}
+.simulator .controllerMessage {color:#90ee90}
+.scope .tagColorDot {position:absolute;left:-12px;top:2px;width:8px;height:8px;border-radius:50%;box-shadow:1px 1px #000}

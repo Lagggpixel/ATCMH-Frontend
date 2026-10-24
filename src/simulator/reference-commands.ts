@@ -1,8 +1,9 @@
+import {groundRouteText} from "./ground-route";
 import {trueToMagnetic, magneticToTrue} from "./magnetic-headings";
 import {acceleration} from "./aircraft-performance";
 import type {Aircraft, Airport, Altitude, Frequency, Instruction, Point, RadarEnvironment} from "./model";
 import {DEFAULTS} from "./model";
-import {airportCallsign, defaultRunway, frequenciesFor} from "./airports";
+import {airportCallsign, getAirport, defaultRunway, frequenciesFor} from "./airports";
 import {altitudeFeet, altitudeLabel, validAltitude} from "./radar";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
 import {assignDestination, courseDifference, courseTo, holdingLegSeconds, moveAltitude, resumeRoute} from "./command-navigation";
@@ -70,7 +71,7 @@ export function pilotReadback(callsign: string, text: string, c?: Instruction): 
   if (!c) return reply(phrase);
   const runway = ("runway" in c ? c.runway : undefined) ?? phrase.match(/runway ([0-3][0-9][LRC]?)/i)?.[1] ?? "";
   switch (c.type) {
-    case "taxi": return reply(c.destination === "parking" ? "Taxi to parking" : c.runway ? `Taxi to runway ${runway}` : "Continue taxi");
+    case "taxi": return reply(c.route ? groundRouteText(c.route, getAirport({airport: c.route.airport}), true) : c.destination === "parking" ? "Taxi to parking" : c.runway ? `Taxi to runway ${runway}` : "Continue taxi");
     case "pushback": return reply(`Pushback approved${c.tail ? `, tail to the ${c.tail}` : ""}${c.runway ? `, runway ${c.runway}` : ""}`);
     case "stop": return reply("Holding position");
     case "hold-short": return reply(c.departure ? "Roger" : c.ground ? `Hold short of runway ${runway}` : `Holding short runway ${runway}`);

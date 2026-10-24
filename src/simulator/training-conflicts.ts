@@ -6,12 +6,13 @@ export const CONFLICT_LABELS: Record<ConflictKind, string> = {uwc: "UWC", ga: "G
 export interface TrainingConflict {
   id: string; kind: ConflictKind; first: string; second: string; runway: string; otherRunway: string;
   phase: "setup" | "upwind" | "requested" | "active" | "complete" | "cancelled";
-  started: number; circuit: number; linedUp?: boolean; takeoffCleared?: boolean; cancelledTakeoff?: boolean;
+  started: number; circuit: number; setupDeadline?: number; linedUp?: boolean; takeoffCleared?: boolean; cancelledTakeoff?: boolean;
   goAround?: boolean; selfGoAround?: boolean; rollAt?: number; outcome?: string;
 }
 export interface ConflictMotion {upwind?: boolean; extendDownwind?: boolean; slowExit?: boolean; holdDeparture?: boolean; speedLimit?: number}
 type Geometry = {threshold: Point; departure: Point; heading: number; vector: Point; clearance?: number};
 export interface ConflictEngine {
+  slowExitSeconds?(a: Aircraft): number;
   geometry(runway: string): Geometry;
   distance(a: Aircraft): number;
   instruct(a: Aircraft, command: Instruction): void;
@@ -37,11 +38,20 @@ export function startConflict(state: Exercise, airport: Airport, engine: Conflic
     const ga = engine.geometry(a.runway), gb = engine.geometry(b.runway);
     const angle = Math.abs((ga.heading - gb.heading + 540) % 360 - 180);
     if (a.runway === b.runway || pairA === pairB || angle > 5) return "UWC requires different parallel runways used in the same direction.";
+    if (a.leg !== b.leg || Math.abs(a.altitude - b.altitude) > 250) return "UWC requires aircraft on the same circuit leg at similar altitudes.";
+    const gap = Math.abs(engine.distance(a) - engine.distance(b));
+    const nearer = engine.distance(a) < engine.distance(b) ? a : b;
+    if (Math.abs(a.speed - b.speed) > 30 || gap > .25 && !(a.leg === "downwind" && b.leg === "downwind" && nearer.mode === "pattern" && gap <= 3)) return "These aircraft cannot align naturally for UWC. Select similar-speed parallel arrivals that are abeam, or nearby on downwind.";
   } else {
     if (a.runway !== b.runway) return "Both aircraft must use the same runway.";
     if (kind === "ga") {
       if (a.landing !== "full-stop") return "GA requires full-stop intentions for the first aircraft.";
       if (!approachTraffic(b, airport) || engine.distance(a) >= engine.distance(b)) return "Select the leading arrival first and the following arrival second.";
+      const followingSpeed = Math.max(1, b.speed), leadingSpeed = Math.max(1, a.speed);
+      const gapAtTouchdown = engine.distance(b) - engine.distance(a) * followingSpeed / leadingSpeed;
+      if (gapAtTouchdown < 3 - 1e-6 && !(b.mode === "pattern" && b.leg === "downwind" && gapAtTouchdown >= 0)) return "A 3 NM final gap cannot be achieved from these positions without repositioning. Choose an earlier following arrival.";
+      const occupancy = engine.slowExitSeconds?.(a);
+      if (occupancy !== undefined && occupancy < 3 * 3600 / followingSpeed) return "This runway cannot create a GA conflict with a natural rollout and at most one missed exit.";
     } else {
       if (airborne(b, airport) || !["parked", "taxi"].includes(b.mode) || b.altitude > airport.elevation + 1) return "Select a ground aircraft waiting to depart as the second aircraft.";
       if (state.messages.some(m => m.aircraftId === b.id && m.request?.id === "departure" && (m.requestCircuit === undefined || m.requestCircuit === (b.circuit ?? 0)))) return "The ground aircraft has already requested departure.";
@@ -53,26 +63,8 @@ export function startConflict(state: Exercise, airport: Airport, engine: Conflic
   // Cross-kind exercises can overlap; one aircraft cannot have two competing
   // runway-change targets or departure triggers of the same kind.
   if ((state.conflicts ?? []).some(c => live(c) && [c.first, c.second].some(id => [first, second].includes(id)) && (c.kind === kind && (kind === "uwc" || kind === "cancel-takeoff")))) return "This aircraft already has an incompatible active conflict. Complete or cancel it first.";
-  // Pair creation is a staff staging action. Align the partner once here;
-  // ordinary ticks use continuous motion and never teleport traffic.
-  if (kind === "uwc") {
-    const ga = engine.geometry(a.runway), gb = engine.geometry(b.runway);
-    const dx = a.position.x - ga.threshold.x, dy = a.position.y - ga.threshold.y;
-    const along = dx * ga.vector.x + dy * ga.vector.y, lateral = dx * -ga.vector.y + dy * ga.vector.x;
-    b.position = {x: gb.threshold.x + gb.vector.x * along - gb.vector.y * lateral, y: gb.threshold.y + gb.vector.y * along + gb.vector.x * lateral};
-    b.heading = b.targetHeading = (a.heading - ga.heading + gb.heading + 360) % 360;
-    b.altitude = a.altitude; b.speed = a.speed; b.targetSpeed = a.targetSpeed;
-    b.leg = a.leg; b.hand = a.hand; b.patternFinalDistance = a.patternFinalDistance;
-    engine.instruct(b, {type: "pattern", leg: a.leg, hand: a.hand});
-  } else if (kind === "ga" && ["base", "final"].includes(b.leg)) {
-    // A follower already on base/final cannot gain missing miles by extending
-    // downwind. Stage it on final three track miles behind the leading arrival.
-    const g = engine.geometry(a.runway), nm = engine.distance(a) + 3;
-    b.position = {x: g.threshold.x - g.vector.x * nm, y: g.threshold.y - g.vector.y * nm};
-    b.heading = b.targetHeading = g.heading; b.leg = "final";
-    engine.instruct(b, {type: "pattern", leg: "final"});
-  }
-  state.conflicts = [...(state.conflicts ?? []).filter(c => live(c)).slice(-98), {id, kind, first, second, runway: a.runway, otherRunway: b.runway, phase: "setup", started: state.elapsed, circuit: a.circuit ?? 0}];
+  // Pairing records intent only. Every subsequent position comes from continuous flight.
+  state.conflicts = [...(state.conflicts ?? []).filter(c => live(c)).slice(-98), {id, kind, first, second, runway: a.runway, otherRunway: b.runway, phase: "setup", started: state.elapsed, setupDeadline: state.elapsed + Math.max(engine.distance(a) / Math.max(1, a.speed), kind === "cancel-takeoff" ? 0 : engine.distance(b) / Math.max(1, b.speed)) * 3600 + 120, circuit: a.circuit ?? 0}];
   if (kind === "cancel-takeoff") {delete b.automaticRequest; delete b.contactTowerAtHold;}
 }
 function finish(c: TrainingConflict, outcome: string, cancelled = false) {c.phase = cancelled ? "cancelled" : "complete"; c.outcome = outcome;}
@@ -117,15 +109,17 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
       const crash = state.collisions?.some(event => event.elapsed >= c.started && event.aircraft.some(p => [c.first, c.second].includes(p.id)));
       finish(c, crash ? "Aircraft crash" : "Aircraft removed or runway changed", !crash); continue;
     }
+    if (c.phase === "setup" && state.elapsed > (c.setupDeadline ?? c.started + 600)) {finish(c, "Natural spacing could not be established", true); continue;}
     const motion = (p: Aircraft, patch: ConflictMotion) => {p.conflictMotion = {...p.conflictMotion, ...patch};};
     if (c.kind === "uwc") {
       if (c.phase === "setup") {
         // Delay the nearer aircraft on downwind, or moderate final speed, until abeam.
         const delta = engine.distance(a) - engine.distance(b);
         const nearer = delta < 0 ? a : b;
-        if (Math.abs(delta) > .25) {
+        if (a.mode === "takeoff" || b.mode === "takeoff") c.phase = "upwind";
+        if (c.phase === "setup" && Math.abs(delta) > .25) {
           if (nearer.leg === "downwind") motion(nearer, {extendDownwind: true});
-          else if (["base", "final"].includes(nearer.leg)) motion(nearer, {speedLimit: Math.max(100, Math.min(a.speed, b.speed) - 25)});
+          else {finish(c, "Aircraft are no longer naturally aligned", true); continue;}
         }
         if (a.mode === "takeoff") c.phase = "upwind";
       }
@@ -138,7 +132,7 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
     } else if (c.kind === "ga") {
       const gap = engine.distance(b) - engine.distance(a);
       if (b.leg === "downwind" && gap < 3) motion(b, {extendDownwind: true});
-      else if (["base", "final"].includes(b.leg) && gap < 2.9 && airborne(a, airport)) motion(b, {speedLimit: Math.max(100, a.speed - 20)});
+      else if (["base", "final"].includes(b.leg) && gap < 2.9 && airborne(a, airport)) {finish(c, "The 3 NM final gap could not be maintained", true); continue;}
       if (a.mode === "rollout" || a.arrivalExit) {c.phase = "active"; motion(a, {slowExit: true});}
       const g = engine.geometry(c.runway), dx = a.position.x - g.threshold.x, dy = a.position.y - g.threshold.y;
       const offRunway = Math.abs(dx * g.vector.y - dy * g.vector.x) > (g.clearance ?? .06);
@@ -154,7 +148,7 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
         engine.instruct(a, {type: "go-around"}); a.selfGoAroundPending = true; c.selfGoAround = true;
       }
       if ((c.goAround || c.selfGoAround) && c.cancelledTakeoff) finish(c, c.goAround ? "Go around and takeoff cancellation received" : "Self go-around; takeoff cancelled");
-      else if ((c.goAround || c.selfGoAround) && a.altitude > airport.elevation + 700 && Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 1) finish(c, c.cancelledTakeoff ? "Conflict resolved" : c.takeoffCleared ? "Separation recovered; takeoff cancellation missed" : "Go-around; departure remained held");
+      else if ((c.goAround || c.selfGoAround) && a.altitude > airport.elevation + 700 && Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 1) finish(c, c.cancelledTakeoff ? "Conflict resolved" : c.takeoffCleared ? "Aircraft clear; takeoff cancellation missed" : "Go-around; departure remained held");
     }
   }
 }

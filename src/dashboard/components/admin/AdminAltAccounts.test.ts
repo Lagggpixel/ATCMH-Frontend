@@ -9,7 +9,7 @@ let vite: ViteDevServer;
 const root = fileURLToPath(new URL("../../../..", import.meta.url));
 
 test.before(async () => {
-    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true}, logLevel: "silent"});
+    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true, watch: null}, logLevel: "silent"});
 });
 test.after(async () => { await vite.close(); });
 

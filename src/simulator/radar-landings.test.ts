@@ -31,7 +31,7 @@ function setup(type: Arrival, outcome: Aircraft["landing"], automatic = false, c
   state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"frequency",frequency:"tower"}});
   return {state,airport,g};
 }
-function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"]) {
+function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"], awaitingBackTaxi = false) {
   let state=initial.state,touchdown: Exercise|undefined,vacating: Exercise|undefined;const id=state.aircraft[0].id;
   for(let t=0;t<900;t+=.5){
     const prior=state;
@@ -43,8 +43,7 @@ function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"
       assert.ok(Math.abs(dx*-initial.g.vector.y+dy*initial.g.vector.x)>=initial.g.clearance-35*.5/3600-1e-7,"must remain visible until within one movement tick of clearing the protected runway area");
       assert.ok(exerciseSchema.safeParse(vacating).success);assert.ok(exerciseSchema.safeParse(state).success);
       const restored=restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(vacating))));
-      // Backtracking to a mapped exit can take longer than two minutes. Reloading
-      // must finish within the same simulated time as uninterrupted movement.
+      // Reloading must finish within the same simulated time as uninterrupted movement.
       while(restored.elapsed<state.elapsed&&restored.aircraft.some(a=>a.id===id)){Object.assign(restored,advance(restored,.5));}
       assert.ok(!restored.aircraft.some(a=>a.id===id),"restored vacating traffic must finish and despawn");
       const replay=new ReplayTimeline(touchdown,[{sequence:1,at:t,delta:replayDelta(touchdown,state),interpolate:false}]);assert.deepEqual(replay.at(t),state);
@@ -58,6 +57,38 @@ function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"
       assert.ok(along<=length+.001,"landing rollout must brake before overrunning the runway");
     }
     if(a.altitude===initial.airport.elevation&&["rollout","takeoff","parked"].includes(a.mode))touchdown??=structuredClone(state);
+    if (awaitingBackTaxi && a.radar?.arrival?.phase === "stopped") {
+      assert.equal(outcome, "full-stop"); assert.ok(touchdown);
+      assert.equal(initial.airport.icao, "LIME"); assert.equal(a.runway, "12");
+      assert.equal(vacating, undefined, "LIME 12 has no mapped off-runway exit ahead of touchdown");
+      const engine = engineFor(state), position = {...a.position};
+      const along = (position.x-initial.g.threshold.x)*initial.g.vector.x+(position.y-initial.g.threshold.y)*initial.g.vector.y;
+      assert.ok(along >= .1 && along < engine.distance(initial.g.threshold, initial.g.departure), "must stop on the runway after physically touching down");
+      assert.equal(engine.runwayExitRoute(a, "any").path, undefined);
+      assert.ok(exerciseSchema.safeParse(state).success);
+      let restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+      const stopped = structuredClone(state);
+      for (let wait = 0; wait < 120; wait++) {
+        const before = structuredClone(state), prediction = engine.predictAircraft(state.aircraft, 1);
+        assert.deepEqual(state, before, "render prediction must leave the authoritative wait unchanged");
+        state = advance(state, 1); restored = advance(restored, 1);
+        assert.equal(state.aircraft.length, 1, "waiting traffic remains visible");
+        const held = state.aircraft[0];
+        assert.equal(held.active, true); assert.equal(held.mode, "parked"); assert.equal(held.holding, true);
+        assert.equal(held.radar!.arrival!.phase, "stopped"); assert.equal(held.speed, 0); assert.equal(held.targetSpeed, 0);
+        assert.equal(held.altitude, initial.airport.elevation); assert.equal(held.runwayExit, undefined);
+        assert.deepEqual(held.position, position, "waiting cannot reverse, overrun, or drift");
+        for (const candidate of [prediction[0], restored.aircraft[0]]) {
+          assert.deepEqual(candidate.position, held.position); assert.equal(candidate.mode, held.mode);
+          assert.equal(candidate.speed, held.speed); assert.equal(candidate.targetSpeed, held.targetSpeed);
+          assert.deepEqual(candidate.radar!.arrival, held.radar!.arrival);
+        }
+        assert.ok(exerciseSchema.safeParse(state).success); assert.ok(exerciseSchema.safeParse(restored).success);
+      }
+      const replay = new ReplayTimeline(stopped, [{sequence:1, at:state.elapsed, delta:replayDelta(stopped,state), interpolate:false}]);
+      assert.deepEqual(replay.at(state.elapsed), state);
+      return {state, touchdown};
+    }
     if(outcome==="touch-and-go"&&a.frequency==="approach"&&!a.radar!.departure&&state.messages.some(m=>m.request?.id === "check-in" && m.frequency === "approach")){
       assert.ok(touchdown,"must physically reach runway elevation before stopping or climbing out");
       assert.ok(exerciseSchema.safeParse(touchdown).success);assert.ok(exerciseSchema.safeParse(state).success);
@@ -89,14 +120,22 @@ for(const airport of airportList.filter(a=>a.icao!=="EGPH"))for(const type of ([
   complete(setup(type,outcome,false,airport.icao),outcome);
 });
 
-for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id)))test(`${airport.icao} runway ${runway.id}: full-stop vacates mapped exit and despawns`,()=>{complete(setup("visual","full-stop",false,airport.icao,"approach",runway.id),"full-stop");});
+for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id))) {
+  // Pinned LIME 12 has a turnpad ahead, but its only off-runway taxiway is
+  // behind touchdown. Forward-only automatic arrivals must await instruction.
+  const awaitingBackTaxi = airport.icao === "LIME" && runway.id === "12";
+  test(`${airport.icao} runway ${runway.id}: full-stop ${awaitingBackTaxi ? "stops within runway awaiting explicit back-taxi" : "vacates mapped exit and despawns"}`,()=>{
+    complete(setup("visual","full-stop",false,airport.icao,"approach",runway.id),"full-stop",awaitingBackTaxi);
+  });
+}
 
-for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id)))test(`${airport.icao} ${runway.id}: saved stopped traffic backtracks to an exit when needed`,()=>{
+for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id)))test(`${airport.icao} ${runway.id}: saved stopped traffic uses forward exits or safely awaits an explicit back-taxi instruction`,()=>{
   const f=setup("visual","full-stop",false,airport.icao,"approach",runway.id),engine=engineFor(f.state),g=engine.runwayGeometry(runway.id),a=f.state.aircraft[0];
   a.position={x:g.threshold.x+(g.departure.x-g.threshold.x)*.97,y:g.threshold.y+(g.departure.y-g.threshold.y)*.97};
   a.mode="parked";a.altitude=airport.elevation;a.speed=0;a.targetSpeed=0;
   a.radar={station:"approach",navigation:"heading",routeIndex:0,transferred:true,arrival:{runway:runway.id,phase:"stopped"}};
   assert.ok(exerciseSchema.safeParse(f.state).success);
+  const forward = !!engine.runwayExitRoute(a, "any").path, originalPosition = {...a.position};
   let state=f.state,vacated=false;
   for(let i=0;i<900;i++){
     const before=state,previous=before.aircraft[0];engine.predictAircraft(before.aircraft,1);assert.equal(before.aircraft[0],previous);
@@ -104,6 +143,8 @@ for(const airport of airportList)for(const runway of runwayEnds(airport).filter(
     if(!state.aircraft.length){vacated=true;break;}
     assert.ok(Math.hypot(state.aircraft[0].position.x-previous.position.x,state.aircraft[0].position.y-previous.position.y)<.02,"exit taxi cannot teleport");
     assert.ok(exerciseSchema.safeParse(state).success);
+    if (!forward) {assert.ok(Math.hypot(state.aircraft[0].position.x-originalPosition.x, state.aircraft[0].position.y-originalPosition.y)<1e-9, "an unavailable forward exit never causes an automatic back-taxi or overrun"); assert.equal(state.aircraft[0].speed, 0);}
   }
-  assert.ok(vacated,"old stopped aircraft must resume and despawn after vacating");
+  if (forward) assert.ok(vacated,"old stopped aircraft with a forward exit must resume and despawn after vacating");
+  else {assert.equal(vacated, false); assert.equal(state.aircraft.length, 1); assert.ok(Math.hypot(state.aircraft[0].position.x-originalPosition.x, state.aircraft[0].position.y-originalPosition.y)<1e-9);}
 });

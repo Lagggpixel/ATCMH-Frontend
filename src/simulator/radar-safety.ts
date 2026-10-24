@@ -1,3 +1,4 @@
+import {radarArrivalFrequency} from "./model";
 import {performanceFor} from "./aircraft-performance";
 import type {Aircraft, Airport, Frequency, Instruction, RadarEnvironment} from "./model";
 import {aircraftSpeedLimits, machKnots} from "./radar-speed";
@@ -20,7 +21,7 @@ export function automaticRadarUnable(a: Aircraft, c: Instruction): string | null
 export function radarApproachExempt(a: Aircraft, environment?: RadarEnvironment) {
   const r = a.radar;
   if (!r) return false;
-  if (r.guidance === "vectors" && r.transferred && a.frequency === "tower") return true;
+  if (r.guidance === "vectors" && r.transferred && radarArrivalFrequency(a.frequency)) return true;
   const approach = environment?.approaches.find(p => p.id === r.cleared);
   return r.navigation === "approach" && !!approach && (approach.type !== "ils" || !!(r.localizer ?? r.captured));
 }
@@ -30,7 +31,7 @@ export interface SeparationAlert {otherId: string; lateral: number; vertical: nu
 export function radarSeparationAlerts(aircraft: Aircraft[], environment?: RadarEnvironment, frequency: Frequency | "all" = "all", airport?: Airport) {
   const alerts = new Map<string, SeparationAlert[]>();
   const range = frequency === "ground" ? 10000 / 1852 : frequency === "tower" || frequency === "atis" ? 50000 / 1852 : frequency === "center" ? environment?.range ?? 200 : 125000 / 1852;
-  const airborne = aircraft.filter(a => a.active && a.altitude > (airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
+  const airborne = aircraft.filter(a => a.active && !!a.radar && a.altitude > (airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
     && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode)
     && (frequency === "all" || a.frequency === frequency) && Math.hypot(a.position.x, a.position.y) <= range);
   const velocity = (a: Aircraft) => {const h = (a.track ?? a.heading) * Math.PI / 180, s = (a.groundSpeed ?? a.speed) / 3600; return {x: Math.sin(h) * s, y: Math.cos(h) * s, z: (a.verticalSpeed ?? 0) / 60};};

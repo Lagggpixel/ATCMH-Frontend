@@ -158,10 +158,10 @@ export function groundGuidance(a: Aircraft, traffic: Aircraft[], elevation = 0):
 /** Continuous steering with corner anticipation. Only an endpoint within the
  * current travel budget can be reached exactly; corners never teleport traffic. */
 export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: number, reverse: boolean, guidance: GroundGuidance): {index: number; held: boolean} {
-  const maximum = reverse ? GROUND.pushbackSpeed : a.arrivalExit?.speed ?? (a.expedited ? 25 : DEFAULTS.taxiSpeed);
+  const maximum = a.mode === "pushback" ? GROUND.pushbackSpeed : a.arrivalExit?.speed ?? (a.expedited ? 25 : DEFAULTS.taxiSpeed);
   let waypoint = path[index];
   if (!waypoint) {a.speed = 0; return {index, held: false};}
-  const mustStop = (i: number) => (i === path.length - 1 && !(a.mode === "lineup" && !a.lineupWait)) || (!reverse && a.mode !== "lineup" && !!path[i].hold && a.releasedHold !== i);
+  const mustStop = (i: number) => (a.mode === "pushback" && a.pushback?.pullFrom !== undefined && i === a.pushback.pullFrom - 1) || (i === path.length - 1 && !(a.mode === "lineup" && !a.lineupWait)) || (!reverse && a.mode !== "lineup" && !!path[i].hold && a.releasedHold !== i);
   let gap = distance(a.position, waypoint);
   if (!mustStop(index) && path[index + 1]) {
     const next = path[index + 1];

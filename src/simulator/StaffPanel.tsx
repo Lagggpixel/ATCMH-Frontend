@@ -21,6 +21,7 @@ import {RadarSeedControls, RadarStaffControls} from "./RadarControls";
 import {radarEnvironmentFor, radarGuidanceLabel} from "./radar";
 
 import {catalogFor, positionReportText} from "./catalog";
+import {groundReady} from "./ground-ready";
 import {planTaxiRoute} from "./taxi-routing";
 
 
@@ -257,6 +258,7 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
     {section === "flight" && !a.radar ? <section className={workspace.flightSection} aria-label="Flight controls"><div className={workspace.flightForm}>
       <div className={workspace.controlGroup}><h3>Heading</h3><div className={workspace.vectorGroup}><label>Heading (°M)<input aria-label="Heading override" type="number" min="0" max="360" step="10" value={heading} onChange={event => setHeading(event.target.value)}/></label><button className={workspace.primary} disabled={!heading.trim() || !!validateInstruction(a, {type: "heading", value: Number(heading)})} onClick={() => {maneuver({type: "heading", value: Number(heading)}); setHeading(null);}}>Set heading</button></div></div>
       <LocalSpeed aircraft={a} onSpeed={value => maneuver({type: "speed", value})}/>
+      {["parked", "pushback", "taxi", "lineup"].includes(a.mode) ? <label>Engines<select aria-label="Simulated engines" value={(a.enginesRunning ?? groundReady(a, AIRPORT)) ? "running" : "off"} onChange={event => edit({enginesRunning: event.target.value === "running"})}><option value="off">Off · routed pushback while stopped</option><option value="running">Running · taxi routing</option></select></label> : null}
     </div><p>Staff override · changes aircraft movement without a radio call. Pattern legs and landing are in Pattern & landing.</p></section> : null}
     {section === "speeds" ? <PerformanceControls aircraft={a} onEdit={edit}/>:null}
     {section === "speeds" ? a.radar ? <RadarSeedControls aircraft={a} airport={AIRPORT} environment={exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT)} onEdit={edit} staffView="speeds"/> : <SpeedControls airport={AIRPORT} aircraft={a} onEdit={edit} onSpeed={value => maneuver({type: "speed", value})}/> : null}

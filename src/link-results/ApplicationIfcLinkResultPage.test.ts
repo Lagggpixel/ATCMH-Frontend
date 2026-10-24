@@ -9,7 +9,7 @@ import {createServer, type ViteDevServer} from "vite";
 
 let vite: ViteDevServer;
 const root = fileURLToPath(new URL("../..", import.meta.url));
-test.before(async () => { vite = await createServer({root, resolve: {alias: {"@": root}}, appType: "custom", server: {middlewareMode: true}, logLevel: "silent"}); });
+test.before(async () => { vite = await createServer({root, resolve: {alias: {"@": root}}, appType: "custom", server: {middlewareMode: true, watch: null}, logLevel: "silent"}); });
 test.after(async () => { await vite.close(); });
 const loadPage = async () => (await vite.ssrLoadModule("/src/link-results/ApplicationIfcLinkResultPage.tsx") as {default: React.ComponentType<any>}).default;
 

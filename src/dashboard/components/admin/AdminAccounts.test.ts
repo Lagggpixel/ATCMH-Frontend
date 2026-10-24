@@ -11,7 +11,7 @@ let AccountResultsTable: React.ComponentType<{accounts: AccountSummary[]; select
 let AccountOverview: React.ComponentType<{account: AccountDetail; canViewIpAddresses: boolean}>;
 test.before(async () => {
     const root = fileURLToPath(new URL("../../../..", import.meta.url));
-    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true}, logLevel: "silent"});
+    vite = await createServer({appType: "custom", root, resolve: {alias: {"@": root}}, server: {middlewareMode: true, watch: null}, logLevel: "silent"});
     ({AccountResultsTable, AccountOverview} = await vite.ssrLoadModule("/src/dashboard/components/admin/AdminAccounts.tsx"));
 });
 test.after(async () => { await vite.close(); });

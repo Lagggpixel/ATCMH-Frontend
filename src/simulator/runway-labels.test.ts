@@ -26,7 +26,7 @@ test("runway label text and borders follow the wind in the displayed METAR", asy
   try {
     weather.windDirection = 240;
     assert.match(simulatedMetar(dallas), /Wind 240° at 10KT/);
-    check(labels(dallas), {"13L": "#ffa500", "13R": "#ffa500", "31L": "#ffa500", "31R": "#ffa500"});
+    check(labels(dallas), {"13L": "#ff0000", "13R": "#ff0000", "31L": "#ffa500", "31R": "#ffa500"});
     check(labels(getAirport({airport: "EGPH"})), {"06": "#ff0000", "24": "#90ee90"});
 
     weather.windDirection = 135.6;

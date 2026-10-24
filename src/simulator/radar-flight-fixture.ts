@@ -3,11 +3,19 @@ import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {advance,applyEnvelope,autoReadbacks,engineFor,restoreExercise} from "./engine";
 import {getAirport} from "./airports";
+import {catalogFor} from "./catalog";
 import {approachGeometry,radarHeading,roundedHeadingInstruction} from "./radar";
 import {exerciseSchema,menteeActionAllowed} from "./protocol";
 import {ReplayTimeline,replayDelta} from "./replays";
 import type {Action,Aircraft,ApproachType,Exercise,Instruction,Point} from "./model";
 
+export function trafficHandoff(state: Exercise): Instruction {
+ const a = state.aircraft[0], menu = catalogFor(getAirport(state), state.radarEnvironment).messageMenu(a.frequency!, a);
+ const entry = menu.find(item => item.label === "Contact Other Frequency")?.children?.find(item => item.label.startsWith("Traffic on "));
+ assert.ok(entry?.instruction, "Radar flight fixture must use the actual Traffic handoff offered to the controller");
+ assert.equal(entry.instruction.type, "frequency");
+ return entry.instruction;
+}
 type Arrival=ApproachType|"vectors";
 export function send(state:Exercise,action:Action){const result=applyEnvelope(state,{id:randomUUID(),time:state.elapsed*1000,action});assert.equal(result.error,undefined);return result.state;}
 export function fly(state:Exercise,seconds:number){for(let t=0;t<seconds;t+=.5)state=autoReadbacks(advance(state,Math.min(.5,seconds-t)),state.elapsed*1000,randomUUID);return state;}
@@ -27,7 +35,7 @@ export function first(type:Arrival,automatic:boolean,station:"approach"|"center"
  else{a.position={x:g.threshold.x-g.vector.x*8,y:g.threshold.y-g.vector.y*8};a.heading=a.targetHeading=g.heading;a.altitude=2500;}
  state=issue(state,{type:"expect-approach",approachId:type==="vectors"?null:p.id,vectors:type==="vectors"});
  if(type!=="vectors")state=issue(state,{type:"vector",approachId:p.id});
- state=issue(state,{type:"frequency",frequency:"tower"});
+ state=issue(state,trafficHandoff(state));
  return until(state,s=>s.aircraft[0].frequency==="approach"&&!s.aircraft[0].radar!.departure);
 }
 export function vectorToApproach(state:Exercise,type:ApproachType,runway="24"){
@@ -58,7 +66,7 @@ export function vectorToApproach(state:Exercise,type:ApproachType,runway="24"){
 export function finishApproach(state:Exercise){
  const a=state.aircraft[0],outcome=a.landing,airport=getAirport(state),p=state.radarEnvironment!.approaches.find(p=>p.id===a.radar!.cleared)!,g=approachGeometry(airport,p.runway);
  const snapshot=state;state=restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
- state=issue(state,{type:"frequency",frequency:"tower"});assert.equal(state.aircraft[0].radar!.patternJoin,undefined,"a new approach must not retain the earlier vectored pattern");
+ state=issue(state,trafficHandoff(state));assert.equal(state.aircraft[0].radar!.patternJoin,undefined,"a new approach must not retain the earlier vectored pattern");
  const reports=state.messages.filter(m=>m.request?.id === "check-in" && m.frequency === "approach").length;
  let touchdown=false,vacating=false;
  state=until(state,s=>{
