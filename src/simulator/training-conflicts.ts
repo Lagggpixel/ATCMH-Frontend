@@ -13,7 +13,7 @@ export interface TrainingConflict {
 export interface ConflictMotion {upwind?: boolean; extendDownwind?: boolean; slowExit?: boolean; holdRunway?: boolean; holdDeparture?: boolean; speedLimit?: number}
 type Geometry = {threshold: Point; departure: Point; heading: number; vector: Point; clearance?: number};
 export interface ConflictEngine {
-  slowExitSeconds?(a: Aircraft): number;
+  vacateSpeed?(a: Aircraft, following: Aircraft): number | undefined;
   geometry(runway: string): Geometry;
   distance(a: Aircraft): number;
   instruct(a: Aircraft, command: Instruction): void;
@@ -126,7 +126,11 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
     } else if (c.kind === "ga") {
       const gap = engine.distance(b) - engine.distance(a);
       if (b.leg === "downwind" && gap < 3) motion(b, {extendDownwind: true});
-      if (a.mode === "rollout" || a.arrivalExit) {c.phase = "active"; c.rollAt ??= state.elapsed; motion(a, {slowExit: true});}
+      if (a.mode === "rollout" || a.arrivalExit) {
+        c.phase = "active"; c.rollAt ??= state.elapsed;
+        const speedLimit = engine.vacateSpeed?.(a, b);
+        motion(a, {slowExit: true, ...(speedLimit === undefined ? {} : {speedLimit})});
+      }
       const g = engine.geometry(c.runway), dx = a.position.x - g.threshold.x, dy = a.position.y - g.threshold.y;
       const offRunway = runwayLateralClear(dx * g.vector.y - dy * g.vector.x, g.clearance ?? .06);
       const followingAlong = (b.position.x - g.threshold.x) * g.vector.x + (b.position.y - g.threshold.y) * g.vector.y;
@@ -134,7 +138,11 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
         && runwayGoAroundDue(b.altitude, airport.elevation, followingAlong)) {
         engine.instruct(b, {type: "go-around"}); b.selfGoAroundPending = true; c.selfGoAround = true;
       }
-      if (c.phase === "active" && (offRunway || b.mode === "go-around" || b.leg === "upwind")) {delete a.conflictMotion; finish(c, b.mode === "go-around" ? "Following aircraft went around" : "Runway conflict ended");}
+      if (c.phase === "active" && (offRunway || b.mode === "go-around" || b.leg === "upwind")) {
+        delete a.conflictMotion;
+        const wentAround = b.mode === "go-around" || c.selfGoAround;
+        finish(c, wentAround ? "Following aircraft went around" : "Go-around conflict did not materialise: runway cleared or following arrival left final", !wentAround);
+      }
       else if (c.phase === "active" && state.elapsed > (c.rollAt ?? state.elapsed) + 600) {delete a.conflictMotion; finish(c, "Following arrival did not reach the runway", true);}
     } else {
       delete b.automaticRequest; delete b.contactTowerAtHold;
