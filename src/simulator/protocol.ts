@@ -102,7 +102,7 @@ const savedInstructionSchema = makeInstructionSchema(true);
 
 const action = z.discriminatedUnion("kind", [
  z.object({kind:z.literal("facilities"),activity:z.record(id,z.boolean()).refine(v=>Object.keys(v).length<=1000)}),
-  z.object({kind: z.literal("all-full-stop")}),
+  z.object({kind: z.literal("all-full-stop"), enabled: z.boolean().optional()}),
   z.object({kind: z.literal("report-position"), aircraftId:id}),
   z.object({kind: z.literal("conflict"), conflict: z.enum(["uwc", "ga", "cancel-takeoff"]), aircraftId: id, otherId: id}),
   z.object({kind: z.literal("cancel-conflict"), conflictId: id}),
@@ -122,6 +122,7 @@ const exerciseObject = z.object({weather: weatherSchema.optional(),
   conflicts: z.array(z.object({id, kind: z.enum(["uwc", "ga", "cancel-takeoff"]), first: id, second: id, runway, otherRunway: runway, phase: z.enum(["setup", "upwind", "requested", "active", "complete", "cancelled"]), started: bounded(0, 1e12), setupDeadline: bounded(0, 1e12).optional(), circuit: bounded(0, 1e12).int(), linedUp: z.boolean().optional(), takeoffCleared: z.boolean().optional(), cancelledTakeoff: z.boolean().optional(), goAround: z.boolean().optional(), selfGoAround: z.boolean().optional(), rollAt: bounded(0, 1e12).optional(), outcome: z.string().max(300).optional()})).max(100).optional(),
 schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS).optional(), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(), id, revision: bounded(0, 1e12).int(), elapsed: bounded(0, 1e12), running: z.boolean(), pausedByStaff: z.boolean().optional(),
   autoReadback: z.boolean().optional(), pauseVisibility: z.enum(["hidden", "visible"]).optional(),
+  fullStopAll: z.record(id, z.enum(["full-stop", "touch-and-go"])).refine(v => Object.keys(v).length <= 1000).optional(),
   bookmarks: z.array(z.object({id, elapsed: bounded(0, 1e12), aircraftId: id, label: z.string().max(256)})).max(1000).optional(),
   radarEnvironment: radarEnvironmentSchema.optional(),
   callsignReservations: z.array(z.object({id, callsign: z.string().min(1).max(80)})).max(20000).optional(),
