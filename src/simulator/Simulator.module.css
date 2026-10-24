@@ -833,7 +833,7 @@
 .menteeSimulator .topBanner>span:first-child {white-space:nowrap;text-overflow:ellipsis;overflow:hidden;line-height:1}
 .menteeSimulator .topBanner small {display:none}
 .menteeSimulator .topBanner :is(.radioAudio button,.fullscreenControl button) {min-height:0;height:calc(30 * var(--controller-unit));padding:calc(3 * var(--controller-unit)) calc(5 * var(--controller-unit));font-size:calc(11 * var(--controller-unit))}
-.menteeSimulator .sidebar {padding:0 0 calc(54 * var(--controller-unit));gap:0;overflow-y:auto}
+.menteeSimulator .sidebar {padding:0;gap:0;overflow-y:auto}
 .menteeSimulator .sidebar>button {flex:1 0 0;min-height:calc(48 * var(--controller-unit));padding:calc(4 * var(--controller-unit)) 1px;gap:calc(4 * var(--controller-unit));border:0;border-radius:0}
 .menteeSimulator .strip {height:calc(75 * var(--controller-unit));min-height:calc(75 * var(--controller-unit));padding:0;margin:0;border:0;border-bottom:1px solid #0003;border-radius:0;gap:0;grid-template-columns:minmax(0,1fr) calc(64 * var(--controller-unit));touch-action:pan-y}
 .menteeSimulator .stripBody {padding:calc(6 * var(--controller-unit))!important;gap:calc(4 * var(--controller-unit));font-size:calc(14 * var(--controller-unit))!important}
