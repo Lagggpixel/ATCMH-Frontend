@@ -45,6 +45,8 @@ import {hitAirports, procedureKey, procedureColor, visibleProcedures, type Airpo
 import AirportDetails, {AirportPopup} from "./AirportPanels";
 import {useAirportDisplay} from "./use-airport-display";
 import ScopeProcedures from "./ScopeProcedures";
+import {drawCoastlines} from "./coastlines";
+import {useCoastlines} from "./use-coastlines";
 
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
@@ -54,6 +56,7 @@ const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: style
 interface Props {missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number}}
 export default function Scope({missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest}: Props) {
   const AIRPORT = airport;
+  const coastlines = useCoastlines();
   const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
   const vectorEnabled = measureVectors || !!onVector;
   const navigation = useNavigationCatalog(airport.icao);
@@ -240,6 +243,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dashed ? [2, 6] : []);
       points.forEach((p, i) => {const s = screen(p); if (!i) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);}); ctx.stroke(); ctx.setLineDash([]);
     };
+    if (coastlines.data) drawCoastlines(ctx, coastlines.data, AIRPORT.origin, camera, size);
     ctx.font = '12px "Simulator Fira", sans-serif';
     for (const airspace of airspaceOutlines(airspaces, options.airspaces, selectedAirspaces, radarEnvironment?.facilityActivity)) {
       const halfWidth = size.width / camera.scale / 2, halfHeight = size.height / camera.scale / 2;
@@ -303,7 +307,7 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       const center = {x: approach.threshold.x - dx * 11, y: approach.threshold.y - dy * 11};
       path([approach.threshold, {x: center.x + dy * .5, y: center.y - dx * .5}, {x: center.x - dy * .5, y: center.y + dx * .5}, approach.threshold], approach.type === "ils" ? "#dc6464" : "#808080", 1.5);
     }
-  }, [scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity]);
+  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const arrivalRoute = frequency === "all" && taxiAircraft && (taxiAircraft.runwayExit || taxiAircraft.arrivalExit) ? remainingTaxiPath(taxiAircraft) : undefined;
   const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || frequency === "all" ? sentGroundRoute?.points ?? (taxiAircraft ? taxiAircraft.mode === "pushback" && taxiAircraft.pushback ? [taxiAircraft.position, ...taxiAircraft.pushback.path.slice(taxiAircraft.pushback.index)] : remainingTaxiPath(taxiAircraft).length > 1 ? remainingTaxiPath(taxiAircraft) : [] : []) : []);
@@ -563,8 +567,8 @@ export default function Scope({missingStripControls, elapsed = 0, openStripId, o
       onToggle={procedure => setProcedureOverlays(previous => previous.some(item => procedureKey(item) === procedureKey(procedure)) ? previous.filter(item => procedureKey(item) !== procedureKey(procedure)) : [...previous, procedure])}
       onClear={() => setProcedureOverlays(previous => previous.filter(item => item.airport !== airportView.airports[0].identifier))} onOpacity={setProcedureOpacity} onRetry={procedureData.retry} onClose={closeAirport}/> : null}
     {options.windsAloft ? <div className={styles.windsPanel}><label>WINDS<select aria-label="Winds Aloft altitude" value={windAltitude} onChange={event => setWindAltitude(Number(event.target.value))}>{windAltitudeChoices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{winds.data ? <small><a href={winds.data.source} target="_blank" rel="noreferrer">Open-Meteo</a> · {new Date(winds.data.validAt).toISOString().slice(11, 16)}Z forecast</small> : <small role="status">{winds.error ?? "Loading winds…"}{winds.error ? <button type="button" onClick={winds.retry}>Retry</button> : null}</small>}</div> : null}
-    {mapLayers.error ? <div className={styles.mapLayerStatus} role="status">Airport layer unavailable. <button type="button" onClick={mapLayers.retry}>Retry</button></div> : null}
-    <span className={styles.attribution}><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>{radarMode ? <> · Terrain: InfiniteTerrain</> : null}</span>
+    {mapLayers.error || coastlines.error ? <div className={styles.mapLayerStatus} role="status">{mapLayers.error ? <div>Airport layer unavailable. <button type="button" onClick={mapLayers.retry}>Retry</button></div> : null}{coastlines.error ? <div>Coastlines unavailable. <button type="button" onClick={coastlines.retry}>Retry coastlines</button></div> : null}</div> : null}
+    <span className={styles.attribution}><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · Coastlines: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a>{radarMode ? <> · Terrain: InfiniteTerrain</> : null}</span>
     {terrainSamples.unavailable ? <span role="status" className={styles.terrainUnavailable}>Terrain data unavailable for {terrainSamples.unavailable} aircraft</span> : null}
     {(options.waypoints || options.navaids) && !navigation.catalog && !mapLayers.data?.navaids?.length ? <div className={styles.navigationStatus} role="status">{navigation.error ? <>Navigation fixes unavailable. <button type="button" onClick={navigation.retry}>Retry navigation</button></> : "Loading navigation fixes…"}</div> : null}
   </div>;

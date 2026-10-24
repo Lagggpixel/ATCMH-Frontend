@@ -14,6 +14,10 @@ export default function nextConfig(phase: string): NextConfig {
       {source: "/simulator/:section(staff|mentee|join|scenarios|replays|about)/:path*", destination: "/sweatbox/:section/:path*", permanent: true},
     ],
     // Keep source routes and static assets stable while exposing Sweatbox URLs.
-    rewrites: async () => [{source: "/sweatbox/:path*", destination: "/simulator/:path*"}],
+    rewrites: async () => [
+      ...(phase === PHASE_DEVELOPMENT_SERVER
+        ? [{source: "/shared-data/:path*", destination: "https://www.atcmh.org/shared-data/:path*"}] : []),
+      {source: "/sweatbox/:path*", destination: "/simulator/:path*"},
+    ],
   };
 }
