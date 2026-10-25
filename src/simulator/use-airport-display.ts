@@ -1,13 +1,14 @@
 "use client";
 import {useEffect, useState} from "react";
 import type {AirportDisplayData} from "./airport-display";
+import {canLoadAirportProcedures} from "./airport-display";
 
 const cache = new Map<string, {until: number; data: Promise<AirportDisplayData>}>();
 export function useAirportDisplay<T extends AirportDisplayData>(airport: string | undefined, layer: "info" | "weather" | "procedures", origin?: string) {
   const [attempt, setAttempt] = useState(0), [result, setResult] = useState<{key: string; data?: T; error?: string}>();
   const key = `${airport}:${layer}:${origin ?? ""}`;
   useEffect(() => {
-    if (!airport) return;
+    if (!airport || layer === "procedures" && !canLoadAirportProcedures(airport, origin)) return;
     let active = true;
     let entry = cache.get(key);
     if (!entry || entry.until <= Date.now()) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {hitAirports, visibleProcedures, procedureKey, procedureColor, procedureRunwaySummary, runwayWindComponents, weatherCategory, type AirportInformation, type AirportProcedures, type AirportWeather, type ScopeAirport} from "./airport-display";
+import {canLoadAirportProcedures, hitAirports, visibleProcedures, procedureKey, procedureColor, procedureRunwaySummary, runwayWindComponents, weatherCategory, type AirportInformation, type AirportProcedures, type AirportWeather, type ScopeAirport} from "./airport-display";
 import {createAirportDisplayApi, fetchAirportInformation, fetchAirportProcedures, fetchAirportWeather} from "./server/airport-display-api";
 import {EXERCISE_WEATHER} from "./model";
 import {getAirport} from "./airports";
@@ -69,16 +69,32 @@ test("airport provider errors are sanitized, evicted and retryable", async () =>
   assert.equal((await api(req())).status, 200); assert.equal(reads, 2);
   assert.deepEqual(await (await api(req("airport=EGPH&layer=weather"))).json(), weather);
 });
-test("nearby-airport geometry is projected against the scope origin without joining transitions or truncating routes", async () => {
+test("nearby procedures are rejected before provider reads while nearby information and weather remain available", async () => {
+  let procedureReads = 0;
+  const api = createAirportDisplayApi(async code => ({...info, airport: code}), async code => ({...weather, airport: code}), async () => {procedureReads++; return procedures;}, learner);
+  assert.equal(canLoadAirportProcedures("EGPH", "EGPH"), true);
+  assert.equal(canLoadAirportProcedures("EGPK", "EGPH"), false);
+  assert.equal(canLoadAirportProcedures(undefined, undefined), false);
+  for (const refresh of ["", "&refresh=1"]) {
+    assert.equal((await api(req(`airport=EGPK&origin=EGPH&layer=procedures${refresh}`))).status, 400);
+  }
+  assert.equal(procedureReads, 0);
+  await assert.rejects(fetchAirportProcedures("EGPK", "EGPH"), {code: "invalid-airport"});
+  assert.equal((await api(req("airport=EGPK&origin=EGPH&layer=info"))).status, 200);
+  assert.equal((await api(req("airport=EGPK&origin=EGPH&layer=weather"))).status, 200);
+  assert.deepEqual(await (await api(req("airport=EGPH&origin=EGPH&layer=procedures"))).json(), procedures);
+  assert.equal(procedureReads, 1);
+});
+test("controlled-airport geometry retains separate transitions and complete routes", async () => {
   const originalFetch = globalThis.fetch, base = process.env.INFINITE_HORIZON_API_URL, key = process.env.INFINITE_HORIZON_API_KEY;
   process.env.INFINITE_HORIZON_API_URL = "https://nav.test"; process.env.INFINITE_HORIZON_API_KEY = "synthetic";
   const origin = getAirport().origin;
-  globalThis.fetch = async () => Response.json({version: 1, icao: "EGPK", revision: "fixture", waypoints: [], procedures: [{id: "sid", identifier: "TEST1", type: "SID", routes: [
+  globalThis.fetch = async () => Response.json({version: 1, icao: "EGPH", revision: "fixture", waypoints: [], procedures: [{id: "sid", identifier: "TEST1", type: "SID", routes: [
     {id: "a", transition: "06", points: Array.from({length: 201}, (_, i) => ({identifier: `A${i}`, lat: origin.lat + 1 / 60, lon: origin.lon}))},
     {id: "b", transition: "24", points: [{identifier: "B", lat: origin.lat + 2 / 60, lon: origin.lon + 1 / 60}]},
   ]}]});
   try {
-    const value = await fetchAirportProcedures("EGPK", "EGPH");
+    const value = await fetchAirportProcedures("EGPH", "EGPH");
     assert.equal(value.origin, "EGPH"); assert.equal(value.procedures[0].routes.length, 2);
     assert.equal(value.procedures[0].routes[0].points.length, 201);
     assert.ok(Math.abs(value.procedures[0].routes[0].points[0].y - 1) < 1e-8);

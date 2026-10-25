@@ -2,6 +2,7 @@ import {z} from "zod/v3";
 import {getAirport, airportRunways} from "../airports";
 import {facilities, localPoint} from "../aviation";
 import type {AirportInformation, AirportProcedures, AirportWeather, AirportDisplayData} from "../airport-display";
+import {canLoadAirportProcedures} from "../airport-display";
 import {fetchNavigationData} from "./navigation-api";
 import {fetchWeatherReport} from "./weather-provider";
 import {SessionError} from "../sessions";
@@ -62,6 +63,7 @@ export async function fetchAirportWeather(code: string): Promise<AirportWeather>
     warnings: report.status === "rejected" ? ["Public weather is temporarily unavailable."] : []};
 }
 export async function fetchAirportProcedures(code: string, origin: string): Promise<AirportProcedures> {
+  if (!canLoadAirportProcedures(code, origin)) throw new SessionError("invalid-airport", "Procedures are available only for the controlled airport.", 400);
   const airport = getAirport({airport: origin}), source = await fetchNavigationData(code);
   return {airport: code, origin, revision: source.revision, procedures: source.procedures.map((procedure, index) => ({
     id: procedure.id, airport: code, name: procedure.identifier, type: procedure.type, index,
@@ -81,7 +83,10 @@ export function createAirportDisplayApi(loadInfo = fetchAirportInformation, load
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "", layer = query.get("layer"), origin = query.get("origin") ?? code;
       if (!/^[A-Z0-9]{4}$/.test(code)) throw new SessionError("invalid-airport", "Choose a four-character airport identifier.", 400);
       if (layer !== "info" && layer !== "weather" && layer !== "procedures") throw new SessionError("invalid-layer", "Choose airport information, weather or procedures.", 400);
-      if (layer === "procedures") {try {getAirport({airport: origin});} catch {throw new SessionError("invalid-origin", "Choose an available training origin.", 400);}}
+      if (layer === "procedures") {
+        try {getAirport({airport: origin});} catch {throw new SessionError("invalid-origin", "Choose an available training origin.", 400);}
+        if (!canLoadAirportProcedures(code, origin)) throw new SessionError("invalid-airport", "Procedures are available only for the controlled airport.", 400);
+      }
       const key = `${code}:${layer}:${layer === "procedures" ? origin : ""}`;
       if (query.get("refresh") === "1") cache.delete(key);
       let entry = cache.get(key);

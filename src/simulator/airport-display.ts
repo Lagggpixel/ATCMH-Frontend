@@ -21,6 +21,9 @@ export interface AirportProcedure {
 export interface AirportProcedures {airport: string; origin: string; revision: string; procedures: AirportProcedure[]}
 export type AirportDisplayData = AirportInformation | AirportWeather | AirportProcedures;
 
+/** Only the controlled airport can supply procedure catalogues and geometry. */
+export const canLoadAirportProcedures = (airport: string | undefined, origin: string | undefined) => !!airport && airport === origin;
+
 /** Hit the displayed airport symbols, nearest first, with IF's three-airport cap. */
 export function hitAirports(airports: readonly ScopeAirport[], at: Point, project: (p: Point) => Point, radius = 30) {
   return airports.map(airport => ({airport, distance: Math.hypot(project(airport.point).x - at.x, project(airport.point).y - at.y)}))

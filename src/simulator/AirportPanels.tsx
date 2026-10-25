@@ -1,7 +1,7 @@
 "use client";
 import {useEffect, useId, useRef, useState, type CSSProperties} from "react";
 import type {AirportInformation, AirportProcedures, AirportWeather, ScopeAirport} from "./airport-display";
-import {runwayWindComponents, weatherCategory} from "./airport-display";
+import {canLoadAirportProcedures, runwayWindComponents, weatherCategory} from "./airport-display";
 import {useAirportDisplay} from "./use-airport-display";
 import {magneticHeadingLabel} from "./magnetic-headings";
 import {atisRunwayWind} from "./atis-options";
@@ -34,11 +34,11 @@ export function AirportPopup({airports, point, size, weather, origin, environmen
   return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports"
     style={{...dimensions, width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))} as CSSProperties}>
     {airports.map(airport => <AirportPopupRow key={airport.identifier} airport={airport} weather={airport.identifier === origin ? weather : undefined}
-      active={airport.identifier === origin && environment?.facilityActivity?.[`${origin}:tower`] !== false} onInformation={onInformation} onProcedures={onProcedures}/>)}
+      controlled={canLoadAirportProcedures(airport.identifier, origin)} active={airport.identifier === origin && environment?.facilityActivity?.[`${origin}:tower`] !== false} onInformation={onInformation} onProcedures={onProcedures}/>)}
   </div>;
 }
-function AirportPopupRow({airport, weather: exerciseWeather, active, onInformation, onProcedures}: {
-  airport: ScopeAirport; weather?: ExerciseWeather; active: boolean; onInformation: (airport: ScopeAirport) => void; onProcedures: (airport: ScopeAirport) => void;
+function AirportPopupRow({airport, weather: exerciseWeather, controlled, active, onInformation, onProcedures}: {
+  airport: ScopeAirport; weather?: ExerciseWeather; controlled: boolean; active: boolean; onInformation: (airport: ScopeAirport) => void; onProcedures: (airport: ScopeAirport) => void;
 }) {
   const report = useAirportDisplay<AirportWeather>(exerciseWeather ? undefined : airport.identifier, "weather");
   const weather = exerciseWeather ?? report.data?.weather, category = weatherCategory(weather);
@@ -48,7 +48,7 @@ function AirportPopupRow({airport, weather: exerciseWeather, active, onInformati
       <span><span className={styles.airportTitle}><strong>{airport.identifier}{airport.elevationFeet !== undefined ? ` - ${Math.round(airport.elevationFeet)}ft` : ""}</strong>{active ? <em>ATC</em> : null}</span>
         <small className={styles.airportWeather}>{category ? <b data-category={category} className={styles.category}>{category}</b> : null}{weather ? `${weather.variableWind ? "VRB" : weather.windDirection}@${weather.windSpeed}${weather.windGust ? `G${weather.windGust}` : ""}KT - ${Math.floor(weather.visibilityKm / 1.609344)}SM` : airport.name ?? "Airport"}</small></span>
     </button>
-    <button type="button" className={styles.procShortcut} onClick={() => onProcedures(airport)} aria-label={`${airport.identifier} display procedures`}><span>PROC</span></button>
+    {controlled ? <button type="button" className={styles.procShortcut} onClick={() => onProcedures(airport)} aria-label={`${airport.identifier} display procedures`}><span>PROC</span></button> : null}
   </div>;
 }
 
@@ -57,17 +57,19 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
   airport: ScopeAirport; origin: string; exerciseWeather: ExerciseWeather; environment?: RadarEnvironment; onClose: () => void;
 }) {
   const [tab, setTab] = useState<typeof tabs[number]>("INFO"), [runway, setRunway] = useState("");
+  const controlled = canLoadAirportProcedures(airport.identifier, origin);
+  const availableTabs = controlled ? tabs : tabs.filter(name => name !== "PROC");
   const id = useId(), root = useRef<HTMLElement>(null);
   const info = useAirportDisplay<AirportInformation>(airport.identifier, "info");
   const weather = useAirportDisplay<AirportWeather>(tab === "WX" || tab === "RWYS" && airport.identifier !== origin ? airport.identifier : undefined, "weather");
-  const procedures = useAirportDisplay<AirportProcedures>(tab === "PROC" ? airport.identifier : undefined, "procedures", origin);
+  const procedures = useAirportDisplay<AirportProcedures>(tab === "PROC" && controlled ? airport.identifier : undefined, "procedures", origin);
   useEffect(() => {root.current?.querySelector<HTMLButtonElement>("button")?.focus();}, []);
   const data = info.data, conditions = airport.identifier === origin ? exerciseWeather : weather.data?.weather;
   return <section ref={root} className={styles.details} data-airport-panel="details" role="dialog" aria-label={`${airport.identifier} airport information`}>
     <header><span><strong>INFORMATION</strong><small>{airport.identifier}</small></span><button type="button" aria-label="Close airport details" onClick={onClose}>CLOSE</button></header>
-    <div role="tablist" aria-label="Airport details tabs" className={styles.tabs}>{tabs.map((name, index) => <button type="button" key={name} role="tab" id={`${id}-${name}`} aria-controls={`${id}-panel`} aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
-      const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
-      if (next >= 0) {event.preventDefault(); setTab(tabs[next]); root.current?.querySelector<HTMLButtonElement>(`[id="${id}-${tabs[next]}"]`)?.focus();}
+    <div role="tablist" aria-label="Airport details tabs" className={styles.tabs}>{availableTabs.map((name, index) => <button type="button" key={name} role="tab" id={`${id}-${name}`} aria-controls={`${id}-panel`} aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
+      const next = event.key === "ArrowRight" ? (index + 1) % availableTabs.length : event.key === "ArrowLeft" ? (index + availableTabs.length - 1) % availableTabs.length : event.key === "Home" ? 0 : event.key === "End" ? availableTabs.length - 1 : -1;
+      if (next >= 0) {event.preventDefault(); setTab(availableTabs[next]); root.current?.querySelector<HTMLButtonElement>(`[id="${id}-${availableTabs[next]}"]`)?.focus();}
     }}>{name}</button>)}</div>
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} className={styles.content} tabIndex={0}>
       {info.error ? <p role="status">{info.error} <button type="button" onClick={info.retry}>Retry airport details</button></p> : !data ? <p role="status">Loading airport details…</p> : null}

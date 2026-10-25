@@ -424,6 +424,10 @@ Sequenced crosswind/downwind entries from upwind keep flying straight until the 
 
 Runway exit completion, paired GA exercises and ordinary occupied-runway checks share one lateral clearance comparison, including projection tolerance at a mapped exit's exact endpoint. Taxi turning and steering limits are braking targets rather than instantaneous speed clamps. Aircraft look ahead across short route nodes to the next hold or endpoint, retaining gradual braking and explicit hold release.
 
+## Nearby airport coverage and procedures
+
+Nearby airport coverage uses the existing server-side InfiniteHorizon map overlay with `radiusNm=200&airportLimit=1000&layers=airports,vors&includeApproaches=1`. The provider must support the expanded map radius before releasing either web host. Airports are bounded to 1,000 and nearby runway ends are batched; no nearby procedure geometry is requested. PROC controls, requests and airport-display procedure reads are limited to the controlled airport. Nearby airport information, weather, runways and schematic approach cones remain available independently. The navigation catalogue retains its separate 100 NM waypoint radius.
+
 ## Controller strip and radio typography
 
 The controller strip follows Infinite Flight 26.4's two equal rows and 5:3:2 columns: callsign/type, runway/guidance-destination, and ATC. It uses the original regular Fira Sans file recorded in `public/simulator/fonts/FiraSans-IF26.4-NOTICE.txt`, with 12 logical units for strip fields and commands and 14 for runways and message history. The existing shared display unit scales these together: .65 on landscape phones, .75 on touch tablets and 1 on desktop. Browser and native device-pixel rounding/rasterization may differ. Staff workspace and scope label fonts retain their existing styles.

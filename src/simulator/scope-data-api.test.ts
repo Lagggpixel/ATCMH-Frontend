@@ -36,6 +36,9 @@ test("map data projects real towered/uncontrolled airports without exposing upst
   globalThis.fetch = async input => {
     assert.match(String(input), /layers=airports/);
     assert.equal(new URL(String(input)).searchParams.get("includeApproaches"), "1");
+    assert.equal(new URL(String(input)).searchParams.get("radiusNm"), "200");
+    assert.equal(new URL(String(input)).searchParams.get("airportLimit"), "1000");
+    assert.equal(new URL(String(input)).searchParams.get("layers"), "airports,vors");
     return Response.json({icao: "EGPH", airports: [{id: "airport", identifier: "TEST", name: "Test field", lat: origin.lat + 1 / 60, lon: origin.lon, isTowered: false}],
       vors: [{id: "vor", identifier: "TST", name: null, lat: origin.lat, lon: origin.lon, vorType: "VOR", frequencyMhz: 115.5}],
       approaches: [{airportIcao: "TEST", runway: "01", threshold: {lat: origin.lat + 1 / 60, lon: origin.lon}, departure: {lat: origin.lat + 2 / 60, lon: origin.lon}, ils: true},
@@ -50,6 +53,19 @@ test("map data projects real towered/uncontrolled airports without exposing upst
     assert.ok(Math.abs(result.approaches![0].threshold.y - 1) < 1e-8);
     assert.deepEqual(result.approaches?.[0].threshold, result.approaches?.[1].departure);
     assert.doesNotMatch(JSON.stringify(result), /"lat"|"lon"|test-only/);
+  } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
+});
+test("expanded airport map accepts more than 150 airports without procedure payloads", async () => {
+  const originalFetch = globalThis.fetch, base = process.env.INFINITE_HORIZON_API_URL, key = process.env.INFINITE_HORIZON_API_KEY;
+  process.env.INFINITE_HORIZON_API_URL = "https://navigation.test"; process.env.INFINITE_HORIZON_API_KEY = "test-only";
+  const origin = getAirport().origin;
+  globalThis.fetch = async () => Response.json({icao: "EGPH", airports: Array.from({length: 1000}, (_, i) => ({id: String(i), identifier: `A${i}`, name: null, lat: origin.lat + 150 / 60, lon: origin.lon, isTowered: i % 2 === 0})), approaches: [],
+    procedures: [{privateGeometry: "must-not-reach-browser"}]});
+  try {
+    const value = await fetchScopeMap("EGPH");
+    assert.equal(value.airports.length, 1000);
+    assert.ok(Math.abs(value.airports[999].point.y - 150) < 1e-8);
+    assert.doesNotMatch(JSON.stringify(value), /procedures|privateGeometry|test-only/);
   } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
 });
 test("missing nearby approach geometry is unavailable rather than silently empty", async () => {
