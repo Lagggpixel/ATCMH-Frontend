@@ -41,7 +41,7 @@ export function useTourProgress(accountId: string) {
 
 const usable = (element: HTMLElement) => {const rect = element.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && !element.closest("[inert]");};
 const find = (target?: TourTarget) => target ? findTargets<HTMLElement>(document, target, usable)[0] ?? null : null;
-const where = {home: "Sweatbox home", radar: "Mentor radar", mentee: "your session"} as const;
+const where = {home: "Sweatbox home", radar: "Mentor radar"} as const;
 const MENTOR_SCOPES: readonly TourScope[] = ["home", "radar"];
 
 /** The guide card and spotlight for whichever track is active. Renders nothing when no tour runs. */
@@ -50,8 +50,8 @@ function CoachTour({accountId, scope, live = false}: {accountId: string; scope: 
   const [progress, update] = useTourProgress(accountId);
   const active = progress.active, track = active ? trackById(active.track) : null;
   const here = !!track && track.scope === scope;
-  // A Mentor track started elsewhere points the way there; Mentee and Mentor tours never cross.
-  const away = !!track && !here && track.scope !== "mentee" && scope !== "mentee";
+  // A track started elsewhere points the way there.
+  const away = !!track && !here;
   const shown: TourStep | null = here && active ? track.steps[active.step] : away && track ? {
     title: `Continue on the ${where[track.scope]}`, target: scope === "home" && track.scope === "radar" ? {tour: "staff-radar-link"} : undefined,
     text: track.scope === "radar" ? `${track.title} runs on the radar. Open any session with Enter and it picks up there.` : `${track.title} continues on the Sweatbox home.`,
@@ -302,18 +302,5 @@ export default function StaffTutorial({accountId, live = false, label, className
     {help ? <HelpPanel accountId={accountId} onClose={closeHelp}/> : null}
     {!live ? <WelcomeDialog accountId={accountId}/> : null}
     <CoachTour accountId={accountId} scope={live ? "radar" : "home"} live={live}/>
-  </>;
-}
-
-/** Mentee session entry point: a Help button, and the first-session tour on a Mentee's first visit. */
-export function MenteeTutorial({accountId, className}: {accountId: string; className?: string}) {
-  const [progress, update] = useTourProgress(accountId);
-  useEffect(() => {
-    const timer = window.setTimeout(() => update(current => current.active || current.done.includes("mentee-first") ? current : startTrack(current, "mentee-first")), 0);
-    return () => window.clearTimeout(timer);
-  }, [update]);
-  return <>
-    <button type="button" className={`${styles.trigger} ${className ?? styles.liveTrigger}`} onClick={() => update(current => startTrack(current, "mentee-first"))}><Question size={16} aria-hidden="true"/>Help<span className={styles.srOnly}>: replay the first-session tour</span></button>
-    {progress.active?.track === "mentee-first" ? <CoachTour accountId={accountId} scope="mentee" live/> : null}
   </>;
 }

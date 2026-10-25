@@ -1,4 +1,4 @@
-.workspace{--workspace-safe-top:var(--sweatbox-safe-top,max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));--workspace-header-height:64px;--workspace-tabbar-height:0px;min-height:100dvh;display:flex;flex-direction:column;background:var(--dashboard-canvas);color:var(--dashboard-ink);font-family:var(--font-site)}
+.workspace{--workspace-safe-top:var(--sweatbox-safe-top,env(safe-area-inset-top,0px));--workspace-header-height:64px;--workspace-tabbar-height:0px;min-height:100dvh;display:flex;flex-direction:column;background:var(--dashboard-canvas);color:var(--dashboard-ink);font-family:var(--font-site)}
 .workspace *{box-sizing:border-box}
 /* The installed iPad app draws beneath the status bar; keep branding and controls in its safe area. */
 .header{position:sticky;top:0;z-index:60;padding-top:var(--workspace-safe-top);background:var(--dashboard-header);border-bottom:1px solid var(--dashboard-border)}

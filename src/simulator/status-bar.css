@@ -1,21 +1,12 @@
 :root {
-  --sweatbox-safe-top: max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));
+  --sweatbox-safe-top: env(safe-area-inset-top,0px);
 }
 
 /* WebKit samples a fixed container near the top centre of the viewport.
    Use a real element, outside the isolated radar, rather than its ::before.
    Keep it opaque and wider than the viewport's sidebars. See fixedContainerEdges:
    https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/LocalFrameView.cpp
-   The iPad's native glass can extend below the reported safe-area inset. Reserve
-   a 64px minimum in the installed app so the weather/audio row starts below the
-   affected area, including launches that initially report zero insets. This is
-   a conservative content clearance, not a measurement of the native blur.
-   Keep this otherwise empty reserved band hit-testable for the edge sampler. */
-@media (display-mode:standalone) {
-  :root {
-    --sweatbox-safe-top: max(64px,env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));
-  }
-}
+   Cover only the reported top safe area, without extra glass clearance. */
 
 .sweatbox-status-bar-surface {
   position: fixed;

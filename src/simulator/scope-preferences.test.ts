@@ -48,6 +48,15 @@ test("corrupt, obsolete and invalid fields recover safe defaults without losing 
   assert.equal(readScopePreferences(ground).options.airspaces, true);
 });
 
+test("camera zoom beyond the old fixed limits survives saving and reload", t => {
+  storage(t);
+  for (const scale of [.01, .2, 8, 1800, 20000, 50000]) {
+    const preferences = {...changed(), camera: {center: {x: 2, y: -3}, scale}};
+    scopePreferenceWriter(ground).update(preferences);
+    assert.deepEqual(readScopePreferences(ground).camera, preferences.camera);
+  }
+});
+
 test("camera animation writes coalesce, while switches and background/unmount flushes save immediately", t => {
   const {writes} = storage(t);
   t.mock.timers.enable({apis: ["setTimeout"]});

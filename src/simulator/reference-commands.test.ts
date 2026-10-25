@@ -78,7 +78,8 @@ test("request-only radar replies appear for the appropriate pilot request", () =
   const e = engineFor({trainingStation: "EGPH:center"}), state = e.initialExercise(), a = state.aircraft[0], c = catalogFor(getAirport(state), state.radarEnvironment);
   const request = (text: string): Message => ({id: "request", aircraftId: a.id, sender: "pilot", frequency: "center", time: 0, text});
   assert.ok(!c.requestMessageMenu("center", a).some(e => e.label === "Radar Contact"));
-  for (const [text, label] of [["with you at 3000", "Radar Contact"], ["requesting flight following", "Respond to Flight Following Request"], ["requesting radar vectors", "Respond to Radar Vectors Request"], ["requesting diversion", "Respond to Diversion Request"], ["minimum fuel", "Respond to Emergency"]]) assert.ok(c.requestMessageMenu("center", a, request(text)).some(e => e.label === label), label);
+  a.diversionDestination = {name: "Alternate", point: {x: 30, y: -5}};
+  for (const [text, label] of [["with you at 3000", "Radar Contact"], ["requesting flight following", "Respond to Flight Following Request"], ["requesting radar vectors", "Respond to Radar Vectors Request"], ["requesting diversion to Alternate", "Respond to Diversion Request"], ["minimum fuel", "Respond to Emergency"]]) assert.ok(c.requestMessageMenu("center", a, request(text)).some(e => e.label === label), label);
 });
 
 test("STAR descent menu follows route availability in Approach and Center", () => {

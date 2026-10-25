@@ -4,7 +4,8 @@ import {windAltitudeChoices} from "./scope-map-data";
 import type {MapCamera} from "./scope-camera";
 import type {Frequency} from "./model";
 
-const cameraSchema = z.object({center: z.object({x: z.number().finite(), y: z.number().finite()}), scale: z.number().min(.5).max(1800)});
+// Bounds depend on the mounted scope's CSS height; clamp after restore there.
+const cameraSchema = z.object({center: z.object({x: z.number().finite(), y: z.number().finite()}), scale: z.number().finite().positive()});
 const optionsSchema = z.object({
   waypoints: z.boolean().catch(initialOptions.waypoints), navaids: z.boolean().catch(initialOptions.navaids),
   airspaces: z.boolean().catch(initialOptions.airspaces), taxiways: z.boolean().catch(initialOptions.taxiways),

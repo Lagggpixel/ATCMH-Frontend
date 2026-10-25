@@ -5,6 +5,8 @@ import {AIRPORT, advance, applyEnvelope, autoReadbacks, createAirportEngine, dis
 import {messageMenu} from "./catalog";
 import {exerciseSchema, envelopeSchema} from "./protocol";
 import type {Aircraft, Airport, Exercise, Instruction, Runway} from "./model";
+import {runwayTurn} from "./ground-movement";
+import {DEFAULTS} from "./model";
 
 const save = (state: Exercise) => restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
 const act = (state: Exercise, command: Instruction) => {
@@ -86,6 +88,7 @@ test("forward connected exits use rapid-exit speeds without choosing backward co
     const route = runwayExitRoute(a, "any"); assert.equal(route.error, undefined);
     assert.equal(route.speed, 35);
     const g = runwayGeometry(runway), entry = route.path![1];
+    const turn = runwayTurn({...a, arrivalExit: {instruction: "automatic", speed: route.speed!}}, route.path!);
     const along = (entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y;
     if (speed === 70) assert.ok(along > .3 && along < .4, "near-perpendicular mapped drift does not hide a reachable forward exit");
     if (speed === 135) assert.ok(along > .9 && along < 1.1, "skip exits before the braking distance");
@@ -93,8 +96,9 @@ test("forward connected exits use rapid-exit speeds without choosing backward co
     for (let i = 0; i < 10000; i++) {
       state = advance(state, .05); a = state.aircraft[0];
       if (a.mode === "taxi") {
-        assert.ok(distance(a.position, entry) < 1e-7, "turn only at the mapped entry");
-        assert.equal(a.speed, route.speed); entered = true; break;
+        assert.ok(distance(a.position, turn.position) < 1e-7, "start rounding the mapped exit before the intersection");
+        assert.ok(distance(a.position, entry) <= .012 + 1e-7);
+        assert.ok(a.speed <= turn.speed + 1e-7 && a.speed >= turn.speed - DEFAULTS.acceleration * .05 - 1e-7, "brake to the geometry's turn speed before leaving rollout"); entered = true; break;
       }
       assert.ok(Math.abs(lateral(a)) < 1e-7, "decelerate and continue along the centerline");
     }

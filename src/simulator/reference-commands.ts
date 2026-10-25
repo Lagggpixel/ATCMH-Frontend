@@ -111,27 +111,27 @@ export function pilotReadback(callsign: string, text: string, c?: Instruction): 
   }
 }
 
-export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = []): string | null {
+export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = [], assignment = false): string | null {
   const ground = a.altitude <= airport.elevation + 1;
   if ((c.action === "circle" || c.action === "hold") && !c.hand) return "Choose left or right turns.";
   if (c.runway && !(airport.runways ?? [airport.runway]).some(pair => pair.ends.some(end => end.id === c.runway))) return "Runway is not in this airport snapshot.";
   if (c.action === "hold" && c.altitude && (!validAltitude(c.altitude) || altitudeFeet(c.altitude) < 3000 || altitudeFeet(c.altitude) > 19000 || altitudeFeet(c.altitude) % 1000 !== 0)) return "Choose a listed holding altitude.";
-  if (["cancel-takeoff", "back-taxi"].includes(c.action) && !ground) return "This instruction requires ground traffic.";
+  if ((c.action === "cancel-takeoff" || assignment && c.action === "back-taxi") && !ground) return "This instruction requires ground traffic.";
   if (["circle", "hold", "navigation", "exit-hold"].includes(c.action) && ground) return "This instruction requires airborne traffic.";
   if (c.action === "hold" && (!c.altitude || altitudeFeet(c.altitude) <= airport.elevation)) return "Choose a holding altitude above airport elevation.";
   if(c.action==="hold" && c.index!==undefined && c.point && a.flightPlan[c.index] && Math.hypot(c.point.x-a.flightPlan[c.index].x,c.point.y-a.flightPlan[c.index].y)>.000001)return "The selected holding waypoint has changed. Select it again.";
   if (c.index !== undefined && !a.flightPlan[c.index] && !(c.action === "hold" && c.point)) return "The selected flight-plan waypoint is no longer available.";
-  if (c.action === "back-taxi") return backTaxiRoute(airport, a, c.runway ?? a.runway ?? defaultRunway(airport), !!c.contactGround).error ?? null;
-  if (c.action === "progressive" && ["left", "right", "straight", "reverse", "discretion", "follow"].includes(c.variant!)) {
+  if (assignment && c.action === "back-taxi") return backTaxiRoute(airport, a, c.runway ?? a.runway ?? defaultRunway(airport), !!c.contactGround).error ?? null;
+  if (assignment && c.action === "progressive" && ["left", "right", "straight", "reverse", "discretion"].includes(c.variant!)) {
     if (!ground) return "This instruction requires ground traffic.";
     if (c.variant === "discretion" && a.taxiPath[a.taxiIndex]) return null;
     return progressiveRoute(airport, a, c.variant!, traffic).error ?? null;
   }
   if (c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") {
-    if (!a.arrivalProcedure) return "Choose an arrival STAR before approving STAR descent.";
+    if (!a.arrivalProcedure?.trim()) return "Choose an arrival STAR before approving STAR descent.";
   }
   if ((c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") && a.flightPlan.some(p => p.altitude !== undefined && (p.altitude <= airport.elevation || !validAltitude(p.altitude >= 18000 ? {unit: "flight-level", value: p.altitude / 100} : {unit: "feet", value: p.altitude})))) return "Choose listed STAR altitudes above airport elevation.";
-  if (c.action === "diversion" && c.variant !== "deny" && !a.diversionDestination) return "Choose a diversion destination in aircraft navigation setup.";
+  if (c.action === "diversion" && c.variant !== "deny" && !(c.name && c.point) && !a.diversionDestination) return "Choose a diversion destination in aircraft navigation setup.";
   if (c.action === "voice" && (c.text?.length ?? 0) > 256) return "Voice messages have a 256-character limit.";
   if (c.action === "voice" && !c.text?.trim()) return "Record or enter a message before sending.";
   return null;
@@ -154,11 +154,15 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
   }
   if (c.action === "exit-hold" || c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
   if (["flight-following", "expect-unable"].includes(c.action) && !a.flightPlan.length) assignDestination(a, a.destination ?? {name: airportCallsign(airport), point: {x: 0, y: 0}}, false);
-  if (c.action === "diversion" && c.variant !== "deny" && a.diversionDestination) assignDestination(a, a.diversionDestination, c.variant === "vectors");
+  if (c.action === "diversion" && c.variant !== "deny") {
+    const target = c.name && c.point ? {name: c.name, point: c.point} : a.diversionDestination;
+    if (target) assignDestination(a, target, c.variant === "vectors");
+  }
   if (c.action === "airport-in-sight") {a.reportAirportInSight = true; delete a.airportSighting;}
   if (c.action === "star-descent" || c.action === "star-response" && c.variant === "approve") {resumeRoute(a); a.starDescent = true;}
   if (c.action === "progressive") {
     if (["left", "right", "straight", "reverse", "discretion", "follow"].includes(c.variant!)) {
+      if (a.altitude > airport.elevation + 1) return;
       const route = c.variant === "discretion" && a.taxiPath[a.taxiIndex] ? {path: a.taxiPath.slice(a.taxiIndex), leader: undefined} : progressiveRoute(airport, a, c.variant!, traffic);
       if (!route.path) return;
       a.taxiPath = [{...a.position}, ...route.path]; a.taxiIndex = 1; a.releasedHold = null; a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed;

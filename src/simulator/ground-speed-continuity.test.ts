@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor} from "./engine";
 import {airportList, runwayEnds} from "./airports";
-import {moveGround} from "./ground-movement";
+import {moveGround, runwayTurn} from "./ground-movement";
 import {DEFAULTS} from "./model";
 
 test("a 35 kt exit turn brakes continuously rather than snapping to 20 kt", () => {
@@ -58,21 +58,35 @@ test("a 35 kt aircraft anticipates a hold across short nodes and resumes only wh
   assert.ok(index > 2); assert.ok(a.position.x > .06); assert.ok(a.speed > 0);
 });
 
-for (const airport of airportList) test(`${airport.icao}: mapped runway exits brake continuously and finish without orbiting`, () => {
+test("sub-metre runway intersection rounding does not create phantom exit turns", () => {
+  for (const [airport, runway] of [["LTFM", "34R"], ["LTFM", "17L"], ["LTFM", "17R"], ["RJTT", "04"]]) {
+    const engine = engineFor({airport}), g = engine.runwayGeometry(runway);
+    const a = {...engine.newAircraft("stopped", false), runway, heading: g.heading, speed: 0,
+      position: {x: g.threshold.x + (g.departure.x - g.threshold.x) * .97, y: g.threshold.y + (g.departure.y - g.threshold.y) * .97}};
+    const route = engine.runwayExitRoute(a, "any");
+    assert.ok(route.path, `${airport}/${runway}: forward exit remains available`);
+    a.arrivalExit = {instruction: "automatic", speed: route.speed!};
+    assert.ok(runwayTurn(a, route.path).speed > 1, `${airport}/${runway}: no centimetre-long phantom turn`);
+    for (let i = 2; i < route.path.length - 1; i++) assert.ok(engine.distance(route.path[i - 1], route.path[i]) >= 1 / 1852);
+  }
+});
+
+for (const airport of airportList) test(`${airport.icao}: mapped runway exits respect turn limits and finish without orbiting`, () => {
   const engine = engineFor({airport: airport.icao});
   for (const end of runwayEnds(airport)) for (const side of ["left", "right", "any"] as const) {
     const g = engine.runwayGeometry(end.id);
     const a = {...engine.newAircraft("exit", false), runway: end.id, position: {x: g.threshold.x + g.vector.x * .01, y: g.threshold.y + g.vector.y * .01}, heading: g.heading, speed: 35, targetSpeed: 35};
     const route = engine.runwayExitRoute(a, side);
     if (!route.path) continue; // Some directions have no mapped forward exit on this side.
-    a.position = {...route.path[1]}; a.mode = "taxi";
-    a.speed = a.targetSpeed = route.speed!;
     a.arrivalExit = {instruction: "automatic", speed: route.speed!};
-    let index = 2, rotation = 0;
+    const entry = runwayTurn(a, route.path);
+    a.position = entry.position; a.mode = "taxi";
+    a.speed = entry.speed; a.targetSpeed = route.speed!;
+    let index = 1, rotation = 0;
     for (let i = 0; i < 6000 && index < route.path.length; i++) {
       const before = a.speed, position = {...a.position}, heading = a.heading, oldIndex = index;
       ({index} = moveGround(a, route.path, index, .05, false, {speedLimit: Infinity, travelLimit: Infinity}));
-      assert.ok(Math.abs(a.speed - before) <= DEFAULTS.acceleration * .05 + 1e-8, `${end.id}/${side}/${index}: ${before} -> ${a.speed}`);
+      assert.ok(a.speed - before <= DEFAULTS.acceleration * .05 + 1e-8, `${end.id}/${side}/${index}: bounded acceleration`);
       assert.ok(engine.distance(position, a.position) <= Math.max(before, a.speed) / 3600 * .05 + 1e-7, "no position jump");
       if (a.speed > 1) assert.ok(engine.distance(position, a.position) > 1e-7, `${end.id}/${side}/${index}: a moving speed cannot hide a stop at the endpoint`);
       rotation += Math.abs((a.heading - heading + 540) % 360 - 180);

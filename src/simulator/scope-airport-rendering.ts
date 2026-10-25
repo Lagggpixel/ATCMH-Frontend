@@ -8,11 +8,11 @@ export type MapApproach = NonNullable<ScopeMapData["approaches"]>[number];
 export interface AirportSymbol {airport: ScopeAirport; x: number; y: number; labelWidth: number; pinned: boolean; selected: boolean}
 interface Bounds {left: number; right: number; top: number; bottom: number}
 
-/** Flat-map equivalent of IF's 45-degree vertical FOV. Never use aircraft altitude. */
-export const mapCameraAltitude = (camera: Pick<MapCamera, "scale">, size: Pick<MapSize, "height">) =>
-  size.height * 1852 / (2 * Math.tan(Math.PI / 8) * camera.scale);
+export {mapCameraAltitude} from "./scope-camera";
 export const directApproachesVisible = (altitude: number) => altitude < 800000;
-export const runwayNumbersVisible = (altitude: number) => altitude < 80000;
+/** Use IF's closer general-map label cutoff on the flat scope. Its 80 km ATC
+ * allowance kept numbers visible too far out here; cone visibility is separate. */
+export const runwayNumbersVisible = (altitude: number) => altitude < 20000;
 export const projectMapPoint = (point: Point, camera: MapCamera, size: MapSize) => ({
   x: size.width / 2 + (point.x - camera.center.x) * camera.scale,
   y: size.height / 2 - (point.y - camera.center.y) * camera.scale,

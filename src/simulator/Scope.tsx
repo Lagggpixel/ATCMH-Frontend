@@ -152,8 +152,8 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   // All callers mount the scope after SessionAccess resolves the browser's identity.
   const [preferences] = useState(() => readScopePreferences(preferenceKey));
   const fitted = useRef(Boolean(preferences.camera || cameraStore?.has(cameraKey)));
-  const [size, setSize] = useState({width: 1000, height: 800});
-  const [camera, setCamera] = useState<MapCamera>(() => preferences.camera ? {...preferences.camera, scale: Math.max(radarMode ? .5 : 8, preferences.camera.scale)} : cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
+  const [size, setSize] = useState({width: 0, height: 0});
+  const [camera, setCamera] = useState<MapCamera>(() => preferences.camera ?? cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
   useEffect(() => {cameraStore?.set(cameraKey, camera);}, [cameraStore, cameraKey, camera]);
   const [options, setOptions] = useState(preferences.options);
   const [selectedAirspaces, setSelectedAirspaces] = useState<string[]>([]);
@@ -229,15 +229,15 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     // A new request centers once; ordinary traffic updates must not interrupt panning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
-  const minimumScale = radarMode ? .5 : 8;
-  const navigationCamera = useScopeCamera(camera, setCamera, size, minimumScale);
+  const navigationCamera = useScopeCamera(camera, setCamera, size);
   const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useLayoutEffect(() => {
     const node = container.current;
     if (!node) return;
     const measure = (width: number, height: number) => {
+      if (width <= 0 || height <= 0) return;
       setSize(previous => previous.width === width && previous.height === height ? previous : {width, height});
-      if (!fitted.current) {fitted.current = true; navigationCamera.reset(airportCamera(width, height, frequency === "all"));}
+      if (!fitted.current) {fitted.current = true; navigationCamera.reset(airportCamera(width, height, frequency === "all"), {width, height});}
     };
     const bounds = node.getBoundingClientRect(); measure(bounds.width, bounds.height);
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
@@ -327,15 +327,16 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     for (const feature of AIRPORT.features) {
       if (!options.taxiways && feature.kind !== "runway") continue;
       const runway = feature.kind === "runway";
-      path(feature.points, runway ? IF_MAP_COLORS.runway : ["apron", "terminal", "hangar"].includes(feature.kind) ? "#656565" : IF_MAP_COLORS.taxiway, runway ? 4 : 1);
+      path(feature.points, runway ? IF_MAP_COLORS.runway : ["apron", "terminal", "hangar"].includes(feature.kind) ? "#656565" : IF_MAP_COLORS.taxiway, runway ? 2 : 1);
     }
     const runwayLabel = (id: string, point: Point, color: string) => {
       const p = screen(point);
       if (p.x < -20 || p.x > size.width + 20 || p.y < -10 || p.y > size.height + 10) return;
       ctx.save(); ctx.font = '700 10px "Simulator Fira", sans-serif'; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       const width = ctx.measureText(id).width + 8;
-      ctx.fillStyle = "#000"; ctx.fillRect(p.x - width / 2, p.y - 8, width, 16);
-      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.strokeRect(p.x - width / 2, p.y - 8, width, 16);
+      ctx.beginPath(); ctx.roundRect(p.x - width / 2, p.y - 8, width, 16, 2);
+      ctx.fillStyle = "#000"; ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = color; ctx.fillText(id, p.x, p.y); ctx.restore();
     };
     const controlledInMap = mapLayers.data?.airports.some(item => item.identifier === AIRPORT.icao) ?? false;
@@ -347,17 +348,18 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       // downloading procedure geometry or substituting the exercise's weather.
       if (item.airportIcao !== AIRPORT.icao) {
         // Each runway is supplied twice, once per end; stroke its centerline once.
-        if (g.threshold.x < item.departure.x || g.threshold.x === item.departure.x && g.threshold.y < item.departure.y) path([g.threshold, item.departure], IF_MAP_COLORS.runway, 4);
-      }
-      const color = item.airportIcao === AIRPORT.icao ? runwayWindColor(item.heading, weather ?? EXERCISE_WEATHER) : "#90ee90";
-      if (runwayNumbersVisible(cameraAltitude)) {
-        const dx = g.center.x - g.threshold.x, dy = g.center.y - g.threshold.y, length = Math.hypot(dx, dy);
-        runwayLabel(item.runway, {x: g.threshold.x + dx / length * 150 / 1852, y: g.threshold.y + dy / length * 150 / 1852}, color);
+        if (g.threshold.x < item.departure.x || g.threshold.x === item.departure.x && g.threshold.y < item.departure.y) path([g.threshold, item.departure], IF_MAP_COLORS.runway, 2);
       }
       if (!style) continue;
       path([g.threshold, g.left, g.right, g.threshold], g.color, style.width);
       path([g.threshold, g.center], g.centerColor, style.width);
-      if (style.direct) runwayLabel(item.runway, g.center, color);
+    }
+    // Paint label backgrounds over every cone so their outlines remain clear.
+    if (runwayNumbersVisible(cameraAltitude)) for (const item of approachGuides) {
+      if (!runwayAirports.has(item.airportIcao)) continue;
+      const g = item.guide, dx = g.center.x - g.threshold.x, dy = g.center.y - g.threshold.y, length = Math.hypot(dx, dy);
+      const color = item.airportIcao === AIRPORT.icao ? runwayWindColor(item.heading, weather ?? EXERCISE_WEATHER) : "#90ee90";
+      runwayLabel(item.runway, {x: g.threshold.x + dx / length * 150 / 1852, y: g.threshold.y + dy / length * 150 / 1852}, color);
     }
     for (const symbol of renderedAirports) {
       const item = symbol.airport, activity = airportActivity.get(item.identifier);

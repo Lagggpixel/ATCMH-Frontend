@@ -950,9 +950,13 @@
   .menteeSimulator {grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * .75px)}
 }
 
-/* Match the layout's real status-bar surface, including standalone launch fallback. */
-.simulator {--simulator-safe-top:var(--sweatbox-safe-top,max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));box-sizing:border-box;height:100dvh;bottom:auto}
+/* Match the layout's status-bar surface using only the reported top safe area. */
+.simulator {--simulator-safe-top:var(--sweatbox-safe-top,env(safe-area-inset-top,0px));box-sizing:border-box;height:100dvh;bottom:auto}
 .simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+/* The controller scope runs to the bottom edge; only the top keeps its safe-area inset. */
+.menteeSimulator {padding-bottom:0}
+.menteeSimulator .aircraftInformation {bottom:0}
+.menteeSimulator .commandPanel {bottom:calc(5 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - var(--simulator-safe-top) - 10 * var(--controller-unit)))}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
 @media(max-width:600px) and (orientation:portrait) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
 /* IF 26.4 DisplayInformation uses a .65 display scale for phones. Keep the
@@ -973,29 +977,36 @@
 }
 /* IF 26.4: shared native font and display scale, 5:3:2 strip columns. */
 .menteeSimulator .rightPanel {padding:0 calc(2 * var(--controller-unit));border-left:0}
-.menteeSimulator .strip {grid-template-columns:minmax(0,8fr) minmax(0,2fr);font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .strip {grid-template-columns:minmax(0,8fr) minmax(0,2fr);font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
 .menteeSimulator .stripBody {grid-template-columns:minmax(0,5fr) minmax(0,3fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:0;padding:0!important;font:inherit!important;min-width:0;min-height:0}
 .menteeSimulator .stripBody>span {display:flex;align-items:center;min-width:0;overflow:hidden;font:inherit;white-space:normal;overflow-wrap:normal}
 .menteeSimulator .stripBody>span:first-child {font:inherit;margin-left:calc(4 * var(--controller-unit));white-space:nowrap}
-.menteeSimulator .stripBody>span:nth-child(2) {justify-content:center;font:400 calc(14 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .stripBody>span:nth-child(2) {justify-content:center;font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
 .menteeSimulator .stripBody>span:nth-child(2)::before {content:none}
 .menteeSimulator .stripBody>span:nth-child(3) {font:inherit;margin-left:calc(4 * var(--controller-unit))}
 .menteeSimulator .stripBody>span:nth-child(4) {justify-content:center;text-align:center}
 .menteeSimulator .strip .atcButton {font:inherit!important;margin:calc(3 * var(--controller-unit));padding:0!important;min-width:0;overflow-wrap:normal}
 .menteeSimulator .atcButton i {width:calc(12 * var(--controller-unit));height:calc(12 * var(--controller-unit));bottom:calc(12 * var(--controller-unit));right:calc(12 * var(--controller-unit))}
-.menteeSimulator .compactMessageLog,.menteeSimulator .commandPanel .compactMessageLog {font:400 calc(14 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif}
-.menteeSimulator .commandPanel {--command-text-unit:var(--controller-unit);font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
-.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
+.menteeSimulator .compactMessageLog,.menteeSimulator .commandPanel .compactMessageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .commandPanel {--command-text-unit:var(--controller-font-unit,var(--controller-unit));font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
+.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
 .menteeSimulator .commandPanel .messageEntries button>span,.menteeSimulator .commandPanel .messageEntries .sendLabel {font:inherit}
-.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400;text-transform:uppercase}
-.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400}
+.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400;text-transform:uppercase}
+.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400}
 @media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
   .menteeSimulator {--controller-unit:.75px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit))}
 }
 
+/* IF's native text uses points at 96 DPI (96/72), independently of UI
+   geometry. Tablet .75 and phone .65 layout scales remain unchanged. */
+@media (any-pointer:coarse) and (min-width:568px) {
+  .menteeSimulator {--controller-font-unit:calc(var(--controller-unit) * 4 / 3)}
+  .menteeSimulator .topBanner>span:first-child {font:400 calc(12 * var(--controller-font-unit))/1.25 "Simulator IF Fira",sans-serif}
+}
+
 /* IF 26.4 aircraft text and independent symbols alongside its text block. */
-.scope .aircraftTag {font-family:"Simulator IF Fira",sans-serif;font-size:calc(10 * var(--controller-unit,1px))!important;font-weight:400;text-shadow:1px 1px #000}
-.aircraftTag .labelIndicators {position:absolute;right:100%;top:2px;margin-right:4px;font:400 calc(14 * var(--controller-unit,1px))/1 "Simulator Aircraft";text-align:center}
+.scope .aircraftTag {font-family:"Simulator IF Fira",sans-serif;font-size:calc(10 * var(--controller-font-unit,var(--controller-unit,1px)))!important;font-weight:400;text-shadow:1px 1px #000}
+.aircraftTag .labelIndicators {position:absolute;right:100%;top:2px;margin-right:4px;font:400 calc(10 * var(--controller-font-unit,var(--controller-unit,1px)))/1 "Simulator Aircraft";text-align:center}
 .labelIndicators .labelHold {color:#ffa500}
 .labelIndicators .labelReminder {color:#90ee90}
 .labelIndicators .tagColorDot {position:static;display:block;width:calc(10 * var(--controller-unit,1px));height:calc(10 * var(--controller-unit,1px));margin:2px auto;border-radius:50%;box-shadow:1px 1px #000}

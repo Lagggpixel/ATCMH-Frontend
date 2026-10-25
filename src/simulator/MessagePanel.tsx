@@ -83,7 +83,10 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
   const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
   const menuAircraft = holdTarget && aircraft.radar ? {...aircraft, radar: {...aircraft.radar, routeIndex: holdTarget.index}} : aircraft;
-  const root = requestMessageMenu(frequency, menuAircraft, pilotMessage, exercise.aircraft, exercise.messages);
+  const root = requestMessageMenu(frequency, menuAircraft, pilotMessage, exercise.aircraft, exercise.messages).filter(item => {
+    const command = item.instruction ?? item.children?.[0]?.instruction;
+    return command?.type !== "radio" || command.message !== "unable" || connected && !validateControllerMessage(exercise, aircraft, command, frequency, pilotMessage?.id);
+  });
   const path: MenuEntry[] = [];
   for (const label of pathLabels) {
     const entry = (path.at(-1)?.children ?? root).find(item => item.id === label || item.label === label);

@@ -6,9 +6,25 @@ const length = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a: Point, b: Point) => ({x: (a.x + b.x) / 2, y: (a.y + b.y) / 2});
 const DECAY = 5;
 
+// IF 26.4's active ATC MapControl: 100 m minimum, OrbitCamera's 10,000 km maximum.
+// Convert its 45-degree vertical FOV to CSS px/NM for Sweatbox's flat map.
+export const MIN_MAP_CAMERA_ALTITUDE = 100;
+export const MAX_MAP_CAMERA_ALTITUDE = 10000000;
+const projection = 1852 / (2 * Math.tan(Math.PI / 8));
+export const mapCameraScale = (altitude: number, height: number) => Math.max(1, height) * projection / altitude;
+export const mapCameraAltitude = (camera: Pick<MapCamera, "scale">, size: Pick<MapSize, "height">) =>
+  Math.max(1, size.height) * projection / camera.scale;
+
+/** Restore/fitting/resize use the same bounds as every zoom gesture. */
+export function clampCamera(camera: MapCamera, size: MapSize): MapCamera {
+  const scale = Math.max(mapCameraScale(MAX_MAP_CAMERA_ALTITUDE, size.height),
+    Math.min(mapCameraScale(MIN_MAP_CAMERA_ALTITUDE, size.height), camera.scale));
+  return scale === camera.scale ? camera : {...camera, scale};
+}
+
 /** Move the geographic point under `from` to `to`, including at the zoom limits. */
-export function transformCamera(camera: MapCamera, size: MapSize, from: Point, to: Point, factor: number, minimum: number): MapCamera {
-  const scale = Math.max(minimum, Math.min(1800, camera.scale * factor));
+export function transformCamera(camera: MapCamera, size: MapSize, from: Point, to: Point, factor: number): MapCamera {
+  const {scale} = clampCamera({...camera, scale: camera.scale * factor}, size);
   return {scale, center: {
     x: camera.center.x + (from.x - size.width / 2) / camera.scale - (to.x - size.width / 2) / scale,
     y: camera.center.y - (from.y - size.height / 2) / camera.scale + (to.y - size.height / 2) / scale,
@@ -24,11 +40,11 @@ export class ScopeCameraMotion {
   private velocity = {x: 0, y: 0};
   private zoomVelocity = 0;
 
-  constructor(public camera: MapCamera, public size: MapSize, public minimum: number) {}
+  constructor(public camera: MapCamera, public size: MapSize) {this.camera = clampCamera(camera, size);}
 
   stop() {this.velocity = {x: 0, y: 0}; this.zoomVelocity = 0;}
 
-  reset(camera: MapCamera) {this.cancel(); this.camera = camera;}
+  reset(camera: MapCamera) {this.cancel(); this.camera = clampCamera(camera, this.size);}
 
   down(id: number, point: Point, at: number, type: string, doubleTap = true) {
     this.stop();
@@ -52,14 +68,14 @@ export class ScopeCameraMotion {
     if (navigate && this.pointers.size === 2) {
       const other = [...this.pointers.entries()].find(([key]) => key !== id)![1];
       const before = length(previous, other), after = length(point, other);
-      this.camera = transformCamera(this.camera, this.size, midpoint(previous, other), midpoint(point, other), before > 1 && after > 1 ? after / before : 1, this.minimum);
+      this.camera = transformCamera(this.camera, this.size, midpoint(previous, other), midpoint(point, other), before > 1 && after > 1 ? after / before : 1);
       this.stop();
     } else if (navigate && this.pointers.size === 1) {
       if (this.doubleZoom) {
         const {camera, point: anchor} = this.doubleZoom;
-        this.camera = transformCamera(camera, this.size, anchor, anchor, Math.exp((anchor.y - point.y) / 75), this.minimum);
+        this.camera = transformCamera(camera, this.size, anchor, anchor, Math.exp((anchor.y - point.y) / 75));
       } else if (drag.moved) {
-        this.camera = transformCamera(this.camera, this.size, previous, point, 1, this.minimum);
+        this.camera = transformCamera(this.camera, this.size, previous, point, 1);
         const elapsed = Math.max(8, at - drag.at);
         this.velocity = {x: (point.x - previous.x) / elapsed * 1000, y: (point.y - previous.y) / elapsed * 1000};
       }
@@ -95,7 +111,7 @@ export class ScopeCameraMotion {
   magnify(point: Point, factor: number) {
     if (!Number.isFinite(factor) || factor <= 0) return;
     this.cancel();
-    this.camera = transformCamera(this.camera, this.size, point, point, factor, this.minimum);
+    this.camera = transformCamera(this.camera, this.size, point, point, factor);
   }
 
   zoom(factor: number) {this.cancel(); this.zoomVelocity = Math.log(factor) * DECAY;}
@@ -105,7 +121,7 @@ export class ScopeCameraMotion {
     const elapsed = Math.max(0, Math.min(64, milliseconds)) / 1000;
     const decay = Math.exp(-DECAY * elapsed), travel = (1 - decay) / DECAY;
     const center = {x: this.size.width / 2, y: this.size.height / 2};
-    this.camera = transformCamera(this.camera, this.size, center, {x: center.x + this.velocity.x * travel, y: center.y + this.velocity.y * travel}, Math.exp(this.zoomVelocity * travel), this.minimum);
+    this.camera = transformCamera(this.camera, this.size, center, {x: center.x + this.velocity.x * travel, y: center.y + this.velocity.y * travel}, Math.exp(this.zoomVelocity * travel));
     this.velocity.x *= decay; this.velocity.y *= decay; this.zoomVelocity *= decay;
     if (Math.hypot(this.velocity.x, this.velocity.y) < 2) this.velocity = {x: 0, y: 0};
     if (Math.abs(this.zoomVelocity) < .002) this.zoomVelocity = 0;

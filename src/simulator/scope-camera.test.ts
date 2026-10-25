@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {ScopeCameraMotion, transformCamera, type MapCamera} from "./scope-camera";
+import {clampCamera, mapCameraAltitude, mapCameraScale, ScopeCameraMotion, transformCamera, type MapCamera} from "./scope-camera";
 
 const size = {width: 1000, height: 800};
 const point = {x: 700, y: 300};
 const initial = (): MapCamera => ({center: {x: 3, y: -5}, scale: 100});
-const fixture = () => new ScopeCameraMotion(initial(), size, .5);
+const fixture = () => new ScopeCameraMotion(initial(), size);
 const world = (camera: MapCamera, p = point) => ({x: camera.center.x + (p.x - size.width / 2) / camera.scale, y: camera.center.y - (p.y - size.height / 2) / camera.scale});
 const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 function samePoint(a: {x: number; y: number}, b: {x: number; y: number}) {close(a.x, b.x); close(a.y, b.y);}
@@ -110,8 +110,57 @@ test("wheel pixels/lines/pages and trackpad magnification anchor both zoom direc
 test("clamped zoom still anchors the pointer and respects scope limits", () => {
   for (const scale of [.5, 8, 1800]) for (const factor of [.000001, 1000000]) {
     const before = {...initial(), scale}, anchor = world(before);
-    const after = transformCamera(before, size, point, point, factor, .5);
-    assert.ok(after.scale >= .5 && after.scale <= 1800); samePoint(world(after), anchor);
+    const after = transformCamera(before, size, point, point, factor);
+    close(mapCameraAltitude(after, size), factor < 1 ? 10000000 : 100); samePoint(world(after), anchor);
+  }
+});
+
+test("all viewport heights have IF's 100 m to 10,000 km limits without the old scale caps", () => {
+  for (const height of [390, 768, 800, 1000, 2160]) {
+    const viewport = {...size, height};
+    const nearest = clampCamera({...initial(), scale: 1e9}, viewport);
+    const furthest = clampCamera({...initial(), scale: 1e-9}, viewport);
+    close(mapCameraAltitude(nearest, viewport), 100);
+    close(mapCameraAltitude(furthest, viewport) / 10000000, 1);
+    assert.ok(nearest.scale > 1800); assert.ok(furthest.scale < .5);
+    close(nearest.scale / furthest.scale, 100000);
+    close(mapCameraScale(100, height), nearest.scale);
+    samePoint(nearest.center, initial().center); samePoint(furthest.center, initial().center);
+    assert.equal(clampCamera(initial(), viewport).scale, 100);
+  }
+});
+
+test("camera restore, recentering and viewport resize clamp to the current height", () => {
+  const m = new ScopeCameraMotion({...initial(), scale: 1e9}, size);
+  close(mapCameraAltitude(m.camera, size), 100);
+  m.reset({...initial(), scale: 1e-9});
+  close(mapCameraAltitude(m.camera, size) / 10000000, 1);
+  const shorter = {...size, height: 390};
+  m.reset({...initial(), scale: mapCameraScale(100, size.height)});
+  const resized = clampCamera(m.camera, shorter);
+  close(mapCameraAltitude(resized, shorter), 100);
+  samePoint(resized.center, initial().center);
+  assert.ok(Number.isFinite(clampCamera(initial(), {...size, height: 0}).scale));
+});
+
+test("wheel, native magnification, pinch, double-press and animated buttons obey both bounds", () => {
+  for (const direction of [-1, 1]) {
+    const expected = direction > 0 ? 100 : 10000000;
+    const check = (m: ScopeCameraMotion) => close(mapCameraAltitude(m.camera, size) / expected, 1);
+    const wheel = fixture();
+    for (let i = 0; i < 5; i++) wheel.wheel(point, -direction * 1e6, 0, true);
+    check(wheel);
+    const native = fixture(); native.magnify(point, direction > 0 ? 1e9 : 1e-9); check(native);
+    const pinch = fixture();
+    pinch.down(1, point, 0, "touch"); pinch.down(2, {x: point.x + 100, y: point.y}, 1, "touch");
+    if (direction > 0) pinch.move(2, {x: point.x + 1e9, y: point.y}, 20);
+    else {pinch.camera.scale = mapCameraScale(10000000, size.height) * 2; pinch.move(2, {x: point.x + 2, y: point.y}, 20);}
+    check(pinch);
+    const double = fixture(); double.down(1, point, 0, "touch"); double.up(1, 10);
+    double.down(1, point, 100, "touch"); double.move(1, {x: point.x, y: point.y - direction * 3000}, 120); check(double);
+    const buttons = fixture(); buttons.zoom(direction > 0 ? 1e9 : 1e-9);
+    for (let i = 0; i < 300; i++) buttons.step(16);
+    check(buttons);
   }
 });
 

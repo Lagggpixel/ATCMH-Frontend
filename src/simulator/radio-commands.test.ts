@@ -72,10 +72,10 @@ test("Disregard targets only the immediate previous transmission to that aircraf
   assert.equal(state.messages[1].retractedBy, state.messages[3].id);
   assert.equal(state.messages[2].retractedBy, undefined);
   assert.equal(tick(state).aircraft[1].holding, true, "the earlier movement instruction was not the withdrawn message");
-  assert.match(applyEnvelope(initialExercise(), {id: "empty", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", command: {type: "radio", message: "disregard"}, text: "Disregard"}}).error!, /no previous controller message/);
+  assert.equal(applyEnvelope(initialExercise(), {id: "empty", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", command: {type: "radio", message: "disregard"}, text: "Disregard"}}).error, undefined);
 });
 
-test("controller Unable replies only to the current pilot request, including runway changes", () => {
+test("controller Unable requires a pilot request and permits replying to an older runway-change request", () => {
   let state = act(active(), {kind: "pilot", aircraftId: "demo-air", text: "Speedbird 124, requesting Runway 06"});
   const request = pendingPilotMessage(state, "demo-air", "tower")!;
   state = send(state, {type: "radio", message: "standby"}, "demo-air");
@@ -87,7 +87,7 @@ test("controller Unable replies only to the current pilot request, including run
   assert.equal(pendingPilotMessage(state, "demo-air", "tower"), undefined);
   assert.deepEqual(state.aircraft[0], before); assert.equal(tick(state).messages.length, state.messages.length);
   const action: Action = {kind: "command", aircraftId: "demo-air", frequency: "tower", command: {type: "radio", message: "unable"}, text: "Unable", replyTo: request.id};
-  assert.match(applyEnvelope(state, {id: "stale-unable", time: 1, action}).error!, /answered or superseded/);
+  assert.equal(applyEnvelope(state, {id: "stale-unable", time: 1, action}).error, undefined);
   delete action.replyTo;
   assert.match(applyEnvelope(state, {id: "standalone-unable", time: 1, action}).error!, /only as a reply/);
   assert.ok(envelopeSchema.safeParse({id: "radio", time: 1, action}).success); assert.ok(menteeActionAllowed(action));

@@ -1,7 +1,7 @@
 /** Sweatbox tours: short hands-on tracks. Pure data and helpers; the browser parts live in StaffTutorial.tsx. */
 
-export type TrackId = "start-share" | "run-radar" | "taxi" | "flight-plans" | "add-aircraft" | "full-stop" | "mentee-first";
-export type TourScope = "home" | "radar" | "mentee";
+export type TrackId = "start-share" | "run-radar" | "taxi" | "flight-plans" | "add-aircraft" | "full-stop";
+export type TourScope = "home" | "radar";
 
 /** A control on the page: a data-simulator-tour name, or a selector optionally narrowed by its visible text. */
 export interface TourTarget {tour?: string; selector?: string; text?: readonly string[]}
@@ -53,12 +53,6 @@ export const TRACKS: readonly TourTrack[] = [
   {id: "full-stop", scope: "radar", isNew: true, title: "Full stop for everyone", summary: "One FS toggle lands every aircraft, and undoes it.", length: "2 steps", steps: [
     {target: FS, fallback: tour("traffic"), title: "Full stop for everyone", text: "FS sets every aircraft to land with a full stop. It stays highlighted while it is on.", task: "Press FS", hint: "FS needs at least one aircraft.", done: [{kind: "present", target: {selector: `${FS.selector}[aria-pressed="true"]`}}]},
     {target: FS, fallback: tour("traffic"), title: "Undo it the same way", text: "Press FS again and each aircraft goes back to the landing it had before.", task: "Press FS again", done: [{kind: "present", target: {selector: `${FS.selector}[aria-pressed="false"]`}}]},
-  ]},
-  {id: "mentee-first", scope: "mentee", title: "Your first session", summary: "The scope, selecting aircraft and giving a taxi route.", length: "4 steps", steps: [
-    {target: tour("radar"), title: "You are the controller", text: "Your Mentor flies every aircraft and plays the pilots. You give the instructions on this scope."},
-    {target: tour("radar"), title: "Select an aircraft", text: "Click an aircraft on the scope to see its flight plan and your options."},
-    {target: tour("radar"), title: "Drag a taxi route", text: "With a ground aircraft selected, drag along the taxiways to build the taxi instruction, then send it."},
-    {title: "Paused means talk", text: "When your Mentor pauses, everything freezes so you can go over what happened. Nothing is lost.", hint: "You can replay this tour from Help."},
   ]},
 ];
 

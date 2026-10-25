@@ -39,7 +39,7 @@ test("the suggested track is the one in progress, then the first not done", () =
   assert.equal(suggestedTrack(emptyProgress(), ["home", "radar"]), "start-share");
   assert.equal(suggestedTrack({...emptyProgress(), done: ["start-share", "run-radar"]}, ["home", "radar"]), "taxi");
   assert.equal(suggestedTrack(startTrack(emptyProgress(), "full-stop"), ["home", "radar"]), "full-stop");
-  assert.equal(suggestedTrack(startTrack(emptyProgress(), "mentee-first"), ["radar"]), "run-radar");
+  assert.equal(suggestedTrack(startTrack(emptyProgress(), "start-share"), ["radar"]), "run-radar");
 });
 
 test("targets match by selector, visible text and usability", () => {

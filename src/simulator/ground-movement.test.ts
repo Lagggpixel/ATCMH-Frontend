@@ -17,6 +17,44 @@ const exercise = (aircraft: Aircraft[]): Exercise => ({...initialExercise(), air
 
 const turn = (a: number, b: number) => Math.abs((b - a + 540) % 360 - 180);
 
+test("short taxi turns stay inside their route instead of overshooting and circling back", () => {
+  for (const gap of [.001, .003, .01, .03, .1]) for (const length of [.001, .003, .01, .03, .1]) {
+    for (const bend of [-175, -135, -90, -45, -15, 15, 45, 90, 135, 175]) for (const speed of [3, 15, 20, 25, 35]) {
+      const angle = bend * Math.PI / 180;
+      const path = [{x: 0, y: gap}, {x: Math.sin(angle) * length, y: gap + Math.cos(angle) * length}];
+      const a: Aircraft = {...taxi("tight-turn", 0), heading: 0, speed, targetSpeed: speed, expedited: speed === 25,
+        ...(speed === 35 ? {arrivalExit: {instruction: "exit-runway", speed: 35}} : {})};
+      let index = 0, rotation = 0;
+      const label = `${gap}/${length}/${bend}/${speed}`;
+      for (let frame = 0; frame < 6000 && index < path.length; frame++) {
+        const previous = {...a.position}, previousHeading = a.heading, previousIndex = index, previousSpeed = a.speed;
+        ({index} = moveGround(a, path, index, .05, false, {speedLimit: Infinity, travelLimit: Infinity}));
+        assert.ok(a.position.y <= Math.max(path[0].y, path[1].y) + 1.02 / 1852, `${label}: overshot the turn`);
+        assert.ok(distance(previous, a.position) <= Math.max(previousSpeed, a.speed) / 3600 * .05 + 1e-7, `${label}: no teleport`);
+        assert.ok(turn(previousHeading, a.heading) <= GROUND.turnRate * .05 + 1e-7, `${label}: no heading snap`);
+        rotation += turn(previousHeading, a.heading);
+        assert.ok(rotation < 360, `${label}: circled a missed waypoint`);
+        if (index !== previousIndex) rotation = 0;
+      }
+      assert.equal(index, path.length, `${label}: route completes`);
+      assert.deepEqual(a.position, path.at(-1));
+      assert.equal(a.speed, 0);
+    }
+  }
+});
+
+test("slow taxi traffic rounds a corner close to the centreline instead of cutting across the junction", () => {
+  const a: Aircraft = {...taxi("slow-turn", 0), heading: 0, speed: 3, targetSpeed: 3};
+  const path = [{x: 0, y: .1}, {x: .1, y: .1}];
+  let index = 0;
+  for (let frame = 0; frame < 30000 && index < path.length; frame++) {
+    ({index} = moveGround(a, path, index, .05, false, {speedLimit: Infinity, travelLimit: Infinity}));
+    const offset = Math.min(Math.abs(a.position.x), Math.abs(a.position.y - .1));
+    assert.ok(offset < 2 / 1852, "a slow turn remains within two metres of the mapped centreline");
+  }
+  assert.equal(index, path.length);
+});
+
 test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting intermediate waypoints", () => {
   let completed = 0;
   for (const feature of AIRPORT.features.filter(f => f.kind === "parking_position" || f.name === "S" || f.name === "G")) {

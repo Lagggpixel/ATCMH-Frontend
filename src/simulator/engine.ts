@@ -9,11 +9,12 @@ import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
 import {moveOwnRoute} from "./command-navigation";
 import {crossingHold, runwayContinuation} from "./command-ground";
 import {advanceAirportSighting, airportSightingReady} from "./airport-sighting";
+import {controllerInstruction, diversionRequestDestination} from "./controller-message-context";
 import {assignReference, moveReference, pilotReadback, referenceInstructionError} from "./reference-commands";
 import {turnAircraft, bankTurnLead} from "./banked-turns";
 import {groundRouteError, groundRouteJoin} from "./ground-route";
 import {planTaxiRoute, planParkingRoute} from "./taxi-routing";
-import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, type GroundGuidance} from "./ground-movement";
+import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGround, planPushback, runwayTurn, type GroundGuidance} from "./ground-movement";
 import {currentAtisOptions, atisFrequencies, atisSelectionText} from "./atis-options";
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
@@ -275,7 +276,7 @@ function validateInstruction(a: Aircraft, command: Instruction, frequency?: stri
 }
 
 function validateAssignment(a: Aircraft, command: Instruction, frequency?: string, traffic: Aircraft[] = []): string | null {
-  if (command.type === "atc") return referenceInstructionError(a, command, AIRPORT, traffic);
+  if (command.type === "atc") return referenceInstructionError(a, command, AIRPORT, traffic, true);
   if (command.type === "radio") return "Radio messages do not assign aircraft movement.";
   if (a.radar && !["vector", "expect-approach", "missed-approach", "route", "heading", "speed", "radar-speed", "frequency"].includes(command.type)) return "This instruction is unavailable in radar training.";
   const invalid = validateInstruction(a, command, frequency, traffic); if (invalid) return invalid;
@@ -437,11 +438,15 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
   const chosen = planned[0];
   if (chosen) {
     let forward = chosen.along;
-    const path = chosen.path.map((p, index) => {
-      if (index === 0) return p;
+    const path: Point[] = [];
+    chosen.path.forEach((p, index) => {
+      if (index === 0) {path.push(p); return;}
       const along = runwayCoordinates(p, g).along;
       forward = Math.max(forward, along);
-      return add(p, g.vector, forward - along);
+      const next = add(p, g.vector, forward - along);
+      // Rounded runway/connector intersections can differ by centimetres.
+      // Keep the entrance and endpoint, without creating phantom tiny turns.
+      if (index === 1 || index === chosen.path.length - 1 || distance(path.at(-1)!, next) >= 1 / 1852) path.push(next);
     });
     return {...chosen, path, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
   }
@@ -658,12 +663,10 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
   if (state.processed.includes(envelope.id)) return {state};
   const next = structuredClone(state);
   let action = envelope.action;
-  if (action.kind === "command" && action.replyTo && pendingPilotMessage(next, action.aircraftId, action.frequency)?.id !== action.replyTo && !requiresPilotReply(action.command)) {
-    action = {...action, replyTo: undefined};
-  }
   const invalidRunway = runwayReferenceError(action, AIRPORT);
   if (invalidRunway) return {state, error: invalidRunway};
-  const aircraft = "aircraftId" in action ? next.aircraft.find(a => a.id === action.aircraftId) : undefined;
+  const aircraftId = "aircraftId" in action ? action.aircraftId : undefined;
+  const aircraft = aircraftId ? next.aircraft.find(a => a.id === aircraftId) : undefined;
   if ("aircraftId" in action && !aircraft) return {state, error: "Aircraft no longer exists."};
   if (action.kind === "spawn" || action.kind === "edit") {
     const edited = action.kind === "spawn" ? action.aircraft : {...aircraft!, ...action.patch};
@@ -698,8 +701,12 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       }
     }
   }
+  if (action.kind === "command" && !action.resendOf) {
+    const {replyTo} = action;
+    action = {...action, command: controllerInstruction(aircraft!, action.command, radarEnvironment, next.messages.find(m => m.id === replyTo), action.frequency)};
+  }
   if (action.kind === "command" || action.kind === "maneuver") {
-    const error = action.kind === "command" ? validateControllerMessage(next, aircraft!, action.command, action.frequency, action.replyTo) : validateAssignment(aircraft!, action.command, undefined, next.aircraft);
+    const error = action.kind === "command" ? validateControllerMessage(next, aircraft!, action.command, action.frequency, action.replyTo, !action.resendOf) : validateAssignment(aircraft!, action.command, undefined, next.aircraft);
     if (error) return {state, error};
     if (action.kind === "maneuver") {
       if(["expect-approach","vector","missed-approach","route","runway","taxi","lineup","takeoff","land","pattern","go-around","cancel-landing"].includes(action.command.type))delete aircraft!.assigned;
@@ -805,7 +812,8 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
         if (command.instruction.type === "pattern" && command.instruction.sequence && (aircraft!.runway !== previousRunway || aircraft!.circuit !== previousCircuit || !wasArrival)) assignSequence(next.aircraft, aircraft!, command.instruction);
         if (command.instruction.type !== "frequency") aircraft!.lastRunway = aircraft!.runway ?? aircraft!.lastRunway;
       }
-      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, ...(!action.assign && !action.request && /^Unable\b/i.test(pilotText) ? {unableReason: (command && commandUnableReason(aircraft!, command, next.aircraft)) ?? "Declined by mentor."} : {}), commandId: action.replyTo, read: !!action.replyTo, ...(action.request ? {request: action.request, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
+      const requestSelection = action.request?.id === "diversion" ? {...action.request, destination: aircraft!.diversionDestination ? structuredClone(aircraft!.diversionDestination) : undefined} : action.request;
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: command?.frequency ?? aircraft!.frequency!, sender: "pilot", text: pilotText, ...(!action.assign && !action.request && /^Unable\b/i.test(pilotText) ? {unableReason: (command && commandUnableReason(aircraft!, command, next.aircraft)) ?? "Declined by mentor."} : {}), commandId: action.replyTo, read: !!action.replyTo, ...(requestSelection ? {request: requestSelection, requestCircuit: aircraft!.circuit ?? 0} : {})}); break;
     }
     case "command": {
       let c = roundedHeadingInstruction(action.command);
@@ -832,8 +840,9 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       const original = action.resendOf ? next.messages.find(m => m.id === action.resendOf && m.sender === "controller" && m.aircraftId === aircraft!.id && m.frequency === action.frequency) : undefined;
       if (action.resendOf && (!original?.instruction || JSON.stringify(original.instruction) !== JSON.stringify(c))) return {state, error: "The original controller message is unavailable."};
       const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment, AIRPORT);
+      const referenceText = c.type === "atc" ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) : undefined;
       const groundText = c.type === "taxi" ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) + (calculatedHold ? `, hold short${calculatedHold.runway ? ` of runway ${calculatedHold.runway}` : " at waypoint"}` : "") : undefined;
-      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : referenceText ?? groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
     }
   }
   for (const a of next.aircraft) {
@@ -855,10 +864,10 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
 
 const AUTO_READBACK_DELAY = 1.5;
 
-function requiresPilotReply(command: Instruction) {
-  return command.type === "radio" && command.message === "unable" || command.type === "go-around" && command.response || command.type === "atc" && ["flight-following", "radar-vectors", "star-response", "emergency"].includes(command.action);
-}
-function validateControllerMessage(state: Exercise, a: Aircraft, command: Instruction, frequency: Frequency, replyTo?: string): string | null {
+function validateControllerMessage(state: Exercise, a: Aircraft, command: Instruction, frequency: Frequency, replyTo?: string, resolveContext = true): string | null {
+  const request = state.messages.find(m => m.id === replyTo && m.aircraftId === a.id && m.frequency === frequency && m.sender === "pilot" && !m.commandId);
+  if (resolveContext) command = controllerInstruction(a, command, radarEnvironment, request, frequency);
+  if (resolveContext && command.type === "atc" && command.action === "diversion" && !diversionRequestDestination(a, request, frequency)) return "A diversion reply requires a pilot request with a destination airport.";
   if (command.type === "frequency" && command.frequency !== null) {
     const allowed = availableHandoffs(a, AIRPORT, frequency, radarEnvironment.facilities, radarEnvironment).filter(f => facilityActive(f, radarEnvironment));
     if (!allowed.some(f => f.type === command.frequency && (!command.facilityId || f.id === command.facilityId))) return "Choose the other local controller frequency, Traffic in radar training, or Frequency Change Approved.";
@@ -874,9 +883,7 @@ function validateControllerMessage(state: Exercise, a: Aircraft, command: Instru
     if (command.type === "frequency" && command.frequency === "atis") return "Transfer to a controller frequency.";
   } else if (["vector", "expect-approach", "missed-approach", "route"].includes(command.type)) return "This instruction requires Approach or Center training.";
   const invalid = validateInstruction(a, command, frequency, state.aircraft); if (invalid) return invalid;
-  if (replyTo && requiresPilotReply(command) && pendingPilotMessage(state, a.id, frequency)?.id !== replyTo) return "This pilot message has already been answered or superseded.";
-  if (command.type === "radio" && command.message === "unable" && !replyTo) return "Unable is available only as a reply to a pilot message.";
-  if (command.type === "radio" && command.message === "disregard" && !state.messages.some(m => m.aircraftId === a.id && m.sender === "controller" && m.frequency === frequency)) return "There is no previous controller message to disregard on this frequency.";
+  if (command.type === "radio" && command.message === "unable" && !request) return "Unable is available only as a reply to a pilot message.";
   return null;
 }
 
@@ -1307,18 +1314,19 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       if (!a.runwayExit || a.conflictMotion?.slowExit && a.arrivalExit?.instruction === "automatic" && a.arrivalExit.braking === undefined) queueRunwayExit(a, "any", "automatic");
       else if (!a.arrivalExit) a.arrivalExit = {instruction: "exit-runway", speed: 15}; // Legacy assigned exits.
       const along = runwayCoordinates(a.position, g).along;
-      const entry = a.runwayExit?.[1], entryAlong = entry ? runwayCoordinates(entry, g).along : Infinity;
+      const turn = a.runwayExit ? runwayTurn(a, a.runwayExit) : undefined;
+      const entry = turn?.position, entryAlong = entry ? runwayCoordinates(entry, g).along : Infinity;
       if (entry && entryAlong < along - .001) {
         delete a.runwayExit; delete a.arrivalExit; return;
       }
-      const exitSpeed = entry ? a.arrivalExit?.speed ?? 15 : 0;
+      const exitSpeed = turn?.speed ?? 0;
       const stopAlong = Math.max(along, distance(g.threshold, g.departure) - .02);
       const remaining = Math.max(.00001, (entry ? entryAlong : stopAlong) - along);
       // Spread braking over the distance to the chosen connector instead of
       // reaching taxi speed early and crawling down the rest of the runway.
       const required = Math.max(.0001, (a.speed ** 2 - exitSpeed ** 2) / (2 * remaining * 3600));
       const paced = a.arrivalExit?.instruction === "automatic" ? a.conflictMotion?.speedLimit : undefined;
-      const targetSpeed = Math.min(exitSpeed, paced ?? Infinity);
+      const targetSpeed = Math.min(paced ?? exitSpeed, Math.sqrt((acceleration(a) * dt) ** 2 + exitSpeed ** 2 + 2 * acceleration(a) * remaining * 3600) - acceleration(a) * dt);
       const braking = paced === undefined && a.speed > exitSpeed ? required : Math.max(acceleration(a), required);
       const previousSpeed = a.speed;
       a.targetSpeed = targetSpeed;
@@ -1329,7 +1337,8 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       if (entry && nextAlong >= entryAlong - 1e-8) {
         a.speed = Math.min(a.speed, exitSpeed);
         a.position = {...entry}; a.taxiPath = a.runwayExit!; delete a.runwayExit;
-        a.taxiIndex = 2; a.mode = "taxi"; a.releasedHold = null;
+        a.taxiIndex = 1; a.mode = "taxi"; a.releasedHold = null;
+        a.targetSpeed = a.arrivalExit?.speed ?? 15;
         if (a.radar?.arrival) a.radar.arrival.phase = "vacating";
       } else if (!entry && (a.speed === 0 || nextAlong >= stopAlong)) {
         if (a.radar?.arrival) a.radar.arrival.phase = "stopped";

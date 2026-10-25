@@ -8,6 +8,7 @@ import {runwayOccupied} from "./runway-safety";
 import {applyReplayDelta, replayDelta} from "./replays";
 import {moveRadar, radarEnvironmentFor} from "./radar";
 import {prepareConflicts} from "./training-conflicts";
+import {runwayTurn} from "./ground-movement";
 
 // Physical state at the reported KDAL pairing, with session/account/radio data removed.
 function reportedPair() {
@@ -217,7 +218,7 @@ test("mapping skew is bounded cumulatively and real backward exits stay unavaila
   }
 });
 
-test("paired GA and recorded KDAL exit keep the leader rolling at least 15 kt until its exit", () => {
+test("paired GA and recorded KDAL exit keep rolling and brake for the final turn", () => {
   for (const explicitExit of [false, true]) {
     const {airport, engine, along, state: initial} = kdal();
     let state = initial, id = 0, wentAround = false, reachedExit = false;
@@ -232,7 +233,9 @@ test("paired GA and recorded KDAL exit keep the leader rolling at least 15 kt un
       state = engine.autoReadbacks(state, t * 1000, () => `radio-${++id}`);
       const leader = state.aircraft.find(a => a.id === "leader")!, follower = state.aircraft.find(a => a.id === "follower")!;
       if (leader.mode === "rollout") {
-        assert.ok(leader.speed >= 15 - 1e-8, `${leader.speed} kt on the runway`);
+        const turn = runwayTurn(leader, leader.runwayExit!);
+        assert.ok(leader.speed >= Math.min(15, turn.speed) - 1e-8, `${leader.speed} kt on the runway`);
+        if (leader.speed < 15 - 1e-8) assert.ok(engine.distance(leader.position, turn.position) < .02, "slow below 15 kt only just before the tight exit turn");
         assert.ok(along(leader) > along(previousLeader), "leader keeps moving");
       }
       if (!wentAround && follower.mode === "go-around") {

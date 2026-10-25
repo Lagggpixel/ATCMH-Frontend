@@ -155,6 +155,45 @@ export function groundGuidance(a: Aircraft, traffic: Aircraft[], elevation = 0):
   return {speedLimit, travelLimit};
 }
 
+// Leave a metre for the aircraft's centreline on rounded, sampled map geometry.
+const turnTolerance = 1 / 1852;
+const cornerLead = (path: TaxiPoint[], i: number) => Math.min(.012, distance(path[i], path[i + 1]) * .35, i > 0 ? distance(path[i - 1], path[i]) * .35 : Infinity);
+
+/** A constant-rate turn must fit before the next taxiway's centreline. Unlike
+ * chasing its endpoint, this also constrains a long segment after a sharp bend. */
+function turnSpeedLimit(position: Point, course: number, path: TaxiPoint[], index: number) {
+  let limit = Infinity;
+  for (const i of [index - 1, index]) {
+    if (i < 0 || !path[i + 1]) continue;
+    const from = path[i], to = path[i + 1], length = distance(from, to);
+    if (length < 1e-8) continue;
+    const angle = angleTo(course, heading(from, to)) * radians;
+    const lateral = ((position.x - from.x) * (to.y - from.y) - (position.y - from.y) * (to.x - from.x)) / length;
+    const incoming = i > 0 ? path[i - 1] : i === index ? position : undefined;
+    let side = incoming ? Math.sign((incoming.x - from.x) * (to.y - from.y) - (incoming.y - from.y) * (to.x - from.x)) : Math.sign(Math.sin(angle));
+    // Rejoin a route that was edited or restored beyond the turn boundary.
+    if (side * lateral < -turnTolerance) side = Math.sign(lateral);
+    if (side * Math.sin(angle) <= 0) continue;
+    const room = Math.max(0, side * lateral + turnTolerance);
+    if (Math.abs(angle) > 1e-6) limit = Math.min(limit, room * 3600 * GROUND.turnRate * radians / (1 - Math.cos(angle)));
+  }
+  return limit;
+}
+
+/** Start rounding a runway exit before its centreline intersection, at a speed
+ * that fits the mapped turn. The advertised exit speed remains a ceiling. */
+export function runwayTurn(a: Aircraft, path: TaxiPoint[]): {position: Point; speed: number} {
+  const entry = path[1], length = distance(path[0], entry);
+  const lead = path[2] ? cornerLead(path, 1) : 0;
+  const position = length > 1e-8 ? interpolate(entry, path[0], lead / length) : {...entry};
+  const maximum = a.arrivalExit?.speed ?? 15;
+  const end = path.slice(2).find(p => p.hold) ?? path.at(-1)!;
+  const gap = path[2] ? distance(position, path[2]) : distance(position, entry);
+  const angle = path[2] ? Math.abs(angleTo(a.heading, heading(position, path[2]))) : 0;
+  const steering = angle < 1e-6 ? Infinity : gap * 3600 * GROUND.turnRate * radians / (2 * Math.sin(Math.min(90, angle) * radians));
+  return {position, speed: Math.min(maximum, steering, turnSpeedLimit(position, a.heading, path, 2), Math.sqrt(2 * DEFAULTS.acceleration * 3600 * distance(position, end)))};
+}
+
 /** Continuous steering with corner anticipation. Only an endpoint within the
  * current travel budget can be reached exactly; corners never teleport traffic. */
 export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: number, reverse: boolean, guidance: GroundGuidance): {index: number; held: boolean} {
@@ -165,9 +204,9 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
   let gap = distance(a.position, waypoint);
   if (!mustStop(index) && path[index + 1]) {
     const next = path[index + 1];
-    const turn = Math.abs(angleTo(heading(a.position, waypoint), heading(waypoint, next)));
-    const radius = Math.max(a.speed, 3) / 3600 / (GROUND.turnRate * radians);
-    const lead = Math.min(.012, distance(waypoint, next) * .35, radius * Math.tan(Math.min(120, turn) * radians / 2));
+    const bend = Math.abs(angleTo(heading(a.position, waypoint), heading(waypoint, next)));
+    const radius = Math.max(a.speed, 3) / (3600 * GROUND.turnRate * radians);
+    const lead = Math.min(cornerLead(path, index), radius * Math.tan(Math.min(150, bend) * radians / 2));
     if (gap <= Math.max(1e-6, lead)) {index++; waypoint = path[index]; gap = distance(a.position, waypoint);}
   }
   const stopping = mustStop(index);
@@ -184,9 +223,10 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
       if (bend > 1) {
         // Match the available corner lead to our bounded turn rate, and brake
         // before reaching it rather than clamping speed after the nose turns.
-        const lead = Math.min(.012, distance(previous, path[i]) * .35, distance(path[i], next) * .35);
+        const lead = cornerLead(path, i);
         const speed = Math.min(maximum, lead * 3600 * GROUND.turnRate * radians / Math.tan(Math.min(150, bend) * radians / 2));
-        cornerLimit = Math.min(cornerLimit, Math.sqrt(speed ** 2 + 2 * DEFAULTS.acceleration * 3600 * distance(a.position, path[i])));
+        const room = Math.max(0, distance(a.position, path[i]) - lead);
+        cornerLimit = Math.min(cornerLimit, Math.sqrt((DEFAULTS.acceleration * dt) ** 2 + speed ** 2 + 2 * DEFAULTS.acceleration * 3600 * room) - DEFAULTS.acceleration * dt);
       }
     }
   }
@@ -212,11 +252,15 @@ export function moveGround(a: Aircraft, path: TaxiPoint[], index: number, dt: nu
   const turningSpeed = maximum * Math.max(0, Math.cos(angle * radians));
   // A target must remain outside our turning circle. This bounds curvature even
   // in the last centimetres, so a tiny heading error cannot cause endless orbits.
-  const steeringSpeed = gap * 3600 * GROUND.turnRate * radians / Math.max(.01, 2 * Math.sin(Math.abs(angle) * radians));
+  const steeringSpeed = Math.abs(angle) < 1e-6 ? Infinity : gap * 3600 * GROUND.turnRate * radians / (2 * Math.sin(Math.min(90, Math.abs(angle)) * radians));
   a.speed = approach(a.speed, Math.min(a.targetSpeed, maximum, turningSpeed, steeringSpeed, stoppingSpeed, cornerLimit, guidance.speedLimit), DEFAULTS.acceleration * dt);
+  // An imported/replanned route can already be too tight for normal braking.
+  // Enforce the geometric envelope instead of sliding past it and circling back.
+  a.speed = Math.min(a.speed, steeringSpeed, stoppingSpeed, turnSpeedLimit(a.position, a.heading + (reverse ? 180 : 0), path, index));
   const stride = Math.min(a.speed / 3600 * dt, guidance.travelLimit, gap);
-  const course = (a.heading + turn / 2) * radians;
-  a.position = {x: a.position.x + Math.sin(course) * stride * (reverse ? -1 : 1), y: a.position.y + Math.cos(course) * stride * (reverse ? -1 : 1)};
+  const course = (a.heading + turn / 2) * radians, arc = turn * radians;
+  const chord = stride * (Math.abs(arc) > 1e-8 ? 2 * Math.sin(arc / 2) / arc : 1);
+  a.position = {x: a.position.x + Math.sin(course) * chord * (reverse ? -1 : 1), y: a.position.y + Math.cos(course) * chord * (reverse ? -1 : 1)};
   a.heading = (a.heading + turn + 360) % 360;
   return {index, held: false};
 }

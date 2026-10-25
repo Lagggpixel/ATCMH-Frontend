@@ -98,15 +98,7 @@ function Assigned() {
           <Link className={ui.btn} href={`/sweatbox/replays/${last.id}`}>{canPlayReplay(last) ? "Watch" : "View summary"}<span className={ui.srOnly}> {last.title}</span></Link>
         </div></div></div>
       </section> : null}
-      <details className={ui.more}>
-        <summary>New here? Three things to know</summary>
-        <ul>
-          <li><strong>You are the controller.</strong> Your Mentor flies every aircraft and plays the pilots. You give the instructions.</li>
-          <li><strong>Drag to give a taxi route.</strong> Click an aircraft, then drag along the taxiways on the scope and send the instruction.</li>
-          <li><strong>Paused means talk.</strong> When your Mentor pauses, everything freezes so you can go over what happened.</li>
-          {tip ? <li><strong>On iPhone or iPad?</strong> For a proper full screen, tap Share in Safari, then Add to Home Screen, and open Sweatbox from that icon.</li> : null}
-        </ul>
-      </details>
+      {tip ? <p className={ui.tip}><strong>On iPhone or iPad?</strong> For a proper full screen, tap Share in Safari, then Add to Home Screen, and open Sweatbox from that icon.</p> : null}
     </main>
     <footer className={ui.footer}><TrainerNotice/></footer>
   </div>;

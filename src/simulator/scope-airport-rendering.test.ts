@@ -16,8 +16,21 @@ test("map zoom converts pixels/NM to IF camera metres using vertical FOV and CSS
   assert.ok(Math.abs(mapCameraAltitude({scale}, size) - 80000) < 1e-8);
   assert.equal(mapCameraAltitude({scale: 20}, size), mapCameraAltitude(camera, {height: 400}));
   assert.equal(mapCameraAltitude(camera, {height: 800}), mapCameraAltitude(camera, size));
-  assert.equal(runwayNumbersVisible(79999.9), true); assert.equal(runwayNumbersVisible(80000), false);
+  assert.equal(runwayNumbersVisible(19999.9), true); assert.equal(runwayNumbersVisible(20000), false);
+  assert.equal(runwayNumbersVisible(79999.9), false);
   assert.equal(directApproachesVisible(799999.9), true); assert.equal(directApproachesVisible(800000), false);
+});
+
+test("runway numbers disappear before cones at the closer cutoff across viewport heights", () => {
+  for (const height of [390, 768, 1000]) {
+    const scaleAtCutoff = height * 1852 / (2 * Math.tan(Math.PI / 8) * 20000);
+    const far = mapCameraAltitude({scale: scaleAtCutoff * .99}, {height});
+    const close = mapCameraAltitude({scale: scaleAtCutoff * 1.01}, {height});
+    assert.equal(runwayNumbersVisible(far), false);
+    assert.equal(runwayNumbersVisible(close), true);
+    assert.equal(directApproachesVisible(far), true);
+    assert.equal(directApproachesVisible(close), true);
+  }
 });
 
 test("screen declutter prioritizes longer runways, with optional IF importance then stable identifier ties", () => {

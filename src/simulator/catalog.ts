@@ -152,7 +152,7 @@ function messageMenu(frequency: Frequency, a: Aircraft, traffic: Aircraft[] = []
 function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message, traffic: Aircraft[] = [], messages: Message[] = []): MenuEntry[] {
   const identify = (items: MenuEntry[], prefix: string): MenuEntry[] => {const seen = new Map<string, number>(); return items.map(item => {
     const occurrence = seen.get(item.label) ?? 0; seen.set(item.label, occurrence + 1);
-    const id = prefix + "/" + encodeURIComponent(item.label) + ":" + occurrence;
+    const id = prefix + "/" + (item.id ?? encodeURIComponent(item.label) + ":" + occurrence);
     return {...item, id, ...(item.children ? {children: identify(item.children, id)} : {})};
   });};
   const entries = identify(orderedMenu(messageMenu(frequency, a, traffic, request, messages),frequency), frequency);
@@ -175,7 +175,7 @@ function requestMessageMenu(frequency: Frequency, a: Aircraft, request?: Message
     return suggest(approach);
   }
   const labels: Partial<Record<PilotRequestId, string>> = {pushback: "Pushback Approved", "runway-change": "Unable", "cross-runway": "Cross Runway...", "go-around": "Respond to Go Around", transition: "Respond to Transition", "check-in": "Radar Contact", "flight-following":"Respond to Flight Following Request", "radar-vectors":"Respond to Radar Vectors Request", "star-descent":"Respond to STAR Descent Request", "diversion":"Respond to Diversion Request", "minimum-fuel":"Respond to Emergency", "emergency-fuel":"Respond to Emergency"};
-  if (requestId === "runway-change") entries.push({label: "Unable", children: [{label: "Confirm", instruction: {type: "radio", message: "unable"}}]});
+  if (requestId === "runway-change" && messages.some(m => m.id === request.id && m.sender === "pilot" && !m.commandId && m.aircraftId === a.id && m.frequency === frequency)) entries.push({label: "Unable", children: [{label: "Confirm", instruction: {type: "radio", message: "unable"}}]});
   const original = entries.find(entry => entry.label === (requestId ? labels[requestId] : undefined));
   return suggest(original);
 }

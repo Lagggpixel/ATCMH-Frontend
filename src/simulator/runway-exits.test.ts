@@ -7,6 +7,7 @@ import {exerciseSchema} from "./protocol";
 import {radarPerformance} from "./radar-speed";
 import {moveRadar, radarEnvironmentFor} from "./radar";
 import {runwayOccupied} from "./runway-safety";
+import {runwayTurn} from "./ground-movement";
 import kbhmLegacy from "./data/kbhm-before-runway-repair.json";
 import sbbrLegacy from "./data/sbbr-before-runway-repair.json";
 import rjttLegacy from "./data/rjtt-before-runway-repair.json";
@@ -28,7 +29,10 @@ for (const airport of airportList) test(`${airport.icao}: forward exits, bounded
     for (let t = 0; t < 600 && state.aircraft[0].mode !== "parked"; t++) {
       state = engine.advance(state, 1);
       const a = state.aircraft[0];
-      if (a.mode === "rollout" && a.runwayExit) assert.ok(a.speed >= 15 - 1e-8, `${end.id}: keep at least 15 kt toward an exit`);
+      if (a.mode === "rollout" && a.runwayExit) {
+        const turn = runwayTurn(a, a.runwayExit);
+        assert.ok(a.speed >= Math.min(15, turn.speed) - 1e-8, `${end.id}: keep moving toward the exit at a reachable turn speed`);
+      }
       if (a.mode === "rollout") assert.ok(along(a.position) <= length + 1e-7, `${end.id}: rollout overrun`);
     }
     assert.equal(state.aircraft[0].mode, "parked", `${end.id}: must vacate or stop for instructions`);
@@ -72,8 +76,8 @@ test("runway braking reaches exit speed near the connector instead of crawling t
   for (let t = 0; t < 180 && state.aircraft[0].mode === "rollout"; t += .5) {
     state = engine.advance(state, .5);
     const a = state.aircraft[0];
-    if (a.mode === "rollout" && a.runwayExit && a.speed <= a.arrivalExit!.speed + 5)
-      assert.ok(engine.distance(a.position, a.runwayExit[1]) < .05, "do not reach exit speed far before the exit");
+    if (a.mode === "rollout" && a.runwayExit && a.speed <= runwayTurn(a, a.runwayExit).speed + 5)
+      assert.ok(engine.distance(a.position, a.runwayExit[1]) < .05, "do not reach turn speed far before the exit");
   }
 });
 
