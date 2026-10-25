@@ -950,10 +950,9 @@
   .menteeSimulator {grid-template-columns:calc(60 * var(--controller-unit)) minmax(0,1fr) calc(365 * .75px)}
 }
 
-/* Keep the top clear even when landscape provides only a bottom safe-area inset. */
-.simulator {--simulator-safe-top:max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));box-sizing:border-box;height:100dvh;bottom:auto}
+/* Match the layout's real status-bar surface, including standalone launch fallback. */
+.simulator {--simulator-safe-top:var(--sweatbox-safe-top,max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));box-sizing:border-box;height:100dvh;bottom:auto}
 .simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.simulator::before {content:"";position:fixed;inset:0 0 auto;height:var(--simulator-safe-top);background:#000;z-index:100;pointer-events:none}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
 @media(max-width:600px) and (orientation:portrait) {.menteeSimulator .topBanner {flex-wrap:wrap;height:auto;min-height:34px}.menteeSimulator {grid-template-rows:auto minmax(0,1fr)}}
 /* IF 26.4 DisplayInformation uses a .65 display scale for phones. Keep the

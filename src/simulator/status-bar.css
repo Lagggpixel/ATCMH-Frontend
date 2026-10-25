@@ -1,0 +1,24 @@
+:root {
+  --sweatbox-safe-top: max(env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));
+}
+
+/* WebKit samples a fixed container near the top centre of the viewport.
+   Use a real element, outside the isolated radar, rather than its ::before.
+   Keep it opaque and wider than the viewport's sidebars. See fixedContainerEdges:
+   https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/LocalFrameView.cpp
+   A small minimum also covers standalone launches that initially report zero
+   insets, and is reserved by the content rather than covering its controls. */
+@media (display-mode:standalone) {
+  :root {
+    --sweatbox-safe-top: max(12px,env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px));
+  }
+}
+
+.sweatbox-status-bar-surface {
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--sweatbox-safe-top);
+  background: #000;
+  z-index: 150;
+  pointer-events: none;
+}

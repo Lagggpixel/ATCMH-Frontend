@@ -2,6 +2,7 @@ import type {Metadata, Viewport} from "next";
 import type {ReactNode} from "react";
 import {notFound} from "next/navigation";
 import {simulatorEnabled} from "@/src/simulator/feature";
+import StatusBarSurface from "@/src/simulator/StatusBarSurface";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {title: "ATCMH Sweatbox", description: "Independent IFATC practice. Simulation only; not affiliated with or endorsed by Infinite Flight.", robots: {index: false, follow: false},
@@ -10,5 +11,5 @@ export const metadata: Metadata = {title: "ATCMH Sweatbox", description: "Indepe
 export const viewport: Viewport = {viewportFit: "cover", themeColor: "#000000"};
 export default function SimulatorLayout({children}: {children: ReactNode}) {
   if (!simulatorEnabled({SIMULATOR_ENABLED: process.env.SIMULATOR_ENABLED})) notFound();
-  return children;
+  return <><StatusBarSurface/>{children}</>;
 }
