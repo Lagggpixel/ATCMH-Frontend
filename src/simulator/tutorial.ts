@@ -31,7 +31,7 @@ export const TRACKS: readonly TourTrack[] = [
     {target: tour("traffic"), title: "Select an aircraft", text: "This is your traffic. Select a callsign here or on the scope to open its controls.", task: "Select any aircraft", done: [{kind: "present", target: SELECTED}]},
     {target: tour("aircraft-controls"), title: "Act as the pilot", text: "Radio replies and sends pilot requests. Flight changes movement. Setup holds intentions, routes, speeds and aircraft details.", hint: "With nothing selected, this panel shows the session log."},
     {target: tour("automatic"), fallback: tour("session-menu"), title: "Choose how pilots respond", text: "In the Session menu, Automatic pilot actions reads back and follows valid instructions for you. Turn it off to reply yourself.", hint: "Automatic never grants clearances."},
-    {target: tour("timeline"), fallback: tour("toolbar"), title: "Run events and save feedback", text: "For a scenario session, Timeline runs manual events and Finish attempt saves feedback."},
+    {target: tour("timeline"), fallback: tour("toolbar"), title: "Follow the scenario", text: "In a scenario session, Scenario shows what runs next and lets you run Mentor release events. Finish attempt in the Session menu saves feedback."},
     {target: tour("return-sessions"), title: "Return for a debrief", text: "Go back to Sessions here. Archive closes a session, asks for your feedback and saves its replay.", hint: "Tours are always under Help."},
   ]},
   {id: "taxi", scope: "radar", isNew: true, title: "Taxi and pushback", summary: "Plan a route on the scope, then Start Taxi or Start Pushback.", length: "4 steps", steps: [

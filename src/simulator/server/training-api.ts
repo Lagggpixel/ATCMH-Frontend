@@ -6,7 +6,7 @@ import {sessionFailure} from "./session-api";
 import {TrainingService} from "./training-service";
 
 const uuid = z.string().uuid(), version = z.number().int().positive();
-export type TrainingOperations = Pick<TrainingService, "scenarios" | "scenario" | "save" | "capture" | "publish" | "launchScenario" | "finish" | "restart">;
+export type TrainingOperations = Pick<TrainingService, "scenarios" | "scenario" | "save" | "publish" | "launchScenario" | "finish" | "restart">;
 export function createTrainingApi(service: TrainingOperations = new TrainingService(), authorize = authorizeSessionRequest) {
   return async function trainingApi(request: Request, resource: string, id?: string) {
     try {
@@ -23,8 +23,7 @@ export function createTrainingApi(service: TrainingOperations = new TrainingServ
         const raw = JSON.parse(text) as unknown;
         if (resource === "scenarios") {
           if (!id) {
-            const capture = z.object({sessionId: uuid, title: z.string().trim().min(1).max(80)}).safeParse(raw);
-            value = {scenario: capture.success ? await service.capture(actor, capture.data.sessionId, capture.data.title) : await service.save(actor, scenarioSchema.parse(z.object({draft: z.unknown()}).parse(raw).draft))};
+            value = {scenario: await service.save(actor, scenarioSchema.parse(z.object({draft: z.unknown()}).parse(raw).draft))};
           } else {
             const action = z.object({action: z.enum(["save", "publish", "launch"])}).parse(raw).action;
             if (action === "save") {const input = z.object({draft: storedScenarioSchema, version}).parse(raw); value = {scenario: await service.save(actor, input.draft, id, input.version)};}

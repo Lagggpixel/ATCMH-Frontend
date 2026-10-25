@@ -5,7 +5,7 @@ import {setPoolForTests, setWritePoolForTests} from "../lib/db";
 import {TrainingService} from "./server/training-service";
 import {SessionService} from "./server/session-service";
 import {sqlSessionStore} from "./server/session-store";
-import {blankScenario, seedFromAircraft} from "./scenarios";
+import {blankScenario, scenarioFromExercise, seedFromAircraft} from "./scenarios";
 import {newAircraft, engineFor} from "./engine";
 import {airportList} from "./airports";
 import {randomUUID} from "node:crypto";
@@ -160,9 +160,9 @@ test("scenario SQL lifecycle is atomic, pinned, shared between staff and preserv
     db.failAttemptInsert = false;
     const adHoc = await new SessionService(sqlSessionStore).create(staff, "Ad hoc");
     const token = randomUUID(); await new SessionService(sqlSessionStore).join(staff, adHoc.id, "staff", token);
-    assert.equal((await sessions.frame(staff, adHoc.id, "staff", token)).exercise.autoReadback, true);
-    const captured = await service.capture(other, adHoc.id, "Captured setup"); assert.equal(captured.draft.events.length, 0);
-    assert.equal("trail" in captured.draft.aircraft[0].seed, false);
+    const frame = await sessions.frame(staff, adHoc.id, "staff", token); assert.equal(frame.exercise.autoReadback, true);
+    const captured = scenarioFromExercise(frame.exercise, "Captured setup"); assert.equal(captured.events.length, 0);
+    assert.equal("trail" in captured.aircraft[0].seed, false);
   } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
 });
 

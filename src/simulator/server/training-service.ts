@@ -4,7 +4,7 @@ import {applySessionWeather, requestSessionWeather} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction} from "../../lib/db";
-import {storedScenarioSchema, scenarioSchema, scenarioSchemaFor, normalizeScenario, createScenarioExercise, scenarioFromExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
+import {storedScenarioSchema, scenarioSchema, scenarioSchemaFor, normalizeScenario, createScenarioExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
 import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
 import {availableControl, SessionService, type Actor} from "./session-service";
@@ -50,13 +50,6 @@ export class TrainingService {
       }
       return this.scenario(actor, id);
     });
-  }
-  async capture(actor: Actor, sessionId: string, title: string) {
-    staff(actor);
-    return sqlSessionStore.transaction(sessionId, record => {
-      rejectMovedRadar(record.exercise);
-      return scenarioFromExercise(record.exercise, title);
-    }).then(draft => this.save(actor, draft));
   }
   async publish(actor: Actor, id: string, version: number) {
     staff(actor);

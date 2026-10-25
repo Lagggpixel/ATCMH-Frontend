@@ -225,7 +225,6 @@ export function LearnCard({accountId}: {accountId: string}) {
   return <section aria-labelledby="learn-heading" className={styles.learn}>
     <div className={styles.learnIntro}>
       <h2 id="learn-heading">Learn the Sweatbox</h2>
-      <p>Short, hands-on tours. Each one waits for you to try the control before moving on.</p>
       <div className={styles.meter}><span>{done} of {tracks.length} done</span><span className={styles.bar} role="progressbar" aria-label="Tours completed" aria-valuemin={0} aria-valuemax={tracks.length} aria-valuenow={done}><span style={{width: `${Math.round(done / tracks.length * 100)}%`}}/></span></div>
       {next ? <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={() => resume(next)}>{progress.active?.track === next ? "Continue" : "Start"}: {trackById(next).title}</button> : <p className={styles.hint}>All done. Replay any tour from here or from Help on the radar.</p>}
     </div>

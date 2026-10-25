@@ -1,47 +1,42 @@
 "use client";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
-import {Plus} from "@phosphor-icons/react/dist/csr/Plus";
 import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
-import {ArrowRight} from "@phosphor-icons/react/dist/csr/ArrowRight";
-import {ShareNetwork} from "@phosphor-icons/react/dist/csr/ShareNetwork";
-import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
-import {Play} from "@phosphor-icons/react/dist/csr/Play";
+import {CaretDown} from "@phosphor-icons/react/dist/csr/CaretDown";
+import {CaretUp} from "@phosphor-icons/react/dist/csr/CaretUp";
 import LearningFrame from "../learning/LearningFrame";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import {canAccessStaffSimulator} from "./feature";
 import SessionAccess, {SessionNotice} from "./SessionAccess";
 import SessionDialogs, {type SessionDialogState} from "./SessionDialogs";
 import {previewSession} from "./SessionEntry";
-import {LearnCard} from "./StaffTutorial";
+import StaffTutorial from "./StaffTutorial";
 import TrainerNotice from "./TrainerNotice";
 import {sessionLibrary} from "./session-library";
-import {sessionJson} from "./shared-transport";
-import {greeting, initials, isActive, lastActive, matchesFilter, menteeName, menteeState, mentorName, modeLabel, sessionFilters, sessionStatus, viewerName, type SessionFilter} from "./session-status";
-import {sessionCode, sessionPath, type SessionSummary} from "./sessions";
+import {isActive, isMine, lastActive, menteeName, modeLabel, sessionStatus} from "./session-status";
+import {joinPath, sessionCode, sessionPath, type SessionSummary} from "./sessions";
 import type {ScenarioRecord} from "./scenarios";
-import type {ReplaySummary} from "./replays";
 import ui from "./Sweatbox.module.css";
 
-const tone = {live: ui.live, wait: ui.wait, idle: ui.idle};
-const replayDate = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", timeZone: "UTC"});
+const tone = {live: ui.stateLive, wait: ui.stateWait, idle: ""};
 
-/** /sweatbox: a Mentor's home. Anyone without Sweatbox access goes to Your sweatbox. */
-export default function MentorHome() {
+/** /sweatbox and /sweatbox/staff: the Sessions page, which is a Mentor's home. Anyone without Sweatbox access goes to Your sweatbox. */
+export default function MentorHome({returnTo = "/sweatbox"}: {returnTo?: string}) {
   const auth = usePortalAuth(), router = useRouter();
   const mentee = !auth.loading && !!auth.session && !auth.error && !canAccessStaffSimulator(auth.adminUser);
   useEffect(() => {if (mentee) router.replace("/sweatbox/mentee");}, [mentee, router]);
   return <LearningFrame product="Sweatbox">{mentee ? <SessionNotice embedded title="Opening Your sweatbox…"/> :
-    <SessionAccess embedded role="staff" returnTo="/sweatbox">{(csrf, accountId, access) => <Home key={accountId} csrf={csrf} accountId={accountId} canAssign={access.canAssign} name={viewerName(auth)}/>}</SessionAccess>}
+    <SessionAccess embedded role="staff" returnTo={returnTo}>{(csrf, accountId, access) => <Sessions key={accountId} csrf={csrf} accountId={accountId} canAssign={access.canAssign}/>}</SessionAccess>}
   </LearningFrame>;
 }
 
-function Home({csrf, accountId, canAssign, name}: {csrf: string; accountId: string; canAssign: boolean; name: string}) {
+function Sessions({csrf, accountId, canAssign}: {csrf: string; accountId: string; canAssign: boolean}) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]), [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
-  const [replays, setReplays] = useState<ReplaySummary[] | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
-  const [filter, setFilter] = useState<SessionFilter>("all"), [search, setSearch] = useState("");
+  const [mine, setMine] = useState(false), [search, setSearch] = useState(""), [joining, setJoining] = useState(false);
+  // Scenarios link here with ?session= to open that session's details; this only renders in the browser.
+  const [openId, setOpenId] = useState(() => new URLSearchParams(window.location.search).get("session") ?? ""), [manualLink, setManualLink] = useState("");
   const [dialog, setDialog] = useState<SessionDialogState>(null), [now, setNow] = useState(() => Date.now());
   const library = useRef<ReturnType<typeof sessionLibrary> | null>(null);
   useEffect(() => {
@@ -50,111 +45,86 @@ function Home({csrf, accountId, canAssign, name}: {csrf: string; accountId: stri
     return () => {sync.stop(); library.current = null;};
   }, []);
   useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/simulator/replays?scope=mine", {cache: "no-store", signal: controller.signal}).then(sessionJson)
-      .then(data => setReplays((data.replays as ReplaySummary[]).slice(0, 3))).catch(() => {if (!controller.signal.aborted) setReplays([]);});
-    return () => controller.abort();
-  }, []);
-  const live = sessions.filter(isActive);
+    if (openId && !loading) document.getElementById(`session-${openId}`)?.scrollIntoView({block: "nearest"});
+  }, [openId, loading]);
   const query = search.trim().toLowerCase();
-  const counts = useMemo(() => Object.fromEntries(sessionFilters.map(([key]) => [key, sessions.filter(s => matchesFilter(s, key, accountId)).length])), [sessions, accountId]);
-  const listed = sessions.filter(s => matchesFilter(s, filter, accountId) && `${s.title} ${s.airport ?? "EGPH"} ${sessionCode(s.id, s.airport)} ${menteeName(s)}`.toLowerCase().includes(query));
-  const quick = [...scenarios].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 3);
-  const share = async (session: SessionSummary) => {
-    try {await navigator.clipboard.writeText(sessionCode(session.id, session.airport)); setNotice(`Session code ${sessionCode(session.id, session.airport)} copied.`);}
-    catch {setNotice(`Copy this session code: ${sessionCode(session.id, session.airport)}`);}
+  const listed = sessions.filter(s => (!mine || isMine(s, accountId)) && `${s.title} ${s.airport ?? "EGPH"} ${sessionCode(s.id, s.airport)} ${menteeName(s)}`.toLowerCase().includes(query));
+  const groups = [["Happening now", listed.filter(isActive)], ["Not running", listed.filter(s => !isActive(s))]] as const;
+  const tourId = (groups[0][1][0] ?? groups[1][1][0])?.id;
+  const menteeLink = (session: SessionSummary) => new URL(joinPath(sessionCode(session.id, session.airport)), window.location.origin).href;
+  const copy = async (session: SessionSummary, kind: "link" | "code") => {
+    setManualLink("");
+    try {await navigator.clipboard.writeText(kind === "link" ? menteeLink(session) : sessionCode(session.id, session.airport)); setNotice(kind === "link" ? "Mentee link copied." : "Session code copied.");}
+    catch {setManualLink(menteeLink(session)); setNotice("Could not copy automatically. Copy the Mentee link shown under the session.");}
   };
+  const toggle = (id: string) => {setOpenId(current => current === id ? "" : id); setManualLink("");};
   return <div className={ui.page}>
     <main className={ui.content}>
       <div className={ui.heading}>
-        <h1>{greeting(new Date().getHours())}{name ? `, ${name}` : ""}</h1>
+        <h1>Sessions</h1>
         <div className={ui.headingActions}>
-          <JoinWithCode/>
-          <button type="button" data-simulator-tour="new-session" className={`${ui.btn} ${ui.primary}`} disabled={loading} onClick={() => setDialog({kind: "new"})}><Plus size={18} weight="bold" aria-hidden="true"/>Start a session</button>
+          <StaffTutorial accountId={accountId} className={ui.linkButton}/>
+          <button type="button" className={ui.linkButton} aria-expanded={joining} onClick={() => setJoining(open => !open)}>Join with a code</button>
+          <button type="button" data-simulator-tour="new-session" className={`${ui.btn} ${ui.primary}`} disabled={loading} onClick={() => setDialog({kind: "new"})}>Start a session</button>
         </div>
       </div>
-      <LearnCard accountId={accountId}/>
+      {joining ? <JoinWithCode/> : null}
+      <div className={ui.toolbar}>
+        <div className={ui.seg} role="group" aria-label="Whose sessions"><button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>Everyone</button><button type="button" aria-pressed={mine} onClick={() => setMine(true)}>Mine</button></div>
+        <label className={`${ui.field} ${ui.grow}`}><span className={ui.srOnly}>Search sessions</span><MagnifyingGlass size={18} aria-hidden="true"/><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search by name, airport, code or Mentee"/></label>
+      </div>
       {loadError ? <p role="alert" className={ui.error}>Could not refresh sessions: {loadError}<button type="button" className={ui.btn} onClick={() => void library.current?.refresh()}>Try again</button></p> : null}
-      <div className={ui.cols}>
-        <div className={ui.stack}>
-          <section aria-labelledby="live-heading">
-            <h2 id="live-heading" className={ui.sectionTitle}>Happening now</h2>
-            {loading ? <p role="status" className={ui.status}>Loading sessions…</p> : live.length ? <div className={ui.liveGrid}>{live.map(s => {
-              const status = sessionStatus(s), mentee = menteeName(s);
-              return <article key={s.id} className={ui.liveCard}>
-                <div className={ui.liveTop}><div><h3>{s.title}</h3><p>{s.airport ?? "EGPH"} · {modeLabel(s)} · <span className={ui.mono}>{sessionCode(s.id, s.airport)}</span></p></div><span className={`${ui.pill} ${tone[status.tone]}`}><span className={ui.dot}/>{status.label}</span></div>
-                <div className={ui.seats}>
-                  <Person label="Mentor" name={s.staffOccupied ? `${mentorName(s)}${s.staffId === accountId ? " (you)" : ""}` : "Not here yet"} empty={!s.staffOccupied} initialsFor={s.staffOccupied ? mentorName(s) : ""}/>
-                  <ArrowRight size={18} aria-hidden="true"/>
-                  <Person label="Mentee" name={mentee || "Not assigned"} empty={!mentee} initialsFor={mentee}/>
-                </div>
-                <div className={ui.liveFoot}>
-                  <span>{s.menteeOccupied && !s.staffOccupied ? `${mentee || "The Mentee"} is waiting` : `Last active ${lastActive(s.updatedAt, now).toLowerCase()}`}</span>
-                  <button type="button" data-simulator-tour="mentee-sharing" className={`${ui.btn} ${ui.icon}`} aria-label={`Copy session code for ${s.title}`} title="Copy session code" onClick={() => void share(s)}><ShareNetwork size={20} aria-hidden="true"/></button>
-                  <Link data-simulator-tour="staff-radar-link" className={`${ui.btn} ${ui.primary}`} href={sessionPath("staff", s.id)}>Enter<span className={ui.srOnly}> {s.title}</span></Link>
-                </div>
-              </article>;
-            })}</div> : <div className={ui.emptyCard}><h3>Nobody is in a session right now</h3><p>Sessions appear here as soon as a Mentor or Mentee joins one.</p></div>}
-          </section>
-          <section aria-labelledby="all-heading" className={ui.panel} data-simulator-tour="session-library">
-            <div className={ui.panelHead}>
-              <h2 id="all-heading">All sessions</h2>
-              <div className={ui.tabs} role="group" aria-label="Filter sessions" style={{flex: 1}}>{sessionFilters.map(([key, label]) => <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label} <span>{counts[key]}</span></button>)}</div>
-              <label className={ui.field} style={{width: 240, maxWidth: "100%"}}><span className={ui.srOnly}>Search sessions</span><MagnifyingGlass size={18} aria-hidden="true"/><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Title, airport or code"/></label>
+      {loading ? <p role="status" className={ui.status}>Loading sessions…</p> : listed.length ? <div className={ui.groups} data-simulator-tour="session-library">{groups.map(([title, rows]) => rows.length ? <section key={title} className={ui.group} aria-label={title}>
+        <h2 className={ui.groupTitle}>{title}</h2>
+        <div className={ui.list}>{rows.map(s => {
+          const status = sessionStatus(s), mentee = menteeName(s), open = openId === s.id, code = sessionCode(s.id, s.airport);
+          const state = isActive(s) ? status.label : s.assignedMenteeId ? "Not joined yet" : `Active ${lastActive(s.updatedAt, now).toLowerCase()}`;
+          return <div key={s.id} id={`session-${s.id}`} className={ui.item} data-open={open || undefined}>
+            <div className={ui.itemRow}>
+              <div className={ui.itemMain}>
+                <strong>{s.title}</strong>
+                <small>{s.airport ?? "EGPH"} · {modeLabel(s)} · {mentee || (canAssign ? <button type="button" className={ui.linkButton} onClick={() => setDialog({kind: "assign", session: s})}>Assign a Mentee</button> : "No Mentee")}</small>
+              </div>
+              <span className={`${ui.state} ${tone[status.tone]}`}>{status.tone !== "idle" ? <span className={ui.dot}/> : null}{state}</span>
+              <Link data-simulator-tour={s.id === tourId ? "staff-radar-link" : undefined} className={`${ui.btn} ${status.label === "Mentee waiting" ? ui.primary : ""}`} href={sessionPath("staff", s.id)}>Enter<span className={ui.srOnly}> {s.title}</span></Link>
+              <button type="button" className={`${ui.btn} ${ui.icon} ${ui.quiet}`} aria-expanded={open} aria-controls={`session-details-${s.id}`} aria-label={`${open ? "Hide" : "Show"} details for ${s.title}`} onClick={() => toggle(s.id)}>{open ? <CaretUp size={18} aria-hidden="true"/> : <CaretDown size={18} aria-hidden="true"/>}</button>
             </div>
-            {loading ? <p role="status" className={ui.status}>Loading sessions…</p> : listed.length ? listed.map(s => {
-              const status = sessionStatus(s), mentee = menteeName(s);
-              return <div key={s.id} className={ui.row}>
-                <div className={ui.rowTitle}><Link href={`/sweatbox/staff?session=${s.id}`}>{s.title}</Link><small className={ui.mono}>{sessionCode(s.id, s.airport)}</small></div>
-                <div className={`${ui.rowCell} ${ui.rowWide}`}><strong>{s.airport ?? "EGPH"}</strong><small>{modeLabel(s)}</small></div>
-                <div className={`${ui.rowWide}`}><Person name={mentee || "Unassigned"} detail={menteeState(s)} empty={!mentee} initialsFor={mentee}/></div>
-                <div className={`${ui.rowCell} ${ui.rowWide}`}><span className={`${ui.pill} ${tone[status.tone]}`}><span className={ui.dot}/>{status.label}</span><small>{lastActive(s.updatedAt, now)}</small></div>
-                <div className={ui.rowActions}><Link className={ui.btn} href={sessionPath("staff", s.id)}>Enter<span className={ui.srOnly}> {s.title}</span></Link><Link className={`${ui.btn} ${ui.icon} ${ui.quiet}`} href={`/sweatbox/staff?session=${s.id}`} aria-label={`Manage ${s.title}`} title="Manage in Sessions"><CaretRight size={20} aria-hidden="true"/></Link></div>
-              </div>;
-            }) : <div className={ui.empty}><h3>{sessions.length ? "No matching sessions" : "No sessions yet"}</h3><p>{sessions.length ? "Try another filter or search." : "Start a session from one of your published scenarios."}</p>{sessions.length ? <button type="button" className={ui.btn} onClick={() => {setFilter("all"); setSearch("");}}>Clear filters</button> : null}</div>}
-          </section>
-        </div>
-        <aside className={`${ui.aside} ${ui.asideAligned}`} aria-label="Shortcuts">
-          <section aria-labelledby="quick-heading" className={ui.box}>
-            <h2 id="quick-heading">Quick start</h2>
-            <p>Your latest published scenarios.</p>
-            {loading ? <p role="status">Loading…</p> : quick.length ? quick.map(c => <div key={c.id} className={ui.sideItem}><span><strong>{c.draft.title}</strong><small>{(c.published ?? c.draft).airport ?? "EGPH"} · {modeLabel(c.published ?? c.draft)} · Revision {c.publishedRevision}</small></span><button type="button" className={`${ui.btn} ${ui.small}`} onClick={() => setDialog({kind: "new", scenarioId: c.id})}><Play size={14} weight="fill" aria-hidden="true"/>Start<span className={ui.srOnly}> {c.draft.title}</span></button></div>)
-              : <p className={ui.sideItem}>Publish a scenario to start sessions from it.</p>}
-            <div className={ui.sideLinks}><Link href="/sweatbox/scenarios">All scenarios →</Link><Link href="/sweatbox/scenarios/new">Write a scenario</Link></div>
-          </section>
-          <section aria-labelledby="replays-heading" className={ui.box}>
-            <h2 id="replays-heading">Recent replays</h2>
-            {replays === null ? <p role="status">Loading…</p> : replays.length ? replays.map(r => {
-              const who = r.participants.filter(p => p.role === "mentee").map(p => p.name || p.accountId).join(", ");
-              return <Link key={r.id} href={`/sweatbox/replays/${r.id}`} className={ui.sideItem}><span><strong>{r.title}</strong><small>{[who, replayDate.format(r.endedAt), `${Math.max(1, Math.round(r.duration / 60))} min`].filter(Boolean).join(" · ")}</small></span><CaretRight size={18} aria-hidden="true"/></Link>;
-            }) : <p className={ui.sideItem}>Sessions you run appear here after they are archived.</p>}
-            <div className={ui.sideLinks}><Link href="/sweatbox/replays">All replays →</Link></div>
-          </section>
-        </aside>
-      </div>
+            {open ? <div id={`session-details-${s.id}`} className={ui.details} data-simulator-tour="mentee-sharing">
+              <span>Code <strong className={ui.mono}>{code}</strong></span>
+              <button type="button" className={ui.linkButton} onClick={() => void copy(s, "code")}>Copy code</button>
+              <button type="button" className={ui.linkButton} onClick={() => void copy(s, "link")}>Copy Mentee link</button>
+              {canAssign ? <button type="button" className={ui.linkButton} onClick={() => setDialog({kind: "assign", session: s})}>{s.assignedMenteeId ? "Change Mentee" : "Assign a Mentee"}</button> : null}
+              <button type="button" className={`${ui.linkButton} ${ui.dangerLink} ${ui.push}`} onClick={() => setDialog({kind: "end", session: s})}>Archive…<span className={ui.srOnly}> {s.title}</span></button>
+              {manualLink ? <label className={ui.manualLink} style={{flexBasis: "100%"}}>Mentee link<input readOnly value={manualLink} onFocus={event => event.currentTarget.select()}/></label> : null}
+            </div> : null}
+          </div>;
+        })}</div>
+      </section> : null)}</div> : <div className={ui.emptyCard}><h2>{sessions.length ? "No matching sessions" : "No sessions yet"}</h2><p>{sessions.length ? "Try another search, or show everyone’s sessions." : "Start a session from one of your published scenarios."}</p>{sessions.length ? <button type="button" className={ui.btn} onClick={() => {setMine(false); setSearch("");}}>Clear filters</button> : <button type="button" className={`${ui.btn} ${ui.primary}`} onClick={() => setDialog({kind: "new"})}>Start a session</button>}</div>}
     </main>
     <footer className={ui.footer}><TrainerNotice/></footer>
     {notice ? <div className={ui.notification}><p role="status">{notice}</p><button type="button" aria-label="Dismiss notification" onClick={() => setNotice("")}>×</button></div> : null}
     <SessionDialogs state={dialog} csrf={csrf} canAssign={canAssign} scenarios={scenarios} onClose={() => setDialog(null)} onBusy={busy => {if (busy) library.current?.invalidate();}}
-      onDone={result => {setDialog(null); setNotice(result.notice); void library.current?.refresh();}}/>
+      onDone={result => {
+        setDialog(null); setNotice(result.notice);
+        if (result.created) setOpenId(result.created);
+        if (result.updated) setSessions(current => current.map(s => s.id === result.updated!.id ? result.updated! : s));
+        if (result.ended) setSessions(current => current.filter(s => s.id !== result.ended));
+        void library.current?.refresh();
+      }}/>
   </div>;
-}
-
-export function Person({label, name, detail, empty, initialsFor}: {label?: string; name: string; detail?: string; empty?: boolean; initialsFor: string}) {
-  return <div className={ui.person}><span className={`${ui.av} ${empty ? ui.avEmpty : ""}`} aria-hidden="true">{empty ? label ? "?" : "+" : initials(initialsFor)}</span><span>{label ? <small>{label}</small> : null}<strong>{name}</strong>{detail ? <small>{detail}</small> : null}</span></div>;
 }
 
 /** A Mentor joining by code takes the Mentor seat; the code only finds the session. */
 function JoinWithCode() {
   const [value, setValue] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  return <form className={ui.toolbar} style={{flexWrap: "nowrap", alignItems: "flex-start"}} onSubmit={async event => {
+  return <form className={ui.joinForm} onSubmit={async event => {
     event.preventDefault(); setBusy(true); setError("");
     try {window.location.assign(sessionPath("staff", (await previewSession(value)).id));}
     catch (reason) {setError((reason as Error).message); setBusy(false);}
   }}>
-    <div style={{display: "grid", gap: 6}}>
-      <label className={ui.field} style={{width: 280, maxWidth: "100%"}}><span className={ui.srOnly}>Session code or link</span><MagnifyingGlass size={18} aria-hidden="true"/><input className={ui.mono} value={value} onChange={event => setValue(event.target.value)} placeholder="Join with a code" autoCapitalize="characters" autoComplete="off" spellCheck={false} required disabled={busy} aria-invalid={!!error || undefined}/></label>
-      {error ? <small role="alert" style={{color: "var(--dashboard-danger-text,#b42318)", fontSize: 13, maxWidth: 280}}>{error}</small> : null}
+    <div>
+      <label className={ui.field}><span className={ui.srOnly}>Session code or link</span><input className={ui.mono} value={value} onChange={event => setValue(event.target.value)} placeholder="Session code or link" autoCapitalize="characters" autoComplete="off" spellCheck={false} required disabled={busy} autoFocus aria-invalid={!!error || undefined}/></label>
+      {error ? <small role="alert" style={{color: "var(--dashboard-danger-text,#b42318)", fontSize: 13}}>{error}</small> : null}
     </div>
     <button className={ui.btn} disabled={busy}>{busy ? "Checking…" : "Join"}</button>
   </form>;

@@ -10,6 +10,7 @@ import {ArrowsClockwise} from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import {ArrowSquareOut} from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import {CaretLeft} from "@phosphor-icons/react/dist/csr/CaretLeft";
 import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
+import {FlagCheckered} from "@phosphor-icons/react/dist/csr/FlagCheckered";
 import PauseControls from "./PauseControls";
 
 import {Plus} from "@phosphor-icons/react/dist/csr/Plus";
@@ -68,7 +69,7 @@ function aircraftPhase(a: Aircraft) {
   return "Airborne";
 }
 
-export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, extra, tutorial, observer}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle: string; scenario?: boolean; onRestart?: () => void; extra?: ReactNode; tutorial?: ReactNode; observer?: {enabled: boolean; connected: boolean; onToggle: () => void}}) {
+export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, onFinish, extra, tutorial, observer}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle: string; scenario?: boolean; onRestart?: () => void; onFinish?: () => void; extra?: ReactNode; tutorial?: ReactNode; observer?: {enabled: boolean; connected: boolean; onToggle: () => void}}) {
   const [confirmReset, setConfirmReset] = useState(false);
   const elapsed = `${String(Math.floor(exercise.elapsed / 60)).padStart(2, "0")}:${String(Math.floor(exercise.elapsed % 60)).padStart(2, "0")}`;
   return <header data-simulator-tour="toolbar" className={`${styles.staffToolbar} ${workspace.toolbar}`}><Link data-simulator-tour="return-sessions" href="/sweatbox/staff" aria-label="Return to sessions">ATCMH Sweatbox</Link><span className={styles.staffTitle} title={`${sessionTitle} · ${sessionId}`}>/ <span>{sessionCode(sessionId, exercise.airport)}</span></span>{observer ? <div className={styles.ownerObserver}><span>Owner observing</span><button type="button" aria-pressed={observer.enabled} disabled={!observer.connected} onClick={observer.onToggle}>{observer.enabled ? "Disable controls" : "Enable controls"}</button></div> : null}<span className={`${styles.exerciseStatus} ${workspace.clock}`} data-running={exercise.running || undefined} title={status}><span>{owner ? exercise.running ? "Running" : "Paused" : status}</span> <time>{elapsed}</time></span><PauseControls exercise={exercise} owner={owner} dispatch={dispatch}/>{extra}<span className={workspace.divider} aria-hidden="true"/>{audio}{tutorial}<StaffMenu>
@@ -78,6 +79,7 @@ export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio,
     {!observer ? <a className={workspace.menuItem} href={sessionPath("mentee", sessionId)} target="_blank" rel="noreferrer"><Users aria-hidden="true"/>Open mentee view<ArrowSquareOut className={workspace.menuTrail} aria-hidden="true"/></a> : null}
     <div className={workspace.menuLinks}><a href="/sweatbox/about" target="_blank" rel="noreferrer" title="Independent training tool; simulation only">About & sources</a></div>
     <span className={workspace.menuDivider} aria-hidden="true"/>
+    {onFinish ? <button className={workspace.menuItem} disabled={!owner} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); onFinish();}}><FlagCheckered aria-hidden="true"/>Finish attempt…</button> : null}
     <button className={`${workspace.menuItem} ${workspace.menuDanger}`} disabled={!owner} onClick={() => setConfirmReset(true)}><ArrowsClockwise aria-hidden="true"/>{scenario ? "Restart attempt…" : "Reset exercise…"}</button>
   </StaffMenu>{confirmReset ? <div className={styles.resetBackdrop}><section role="alertdialog" aria-modal="true" aria-labelledby="reset-exercise-title" aria-describedby="reset-exercise-description" className={styles.resetDialog} onKeyDown={e => {if (e.key === "Escape") setConfirmReset(false); if (e.key === "Tab") {const buttons = e.currentTarget.querySelectorAll("button"); if (e.shiftKey && document.activeElement === buttons[0]) {e.preventDefault(); buttons[1].focus();} else if (!e.shiftKey && document.activeElement === buttons[1]) {e.preventDefault(); buttons[0].focus();}}}}><h2 id="reset-exercise-title">{scenario ? "Restart attempt?" : "Reset exercise?"}</h2><p id="reset-exercise-description">Restore the sample traffic and clear this session’s changes and messages.</p><div><button autoFocus onClick={() => setConfirmReset(false)}>Cancel</button><button className={styles.primaryButton} disabled={!owner} onClick={() => {if (scenario) onRestart?.(); else dispatch({kind: "reset"}); onReset(); setConfirmReset(false);}}>{scenario ? "Restart attempt" : "Reset exercise"}</button></div></section></div> : null}</header>;
 }

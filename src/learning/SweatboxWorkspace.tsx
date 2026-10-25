@@ -16,23 +16,24 @@ import {AuthNavigation} from "../marketing/SiteHeader";
 import styles from "./SweatboxWorkspace.module.css";
 
 const trainerLinks = [
-  {key: "home", href: "/sweatbox", label: "Home", Icon: House, exact: true},
-  {key: "sessions", href: "/sweatbox/staff", label: "Sessions", Icon: MonitorPlay, exact: false},
+  // Sessions is the Sweatbox home; /sweatbox/staff shows the same page.
+  {key: "sessions", href: "/sweatbox", label: "Sessions", Icon: MonitorPlay, exact: true, also: "/sweatbox/staff"},
   {key: "scenarios", href: "/sweatbox/scenarios", label: "Scenarios", Icon: FileText, exact: false},
   {key: "replays", href: "/sweatbox/replays", label: "Replays", Icon: ClockCounterClockwise, exact: false},
   {key: "mentee", href: "/sweatbox/mentee", label: "Your sweatbox", Icon: UserCircle, exact: true},
-] as const;
+] as const satisfies readonly NavLink[];
 const menteeLinks = [
   {key: "mentee", href: "/sweatbox/mentee", label: "Your sweatbox", Icon: House, exact: true},
   {key: "mentee-replays", href: "/sweatbox/mentee/replays", label: "Your replays", Icon: ClockCounterClockwise, exact: false},
-] as const;
+] as const satisfies readonly NavLink[];
+interface NavLink {key: string; href: string; label: string; Icon: typeof House; exact: boolean; also?: string}
 const normalise = (path: string) => path.replace(/^\/simulator(?=\/|$)/, "/sweatbox").replace(/\/$/, "") || "/";
 
 function Brand({href}: {href: string}) {
-  return <Link href={href} className={styles.brand} aria-label="ATCMH Sweatbox home"><Image src="/assets/logo-Czz1Kl8u.png" width={36} height={40} alt=""/><span><strong>ATCMH</strong><small>Sweatbox</small></span></Link>;
+  return <Link href={href} className={styles.brand} aria-label="ATCMH Sweatbox home"><Image src="/assets/logo-Czz1Kl8u.png" width={28} height={31} alt=""/><strong>ATCMH Sweatbox</strong></Link>;
 }
 
-/** Top bar on wider screens; on phones the same links become a bottom tab bar. */
+/** One slim top bar on wider screens; on phones the same links become a bottom tab bar. */
 export default function SweatboxWorkspace({children}: {children: ReactNode}) {
   const pathname = normalise(usePathname());
   // Mentees admitted by an assignment see only their own pages; Mentors keep the library and gain Your sweatbox.
@@ -43,8 +44,9 @@ export default function SweatboxWorkspace({children}: {children: ReactNode}) {
     <header className={styles.header}>
       <div className={styles.headerInner}>
         <Brand href={home}/>
-        <nav className={styles.nav} aria-label="Sweatbox" data-simulator-tour="library-navigation">{links.map(({key, href, label, Icon, exact}) => {
-          const current = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+        <nav className={styles.nav} aria-label="Sweatbox" data-simulator-tour="library-navigation">{(links as readonly NavLink[]).map(({key, href, label, Icon, exact, also}) => {
+          const under = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
+          const current = (exact ? pathname === href : under(href)) || (!!also && under(also));
           return <Link key={key} href={href} data-simulator-tour={`${key}-tab`} aria-current={current ? "page" : undefined}><Icon size={22} aria-hidden="true"/><span>{label}</span></Link>;
         })}</nav>
         <div className={styles.actions}>

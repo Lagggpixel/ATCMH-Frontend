@@ -1,36 +1,29 @@
 "use client";
 import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import Link from "next/link";
-import {ArrowRight} from "@phosphor-icons/react/dist/csr/ArrowRight";
-import {DeviceMobile} from "@phosphor-icons/react/dist/csr/DeviceMobile";
-import {ClockCounterClockwise} from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
-import {UserCircle} from "@phosphor-icons/react/dist/csr/UserCircle";
-import {Path} from "@phosphor-icons/react/dist/csr/Path";
-import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
 import LearningFrame from "../learning/LearningFrame";
-import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import SessionAccess from "./SessionAccess";
 import {SessionEntryForm} from "./SessionEntry";
 import TrainerNotice from "./TrainerNotice";
 import {sessionJson} from "./shared-transport";
-import {initials, viewerName} from "./session-status";
+import {canPlayReplay, type ReplaySummary} from "./replays";
 import {sessionPath, type AssignedSession} from "./sessions";
 import ui from "./Sweatbox.module.css";
-import styles from "./MenteeHome.module.css";
 
 const modeLabel = (station?: string) => /:approach$/.test(station ?? "") ? "Approach" : /:center$/.test(station ?? "") ? "Center" : "Ground & Tower";
+const date = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", timeZone: "UTC"});
 const ago = (time: number, now: number) => {
   const minutes = Math.max(0, Math.round((now - time) / 60_000));
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours} h ago` : new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short"}).format(time);
+  return hours < 24 ? `${hours} h ago` : date.format(time);
 };
 function status(session: AssignedSession) {
-  if (session.youConnected) return {label: "Open on another page", tone: ui.idle};
-  if (session.paused) return {label: "Paused by your Mentor", tone: ui.idle};
-  if (session.trainerConnected) return {label: `${session.trainerName ?? "Your Mentor"} is in the session`, tone: ui.live};
-  return {label: "Waiting for your Mentor", tone: ui.idle};
+  if (session.youConnected) return {label: "Open on another page", tone: ""};
+  if (session.paused) return {label: "Paused by your Mentor", tone: ""};
+  if (session.trainerConnected) return {label: "Your Mentor is ready", tone: ui.stateLive};
+  return {label: "Waiting for your Mentor", tone: ""};
 }
 
 /** True only in iOS/iPadOS Safari tabs, where Add to Home Screen is the reliable full-screen route. */
@@ -43,11 +36,11 @@ function useHomeScreenTip() {
 }
 
 export default function MenteeHome() {
-  const name = viewerName(usePortalAuth());
-  return <LearningFrame product="Sweatbox"><SessionAccess embedded allowMentee role="mentee" returnTo="/sweatbox/mentee">{() => <Assigned name={name}/>}</SessionAccess></LearningFrame>;
+  return <LearningFrame product="Sweatbox"><SessionAccess embedded allowMentee role="mentee" returnTo="/sweatbox/mentee">{() => <Assigned/>}</SessionAccess></LearningFrame>;
 }
-function Assigned({name}: {name: string}) {
+function Assigned() {
   const [sessions, setSessions] = useState<AssignedSession[] | null>(null), [error, setError] = useState(""), [now, setNow] = useState(() => Date.now());
+  const [last, setLast] = useState<ReplaySummary | null>(null);
   const tip = useHomeScreenTip(), generation = useRef(0);
   useEffect(() => {
     let stopped = false, timer: ReturnType<typeof setTimeout> | undefined, controller: AbortController | undefined;
@@ -62,59 +55,58 @@ function Assigned({name}: {name: string}) {
     void load();
     return () => {stopped = true; clearTimeout(timer); controller?.abort();};
   }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/simulator/replays?scope=self", {cache: "no-store", signal: controller.signal}).then(sessionJson)
+      .then(data => {if (!controller.signal.aborted) setLast((data.replays as ReplaySummary[])[0] ?? null);}).catch(() => {});
+    return () => controller.abort();
+  }, []);
   // The session your Mentor is already in comes first; otherwise the newest assignment.
   const next = sessions?.find(s => s.trainerConnected && !s.youConnected) ?? sessions?.[0];
   const others = sessions?.filter(s => s !== next) ?? [];
-  const lead = sessions === null ? "Checking for sessions…" : !next ? "Nothing is assigned to you right now." : next.trainerConnected ? "Your Mentor is in the session and ready when you are." : "Your next session is ready to open.";
   return <div className={ui.page}>
-    <main className={`${ui.content} ${ui.narrow}`}>
-      <div className={ui.heading}><div><h1>{name ? `Hi ${name}` : "Your sweatbox"}</h1><p>{lead}</p></div></div>
+    <main className={ui.content}>
+      <div className={ui.heading}><h1>Your sweatbox</h1></div>
       {error ? <p role="alert" className={ui.error}>Could not refresh your sessions: {error}</p> : null}
-      <div className={ui.cols}>
-        <div className={ui.stack} aria-busy={sessions === null}>
-          {sessions === null ? <p role="status" className={ui.status}>Loading your sessions…</p> : next ? <section aria-labelledby="next-heading" className={`${ui.card} ${styles.next}`}>
-            <p><span className={`${ui.pill} ${status(next).tone}`}><span className={ui.dot}/>{status(next).label}</span></p>
-            <div><h2 id="next-heading">{next.title}</h2><p className={ui.meta}>{next.airport} · {modeLabel(next.trainingStation)} · Assigned {ago(next.assignedAt, now)}</p></div>
-            <div className={styles.nextFoot}>
-              <div className={ui.person}><span className={ui.av} aria-hidden="true">{initials(next.trainerName ?? "Mentor")}</span><span><small>Your Mentor</small><strong>{next.trainerName ?? "Your Mentor"}</strong></span></div>
-              <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter session<ArrowRight size={20} aria-hidden="true"/><span className={ui.srOnly}> {next.title}</span></Link>
-            </div>
-          </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here automatically. You can also join with a code or link.</p></div>}
-          <section aria-labelledby="briefing-heading" className={styles.briefing}>
-            <h2 id="briefing-heading">Three things before your first session</h2>
-            <ul>
-              <li><UserCircle size={24} aria-hidden="true"/><span><strong>You are the controller</strong><small>Your Mentor flies every aircraft and plays the pilots. You give the instructions.</small></span></li>
-              <li><Path size={24} aria-hidden="true"/><span><strong>Drag to give a taxi route</strong><small>Click an aircraft, then drag along the taxiways on the scope and send the instruction.</small></span></li>
-              <li><Pause size={24} aria-hidden="true"/><span><strong>Paused means talk</strong><small>When your Mentor pauses, everything freezes so you can go over what happened. Nothing is lost.</small></span></li>
-            </ul>
-            <p className={ui.meta}>A short tour starts the first time you enter a session. You can replay it from Help.</p>
-          </section>
-          {others.length ? <section aria-labelledby="more-heading">
-            <h2 id="more-heading" className={ui.sectionTitle}>Also assigned to you</h2>
-            <div className={ui.panel}>{others.map(session => <div key={session.id} className={styles.other}>
-              <div><strong>{session.title}</strong><small>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · Mentor ${session.trainerName}` : ""} · Assigned {ago(session.assignedAt, now)}</small></div>
-              <span className={`${ui.pill} ${status(session).tone}`}><span className={ui.dot}/>{status(session).label}</span>
-              <Link className={ui.btn} href={sessionPath("mentee", session.id)}>Open<span className={ui.srOnly}> {session.title}</span></Link>
-            </div>)}</div>
-          </section> : null}
-        </div>
-        <aside className={ui.aside} aria-label="More">
-          <section aria-labelledby="join-heading" className={ui.box}>
-            <h2 id="join-heading">Got a code or link?</h2>
-            <p>Paste what your Mentor sent you, or type the session code.</p>
-            <SessionEntryForm/>
-          </section>
-          <Link href="/sweatbox/mentee/replays" className={`${ui.box} ${styles.replaysLink}`}>
-            <ClockCounterClockwise size={24} aria-hidden="true"/>
-            <span><strong>Your replays</strong><small>Watch past sessions and read your Mentor’s feedback.</small></span>
-            <ArrowRight size={18} aria-hidden="true"/>
-          </Link>
-          {tip ? <section aria-labelledby="tip-heading" className={ui.inset}>
-            <h2 id="tip-heading"><DeviceMobile size={20} aria-hidden="true"/>On iPhone or iPad?</h2>
-            <p>For a proper full screen, tap <strong>Share</strong> in Safari, then <strong>Add to Home Screen</strong>. Open Sweatbox from that icon from now on. You will sign in once more inside it.</p>
-          </section> : null}
-        </aside>
+      <div aria-busy={sessions === null}>
+        {sessions === null ? <p role="status" className={ui.status}>Loading your sessions…</p> : next ? <section aria-labelledby="next-heading" className={ui.next}>
+          <div className={ui.itemMain}>
+            <span className={`${ui.state} ${status(next).tone}`}>{status(next).tone ? <span className={ui.dot}/> : null}{status(next).label}</span>
+            <h2 id="next-heading">{next.title}</h2>
+            <small>{next.airport} · {modeLabel(next.trainingStation)}{next.trainerName ? ` · with ${next.trainerName}` : ""} · Assigned {ago(next.assignedAt, now)}</small>
+          </div>
+          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter session<span className={ui.srOnly}> {next.title}</span></Link>
+        </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here by itself. You can also join with a code.</p></div>}
       </div>
+      {others.length ? <section className={ui.group} aria-labelledby="more-heading">
+        <h2 id="more-heading" className={ui.groupTitle}>Also assigned to you</h2>
+        <div className={ui.list}>{others.map(session => <div key={session.id} className={ui.item}><div className={ui.itemRow}>
+          <div className={ui.itemMain}><strong>{session.title}</strong><small>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · with ${session.trainerName}` : ""}</small></div>
+          <span className={`${ui.state} ${status(session).tone}`}>{status(session).label}</span>
+          <Link className={ui.btn} href={sessionPath("mentee", session.id)}>Open<span className={ui.srOnly}> {session.title}</span></Link>
+        </div></div>)}</div>
+      </section> : null}
+      <section className={ui.group} aria-labelledby="join-heading">
+        <h2 id="join-heading" className={ui.groupTitle}>Got a code from your Mentor?</h2>
+        <SessionEntryForm/>
+      </section>
+      {last ? <section className={ui.group} aria-labelledby="last-heading">
+        <div className={ui.listFoot}><h2 id="last-heading" className={ui.groupTitle}>Your last session</h2><Link href="/sweatbox/mentee/replays" style={{fontWeight: 600, textDecoration: "none"}}>All replays</Link></div>
+        <div className={ui.list}><div className={ui.item}><div className={ui.itemRow}>
+          <div className={ui.itemMain}><strong>{last.title}</strong><small>{[last.airport ?? "EGPH", date.format(last.endedAt), `${Math.max(1, Math.round(last.duration / 60))} min`].join(" · ")}</small></div>
+          <span className={`${ui.state} ${last.feedback ? ui.stateLive : ""}`}>{last.feedback ? "Feedback ready" : "No feedback"}</span>
+          <Link className={ui.btn} href={`/sweatbox/replays/${last.id}`}>{canPlayReplay(last) ? "Watch" : "View summary"}<span className={ui.srOnly}> {last.title}</span></Link>
+        </div></div></div>
+      </section> : null}
+      <details className={ui.more}>
+        <summary>New here? Three things to know</summary>
+        <ul>
+          <li><strong>You are the controller.</strong> Your Mentor flies every aircraft and plays the pilots. You give the instructions.</li>
+          <li><strong>Drag to give a taxi route.</strong> Click an aircraft, then drag along the taxiways on the scope and send the instruction.</li>
+          <li><strong>Paused means talk.</strong> When your Mentor pauses, everything freezes so you can go over what happened.</li>
+          {tip ? <li><strong>On iPhone or iPad?</strong> For a proper full screen, tap Share in Safari, then Add to Home Screen, and open Sweatbox from that icon.</li> : null}
+        </ul>
+      </details>
     </main>
     <footer className={ui.footer}><TrainerNotice/></footer>
   </div>;
