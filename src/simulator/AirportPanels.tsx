@@ -1,4 +1,5 @@
 "use client";
+import {facilityActive} from "./facility-activity";
 import {useEffect, useId, useRef, useState, type CSSProperties} from "react";
 import type {AirportInformation, AirportProcedures, AirportWeather, ScopeAirport} from "./airport-display";
 import {canLoadAirportProcedures, runwayWindComponents, weatherCategory} from "./airport-display";
@@ -34,7 +35,7 @@ export function AirportPopup({airports, point, size, weather, origin, environmen
   return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports"
     style={{...dimensions, width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))} as CSSProperties}>
     {airports.map(airport => <AirportPopupRow key={airport.identifier} airport={airport} weather={airport.identifier === origin ? weather : undefined}
-      controlled={canLoadAirportProcedures(airport.identifier, origin)} active={airport.identifier === origin && environment?.facilityActivity?.[`${origin}:tower`] !== false} onInformation={onInformation} onProcedures={onProcedures}/>)}
+      controlled={canLoadAirportProcedures(airport.identifier, origin)} active={airport.identifier === origin && facilityActive({id: `${origin}:tower`, type: "tower", active: true}, environment)} onInformation={onInformation} onProcedures={onProcedures}/>)}
   </div>;
 }
 function AirportPopupRow({airport, weather: exerciseWeather, controlled, active, onInformation, onProcedures}: {
@@ -97,7 +98,7 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
             {data?.airportClass ? <><br/>Class {data.airportClass}</> : null}</p>
         </div>
         <h2>FREQUENCIES</h2>{data?.frequencies.length ? data.frequencies.map(frequency => <div key={frequency.id} className={styles.frequency}>
-          <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{environment?.facilityActivity?.[frequency.id] === false ? "Inactive" : "Training"} at {airport.identifier}<br/>{frequency.mhz}MHz</span>
+          <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{facilityActive({...frequency, active: true}, environment) ? "Training" : "Inactive"} at {airport.identifier}<br/>{frequency.mhz}MHz</span>
         </div>) : <p>Frequency information unavailable.</p>}
         <details className={styles.sources}><summary>Sources and training limits</summary><p>Training references; live Infinite Flight controller occupancy is unavailable.</p><a href="/sweatbox/about" target="_blank" rel="noreferrer">About the training data</a></details>
       </> : null}

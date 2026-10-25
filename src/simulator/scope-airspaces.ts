@@ -1,3 +1,4 @@
+import {facilityActive} from "./facility-activity";
 import {facilities, insideAirspace, localPoint, type RadioFacility} from "./aviation";
 import type {Airport, Point, RadarEnvironment} from "./model";
 
@@ -15,9 +16,9 @@ export function projectAirspaces(airport: Airport, configured?: readonly RadioFa
 export type ScopeAirspace = ReturnType<typeof projectAirspaces>[number];
 
 /** IF renders active/selected boundaries independently of HideAirspaces. */
-export function airspaceOutlines(airspaces: readonly ScopeAirspace[], showOrdinary: boolean, selected: readonly string[], activity?: RadarEnvironment["facilityActivity"]) {
+export function airspaceOutlines(airspaces: readonly ScopeAirspace[], showOrdinary: boolean, selected: readonly string[], activity?: RadarEnvironment["facilityActivity"], defaultActive?: boolean) {
   return airspaces.flatMap(airspace => {
-    const highlighted = (activity?.[airspace.id] ?? airspace.active) || selected.includes(airspace.id);
+    const highlighted = facilityActive({id: airspace.id, type: "center", active: airspace.active}, {facilityActivity: activity, facilityDefaultActive: defaultActive}) || selected.includes(airspace.id);
     return showOrdinary || highlighted ? [{...airspace, width: highlighted ? 3 : 1}] : [];
   });
 }

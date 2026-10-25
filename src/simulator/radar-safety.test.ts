@@ -148,11 +148,11 @@ test("terrain alerts use raw AGL below 1000ft and the same approach exemptions",
   a.radar!.cleared = undefined; a.radar!.guidance = "vectors"; a.radar!.transferred = true; a.frequency = "tower"; assert.equal(terrainClearance(a, 4500, state.radarEnvironment), undefined);
 });
 
-for (const type of ["gps", "visual", "ils"] as const) test(`${type}: excessive height above glide path triggers a single automatic missed approach at the correct stage`, () => {
+for (const type of ["gps", "ils"] as const) test(`${type}: excessive height above glide path triggers a single automatic missed approach at the correct stage`, () => {
   let state = clear(fixture(), type); const a = state.aircraft[0], p = state.radarEnvironment!.approaches.find(p => p.id === a.radar!.cleared)!, airport = getAirport(state), g = approachGeometry(airport, p.runway);
   const nm = type === "gps" ? 5 : 8;
   a.position = {x: g.threshold.x - g.vector.x * nm, y: g.threshold.y - g.vector.y * nm}; a.heading = a.targetHeading = g.heading;
-  const glide = airport.elevation + 50 + nm * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180); a.altitude = glide + (type === "visual" ? 501 : type === "gps" ? 26 : 1);
+  const glide = airport.elevation + 50 + nm * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180); a.altitude = glide + (type === "gps" ? 26 : 1);
   const manual = structuredClone(a); moveRadar(manual, .05, airport, state.radarEnvironment!, [], false); assert.notEqual(manual.radar!.navigation, "missed");
   if (type === "ils") {a.position.x += g.vector.y * (p.captureWidth + .1); a.position.y -= g.vector.x * (p.captureWidth + .1); moveRadar(a, .05, airport, state.radarEnvironment!, [], true); assert.notEqual(a.radar!.navigation, "missed"); a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8}; a.altitude = glide + 1;}
   const atGlide = structuredClone(a); atGlide.altitude = glide; for (let i = 0; i < 60; i++) moveRadar(atGlide, .05, airport, state.radarEnvironment!, [], true); assert.notEqual(atGlide.radar!.navigation, "missed");

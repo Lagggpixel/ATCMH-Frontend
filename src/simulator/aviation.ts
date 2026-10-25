@@ -1,6 +1,7 @@
+import {facilityActive} from "./facility-activity";
 import {frequenciesFor} from "./airports";
 import raw from "./data/aviation.json";
-import type {Aircraft, Airport, Frequency, Point, RadarApproach} from "./model";
+import type {Aircraft, Airport, Frequency, Point, RadarApproach, RadarEnvironment} from "./model";
 
 export interface RadioFacility {id: string; airport?: string; name: string; type: Frequency; mhz: string; lat: number; lon: number; active: boolean; boundary?: unknown}
 type Row = {kind: string; icao?: string; airport?: string | null; id?: string; name?: string | null; lat?: number; lon?: number; elevation?: number; type?: string; mhz?: number | string; ils?: number | boolean; glideAngle?: number | null; runwayIndex?: number; endIndex?: number; boundary?: unknown};
@@ -32,11 +33,11 @@ export function insideAirspace(boundary:unknown,lat:number,lon:number){
     if((a[1]>lat)!==(b[1]>lat) && lon<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])inside=!inside;
   }return inside;
 }
-export function availableHandoffs(a: Aircraft, airport: Airport, frequency: Frequency, configured = facilities): RadioFacility[] {
+export function availableHandoffs(a: Aircraft, airport: Airport, frequency: Frequency, configured = facilities, environment?: RadarEnvironment): RadioFacility[] {
   const target = frequency === "ground" ? "tower" : frequency === "tower" ? "ground" : frequency === "approach" || frequency === "center" ? "unicom" : undefined;
   if (!target) return [];
   const local = configured.find(f => f.type === target && f.airport === airport.icao);
-  if (local) return local.active ? [{...local, ...(target === "unicom" ? {name: "Traffic"} : {})}] : [];
+  if (local) return facilityActive(local, environment) ? [{...local, ...(target === "unicom" ? {name: "Traffic"} : {})}] : [];
   const service = frequenciesFor(airport)[target];
   if (!service) return [];
   return [{id: airport.icao + ":" + target, airport: airport.icao, name: target === "unicom" ? "Traffic" : service.name, type: target, mhz: service.value, lat: airport.origin.lat, lon: airport.origin.lon, active: true}];
@@ -68,4 +69,12 @@ export function approachOptions(a: Aircraft, airport: Airport, existing: RadarAp
   if(code!==airport.icao)return airportApproaches(airport,code);
   const equipment=airportApproaches(airport);
   return existing.filter(p=>!p.airportIcao || p.airportIcao===code).filter(p=>p.type!=="ils" || equipment.some(e=>e.type==="ils" && e.runway===p.runway));
+}
+
+export function freshFacilityEnvironment(airport: Airport, mode: "local" | "approach" | "center", environment: RadarEnvironment): RadarEnvironment {
+  const services = mode === "local" ? ["ground", "tower", "atis"] : [mode, "atis"];
+  const own = (environment.facilities ?? facilities).filter(f => services.includes(f.type) && (f.airport === airport.icao
+    || f.type === "center" && insideAirspace(f.boundary, airport.origin.lat, airport.origin.lon)));
+  return {...environment, facilityDefaultActive: environment.facilityDefaultActive ?? false,
+    facilityActivity: {...Object.fromEntries([...own.map(f => [f.id, f.active]), ...services.map(type => [`${airport.icao}:${type}`, true])]), ...Object.fromEntries((environment.facilities ?? []).map(f => [f.id, f.active])), ...environment.facilityActivity}};
 }

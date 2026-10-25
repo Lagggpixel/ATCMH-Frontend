@@ -1,3 +1,4 @@
+import {facilityActive} from "./facility-activity";
 import {availableHandoffs, facilityName, approachOptions} from "./aviation";
 import {controllerAircraft} from "./controller-state";
 import type {MenuEntry} from "./catalog";
@@ -40,7 +41,7 @@ export function referenceMenu(frequency: Frequency, a: Aircraft, airport: Airpor
   const crossing = (): MenuEntry[] => [...runways(runway => [leaf("Send", {type: "cross", runway}), leaf("Expedite", {type: "cross", runway, expedite: true})]), leaf("Already cleared to cross", atc("progressive", {variant: "crossed"}))];
   const progressive: MenuEntry = {label: "Progressive Taxi", children: [leaf("Expect Progressive Taxi Instructions", atc("progressive", {variant: "expect"})), {label: "Cross Runway", children: crossing().slice(0, -1)}, ...([["Turn left next taxiway", "left"], ["Turn right next taxiway", "right"], ["Continue straight ahead", "straight"], ["Make 180", "reverse"], ["Continue taxi at your discretion", "discretion"], ["Follow Aircraft Ahead", "follow"], ["Already cleared to cross", "crossed"]] as const).map(([label, variant]) => leaf(label, atc("progressive", {variant})))]};
   const common: MenuEntry[] = [
-    {label: "Contact Other Frequency", children: [...availableHandoffs(a,airport,frequency,environment.facilities).filter(f=>environment.facilityActivity?.[f.id]!==false).map(f => leaf(facilityName(f), {type: "frequency", frequency: f.type, facilityId:f.id, facilityName:f.name, mhz:f.mhz, from: frequency})), leaf("Frequency Change Approved", {type: "frequency", frequency: null, from: frequency})]},
+    {label: "Contact Other Frequency", children: [...availableHandoffs(a,airport,frequency,environment.facilities,environment).filter(f=>facilityActive(f,environment)).map(f => leaf(facilityName(f), {type: "frequency", frequency: f.type, facilityId:f.id, facilityName:f.name, mhz:f.mhz, from: frequency})), leaf("Frequency Change Approved", {type: "frequency", frequency: null, from: frequency})]},
     confirm("Ask for Intentions", {type: "radio", message: "say-intentions"}),
     leaf("Roger", {type: "radio", message: "roger"}), leaf("Stand by", {type: "radio", message: "standby"}),
     confirm("Add Replay Bookmark", atc("bookmark")),

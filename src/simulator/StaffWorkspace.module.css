@@ -85,6 +85,7 @@
 .panel .fields .segmented button+button {margin-left:-1px}
 .panel .fields .segmented button[aria-pressed=true] {position:relative}
 .actionRow {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.panel .fields .recoveryActions button {white-space:normal;overflow-wrap:anywhere}
 .actionDivider {display:none}
 .routeGrid {display:grid;gap:18px}
 .routeGrid>section {display:grid;gap:10px;min-width:0}

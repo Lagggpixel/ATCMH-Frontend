@@ -1,3 +1,4 @@
+import {facilityActive} from "./facility-activity";
 import {facilities, localPoint} from "./aviation";
 import type {RadioFacility} from "./aviation";
 import type {Airport, Atis, Exercise, ExerciseWeather} from "./model";
@@ -37,7 +38,7 @@ export function currentAtisOptions(draft: Atis): Atis {
 
 /** IF only exposes sectors when more than one active Ground/Tower/Approach frequency exists. */
 export function atisFrequencies(airport: Airport, environment?: Exercise["radarEnvironment"]): RadioFacility[] {
-  const active = (environment?.facilities ?? facilities).filter(f => f.active && environment?.facilityActivity?.[f.id] !== false);
+  const active = (environment?.facilities ?? facilities).filter(f => facilityActive(f, environment));
   return active.filter((f, index) => ["ground", "tower", "approach"].includes(f.type)
     && active.findIndex(other => other.id === f.id) === index
     && active.some(other => other.id !== f.id && other.type === f.type)

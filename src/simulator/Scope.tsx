@@ -1,4 +1,5 @@
 "use client";
+import {facilityActive} from "./facility-activity";
 import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
 import {canRouteGround, destinationAt, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
@@ -179,7 +180,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       if (!facility.airport || !["ground", "tower", "approach", "departure", "center"].includes(facility.type)) continue;
       // Navdata tower status and live staffing are independent. Global frequency
       // definitions alone are not evidence that a nearby controller is online.
-      if (!(radarEnvironment?.facilityActivity?.[facility.id] ?? (radarEnvironment?.facilities ? facility.active : false))) continue;
+      if (!facilityActive(facility, radarEnvironment, radarEnvironment?.facilities ? facility.active : false)) continue;
       const current = activity.get(facility.airport);
       activity.set(facility.airport, {active: true, approachOnly: (current?.approachOnly ?? true) && !["ground", "tower"].includes(facility.type)});
     }
@@ -288,7 +289,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     };
     if (coastlines.data) drawCoastlines(ctx, coastlines.data, AIRPORT.origin, camera, size);
     ctx.font = '12px "Simulator Fira", sans-serif';
-    for (const airspace of airspaceOutlines(airspaces, options.airspaces, selectedAirspaces, radarEnvironment?.facilityActivity)) {
+    for (const airspace of airspaceOutlines(airspaces, options.airspaces, selectedAirspaces, radarEnvironment?.facilityActivity, radarEnvironment?.facilityDefaultActive)) {
       const halfWidth = size.width / camera.scale / 2, halfHeight = size.height / camera.scale / 2;
       if (airspace.right < camera.center.x - halfWidth || airspace.left > camera.center.x + halfWidth || airspace.top < camera.center.y - halfHeight || airspace.bottom > camera.center.y + halfHeight) continue;
       const points = [...airspace.points, airspace.points[0]];

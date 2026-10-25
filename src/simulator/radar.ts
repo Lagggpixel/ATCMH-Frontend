@@ -1,3 +1,4 @@
+import {visualDescentDistance, visualDescentHeight} from "./visual-descent";
 import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
 import {radarArrivalFrequency} from "./model";
 import {airportApproaches, environmentWithDestinations} from "./aviation";
@@ -158,9 +159,9 @@ export function radarInstructionError(a: Aircraft, c: Instruction, airport: Airp
   if (!a.radar || !airborne(a, airport)) return "This instruction requires airborne Approach or Center traffic.";
   if (c.type === "vector") {
     if (c.heading === undefined && !c.altitude && !c.approachId) return "Choose a heading, altitude or approach clearance.";
-    if (c.heading !== undefined && (!Number.isFinite(c.heading) || c.heading < 0 || c.heading > 360)) return "Choose a heading from 0 to 360.";
     if (c.approachId && ((a.assigned?.expected ?? a.radar.expected) !== c.approachId || !environment.approaches.some(item => item.id === c.approachId))) return "The expected approach has changed. Select the current approach before clearing it.";
   }
+  if ((c.type === "vector" || c.type === "missed-approach") && c.heading !== undefined && (!Number.isFinite(c.heading) || c.heading < 0 || c.heading > 360)) return "Choose a heading from 0 to 360.";
   if ((c.type === "vector" || c.type === "missed-approach" || c.type === "route") && c.altitude && (!validAltitude(c.altitude) || altitudeFeet(c.altitude) <= airport.elevation)) return "Choose an available altitude above the airport elevation.";
 
   if (c.type === "expect-approach" && c.approachId && !environment.approaches.some(item => item.id === c.approachId)) return "This approach is unavailable in the pinned training environment.";
@@ -243,6 +244,39 @@ function automaticMissed(a: Aircraft, airport: Airport, environment: RadarEnviro
   assignRadar(a, {type: "missed-approach", altitude, heading}, airport, environment);
   a.radar!.report = "missed"; a.radar!.missedReason = reason;
 }
+/** Predict only this clearance's flown join/final, using the actual banked guidance.
+ * No filed legs or looping failed intercepts are credited as descent distance.
+ * Runs at readback time, never in the live movement loop. */
+export function visualApproachTrackMiles(a: Aircraft, command: Extract<Instruction, {type: "vector"}>, airport: Airport, environment: RadarEnvironment, weather?: ExerciseWeather): number {
+  const approach = environment.approaches.find(p => p.id === command.approachId)!;
+  const geometry = approachGeometry(airport, approach.runway, approach);
+  const direct = distance(a.position, geometry.threshold);
+  const predicted = structuredClone(a);
+  assignRadar(predicted, command, airport, environment);
+  // Predict the same final without a Tower landing or occupancy decision.
+  predicted.frequency = "approach"; predicted.radar!.transferred = false;
+  let travelled = 0;
+  for (let seconds = 0; seconds < 600; seconds += .5) {
+    const before = {...predicted.position};
+    moveRadar(predicted, .5, airport, environment, [], false, weather);
+    travelled += distance(before, predicted.position);
+    const dx = predicted.position.x - geometry.threshold.x, dy = predicted.position.y - geometry.threshold.y;
+    const along = dx * geometry.vector.x + dy * geometry.vector.y;
+    const lateral = Math.abs(dx * -geometry.vector.y + dy * geometry.vector.x);
+    if (along >= -.1 && along <= .1 && lateral <= .05) return travelled + distance(predicted.position, geometry.threshold);
+    if (predicted.radar!.navigation !== "approach") break;
+  }
+  return direct;
+}
+
+export function visualClearanceUnable(a: Aircraft, command: Instruction, airport: Airport, environment: RadarEnvironment, weather?: ExerciseWeather): string | null {
+  if (!a.radar || command.type !== "vector" || !command.approachId) return null;
+  const approach = environment.approaches.find(p => p.id === command.approachId);
+  if (approach?.type !== "visual") return null;
+  const required = visualDescentDistance(a.altitude - (approach.elevation ?? airport.elevation));
+  const available = visualApproachTrackMiles(a, command, airport, environment, weather);
+  return required > available + 1e-6 ? `Insufficient visual approach track miles: ${required.toFixed(2)} NM required, ${available.toFixed(2)} NM available (4° above 1,000 ft, 3° below).` : null;
+}
 export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment: RadarEnvironment, traffic: Aircraft[] = [], automatic = false, weather?: ExerciseWeather) {
   const r = a.radar!;
   if (!a.active) return;
@@ -311,7 +345,8 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       const g = approachGeometry(airport, approach.runway,approach), dx = a.position.x - g.threshold.x, dy = a.position.y - g.threshold.y;
       const along = dx * g.vector.x + dy * g.vector.y, lateral = dx * -g.vector.y + dy * g.vector.x;
       const destinationElevation=approach.elevation??airport.elevation;
-      const glideHeight = destinationElevation + 50 + Math.max(0, -along) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
+      const glideHeight = approach.type === "visual" ? destinationElevation + visualDescentHeight(Math.max(0, -along - (a.groundSpeed ?? a.speed) / 3600 * dt))
+        : destinationElevation + 50 + Math.max(0, -along) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
       // Existing saved ILS definitions also receive the extended LOC/GS range.
       const captureDistance = approach.type === "ils" ? Math.max(ILS_CAPTURE_DISTANCE_NM, approach.finalDistance) : approach.finalDistance;
       const onLocalizer = along < -.1 && along >= -captureDistance - 1e-8 && Math.abs(lateral) <= approach.captureWidth && Math.abs(headingDifference(g.heading, a.heading)) <= (approach.type === "ils" ? MAX_ILS_INTERCEPT : 45) + 1e-8;
@@ -337,12 +372,13 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       }
       if (gpsRouting && !r.captured) groundTrack = a.targetHeading;
       const checkAltitude = !r.clearanceAltitudeChecked && (gpsRouting ? r.captured : approach.type !== "ils" || onLocalizer);
-      const clearanceHeight = approach.type === "ils" ? glideHeight : destinationElevation + 50 + Math.hypot(dx, dy) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
+      const clearanceHeight = approach.type === "visual" ? destinationElevation + visualDescentHeight(Math.hypot(dx, dy)) : approach.type === "ils" ? glideHeight : destinationElevation + 50 + Math.hypot(dx, dy) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
       if (gpsRouting && !r.captured) altitude = Math.min(altitude, clearanceHeight);
-      if (automatic && checkAltitude) {
+      if (automatic && checkAltitude && approach.type === "visual") r.clearanceAltitudeChecked = true;
+      if (automatic && checkAltitude && approach.type !== "visual") {
         r.clearanceAltitudeChecked = true;
-        // Visual traffic can recover a modest height excess within its final-capture allowance.
-        const heightTolerance = approach.type === "visual" ? 500 : gpsRouting ? 25 : 0;
+        // Visual feasibility is checked before the pilot accepts the clearance.
+        const heightTolerance = gpsRouting ? 25 : 0;
         if ((approach.type!=="ils" || approach.glideslope!==false) && a.altitude > clearanceHeight + heightTolerance + 1e-6) {
           automaticMissed(a, airport, environment, approach.type === "ils" ? "Above glideslope at localizer interception." : gpsRouting ? "Above the GPS glide path at the final approach fix." : "Above the approach glide path at clearance.");
           moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
@@ -356,7 +392,7 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
         r.approachIntercept ??= {seconds: 0, entered: false};
         r.approachIntercept.seconds += dt;
         if (along < -.1 && along >= -approach.finalDistance) r.approachIntercept.entered = true;
-        if (!r.captured && onLocalizer && a.altitude <= glideHeight + 500) r.captured = true;
+        if (!r.captured && onLocalizer && (approach.type === "visual" || a.altitude <= glideHeight + 500)) r.captured = true;
         if (!r.captured && along < -.1 && along >= -approach.finalDistance) {
           // GPS/visual clearances join the schematic final without another vector.
           // Intercept the course ahead of the aircraft, anticipating the banked
@@ -378,7 +414,7 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
         const lookAhead = Math.max(1, bankTurnLead(a.speed));
         const trackAlong = Math.min(1, along + lookAhead);
         groundTrack = a.targetHeading = radarHeading(a.position, {x: g.threshold.x + g.vector.x * trackAlong, y: g.threshold.y + g.vector.y * trackAlong});
-        if (r.captured && (approach.type!=="ils" || approach.glideslope!==false)) altitude = Math.min(a.altitude, along < 0 ? glideHeight : destinationElevation + Math.max(0, 50 - along * 500));
+        if (r.captured && (approach.type!=="ils" || approach.glideslope!==false)) altitude = Math.min(a.altitude, along < 0 ? glideHeight : approach.type === "visual" ? destinationElevation : destinationElevation + Math.max(0, 50 - along * 500));
         const towerLanding = r.transferred && radarArrivalFrequency(a.frequency) && r.captured;
         if (towerLanding && along >= -.65 && along < .1 && runwayGoAroundDue(a.altitude, destinationElevation, along) && runwayOccupied(airport, approach.runway, traffic, a.id)) {
           automaticMissed(a, airport, environment, "Landing runway is occupied.");

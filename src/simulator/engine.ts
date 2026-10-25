@@ -1,4 +1,6 @@
-import {availableHandoffs, environmentWithDestinations} from "./aviation";
+import {facilityActive} from "./facility-activity";
+import {visualClearanceUnable} from "./radar";
+import {availableHandoffs, environmentWithDestinations, freshFacilityEnvironment} from "./aviation";
 import {advancePerformance, climbRate, descentRate, acceleration, rotationSpeed, performanceFor, headingForGroundTrack, densityRatio} from "./aircraft-performance";
 import {recordControllerAssignment} from "./controller-state";
 import {startConflict, prepareConflicts, conflictCommand, aircraftCollisionGroups, removeConflictAircraft} from "./training-conflicts";
@@ -161,7 +163,7 @@ function initialExercise(id = "egph-local"): Exercise {
   const taxiway = AIRPORT.features.find(f => f.kind === "taxiway" && f.points.length >= 3);
   if (taxiway) { second.position = {...taxiway.points[0]}; second.taxiPath = taxiway.points.map((p, i) => ({...p, hold: i === taxiway.points.length - 2})); }
   const mode = trainingMode({...airportSelection(AIRPORT), ...selection});
-  return {schema: 2, ...airportSelection(AIRPORT, mode), id, revision: 0, elapsed: 0, running: false, pausedByStaff: false, autoReadback: true, aircraft: mode === "local" ? [first, second] : [radarAircraft(first, mode, AIRPORT)], ...(mode !== "local" ? {radarEnvironment} : {}), ...(selection.weather?{weather:structuredClone(selection.weather)}:{}), messages: [], processed: [], atis: {...emptyAtis(), departures: [DEFAULT_RUNWAY], arrivals: [DEFAULT_RUNWAY]}, publishedAtis: "ATIS UNAVAILABLE", publishedDraft: null};
+  return {schema: 2, ...airportSelection(AIRPORT, mode), id, revision: 0, elapsed: 0, running: false, pausedByStaff: false, autoReadback: true, aircraft: mode === "local" ? [first, second] : [radarAircraft(first, mode, AIRPORT)], radarEnvironment: freshFacilityEnvironment(AIRPORT, mode, radarEnvironment), ...(selection.weather?{weather:structuredClone(selection.weather)}:{}), messages: [], processed: [], atis: {...emptyAtis(), departures: [DEFAULT_RUNWAY], arrivals: [DEFAULT_RUNWAY]}, publishedAtis: "ATIS UNAVAILABLE", publishedDraft: null};
 }
 /** Upgrade old snapshots once: the last pending pilot messages were the only unread ones. */
 
@@ -858,7 +860,7 @@ function requiresPilotReply(command: Instruction) {
 }
 function validateControllerMessage(state: Exercise, a: Aircraft, command: Instruction, frequency: Frequency, replyTo?: string): string | null {
   if (command.type === "frequency" && command.frequency !== null) {
-    const allowed = availableHandoffs(a, AIRPORT, frequency, radarEnvironment.facilities);
+    const allowed = availableHandoffs(a, AIRPORT, frequency, radarEnvironment.facilities, radarEnvironment).filter(f => facilityActive(f, radarEnvironment));
     if (!allowed.some(f => f.type === command.frequency && (!command.facilityId || f.id === command.facilityId))) return "Choose the other local controller frequency, Traffic in radar training, or Frequency Change Approved.";
   }
   if (command.type === "atc" && command.action === "guard") {
@@ -885,7 +887,8 @@ function readbackText(callsign: string, text: string, instruction?: Instruction)
 
 function commandUnableReason(a: Aircraft, command: Message, traffic: Aircraft[]): string | null {
   if (!command.instruction) return null;
-  return automaticRadarUnable(a, command.instruction)
+  return visualClearanceUnable(a, command.instruction, AIRPORT, radarEnvironment, EXERCISE_WEATHER)
+    ?? automaticRadarUnable(a, command.instruction)
     ?? (command.instruction.type === "land" && command.clearanceCircuit !== undefined && command.clearanceCircuit !== (a.circuit ?? 0)
       ? "This landing clearance belongs to a previous circuit."
       : validateAssignment(a, command.instruction, command.frequency, traffic));

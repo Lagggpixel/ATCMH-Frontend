@@ -75,7 +75,8 @@ export function RadarStaffControls({aircraft, exercise, onManeuver, staffView}: 
     : aircraft.airportSighting?.terrain?.status === "blocked" ? "obstructed by terrain" : `looking for airport (${Math.floor(aircraft.airportSighting?.seconds ?? 0)}/3 seconds)`;
   const clearance = {...command, approachId: aircraft.radar?.expected};
   const clearanceError = !aircraft.radar?.expected ? "Choose an expected approach first." : engineFor(exercise).validateAssignment(aircraft, clearance);
-  const missedError = engineFor(exercise).validateAssignment(aircraft, {type: "missed-approach", altitude: command.altitude!});
+  const missedCommand: Instruction = {type: "missed-approach", altitude: command.altitude!, heading: command.heading};
+  const missedError = !heading.trim() || !Number.isFinite(Number(heading)) || Number(heading) < 0 || Number(heading) > 360 ? "Choose a heading." : engineFor(exercise).validateAssignment(aircraft, missedCommand);
   const unable = aircraft.radar?.patternJoin?.status === "unable";
   const headingField = <label>Heading (°M)<input aria-label="Heading override" type="number" min="0" max="360" step="10" value={heading} onChange={e => setHeading(e.target.value)}/></label>;
   const altitudeField = <label>{staffView === "flight" ? "Altitude" : "Assigned altitude"}<select aria-label="Assigned altitude" value={altitude} onChange={e => setAltitude(e.target.value)}>{ALTITUDES.map(a => <option key={altitudeLabel(a)}>{altitudeLabel(a)}</option>)}</select></label>;
@@ -95,13 +96,14 @@ export function RadarStaffControls({aircraft, exercise, onManeuver, staffView}: 
         <button className={workspace.primary} disabled={!heading || !!clearanceError} title={clearanceError ?? undefined} onClick={() => onManeuver({...command, approachId: aircraft.radar!.expected})}>Clear for expected approach</button>
       </div></div>
       <LandingOutcomeControl compact value={aircraft.landing} onChange={outcome => onManeuver({type: "outcome", outcome})}/>
-      <div className={workspace.controlGroup}><h3>Recovery</h3><div className={workspace.actionRow}>
-        <button disabled={!!missedError} title={missedError ?? "Climbs to the assigned altitude"} onClick={() => onManeuver({type: "missed-approach", altitude: command.altitude!})}>Execute missed approach</button>
+      <div className={workspace.controlGroup}><h3>Recovery</h3><div className={`${workspace.actionRow} ${workspace.recoveryActions}`}>
+        <button disabled={!!missedError} title={missedError ?? "Climbs to the assigned altitude"} onClick={() => onManeuver(missedCommand)}>Missed approach · heading & altitude</button>
+        <button onClick={() => onManeuver({type: "missed-approach", altitude: command.altitude!})}>Missed approach · altitude only</button>
         <button disabled={!aircraft.flightPlan.length} title={aircraft.flightPlan.length ? undefined : "No flight plan"} onClick={() => onManeuver({type: "route", index: Math.min(aircraft.radar?.routeIndex ?? 0, aircraft.flightPlan.length - 1)})}>Resume route</button>
         <button onClick={() => onManeuver({type: "radar-speed", mode: "discretion"})}>Resume automatic speeds</button>
         {unable ? <button onClick={() => onManeuver({type: "frequency", frequency: "tower"})}>Retry pattern join</button> : null}
       </div></div>
     </div>
-    <p>The clearance uses the heading and altitude above. Missed approach climbs to the assigned altitude. Vectors and speed are in Vectors & speed.</p>
+    <p>The clearance uses the heading and altitude above. Missed approach can use both fields or keep the existing heading with altitude only. Vectors and speed are in Vectors & speed.</p>
   </section>;
 }

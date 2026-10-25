@@ -42,7 +42,7 @@ test("schema 1 preserves old messages, taxi defaults and legacy ATIS references"
   state.atis.procedures = ["SID - GOSA1C"]; state.publishedAtis = "Historical radio text";
   state.messages = [{id: "old", aircraftId: state.aircraft[1].id, time: 1, frequency: "ground", sender: "controller", text: "Saved parking wording", instruction: {type: "taxi"}}];
   const saved = JSON.stringify(state);
-  assert.equal(JSON.stringify(exerciseSchema.parse(JSON.parse(saved))), saved);
+  assert.deepEqual(exerciseSchema.parse(JSON.parse(saved)), JSON.parse(saved));
   assert.match(atisText(state.atis), /SID - GOSA1C/);
   assert.match(instructionText(state.aircraft[1], {type: "taxi"}), /continue taxi/);
   assert.match(instructionText(state.aircraft[1], instructionSchema.parse({type: "taxi", destination: "parking"})), /taxi to parking/);

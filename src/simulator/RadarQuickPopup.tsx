@@ -25,7 +25,7 @@ export default function RadarQuickPopup({aircraft, exercise, frequency, heading,
   const {instructionText} = catalogFor(airport, environment,exercise.weather);
   const directCommand: Extract<Instruction, {type: "route"}> | undefined = target && {type: "route", index: target.index, name: target.name, point: target.point};
   const directError = directCommand ? validateControllerMessage(exercise, aircraft, directCommand, frequency) : undefined;
-  const commandFor = (altitude: Altitude): Instruction => picker === "direct-altitude" && directCommand ? {...directCommand, altitude} : picker === "missed" ? {type: "missed-approach", altitude} : {type: "vector", ...(heading !== undefined ? {heading} : {}), altitude, ...(picker === "approach" ? {approachId} : {})};
+  const commandFor = (altitude: Altitude): Instruction => picker === "direct-altitude" && directCommand ? {...directCommand, altitude} : picker === "missed" ? {type: "missed-approach", altitude, ...(heading !== undefined ? {heading} : {})} : {type: "vector", ...(heading !== undefined ? {heading} : {}), altitude, ...(picker === "approach" ? {approachId} : {})};
   const send = async (command: Instruction) => {
     if (inFlight.current || !connected) return;
     const invalid = validateControllerMessage(exercise, aircraft, command, frequency);
@@ -39,7 +39,7 @@ export default function RadarQuickPopup({aircraft, exercise, frequency, heading,
     {picker === "reminder" || picker === "color" ? <>
       <button role="menuitem" onClick={() => setPicker(null)}>‹ Back</button>
       <AircraftOptionPicker picker={picker} elapsed={exercise.elapsed} connected={connected} onEdit={patch => {dispatch({kind: "edit", aircraftId: aircraft.id, patch}); onSent();}}/>
-    </> : picker ? <><button role="menuitem" disabled={sending} onClick={() => {setPicker(null); setError("");}}>‹ Back</button><div className={styles.altitudeChoices} aria-label={`${picker === "direct-altitude" ? `Direct To ${target?.name}` : picker === "missed" ? "Missed Approach" : picker === "approach" ? "Clear for Approach" : "Assign Altitude"} altitude`}>{ALTITUDES.map(altitude => {
+    </> : picker ? <><button role="menuitem" disabled={sending} onClick={() => {setPicker(null); setError("");}}>‹ Back</button><div className={styles.altitudeChoices} aria-label={`${picker === "direct-altitude" ? `Direct To ${target?.name}` : picker === "missed" ? `Missed Approach${heading !== undefined ? ` · heading ${String(heading).padStart(3, "0")}` : ""}` : picker === "approach" ? "Clear for Approach" : "Assign Altitude"} altitude`}>{ALTITUDES.map(altitude => {
       const command = commandFor(altitude), invalid = validateControllerMessage(exercise, aircraft, command, frequency);
       return <button key={altitudeLabel(altitude)} role="menuitem" title={invalid ?? undefined} disabled={!connected || sending || !!invalid || picker === "approach" && !expected} onClick={() => void send(command)}>{altitudeLabel(altitude)}</button>;
     })}</div></> : <>
