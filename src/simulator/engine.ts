@@ -312,7 +312,7 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
   if (command.type === "taxi" && command.destination === "parking" && a.frequency === "tower") return null;
   if (command.type === "taxi" && command.destination === "parking") return planParkingRoute(AIRPORT, a.position, intentionsOf(a).parkingStand, traffic.filter(other => other.id !== a.id && other.active && other.altitude < AIRPORT.elevation + 1000).map(other => other.position)).error ?? null;
   if (["taxi", "cross"].includes(command.type) && (a.taxiPath.length < 2 || a.taxiIndex >= a.taxiPath.length)) return "Staff must configure a taxi path first.";
-  if (command.type === "hold-short" && !a.taxiPath.slice(a.taxiIndex).some(p => p.hold)) return "The taxi path has no upcoming hold-short point.";
+  if (command.type === "hold-short" && !a.taxiPath.slice(a.taxiIndex).some(p => p.hold) && !waitingAtDepartureHold(a, command.runway)) return "The taxi path has no upcoming hold-short point.";
   if (command.type === "cross") return crossingHold(AIRPORT, a, command.runway).error ?? null;
   if (command.type === "takeoff" && a.mode === "takeoff" && command.runway && command.runway !== a.runway) return "A rolling takeoff must remain on its current runway.";
   if (command.type === "takeoff" && a.mode === "takeoff") return null;
@@ -326,6 +326,14 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
 
 function departureHoldMatches(a: Aircraft, hold: {runway?: Runway}, runway = a.departureRunway ?? a.runway) {
   return !hold.runway || airportRunways(AIRPORT).some(pair => pair.ends.some(end => end.id === runway) && pair.ends.some(end => end.id === hold.runway));
+}
+
+function waitingAtDepartureHold(a: Aircraft, runway = a.departureRunway ?? a.runway) {
+  if (a.mode !== "parked" || a.speed !== 0 || !runway || !departureHoldMatches(a, {runway})) return false;
+  // Spawned departures can already be waiting without a route. Completed taxi
+  // routes also end at the departure hold without an intermediate Hold flag.
+  const end = a.taxiPath.at(-1);
+  return !end || a.taxiIndex >= a.taxiPath.length - 1 && distance(a.position, end) < .005;
 }
 
 function departureRoute(a: Aircraft, runway: Runway) {
@@ -543,7 +551,10 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
         if (route.path) {a.taxiPath = route.path; a.taxiIndex = 0; a.releasedHold = null; a.lastRunway = a.runway; a.runway = c.runway;}
       } a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
     case "stop": a.holding = true; a.targetSpeed = 0; a.releasedHold = null; break;
-    case "hold-short": a.releasedHold = null; a.mode = "taxi"; a.holding = false; a.targetSpeed = DEFAULTS.taxiSpeed; break;
+    case "hold-short": {
+      const waiting = waitingAtDepartureHold(a, c.runway);
+      a.releasedHold = null; a.mode = waiting ? "parked" : "taxi"; a.holding = waiting; a.targetSpeed = waiting ? 0 : DEFAULTS.taxiSpeed; break;
+    }
     case "cross": {
       const crossing = crossingHold(AIRPORT, a, c.runway);
       if (crossing.index === undefined) break;

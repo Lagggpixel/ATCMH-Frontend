@@ -183,6 +183,43 @@ test("completed cancel-takeoff failures still announce one go-around through the
   }
 });
 
+test("cancel-takeoff departures acknowledge Hold Short and remain stopped before lineup", () => {
+  for (const autoReadback of [true, false]) for (const route of ["empty", "finished"] as const) {
+    const h = fixture("cancel-takeoff"); h.state.autoReadback = autoReadback; h.start(); h.b.frequency = "tower";
+    if (route === "finished") {
+      h.b.taxiPath = [{x: h.b.position.x + .1, y: h.b.position.y}, {...h.b.position, runway: "22L"}];
+      h.b.taxiIndex = h.b.taxiPath.length;
+    }
+    const position = {...h.b.position};
+    const sent = h.engine.applyEnvelope(h.state, {id: "hold", time: 1000, action: {kind: "command", aircraftId: "b", frequency: "tower", text: "Test b, hold short of runway 22L", command: {type: "hold-short", runway: "22L"}}});
+    assert.equal(sent.error, undefined);
+    const reply = autoReadback ? {state: h.engine.autoReadbacks(h.engine.advance(sent.state, 2), 100000, () => "hold-reply")} : h.engine.applyEnvelope(sent.state, {id: "hold-reply", time: 100000, action: {kind: "pilot", aircraftId: "b", text: "Holding short runway 22L, Test b", replyTo: "hold", assign: true}});
+    assert.equal("error" in reply ? reply.error : undefined, undefined);
+    const readback = reply.state.messages.find(m => m.commandId === "hold");
+    assert.equal(readback?.text, "Holding short runway 22L, Test b");
+    assert.equal(readback?.unableReason, undefined);
+    const held = h.engine.advance(reply.state, 5), departure = held.aircraft.find(a => a.id === "b")!;
+    assert.deepEqual(departure.position, position);
+    assert.equal(departure.speed, 0); assert.equal(departure.targetSpeed, 0); assert.equal(departure.holding, true);
+    assert.equal(held.conflicts![0].linedUp, undefined); assert.equal(held.conflicts![0].cancelledTakeoff, undefined);
+    const lineup = h.engine.applyEnvelope(held, {id: "lineup", time: 101000, action: {kind: "maneuver", aircraftId: "b", command: {type: "lineup", runway: "22L"}}});
+    assert.equal(lineup.error, undefined); assert.equal(lineup.state.aircraft[1].holding, false);
+    assert.equal(lineup.state.conflicts![0].linedUp, true);
+  }
+});
+
+test("Hold Short still rejects moving, airborne, wrong-runway and unfinished-route departures without a hold", () => {
+  for (const change of [
+    (a: Aircraft) => {a.speed = 5;},
+    (a: Aircraft) => {a.mode = "takeoff"; a.altitude += 100;},
+    (a: Aircraft) => {a.runway = "31L";},
+    (a: Aircraft) => {a.taxiPath = [{...a.position}, {x: a.position.x + .1, y: a.position.y}]; a.taxiIndex = 0;},
+  ]) {
+    const h = fixture("cancel-takeoff"); h.start(); change(h.b);
+    assert.ok(h.engine.validateAssignment(h.b, {type: "hold-short", runway: "22L"}));
+  }
+});
+
 test("real cancellation readback clears the conflict immediately in automatic and manual mode", () => {
   for (const autoReadback of [true, false]) {
     const h = fixture("cancel-takeoff"); h.state.autoReadback = autoReadback; h.start(); h.b.frequency = "tower";

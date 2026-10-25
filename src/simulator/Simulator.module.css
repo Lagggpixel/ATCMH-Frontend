@@ -955,6 +955,13 @@
 .simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 /* The controller scope runs to the bottom edge; only the top keeps its safe-area inset. */
 .menteeSimulator {padding-bottom:0}
+/* Home Screen WebKit can report a dynamic height shorter than its fixed
+   containing block. Anchor both edges instead of sizing this screen with dvh.
+   Match any OS-painted backdrop too; an area outside WebKit cannot host UI. */
+@media (display-mode:standalone) {
+  .simulator.menteeSimulator {height:auto;bottom:0}
+  :global(html):has(.menteeSimulator),:global(body):has(.menteeSimulator) {background:#000}
+}
 .menteeSimulator .aircraftInformation {bottom:0}
 .menteeSimulator .commandPanel {bottom:calc(5 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - var(--simulator-safe-top) - 10 * var(--controller-unit)))}
 .simulator .airportMarker,.simulator .airportMarker:hover {background:transparent!important}
@@ -975,6 +982,24 @@
   .menteeSimulator .scopeButtons svg {width:26px;height:26px}
   .menteeSimulator .optionsMenu {right:46px;max-width:calc(100% - 52px)}
 }
+/* Mentors share the controller typography without scaling panel geometry. */
+.staffSimulator {--controller-unit:1px;--staff-display-unit:1px;--controller-font-unit:var(--staff-display-unit);font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
+.staffSimulator :is(button,a,input,select) {font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)))}
+.staffSimulator .exerciseStatus time {font-family:inherit;font-size:inherit}
+.staffSimulator .controlContent>.messageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
+.staffSimulator .controlFields :is(input,select,button) {font-family:inherit}
+.staffSimulator .messageLogTitle {font-size:calc(12 * var(--controller-font-unit))}
+.staffSimulator .messageMeta {font-size:calc(10 * var(--controller-font-unit))}
+.staffSimulator .messageMeta time {font-family:inherit}
+.staffSimulator .staffToolbar .radioAudio button {font-size:calc(12 * var(--controller-font-unit))}
+.staffSimulator .controlFields button {text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
+@media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
+  .staffSimulator {--staff-display-unit:.65px}
+}
+@media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
+  .staffSimulator {--staff-display-unit:.75px}
+}
+
 /* IF 26.4: shared native font and display scale, 5:3:2 strip columns. */
 .menteeSimulator .rightPanel {padding:0 calc(2 * var(--controller-unit));border-left:0}
 .menteeSimulator .strip {grid-template-columns:minmax(0,8fr) minmax(0,2fr);font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
@@ -1000,7 +1025,7 @@
 /* IF's native text uses points at 96 DPI (96/72), independently of UI
    geometry. Tablet .75 and phone .65 layout scales remain unchanged. */
 @media (any-pointer:coarse) and (min-width:568px) {
-  .menteeSimulator {--controller-font-unit:calc(var(--controller-unit) * 4 / 3)}
+  .menteeSimulator,.staffSimulator {--controller-font-unit:calc(var(--staff-display-unit,var(--controller-unit)) * 4 / 3)}
   .menteeSimulator .topBanner>span:first-child {font:400 calc(12 * var(--controller-font-unit))/1.25 "Simulator IF Fira",sans-serif}
 }
 

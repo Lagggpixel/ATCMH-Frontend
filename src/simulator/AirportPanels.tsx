@@ -1,6 +1,6 @@
 "use client";
 import {facilityActive} from "./facility-activity";
-import {useEffect, useId, useRef, useState, type CSSProperties} from "react";
+import {useEffect, useId, useRef, useState} from "react";
 import type {AirportInformation, AirportProcedures, AirportWeather, ScopeAirport} from "./airport-display";
 import {canLoadAirportProcedures, runwayWindComponents, weatherCategory} from "./airport-display";
 import {useAirportDisplay} from "./use-airport-display";
@@ -14,26 +14,16 @@ export function AirportPopup({airports, point, size, weather, origin, environmen
   environment?: RadarEnvironment; onInformation: (airport: ScopeAirport) => void; onProcedures: (airport: ScopeAirport) => void; onClose: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [display, setDisplay] = useState({density: 1, scale: .75});
-  useEffect(() => {
-    // Match IF's Android display scaling, using the same CSS-screen approximation
-    // as the extended-strip circle; resizing the scope does not change the class.
-    const update = () => setDisplay({density: window.devicePixelRatio || 1, scale: Math.hypot(window.screen.width, window.screen.height) < 1280 ? .65 : .75});
-    update(); window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  useEffect(() => {root.current?.querySelector<HTMLButtonElement>("button")?.focus();}, []);
+  useEffect(() => {root.current?.focus({preventScroll: true});}, []);
   useEffect(() => {
     const outside = (event: PointerEvent) => {if (event.target instanceof Node && !root.current?.contains(event.target)) onClose();};
     window.addEventListener("pointerdown", outside);
     return () => window.removeEventListener("pointerdown", outside);
   }, [onClose]);
-  // MapItemContextMenu: 416 wide, 56 per row, 16 padding, rounded separately.
-  const scaled = (value: number) => Math.floor(value * display.density * display.scale + .5) / display.density;
-  const dimensions = Object.fromEntries([2, 3, 4, 5, 6, 8, 10, 11, 12, 16, 24, 40, 44, 56].map(value => [`--airport-${value}`, `${scaled(value)}px`]));
-  const width = Math.max(1, Math.min(scaled(416), size.width - 16)), height = Math.min(size.height - 16, airports.length * scaled(56) + 2 * scaled(16));
-  return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports"
-    style={{...dimensions, width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))} as CSSProperties}>
+  // CSS-pixel sizing keeps text readable at every screen density: 56px rows and 12px padding.
+  const width = Math.max(1, Math.min(360, size.width - 16)), height = Math.min(size.height - 16, airports.length * 56 + 24);
+  return <div ref={root} className={styles.popup} data-airport-panel="popup" role="dialog" aria-label="Nearby airports" tabIndex={-1}
+    style={{width, maxHeight: size.height - 16, left: Math.max(8, Math.min(size.width - width - 8, point.x < size.width / 2 ? point.x : point.x - width)), top: Math.max(8, Math.min(size.height - height - 8, point.y))}}>
     {airports.map(airport => <AirportPopupRow key={airport.identifier} airport={airport} weather={airport.identifier === origin ? weather : undefined}
       controlled={canLoadAirportProcedures(airport.identifier, origin)} active={airport.identifier === origin && facilityActive({id: `${origin}:tower`, type: "tower", active: true}, environment)} onInformation={onInformation} onProcedures={onProcedures}/>)}
   </div>;
@@ -89,7 +79,7 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
       if (next >= 0) {event.preventDefault(); setTab(availableTabs[next]); root.current?.querySelector<HTMLButtonElement>(`[id="${id}-${availableTabs[next]}"]`)?.focus();}
     }}>{name}</button>)}</div>
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} className={styles.content} tabIndex={0}>
-      {info.error ? <p role="status">{info.error} <button type="button" onClick={info.retry}>Retry airport details</button></p> : !data ? <p role="status">Loading airport details…</p> : null}
+      {info.error ? <p role="status">{info.error}</p> : !data ? <p role="status">Loading airport details…</p> : null}
       {tab === "INFO" ? <>
         <h2>AIRPORT INFO</h2><div className={styles.airportInfo}>
           <span>{airport.identifier}</span><h3>{data?.name ?? airport.name ?? airport.identifier}</h3>
@@ -100,7 +90,6 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
         <h2>FREQUENCIES</h2>{data?.frequencies.length ? data.frequencies.map(frequency => <div key={frequency.id} className={styles.frequency}>
           <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{facilityActive({...frequency, active: true}, environment) ? "Training" : "Inactive"} at {airport.identifier}<br/>{frequency.mhz}MHz</span>
         </div>) : <p>Frequency information unavailable.</p>}
-        <details className={styles.sources}><summary>Sources and training limits</summary><p>Training references; live Infinite Flight controller occupancy is unavailable.</p><a href="/sweatbox/about" target="_blank" rel="noreferrer">About the training data</a></details>
       </> : null}
       {tab === "WX" ? <>
         {weather.error ? <p role="status">{weather.error} <button type="button" onClick={weather.retry}>Retry weather</button></p> : !weather.data ? <p role="status">Loading public weather…</p> : null}
@@ -126,8 +115,6 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
       {tab === "PROC" ? <><h2>PROCEDURES</h2><div className={styles.procedureActions}>{["Select Departure", "Select Arrival", "Select Approach"].map(label => <button type="button" disabled key={label}>{label}</button>)}</div>
         {procedures.error ? <p role="status">{procedures.error} <button type="button" onClick={procedures.retry}>Retry procedures</button></p> : !procedures.data ? <p role="status">Loading Procedures. Please wait.</p> : null}
       </> : null}
-      {data?.warnings.map(message => <p className={styles.note} key={message}>{message}</p>)}
-      {data?.warnings.length ? <button type="button" onClick={info.retry}>Retry airport details</button> : null}
     </div>
   </section>;
 }

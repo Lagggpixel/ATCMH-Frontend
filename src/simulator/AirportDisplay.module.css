@@ -1,27 +1,28 @@
 /* Geometry and colors follow IF 26.4 NavigationPanel, Theme and ATCMapProceduresSelectionControl. */
 .popup,.details,.procedures{position:absolute;z-index:16;color:#f5f5f5;font:400 12px/1.4 "Simulator Fira",sans-serif;text-align:left;overflow:hidden;cursor:default;touch-action:pan-y}
-.popup{box-sizing:border-box;overflow:auto;background:#000;border:0;border-radius:var(--airport-8);padding:var(--airport-16);box-shadow:none}
+.popup{box-sizing:border-box;overflow:auto;background:#000;border:0;border-radius:8px;padding:12px;box-shadow:none}
 .popup header{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:6px 12px;border-bottom:1px solid #555}
 .popup button,.details button,.procedures button{font:inherit;color:inherit;background:transparent;border:0;border-radius:0;padding:0;min-height:0;cursor:pointer;box-shadow:none}
 .popup button:hover,.details button:hover,.procedures button:hover{background:transparent}
-.popup button:focus-visible,.details :is(button,a,input,[tabindex]):focus-visible,.procedures :is(button,input):focus-visible{outline:2px solid #ffa500;outline-offset:-2px}
+.popup button:focus-visible{outline:none;background:#202020}
+.details :is(button,a,input,[tabindex]):focus-visible,.procedures :is(button,input):focus-visible{outline:2px solid #ffa500;outline-offset:-2px}
 .popup header button{width:40px;height:36px;font-size:23px}
 .popup small,.details small{display:block;color:#a2a2a8;font-size:12px;white-space:normal}
-.airportRow{display:flex;height:var(--airport-56);align-items:center;gap:0}
-.popup .airportSummary{position:relative;display:flex;flex:1;height:100%;align-items:center;text-align:left;min-width:0;padding:0 0 0 var(--airport-40)}
-.airportGlyph{position:absolute;left:calc(-1 * var(--airport-8));width:var(--airport-40);text-align:center;font:var(--airport-16) "Simulator Aircraft"}
-.airportSummary>span:last-child{display:flex;flex-direction:column;min-width:0;height:100%}
-.airportTitle{display:flex;align-items:end;height:50%;gap:var(--airport-6);white-space:nowrap}
-.airportSummary strong{font-size:var(--airport-12);line-height:1;font-weight:500}
-.airportSummary em{font-style:normal;background:#202020;color:#90ee90;padding:var(--airport-2) var(--airport-4);font-size:var(--airport-10);line-height:1;font-weight:500;border-radius:var(--airport-3)}
-.popup .airportWeather{display:flex;align-items:start;height:50%;box-sizing:border-box;padding-top:var(--airport-2);gap:var(--airport-6);font-size:var(--airport-11);line-height:1;white-space:nowrap}
-.airportWeather .category{background:#202020;padding:var(--airport-2) var(--airport-4);border-radius:var(--airport-3);font-size:var(--airport-10);font-weight:500}
-.popup .procShortcut,.popup .procShortcut:hover{display:flex;align-items:center;justify-content:center;width:var(--airport-44);height:var(--airport-56);flex:none;font-size:var(--airport-10);font-weight:700;padding:0;margin:0;background:transparent;color:#000;text-align:center}
-.procShortcut span{display:flex;align-items:center;justify-content:center;box-sizing:border-box;max-width:var(--airport-40);height:var(--airport-24);padding:0 var(--airport-5);border-radius:var(--airport-4);background:#fff;transform:translateY(calc(-1 * var(--airport-2)))}
+.airportRow{display:flex;height:56px;align-items:center;gap:0}
+.popup .airportSummary{position:relative;display:flex;flex:1;height:100%;align-items:center;text-align:left;min-width:0;padding:0 0 0 32px}
+.airportGlyph{position:absolute;left:-4px;width:32px;text-align:center;font:20px "Simulator Aircraft"}
+.airportSummary>span:last-child{display:flex;flex:1;flex-direction:column;min-width:0;height:100%}
+.airportTitle{display:flex;align-items:end;height:50%;gap:6px;white-space:nowrap;min-width:0}
+.airportSummary strong{font-size:14px;line-height:1;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.airportSummary em{font-style:normal;background:#202020;color:#90ee90;padding:2px 4px;font-size:12px;line-height:1;font-weight:500;border-radius:3px;flex:none}
+.popup .airportWeather{display:flex;align-items:start;height:50%;box-sizing:border-box;padding-top:4px;gap:6px;font-size:12px;line-height:1.2;white-space:nowrap;overflow:hidden}
+.airportWeather .category{background:#202020;padding:2px 4px;border-radius:3px;font-size:12px;font-weight:500;flex:none}
+.popup .procShortcut,.popup .procShortcut:hover{display:flex;align-items:center;justify-content:center;width:44px;height:56px;flex:none;font-size:12px;font-weight:700;padding:0;margin:0;background:transparent;color:#000;text-align:center}
+.procShortcut span{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:28px;padding:0 5px;border-radius:4px;background:#fff;transform:translateY(-2px)}
 .category{color:#90ee90;font-size:12px}.category[data-category="MVFR"]{color:#add8e6}.category[data-category="IFR"]{color:#f00}.category[data-category="LIFR"]{color:#f0f}
 /* Theme.Dimensions.PassWidth=458, header=72, tabs band=60, corners=8. */
 .details{box-sizing:border-box;right:0;top:0;bottom:0;width:min(458px,100%);display:grid;grid-template-rows:72px 60px minmax(0,1fr);background:#15181e;border:1px solid #43464d;border-radius:8px;font-size:16px;line-height:1.3}
-.details:focus-visible{outline:none}
+.popup:focus-visible,.details:focus-visible{outline:none}
 .details header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px}
 .details header>span{display:flex;flex-direction:column;min-width:0;flex:1;gap:2px}
 .details header strong{font-weight:500;font-size:14px;line-height:18px}.details header small{font-size:17px;font-weight:400;line-height:22px}
@@ -51,7 +52,6 @@
 .procedureActions{display:grid;gap:8px}.details .procedureActions button,.details .procedureActions button:hover{height:48px;width:100%;text-align:left;padding:0 12px;font-size:16px;font-weight:700;background:#2c303b;border-radius:8px}.details button:disabled{color:#7d8088;cursor:default;opacity:1}
 .details .procedureActions button:disabled{opacity:1}
 .details [role="status"] button,.details .content>button:not(.runway){color:#ffa13a;text-decoration:underline;min-height:32px}
-.note{color:#a2a2a8;font-size:12px}
 /* ATC picker: 250 wide; 45 header, list inset 5, 35 rows, two 45 footer rows. */
 .procedures{left:0;top:0;bottom:0;width:min(250px,100%);display:grid;grid-template-rows:45px minmax(0,1fr) 90px;background:#000;border:0;border-radius:0}
 .procedures header{display:flex;align-items:center;justify-content:space-between;height:45px;padding:0 5px;font-size:12px;font-weight:400}

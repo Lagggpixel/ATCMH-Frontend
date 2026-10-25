@@ -184,16 +184,37 @@ test("impossible progressive taxi transmits and returns Unable without moving th
   }
 });
 
-test("Back Taxi is sendable on and off the runway, including airborne Tower traffic", () => {
-  for (const location of ["runway", "off-runway", "airborne"] as const) {
+test("Back Taxi follows Line up and Wait for ground Tower traffic on and off the runway", () => {
+  for (const location of ["runway", "off-runway"] as const) {
     const {state, aircraft, catalog, engine} = fixture("tower"), g = engine.runwayGeometry("24");
-    Object.assign(aircraft, {position: location === "off-runway" ? {x: 100, y: 100} : {...g.departure}, altitude: location === "airborne" ? 3000 : getAirport(state).elevation, mode: location === "airborne" ? "heading" : "taxi", speed: 0, targetSpeed: 0});
+    Object.assign(aircraft, {position: location === "off-runway" ? {x: 100, y: 100} : {...g.departure}, altitude: getAirport(state).elevation, mode: "taxi", speed: 0, targetSpeed: 0});
+    for (const entries of [catalog.messageMenu("tower", aircraft), catalog.requestMessageMenu("tower", aircraft)]) {
+      assert.deepEqual(entries.slice(0, 5).map(entry => entry.label), ["Cleared for Takeoff", "Cancel Takeoff Clearance", "Hold Short", "Line up and Wait", "Back Taxi"]);
+    }
+    for (const frequency of ["ground", "approach", "center", "atis"] as const) assert.ok(!catalog.messageMenu(frequency, aircraft).some(entry => entry.label === "Back Taxi"));
     const command = find(catalog.messageMenu("tower", aircraft), "Back Taxi", "Runway 24", "Send").instruction!;
     assert.equal(engine.validateControllerMessage(state, aircraft, command, "tower"), null);
     const next = readback(send(state, command));
     assert.equal(next.messages[0].sender, "controller"); assert.equal(next.messages[1].sender, "pilot");
     if (location === "runway") {assert.doesNotMatch(next.messages[1].text, /Unable/); assert.ok(next.aircraft[0].backTaxi);}
     else {assert.match(next.messages[1].text, /Unable/); assert.deepEqual(next.aircraft[0], aircraft);}
+  }
+});
+
+test("every Back Taxi variant disappears and rejects stale sends after the aircraft becomes airborne", () => {
+  const {state, aircraft, catalog, engine} = fixture("tower");
+  Object.assign(aircraft, {altitude: getAirport(state).elevation, mode: "taxi"});
+  const entries = find(catalog.messageMenu("tower", aircraft), "Back Taxi").children!;
+  const commands = (items: MenuEntry[]): Instruction[] => items.flatMap(entry => entry.children ? commands(entry.children) : entry.instruction ? [entry.instruction] : []);
+  const savedCommands = commands(entries);
+  assert.equal(savedCommands.length, entries.length * 6);
+  Object.assign(aircraft, {altitude: getAirport(state).elevation + 100, mode: "takeoff"});
+  for (const items of [catalog.messageMenu("tower", aircraft), catalog.requestMessageMenu("tower", aircraft)]) assert.ok(!items.some(entry => entry.label === "Back Taxi"));
+  for (const command of savedCommands) {
+    assert.match(engine.validateControllerMessage(state, aircraft, command, "tower")!, /requires ground traffic/);
+    const result = engine.applyEnvelope(state, {id: randomUUID(), time: 1000, action: {kind: "command", aircraftId: aircraft.id, frequency: "tower", command, text: catalog.instructionText(aircraft, command)}});
+    assert.match(result.error!, /requires ground traffic/);
+    assert.deepEqual(result.state, state);
   }
 });
 

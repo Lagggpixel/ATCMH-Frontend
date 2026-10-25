@@ -116,7 +116,7 @@ export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, 
   if ((c.action === "circle" || c.action === "hold") && !c.hand) return "Choose left or right turns.";
   if (c.runway && !(airport.runways ?? [airport.runway]).some(pair => pair.ends.some(end => end.id === c.runway))) return "Runway is not in this airport snapshot.";
   if (c.action === "hold" && c.altitude && (!validAltitude(c.altitude) || altitudeFeet(c.altitude) < 3000 || altitudeFeet(c.altitude) > 19000 || altitudeFeet(c.altitude) % 1000 !== 0)) return "Choose a listed holding altitude.";
-  if ((c.action === "cancel-takeoff" || assignment && c.action === "back-taxi") && !ground) return "This instruction requires ground traffic.";
+  if ((c.action === "cancel-takeoff" || c.action === "back-taxi") && !ground) return "This instruction requires ground traffic.";
   if (["circle", "hold", "navigation", "exit-hold"].includes(c.action) && ground) return "This instruction requires airborne traffic.";
   if (c.action === "hold" && (!c.altitude || altitudeFeet(c.altitude) <= airport.elevation)) return "Choose a holding altitude above airport elevation.";
   if(c.action==="hold" && c.index!==undefined && c.point && a.flightPlan[c.index] && Math.hypot(c.point.x-a.flightPlan[c.index].x,c.point.y-a.flightPlan[c.index].y)>.000001)return "The selected holding waypoint has changed. Select it again.";
