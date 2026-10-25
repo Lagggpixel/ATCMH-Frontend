@@ -13,7 +13,12 @@
     "docker:build:mac": "node scripts/docker-build-mac.mjs",
     "predev": "node src/simulator/prepare-radio-speech.mjs",
     "prebuild": "node src/simulator/prepare-radio-speech.mjs",
-    "data:magnetic": "node scripts/generate-magnetic-variation.mjs"
+    "data:magnetic": "node scripts/generate-magnetic-variation.mjs",
+    "docker:build": "node scripts/docker-build-only.mjs",
+    "release:check": "node scripts/release.mjs check",
+    "release:qa": "node scripts/release.mjs qa",
+    "release:publish": "node scripts/release.mjs publish",
+    "release:deploy": "node scripts/release.mjs deploy"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

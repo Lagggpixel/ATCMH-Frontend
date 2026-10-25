@@ -63,43 +63,39 @@ From the `Frontend` directory, publish the version in `package.json` plus the `l
 npm run docker:push
 ```
 
-The equivalent command from the directory containing `Frontend` is:
-
-```bash
-docker buildx build \
-  -f Frontend/.dockerfile \
-  --platform linux/amd64,linux/arm64 \
-  -t registry.lagggpixel.com/atcmh-frontend:1.7.19 \
-  -t registry.lagggpixel.com/atcmh-frontend:latest \
-  Frontend \
-  --push
-```
+Use the [checked-image release workflow](docs/release-workflow.md) for releases:
+`release:check`, `release:qa`, `release:publish`, then `release:deploy`. It builds
+locally for `linux/amd64` once, retains every required check, and publishes the
+verified image without another compilation. `npm run docker:build` is build-only.
+All commands support `-- --dry-run`. Use the portable Node helpers rather than
+calling the Dockerfile directly: they supply its dependency-manifest context.
 
 Increment the immutable version tag for every release. Production Compose should reference the versioned tag, not `latest`. The image runs the standalone Next server as the non-root `nextjs` user on port `3000`; its container healthcheck requests `/api/health`.
 
-Publish the matching backend image using the version in `Backend/gradle.properties` before updating the stack:
+When backend changes are part of the authorized release, publish its independently
+checked image using the version in `Backend/gradle.properties` before updating the
+stack. Unchanged backend images do not need rebuilding for a web-only release:
 
 ```bash
 cd Backend
 ./gradlew pushImage
 ```
 
-Before publishing, run:
-
-```bash
-cd Frontend
-npm ci
-npm test
-npm run lint
-npm run build
-git diff --check
-```
+The checked-image workflow runs the full source test suite, source/script lint,
+shared-file parity and production TypeScript/build from a frozen source snapshot.
+It requires built-image browser QA before publication and published-browser QA
+after deployment. Run `npm ci` after native dependency changes and
+`git diff --check` before committing. See the workflow guide for browser hooks,
+registry access, timing logs and encrypted recovery.
 
 Do not publish if the committed tree or image contains an environment file, credential, local dump, build cache, transcript, or Git metadata.
 
 ## Compose deployment
 
-`Dashboard-Backend/docker-compose.yml` defines:
+`Backend/docker-compose.yml` records the application services; the live Portainer
+stack remains authoritative. Revalidate endpoint **3** and stack **30** (`atcmh`)
+before changes. Preserve its current configuration, environment, volumes and
+networks. The frontend uses:
 
 - `atcmh-frontend` using `registry.lagggpixel.com/atcmh-frontend:<version>`
 - internal port `3000`
@@ -107,19 +103,19 @@ Do not publish if the committed tree or image contains an environment file, cred
 - the `/api/health` healthcheck
 - all Frontend secrets as runtime environment references
 
-Deploy the pinned Frontend and backend images together when origin or auth-return configuration changes:
-
-```bash
-cd Dashboard-Backend
-docker compose pull atcmh-dashboard-backend atcmh-frontend
-docker compose up -d --no-deps atcmh-dashboard-backend atcmh-frontend
-docker compose ps atcmh-dashboard-backend atcmh-frontend
-curl -fsS https://www.atcmh.org/api/health
-```
+Use `npm run release:deploy -- --script <published-browser-check.mjs>` on the
+credential-owning Windows account after successful publication. This requests a
+fresh pull through the remote Portainer API and verifies configuration, image
+identity, health and public version. Origin/auth-return changes involving both
+services still require their separately reviewed combined deployment sequence.
 
 ## Release checks
 
 Verify, in order:
+
+Use synthetic identities/data and intercepted writes for browser regression
+checks. Production submissions or training-data changes require their own task
+authorization.
 
 1. `/`, `/terms`, `/policy`, and `/leaderboard` load on the canonical origin.
 2. The home Login modal completes Discord and Infinite Flight login.
@@ -145,7 +141,9 @@ Keep query strings when configuring external redirects:
 
 ## Rollback
 
-Keep the previous pinned Frontend `1.0.0` and backend `2.8.0` images and the previous Compose definition until production parity is confirmed. If cutover fails:
+Keep the actual preceding pinned images and encrypted pre-deployment stack
+snapshot until verification completes. Inspect the saved recovery before an
+authorized rollback; do not substitute historical example versions. If cutover fails:
 
 1. Restore the previous pinned image references and Compose configuration.
 2. Redeploy the previous Frontend/backend pair together if auth origins changed.

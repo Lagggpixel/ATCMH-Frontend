@@ -43,6 +43,10 @@ Append `-- --dry-run` to any of these npm commands to print the Docker command
 without building or publishing. Docker Desktop must be running for an actual build.
 For frontend development without Docker, use `npm run dev`.
 
+Use the [checked-image release workflow](docs/release-workflow.md) to run full
+checks, verify the built image in a browser, publish it without rebuilding, and
+deploy through Portainer. The existing build/push commands remain available.
+
 The ATCMH backend keeps `gradlew pushImage` (Windows: `.\gradlew.bat pushImage`;
 macOS: `./gradlew pushImage`). Its image also targets `linux/amd64`, with execution
 or emulation selected automatically by Docker.

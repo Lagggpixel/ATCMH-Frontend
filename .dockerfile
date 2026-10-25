@@ -1,15 +1,15 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY --from=dependency-manifests package.json package-lock.json ./
 # Speech runs in the browser; do not download unused native CUDA libraries.
-RUN ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci
+RUN --mount=type=cache,id=atcmh-npm-linux-amd64,target=/root/.npm,sharing=locked ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci
 
 FROM node:24-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN --mount=type=cache,id=atcmh-next-linux-amd64,target=/app/.next/cache,sharing=locked npm run build
 RUN node src/simulator/build-maintenance.mjs
 
 FROM node:24-alpine AS runner
