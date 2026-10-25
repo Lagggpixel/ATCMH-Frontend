@@ -112,9 +112,9 @@ test("old stopped GA snapshots resume toward an exit, while explicit controller 
     const start = state.aircraft[0].position;
     for (let t = 0; t < 6; t++) state = engine.advance(state, 1);
     if (hold) assert.equal(state.aircraft[0].speed, 0);
-    else assert.ok(state.aircraft[0].speed >= 15);
+    else assert.ok(state.aircraft[0].speed >= 5);
     if (hold) assert.deepEqual(state.aircraft[0].position, start);
-    else assert.ok(engine.distance(state.aircraft[0].position, start) > .01);
+    else assert.ok(engine.distance(state.aircraft[0].position, start) > .001);
   }
 });
 

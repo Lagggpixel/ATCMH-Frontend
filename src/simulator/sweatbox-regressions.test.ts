@@ -84,7 +84,7 @@ test("KDAL GA exercises keep the leader moving and finish when it clears or the 
     for (let i = 0; i < 500 && state.conflicts![0].phase !== "complete"; i++) {
       state = e.advance(state, 1);
       const leader = state.aircraft[0];
-      if (leader.mode === "rollout" && leader.runwayExit) assert.ok(leader.speed >= 15 - 1e-8, `${end.id}: GA must not stop the leader`);
+      if (leader.mode === "rollout" && leader.runwayExit) assert.ok(leader.speed >= 5 - 1e-8, `${end.id}: GA must not stop the leader`);
     }
     assert.equal(state.conflicts![0].phase, "complete", end.id);
     assert.ok(["Following aircraft went around", "Runway conflict ended"].includes(state.conflicts![0].outcome!), end.id); assert.equal(state.collisions?.length ?? 0, 0);

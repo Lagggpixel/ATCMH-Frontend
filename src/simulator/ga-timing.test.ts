@@ -65,15 +65,16 @@ test("reported KDAL pair stays occupied for one 50-foot go-around, then vacates 
   assert.equal(state.aircraft[0].conflictMotion, undefined);
 });
 
-test("cancelling GA while vacating immediately restores ordinary exit motion", () => {
+test("cancelling GA during rollout immediately restores ordinary exit motion", () => {
   const h = reportedPair(); let state = h.state;
   for (let i = 0; i < 120 && state.aircraft[0].conflictMotion?.speedLimit === undefined; i++) state = h.engine.advance(state, 1);
   assert.ok(state.aircraft[0].conflictMotion?.speedLimit);
+  assert.equal(state.aircraft[0].mode, "rollout");
   const cancelled = h.engine.applyEnvelope(state, {id: "cancel", time: 2, action: {kind: "cancel-conflict", conflictId: "ga"}});
   assert.equal(cancelled.error, undefined); state = cancelled.state;
   assert.equal(state.conflicts![0].phase, "cancelled");
   assert.equal(state.aircraft[0].conflictMotion, undefined);
-  for (let i = 0; i < 45; i++) state = h.engine.advance(state, 1);
+  for (let i = 0; i < 120; i++) state = h.engine.advance(state, 1);
   assert.equal(state.aircraft[0].mode, "parked");
   assert.notEqual(state.aircraft[1].mode, "go-around");
 });
@@ -99,4 +100,40 @@ test("a controller's explicit exit instruction retains its ordinary vacating spe
   assert.equal(state.aircraft[0].arrivalExit!.instruction, "exit-runway");
   state = h.engine.advance(state, .1);
   assert.equal(state.aircraft[0].conflictMotion?.speedLimit, undefined);
+});
+
+test("GA slows during rollout and keeps the runway occupied across wider final gaps", () => {
+  for (const finalDistance of [1, 2, 3, 4]) for (const step of [.05, 1, 5]) {
+    const h = reportedPair(), g = h.engine.runwayGeometry("31R");
+    let state = h.state, wentAround = false, slowRollout = false;
+    const [a, b] = state.aircraft;
+    a.mode = "rollout"; a.position = {...g.threshold}; a.altitude = h.airport.elevation; a.speed = 90;
+    a.heading = a.targetHeading = g.heading;
+    b.position = {x: g.threshold.x - g.vector.x * finalDistance, y: g.threshold.y - g.vector.y * finalDistance};
+    b.heading = b.targetHeading = g.heading; b.bankAngle = 0; b.altitude = h.airport.elevation + finalDistance * 318;
+    b.speed = b.targetSpeed = 135; delete b.sequence;
+    const firstExit = h.engine.runwayExitRoute(a, "any").path![1];
+    for (let seconds = 0; seconds < 200; seconds += step) {
+      const previous = state.aircraft[0];
+      state = h.engine.advance(state, step);
+      const [leader, follower] = state.aircraft;
+      if (leader.mode === "rollout" && !wentAround && state.conflicts![0].phase === "active") {
+        assert.ok(leader.speed > 0, "never stops the leader to manufacture occupancy");
+        assert.ok(Math.abs(leader.speed - previous.speed) <= DEFAULTS.acceleration * step + 1e-7, "rollout brakes gradually");
+        if (leader.speed < 70) slowRollout = true;
+        if (seconds >= 25) assert.ok(leader.speed <= 15 + 1e-7, `${finalDistance} NM: still rolling at ${leader.speed} kt`);
+      }
+      if (!wentAround && follower.mode === "go-around") {
+        wentAround = true;
+        assert.ok(runwayOccupied(h.airport, "31R", [leader], follower.id), `${finalDistance} NM: leader cleared too soon`);
+      }
+      if (seconds > 10 && seconds <= 10 + step) state = h.engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+      if (leader.mode === "parked") break;
+    }
+    assert.ok(slowRollout, `${finalDistance} NM: pacing must start before turning off`);
+    assert.ok(wentAround, `${finalDistance} NM / ${step}s: the intended GA must happen`);
+    assert.equal(state.conflicts![0].phase, "complete");
+    assert.equal(state.aircraft[0].mode, "parked");
+    assert.deepEqual(state.aircraft[0].taxiPath[1], firstExit, "can use the first reachable exit, rather than always skipping it");
+  }
 });

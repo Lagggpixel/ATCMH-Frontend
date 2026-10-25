@@ -423,9 +423,8 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
   // for the last forward connector instead of overrunning or backtracking.
   const reachable = exits.filter(exit => exit.along >= q.along + Math.max(0, (a.speed ** 2 - exit.speed ** 2) / (2 * acceleration(a) * 3600)) + entryMargin);
   const planned = reachable.length ? reachable : exits.slice(-1);
-  // Skip at most one reachable exit. A long rollout keeps moving forwards.
-  const skip = slow && !a.arrivalExit?.skippedExit && planned.length > 1;
-  const chosen = planned[skip ? 1 : 0];
+  // GA timing comes from slow forward motion, not an obligatory later exit.
+  const chosen = planned[0];
   if (chosen) {
     let forward = chosen.along;
     const path = chosen.path.map((p, index) => {
@@ -434,7 +433,7 @@ function runwayExitRoute(a: Aircraft, side: "left" | "right" | "any", slow = fal
       forward = Math.max(forward, along);
       return add(p, g.vector, forward - along);
     });
-    return {...chosen, path, skippedExit: !!a.arrivalExit?.skippedExit || skip, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
+    return {...chosen, path, ...(slow || a.radar?.arrival ? {braking: Math.min(100, Math.max(.0001, (a.speed ** 2 - chosen.speed ** 2) / (2 * Math.max(.001, chosen.along - q.along) * 3600)))} : {})};
   }
   return {error: `No reachable mapped ${side === "any" ? "" : side + " "}exit ahead. Slow down or reposition before assigning an exit.`};
 }
@@ -591,15 +590,23 @@ function retireRetunedCommands(state: Exercise, before: Aircraft[]) {
 }
 
 const conflictEngine = {vacateSpeed: (a: Aircraft, following: Aircraft) => {
-  // A skipped exit alone can clear seconds before the follower's 50 ft decision.
-  // Pace only automatic vacating along its mapped path, with a small ETA margin.
+  // Start pacing on the runway, reserving enough distance for gradual braking
+  // as well as the slow roll to the exit and across the clearance boundary.
   // Explicit exit/taxi instructions retain their normal speeds and can resolve it.
-  if (a.mode !== "taxi" || a.arrivalExit?.instruction !== "automatic" || following.mode !== "pattern" || !["base", "final"].includes(following.leg)) return;
+  if (!["rollout", "taxi"].includes(a.mode) || a.arrivalExit && a.arrivalExit.instruction !== "automatic"
+    || following.mode !== "pattern" || !["base", "final"].includes(following.leg)) return;
+  const path = a.mode === "rollout" ? (a.runwayExit ?? runwayExitRoute(a, "any", true).path)?.slice(1) : a.taxiPath.slice(a.taxiIndex);
+  if (!path?.length) return;
   let remaining = 0, previous = a.position;
-  for (const point of a.taxiPath.slice(a.taxiIndex)) {remaining += distance(previous, point); previous = point;}
+  for (const point of path) {remaining += distance(previous, point); previous = point;}
   const seconds = Math.min(600, approachSeconds(following) + 8);
+  // D = target*T + (current-target)^2/(2*braking), in knot-seconds.
+  // Subtracting the braking distance prevents a fast rollout spending the
+  // distance that a constant-speed ETA calculation reserved for the delay.
+  const braking = acceleration(a), offset = braking * seconds - a.speed;
+  const target = Math.sqrt(Math.max(0, offset ** 2 - a.speed ** 2 + 2 * braking * remaining * 3600)) - offset;
   // Never stop or crawl indefinitely to manufacture an unachievable conflict.
-  return Math.max(5, Math.min(a.arrivalExit.speed, remaining * 3600 / Math.max(1, seconds)));
+  return Math.max(5, Math.min(15, target));
 }, geometry: runwayGeometry, distance: arrivalDistance, instruct: (a: Aircraft, c: Instruction) => instruct(a, c), lineupError: (a: Aircraft) => departureRoute(a, a.runway ?? DEFAULT_RUNWAY).error};
 
 function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatternEntry?: boolean} = {}): {state: Exercise; error?: string} {
@@ -1252,10 +1259,12 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
       // Spread braking over the distance to the chosen connector instead of
       // reaching taxi speed early and crawling down the rest of the runway.
       const required = Math.max(.0001, (a.speed ** 2 - exitSpeed ** 2) / (2 * remaining * 3600));
-      const braking = a.speed > exitSpeed ? required : acceleration(a);
+      const paced = a.arrivalExit?.instruction === "automatic" ? a.conflictMotion?.speedLimit : undefined;
+      const targetSpeed = Math.min(exitSpeed, paced ?? Infinity);
+      const braking = paced === undefined && a.speed > exitSpeed ? required : Math.max(acceleration(a), required);
       const previousSpeed = a.speed;
-      a.targetSpeed = exitSpeed;
-      a.speed = approach(a.speed, exitSpeed, braking * dt);
+      a.targetSpeed = targetSpeed;
+      a.speed = approach(a.speed, targetSpeed, braking * dt);
       a.heading = g.heading;
       const nextAlong = along + (previousSpeed + a.speed) / 7200 * dt;
       a.position = add(g.threshold, g.vector, Math.min(nextAlong, entry ? entryAlong : stopAlong));
