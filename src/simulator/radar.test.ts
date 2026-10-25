@@ -57,18 +57,18 @@ for (const mode of ["approach", "center"] as const) for (const step of [.1, 5]) 
   near(fly(state, 30, step).aircraft[0].altitude, 13250);
   near(fly(state, 240, step).aircraft[0].altitude, 10000);
 });
-test("flight label hides unassigned fields and keeps assignment direction through level-off and replay", () => {
+test("flight label hides unassigned fields and keeps the native assignment separator through level-off and replay", () => {
   let state = exercise(); Object.assign(state.aircraft[0], {altitude: 15900, speed: 227});
   const label = () => radarFlightLabel(state.aircraft[0], getAirport(state), state.radarEnvironment);
-  assert.deepEqual(label(), {flight: "159 227kts", approach: undefined});
+  assert.deepEqual(label(), {flight: "159 227KT", approach: undefined});
   const p = state.radarEnvironment!.approaches.find(p => p.type === "gps")!;
   state = assign(state, {type: "expect-approach", approachId: p.id});
   state = assign(state, {type: "vector", altitude: {unit: "feet", value: 14000}});
-  assert.equal(label().flight, "159 > 140 227kts"); assert.equal(label().approach, `GPS - EGPH ${p.runway}`);
+  assert.equal(label().flight, "159 > 140 227KT"); assert.equal(label().approach, `GPS - EGPH ${p.runway}`);
   state = fly(state, 100); assert.match(label().flight, /^140 > 140 /);
   state = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state)))); assert.equal(state.aircraft[0].radar!.altitudeAssignedFrom, 15900);
-  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 16000}}); assert.match(label().flight, /^140 < 160 /);
-  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 14000}}); assert.match(label().flight, /^140 = 140 /);
+  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 16000}}); assert.match(label().flight, /^140 > 160 /);
+  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 14000}}); assert.match(label().flight, /^140 > 140 /);
   state = assign(state, {type: "expect-approach", approachId: null}); assert.equal(label().approach, undefined);
 });
 for (const mode of ["approach", "center"] as const) for (const automatic of [false, true]) test(`${mode}: RV tags retain the assigned runway through readback and replay (automatic=${automatic})`, () => {

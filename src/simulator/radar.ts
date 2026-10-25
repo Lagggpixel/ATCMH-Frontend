@@ -43,11 +43,11 @@ export function vectorPreview(a: Aircraft, point: Point, airport: Airport, envir
 export function radarFlightLabel(a: Aircraft, airport: Airport, environment?: RadarEnvironment) {
   a = controllerAircraft(a);
   if(environment)environment=environmentWithDestinations(airport,environment,[a]);
-  const r = a.radar, target = r?.targetAltitude;
-  const assignedFrom = r?.altitudeAssignedFrom ?? a.altitude;
-  const marker = target && (altitudeFeet(target) < assignedFrom ? ">" : altitudeFeet(target) > assignedFrom ? "<" : "=");
+  const r = a.radar, target = a.assigned?.altitude ?? r?.targetAltitude;
   const approach = environment?.approaches.find(p => p.id === (r?.expected ?? r?.cleared));
-  return {flight: `${Math.round(a.altitude / 100)}${target ? ` ${marker} ${Math.round(altitudeFeet(target) / 100)}` : ""} ${Math.round(a.groundSpeed ?? a.speed)}kts`,
+  // Native integer casts truncate; '>' separates assigned altitude in every
+  // direction and is not a climb/descent arrow.
+  return {flight: `${Math.trunc(a.altitude / 100)}${target && altitudeFeet(target) > 0 ? ` > ${Math.trunc(altitudeFeet(target) / 100)}` : ""} ${Math.trunc(a.groundSpeed ?? a.speed)}KT`,
     approach: approach ? `${approach.type === "visual" ? "Visual" : approach.type.toUpperCase()} - ${approach.airportIcao ?? airport.icao} ${approach.runway}` : r?.guidance === "vectors" ? `RV - ${airport.icao} ${a.runway ?? defaultRunway(airport)}` : undefined};
 }
 export function radarGuidanceLabel(a: Aircraft, environment: RadarEnvironment): string | undefined {

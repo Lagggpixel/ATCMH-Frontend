@@ -992,3 +992,10 @@
 @media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
   .menteeSimulator {--controller-unit:.75px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit))}
 }
+
+/* IF 26.4 aircraft text and independent symbols alongside its text block. */
+.scope .aircraftTag {font-family:"Simulator IF Fira",sans-serif;font-size:calc(10 * var(--controller-unit,1px))!important;font-weight:400;text-shadow:1px 1px #000}
+.aircraftTag .labelIndicators {position:absolute;right:100%;top:2px;margin-right:4px;font:400 calc(14 * var(--controller-unit,1px))/1 "Simulator Aircraft";text-align:center}
+.labelIndicators .labelHold {color:#ffa500}
+.labelIndicators .labelReminder {color:#90ee90}
+.labelIndicators .tagColorDot {position:static;display:block;width:calc(10 * var(--controller-unit,1px));height:calc(10 * var(--controller-unit,1px));margin:2px auto;border-radius:50%;box-shadow:1px 1px #000}
