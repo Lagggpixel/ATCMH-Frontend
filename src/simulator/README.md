@@ -323,7 +323,7 @@ New scenarios choose EGPH, EGLL, KBHM, CYUL, ROAH, KDAL or SBBR and one training
 
 `airports.ts` is the airport/station registry. The scenario service group (`EGLL:local`, `EGLL:approach`, or `EGLL:center`) is separate from per-aircraft tuning. Approach and Center use named training channels without fabricated MHz; existing Ground/Tower/ATIS labels remain. Existing Ground/Tower pins remain readable with their original opening frequency.
 
-Schema 2 pins `airport`, `airportDataVersion`, and `trainingStation` in scenario revisions and exercise snapshots. Assignment launch/restart and replay carry the same pin. Schema 1 records without the new metadata resolve to the unchanged EGPH snapshot and Ground opening station, without rewriting stored history. Unknown airports, absent versions, unavailable services, and foreign runway references fail validation. Keep old snapshots in the registry when importing future versions: never replace a pinned dataset in place. The current registry has one frozen dataset per airport.
+Schema 2 pins `airport`, `airportDataVersion`, and `trainingStation` in scenario revisions and exercise snapshots. Assignment launch/restart and replay carry the same pin. Schema 1 records without the new metadata resolve to the unchanged EGPH snapshot and Ground opening station, without rewriting stored history. Unknown airports, absent versions, unavailable services, and foreign runway references fail validation. Keep old snapshots in the registry when importing future versions: never replace a pinned dataset in place. The registry retains current and archived versions for airports whose geometry has been corrected.
 
 The six new snapshots were imported on 2026-10-11 from OpenStreetMap map extracts and OurAirports CSVs. All open runway pairs, including L/R/C suffixes, use their actual true-heading geometry. Closed OurAirports rows are excluded. The public About page links each exact derived JSON plus the source bounds, tiled extract URLs, source SHA-256 hashes and transformation notice in `public/simulator/data-notice.json`. For a repeatable offline import:
 
@@ -444,3 +444,38 @@ Runways show their identifier or `----`, without a `RWY` prefix, and retain land
 ## Aircraft labels (prepared locally, 25 October 2026)
 
 Both hosts follow IF 26.4 MapControl.RenderAircraftTextATC: a shared presentation clock shows equipment for one second and callsign for two, even while paused. Callsigns longer than 20 characters become 17 characters plus an ellipsis. Native integer truncation, KT units and the constant assigned-altitude > separator are independent of the climb/descent glyph shown above 250 fpm. Tower adds whole nautical miles from the controlled airport using Infinite Flight’s spherical-distance calculation after converting the scope’s local NM coordinates; Ground omits distance. Approach, Departure and Center append the same guidance/destination/runway information as the controller strip, including FF, VIS, STAR and HOLD. Live, rehearsal and replay scopes pass their own message history. Trainer all-frequency scopes use the chosen station; editor/replay all-frequency local views use each aircraft’s Ground/Tower role. The original regular Fira label font, hold/reminder symbols and custom-color dot sit beside the label. Training conflict annotations remain available. Nothing is published or deployed by this change.
+
+
+### Runway geometry checks and versioned repairs
+
+Run `python scripts/audit-runway-geometry.py` to check every current airport JSON,
+including new imports. The importer runs the same checks before writing output:
+finite nonzero endpoints, two distinct runway ends, endpoint length within 10%
+of the supplied length, true headings within 1.5 degrees of the endpoint bearing,
+and a mapped centerline within 0.35 degrees and 20 metres laterally. Runway names
+are normalized (including leading zeroes and reversed pairs); split centerlines
+are joined while crossing and disconnected segments are rejected. Along-axis
+displaced thresholds and small missing pavement segments are allowed, but
+thresholds beyond 10% of the supplied runway length (at least 50 metres) outside
+the mapped span are rejected. These tolerances account for rounded source
+coordinates; they are simulator data checks, not surveyed navigation accuracy.
+
+If a CSV row fails, inspect it against the mapped centerline and available
+navigation endpoints. `--osm-runway-geometry` explicitly selects joined mapped
+endpoints and derives reciprocal true headings; the result must still pass all
+checks. Do not infer true bearings from magnetic runway numbers or force all
+parallel-labelled runways to share a bearing. Imports still require complete OSM
+ways, taxiways and oriented parking; `--radar-only` permits airports without
+parking centerlines. Test importer changes with
+`python scripts/test-import-simulator-data.py`.
+
+The 25 October 2026 audit covered all 32 airports / 132 runway directions and
+corrected 10 pairs at CYYC, KLAS, LGAV, NZAA, ROAH and SCEL. ROAH's two axes use
+the pinned navigation thresholds, independently checked against the mapped
+pavement. Every other repair uses its own mapped centerline. Surface features,
+equipment flags and unflagged runway pairs are unchanged. Current data receive
+new content versions; the original JSONs remain frozen as `*-before-axis-repair`
+snapshots and are registered for saved scenario/session/replay pins. New
+scenarios use the corrected versions; starting a new session from an old pinned
+scenario alone does not change its geometry. Author a new scenario to use the
+new dataset. No stored scenarios or sessions are rewritten by this repair.

@@ -5,6 +5,7 @@ out/
 dist/
 build/
 coverage/
+__pycache__/
 *.log
 *.dump
 *.sql.gz

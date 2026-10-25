@@ -1,6 +1,12 @@
 import kbhmLegacy from "./data/kbhm-before-runway-repair.json";
 import sbbrLegacy from "./data/sbbr-before-runway-repair.json";
 import rjttLegacy from "./data/rjtt-before-runway-repair.json";
+import cyycLegacy from "./data/cyyc-before-axis-repair.json";
+import klasLegacy from "./data/klas-before-axis-repair.json";
+import lgavLegacy from "./data/lgav-before-axis-repair.json";
+import nzaaLegacy from "./data/nzaa-before-axis-repair.json";
+import roahLegacy from "./data/roah-before-axis-repair.json";
+import scelLegacy from "./data/scel-before-axis-repair.json";
 import {AIRPORT_RADIO_NAMES} from "./radio-identifiers";
 import kase from "./data/kase.json";
 import vnlk from "./data/vnlk.json";
@@ -72,7 +78,9 @@ const snapshots: Record<AirportId, Airport> = {
 export const defaultAirport = snapshots.EGPH;
 // Keep saved exercises on the geometry against which their positions were captured.
 const legacyDublin: Airport = {...eidwLegacy, runway: eidwLegacy.runways[0]};
-const legacyRunways: Partial<Record<AirportId, Airport>> = {KBHM: {...kbhmLegacy, runway: kbhmLegacy.runways[0]}, SBBR: {...sbbrLegacy, runway: sbbrLegacy.runways[0]}, RJTT: {...rjttLegacy, runway: rjttLegacy.runways[0]}};
+const legacyRunways: Partial<Record<AirportId, Airport>> = Object.fromEntries(
+  [kbhmLegacy, sbbrLegacy, rjttLegacy, cyycLegacy, klasLegacy, lgavLegacy, nzaaLegacy, roahLegacy, scelLegacy]
+    .map(airport => [airport.icao, {...airport, runway: airport.runways[0]}]));
 export type AirportSelection = {traffic?: readonly Pick<Aircraft,"destination">[];airport?: string; airportDataVersion?: string; trainingStation?: string; weather?: import("./model").ExerciseWeather; radarEnvironment?: import("./model").RadarEnvironment};
 export function getAirport(selection: AirportSelection = {}): Airport {
   const id = selection.airport ?? "EGPH";

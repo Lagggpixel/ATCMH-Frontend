@@ -16,7 +16,7 @@
     "https://davidmegginson.github.io/ourairports-data/runways.csv"
   ],
   "supportingLicense": "OurAirports public domain",
-  "transformation": "Local XML/CSV importer selects aeroway features, retains OSM way IDs, projects latitude/longitude to nautical miles east/north of the airport origin and rounds coordinates to 5 decimal places. Import date and origin are in the downloaded data. New snapshots include all open OurAirports runway pairs with L/R/C identifiers and true headings. Closed runways are omitted. OSM map tiles are merged by element ID; incomplete extracts are rejected. Oriented parking-position ways are retained for ground spawning. SHA-256 source hashes and a content version are recorded. MHz values are not inferred from map data.",
+  "transformation": "Local XML/CSV importer selects aeroway features, retains OSM way IDs, projects latitude/longitude to nautical miles east/north of the airport origin and rounds coordinates to 5 decimal places. Import date and origin are in the downloaded data. New snapshots include all open OurAirports runway pairs with L/R/C identifiers and true headings. Closed runways are omitted. OSM map tiles are merged by element ID; incomplete extracts are rejected. Oriented parking-position ways are retained for ground spawning. SHA-256 source hashes and a content version are recorded. MHz values are not inferred from map data. Runway axis corrections dated 2026-10-25 retain mapped surface features and original source hashes. ROAH uses the pinned Infinite Flight navigation endpoint coordinates; other corrected axes use joined OSM centerlines. Archived geometry versions remain available to saved exercises.",
   "airports": [
     {
       "icao": "EGPH",
@@ -95,12 +95,21 @@
     {
       "icao": "ROAH",
       "data": "/simulator/data/roah.json",
-      "sourceDate": "2026-10-11",
-      "dataVersion": "4f9adf03a26dbcf7541e2ecbf9e523de5f04a01a9594b100afdf79019e2cc2eb",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "0123e520cefe9c68cdf86a0f01435a42c304e6b73104396560d05ec2f381b965",
       "sources": {
         "osmSha256": "2281745c03d5963cf44202e303a8b5a307530f93b7b5e299746e83c856e887d2",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "18L/36R",
+            "18R/36L"
+          ],
+          "source": "Pinned Infinite Flight navigation endpoints, checked against mapped runway axes",
+          "navigationSha256": "8d684fc47b37cd58dc006b9c6f1f66b20d1ffa02d505b6511b0fd3b7ecbd4d20"
+        }
       },
       "bounds": [
         127.62000378417969,
@@ -156,6 +165,105 @@
         "https://api.openstreetmap.org/api/0.6/map?bbox=-47.91884994506836,-15.89270011138916,-47.885701263427734,-15.87120008468628",
         "https://api.openstreetmap.org/api/0.6/map?bbox=-47.91884994506836,-15.87120008468628,-47.885701263427734,-15.849700057983398"
       ]
+    },
+    {
+      "icao": "CYYC",
+      "data": "/simulator/data/cyyc.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "fc1689bf15fe5fe3d6ad1ad33bfc95f473d97ecba5551079ac1db00b62e03850",
+      "sources": {
+        "osmSha256": "4a4751fd70643d2b16da1c265dbf576e618c63a0622ff72faf347c25352b6ba9",
+        "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+        "runwaysSha256": "72e9e8dd888578cb22dff2db7c8493b0aa97238b8de11b7e8b98512e4e9c2fcd",
+        "runwayGeometry": "OurAirports endpoint coordinates; true headings derived from pinned projected endpoints",
+        "groundStands": "Uninspected parking centerlines omitted; radar-only addition",
+        "upstreamRunwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "11/29",
+            "17L/35R",
+            "17R/35L"
+          ],
+          "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        }
+      }
+    },
+    {
+      "icao": "KLAS",
+      "data": "/simulator/data/klas.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "5a519df65628490ef68fa2d38015eb7d632e4c66ad1513129b1f6f8f0cd38b12",
+      "sources": {
+        "osmSha256": "e31df7a51b78f8c1658d73217e1b9d83013caaf670d678df8930608c96e4067c",
+        "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+        "runwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "01L/19R"
+          ],
+          "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        }
+      }
+    },
+    {
+      "icao": "LGAV",
+      "data": "/simulator/data/lgav.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "ff0697f42c09605d11877a393891f5d3c670cadd59e29f13aa92c7a9bb8967f2",
+      "sources": {
+        "osmSha256": "fca74f5518b9255ab9fa1ccd3ab9b30ac5892ca0698389403104ae881c3fe194",
+        "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+        "runwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "03L/21R",
+            "03R/21L"
+          ],
+          "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        }
+      }
+    },
+    {
+      "icao": "NZAA",
+      "data": "/simulator/data/nzaa.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "c47e9c5c560b92888cc644f764cf826f81e01ad8c31b55312ded514125e4bddf",
+      "sources": {
+        "osmSha256": "d24c8be5befaeb63dc215f8a4fc9d8d7abc9f253c9a43fa2c1e9200d531d0ba6",
+        "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+        "runwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "05R/23L"
+          ],
+          "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        }
+      }
+    },
+    {
+      "icao": "SCEL",
+      "data": "/simulator/data/scel.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "40a43b43b66052e471dfd2d8db1d758569c96d2aef78737b830e433f05e7f8ad",
+      "sources": {
+        "osmSha256": "166e230d31c7b9124bd6391956a9edca6973b2f922df46192371045adad4b6a8",
+        "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+        "runwaysSha256": "bcc54f5ba4df5695c65d49ae51ff0af6af5c43fec599d9a4ede8fb94311aff3f",
+        "runwayGeometry": "OurAirports endpoint coordinates; true headings derived from pinned projected endpoints",
+        "groundStands": "Uninspected parking centerlines omitted; radar-only addition",
+        "upstreamRunwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
+        "runwayGeometryCorrection": {
+          "date": "2026-10-25",
+          "runways": [
+            "17L/35R"
+          ],
+          "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        }
+      }
     }
   ]
 }
