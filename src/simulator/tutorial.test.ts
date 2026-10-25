@@ -1,54 +1,67 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {placeTourCard, shouldStartTutorial, tutorialKey, tutorialPreference} from "./tutorial";
+import {
+  TRACKS, WHATS_NEW, emptyProgress, endTour, findTargets, finishTrack, goToStep, numberIn, placeTourCard, readProgress, startTrack, suggestedTrack, trackById,
+  type TourNode,
+} from "./tutorial";
 
-test("first visit, skipping and completion persist per account and survive remounts", () => {
-  const values = new Map<string, string>();
-  const original = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", {configurable: true, value: {localStorage: {getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value)}}});
-  try {
-    assert.equal(tutorialPreference("staff-a").read(), null);
-    tutorialPreference("staff-a").write("skipped");
-    assert.equal(tutorialPreference("staff-a").read(), "skipped");
-    assert.equal(tutorialPreference("staff-b").read(), null);
-    tutorialPreference("staff-a").write("radar");
-    assert.equal(tutorialPreference("staff-a").read(), "radar");
-    tutorialPreference("staff-a").write("completed");
-    assert.equal(tutorialPreference("staff-a").read(), "completed");
-    values.set(tutorialKey("staff-b"), "invalid");
-    assert.equal(tutorialPreference("staff-b").read(), null);
-    assert.equal(values.size, 2);
-  } finally {if (original) Object.defineProperty(globalThis, "window", original); else Reflect.deleteProperty(globalThis, "window");}
+const root = (nodes: Record<string, (TourNode & {usable?: boolean})[]>) => ({querySelectorAll: (selector: string) => nodes[selector] ?? []});
+
+test("stored progress is read safely and the old single tour carries over", () => {
+  assert.deepEqual(readProgress(null, null), emptyProgress());
+  assert.deepEqual(readProgress(null, "completed").done, ["start-share", "run-radar"]);
+  assert.deepEqual(readProgress(null, "radar").active, {track: "run-radar", step: 0});
+  assert.equal(readProgress(null, "skipped").welcomed, true);
+  assert.deepEqual(readProgress("{broken", null), emptyProgress());
+  const stored = readProgress(JSON.stringify({done: ["taxi", "nope"], welcomed: true, active: {track: "full-stop", step: 9}, queue: ["nope", "add-aircraft"]}), "completed");
+  assert.deepEqual(stored.done, ["taxi"]);
+  assert.deepEqual(stored.active, {track: "full-stop", step: 1, minimised: false});
+  assert.deepEqual(stored.queue, ["add-aircraft"]);
 });
 
-test("Sessions hands off to the radar once, while skipped and finished tours stay dismissed", () => {
-  assert.equal(shouldStartTutorial(null, false), true);
-  assert.equal(shouldStartTutorial(null, true), true);
-  assert.equal(shouldStartTutorial("radar", false), false);
-  assert.equal(shouldStartTutorial("radar", true), true);
-  for (const outcome of ["completed", "skipped"] as const) for (const live of [true, false]) assert.equal(shouldStartTutorial(outcome, live), false);
+test("Only what is new runs the four new tracks in order", () => {
+  let progress = startTrack(emptyProgress(), WHATS_NEW[0], WHATS_NEW);
+  const seen: string[] = [];
+  while (progress.active) {seen.push(progress.active.track); progress = finishTrack(progress);}
+  assert.deepEqual(seen, [...WHATS_NEW]);
+  assert.deepEqual(progress.done, [...WHATS_NEW]);
+  assert.equal(progress.welcomed, true);
 });
 
-test("coach marks prefer the side of a target and stay inside phone and short viewports", () => {
-  const position = placeTourCard({left: 20, top: 80, width: 200, height: 400}, {width: 1440, height: 1000}, {width: 350, height: 300});
-  assert.equal(position.left, 236); assert.equal(position.top, 80);
-  for (const viewport of [{width: 390, height: 844}, {width: 1024, height: 360}]) {
-    const card = {width: 320, height: Math.min(300, viewport.height - 24)};
-    for (const target of [null, {left: -50, top: -100, width: 1200, height: 1000}]) {
-      const result = placeTourCard(target, viewport, card);
-      assert.ok(result.left >= 12 && result.top >= 12);
-      assert.ok(result.left + card.width <= viewport.width - 12);
-      assert.ok(result.top + card.height <= viewport.height - 12);
-    }
+test("steps stay in range and ending a tour clears the queue", () => {
+  const progress = startTrack(emptyProgress(), "taxi", ["full-stop"]);
+  assert.equal(goToStep(progress, 99).active?.step, trackById("taxi").steps.length - 1);
+  assert.equal(goToStep(progress, -1).active?.step, 0);
+  assert.deepEqual(endTour(progress), {...progress, active: null, queue: []});
+});
+
+test("the suggested track is the one in progress, then the first not done", () => {
+  assert.equal(suggestedTrack(emptyProgress(), ["home", "radar"]), "start-share");
+  assert.equal(suggestedTrack({...emptyProgress(), done: ["start-share", "run-radar"]}, ["home", "radar"]), "taxi");
+  assert.equal(suggestedTrack(startTrack(emptyProgress(), "full-stop"), ["home", "radar"]), "full-stop");
+  assert.equal(suggestedTrack(startTrack(emptyProgress(), "mentee-first"), ["radar"]), "run-radar");
+});
+
+test("targets match by selector, visible text and usability", () => {
+  const plan = {textContent: " Plan on scope ", usable: true}, other = {textContent: "Start Taxi", usable: true}, hidden = {textContent: "Plan on scope", usable: false};
+  const page = root({button: [other, hidden, plan], '[data-simulator-tour="traffic"]': [{textContent: "Aircraft 3"}]});
+  assert.deepEqual(findTargets(page, {selector: "button", text: ["Plan on scope"]}, node => (node as {usable?: boolean}).usable !== false), [plan]);
+  assert.equal(findTargets(page, {tour: "traffic"}).length, 1);
+  assert.equal(numberIn("Aircraft 12"), 12);
+  assert.equal(numberIn("Aircraft"), null);
+});
+
+test("every track uses Mentor/Mentee wording and actionable steps have something to act on", () => {
+  for (const track of TRACKS) for (const step of track.steps) {
+    const copy = `${step.title} ${step.text} ${step.hint ?? ""} ${step.task ?? ""}`;
+    assert.doesNotMatch(copy, /trainer|trainee|\bmentor\b|\bmentee\b/, `${track.id}: ${step.title}`);
+    for (const check of step.done ?? []) if (check.kind === "event" && !check.target) assert.ok(step.target, `${track.id}: ${step.title} needs a target`);
+    if (step.done) assert.ok(step.task, `${track.id}: ${step.title} needs a task label`);
   }
 });
 
-test("unavailable browser storage never prevents opening or dismissing the tutorial", () => {
-  const original = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", {configurable: true, value: {get localStorage() {throw new Error("Storage blocked");}}});
-  try {
-    assert.equal(tutorialPreference("staff-a").read(), null);
-    assert.doesNotThrow(() => tutorialPreference("staff-a").write("skipped"));
-    assert.doesNotThrow(() => tutorialPreference("staff-a").write("completed"));
-  } finally {if (original) Object.defineProperty(globalThis, "window", original); else Reflect.deleteProperty(globalThis, "window");}
+test("the guide card stays beside its target and inside the viewport", () => {
+  assert.deepEqual(placeTourCard({left: 100, top: 100, width: 200, height: 40}, {width: 1440, height: 900}, {width: 360, height: 300}), {left: 316, top: 100});
+  assert.deepEqual(placeTourCard({left: 1100, top: 100, width: 300, height: 40}, {width: 1440, height: 900}, {width: 360, height: 300}), {left: 724, top: 100});
+  assert.deepEqual(placeTourCard(null, {width: 1440, height: 900}, {width: 360, height: 300}), {left: 1068, top: 588});
 });

@@ -24,7 +24,7 @@ import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {assignedTaxiPath, remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
 import AircraftPopupPresence from "./AircraftPopupPresence";
-import {airportApproachGuides, airportRunwayLengths, approachStyle, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, runwayNumbersVisible} from "./scope-airport-rendering";
+import {airportApproachGuides, airportRunwayLengths, approachStyle, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, runwayNumbersVisible, visibleRunwayAirports} from "./scope-airport-rendering";
 import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 import {aircraftAppearance} from "./aircraft-flashing";
 import {runwayWindColor} from "./atis-options";
@@ -196,6 +196,8 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   const renderedAirports = useMemo(() => layoutAirportSymbols(airportCandidates, camera, size, AIRPORT.icao, selectedAirport?.identifier,
     options.uncontrolledAirports, text => airportTextWidths[text] ?? text.length * 8),
   [airportCandidates, camera, size, AIRPORT.icao, selectedAirport?.identifier, options.uncontrolledAirports, airportTextWidths]);
+  const runwayAirports = useMemo(() => visibleRunwayAirports(renderedAirports, camera.scale, AIRPORT.icao, selectedAirport?.identifier),
+    [renderedAirports, camera.scale, AIRPORT.icao, selectedAirport?.identifier]);
   const cameraAltitude = mapCameraAltitude(camera, size);
   const procedureData = useAirportDisplay<AirportProcedures>(airportView?.kind === "procedures" && airportView.airports[0].identifier === AIRPORT.icao ? AIRPORT.icao : undefined, "procedures", AIRPORT.icao);
   const displayProcedures = useMemo(() => visibleProcedures(procedureOverlays, airportView?.kind === "procedures" ? procedureData.data : undefined), [procedureOverlays, airportView?.kind, procedureData.data]);
@@ -337,10 +339,9 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     };
     const controlledInMap = mapLayers.data?.airports.some(item => item.identifier === AIRPORT.icao) ?? false;
     for (const item of approachGuides) {
+      if (!runwayAirports.has(item.airportIcao)) continue;
       const g = item.guide;
       const style = approachStyle(item, AIRPORT.icao, selectedAirport?.identifier, toweredAirports, options, cameraAltitude, controlledInMap);
-      const fieldVisible = item.airportIcao === AIRPORT.icao || item.airportIcao === selectedAirport?.identifier || toweredAirports.get(item.airportIcao) || options.uncontrolledAirports;
-      if (!fieldVisible) continue;
       // Nearby runway detail uses the same endpoints as its cone, without
       // downloading procedure geometry or substituting the exercise's weather.
       if (item.airportIcao !== AIRPORT.icao) {
@@ -371,7 +372,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
       ctx.fillText(item.identifier + (activity?.approachOnly && item.isTowered ? " (APP)" : ""), symbol.x, symbol.y - 35); ctx.restore();
     }
-  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, airportActivity, weather]);
+  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, runwayAirports, airportActivity, weather]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const arrivalRoute = frequency === "all" && taxiAircraft && (taxiAircraft.runwayExit || taxiAircraft.arrivalExit) ? remainingTaxiPath(taxiAircraft) : undefined;
   const physicalTaxiLine = !taxiAircraft ? [] : frequency !== "all" ? assignedTaxiPath(taxiAircraft)

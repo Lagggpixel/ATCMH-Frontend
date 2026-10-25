@@ -14,7 +14,7 @@ import {canAccessStaffSimulator} from "./feature";
 import SessionAccess, {SessionNotice} from "./SessionAccess";
 import SessionDialogs, {type SessionDialogState} from "./SessionDialogs";
 import {previewSession} from "./SessionEntry";
-import StaffTutorial from "./StaffTutorial";
+import {LearnCard} from "./StaffTutorial";
 import TrainerNotice from "./TrainerNotice";
 import {sessionLibrary} from "./session-library";
 import {sessionJson} from "./shared-transport";
@@ -73,6 +73,7 @@ function Home({csrf, accountId, canAssign, name}: {csrf: string; accountId: stri
           <button type="button" data-simulator-tour="new-session" className={`${ui.btn} ${ui.primary}`} disabled={loading} onClick={() => setDialog({kind: "new"})}><Plus size={18} weight="bold" aria-hidden="true"/>Start a session</button>
         </div>
       </div>
+      <LearnCard accountId={accountId}/>
       {loadError ? <p role="alert" className={ui.error}>Could not refresh sessions: {loadError}<button type="button" className={ui.btn} onClick={() => void library.current?.refresh()}>Try again</button></p> : null}
       <div className={ui.cols}>
         <div className={ui.stack}>
@@ -128,11 +129,6 @@ function Home({csrf, accountId, canAssign, name}: {csrf: string; accountId: stri
               return <Link key={r.id} href={`/sweatbox/replays/${r.id}`} className={ui.sideItem}><span><strong>{r.title}</strong><small>{[who, replayDate.format(r.endedAt), `${Math.max(1, Math.round(r.duration / 60))} min`].filter(Boolean).join(" · ")}</small></span><CaretRight size={18} aria-hidden="true"/></Link>;
             }) : <p className={ui.sideItem}>Sessions you run appear here after they are archived.</p>}
             <div className={ui.sideLinks}><Link href="/sweatbox/replays">All replays →</Link></div>
-          </section>
-          <section className={ui.inset}>
-            <h2>New to running sessions?</h2>
-            <p>A short tour of starting, sharing and running a session.</p>
-            <StaffTutorial accountId={accountId} label="Take the tour" className={ui.btn}/>
           </section>
         </aside>
       </div>

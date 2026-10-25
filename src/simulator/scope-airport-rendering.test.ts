@@ -4,7 +4,7 @@ import type {ScopeAirport} from "./airport-display";
 import {hitAirports} from "./airport-display";
 import {airportList, getAirport, runwayEnds} from "./airports";
 import runwayIls from "./data/runway-ils.json";
-import {airportApproachGuides, airportRunwayLengths, approachStyle, directApproachesVisible, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, projectMapPoint, runwayNumbersVisible, type MapApproach} from "./scope-airport-rendering";
+import {airportApproachGuides, airportRunwayLengths, approachStyle, directApproachesVisible, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, projectMapPoint, runwayNumbersVisible, visibleRunwayAirports, type MapApproach} from "./scope-airport-rendering";
 
 const size = {width: 1000, height: 800}, camera = {center: {x: 0, y: 0}, scale: 10};
 const field = (identifier: string, x: number, y: number, isTowered = true, length = 10000): ScopeAirport =>
@@ -21,7 +21,7 @@ test("map zoom converts pixels/NM to IF camera metres using vertical FOV and CSS
 });
 
 test("screen declutter prioritizes longer runways, with optional IF importance then stable identifier ties", () => {
-  const airports = [field("SMAL", 1, 0, true, 2000), field("LARG", 0, 0, true, 12000), field("FAR", 30, 0)];
+  const airports = [field("SMAL", 1, 0, true, 5000), field("LARG", 0, 0, true, 12000), field("FAR", 30, 0)];
   assert.deepEqual(layoutAirportSymbols(airports, camera, size, "CTRL", undefined, true).map(s => s.airport.identifier), ["LARG", "FAR"]);
   const equal = [field("BBBB", 0, 0), field("AAAA", 0, 0)];
   assert.equal(layoutAirportSymbols(equal, camera, size, "CTRL", undefined, true)[0].airport.identifier, "AAAA");
@@ -35,6 +35,65 @@ test("zoom separates overlapping airport labels; drawing and hit testing share t
   const zoomedIn = layoutAirportSymbols(airports, {...camera, scale: 30}, size, "CTRL", undefined, true);
   assert.equal(zoomedOut.length, 1); assert.equal(zoomedIn.length, 2);
   assert.deepEqual(hitAirports(zoomedOut.map(s => s.airport), projectMapPoint(airports[1].point, camera, size), p => projectMapPoint(p, camera, size)).map(a => a.identifier), ["AAAA"]);
+});
+
+test("zoom progressively reveals long, short and unknown runways using CSS pixels, with closer non-towered detail", () => {
+  const oneNm = 6076.11549;
+  const shown = (airport: ScopeAirport, scale: number) => layoutAirportSymbols([airport], {...camera, scale}, size, "CTRL", undefined, true).length === 1;
+  assert.equal(shown(field("LONG", 0, 0, true, oneNm * 2), 2), true);
+  assert.equal(shown(field("SHORT", 0, 0, true, oneNm), 3.999), false);
+  assert.equal(shown(field("SHORT", 0, 0, true, oneNm), 4), true);
+  assert.equal(shown(field("UNTW", 0, 0, false, oneNm), 7.999), false);
+  assert.equal(shown(field("UNTW", 0, 0, false, oneNm), 8), true);
+  for (const length of [undefined, 0, -1, NaN, Infinity, 100]) {
+    const airport = {...field("TINY", 0, 0, false), longestRunwayLengthFeet: length};
+    assert.equal(shown(airport, 23.999), false);
+    assert.equal(shown(airport, 24), true);
+  }
+  // CSS scale, rather than viewport height or device pixel ratio, determines LOD.
+  const airport = field("SHORT", 0, 0, true, oneNm);
+  assert.equal(layoutAirportSymbols([airport], {...camera, scale: 4}, {width: 390, height: 844}, "CTRL", undefined, true).length, 1);
+});
+
+test("background runway lines, numbers and cones share a closer LOD and the retained symbol set", () => {
+  const airports = [field("LARG", 0, 0, true, 12000), field("HIDE", .1, 0), field("LESS", 20, 0, true, 5000)];
+  const symbols = layoutAirportSymbols(airports, camera, size, "CTRL", undefined, true);
+  assert.deepEqual(symbols.map(s => s.airport.identifier), ["LARG", "LESS"]);
+  assert.deepEqual([...visibleRunwayAirports(symbols, camera.scale, "CTRL", undefined)], ["CTRL", "LARG"]);
+  const runway = field("TEST", 0, 0, true, 6076.11549);
+  for (const scale of [15.999, 16]) {
+    const symbols = layoutAirportSymbols([runway], {...camera, scale}, size, "CTRL", undefined, true);
+    assert.equal(symbols.length, 1);
+    assert.equal(visibleRunwayAirports(symbols, scale, "CTRL", undefined).has("TEST"), scale === 16);
+  }
+  const unknown = {...field("NONE", 0, 0, false), longestRunwayLengthFeet: undefined};
+  const close = layoutAirportSymbols([unknown], {...camera, scale: 24}, size, "CTRL", undefined, true);
+  assert.equal(visibleRunwayAirports(close, 24, "CTRL", undefined).has("NONE"), true);
+});
+
+test("controlled and selected airports bypass every background LOD, collision and layer filter", () => {
+  const airports = [field("CTRL", 0, 0, false, 0), field("SELE", .1, 0, false, 0), field("TINY", 20, 0, false, 100)];
+  for (const scale of [.5, 2, 10, 24, 100]) {
+    const symbols = layoutAirportSymbols(airports, {...camera, scale}, size, "CTRL", "SELE", false);
+    assert.deepEqual(new Set(symbols.map(s => s.airport.identifier)), new Set(["CTRL", "SELE"]));
+    assert.deepEqual(visibleRunwayAirports(symbols, scale, "CTRL", "SELE"), new Set(["CTRL", "SELE"]));
+  }
+  // Panning off either pinned airport must not remove a cone crossing the viewport.
+  const offscreen = layoutAirportSymbols(airports, {...camera, center: {x: 1000, y: 0}}, size, "CTRL", "SELE", false);
+  assert.equal(offscreen.length, 0);
+  assert.deepEqual(visibleRunwayAirports(offscreen, 10, "CTRL", "SELE"), new Set(["CTRL", "SELE"]));
+});
+
+test("zoom-hidden airports cannot intercept taps and pan/zoom recomputes background detail", () => {
+  const airport = field("TINY", 0, 0, false, 2000);
+  const wide = layoutAirportSymbols([airport], {...camera, scale: 2}, size, "CTRL", undefined, true);
+  assert.deepEqual(hitAirportSymbols(wide, {x: 500, y: 400}), []);
+  const close = layoutAirportSymbols([airport], {...camera, scale: 24}, size, "CTRL", undefined, true);
+  assert.equal(hitAirportSymbols(close, {x: 500, y: 365})[0].identifier, "TINY");
+  const hidden = layoutAirportSymbols([airport], {...camera, scale: 24}, size, "CTRL", undefined, false);
+  assert.equal(visibleRunwayAirports(hidden, 24, "CTRL", undefined).has("TINY"), false);
+  const panned = layoutAirportSymbols([airport], {...camera, scale: 24, center: {x: 1000, y: 0}}, size, "CTRL", undefined, true);
+  assert.equal(visibleRunwayAirports(panned, 24, "CTRL", undefined).has("TINY"), false);
 });
 
 test("controlled and selected fields survive declutter and uncontrolled filtering, without confusing tower status with staffing", () => {
@@ -75,11 +134,11 @@ test("approach switches preserve controlled cones and selected direct cones but 
   assert.deepEqual(approachStyle(current, airport.icao, undefined, towered, off, 100000, true), {width: .75, direct: false});
   assert.equal(approachStyle(other, airport.icao, undefined, towered, off, 100000, true), undefined);
   assert.deepEqual(approachStyle(other, airport.icao, "TEST", towered, off, 100000, true), {width: 2, direct: true});
-  assert.equal(approachStyle(other, airport.icao, "TEST", towered, off, 800000, true), undefined);
+  assert.deepEqual(approachStyle(other, airport.icao, "TEST", towered, off, 800000, true), {width: .75, direct: false});
   assert.equal(approachStyle(other, airport.icao, undefined, towered, {approaches: true, uncontrolledAirports: false}, 100000, true), undefined);
   assert.deepEqual(approachStyle(other, airport.icao, undefined, towered, {approaches: true, uncontrolledAirports: true}, 900000, true), {width: .75, direct: false});
   assert.deepEqual(approachStyle(current, airport.icao, undefined, towered, off, 799999, false), {width: 2, direct: true});
-  assert.equal(approachStyle(current, airport.icao, undefined, towered, off, 800000, false), undefined);
+  assert.deepEqual(approachStyle(current, airport.icao, undefined, towered, off, 800000, false), {width: .75, direct: false});
 });
 
 test("runway lengths aggregate reciprocal ends for priority without requiring provider schema changes", () => {

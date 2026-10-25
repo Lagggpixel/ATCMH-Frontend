@@ -77,3 +77,11 @@
 .replaysLink small{font-size:14px;color:var(--dashboard-muted);line-height:1.4}
 .replaysLink:hover{border-color:var(--dashboard-link)}
 @media(max-width:760px){.next{padding:20px}.next h2{font-size:24px}.nextFoot>a{width:100%}}
+.briefing{padding:24px 28px;border:1px solid var(--dashboard-border);border-radius:16px;background:var(--dashboard-surface)}
+.briefing h2{margin:0 0 6px;font-size:20px;font-weight:700}
+.briefing ul{margin:0 0 12px;padding:0;list-style:none}
+.briefing li{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;align-items:start;padding:14px 0;border-bottom:1px solid var(--dashboard-border)}
+.briefing li svg{width:40px;height:40px;padding:8px;border-radius:10px;background:var(--dashboard-inset);color:var(--dashboard-link)}
+.briefing li strong{display:block;font-size:16px;margin-bottom:3px}
+.briefing li small{font-size:14px;line-height:1.5;color:var(--dashboard-muted)}
+.briefing > p{margin:0}

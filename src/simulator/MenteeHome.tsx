@@ -4,6 +4,9 @@ import Link from "next/link";
 import {ArrowRight} from "@phosphor-icons/react/dist/csr/ArrowRight";
 import {DeviceMobile} from "@phosphor-icons/react/dist/csr/DeviceMobile";
 import {ClockCounterClockwise} from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
+import {UserCircle} from "@phosphor-icons/react/dist/csr/UserCircle";
+import {Path} from "@phosphor-icons/react/dist/csr/Path";
+import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
 import LearningFrame from "../learning/LearningFrame";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import SessionAccess from "./SessionAccess";
@@ -77,6 +80,15 @@ function Assigned({name}: {name: string}) {
               <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter session<ArrowRight size={20} aria-hidden="true"/><span className={ui.srOnly}> {next.title}</span></Link>
             </div>
           </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here automatically. You can also join with a code or link.</p></div>}
+          <section aria-labelledby="briefing-heading" className={styles.briefing}>
+            <h2 id="briefing-heading">Three things before your first session</h2>
+            <ul>
+              <li><UserCircle size={24} aria-hidden="true"/><span><strong>You are the controller</strong><small>Your Mentor flies every aircraft and plays the pilots. You give the instructions.</small></span></li>
+              <li><Path size={24} aria-hidden="true"/><span><strong>Drag to give a taxi route</strong><small>Click an aircraft, then drag along the taxiways on the scope and send the instruction.</small></span></li>
+              <li><Pause size={24} aria-hidden="true"/><span><strong>Paused means talk</strong><small>When your Mentor pauses, everything freezes so you can go over what happened. Nothing is lost.</small></span></li>
+            </ul>
+            <p className={ui.meta}>A short tour starts the first time you enter a session. You can replay it from Help.</p>
+          </section>
           {others.length ? <section aria-labelledby="more-heading">
             <h2 id="more-heading" className={ui.sectionTitle}>Also assigned to you</h2>
             <div className={ui.panel}>{others.map(session => <div key={session.id} className={styles.other}>

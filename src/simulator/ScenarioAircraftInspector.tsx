@@ -92,7 +92,7 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
         </>}
       </section>
       <section className={styles.panel} role="tabpanel" id={`${id}-Routes-panel`} aria-labelledby={`${id}-Routes-tab`} hidden={tab !== "Routes"}>
-        {!a.radar ? <div className={styles.section}><h3>Taxi route</h3><p className={styles.help}>Plan the route on the scope, or press and hold another aircraft and drag it. Drag the route's end or the green line to change it, tick holds, then save the route.</p><button type="button" onClick={() => {onEditMode(""); onError(""); onPlanTaxi(a.runway ?? defaultRunway(airport));}}>Plan route to Runway {a.runway ?? defaultRunway(airport)}</button>
+        {!a.radar ? <div className={styles.section}><h3>Taxi route</h3><p className={styles.help}>Plan the route on the scope, or press and hold another aircraft and drag it. Drag the route&apos;s end or the green line to change it, tick holds, then save the route.</p><button type="button" onClick={() => {onEditMode(""); onError(""); onPlanTaxi(a.runway ?? defaultRunway(airport));}}>Plan route to Runway {a.runway ?? defaultRunway(airport)}</button>
           <button type="button" disabled={!a.taxiPath.length} onClick={() => patch({taxiPath: []})}>Clear {a.taxiPath.length} taxi points</button></div> : null}
         <ScenarioFlightPlan aircraft={a} airport={airport} onEdit={patch}/>
       </section>
