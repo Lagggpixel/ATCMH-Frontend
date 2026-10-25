@@ -22,7 +22,7 @@ import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
 import AircraftPopupPresence from "./AircraftPopupPresence";
-import {approachGuide, approachGuideFromEndpoints} from "./approach-guides";
+import {airportApproachGuides, airportRunwayLengths, approachStyle, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, runwayNumbersVisible} from "./scope-airport-rendering";
 import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 import {aircraftAppearance} from "./aircraft-flashing";
 import {atisRunwayWind} from "./atis-options";
@@ -41,7 +41,7 @@ import {facilities} from "./aviation";
 import {projectAirspaces, airspaceOutlines, hitAirspaces} from "./scope-airspaces";
 import {useScopeMapData} from "./use-scope-map-data";
 import {windAltitudeChoices, windAtAltitude, type ScopeMapData, type ScopeWinds} from "./scope-map-data";
-import {hitAirports, procedureKey, procedureColor, visibleProcedures, type AirportProcedure, type AirportProcedures, type ScopeAirport} from "./airport-display";
+import {procedureKey, procedureColor, visibleProcedures, weatherCategory, type AirportProcedure, type AirportProcedures, type ScopeAirport} from "./airport-display";
 import AirportDetails, {AirportPopup} from "./AirportPanels";
 import {useAirportDisplay} from "./use-airport-display";
 import ScopeProcedures from "./ScopeProcedures";
@@ -98,7 +98,7 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
   useEffect(() => {
     let active = true;
     // Canvas does not redraw automatically when its web font finishes loading.
-    Promise.all([document.fonts.load('400 12px "Simulator Fira"'), document.fonts.load('400 15px "Simulator Aircraft"', "\ue871\ue870\ue8e7\ue907")]).then(() => {if (active) setScopeFontReady(true);}).catch(() => {});
+    Promise.all([document.fonts.load('400 12px "Simulator Fira"'), document.fonts.load('700 10px "Simulator Fira"'), document.fonts.load('400 15px "Simulator Aircraft"', "\ue871\ue870\ue8e7\ue907\ue84a\ue851")]).then(() => {if (active) setScopeFontReady(true);}).catch(() => {});
     return () => {active = false;};
   }, []);
   const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; last: Point; selection: string | null; armed: boolean; timer?: ReturnType<typeof setTimeout>} | null>(null);
@@ -161,9 +161,40 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
   const savedPreferences = useMemo(() => ({options, camera, windAltitude, procedureOpacity}), [options, camera, windAltitude, procedureOpacity]);
   useSaveScopePreferences(preferenceKey, savedPreferences);
   const [airportView, setAirportView] = useState<{kind: "menu" | "details" | "procedures"; airports: ScopeAirport[]; point: Point} | null>(null);
-  const airportSymbols = useMemo<ScopeAirport[]>(() => [{identifier: AIRPORT.icao, name: AIRPORT.name, elevationFeet: AIRPORT.elevation, point: {x: 0, y: 0},
+  const [selectedAirport, setSelectedAirport] = useState<ScopeAirport | null>(null);
+  const approachGuides = useMemo(() => airportApproachGuides(AIRPORT, mapLayers.data?.approaches ?? []), [AIRPORT, mapLayers.data]);
+  const airportCandidates = useMemo<ScopeAirport[]>(() => {
+    const lengths = airportRunwayLengths(mapLayers.data?.approaches ?? []);
+    return [{identifier: AIRPORT.icao, name: AIRPORT.name, elevationFeet: AIRPORT.elevation, point: {x: 0, y: 0},
+    longestRunwayLengthFeet: Math.max(...(AIRPORT.runways ?? [AIRPORT.runway]).map(runway => runway.lengthFeet)),
     isTowered: mapLayers.data?.airports.find(item => item.identifier === AIRPORT.icao)?.isTowered ?? facilities.some(item => item.airport === AIRPORT.icao && item.type === "tower")},
-    ...(mapLayers.data?.airports ?? []).filter(item => item.identifier !== AIRPORT.icao && (item.isTowered || options.uncontrolledAirports))], [AIRPORT, mapLayers.data, options.uncontrolledAirports]);
+    ...(mapLayers.data?.airports ?? []).filter(item => item.identifier !== AIRPORT.icao).map(item => ({...item, longestRunwayLengthFeet: lengths.get(item.identifier)}))];
+  }, [AIRPORT, mapLayers.data]);
+  const toweredAirports = useMemo(() => new Map(airportCandidates.map(item => [item.identifier, item.isTowered])), [airportCandidates]);
+  const airportActivity = useMemo(() => {
+    const activity = new Map<string, {active: boolean; approachOnly: boolean}>();
+    for (const facility of radarEnvironment?.facilities ?? facilities) {
+      if (!facility.airport || !["ground", "tower", "approach", "departure", "center"].includes(facility.type)) continue;
+      // Navdata tower status and live staffing are independent. Global frequency
+      // definitions alone are not evidence that a nearby controller is online.
+      if (!(radarEnvironment?.facilityActivity?.[facility.id] ?? (radarEnvironment?.facilities ? facility.active : false))) continue;
+      const current = activity.get(facility.airport);
+      activity.set(facility.airport, {active: true, approachOnly: (current?.approachOnly ?? true) && !["ground", "tower"].includes(facility.type)});
+    }
+    return activity;
+  }, [radarEnvironment]);
+  const [airportTextWidths, setAirportTextWidths] = useState<Record<string, number>>({});
+  useLayoutEffect(() => {
+    const ctx = canvas.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.save(); ctx.font = '12px "Simulator Fira", sans-serif';
+    setAirportTextWidths(Object.fromEntries(airportCandidates.map(item => [item.identifier, ctx.measureText(item.identifier + (airportActivity.get(item.identifier)?.approachOnly ? " (APP)" : "")).width])));
+    ctx.restore();
+  }, [airportCandidates, airportActivity, scopeFontReady]);
+  const renderedAirports = useMemo(() => layoutAirportSymbols(airportCandidates, camera, size, AIRPORT.icao, selectedAirport?.identifier,
+    options.uncontrolledAirports, text => airportTextWidths[text] ?? text.length * 8),
+  [airportCandidates, camera, size, AIRPORT.icao, selectedAirport?.identifier, options.uncontrolledAirports, airportTextWidths]);
+  const cameraAltitude = mapCameraAltitude(camera, size);
   const procedureData = useAirportDisplay<AirportProcedures>(airportView?.kind === "procedures" && airportView.airports[0].identifier === AIRPORT.icao ? AIRPORT.icao : undefined, "procedures", AIRPORT.icao);
   const displayProcedures = useMemo(() => visibleProcedures(procedureOverlays, airportView?.kind === "procedures" ? procedureData.data : undefined), [procedureOverlays, airportView?.kind, procedureData.data]);
   const closeAirport = useCallback(() => {setAirportView(null); container.current?.focus({preventScroll: true});}, [setAirportView]);
@@ -184,7 +215,7 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
     return () => window.removeEventListener("keydown", close);
   }, [cancelVector, cancelGroundDrag]);
   const project = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
-  const openAirport = (airports: ScopeAirport[], point: Point) => {setAirportView({kind: "menu", airports, point}); setPopup(null); setRevealedFixKey(null); setTap(null); onSelect(null);};
+  const openAirport = (airports: ScopeAirport[], point: Point) => {if (airports.length === 1) setSelectedAirport(airports[0]); setAirportView({kind: "menu", airports, point}); setPopup(null); setRevealedFixKey(null); setTap(null); onSelect(null);};
   useEffect(() => {
     if (!focusRequest) return;
     const target = snapshot.find(a => a.id === focusRequest.id);
@@ -247,7 +278,7 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
     ctx.scale(ratio, ratio); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, size.width, size.height);
     const screen = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
     const path = (points: Point[], color: string, width = 1, dashed = false) => {
-      if (points.length < 2) return;
+      if (points.length < 2 || !mapPathVisible(points, camera, size)) return;
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dashed ? [2, 6] : []);
       points.forEach((p, i) => {const s = screen(p); if (!i) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);}); ctx.stroke(); ctx.setLineDash([]);
     };
@@ -268,15 +299,6 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
       for (const point of route.points) {const at = screen(point); ctx.fillRect(at.x - 2, at.y - 2, 4, 4); if (point.name) ctx.fillText(point.name, at.x + 5, at.y - 5);}
     }
     ctx.restore();
-    for (const item of mapLayers.data?.airports ?? []) {
-      if (item.identifier === AIRPORT.icao || !item.isTowered && !options.uncontrolledAirports) continue;
-      const p = screen(item.point); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) continue;
-      ctx.save(); ctx.font = '20px "Simulator Aircraft"'; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillStyle = item.isTowered ? "#2D81F9" : "#EF00FC"; ctx.fillText("\ue84a", p.x, p.y);
-      ctx.fillStyle = "#000"; ctx.fillText("\ue851", p.x, p.y);
-      ctx.font = '12px "Simulator Fira", sans-serif'; ctx.fillStyle = "#fff"; ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
-      ctx.fillText(item.identifier, p.x, p.y + 20); ctx.restore();
-    }
     if (options.windsAloft) for (const profile of winds.data?.points ?? []) {
       const wind = windAtAltitude(profile, displayedWindAltitude); if (!wind) continue;
       const p = screen(profile.point); if (p.x < 20 || p.x > size.width - 20 || p.y < 20 || p.y > size.height - 20) continue;
@@ -300,22 +322,54 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
     for (const feature of AIRPORT.features) {
       if (!options.taxiways && feature.kind !== "runway") continue;
       const runway = feature.kind === "runway";
-      path(feature.points, runway ? IF_MAP_COLORS.runway : ["apron", "terminal", "hangar"].includes(feature.kind) ? "#656565" : IF_MAP_COLORS.taxiway, runway ? 2 : 1);
+      path(feature.points, runway ? IF_MAP_COLORS.runway : ["apron", "terminal", "hangar"].includes(feature.kind) ? "#656565" : IF_MAP_COLORS.taxiway, runway ? 4 : 1);
     }
-    // The current airport's cones stay visible independently of background approaches.
-    for (const {id} of runwayEnds(AIRPORT)) {
-      const g = approachGuide(id, airport);
-      path([g.threshold, g.left, g.right, g.threshold], g.color, 1.5);
-      path([g.threshold, g.center], g.centerColor, 1.5);
+    const runwayLabel = (id: string, point: Point, color: string) => {
+      const p = screen(point);
+      if (p.x < -20 || p.x > size.width + 20 || p.y < -10 || p.y > size.height + 10) return;
+      ctx.save(); ctx.font = '700 10px "Simulator Fira", sans-serif'; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const width = ctx.measureText(id).width + 8;
+      ctx.fillStyle = "#000"; ctx.fillRect(p.x - width / 2, p.y - 8, width, 16);
+      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.strokeRect(p.x - width / 2, p.y - 8, width, 16);
+      ctx.fillStyle = color; ctx.fillText(id, p.x, p.y); ctx.restore();
+    };
+    const controlledInMap = mapLayers.data?.airports.some(item => item.identifier === AIRPORT.icao) ?? false;
+    for (const item of approachGuides) {
+      const g = item.guide;
+      const style = approachStyle(item, AIRPORT.icao, selectedAirport?.identifier, toweredAirports, options, cameraAltitude, controlledInMap);
+      const fieldVisible = item.airportIcao === AIRPORT.icao || item.airportIcao === selectedAirport?.identifier || toweredAirports.get(item.airportIcao) || options.uncontrolledAirports;
+      if (!fieldVisible) continue;
+      // Nearby runway detail uses the same endpoints as its cone, without
+      // downloading procedure geometry or substituting the exercise's weather.
+      if (item.airportIcao !== AIRPORT.icao) {
+        // Each runway is supplied twice, once per end; stroke its centerline once.
+        if (g.threshold.x < item.departure.x || g.threshold.x === item.departure.x && g.threshold.y < item.departure.y) path([g.threshold, item.departure], IF_MAP_COLORS.runway, 4);
+      }
+      const color = item.airportIcao === AIRPORT.icao ? runwayWindColors[atisRunwayWind(item.heading, weather ?? EXERCISE_WEATHER)] : "#90ee90";
+      if (runwayNumbersVisible(cameraAltitude)) {
+        const dx = g.center.x - g.threshold.x, dy = g.center.y - g.threshold.y, length = Math.hypot(dx, dy);
+        runwayLabel(item.runway, {x: g.threshold.x + dx / length * 150 / 1852, y: g.threshold.y + dy / length * 150 / 1852}, color);
+      }
+      if (!style) continue;
+      path([g.threshold, g.left, g.right, g.threshold], g.color, style.width);
+      path([g.threshold, g.center], g.centerColor, style.width);
+      if (style.direct) runwayLabel(item.runway, g.center, color);
     }
-    if (options.approaches) for (const approach of mapLayers.data?.approaches ?? []) {
-      if (approach.airportIcao === AIRPORT.icao) continue;
-      const g = approachGuideFromEndpoints(approach.threshold, approach.departure, approach.ils);
-      if (!g) continue;
-      path([g.threshold, g.left, g.right, g.threshold], g.color, 1.5);
-      path([g.threshold, g.center], g.centerColor, 1.5);
+    for (const symbol of renderedAirports) {
+      const item = symbol.airport, activity = airportActivity.get(item.identifier);
+      ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '18px "Simulator Aircraft"';
+      ctx.fillStyle = item.isTowered ? "#2d81f9" : "#ef00fc"; ctx.fillText("\ue84a", symbol.x, symbol.y);
+      ctx.fillStyle = "#000"; ctx.fillText("\ue851", symbol.x, symbol.y);
+      if (item.identifier === AIRPORT.icao) {
+        const category = weatherCategory(weather ?? EXERCISE_WEATHER);
+        if (category) {ctx.fillStyle = {VFR: "#90ee90", MVFR: "#2d81f9", IFR: "#ff0000", LIFR: "#ef00fc"}[category]; ctx.beginPath(); ctx.arc(symbol.x, symbol.y, 3, 0, Math.PI * 2); ctx.fill();}
+      }
+      ctx.font = '12px "Simulator Fira", sans-serif';
+      ctx.fillStyle = symbol.selected ? "#ee82ee" : item.identifier === AIRPORT.icao || activity?.active && item.isTowered ? "#90ee90" : "#fff";
+      ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+      ctx.fillText(item.identifier + (activity?.approachOnly && item.isTowered ? " (APP)" : ""), symbol.x, symbol.y - 35); ctx.restore();
     }
-  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, airport, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity]);
+  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, airportActivity, weather]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const arrivalRoute = frequency === "all" && taxiAircraft && (taxiAircraft.runwayExit || taxiAircraft.arrivalExit) ? remainingTaxiPath(taxiAircraft) : undefined;
   const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || frequency === "all" ? sentGroundRoute?.points ?? (taxiAircraft ? taxiAircraft.mode === "pushback" && taxiAircraft.pushback ? [taxiAircraft.position, ...taxiAircraft.pushback.path.slice(taxiAircraft.pushback.index)] : remainingTaxiPath(taxiAircraft).length > 1 ? remainingTaxiPath(taxiAircraft) : [] : []) : []);
@@ -409,11 +463,11 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
           const bounds = event.currentTarget.getBoundingClientRect();
           const fix = !editMode ? hitFixSymbol(fixSymbols, {x: event.clientX - bounds.left, y: event.clientY - bounds.top}, event.pointerType === "touch" ? 22 : 12) : undefined;
           const point = {x: event.clientX - bounds.left, y: event.clientY - bounds.top};
-          const airports = !editMode ? hitAirports(airportSymbols, point, project) : [];
+          const airports = !editMode ? hitAirportSymbols(renderedAirports, point) : [];
           if (airports.length) openAirport(airports, point);
           else if (fix) {setRevealedFixKey(fix.key); setPopup(null);}
           else if (!routing.draft && onPoint && editMode) onPoint(pointAt(event));
-          else if (!routing.draft) {setSelectedAirspaces(hitAirspaces(airspaces, airport, pointAt(event), options.airspaces)); onSelect(null); setPopup(null);}
+          else if (!routing.draft) {setSelectedAirport(null); setAirportView(null); setSelectedAirspaces(hitAirspaces(airspaces, airport, pointAt(event), options.airspaces)); onSelect(null); setPopup(null);}
         }
       }} onPointerCancel={event => {navigationCamera.cancel(event.pointerId); cancelGroundDrag();}}
       onLostPointerCapture={event => {navigationCamera.cancel(event.pointerId); cancelGroundDrag();}}
@@ -433,12 +487,11 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
       routing.start(selectedAircraft, destination ?? selectedAircraft.position);
     }}>Plan ground route</button> : null}
     {gateDraft ? <span className={styles.gatePlacementHint} role="status">{gateDraft.gateId ? `Release to place at ${gates?.find(gate => gate.id === gateDraft.gateId)?.label}` : "Drag onto a blue gate dot · Escape to cancel"}</span> : null}
-    {runwayEnds(AIRPORT).map(end => {const p = project(end.point), color = runwayWindColors[atisRunwayWind(end.heading, weather ?? EXERCISE_WEATHER)]; return <span key={end.id} className={styles.runwayTag} style={{left: p.x, top: p.y, color, borderColor: color}}>{end.id}</span>;})}
     <button className={styles.airportMarker} style={{left: project({x: 0, y: 0}).x, top: project({x: 0, y: 0}).y}} aria-label={`${AIRPORT.icao} airport information`} onClick={event => {
       const bounds = container.current!.getBoundingClientRect(), point = event.detail ? {x: event.clientX - bounds.left, y: event.clientY - bounds.top} : project({x: 0, y: 0});
-      const choices = hitAirports(airportSymbols, point, project);
-      openAirport(choices.length ? choices : [airportSymbols[0]], point);
-    }}><span>{AIRPORT.icao}</span><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M14 1v5m0 16v5M1 14h5m16 0h5" stroke="currentColor" strokeWidth="2"/><circle cx="14" cy="14" r="5" fill="#90ee90"/></svg></button>
+      const choices = hitAirportSymbols(renderedAirports, point);
+      openAirport(choices.length ? choices : [airportCandidates[0]], point);
+    }}/>
     {vectorAircraft && vectorEnabled ? <>
       <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#ff69bd" strokeWidth="4">
         <circle aria-label="Vector cancellation circle" cx={project(vectorAircraft.position).x} cy={project(vectorAircraft.position).y} r={VECTOR_CANCEL_RADIUS}/>
@@ -568,7 +621,7 @@ function ScopeView({preferenceKey, missingStripControls, elapsed = 0, openStripI
     {revealedFix ? <span role="tooltip" className={styles.fixTooltip} style={{left: Math.max(6, Math.min(size.width - 130, revealedFix.x + 12)), top: Math.max(6, Math.min(size.height - 32, revealedFix.y - 30))}}>{revealedFix.id} · {revealedFix.route && !revealedFix.background ? "Flight plan" : revealedFix.kind === "fix" ? "Fix" : revealedFix.kind.toUpperCase()}</span> : null}
     {popup === "hide" ? <div className={styles.optionsMenu} role="menu" aria-label="Hide Traffic">{trafficFilters.map(([value, label]) => <button key={value} role="menuitemcheckbox" aria-checked={options.filter === value} onClick={() => {setOptions(o => ({...o, filter: toggleTrafficFilter(o.filter, value)})); setPopup(null);}}><span aria-hidden="true">{options.filter === value ? "✓" : ""}</span>{label}</button>)}</div> : null}
     {airportView?.kind === "menu" ? <AirportPopup airports={airportView.airports} point={airportView.point} size={size} weather={weather ?? EXERCISE_WEATHER} origin={AIRPORT.icao} environment={radarEnvironment}
-      onInformation={airport => setAirportView({...airportView, kind: "details", airports: [airport]})} onProcedures={airport => {if (airport.identifier === AIRPORT.icao) setAirportView({...airportView, kind: "procedures", airports: [airport]});}} onClose={closeAirport}/> : null}
+      onInformation={airport => {setSelectedAirport(airport); setAirportView({...airportView, kind: "details", airports: [airport]});}} onProcedures={airport => {if (airport.identifier === AIRPORT.icao) {setSelectedAirport(airport); setAirportView({...airportView, kind: "procedures", airports: [airport]});}}} onClose={closeAirport}/> : null}
     {airportView?.kind === "details" ? <AirportDetails key={airportView.airports[0].identifier} airport={airportView.airports[0]} origin={AIRPORT.icao} exerciseWeather={weather ?? EXERCISE_WEATHER} environment={radarEnvironment}
       onClose={closeAirport}/> : null}
     {airportView?.kind === "procedures" ? <ScopeProcedures key={airportView.airports[0].identifier} airport={airportView.airports[0].identifier} data={procedureData.data} error={procedureData.error} selected={procedureOverlays} opacity={procedureOpacity}

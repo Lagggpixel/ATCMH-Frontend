@@ -42,7 +42,7 @@ test("map data projects real towered/uncontrolled airports without exposing upst
     return Response.json({icao: "EGPH", airports: [{id: "airport", identifier: "TEST", name: "Test field", lat: origin.lat + 1 / 60, lon: origin.lon, isTowered: false}],
       vors: [{id: "vor", identifier: "TST", name: null, lat: origin.lat, lon: origin.lon, vorType: "VOR", frequencyMhz: 115.5}],
       approaches: [{airportIcao: "TEST", runway: "01", threshold: {lat: origin.lat + 1 / 60, lon: origin.lon}, departure: {lat: origin.lat + 2 / 60, lon: origin.lon}, ils: true},
-        {airportIcao: "TEST", runway: "19", threshold: {lat: origin.lat + 2 / 60, lon: origin.lon}, departure: {lat: origin.lat + 1 / 60, lon: origin.lon}, ils: false}]});
+        {airportIcao: "TEST", runway: "19", threshold: {lat: origin.lat + 2 / 60, lon: origin.lon}, departure: {lat: origin.lat + 1 / 60, lon: origin.lon}, ils: false, localizer: true}]});
   };
   try {
     const result = await fetchScopeMap("EGPH");
@@ -50,6 +50,7 @@ test("map data projects real towered/uncontrolled airports without exposing upst
     assert.equal(result.airports[0].isTowered, false); assert.ok(Math.abs(result.airports[0].point.y - 1) < 1e-8);
     assert.equal(result.approaches?.length, 2);
     assert.equal(result.approaches?.[0].ils, true); assert.equal(result.approaches?.[1].ils, false);
+    assert.equal(result.approaches?.[0].localizer, undefined); assert.equal(result.approaches?.[1].localizer, true);
     assert.ok(Math.abs(result.approaches![0].threshold.y - 1) < 1e-8);
     assert.deepEqual(result.approaches?.[0].threshold, result.approaches?.[1].departure);
     assert.doesNotMatch(JSON.stringify(result), /"lat"|"lon"|test-only/);

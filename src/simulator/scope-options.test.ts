@@ -8,6 +8,7 @@ test("scope controls match IF's names, fresh ATC defaults and traffic submenu", 
   assert.deepEqual(scopeOptionRows.map(([, label]) => label), ["Fixes", "Navaids", "Airspaces", "Taxiways", "Approaches", "Uncontrolled Airports", "Aircraft Trails", "Only Trails On Frequency"]);
   assert.equal(initialOptions.waypoints, false); assert.equal(initialOptions.navaids, false);
   assert.equal(initialOptions.airspaces, true); assert.equal(initialOptions.windsAloft, false);
+  assert.equal(initialOptions.approaches, true); assert.equal(initialOptions.uncontrolledAirports, true);
   assert.equal(trafficFilters.length, 6);
   assert.equal(toggleTrafficFilter("15000", "15000"), "none");
   assert.equal(toggleTrafficFilter("15000", "20000"), "20000");

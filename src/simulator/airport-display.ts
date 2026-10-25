@@ -1,6 +1,6 @@
 import type {ExerciseWeather, Point, RoutePoint} from "./model";
 
-export interface ScopeAirport {identifier: string; name: string | null; point: Point; isTowered: boolean; elevationFeet?: number}
+export interface ScopeAirport {identifier: string; name: string | null; point: Point; isTowered: boolean; elevationFeet?: number; importance?: number; longestRunwayLengthFeet?: number}
 export interface AirportRunwayInfo {
   id: string; heading: number; lengthFeet: number; widthFeet?: number;
   surface?: string; ils?: {identifier?: string; mhz?: string; glideAngle?: number};

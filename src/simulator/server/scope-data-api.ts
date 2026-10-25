@@ -10,7 +10,7 @@ import {sessionFailure} from "./session-api";
 const location = z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), name: z.string().max(300).nullable(), lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
 const coordinate = z.object({lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
 const mapSchema = z.object({icao: z.string().length(4), airports: z.array(location.extend({isTowered: z.boolean(), altitudeM: z.number().finite().nullable().optional()})).max(1000), vors: z.array(location.extend({vorType: z.string().nullable().optional()})).max(500).optional(),
-  approaches: z.array(z.object({airportIcao: z.string().min(1).max(100), runway: z.string().min(1).max(10), threshold: coordinate, departure: coordinate, ils: z.boolean()})).max(40000)});
+  approaches: z.array(z.object({airportIcao: z.string().min(1).max(100), runway: z.string().min(1).max(10), threshold: coordinate, departure: coordinate, ils: z.boolean(), localizer: z.boolean().optional()})).max(40000)});
 async function readJson(url: URL, headers?: Record<string, string>) {
   const response = await fetch(url, {headers, signal: AbortSignal.timeout(15000), cache: "no-store", redirect: "error"});
   if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 3_000_000) throw new Error("Source unavailable");
@@ -29,7 +29,7 @@ export async function fetchScopeMap(code: string): Promise<ScopeMapData> {
   return {airport: code,
     airports: source.airports.map(item => ({id: item.id, identifier: item.identifier, name: item.name, point: localPoint(airport, item.lat, item.lon), isTowered: item.isTowered, ...(item.altitudeM != null ? {elevationFeet: item.altitudeM * 3.28084} : {})})),
     navaids: (source.vors ?? []).map(item => ({id: item.identifier, point: localPoint(airport, item.lat, item.lon), waypointType: "VOR", ...(item.vorType ? {vorType: item.vorType} : {})})),
-    approaches: source.approaches.map(item => ({airportIcao: item.airportIcao, runway: item.runway, ils: item.ils,
+    approaches: source.approaches.map(item => ({airportIcao: item.airportIcao, runway: item.runway, ils: item.ils, ...(item.localizer !== undefined ? {localizer: item.localizer} : {}),
       threshold: localPoint(airport, item.threshold.lat, item.threshold.lon), departure: localPoint(airport, item.departure.lat, item.departure.lon)})),
   };
 }
