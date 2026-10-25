@@ -1,5 +1,6 @@
 import {airportRunways} from "./airports";
 import type {Aircraft, Airport} from "./model";
+import {buildTaxiGraph} from "./taxi-routing";
 
 /** Mapped exits end exactly on this boundary; allow projection round-off. */
 export const runwayLateralClear = (lateral: number, clearance: number) => Math.abs(lateral) >= clearance - 1e-7;
@@ -24,6 +25,14 @@ export function runwayOccupied(airport: Airport, runway: string, aircraft: reado
       || !["parked", "pushback", "taxi", "lineup", "rollout", "takeoff"].includes(other.mode)) return false;
     const px = other.position.x - start.point.x, py = other.position.y - start.point.y;
     const along = px * x + py * y;
-    return along >= -.02 && along <= length + .02 && !runwayLateralClear(px * -y + py * x, clearance);
+    if (along < -.02 || along > length + .02 || runwayLateralClear(px * -y + py * x, clearance)) return false;
+    // Mapped departure holds can sit inside the wider arrival-exit buffer.
+    // Recognize the actual hold point, not an arbitrary stopped aircraft nearby.
+    if ((other.mode === "parked" || other.mode === "taxi" && other.holding) && other.speed <= .1 && other.targetSpeed === 0
+      && !other.radar?.arrival && !other.arrivalExit && !other.runwayExit) {
+      const graph = buildTaxiGraph(airport);
+      if (graph.runwayHolds?.[pair.id]?.some(index => Math.hypot(other.position.x - graph.points[index].x, other.position.y - graph.points[index].y) < 1e-6)) return false;
+    }
+    return true;
   });
 }

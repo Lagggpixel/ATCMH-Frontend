@@ -150,3 +150,83 @@ test("sequencing survives a stale spoken leg and rejects circular follow depende
   const second = e.applyEnvelope(s, {id: "follow-a", time: 2, action: {kind: "command", aircraftId: "b", frequency: "tower", command: {type: "sequence", number: 2, traffic: patternLegLabel(s.aircraft[0])}, text: "number 2"}});
   assert.match(second.error!, /follow each other/); assert.equal(second.state, s);
 });
+
+test("Heathrow resequencing respects the assigned leader ahead of a closer downwind aircraft", () => {
+  const e = engineFor({airport: "EGLL"});
+  for (const automatic of [false, true]) for (const maneuver of [false, true]) {
+    let state = e.initialExercise(); state.autoReadback = automatic;
+    state.aircraft = [
+      {id: "speedbird", callsign: "Speedbird 401", leg: "final", position: {x: 17.89135879507937, y: .5604686266992776}, patternFinalDistance: 19.01268000535787},
+      {id: "lufthansa", callsign: "Lufthansa 402", leg: "downwind", position: {x: 7.175049921033803, y: 4.370040176992097}, patternFinalDistance: 8.316314307151016},
+      {id: "emirates", callsign: "Emirates 405 Heavy", leg: "base", position: {x: 20.81130467452539, y: 4.584423445586558}, patternFinalDistance: 20.400859641515705},
+    ].map(seed => ({...e.newAircraft(seed.id, true), ...seed, leg: seed.leg as Aircraft["leg"], runway: "27R", mode: "pattern", hand: "right", frequency: "tower", altitude: 1583}));
+    const link = (followingId: string, traffic: string) => ({number: 2, traffic, followingId, runway: "27R", circuit: 0, followingCircuit: 0});
+    state.aircraft[1].sequence = link("speedbird", "Right Base");
+    state.aircraft[2].sequence = link("lufthansa", "Final");
+    const input = state, before = structuredClone(state);
+    const issue = (aircraftId: string, number: number, traffic: string) => {
+      const command: Instruction = {type: "sequence", number, traffic};
+      const result = e.applyEnvelope(state, {id: `egll-${++serial}`, time: serial, action: maneuver
+        ? {kind: "maneuver", aircraftId, command}
+        : {kind: "command", aircraftId, frequency: "tower", command, text: `Number ${number}, traffic ${traffic}`}});
+      assert.equal(result.error, undefined); state = result.state;
+    };
+    issue("emirates", 2, "Final");
+    assert.equal(state.aircraft[2].sequence?.followingId, "speedbird", "number two follows the established first arrival");
+    assert.equal(state.aircraft[1].sequence?.followingId, "speedbird", "another aircraft still needs its own revised instruction");
+    issue("lufthansa", 3, "Right Base");
+    assert.equal(state.aircraft[1].sequence?.followingId, "emirates");
+    assert.deepEqual(input, before, "the original snapshot is immutable");
+    state = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    assert.deepEqual(state.aircraft.map(a => e.arrivalNumber(a, state.aircraft)), [1, 3, 2]);
+    assert.match(e.sequenceStatus(state.aircraft[2], state.aircraft), /Following Speedbird 401/);
+    assert.match(e.sequenceStatus(state.aircraft[1], state.aircraft), /Following Emirates 405 Heavy/);
+  }
+});
+
+test("arrival numbers retain multi-aircraft follow chains and discard expired links", () => {
+  const e = engineFor({airport: "EGPH"}), state = e.initialExercise();
+  state.aircraft = ["third", "second", "first", "fourth"].map((id, i) => {
+    const a = e.newAircraft(id, true), g = e.runwayGeometry(a.runway!);
+    return {...a, leg: "final" as const, position: {x: g.threshold.x - g.vector.x * (i + 2), y: g.threshold.y - g.vector.y * (i + 2)}};
+  });
+  for (const [index, followingId] of [[0, "second"], [1, "first"]] as const) state.aircraft[index].sequence = {
+    number: index === 0 ? 3 : 2, followingId, runway: state.aircraft[index].runway!, circuit: 0, followingCircuit: 0,
+  };
+  assert.deepEqual(state.aircraft.map(a => e.arrivalNumber(a, state.aircraft)), [3, 2, 1, 4]);
+  state.aircraft[2].circuit = 1;
+  assert.deepEqual(state.aircraft.map(a => e.arrivalNumber(a, state.aircraft)), [2, 1, 3, 4], "a stale circuit cannot keep its former leader ahead");
+});
+
+test("Swiss number three follows Air France rather than counting unjoined Heathrow arrivals", () => {
+  const e = engineFor({airport: "EGLL"});
+  for (const automatic of [false, true]) {
+    let state = e.initialExercise(); state.autoReadback = automatic; state.running = true;
+    state.aircraft = [
+      {id: "virgin", callsign: "Virgin 403 Heavy", mode: "pattern", position: {x: 2.528973875018822, y: -.33962044505148237}},
+      {id: "airfrance", callsign: "Air France 404", mode: "pattern", position: {x: 14.151003828297476, y: -.28762339003263426}},
+      {id: "swiss", callsign: "Swiss 407", mode: "heading", position: {x: 9.015055032736935, y: -5.094329813423577}},
+      {id: "qatar", callsign: "Qatar 408 Heavy", mode: "heading", position: {x: 11.6073641905853, y: -8.065068584864186}},
+      {id: "klm", callsign: "KLM 410", mode: "heading", position: {x: -2.276933182549177, y: 14.29252898024346}},
+    ].map(seed => ({...e.newAircraft(seed.id, true), ...seed, mode: seed.mode as Aircraft["mode"], leg: "final", hand: "left", runway: "27L", frequency: "tower", altitude: 1583}));
+    state.aircraft[1].sequence = {number: 2, traffic: "Left Base", followingId: "virgin", runway: "27L", circuit: 0, followingCircuit: 0};
+    const command: Instruction = {type: "pattern", leg: "downwind", hand: "left", runway: "27L", sequence: {number: 3, traffic: "Final"}};
+    const result = e.applyEnvelope(state, {id: `swiss-command-${++serial}`, time: serial, action: {kind: "command", aircraftId: "swiss", frequency: "tower", command, text: "Enter left downwind runway 27L, number 3, traffic final"}});
+    assert.equal(result.error, undefined); state = result.state;
+    assert.equal(state.aircraft[2].sequence?.followingId, "airfrance");
+    const commandId = state.messages.at(-1)!.id;
+    if (automatic) {
+      state.elapsed += 2;
+      state = e.autoReadbacks(state, ++serial, () => `swiss-readback-${++serial}`);
+    } else {
+      const assigned = e.applyEnvelope(state, {id: `swiss-assign-${++serial}`, time: serial, action: {kind: "pilot", aircraftId: "swiss", replyTo: commandId, assign: true, text: "Number 3"}});
+      assert.equal(assigned.error, undefined); state = assigned.state;
+    }
+    assert.equal(state.aircraft[2].mode, "pattern");
+    assert.equal(state.aircraft[2].sequence?.followingId, "airfrance", "readback must keep the selected predecessor");
+    state = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    assert.deepEqual(state.aircraft.slice(0, 3).map(a => e.arrivalNumber(a, state.aircraft)), [1, 2, 3]);
+    const landed = {...state, aircraft: state.aircraft.map(a => a.id === "virgin" ? {...a, mode: "rollout" as const} : a)};
+    assert.equal(e.followedAircraft(landed.aircraft[2], landed.aircraft)?.id, "airfrance", "Virgin landing cannot cancel Swiss's link to Air France");
+  }
+});

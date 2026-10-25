@@ -184,7 +184,9 @@ function restoreExercise(saved: Exercise): Exercise {
   reconcileSequences(state.aircraft);
   return state;
 }
-const arrivalTraffic = (a: Aircraft) => a.active && !a.leavingCircuit && (a.frequency === "tower" || !!a.radar && radarArrivalFrequency(a.frequency)) && ["pattern", "heading", "go-around"].includes(a.mode);
+// A scheduled heading arrival's runway/leg are intentions until it joins or is sequenced.
+const arrivalTraffic = (a: Aircraft) => a.active && !a.leavingCircuit && (a.frequency === "tower" || !!a.radar && radarArrivalFrequency(a.frequency)) && ["pattern", "heading", "go-around"].includes(a.mode)
+  && (a.mode !== "heading" || !!a.radar || !!a.sequence);
 const departureTraffic = (a: Aircraft) => a.active && a.frequency === "tower" && ["parked", "taxi", "lineup"].includes(a.mode);
 /** Remaining circuit distance orders arrivals for one runway, across both pattern hands. */
 
@@ -198,13 +200,31 @@ function arrivalDistance(a: Aircraft): number {
   return remaining;
 }
 
+/** Keep an assigned predecessor ahead even while its follower is physically closer. */
+function arrivalQueue(aircraft: Aircraft[], runway: Aircraft["runway"], excludeId?: string): Aircraft[] {
+  const candidates = aircraft.filter(other => other.id !== excludeId && other.runway === runway && arrivalTraffic(other))
+    .sort((x, y) => arrivalDistance(x) - arrivalDistance(y) || x.id.localeCompare(y.id));
+  const eligible = new Map(candidates.map(other => [other.id, other]));
+  const visited = new Set<string>(), queue: Aircraft[] = [];
+  const visit = (other: Aircraft) => {
+    if (visited.has(other.id)) return;
+    visited.add(other.id);
+    const following = followedAircraft(other, aircraft);
+    if (following && eligible.has(following.id)) visit(following);
+    queue.push(other);
+  };
+  for (const other of candidates) visit(other);
+  return queue;
+}
+
 function sequenceTarget(aircraft: Aircraft[], a: Aircraft, instruction: Instruction) {
   const requested = instruction.type === "sequence" ? instruction : instruction.type === "pattern" ? instruction.sequence : undefined;
   if (!requested) return;
   const runway = instruction.type === "pattern" ? instruction.runway ?? a.runway : a.runway;
-  const queue = aircraft.filter(other => other.id !== a.id && other.runway === runway && (requested.departure
-    ? departureTraffic(other)
-    : arrivalTraffic(other))).sort((x, y) => (requested.departure ? distance(x.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) - distance(y.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) : arrivalDistance(x) - arrivalDistance(y)) || x.id.localeCompare(y.id));
+  const queue = requested.departure
+    ? aircraft.filter(other => other.id !== a.id && other.runway === runway && departureTraffic(other))
+      .sort((x, y) => distance(x.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) - distance(y.position, runwayGeometry(runway ?? DEFAULT_RUNWAY).threshold) || x.id.localeCompare(y.id))
+    : arrivalQueue(aircraft, runway, a.id);
   const following = queue[requested.number - 2];
   // The number identifies the predecessor. Its spoken leg can change while the command travels.
   const visited = new Set([a.id]);
@@ -243,7 +263,7 @@ function sequenceStatus(a: Aircraft, aircraft: Aircraft[]): string {
 
 function arrivalNumber(a: Aircraft, aircraft: Aircraft[], runway = a.runway): number {
   const arrival = {...a, runway};
-  return 1 + aircraft.filter(other => other.id !== a.id && other.runway === runway && arrivalTraffic(other) && (arrivalDistance(other) < arrivalDistance(arrival) || arrivalDistance(other) === arrivalDistance(arrival) && other.id < a.id)).length;
+  return Math.max(1, 1 + arrivalQueue([...aircraft.filter(other => other.id !== a.id), arrival], runway).findIndex(other => other.id === a.id));
 }
 
 function clearLanding(a: Aircraft) {a.clearedToLand = false; a.clearedForOption = false; a.optionHand = undefined; if (a.assigned) a.assigned = {...a.assigned, landing: false};}

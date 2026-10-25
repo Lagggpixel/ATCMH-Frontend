@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {airportList, getAirport, runwayEnds} from "./airports";
+import {airportList, airportRunways, getAirport, runwayEnds} from "./airports";
 import {engineFor} from "./engine";
 import {EXERCISE_WEATHER, type Aircraft} from "./model";
 import {runwayOccupied} from "./runway-safety";
+import {buildTaxiGraph} from "./taxi-routing";
 
 for (const airport of airportList) test(`${airport.icao}: paired and ordinary arrivals agree at every runway exit boundary`, () => {
   const engine = engineFor({airport: airport.icao, weather: {...EXERCISE_WEATHER, windSpeed: 0}});
@@ -35,4 +36,48 @@ test("recorded Swiss 8668 KDAL exit endpoint cannot trigger a late go-around aft
   assert.equal(next.aircraft[1].mode, "pattern");
   assert.equal(next.conflicts![0].phase, "cancelled");
   assert.match(next.conflicts![0].outcome!, /did not materialise/);
+});
+
+test("a departure waiting at Heathrow A1 does not send a cleared arrival around", () => {
+  const engine = engineFor({airport: "EGLL"}), airport = getAirport({airport: "EGLL"}), g = engine.runwayGeometry("27R");
+  const departure: Aircraft = {...engine.newAircraft("departure", false), callsign: "Virgin 802 Heavy", runway: "27R", mode: "parked",
+    position: {x: .993749003157175, y: .37596036239199}, altitude: airport.elevation, speed: 0, targetSpeed: 0};
+  const arrival: Aircraft = {...engine.newAircraft("arrival", true), callsign: "Shamrock 406", runway: "27R", mode: "pattern", leg: "final", frequency: "tower",
+    position: {x: g.threshold.x - g.vector.x * .15, y: g.threshold.y - g.vector.y * .15}, altitude: airport.elevation + 49,
+    heading: g.heading, targetHeading: g.heading, speed: 137, targetSpeed: 137, clearedToLand: true};
+  assert.equal(runwayOccupied(airport, "27R", [departure, arrival], arrival.id), false);
+  assert.equal(runwayOccupied(airport, "09L", [departure, arrival], arrival.id), false, "reciprocal runway uses the same hold");
+  let state = engine.restoreExercise(JSON.parse(JSON.stringify({...engine.initialExercise(), running: true, aircraft: [departure, arrival]})));
+  state = engine.advance(state, .1);
+  assert.equal(state.aircraft[1].mode, "pattern");
+  assert.equal(state.aircraft[1].clearedToLand, true);
+  assert.deepEqual(state.aircraft[0].position, departure.position, "the saved departure is not repositioned");
+});
+
+test("mapped hold exceptions never hide runway entries, moving aircraft or uncleared arrivals", () => {
+  const engine = engineFor({airport: "EGLL"}), airport = getAirport({airport: "EGLL"}), g = engine.runwayGeometry("27R");
+  const stopped: Aircraft = {...engine.newAircraft("hold", false), runway: "27R", mode: "parked", position: {x: .993749003157175, y: .37596036239199},
+    altitude: airport.elevation, speed: 0, targetSpeed: 0};
+  assert.equal(runwayOccupied(airport, "27R", [{...stopped, mode: "taxi", holding: true}], "arrival"), false);
+  const inward = {x: stopped.position.x + g.vector.y * .002, y: stopped.position.y - g.vector.x * .002};
+  const radar = engineFor({trainingStation: "EGPH:approach"}).newAircraft("radar", true).radar!;
+  for (const patch of [
+    {position: g.threshold}, {position: inward}, {mode: "lineup"}, {mode: "rollout"}, {mode: "takeoff"},
+    {mode: "taxi", targetSpeed: 15}, {speed: 2}, {targetSpeed: 15},
+    {arrivalExit: {instruction: "automatic", speed: 15}}, {runwayExit: [{...stopped.position}]},
+    {radar: {...radar, arrival: {runway: "27R", phase: "vacating"}}},
+  ] as Partial<Aircraft>[]) assert.equal(runwayOccupied(airport, "27R", [{...stopped, ...patch}], "arrival"), true, JSON.stringify(patch));
+});
+
+test("mapped holding points on both sides of every runway are clear for stopped departures", () => {
+  for (const airport of airportList) {
+    const graph = buildTaxiGraph(airport), engine = engineFor({airport: airport.icao});
+    for (const pair of airportRunways(airport)) for (const end of pair.ends) {
+      for (const index of graph.runwayHolds?.[pair.id] ?? []) {
+        const departure: Aircraft = {...engine.newAircraft("hold", false), runway: end.id, mode: "parked", position: {...graph.points[index]},
+          altitude: airport.elevation, speed: 0, targetSpeed: 0};
+        assert.equal(runwayOccupied(airport, end.id, [departure], "arrival"), false, `${airport.icao}/${end.id}/${index}`);
+      }
+    }
+  }
 });
