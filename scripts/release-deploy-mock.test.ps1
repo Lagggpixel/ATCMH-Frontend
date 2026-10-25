@@ -50,9 +50,9 @@ function Invoke-RestMethod {
     '/docker/containers/json\?all=true$' {
       $values = @(@{Id='web';Names=@('/atcmh-frontend');ImageID='sha256:old';Labels=@{'com.docker.compose.project'='atcmh'}},
         @{Id='other';Names=@('/unrelated');ImageID='sha256:other';Labels=@{'com.docker.compose.project'='other'}})
-      if ($global:mockScenario -eq 'missing-container') { return @($values[1]) }
+      if ($global:mockScenario -eq 'missing-container') { Write-Output -NoEnumerate @($values[1]); return }
       if ($global:mockput -and $global:mockScenario -eq 'unrelated') { $values[1].Id='recreated' }
-      return $values
+      Write-Output -NoEnumerate $values; return
     }
     '/docker/containers/web/json$' {
       return @{Config=@{Image=$global:mockold};Image=$(if ($global:mockput) {'sha256:new'} else {'sha256:old'});RestartCount=0;State=@{Running=$true;OOMKilled=$false;Health=@{Status='healthy'}}}

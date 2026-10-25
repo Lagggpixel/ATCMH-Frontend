@@ -33,7 +33,7 @@ try {
     function Invoke-ReleasePortainer([string]$Path, [string]$Method = 'Get', $Body = $null) {
         $parameters = @{Uri="https://portainer.lagggpixel.com/api$Path";Method=$Method;Headers=@{'X-API-Key'=$credential.GetNetworkCredential().Password};TimeoutSec=180}
         if ($null -ne $Body) { $parameters.ContentType='application/json'; $parameters.Body=ConvertTo-Json -InputObject $Body -Depth 90 -Compress }
-        try { return Invoke-RestMethod @parameters } catch { throw "Portainer $Method $Path failed; response withheld" }
+        try { return (Invoke-RestMethod @parameters) } catch { throw "Portainer $Method $Path failed; response withheld" }
     }
     $endpoint = Invoke-ReleasePortainer '/endpoints/3'
     $info = Invoke-ReleasePortainer '/endpoints/3/docker/info'
