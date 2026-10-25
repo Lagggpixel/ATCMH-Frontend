@@ -53,6 +53,20 @@ function AirportPopupRow({airport, weather: exerciseWeather, controlled, active,
 }
 
 const tabs = ["INFO", "WX", "RWYS", "PROC"] as const;
+
+function WeatherAge({observedAt}: {observedAt?: string}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const published = observedAt ? Date.parse(observedAt) : NaN;
+  if (!Number.isFinite(published)) return null;
+  const minutes = Math.max(0, Math.floor((now - published) / 60_000));
+  const age = minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.floor(minutes / 60)} hr ago` : `${Math.floor(minutes / 1440)} days ago`;
+  return <time dateTime={observedAt} title={new Date(published).toUTCString()}>{age}</time>;
+}
+
 export default function AirportDetails({airport, origin, exerciseWeather, environment, onClose}: {
   airport: ScopeAirport; origin: string; exerciseWeather: ExerciseWeather; environment?: RadarEnvironment; onClose: () => void;
 }) {
@@ -63,9 +77,11 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
   const info = useAirportDisplay<AirportInformation>(airport.identifier, "info");
   const weather = useAirportDisplay<AirportWeather>(tab === "WX" || tab === "RWYS" && airport.identifier !== origin ? airport.identifier : undefined, "weather");
   const procedures = useAirportDisplay<AirportProcedures>(tab === "PROC" && controlled ? airport.identifier : undefined, "procedures", origin);
-  useEffect(() => {root.current?.querySelector<HTMLButtonElement>("button")?.focus();}, []);
+  useEffect(() => {root.current?.focus({preventScroll: true});}, []);
   const data = info.data, conditions = airport.identifier === origin ? exerciseWeather : weather.data?.weather;
-  return <section ref={root} className={styles.details} data-airport-panel="details" role="dialog" aria-label={`${airport.identifier} airport information`}>
+  const runways = data?.runways.toSorted((a, b) => a.heading - b.heading) ?? [];
+  const selectedRunway = runway || runways[0]?.id;
+  return <section ref={root} className={styles.details} data-airport-panel="details" role="dialog" aria-label={`${airport.identifier} airport information`} tabIndex={-1}>
     <header><span><strong>INFORMATION</strong><small>{airport.identifier}</small></span><button type="button" aria-label="Close airport details" onClick={onClose}>CLOSE</button></header>
     <div role="tablist" aria-label="Airport details tabs" className={styles.tabs}>{availableTabs.map((name, index) => <button type="button" key={name} role="tab" id={`${id}-${name}`} aria-controls={`${id}-panel`} aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => {
       const next = event.key === "ArrowRight" ? (index + 1) % availableTabs.length : event.key === "ArrowLeft" ? (index + availableTabs.length - 1) % availableTabs.length : event.key === "Home" ? 0 : event.key === "End" ? availableTabs.length - 1 : -1;
@@ -76,10 +92,9 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
       {tab === "INFO" ? <>
         <h2>AIRPORT INFO</h2><div className={styles.airportInfo}>
           <span>{airport.identifier}</span><h3>{data?.name ?? airport.name ?? airport.identifier}</h3>
-          {data?.city ? <p>{data.city}{data.state ? `, ${data.state}` : ""}</p> : null}
+          {data?.city ? <p className={styles.airportLocation}>{data.city}{data.state ? `, ${data.state}` : ""}</p> : null}
           <p className={styles.airportMetadata}>{(data?.elevationFeet ?? airport.elevationFeet) !== undefined ? `${Math.round((data?.elevationFeet ?? airport.elevationFeet)!)}ft` : "Elevation unavailable"}
             {data?.airportClass ? <><br/>Class {data.airportClass}</> : null}</p>
-          {data?.contributors ? <p className={styles.airportMetadata}>Contributors:<br/>{data.contributors}</p> : null}
         </div>
         <h2>FREQUENCIES</h2>{data?.frequencies.length ? data.frequencies.map(frequency => <div key={frequency.id} className={styles.frequency}>
           <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{environment?.facilityActivity?.[frequency.id] === false ? "Inactive" : "Training"} at {airport.identifier}<br/>{frequency.mhz}MHz</span>
@@ -88,20 +103,20 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
       </> : null}
       {tab === "WX" ? <>
         {weather.error ? <p role="status">{weather.error} <button type="button" onClick={weather.retry}>Retry weather</button></p> : !weather.data ? <p role="status">Loading public weather…</p> : null}
-        <h2>METAR</h2><div className={styles.metarStatus}><b className={styles.category} data-category={weatherCategory(weather.data?.weather)}>{weatherCategory(weather.data?.weather) ?? "N/A"}</b><small>{weather.data?.weather?.observedAt ? new Date(weather.data.weather.observedAt).toUTCString() : ""}</small></div><p className={styles.weatherText}>{weather.data?.weather?.rawMetar ?? "N/A"}</p>
+        <h2>METAR</h2><div className={styles.metarStatus}><b className={styles.category} data-category={weatherCategory(weather.data?.weather)}>{weatherCategory(weather.data?.weather) ?? "N/A"}</b><WeatherAge observedAt={weather.data?.weather?.observedAt}/></div><p className={styles.weatherText}>{weather.data?.weather?.rawMetar ?? "N/A"}</p>
         <h2>TAF</h2><p className={styles.weatherText}>{weather.data?.taf ?? "N/A"}</p>
-        <h2>D-ATIS</h2>{weather.data?.atis.length ? weather.data.atis.map((broadcast, index) => <p key={index} className={styles.weatherText}>{broadcast.datis}</p>) : <p>N/A</p>}
+        <h2>D-ATIS</h2>{weather.data?.atis.length ? weather.data.atis.map((broadcast, index) => <p key={index} className={styles.weatherText}>{broadcast.datis}</p>) : <p className={styles.weatherText}>N/A</p>}
         <details className={styles.sources}><summary>Sources and exercise conditions</summary>
           {airport.identifier === origin ? <p>{exerciseWeather.rawMetar ?? `Wind ${exerciseWeather.variableWind ? "VRB" : exerciseWeather.windDirection} at ${exerciseWeather.windSpeed}KT · Visibility ${exerciseWeather.visibilityKm}km · QNH ${exerciseWeather.qnh}`}<small>{exerciseWeather.reference}</small></p> : null}
           <p>Public reports are for inspection. Exercise conditions and the published training ATIS are unchanged.</p>
           <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noreferrer">METAR / TAF source</a> · <a href={`https://atis.info/${airport.identifier}`} target="_blank" rel="noreferrer">D-ATIS source</a>
         </details>
       </> : null}
-      {tab === "RWYS" ? <><h2>RUNWAYS</h2>{data?.runways.length ? [...data.runways].sort((a, b) => a.heading - b.heading).map(end => {
+      {tab === "RWYS" ? <><h2>RUNWAYS</h2>{runways.length ? runways.map(end => {
         const wind = conditions && !conditions.variableWind ? runwayWindComponents(end.heading, conditions) : undefined;
         const windClass = conditions && !conditions.variableWind ? styles[atisRunwayWind(end.heading, conditions)] : undefined;
         let heading: string; try {heading = `${magneticHeadingLabel(end.heading, {icao: airport.identifier})}°M`;} catch {heading = `${Math.round(end.heading) || 360}°T`;}
-        return <button type="button" key={end.id} aria-pressed={runway === end.id} aria-label={`Runway ${end.id}`} className={styles.runway} onClick={() => setRunway(end.id)}><strong className={windClass}>{end.id}</strong><span className={styles.runwayDetails}>
+        return <button type="button" key={end.id} aria-pressed={selectedRunway === end.id} aria-label={`Runway ${end.id}`} className={styles.runway} onClick={() => setRunway(end.id)}><strong className={windClass}>{end.id}</strong><span className={styles.runwayDetails}>
           <span className={styles.runwayTop}>{heading} {end.ils ? <b>ILS{end.ils.identifier ? ` ${end.ils.identifier}` : ""}{end.ils.mhz ? ` (${end.ils.mhz})` : ""}</b> : null}</span>
           <span className={styles.runwayBottom}><span>{end.surface?.toUpperCase()}{end.surface ? "  " : ""}{Math.round(end.lengthFeet)}{end.widthFeet !== undefined ? ` x ${Math.round(end.widthFeet)}` : ""}ft</span>
           {wind ? <span className={styles.windSummary}><span className={wind.crosswind > 15 ? styles.crosswind : styles.crossComponent}><i aria-hidden="true">{conditions && Math.sin((conditions.windDirection - end.heading) * Math.PI / 180) < 0 ? "\ue839" : "\ue838"}</i>{wind.crosswind}KT</span><span className={wind.headwind < 0 ? styles.tailwind : styles.headwind}><i aria-hidden="true">{wind.headwind < 0 ? "\ue83a" : "\ue837"}</i>{Math.abs(wind.headwind)}KT</span></span> : <small>{conditions?.variableWind ? "VRB" : ""}</small>}</span>

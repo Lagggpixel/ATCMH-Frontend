@@ -625,3 +625,45 @@ final result: passed
 final result: passed
 
 See [replay library QA](design-evidence/replays-redesign/design-qa.md) for the selected visual target, responsive screenshots, filter verification and validation limits. Existing reports above are preserved.
+
+
+## Airport cards — 25 October 2026, local only
+
+final result: passed
+
+Target: the user's four Infinite Flight app screenshots, with Contributors and Last Edit explicitly excluded. The flow under test is: airport information opens, INFO/WX/RWYS/PROC tabs show their content, runway selection updates, and Close dismisses the panel.
+
+Evidence root: `C:/Users/Reid/.codex/visualizations/2026/10/25/01a17075-617a-7c91-a396-869d02d3296b/airport-cards`. Preview: http://localhost:5198/compare (actual source components and styles, synthetic airport and weather data). Browser: Codex in-app browser through CUA; no external browser fallback. The first sandboxed server was unreachable; a loopback-only server outside the network sandbox was used. A transient browser navigation failure was resolved by a fresh in-app tab using localhost.
+
+Source visual truth:
+- INFO: C:/Users/Reid/.codex/attachments/516882f0-d40b-4ec7-b5d9-043ebfd38031/codex-clipboard-eb708e73-8e7a-4531-98a6-b81e40245b6d.jpg
+- WX: C:/Users/Reid/.codex/attachments/276e1db8-ac84-450e-b1de-5764c0161a58/codex-clipboard-f218c781-ae38-46ed-93bb-73a289a8e045.jpg
+- RWYS: C:/Users/Reid/.codex/attachments/0a428f71-dd46-43aa-9887-e2bb176bfd19/codex-clipboard-dc8a1401-5569-4b65-af98-aecc0b588b67.jpg
+- PROC: C:/Users/Reid/.codex/attachments/ee59f61c-b223-4ce3-8e0e-7b32c6689c8d/codex-clipboard-bb168640-0fb0-4f74-b62c-b9dbc5bdbb6a.jpg
+
+Density normalization: source JPEGs are 699×1612, 700×1604, 708×1654 and 730×1604 pixels. Panel crops are normalized to 458×1056 CSS pixels; exact crops are in `compare.py`. Final reference captures use a measured 458×1056 browser viewport and 458×1056 panel bounds, with no toolbar in the capture. `*-reference.png`, `*-comparison.png` and `*-comparison-focus.png` provide raw, full-view paired and focused paired evidence for all four states in both hosts. Responsive checks use a measured 390×844 CSS viewport and a 390px panel. No fabricated screenshot areas are used in these comparisons.
+
+Comparison history:
+1. Existing design had a text-only Close button, unfilled procedure buttons, boxed runway rows, small text and excessive inner padding. Matched the reference hierarchy, control fills, row geometry and typography.
+2. First rendered pass exposed P2 CSS conflicts: report text lost its bold weight and a retry-button rule underlined/recolored every runway. Scoped those selectors, removed the dialog's incidental focus ring while preserving keyboard control focus, and captured again.
+3. Final paired full-view and focused comparisons show those issues resolved. Close/procedure fills, active-tab underline, selected runway highlight, row typography and weather hierarchy match the source structure. Both hosts have no actionable P0/P1/P2 visual or interaction findings.
+
+Required fidelity surfaces:
+- Fonts/typography: existing Fira families and real Infinite Flight icon font reused. Corrected the runway mono family to the existing Simulator Mono registration. Bold city, report and control text; light section headings and muted metadata checked. Browser/native rasterization remains a minor P3 difference.
+- Spacing/layout: 458px panel, 72px header, 60px tab band, 88×36 Close, 72px minimum runway rows, 48px procedure buttons, consistent 12px content padding and responsive wrapping. Source full-height composition and focused rows compared together with implementation.
+- Colors/tokens: dark panel, gray filled buttons, orange active state and green/amber/red wind categories checked against screenshots. Borderless unselected runway rows retained.
+- Assets: no generated or placeholder artwork. Existing supplied font assets provide the native wind symbols. The external scenery behind the native screenshot is outside this panel change.
+- Copy/content: Contributors and Last Edit remain absent even when fixture data supplies both. Existing training-frequency labels, unavailable-data handling and collapsed provenance disclosures are retained. Disclosure links sit at the bottom rather than crowding the reference content.
+
+Intentional data/product differences: production APIs currently do not supply every optional city/class/surface/ILS detail or 3D package status. Available metadata is shown; no 3D badge or missing data is invented. KSFO is outside the pinned magnetic variation table, so the synthetic KSFO fixture shows honest true-heading fallback values (27°T etc.) rather than the native screenshot's magnetic values (14°M etc.). Wind geometry uses true headings. Existing controlled-airport-only procedure eligibility is preserved; nearby airports retain INFO/WX/RWYS. The screenshot's disabled PROC actions remain disabled.
+
+Validation:
+- Both host TypeScript checks and changed-TSX ESLint passed.
+- 17 standalone airport/changelog tests and 10 ATCMH airport tests passed (27 total).
+- In-app browser: eight final exact-size reference states and eight 390px states passed page identity, nonblank content, absence of a framework overlay, relevant console-error/warning checks, missing-contributor/edit fields and horizontal-overflow checks. `reference-checks.json`, `mobile-checks.json` and `browser-checks.json` retain DOM checks.
+- Arrow-key tab switching, runway selection, Close/reopen and nearby-airport restrictions passed. Weather failure then Retry restored the report. Phone runway list scrolls to the final row while header/tabs remain visible; `*-mobile-rwys-scrolled.png` records that state.
+- `shared-source-check.json` confirms identical CSS and TSX after the expected about-link translation. Source changes remain uncommitted by this task. No publication, deployment, database operation or production request was performed.
+
+Remaining coverage: synthetic component/browser QA, not a live authenticated training-session or native iPadOS test. No full production Next build was required for this scoped presentation change; TypeScript, actual component bundles, lint, focused tests and rendered checks were used.
+
+Implementation checklist: complete. Follow-up polish: native/browser text rasterization only (P3).
