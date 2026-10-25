@@ -76,3 +76,8 @@ export function atisSelectionText(draft: Atis, frequencies: RadioFacility[]): st
     }),
   ];
 }
+
+/** Shared canvas runway text and border color for the displayed weather. */
+export function runwayWindColor(heading: number, weather: ExerciseWeather): string {
+  return {headwind: "#90ee90", crosswind: "#ffa500", tailwind: "#ff0000"}[atisRunwayWind(heading, weather)];
+}

@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {advance, autoReadbacks, applyEnvelope, followedAircraft, headingProjection, initialExercise, newAircraft, patternTargets, restoreExercise, runwayGeometry, sequenceStatus} from "./engine";
+import {advance, autoReadbacks, applyEnvelope, followedAircraft, headingProjection, initialExercise, newAircraft, patternTargets, restoreExercise, runwayGeometry, sequenceStatus, engineFor} from "./engine";
 import {DEFAULTS, patternLegLabel, pendingCommands, type Action, type Aircraft, type Exercise, type Instruction} from "./model";
 import {exerciseSchema, envelopeSchema} from "./protocol";
 
 let serial = 0;
+
 function act(state: Exercise, action: Action) {const result = applyEnvelope(state, {id: `seq-${++serial}`, time: serial, action}); assert.equal(result.error, undefined); return result.state;}
+
 function send(state: Exercise, command: Instruction) {return act(state, {kind: "command", aircraftId: "follower", frequency: "tower", command, text: command.type});}
+
 function traffic() {
   const state = initialExercise();
   const follower = newAircraft("follower", true), first = newAircraft("first", true), second = newAircraft("second", true), otherRunway = newAircraft("other", true);
@@ -16,6 +19,7 @@ function traffic() {
   Object.assign(otherRunway, {runway: "06", position: runwayGeometry("06").threshold});
   state.aircraft = [follower, first, second, otherRunway]; return state;
 }
+
 const sequence = (number = 2, leg = "Final"): Instruction => ({type: "sequence", number, traffic: leg});
 
 test("staff sees the pending batch but can answer only its latest command, once", () => {
@@ -34,6 +38,7 @@ test("staff sees the pending batch but can answer only its latest command, once"
   state = act(state, {kind: "pilot", aircraftId: "follower", replyTo: state.messages.at(-1)!.id, text: "Unable"});
   assert.equal(pendingCommands(state, "follower").length, 0);
 });
+
 test("runway sequence numbers and a single final resolve the actual predecessor", () => {
   let state = send(traffic(), sequence());
   assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "first");
@@ -47,6 +52,7 @@ test("runway sequence numbers and a single final resolve the actual predecessor"
   assert.match(sequenceStatus(state.aircraft[1], state.aircraft), /no sequence required/);
   assert.match(sequenceStatus({...state.aircraft[0], sequence: undefined}, state.aircraft), /Sequence required/);
 });
+
 test("numbered landing clearances do not assign a sequence and cannot replace sequencing", () => {
   let state = send(traffic(), {type: "land", number: 2, followingId: "first"});
   assert.equal(state.aircraft[0].sequence, undefined);
@@ -55,6 +61,7 @@ test("numbered landing clearances do not assign a sequence and cannot replace se
   state = send(state, {type: "land", number: 1}); assert.equal(state.aircraft[0].sequence, undefined);
   assert.equal(envelopeSchema.safeParse({id: "edit", time: 1, action: {kind: "edit", aircraftId: "follower", patch: {sequence: {number: 2, followingId: "first"}}}}).success, false);
 });
+
 test("a combined pattern entry and sequence follows the selected runway when assigned", () => {
   let state = send(traffic(), {type: "pattern", leg: "downwind", hand: "right", runway: "06", sequence: {number: 2, traffic: "Final"}});
   assert.equal(state.aircraft[0].runway, "24", "sending alone does not fly the maneuver");
@@ -62,6 +69,7 @@ test("a combined pattern entry and sequence follows the selected runway when ass
   assert.equal(state.aircraft[0].sequence?.followingId, "other");
   assert.equal(followedAircraft(state.aircraft[0], state.aircraft)?.id, "other");
 });
+
 test("sequence expires after own runway changes and when preceding traffic changes runway, leaves or is removed", () => {
   const queued = send(traffic(), sequence());
   for (const action of [
@@ -72,6 +80,7 @@ test("sequence expires after own runway changes and when preceding traffic chang
     {kind: "maneuver", aircraftId: "follower", command: {type: "runway", runway: "06"}},
   ] as Action[]) assert.equal(act(queued, action).aircraft[0].sequence, undefined);
 });
+
 test("every completed circuit, touch-and-go and go-around requires a fresh sequence", () => {
   for (const landing of [false, true]) {
     const state = send(traffic(), sequence(3, "Left Base")); const a = state.aircraft[0], g = runwayGeometry();
@@ -87,11 +96,13 @@ test("every completed circuit, touch-and-go and go-around requires a fresh seque
   const state = act(send(traffic(), sequence()), {kind: "maneuver", aircraftId: "follower", command: {type: "go-around"}});
   assert.equal(state.aircraft[0].sequence, undefined);
 });
+
 test("a predecessor starting a new circuit invalidates a follow link rather than silently reassigning", () => {
   const state = send(traffic(), sequence()); state.running = true;
   const next = advance(state, .1);
   assert.equal(next.aircraft[0].sequence, undefined);
 });
+
 test("30-second trails expire by exercise time at every speed and survive wire snapshots", () => {
   let state = traffic(); state.running = true;
   for (const a of state.aircraft) Object.assign(a, {mode: "heading", speed: 15, targetSpeed: 15});
@@ -105,6 +116,7 @@ test("30-second trails expire by exercise time at every speed and survive wire s
   state.aircraft[0].trail = [{x: 0, y: 0}]; assert.deepEqual(restoreExercise(state).aircraft[0].trail, []);
   const paused = {...state, running: false}; assert.equal(advance(paused, 60), paused);
 });
+
 test("heading projection is straight, white-line geometry for current heading and 30 seconds of current speed", () => {
   const a = {...newAircraft("a", true), position: {x: 1, y: 2}, heading: 90, targetHeading: 180, speed: 120} as Aircraft;
   assert.deepEqual(headingProjection(a), [a.position, {x: 2, y: 2}]);
@@ -128,4 +140,13 @@ test("pattern entry after a transition restores its follow link on manual and au
     const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
     assert.equal(followedAircraft(restored.aircraft[0], restored.aircraft)?.id, "first");
   }
+});
+
+test("sequencing survives a stale spoken leg and rejects circular follow dependencies", () => {
+  const e = engineFor({airport: "EGPH"}); let s = e.initialExercise();
+  s.aircraft = ["a", "b"].map((id, i) => {const a = e.newAircraft(id, true); a.leg = "downwind"; a.position = {...e.patternTargets(a).crosswind, x: e.patternTargets(a).crosswind.x + i}; return a;});
+  const first = e.applyEnvelope(s, {id: "follow-b", time: 1, action: {kind: "command", aircraftId: "a", frequency: "tower", command: {type: "sequence", number: 2, traffic: "Final"}, text: "number 2 traffic final"}});
+  assert.equal(first.error, undefined); assert.equal(first.state.aircraft[0].sequence?.followingId, "b"); s = first.state;
+  const second = e.applyEnvelope(s, {id: "follow-a", time: 2, action: {kind: "command", aircraftId: "b", frequency: "tower", command: {type: "sequence", number: 2, traffic: patternLegLabel(s.aircraft[0])}, text: "number 2"}});
+  assert.match(second.error!, /follow each other/); assert.equal(second.state, s);
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {instructionText, messageMenu, REMARKS, type MenuEntry} from "./catalog";
+import {instructionText, messageMenu, requestMessageMenu, REMARKS, type MenuEntry} from "./catalog";
 import {applyEnvelope, initialExercise, newAircraft} from "./engine";
 import {currentAtisOptions} from "./atis-options";
 
@@ -27,7 +27,7 @@ test("restored Ground menu keeps distinct runway, parking, hold and pushback ins
 
 test("Tower restores landing, option, pattern turn and departure choices with executable parameters", () => {
   const a = newAircraft("air", true), entries = messageMenu("tower", a);
-  assert.deepEqual(find(entries, "Cleared to Land / for the Option", "Number 2", "Cleared for the Option", "Runway 24", "Make Left Traffic").instruction,
+  assert.deepEqual(find(entries, "Cleared to Land / for the Option", "Number 2", "Cleared for the Option", "Runway 24", "Make Left Traffic", "Send").instruction,
     {type: "land", runway: "24", number: 2, option: true, hand: "left"});
   const turn = find(entries, "Pattern Instructions", "Turn base");
   assert.equal(instructionText(a, turn.instruction!, [turn]), "Speedbird 124, turn base");
@@ -35,6 +35,48 @@ test("Tower restores landing, option, pattern turn and departure choices with ex
   assert.deepEqual(find(messageMenu("tower", {...newAircraft("ground", false), requestedPatternDeparture: true}), "Cleared for Takeoff", "Runway 06", "Make Left Traffic", "Send").instruction,
     {type: "takeoff", runway: "06", hand: "left"});
 });
+
+test("option requests retain traffic choices for either landing intention and every variant requires Send", () => {
+  for (const landing of ["touch-and-go", "full-stop"] as const) for (const read of [false, true]) {
+    let state = initialExercise();
+    const id = state.aircraft[0].id;
+    const apply = (action: import("./model").Action) => {
+      const result = applyEnvelope(state, {id: `option-${state.revision}`, time: 1, action});
+      assert.equal(result.error, undefined); state = result.state;
+    };
+    apply({kind: "pilot", aircraftId: id, text: "", request: {id: "inbound-option", runway: "24"}});
+    apply({kind: "edit", aircraftId: id, patch: {landing}});
+    const request = state.messages.findLast(m => m.aircraftId === id && m.request?.id === "inbound-option")!;
+    if (read) apply({kind: "read", aircraftId: id, frequency: "tower"});
+    const aircraft = state.aircraft.find(a => a.id === id)!;
+    const before = JSON.stringify(state);
+    const entries = requestMessageMenu("tower", aircraft, request, state.aircraft, state.messages);
+    for (const number of [1, 2, 8]) {
+      const clearance = find(entries, "Cleared to Land / for the Option", `Number ${number}`, "Cleared for the Option");
+      assert.equal(clearance.instruction, undefined);
+      for (const runway of clearance.children!) {
+        assert.equal(runway.instruction, undefined, "selecting a runway must not send");
+        assert.deepEqual(runway.children!.map(e => e.label), ["Send", "Make Right Traffic", "Make Left Traffic"]);
+        const base = {type: "land", runway: runway.label.replace("Runway ", ""), number, option: true};
+        assert.deepEqual(find(runway.children!, "Send").instruction, base);
+        for (const hand of ["right", "left"] as const) {
+          const traffic = find(runway.children!, `Make ${hand === "left" ? "Left" : "Right"} Traffic`);
+          assert.equal(traffic.instruction, undefined, "selecting traffic must not send");
+          assert.deepEqual(traffic.children!.map(e => e.label), ["Send"]);
+          const instruction = find(traffic.children!, "Send").instruction!;
+          assert.deepEqual(instruction, {...base, hand});
+          assert.match(instructionText(aircraft, instruction), new RegExp(`cleared for the option, after the option, make ${hand} traffic$`));
+        }
+      }
+    }
+    assert.equal(JSON.stringify(state), before, "reviewing choices must not transmit or clear the aircraft");
+    const command = find(entries, "Cleared to Land / for the Option", "Number 2", "Cleared for the Option", "Runway 24", "Make Right Traffic", "Send").instruction!;
+    apply({kind: "command", aircraftId: id, command, frequency: "tower", replyTo: request.id});
+    assert.deepEqual(state.messages.findLast(m => m.sender === "controller")!.instruction, command);
+    assert.equal(state.messages.filter(m => m.sender === "controller" && m.instruction?.type === "land").length, 1);
+  }
+});
+
 test("takeoff traffic directions require the pilot's pattern request and reset on leaving the frequency", () => {
   let state = initialExercise(); state.aircraft[1].frequency = "tower";
   const choices = () => find(messageMenu("tower", state.aircraft[1], state.aircraft, undefined, state.messages), "Cleared for Takeoff", "Runway 24").children!.map(e => e.label);

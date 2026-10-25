@@ -86,8 +86,8 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
   const lateral = Math.abs((position.x - first.x) * -v.y + (position.y - first.y) * v.x);
   if (along > -TAXI_ROUTING.runwayEndMargin && along < length + TAXI_ROUTING.runwayEndMargin && lateral < TAXI_ROUTING.holdDistance - 1e-7) return {error: "Aircraft is inside the runway protected area. Reposition onto a taxiway before calculating a departure route."};
   const holds = source.runwayHolds?.[pair.id] ?? source.holds;
-  // Some thresholds have only an intersection connector; departureRoute back-taxis
-  // from that mapped hold to the full-length threshold before starting the roll.
+  // Some thresholds have only an intersection connector. Departure uses that
+  // mapped entry and checks its remaining runway rather than silently back-taxiing.
   const closest = Math.min(...holds.map(id => distance(source.points[id], threshold)));
   const radius = Math.min(.5, Math.max(TAXI_ROUTING.departureAccessRadius, closest + .001));
   const goals = holds.filter(id => distance(source.points[id], threshold) <= radius);

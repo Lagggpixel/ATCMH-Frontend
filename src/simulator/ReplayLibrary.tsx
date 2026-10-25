@@ -1,43 +1,55 @@
 "use client";
 import {useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {Play} from "@phosphor-icons/react/dist/csr/Play";
 import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
-import {ArrowCounterClockwise} from "@phosphor-icons/react/dist/csr/ArrowCounterClockwise";
-import {LockSimple} from "@phosphor-icons/react/dist/csr/LockSimple";
-import Link from "next/link";
+import {CaretLeft} from "@phosphor-icons/react/dist/csr/CaretLeft";
+import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
+import {ClockCounterClockwise} from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
+import {ClockClockwise} from "@phosphor-icons/react/dist/csr/ClockClockwise";
+import {LinkSimple} from "@phosphor-icons/react/dist/csr/LinkSimple";
+import {ChatCircleText} from "@phosphor-icons/react/dist/csr/ChatCircleText";
+import DashboardThemeProvider from "../dashboard/theme/DashboardThemeProvider";
 import SessionAccess from "./SessionAccess";
 import LearningFrame from "../learning/LearningFrame";
-import LibraryFooter from "./LibraryFooter";
-import {TrainingNav} from "./TrainingLibrary";
 import {sessionJson} from "./shared-transport";
-import {canPlayReplay, ReplayTimeline, type ReplayDetail, type ReplayFrame, type ReplaySummary} from "./replays";
+import {canPlayReplay, ReplayTimeline, type ReplayDetail, type ReplayFrame} from "./replays";
 import {timeLabel} from "./scenarios";
-import {getAirport, trainingMode} from "./airports";
+import {frequenciesFor, getAirport, trainingMode} from "./airports";
+import {conflictLabels} from "./training-conflicts";
+import {radioDisplayText} from "./radio-text";
+import {adjacentMoment, currentMoment, replayMoments, type ReplayMoment} from "./replay-moments";
+import {modeLabel} from "./session-status";
+import type {Message} from "./model";
 import Scope from "./Scope";
 import {MessageLog} from "./MessagePanel";
 import ReplayIndex from "./ReplayIndex";
-import libraryStyles from "./LibraryPages.module.css";
-import replayStyles from "./Replays.module.css";
+import TrainerNotice from "./TrainerNotice";
+import liveTheme from "./LiveTheme.module.css";
+import styles from "./ReplayViewer.module.css";
 
-const date = (value: number) => new Intl.DateTimeFormat("en-GB", {dateStyle: "medium", timeStyle: "short", timeZone: "UTC"}).format(value) + " UTC";
-function People({replay}: {replay: ReplaySummary}) {
-  return <p className={libraryStyles.people}>{(["staff", "mentee"] as const).map(role => <span key={role}><small>{role === "staff" ? "Mentor" : "Mentee"}</small>{replay.participants.filter(p => p.role === role).map(p => p.name || p.accountId).join(", ") || "No participant recorded"}</span>)}</p>;
-}
+const ended = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC"});
+const people = (detail: ReplayDetail, role: "staff" | "mentee") => detail.replay.participants.filter(p => p.role === role).map(p => p.name || p.accountId).join(", ");
+
 export default function ReplayLibrary({id}: {id?: string}) {
-  return <div className={id ? replayStyles.dark : undefined}><LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo={id ? `/sweatbox/replays/${id}` : "/sweatbox/replays"}>
-    {(_csrf, accountId) => id ? <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId}/> : <ReplayIndex canViewOthers/>}
-  </SessionAccess></LearningFrame></div>;
+  if (!id) return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo="/sweatbox/replays">{(_csrf, accountId) => <ReplayIndex accountId={accountId}/>}</SessionAccess></LearningFrame>;
+  // Mentees may open a replay too; the server only returns ones they took part in.
+  return <DashboardThemeProvider><div className={styles.theme}><SessionAccess embedded allowMentee role="mentee" returnTo={`/sweatbox/replays/${id}`}>
+    {(_csrf, accountId, access) => <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId} mentor={access.simulator}/>}
+  </SessionAccess></div></DashboardThemeProvider>;
 }
-function ReplayViewer({id, accountId}: {id: string; accountId: string}) {
-  const [detail, setDetail] = useState<ReplayDetail | null>(null), [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
+
+function ReplayViewer({id, accountId, mentor}: {id: string; accountId: string; mentor: boolean}) {
+  const [detail, setDetail] = useState<ReplayDetail | null>(null), [error, setError] = useState(""), [retry, setRetry] = useState(0);
+  const back = mentor ? "/sweatbox/replays" : "/sweatbox/mentee/replays";
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       try {
         let after = 0, first: ReplayDetail | null = null; const frames: ReplayFrame[] = [];
         do {
-          const page = await fetch(`/api/simulator/replays/${id}?after=${after}`, {signal: controller.signal, cache: "no-store"}).then(sessionJson) as ReplayDetail;
+          const page = await fetch(`/api/simulator/replays/${id}?after=${after}${mentor ? "" : "&scope=self"}`, {signal: controller.signal, cache: "no-store"}).then(sessionJson) as ReplayDetail;
           first ??= page; frames.push(...page.frames);
           if (page.next === null) break;
           if (page.next <= after) throw new Error("The replay could not be loaded. Try again.");
@@ -47,27 +59,41 @@ function ReplayViewer({id, accountId}: {id: string; accountId: string}) {
       } catch (reason) {if (!controller.signal.aborted) setError((reason as Error).message);}
     };
     void load(); return () => controller.abort();
-  }, [id, retry]);
-  return <main className={libraryStyles.library}>
-    <TrainingNav active="replays"/>
-    <div className={`${libraryStyles.libraryContent} ${replayStyles.viewerContent}`}>
-      <Link href="/sweatbox/replays">← All replays</Link>
-      <header className={replayStyles.viewerHeader}>
-        <div><h1>{detail?.replay.title ?? "Session replay"}</h1>{detail ? <People replay={detail.replay}/> : null}</div>
-        {detail ? <div className={replayStyles.recordMeta}><span><LockSimple size={14} aria-hidden="true"/>Read only</span><p>Session ended <time dateTime={new Date(detail.replay.endedAt).toISOString()}>{date(detail.replay.endedAt)}</time></p></div> : null}
-      </header>
-      {error ? <div><p role="alert" className={libraryStyles.error}>{error}</p><button onClick={() => {setError(""); setRetry(value => value + 1);}}>Try again</button></div>
-        : detail ? <Playback key={detail.replay.id} detail={detail} accountId={accountId}/> : <p role="status">Loading recording…</p>}
-      <LibraryFooter/>
-    </div>
+  }, [id, retry, mentor]);
+  const facts = detail ? [detail.replay.airport ?? "EGPH", modeLabel(detail.replay), people(detail, "staff") && `Mentor ${people(detail, "staff")}`, people(detail, "mentee") && `Mentee ${people(detail, "mentee")}`, `Ended ${ended.format(detail.replay.endedAt)} UTC`, "Read only"].filter(Boolean) : [];
+  return <main className={styles.viewer}>
+    <header className={styles.header}>
+      <Link className={`${styles.btn} ${styles.quiet}`} href={back}><CaretLeft size={18} aria-hidden="true"/>{mentor ? "Replays" : "Your replays"}</Link>
+      <Image className={styles.logo} src="/assets/logo-Czz1Kl8u.png" width={24} height={28} alt=""/>
+      <div className={styles.title}><h1>{detail?.replay.title ?? "Session replay"}</h1>{detail ? <p>{facts.join(" · ")}</p> : null}</div>
+    </header>
+    {error ? <div className={styles.message}><p role="alert">{error}</p><button className={styles.btn} onClick={() => {setError(""); setRetry(value => value + 1);}}>Try again</button></div>
+      : detail ? <Playback key={detail.replay.id} detail={detail} accountId={accountId} mentor={mentor}/> : <p role="status" className={styles.message}>Loading recording…</p>}
+    <footer className={styles.footer}><TrainerNotice/></footer>
   </main>;
 }
-function Playback({detail, accountId}: {detail: ReplayDetail; accountId: string}) {
+
+const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain};
+type PanelTab = "moments" | "radio" | "atis";
+
+function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId: string; mentor: boolean}) {
   const {replay, initial, frames} = detail;
   const timeline = useMemo(() => initial ? new ReplayTimeline(initial, frames) : null, [initial, frames]);
-  const [time, setTime] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1);
-  const position = useRef(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const playable = canPlayReplay(replay) && !!timeline;
+  const [time, setTime] = useState(() => {
+    // A shared link can open at a moment: ?t=seconds.
+    const t = typeof window === "undefined" ? NaN : Number(new URLSearchParams(window.location.search).get("t"));
+    return Number.isFinite(t) && t > 0 ? Math.min(t, Math.max(0, replay.duration)) : 0;
+  });
+  const [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1), [tab, setTab] = useState<PanelTab>("moments");
+  const [selected, setSelected] = useState<string | null>(null), [copied, setCopied] = useState("");
+  const [moments, setMoments] = useState<ReplayMoment[] | null>(null);
+  const position = useRef(time);
+  useEffect(() => {
+    // Separation checks walk every recorded state; run them after the first paint.
+    const timer = window.setTimeout(() => setMoments(timeline && initial ? replayMoments(initial, frames, timeline.at(replay.duration), replay.duration) : []), 0);
+    return () => window.clearTimeout(timer);
+  }, [timeline, initial, frames, replay.duration]);
   useEffect(() => {
     if (!playing) return;
     let previous: number | null = null, request = 0;
@@ -79,22 +105,80 @@ function Playback({detail, accountId}: {detail: ReplayDetail; accountId: string}
     };
     request = requestAnimationFrame(tick); return () => cancelAnimationFrame(request);
   }, [playing, speed, replay.duration]);
+  const seek = (value: number, keepPlaying = false) => {if (!keepPlaying) setPlaying(false); position.current = Math.max(0, Math.min(replay.duration, value)); setTime(position.current);};
   const exercise = timeline?.at(time);
-  const bookmarks = useMemo(() => timeline?.at(replay.duration)?.bookmarks ?? [], [timeline, replay.duration]);
-  return <section aria-label="Session replay" className={replayStyles.playback}>
-    {replay.kind === "recording" && replay.duration <= 0 ? <p className={replayStyles.note}>This session ended before any exercise time elapsed. You can review its saved state, but there is no playback.</p> : null}
-    {replay.kind === "snapshot" ? <p className={replayStyles.note}>Only the final state is available for this older session.</p> : replay.kind === "unavailable" ? <p className={replayStyles.note}>Only the session summary is available. Movement and radio messages were not recorded.</p> : null}
-    {replay.feedback ? <section className={replayStyles.atis}><h2>Instructor feedback</h2><p>{replay.feedback}</p></section> : null}
-    {replay.partial && replay.kind === "recording" ? <p className={replayStyles.note}>{`Recording starts at exercise time ${timeLabel(initial?.elapsed ?? 0)}.`}</p> : null}
-    {canPlayReplay(replay) && exercise ? <div className={replayStyles.controls} role="group" aria-label="Replay playback">
-      <div className={replayStyles.transport}>
-        <button className={replayStyles.playButton} aria-label={playing ? "Pause replay" : "Play replay"} onClick={() => {if (time >= replay.duration) {position.current = 0; setTime(0);} setPlaying(!playing || time >= replay.duration);}}>{playing ? <Pause size={20} weight="fill" aria-hidden="true"/> : <Play size={20} weight="fill" aria-hidden="true"/>}{playing ? "Pause" : "Play"}</button>
-        <button className={replayStyles.restartButton} aria-label="Restart replay" title="Restart replay" onClick={() => {setPlaying(false); position.current = 0; setTime(0);}}><ArrowCounterClockwise size={20} aria-hidden="true"/></button>
+  const list = moments ?? [];
+  const active = currentMoment(list, time), previous = adjacentMoment(list, time, -1), next = adjacentMoment(list, time, 1);
+  const incident = list.find(m => (m.kind === "separation" || m.kind === "terrain" || m.kind === "collision") && m.at <= time && time <= Math.max(m.end ?? m.at, m.at + 5));
+  const radar = exercise ? trainingMode(exercise) : "local";
+  const frequencies = exercise ? frequenciesFor(getAirport(exercise)) : null;
+  const radio = exercise?.messages.slice(-60) ?? [];
+  const copyLink = async () => {
+    const url = new URL(window.location.href); url.searchParams.set("t", String(Math.floor(time)));
+    try {await navigator.clipboard.writeText(url.href); setCopied(`Link at ${timeLabel(time)} copied.`);}
+    catch {setCopied(url.href);}
+  };
+  const pct = (at: number) => `${replay.duration > 0 ? at / replay.duration * 100 : 0}%`;
+  return <div className={styles.body}>
+    <section className={styles.stage} aria-label="Session replay">
+      <div className={styles.scope}>
+        {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
+          conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
+          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div>
+          : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
+        {incident ? <div className={styles.incident} role="status"><span className={`${styles.k} ${markClass[incident.kind]}`}/><span><strong>{incident.label}</strong> · {incident.detail} · {timeLabel(incident.at)}{incident.end !== undefined && incident.end > incident.at ? ` to ${timeLabel(incident.end)}` : ""}</span></div> : null}
       </div>
-      <label className={replayStyles.seek}><span>Replay timeline<output aria-label="Replay time">{timeLabel(time)} <span>/ {timeLabel(replay.duration)}</span></output></span><input aria-label="Replay position" aria-valuetext={`${timeLabel(time)} of ${timeLabel(replay.duration)}`} style={{"--replay-progress": `${time / replay.duration * 100}%`} as CSSProperties} type="range" min={0} max={replay.duration} step={.01} value={time} onChange={e => {setPlaying(false); position.current = Number(e.target.value); setTime(position.current);}}/></label>
-      <div className={replayStyles.speedControl}><span>Playback speed</span><div role="group" aria-label="Playback speed">{[.5, 1, 2, 4].map(value => <button key={value} aria-label={`${value}× speed`} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}×</button>)}</div></div>
-    </div> : null}
-    {bookmarks.length ? <label>Replay bookmarks<select aria-label="Replay bookmarks" value="" onChange={event => {const bookmark = bookmarks.find(mark => mark.id === event.target.value); if (bookmark) {setPlaying(false); position.current = bookmark.elapsed; setTime(bookmark.elapsed);}}}><option value="">Jump to bookmark</option>{bookmarks.map(mark => <option key={mark.id} value={mark.id}>{timeLabel(mark.elapsed)} · {mark.label}</option>)}</select></label> : null}
-    {exercise ? <div className={replayStyles.workspace}><div className={replayStyles.scope}><Scope messages={exercise.messages} accountId={accountId} showProjectedPaths={false} radarEnvironment={exercise.radarEnvironment} radarMode={trainingMode(exercise) === "local" ? undefined : trainingMode(exercise) as "approach" | "center"} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div><aside className={replayStyles.replaySidebar}><section className={replayStyles.broadcast}><h2>Broadcast ATIS</h2><p>{exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "No ATIS broadcast at this point."}</p></section><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></aside></div> : null}
-  </section>;
+      {replay.kind === "snapshot" ? <p className={styles.note}>Only the final state is available for this older session.</p> : null}
+      {replay.kind === "recording" && replay.duration <= 0 ? <p className={styles.note}>This session ended before any exercise time elapsed. You can review its saved state, but there is no playback.</p> : null}
+      {replay.partial && replay.kind === "recording" ? <p className={styles.note}>Recording starts at exercise time {timeLabel(initial?.elapsed ?? 0)}.</p> : null}
+      {playable ? <div className={styles.transport} role="group" aria-label="Replay playback">
+        <div className={styles.track}>
+          <div className={styles.marks} aria-hidden="true">{list.filter(m => m.kind !== "start" && m.kind !== "end").map(m => <i key={m.id} className={`${styles.mark} ${markClass[m.kind]}`} style={{left: pct(m.at)}}/>)}
+            {list.filter(m => m.end !== undefined && m.end > m.at).map(m => <i key={`${m.id}:span`} className={`${styles.span} ${markClass[m.kind]}`} style={{left: pct(m.at), width: `calc(${pct(m.end! - m.at)} + 2px)`}}/>)}</div>
+          <input aria-label="Replay position" aria-valuetext={`${timeLabel(time)} of ${timeLabel(replay.duration)}`} style={{"--replay-progress": pct(time)} as CSSProperties} type="range" min={0} max={replay.duration} step={.01} value={time} onChange={event => seek(Number(event.target.value))}/>
+        </div>
+        <div className={styles.controls}>
+          <button className={`${styles.btn} ${styles.primary}`} aria-label={playing ? "Pause replay" : "Play replay"} onClick={() => {if (time >= replay.duration) seek(0); setPlaying(!playing || time >= replay.duration);}}>{playing ? <Pause size={18} weight="fill" aria-hidden="true"/> : <Play size={18} weight="fill" aria-hidden="true"/>}{playing ? "Pause" : "Play"}</button>
+          <button className={`${styles.btn} ${styles.icon}`} aria-label="Back 10 seconds" title="Back 10 seconds" onClick={() => seek(time - 10, playing)}><ClockCounterClockwise size={20} aria-hidden="true"/></button>
+          <button className={`${styles.btn} ${styles.icon}`} aria-label="Forward 10 seconds" title="Forward 10 seconds" onClick={() => seek(time + 10, playing)}><ClockClockwise size={20} aria-hidden="true"/></button>
+          <output className={styles.clock} aria-label="Replay time">{timeLabel(time)} <span>/ {timeLabel(replay.duration)}</span></output>
+          <span className={styles.spacer}/>
+          <button className={styles.btn} disabled={!previous} onClick={() => previous && seek(previous.at)}><CaretLeft size={16} aria-hidden="true"/>Previous moment</button>
+          <button className={styles.btn} disabled={!next} onClick={() => next && seek(next.at)}>Next moment<CaretRight size={16} aria-hidden="true"/></button>
+          <div className={styles.seg} role="group" aria-label="Playback speed">{[.5, 1, 2, 4].map(value => <button key={value} aria-label={`${value}× speed`} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}×</button>)}</div>
+          <button className={`${styles.btn} ${styles.quiet}`} onClick={() => void copyLink()}><LinkSimple size={18} aria-hidden="true"/>Copy link at {timeLabel(time)}</button>
+        </div>
+        {copied ? <p className={styles.copied} role="status">{copied}</p> : null}
+      </div> : null}
+    </section>
+    <aside className={styles.side} aria-label="Replay details">
+      <section aria-labelledby="feedback-heading" className={styles.feedback}>
+        <h2 id="feedback-heading"><ChatCircleText size={18} aria-hidden="true"/>Mentor feedback</h2>
+        <p className={replay.feedback ? undefined : styles.muted}>{replay.feedback ?? "No feedback was saved with this session."}</p>
+      </section>
+      <div className={styles.tabs} role="tablist" aria-label="Replay panel">{([["moments", "Key moments", moments ? list.length - 2 : null], ["radio", "Radio", exercise?.messages.length ?? 0], ["atis", "ATIS", null]] as const).map(([key, label, count]) =>
+        <button key={key} role="tab" id={`replay-${key}-tab`} aria-controls="replay-panel" aria-selected={tab === key} onClick={() => setTab(key)}>{label}{count !== null ? <span> {count}</span> : null}</button>)}</div>
+      <div id="replay-panel" role="tabpanel" aria-labelledby={`replay-${tab}-tab`} className={styles.panel} tabIndex={0}>
+        {tab === "moments" ? moments === null ? <p className={styles.muted} role="status">Finding key moments…</p> : list.map(m => <button key={m.id} type="button" className={styles.moment} aria-current={active?.id === m.id || undefined} disabled={!playable} onClick={() => {seek(m.at); if (m.aircraftIds[0]) setSelected(m.aircraftIds[0]);}}>
+          <span className={styles.momentTime}>{timeLabel(m.at)}</span><span className={`${styles.k} ${markClass[m.kind]}`}/><span><strong>{m.label}</strong><small>{m.detail}{m.end !== undefined && m.end > m.at ? ` · lasted ${Math.max(1, Math.round(m.end - m.at))} s` : ""}</small></span>
+        </button>)
+          : tab === "radio" ? exercise ? <div className={styles.fullLog}><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></div> : <p className={styles.muted}>No radio messages were recorded.</p>
+          : <p className={styles.atis}>{exercise?.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "No ATIS broadcast at this point."}</p>}
+      </div>
+      {tab !== "radio" ? <section aria-labelledby="radio-heading" className={styles.radio}>
+        <div className={styles.radioHead}><h2 id="radio-heading">Radio log</h2><span>Follows playback</span></div>
+        <RadioLog messages={radio} frequencies={frequencies} callsign={id => exercise?.aircraft.find(a => a.id === id)?.callsign ?? "Pilot"}/>
+      </section> : null}
+    </aside>
+  </div>;
+}
+
+/** A small, auto-scrolling list of the transmissions up to the current replay time. */
+function RadioLog({messages, frequencies, callsign}: {messages: Message[]; frequencies: ReturnType<typeof frequenciesFor> | null; callsign: (id: string) => string}) {
+  const log = useRef<HTMLDivElement>(null), last = messages.at(-1)?.id;
+  useEffect(() => {const element = log.current; if (element) element.scrollTop = element.scrollHeight;}, [last]);
+  return <div ref={log} className={styles.radioLog} role="log" aria-label="Recorded radio messages">{messages.length ? messages.map((m, index) => <p key={m.id} data-latest={index === messages.length - 1 || undefined}>
+    <time className={styles.mono} dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 16)}</time>
+    <span><strong className={m.sender === "controller" ? styles.atc : undefined}>{m.sender === "controller" ? frequencies?.[m.frequency]?.label ?? "ATC" : callsign(m.aircraftId)}</strong> {radioDisplayText(m.text)}</span>
+  </p>) : <p className={styles.muted}>Nothing said yet.</p>}</div>;
 }

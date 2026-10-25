@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {AIRPORT, applyEnvelope, initialExercise} from "./engine";
+import {AIRPORT, applyEnvelope, initialExercise, engineFor} from "./engine";
 import {buildGroundRoute} from "./ground-route";
 import {flightPlanPatch, moveFlightPlanLeg, parseTypedRoute} from "./scenario-flight-plan";
-import type {Aircraft} from "./model";
+import type {Aircraft, Action, Exercise} from "./model";
 import type {NavigationCatalog} from "./navigation-data";
+import {randomUUID} from "node:crypto";
+import {MemoryStore} from "./session-test-store";
+import {SessionService} from "./server/session-service";
 
 test("staff drag-and-taxi applies a reviewed route as the pilot on any frequency", () => {
   const state = initialExercise(), a = state.aircraft[1]; a.holding = true; a.frequency = "tower";
@@ -45,4 +48,29 @@ test("reordering keeps a live aircraft heading for the same fix, while seeds res
   assert.equal(flightPlanPatch(aircraft, plan.filter(p => p.name !== "B"), true).radar!.routeIndex, 1);
   assert.equal(flightPlanPatch(aircraft, moveFlightPlanLeg(plan, 1, 2)).radar!.routeIndex, 0);
   assert.equal(flightPlanPatch(aircraft, [], true).radar!.navigation, "heading");
+});
+
+const engine = engineFor({airport: "KDAL"});
+
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+
+test("session service rejects learner bulk/report actions and preserves overlapping Local aircraft", async () => {
+  const store = new MemoryStore(); let now = 1000;
+  const service = new SessionService(store, () => now), staff = {accountId: "mentor", staff: true}, learner = {accountId: "learner", staff: false, learnerSession:""};
+  const created = await service.create(staff, "Synthetic controls", stateOf([engine.newAircraft("a", true)]));
+  learner.learnerSession=created.id;
+  await service.join(staff, created.id, "staff", "staff-seat"); await service.join(learner, created.id, "mentee", "learner-seat");
+  for (const action of [{kind: "all-full-stop"}, {kind: "report-position", aircraftId: "a"}] as Action[]) {
+    await assert.rejects(service.dispatch(learner, created.id, "mentee", "learner-seat", {id: randomUUID(), time: now, action}), /unavailable/);
+    await service.dispatch(staff, created.id, "staff", "staff-seat", {id: randomUUID(), time: now, action});
+  }
+  const record = store.records.get(created.id)!;
+  assert.equal(record.exercise.aircraft[0].landing, "full-stop"); assert.equal(record.exercise.messages.length, 1);
+  record.exercise.aircraft = ["a", "b"].map((id, i) => ({...engine.newAircraft(id, false), mode: "pushback", position: {x: i * .03, y: 0}, heading: i ? 90 : 270, targetHeading: i ? 90 : 270, speed: 3, targetSpeed: 3, pushback: {path: [{x: i ? -.1 : .1, y: 0}, {x: i ? -.2 : .2, y: 0}], index: 0}}));
+  const before = record.contentRevision;
+  for (let t = 0; t < 30 && store.records.get(created.id)!.exercise.aircraft.some(a=>a.active); t++) {now += 1000; await service.join(staff, created.id, "staff", "staff-seat");await service.frame(staff, created.id, "staff", "staff-seat");}
+  await service.join(learner, created.id, "mentee", "learner-seat");
+  const frame = await service.frame(learner, created.id, "mentee", "learner-seat");
+  assert.equal(frame.exercise.aircraft.length, 2); assert.equal(frame.exercise.collisions?.length ?? 0, 0);
+  assert.equal(frame.contentRevision, before, "Local overlap must not invent a crash content update");
 });

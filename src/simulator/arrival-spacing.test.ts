@@ -38,8 +38,8 @@ test("3 NM final spacing holds after transition joins, on every KDAL runway and 
   }
 });
 
-test("automatic 3 NM spacing is portable across all airports, runways and hands", () => {
-  for (const airport of airportList) for (const end of runwayEnds(airport)) for (const hand of ["left", "right"] as const) {
+for (const airport of airportList) test(`${airport.icao}: automatic 3 NM spacing holds on every runway and both pattern hands`, () => {
+  for (const end of runwayEnds(airport)) for (const hand of ["left", "right"] as const) {
     const e = engineFor({airport: airport.icao}), g = e.runwayGeometry(end.id);
     const point = (along: number) => ({x: g.threshold.x + g.vector.x * along - g.vector.y * (hand === "left" ? 3 : -3), y: g.threshold.y + g.vector.y * along + g.vector.x * (hand === "left" ? 3 : -3)});
     let state: Exercise = {...e.initialExercise(), running: true, aircraft: ["follower", "leader"].map((id, i) => ({...e.newAircraft(id, true), runway: end.id, hand, leg: "downwind", heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360, position: point(i ? -2.9 : -1.7)}))};
@@ -57,4 +57,9 @@ test("automatic 3 NM spacing is portable across all airports, runways and hands"
     }
     assert.ok(observed);
   }
+});
+
+test("default spacing is 3 NM for every airport engine", () => {
+  assert.equal(DEFAULTS.sequenceDistance, 3);
+  for (const airport of airportList) assert.ok(engineFor({airport: airport.icao}).initialExercise());
 });

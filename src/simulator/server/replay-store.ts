@@ -31,7 +31,8 @@ function summary(row: ReplayRow): ReplaySummary {
     participants: JSON.parse(row.participants), partial: !!row.partial, kind: "recording", feedback: row.feedback || undefined};
 }
 /** Called in the same transaction as the live state: saving and recording succeed or roll back together. */
-export async function recordReplay(connection: ReplayConnection, record: SessionRecord, before?: SessionRecord, closing?: string) {
+/** Feedback given while archiving fills the replay only when the attempt has none of its own. */
+export async function recordReplay(connection: ReplayConnection, record: SessionRecord, before?: SessionRecord, closing?: string, feedback?: string) {
   const [rows] = await connection.execute("SELECT * FROM simulator_replays WHERE session_id=? ORDER BY (status='recording') DESC,started_at DESC,id DESC LIMIT 1 FOR UPDATE", [record.id]);
   let row: ReplayRow | undefined = (rows as ReplayRow[])[0];
   const changedAttempt = before?.scenario?.attemptId !== record.scenario?.attemptId;
@@ -59,7 +60,7 @@ export async function recordReplay(connection: ReplayConnection, record: Session
   }
   const people = JSON.stringify(participants(record, JSON.parse(row.participants)));
   if (people !== row.participants) await connection.execute("UPDATE simulator_replays SET participants=? WHERE id=?", [people, row.id]);
-  if (ended) await connection.execute("UPDATE simulator_replays SET status=?,ended_at=?,feedback=? WHERE id=?", [ended, now, record.scenario?.feedback ?? null, row.id]);
+  if (ended) await connection.execute("UPDATE simulator_replays SET status=?,ended_at=?,feedback=? WHERE id=?", [ended, now, record.scenario?.feedback || feedback || null, row.id]);
 }
 
 interface LegacyRow extends RowDataPacket {id: string; session_id: string; title: string; owner_id: string; learner_id: string | null; started_at: number; finished_at: number; elapsed: number; status: string; result: string | null; feedback: string}
@@ -68,7 +69,7 @@ function legacySummary(row: LegacyRow): ReplaySummary {
     participants: [{role: "staff", accountId: row.owner_id}, ...(row.learner_id ? [{role: "mentee" as const, accountId: row.learner_id}] : [])], kind: row.result ? "snapshot" : "unavailable", partial: true, feedback: row.feedback || undefined};
 }
 const legacySelect = "SELECT a.*,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.definition,'$.title')),'Previous training attempt') AS title FROM simulator_attempts a LEFT JOIN simulator_scenario_revisions r ON r.scenario_id=a.scenario_id AND r.revision=a.revision";
-export interface ReplayFilters {mentorId?: string; search?: string; airport?: string; recordedOn?: number}
+export interface ReplayFilters {mentorId?: string; menteeId?: string; search?: string; airport?: string; recordedOn?: number}
 export async function listReplays(offset: number, filters: ReplayFilters = {}) {
   // Independent bounded queries merged by completion time include surviving pre-recording attempts.
   const limit = offset + 51;
@@ -85,6 +86,12 @@ export async function listReplays(offset: number, filters: ReplayFilters = {}) {
     recordedWhere.push("JSON_CONTAINS(participants, ?) = 1");
     recordedValues.push(JSON.stringify({role: "staff", accountId: filters.mentorId}));
     legacyWhere.push("a.owner_id=?"); legacyValues.push(filters.mentorId);
+  }
+  if (filters.menteeId) {
+    // A Mentee's own history: sessions where they held the mentee seat.
+    recordedWhere.push("JSON_CONTAINS(participants, ?) = 1");
+    recordedValues.push(JSON.stringify({role: "mentee", accountId: filters.menteeId}));
+    legacyWhere.push("a.learner_id=?"); legacyValues.push(filters.menteeId);
   }
   if (filters.airport) {
     recordedWhere.push("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')),'EGPH')=?"); recordedValues.push(filters.airport);
@@ -104,7 +111,14 @@ export async function listReplays(offset: number, filters: ReplayFilters = {}) {
   const all = [...recordings.map(summary), ...legacy.map(legacySummary)].sort((a, b) => b.endedAt - a.endedAt || b.id.localeCompare(a.id));
   return {replays: all.slice(offset, offset + 50), next: all.length > offset + 50 ? offset + 50 : null};
 }
-export async function readReplay(id: string, after: number): Promise<ReplayDetail> {
+/** With menteeId, only a replay that account took part in as the Mentee is readable. */
+export async function readReplay(id: string, after: number, menteeId?: string): Promise<ReplayDetail> {
+  const detail = await readAnyReplay(id, after);
+  if (menteeId && !detail.replay.participants.some(p => p.role === "mentee" && p.accountId === menteeId))
+    throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);
+  return detail;
+}
+async function readAnyReplay(id: string, after: number): Promise<ReplayDetail> {
   const rows = await queryReadOnly<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL", [id]);
   if (!rows[0]) {
     const old = await queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.id=? AND a.status<>'active'`, [id]);

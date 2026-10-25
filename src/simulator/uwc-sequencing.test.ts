@@ -8,13 +8,17 @@ import {applyReplayDelta, replayDelta} from "./replays";
 import type {Action, Aircraft, Exercise, Instruction} from "./model";
 
 const selection = {airport: "KDAL"}, e = engineFor(selection), airport = getAirport(selection);
+
 const parallels: Record<string, string> = {"13L": "13R", "13R": "13L", "31L": "31R", "31R": "31L"};
+
 let serial = 0;
+
 function act(state: Exercise, action: Action) {
   const result = e.applyEnvelope(state, {id: `uwc-spacing-${++serial}`, time: serial, action});
   assert.equal(result.error, undefined);
   return result.state;
 }
+
 function fixture(runway = "13L", speeds = [220, 220]) {
   const state = e.initialExercise(); state.running = true;
   state.aircraft = [runway, parallels[runway]].map((runway, i): Aircraft => {
@@ -28,11 +32,14 @@ function fixture(runway = "13L", speeds = [220, 220]) {
     otherRunway: parallels[runway], phase: "requested", started: 0, circuit: 0}];
   return state;
 }
+
 function entry(state: Exercise): Instruction {
   const leader = state.aircraft.find(a => a.id === "leader")!;
   return {type: "pattern", runway: leader.runway!, hand: leader.hand, leg: "downwind", sequence: {number: 2, traffic: `${leader.hand} crosswind`}};
 }
+
 const enter = (state: Exercise) => act(state, {kind: "maneuver", aircraftId: "follower", command: entry(state)});
+
 function along(a: Aircraft) {
   const g = e.runwayGeometry(a.runway!);
   return (a.position.x - g.threshold.x) * g.vector.x + (a.position.y - g.threshold.y) * g.vector.y;
@@ -169,4 +176,15 @@ test("pending entries round-trip through replay deltas but cannot become scenari
   assert.deepEqual(wire(applyReplayDelta(recorded, replayDelta(waiting, overridden))), wire(overridden));
   assert.equal("patternEntry" in seedSchema.parse(waiting.aircraft[0]), false);
   assert.equal(exerciseSchema.parse(before).aircraft[0].patternEntry, undefined, "legacy snapshots need no new field");
+});
+
+test("UWC tolerates different legs and altitudes and survives the natural base turn", () => {
+  const e = engineFor({airport: "KJFK"}), s = e.initialExercise(); s.running = true;
+  s.aircraft = ["a", "b"].map((id, i) => {const a = e.newAircraft(id, true); a.runway = i ? "22R" : "22L"; a.mode = "pattern"; a.leg = "downwind"; a.landing = "touch-and-go"; a.position = e.patternTargets(a).crosswind; a.altitude = 1513 + i * 1000; a.speed = a.targetSpeed = 180; return a;});
+  s.aircraft[1].leg = "crosswind";
+  const result = e.applyEnvelope(s, {id: "uwc", time: 1, action: {kind: "conflict", conflict: "uwc", aircraftId: "a", otherId: "b"}});
+  assert.equal(result.error, undefined); let state = result.state;
+  let base = false;
+  for (let i = 0; i < 600; i++) {state = e.advance(state, 1); base ||= state.aircraft.some(a => a.leg === "base"); assert.notEqual(state.conflicts![0].outcome, "Aircraft are no longer naturally aligned");}
+  assert.ok(base);
 });

@@ -8,7 +8,7 @@ import {availableLocalGate, createLocalAircraft, type LocalAircraftOptions, type
 import {gatesFor, standPlacement} from "./scenarios";
 import {magneticHeadingLabel} from "./magnetic-headings";
 import {engineFor} from "./engine";
-import type {Aircraft, Point} from "./model";
+import {MAX_AIRCRAFT, type Aircraft, type Point} from "./model";
 import styles from "./LocalAircraftDialog.module.css";
 
 export default function LocalAircraftDialog({selection, aircraft, callsigns, position, scenario = false, enabled, onAdd, onClose}: {
@@ -35,7 +35,7 @@ export default function LocalAircraftDialog({selection, aircraft, callsigns, pos
       event.preventDefault(); if (!enabled || pending.current) return;
       pending.current = true; setBusy(true); setError("");
       try {
-        if (aircraft.length >= 50) throw new Error("You can add up to 50 aircraft.");
+        if (aircraft.length >= MAX_AIRCRAFT) throw new Error("You can add up to 50 aircraft.");
         if (gate && !scheduled && occupied.some(gate => gate.id === options.gateId)) throw new Error("This gate is occupied. Choose an available gate.");
         const next = createLocalAircraft(selection, `traffic-${crypto.randomUUID().slice(0, 8)}`, options, callsigns);
         if (await onAdd(next, gate ? options.gateId : undefined, scenario && scheduled ? at : 0) === false) throw new Error("Aircraft was not added. Check the session connection and try again.");
@@ -59,7 +59,7 @@ export default function LocalAircraftDialog({selection, aircraft, callsigns, pos
       </fieldset>
       {scenario && scheduled ? <p className={styles.summary}>A spawn event will be added to the timeline.</p> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-      <footer className={styles.actions}><button type="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className={styles.primary} disabled={!enabled || busy || aircraft.length >= 50}>{busy ? "Adding…" : "Add aircraft"}</button></footer>
+      <footer className={styles.actions}><button type="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className={styles.primary} disabled={!enabled || busy || aircraft.length >= MAX_AIRCRAFT}>{busy ? "Adding…" : "Add aircraft"}</button></footer>
     </form>
   </dialog>;
 }

@@ -5,7 +5,7 @@ import {engineFor} from "./engine";
 import {magneticToTrue} from "./magnetic-headings";
 import {aircraftSchema} from "./protocol";
 import {gatesFor, normalizeScenarioAircraft, seedFromAircraft, standPlacement, type ScenarioDefinition} from "./scenarios";
-import type {Aircraft, Leg, Point} from "./model";
+import {MAX_AIRCRAFT, type Aircraft, type Leg, type Point} from "./model";
 
 export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom";
 export interface LocalAircraftOptions {
@@ -73,7 +73,7 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
 
 /** Add the aircraft and its optional spawn event together, without resetting existing traffic. */
 export function addLocalScenarioAircraft(definition: ScenarioDefinition, aircraft: Aircraft, gateId: string | undefined, at: number): ScenarioDefinition {
-  if (definition.aircraft.length >= 50) throw new Error("A scenario can contain up to 50 aircraft.");
+  if (definition.aircraft.length >= MAX_AIRCRAFT) throw new Error(`A scenario can contain up to ${MAX_AIRCRAFT} aircraft.`);
   if (!Number.isFinite(at) || at < 0 || at > 86400) throw new Error("Spawn time must be between 0 and 86400 seconds.");
   if (at > 0 && definition.events.length >= 200) throw new Error("The scenario already has 200 events.");
   const conflict = callsignConflict(aircraft.callsign, definition.aircraft.map(a => a.seed.callsign)); if (conflict) throw new Error(conflict);

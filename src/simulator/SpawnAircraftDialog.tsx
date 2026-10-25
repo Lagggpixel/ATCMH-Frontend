@@ -6,7 +6,7 @@ import {getAirport, runwayEnds, trainingMode} from "./airports";
 import {exerciseCallsigns, randomCallsign} from "./callsigns";
 import {engineFor} from "./engine";
 import {radarEnvironmentFor} from "./radar";
-import type {Action, Exercise, Point, RadarState} from "./model";
+import {MAX_AIRCRAFT, type Action, type Exercise, type Point, type RadarState} from "./model";
 import {createSpawnAircraft} from "./spawn-aircraft";
 import {readSpawnPreferences, saveSpawnPreferences} from "./spawn-preferences";
 import LocalAircraftDialog from "./LocalAircraftDialog";
@@ -48,7 +48,7 @@ function RadarSpawnAircraftDialog({accountId, exercise, position, enabled, dispa
       <label>Spawn location<select aria-label="Spawn location" value={airborne ? "air" : "ground"} onChange={event => setAirborne(event.target.value === "air")}><option value="air">Airborne{position ? " at clicked position" : ""}</option><option value="ground">Take off from {airport.icao}</option></select></label>
       {airborne ? <><label>Heading (°M)<input required type="number" min={0} max={360} value={heading} onChange={event => setHeading(Number(event.target.value))}/></label><label>Altitude (ft MSL)<input required type="number" min={airport.elevation + 1} max={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.ceiling??65000} value={altitude} onChange={event => setAltitude(Number(event.target.value))}/></label><label>Speed (knots)<input required type="number" min={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.min??80} max={AIRCRAFT_PERFORMANCE.find(p=>p.id===type)?.max??600} value={speed} onChange={event => setSpeed(Number(event.target.value))}/></label></> : <label>Departure runway<select aria-label="Departure runway" value={runway} onChange={event => setRunway(event.target.value)}>{runwayEnds(airport).map(end => <option key={end.id} value={end.id}>Runway {end.id}</option>)}</select></label>}
       {mode !== "local" ? <RadarIntentions aircraft={sample} airport={airport} environment={environment} takeoff={!airborne} onChange={radar => setIntentions({flight: radar.flight ?? "return", requestedApproach: radar.requestedApproach, departureDirection: radar.departureDirection})} onLandingChange={setLanding}/> : null}
-      {error ? <p role="alert">{error}</p> : null}<div className={styles.buttonRow}><button type="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className={styles.primaryButton} disabled={!enabled || busy || exercise.aircraft.length >= 50}>{busy ? "Spawning…" : "Spawn aircraft"}</button></div>
+      {error ? <p role="alert">{error}</p> : null}<div className={styles.buttonRow}><button type="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className={styles.primaryButton} disabled={!enabled || busy || exercise.aircraft.length >= MAX_AIRCRAFT}>{busy ? "Spawning…" : "Spawn aircraft"}</button></div>
     </form>
   </dialog>;
 }

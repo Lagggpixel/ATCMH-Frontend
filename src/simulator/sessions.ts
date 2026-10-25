@@ -7,6 +7,8 @@ export interface SessionSummary {
   staffOccupied: boolean; menteeOccupied: boolean;
   scenario?: {title: string; finished: boolean};
   assignedMenteeId?: string; assignedMenteeName?: string;
+  /** Feedback was saved for the current attempt, so archiving needs no reminder. */
+  hasFeedback?: boolean;
 }
 /** The mentee's view of a session assigned to them: no other participants' identities. */
 export interface AssignedSession {

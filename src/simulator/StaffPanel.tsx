@@ -27,7 +27,7 @@ import ScenarioFlightPlan from "./ScenarioFlightPlan";
 
 
 import {arrivalWorkflow} from "./arrival-workflow";
-import { intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
+import {MAX_AIRCRAFT,  intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
 import {sessionCode, sessionPath} from "./sessions";
 import {MessageLog} from "./MessagePanel";
 import IntentionsControls from "./IntentionsControls";
@@ -87,7 +87,7 @@ export function TrafficRoster({exercise, selected, onSelect, dispatch, owner, on
   const [query, setQuery] = useState("");
   const matches = exercise.aircraft.filter(a => `${a.callsign} ${a.type}`.toLowerCase().includes(query.trim().toLowerCase()));
   const fullStop = !!exercise.fullStopAll;
-  return <aside data-simulator-tour="traffic" className={`${styles.trafficRoster} ${workspace.roster}`} aria-label="Traffic"><header><h1>Aircraft <small>{exercise.aircraft.length}</small></h1><div className={workspace.rosterActions}><button className={`${workspace.addButton} ${workspace.fullStop}`} aria-pressed={fullStop} aria-label="All aircraft full stop" title={fullStop ? "All aircraft full stop is on. Click to restore each aircraft's landing." : "All aircraft full stop"} disabled={!owner || !fullStop && !exercise.aircraft.length} onClick={() => dispatch({kind: "all-full-stop", enabled: !fullStop})}>FS</button><button className={workspace.addButton} disabled={!owner || exercise.aircraft.length >= 50} onClick={onSpawn}><Plus aria-hidden="true"/>Add</button></div></header>
+  return <aside data-simulator-tour="traffic" className={`${styles.trafficRoster} ${workspace.roster}`} aria-label="Traffic"><header><h1>Aircraft <small>{exercise.aircraft.length}</small></h1><div className={workspace.rosterActions}><button className={`${workspace.addButton} ${workspace.fullStop}`} aria-pressed={fullStop} aria-label="All aircraft full stop" title={fullStop ? "All aircraft full stop is on. Click to restore each aircraft's landing." : "All aircraft full stop"} disabled={!owner || !fullStop && !exercise.aircraft.length} onClick={() => dispatch({kind: "all-full-stop", enabled: !fullStop})}>FS</button><button className={workspace.addButton} disabled={!owner || exercise.aircraft.length >= MAX_AIRCRAFT} onClick={onSpawn}><Plus aria-hidden="true"/>Add</button></div></header>
     <label className={workspace.search}><span className={workspace.srOnly}>Search aircraft</span><input type="search" placeholder="Search callsign or type" value={query} onChange={event => setQuery(event.target.value)}/><MagnifyingGlass aria-hidden="true"/></label>
 
     <div className={`${styles.trafficList} ${workspace.list}`}>

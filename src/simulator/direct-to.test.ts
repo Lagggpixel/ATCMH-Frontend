@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {catalogFor, type MenuEntry} from "./catalog";
-import {engineFor, restoreExercise} from "./engine";
+import {engineFor, restoreExercise, applyEnvelope} from "./engine";
 import {getAirport} from "./airports";
 import {exerciseSchema, envelopeSchema, menteeActionAllowed} from "./protocol";
 import {directToWaypoints} from "./direct-to";
 import {ReplayTimeline, replayDelta} from "./replays";
-import type {Action, Instruction} from "./model";
+import type {Action, Instruction, Exercise} from "./model";
 
 function fixture(station: "approach" | "center" = "approach") {
   const engine = engineFor({trainingStation: `EGPH:${station}`}), state = engine.initialExercise();
@@ -19,6 +19,7 @@ function fixture(station: "approach" | "center" = "approach") {
   state.aircraft = [a];
   return {engine, state, a};
 }
+
 const path = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
   const entry = entries.find(entry => (entry.label === labels[0] || /^\d{4,5}$/.test(labels[0]) && entry.label===`${Number(labels[0]).toLocaleString("en-US")}ft`)); assert.ok(entry, labels.join(" → "));
   return labels.length > 1 ? path(entry.children ?? [], ...labels.slice(1)) : entry;
@@ -75,4 +76,34 @@ test("sending Direct To keeps manual movement pending until the mentor assigns i
   assert.equal(sent.error, undefined); assert.equal(sent.state.aircraft[0].radar!.routeIndex, 1);
   assert.equal(sent.state.messages.at(-1)!.text, `${a.callsign}, proceed direct MERGE`);
   assert.deepEqual(directToWaypoints(a, state.radarEnvironment!)[2], {index: 2, name: "MERGE", label: "MERGE (2)"});
+});
+
+const act=(state:Exercise,action:Action)=>{const r=applyEnvelope(state,{id:crypto.randomUUID(),time:0,action});assert.equal(r.error,undefined);return r.state;};
+
+const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+test("a hold freezes the selected waypoint before route changes and pilot readback",()=>{
+ let state=fixtureForInfiniteFlightParity();state.autoReadback=false;const a=state.aircraft[0];
+ a.flightPlan=[{x:1,y:1,name:"FIRST"},{x:12,y:-8,name:"SECOND",waypointType:"VOR"}];
+ state=act(state,{kind:"command",aircraftId:a.id,frequency:"approach",text:"",command:{type:"atc",action:"hold",index:1,hand:"left",altitude:{unit:"feet",value:3000}}});
+ const sent=state.messages.at(-1)!;
+ assert.equal(sent.instruction?.type,"atc");
+ if(sent.instruction?.type!=="atc")throw new Error("Expected hold instruction");
+ assert.equal(sent.instruction.name,"SECOND");assert.equal(sent.instruction.waypointType,"VOR");
+ assert.match(catalogFor(getAirport(state),state.radarEnvironment).instructionText(state.aircraft[0],sent.instruction),/SECOND VOR/);
+ const wire=exerciseSchema.parse(JSON.parse(JSON.stringify(state)));assert.equal((wire.messages.at(-1)!.instruction as typeof sent.instruction).waypointType,"VOR");
+ assert.deepEqual(sent.instruction.point,{x:12,y:-8});
+ state=act(state,{kind:"edit",aircraftId:a.id,patch:{flightPlan:[{x:25,y:25,name:"REPLACED"}]}});
+ state=act(state,{kind:"pilot",aircraftId:a.id,text:`Wilco, ${a.callsign}`,replyTo:sent.id,assign:true});
+ assert.deepEqual(state.aircraft[0].atcManeuver?.center,{x:12,y:-8});assert.equal(state.aircraft[0].atcManeuver?.fixName,"SECOND");
+});
+
+test("direct-to preserves the snapped waypoint and rejects a changed route", () => {
+  const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
+  const aircraft = engine.newAircraft("direct-test", true); aircraft.flightPlan = [{name: "MERGE", x: 10, y: 2}]; state.aircraft = [aircraft];
+  const command: Instruction = {type: "route", index: 0, name: "MERGE", point: {x: 10, y: 2}};
+  const envelope = {id: "direct", time: 1000, action: {kind: "command", aircraftId: aircraft.id, frequency: "approach", command, text: "Proceed direct MERGE"}};
+  const parsed = envelopeSchema.parse(envelope); assert.deepEqual(parsed.action.kind === "command" && parsed.action.command, command);
+  assert.equal(engine.validateControllerMessage(state, aircraft, command, "approach"), null);
+  aircraft.flightPlan[0].x = 11; assert.match(engine.validateControllerMessage(state, aircraft, command, "approach") ?? "", /waypoint has changed/);
 });

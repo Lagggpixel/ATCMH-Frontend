@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {advance, AIRPORT, applyEnvelope, distance, initialExercise, newAircraft, predictAircraft, validateAssignment} from "./engine";
+import {advance, AIRPORT, applyEnvelope, distance, initialExercise, newAircraft, predictAircraft, validateAssignment, engineFor, restoreExercise} from "./engine";
 import {GROUND, moveGround, planPushback} from "./ground-movement";
 import {planTaxiRoute} from "./taxi-routing";
-import {standPlacement} from "./scenarios";
-import {exerciseSchema} from "./protocol";
+import {standPlacement, gatesFor} from "./scenarios";
+import {exerciseSchema, motionSchema} from "./protocol";
 import {pilotRequests, pilotRequestText, resolvePilotRequest} from "./catalog";
-import type {Aircraft, Exercise} from "./model";
+import type {Aircraft, Exercise, Action, Instruction} from "./model";
+import {randomUUID} from "node:crypto";
+import {getAirport} from "./airports";
+import {applyReplayDelta, replayDelta} from "./replays";
 
 const taxi = (id: string, x: number, y = 0): Aircraft => ({...newAircraft(id, false), position: {x, y}, heading: 90, targetHeading: 90, mode: "taxi", speed: 15, targetSpeed: 15, taxiPath: [{x: 1, y: 0}], taxiIndex: 0});
+
 const exercise = (aircraft: Aircraft[]): Exercise => ({...initialExercise(), aircraft, running: true});
+
 const turn = (a: number, b: number) => Math.abs((b - a + 540) % 360 - 180);
 
 test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting intermediate waypoints", () => {
@@ -120,4 +125,59 @@ test("ground requests remain phase-specific, keep legacy revisions readable, and
   const departure = requests.find(r => r.id === "departure")!;
   assert.equal(pilotRequestText(a, departure, "06"), "Easy 571, ready for departure from runway 06");
   assert.equal(pilotRequestText(a, departure, "06", true), "Easy 571, ready for departure from runway 06, remaining in the pattern");
+});
+
+const act = (state: Exercise, action: Action) => {
+  const result = applyEnvelope(state, {id: randomUUID(), time: 1000, action});
+  assert.equal(result.error, undefined); return result.state;
+};
+
+const kdal = getAirport({airport: "KDAL"}), engine = engineFor({airport: "KDAL"});
+
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+
+const assign = (state: Exercise, instruction: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: instruction});
+
+test("overlapping Local pushbacks remain visible on both frequencies and survive replay recovery", () => {
+  const create = (id: string, x: number, heading: number): Aircraft => ({...engine.newAircraft(id, false), mode: "pushback", position: {x, y: 0}, heading, targetHeading: heading, speed: 3, targetSpeed: 3, pushback: {path: [{x: -x, y: 0}, {x: -x * 2, y: 0}], index: 0}});
+  const before = stateOf([create("a", -.04, 270), {...create("b", .04, 90), frequency: "tower"}]);
+  let state = before;
+  for (let t = 0; t < 60 && state.aircraft.some(a=>a.active); t++) state = advance(state, 1);
+  assert.equal(state.aircraft.filter(a=>a.active).length, 2); assert.equal(state.collisions?.length ?? 0, 0);
+  assert.deepEqual(state.aircraft.map(a => a.id), ["a", "b"]);
+  assert.equal(motionSchema.parse(state).collisions?.length ?? 0, 0);
+  assert.deepEqual(applyReplayDelta(before, replayDelta(before, state)), state);
+  const reloaded = restoreExercise(exerciseSchema.parse(state));
+  assert.deepEqual(reloaded.collisions, state.collisions);
+  assert.equal(advance(reloaded, 5).collisions?.length ?? 0, 0);
+  let reverse = {...before, aircraft: before.aircraft.toReversed()};
+  for (let t = 0; t < 60 && reverse.aircraft.length; t++) reverse = advance(reverse, 1);
+  assert.deepEqual(reverse.collisions, state.collisions);
+  assert.equal(before.aircraft.length, 2, "motion never mutates its input");
+});
+
+test("a held pushback can resume its remaining route after the obstruction is removed", () => {
+  const gate = gatesFor(kdal).find(g => g.name === "13")!;
+  const a = {...engine.newAircraft("a", false), ...standPlacement(gate.id, false, kdal)!};
+  let state = assign(stateOf([a]), {type: "pushback", tail: "east"});
+  state = advance(state, 5); const path = state.aircraft[0].pushback!.path;
+  state = assign(state, {type: "stop"}); state = advance(state, 1);
+  const position = state.aircraft[0].position;
+  state = assign(state, {type: "pushback", tail: "east"});
+  assert.deepEqual(state.aircraft[0].pushback!.path, path);
+  state = advance(state, 5);
+  assert.notDeepEqual(state.aircraft[0].position, position);
+});
+
+test("conflicting real KDAL gate pushbacks never crash or disappear in Local training", () => {
+  for (const tail of ["east", "west"] as const) {
+    let state = stateOf(["13", "15"].map(name => {
+      const gate = gatesFor(kdal).find(g => g.name === name)!;
+      return {...engine.newAircraft(name, false), ...standPlacement(gate.id, false, kdal)!};
+    }));
+    for (const aircraft of state.aircraft) state = act(state, {kind: "maneuver", aircraftId: aircraft.id, command: {type: "pushback", tail}});
+    for (let t = 0; t < 180 && state.aircraft.length === 2; t++) state = advance(state, 1);
+    assert.equal(state.aircraft.length, 2);
+    assert.equal(state.collisions?.length ?? 0, 0);
+  }
 });

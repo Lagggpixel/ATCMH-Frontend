@@ -21,13 +21,13 @@ import {terrainCoordinates} from "./terrain";
 import VectorTerrain from "./VectorTerrain";
 import {radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-safety";
 import {useAircraftTerrain} from "./use-aircraft-terrain";
-import {remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
+import {assignedTaxiPath, remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
 import AircraftPopupPresence from "./AircraftPopupPresence";
 import {airportApproachGuides, airportRunwayLengths, approachStyle, hitAirportSymbols, layoutAirportSymbols, mapCameraAltitude, mapPathVisible, runwayNumbersVisible} from "./scope-airport-rendering";
 import {IF_COLORS, IF_MAP_COLORS} from "./if-colors";
 import {aircraftAppearance} from "./aircraft-flashing";
-import {atisRunwayWind} from "./atis-options";
+import {runwayWindColor} from "./atis-options";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
 import {hitFixSymbol, layoutFixLabels, projectFixSymbols} from "./scope-fix-labels";
@@ -54,15 +54,15 @@ import {useSaveScopePreferences} from "./use-scope-preferences";
 
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
-const runwayWindColors = {headwind: "#90ee90", crosswind: "#ffa500", tailwind: "#ff0000"};
+
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
-interface Props {labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number}}
+interface Props {labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number}}
 export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
 }
-function ScopeView({labelFrequency, messages, preferenceKey, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest}: Props & {preferenceKey?: string}) {
+function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
   const coastlines = useCoastlines();
   const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
@@ -347,7 +347,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, missingStripControl
         // Each runway is supplied twice, once per end; stroke its centerline once.
         if (g.threshold.x < item.departure.x || g.threshold.x === item.departure.x && g.threshold.y < item.departure.y) path([g.threshold, item.departure], IF_MAP_COLORS.runway, 4);
       }
-      const color = item.airportIcao === AIRPORT.icao ? runwayWindColors[atisRunwayWind(item.heading, weather ?? EXERCISE_WEATHER)] : "#90ee90";
+      const color = item.airportIcao === AIRPORT.icao ? runwayWindColor(item.heading, weather ?? EXERCISE_WEATHER) : "#90ee90";
       if (runwayNumbersVisible(cameraAltitude)) {
         const dx = g.center.x - g.threshold.x, dy = g.center.y - g.threshold.y, length = Math.hypot(dx, dy);
         runwayLabel(item.runway, {x: g.threshold.x + dx / length * 150 / 1852, y: g.threshold.y + dy / length * 150 / 1852}, color);
@@ -374,7 +374,9 @@ function ScopeView({labelFrequency, messages, preferenceKey, missingStripControl
   }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, airportActivity, weather]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const arrivalRoute = frequency === "all" && taxiAircraft && (taxiAircraft.runwayExit || taxiAircraft.arrivalExit) ? remainingTaxiPath(taxiAircraft) : undefined;
-  const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || frequency === "all" ? sentGroundRoute?.points ?? (taxiAircraft ? taxiAircraft.mode === "pushback" && taxiAircraft.pushback ? [taxiAircraft.position, ...taxiAircraft.pushback.path.slice(taxiAircraft.pushback.index)] : remainingTaxiPath(taxiAircraft).length > 1 ? remainingTaxiPath(taxiAircraft) : [] : []) : []);
+  const physicalTaxiLine = !taxiAircraft ? [] : frequency !== "all" ? assignedTaxiPath(taxiAircraft)
+    : taxiAircraft.mode === "pushback" && taxiAircraft.pushback ? [taxiAircraft.position, ...taxiAircraft.pushback.path.slice(taxiAircraft.pushback.index)] : remainingTaxiPath(taxiAircraft);
+  const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || frequency === "all" ? sentGroundRoute?.points ?? physicalTaxiLine : []);
   const projection = useMemo(() => {
     const a = snapshot.find(a => a.id === selected);
     return a && showProjectedPaths && frequency === "all" && remainingTaxiPath(a).length < 2 ? projectedPath(a, 120, snapshot, autoReadback) : [];
@@ -477,8 +479,8 @@ function ScopeView({labelFrequency, messages, preferenceKey, missingStripControl
       {radarMode ? <svg className={styles.holdOverlay} width={size.width} height={size.height} aria-label="Holding patterns">{aircraft.filter(a => trafficVisible(a, options.filter, frequency) && a.atcManeuver?.kind === "hold").map(a => <polyline key={a.id} role="img" aria-label={`${a.callsign} holding pattern${a.atcManeuver?.fixName ? ` at ${a.atcManeuver.fixName}` : ""}`} points={holdingPattern(a).map(p => {const s = project(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`;}).join(" ")} fill="none" stroke={IF_COLORS.warning} strokeWidth="2" strokeLinejoin="round"/>)}</svg> : null}
       {routing.draft?.route ? <GroundRouteOverlay airport={airport} route={routing.draft.route} aircraftType={draftAircraft?.type} project={project} scale={camera.scale} bounds={size} onMove={(index, point) => routing.move(index, snapGroundControl(airport, point, 25 / camera.scale))}/> : null}
       {taxiAircraft && taxiLine.length > 1 ? <svg className={styles.taxiRouteOverlay} width={size.width} height={size.height} role="group" aria-label={`${taxiAircraft.callsign} taxi route`}>
-        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke="#000" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
-        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke={IF_COLORS.cleared} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke="#000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points={taxiLine.map(p => {const s = project(p); return `${s.x},${s.y}`;}).join(" ")} fill="none" stroke={IF_COLORS.cleared} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         {!routing.draft ? taxiLine.map((p, i) => i === 0 || i === taxiLine.length - 1 || "hold" in p && p.hold || "name" in p && p.name && p.name !== (taxiLine[i - 1] as TaxiPoint).name ? <circle key={`sent-point-${i}`} cx={project(p).x} cy={project(p).y} r="3" fill="none" stroke={IF_COLORS.cleared} strokeWidth="2"/> : null) : null}
       </svg> : null}
       {!routing.draft && taxiLine.length > 1 ? <GroundHoldLabels points={taxiLine} project={project}/> : null}</div>
@@ -632,6 +634,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, missingStripControl
       onClear={() => setProcedureOverlays(previous => previous.filter(item => item.airport !== airportView.airports[0].identifier))} onOpacity={setProcedureOpacity} onRetry={procedureData.retry} onClose={closeAirport}/> : null}
     {options.windsAloft ? <div className={styles.windsPanel}><label>WINDS<select aria-label="Winds Aloft altitude" value={windAltitude} onChange={event => setWindAltitude(Number(event.target.value))}>{windAltitudeChoices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{winds.data ? <small><a href={winds.data.source} target="_blank" rel="noreferrer">Open-Meteo</a> · {new Date(winds.data.validAt).toISOString().slice(11, 16)}Z forecast</small> : <small role="status">{winds.error ?? "Loading winds…"}{winds.error ? <button type="button" onClick={winds.retry}>Retry</button> : null}</small>}</div> : null}
     {mapLayers.error || coastlines.error ? <div className={styles.mapLayerStatus} role="status">{mapLayers.error ? <div>Airport layer unavailable. <button type="button" onClick={mapLayers.retry}>Retry</button></div> : null}{coastlines.error ? <div>Coastlines unavailable. <button type="button" onClick={coastlines.retry}>Retry coastlines</button></div> : null}</div> : null}
+    {overlay}
     {terrainSamples.unavailable ? <span role="status" className={styles.terrainUnavailable}>Terrain data unavailable for {terrainSamples.unavailable} aircraft</span> : null}
     {(options.waypoints || options.navaids) && !navigation.catalog && !mapLayers.data?.navaids?.length ? <div className={styles.navigationStatus} role="status">{navigation.error ? <>Navigation fixes unavailable. <button type="button" onClick={navigation.retry}>Retry navigation</button></> : "Loading navigation fixes…"}</div> : null}
   </div>;

@@ -4,8 +4,9 @@ import {createRequire} from "node:module";
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {aircraftAppearance} from "./aircraft-flashing";
-import {applyEnvelope, initialExercise, newAircraft, restoreExercise} from "./engine";
+import {applyEnvelope, initialExercise, newAircraft, restoreExercise, engineFor} from "./engine";
 import {frequencyPendingRequests, pendingPilotMessage, pendingRequestCount, type Action, type Exercise} from "./model";
+import {getAirport} from "./airports";
 
 const aircraft = () => ({...newAircraft("flash-aircraft", true), frequency: "tower" as const, clearedToLand: false, assigned: undefined});
 
@@ -52,10 +53,12 @@ test("TCAS overrides icon flashing without suppressing text and drag overrides c
 });
 
 let sequence = 0;
+
 const act = (state: Exercise, action: Action) => {
   const result = applyEnvelope(state, {id: `flash-${++sequence}`, time: 1000 + sequence, action});
   assert.equal(result.error, undefined); return result.state;
 };
+
 test("viewing a strip clears every notification and reminder but preserves contextual replies after reload", () => {
   let state = initialExercise();
   for (let i = 0; i < 3; i++) state = act(state, {kind: "pilot", aircraftId: "demo-ground", text: `Request ${i}`});
@@ -96,4 +99,12 @@ test("rendered aircraft pair icon/text flashes, show open-strip state and retain
     const strip = renderToStaticMarkup(createElement(Strip, {aircraft: a, runway: "24", selected: false, pending: 3, reminder: true, connected: true, onSelect() {}, onFocus() {}, onMessages() {}, onDismiss() {}}));
     assert.ok(strip.includes("ATC (3)")); assert.match(strip, /class="strip  reminder"/);
   } finally {if (original) require.extensions[".css"] = original; else delete require.extensions[".css"];}
+});
+
+test("a touch-and-go retires the controller's green landing indication", () => {
+  const e = engineFor({airport: "KDAL"}), ap = getAirport({airport: "KDAL"}), g = e.runwayGeometry("31R");
+  const s = e.initialExercise(); s.running = true;
+  s.aircraft = [{...e.newAircraft("tng", true), runway: "31R", mode: "pattern", leg: "final", position: {...g.threshold}, heading: g.heading, targetHeading: g.heading, altitude: ap.elevation, speed: 135, targetSpeed: 135, clearedToLand: true, clearedForOption: true, landing: "touch-and-go", assigned: {landing: true}}];
+  const a = e.advance(s, .1).aircraft[0];
+  assert.equal(a.clearedToLand, false); assert.equal(a.assigned?.landing, false); assert.notEqual(aircraftAppearance(a, "tower").textColor, "#90ee90");
 });

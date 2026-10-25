@@ -53,3 +53,27 @@
   .entryActions{width:100%}.entryActions>*{flex:1}
   .panel,.tip{padding:16px}
 }
+
+/* Your sweatbox (redesign): the code form also works outside .page. */
+.entryForm{gap:10px}
+.entryActions .primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:10px 20px;border:1px solid var(--dashboard-button);border-radius:8px;background:var(--dashboard-button);color:var(--dashboard-on-button);font:inherit;font-weight:700;cursor:pointer}
+.entryActions .primary:hover{background:var(--dashboard-button-hover)}
+.entryActions button:not(.primary){color:var(--dashboard-ink)}
+.entryForm input{color:var(--dashboard-ink)}
+.next{gap:20px;padding:28px;border:2px solid var(--dashboard-link);border-radius:16px;box-shadow:0 8px 24px var(--dashboard-shadow-color)}
+.next>p{margin:0}
+.next h2{margin:0 0 8px;font-size:30px;line-height:1.2;font-weight:750;letter-spacing:-.02em;overflow-wrap:anywhere}
+.nextFoot{display:flex;flex-wrap:wrap;align-items:center;gap:16px 20px;padding-top:20px;border-top:1px solid var(--dashboard-border)}
+.nextFoot>.nextPerson,.nextFoot>div{flex:1}
+.other{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:18px 20px;border-top:1px solid var(--dashboard-border)}
+.other:first-child{border-top:0}
+.other>div{flex:1 1 260px;min-width:0;display:grid;gap:2px}
+.other strong{font-size:17px;font-weight:650;overflow-wrap:anywhere}
+.other small{font-size:14px;color:var(--dashboard-muted)}
+.replaysLink{display:flex;align-items:center;gap:14px;color:var(--dashboard-ink)!important;text-decoration:none}
+.replaysLink>svg:first-child{color:var(--dashboard-link);flex-shrink:0}
+.replaysLink>span{flex:1;display:grid;gap:2px}
+.replaysLink strong{font-size:16px}
+.replaysLink small{font-size:14px;color:var(--dashboard-muted);line-height:1.4}
+.replaysLink:hover{border-color:var(--dashboard-link)}
+@media(max-width:760px){.next{padding:20px}.next h2{font-size:24px}.nextFoot>a{width:100%}}

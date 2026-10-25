@@ -34,8 +34,8 @@ export default function GroundRouteOverlay({airport, route, aircraftType, projec
   };
   return <>
     <svg className={styles.groundDraftOverlay} role="group" aria-label="Draft ground route">
-      <polyline points={points} fill="none" stroke="#000" strokeWidth="8" strokeLinejoin="round"/>
-      <polyline points={points} fill="none" stroke="#ff00ff" strokeWidth="4" strokeLinejoin="round"/>
+      <polyline points={points} fill="none" stroke="#000" strokeWidth="4" strokeLinejoin="round"/>
+      <polyline points={points} fill="none" stroke="#ff00ff" strokeWidth="2" strokeLinejoin="round"/>
       {items.map(item => <circle key={item.key} cx={project(item.point).x} cy={project(item.point).y} r="3" fill="none" stroke="#90ee90" strokeWidth="3"/>)}
       {route.controls.map((point, index) => {
         const screen = project(point);

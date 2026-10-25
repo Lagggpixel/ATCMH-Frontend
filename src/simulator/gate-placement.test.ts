@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {airportList} from "./airports";
+import {airportList, getAirport} from "./airports";
 import {engineFor} from "./engine";
 import {gateAtPoint, gateTargets, placeAircraftAtGate} from "./gate-placement";
-import {normalizeScenarioAircraft, seedFromAircraft, standPlacement} from "./scenarios";
+import {normalizeScenarioAircraft, seedFromAircraft, standPlacement, gatesFor} from "./scenarios";
+import {planParkingRoute, planTaxiRoute} from "./taxi-routing";
+import {planPushback} from "./ground-movement";
 
 test("gate drops use mapped nose positions and preserve aircraft setup across airports", () => {
   for (const airport of airportList.filter(airport => airport.features.some(feature => feature.kind === "parking_position"))) {
@@ -41,4 +43,25 @@ test("drop hit testing picks the closest blue dot only within the camera-scaled 
   assert.equal(gateAtPoint(gates, {x: .1, y: .1}, 24 / 100)?.id, "a");
   assert.equal(gateAtPoint(gates, {x: .1, y: .1}, 24 / 1000), undefined);
   assert.equal(gateAtPoint([], {x: 0, y: 0}, 10), undefined);
+});
+
+const kdal = getAirport({airport: "KDAL"}), engine = engineFor({airport: "KDAL"});
+
+test("KDAL 13 and 15A put the nose beside the terminal, preserving the pinned map and connected routes", () => {
+  const source = JSON.stringify(kdal);
+  for (const name of ["13", "15A"]) {
+    const gate = gatesFor(kdal).find(g => g.name === name)!;
+    const placement = standPlacement(gate.id, false, kdal)!;
+    assert.deepEqual(placement.position, gate.points[0]);
+    assert.ok(placement.position.y > .05, "nose is at the terminal end, not the apron taxiway");
+    assert.ok(placement.heading < 45 || placement.heading > 315);
+    assert.deepEqual(gateTargets(kdal).find(g => g.id === gate.id)!.point, placement.position);
+    const a = {...engine.newAircraft(name, false), ...placement};
+    assert.ok(planPushback(kdal, a, "east").path, name);
+    assert.ok(planTaxiRoute(kdal, placement.position, "31L").path, name);
+    const parking = planParkingRoute(kdal, {x: -.24, y: .02}, gate.id);
+    assert.ok(parking.path, parking.error);
+    assert.deepEqual(parking.path!.at(-1), placement.position);
+  }
+  assert.equal(JSON.stringify(kdal), source);
 });

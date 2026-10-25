@@ -9,7 +9,7 @@ import {recordReplay} from "./replay-store";
 interface SessionRow extends RowDataPacket {
   airport?: string | null; airport_data_version?: string | null; training_station?: string | null;
   id: string; owner_id: string; owner_name: string | null; title: string; created_at: number; updated_at: number;
-  tick_at: number; content_revision: number; snapshot: string; staff_seat: string | null; mentee_seat: string | null; scenario_runtime?: string | null;
+  tick_at: number; content_revision: number; snapshot: string; staff_seat: string | null; mentee_seat: string | null; scenario_runtime?: string | null; scenario_feedback?: string | null;
   assigned_mentee_id?: string | null; assigned_mentee_name?: string | null; assigned_at?: number | null; assigned_by?: string | null; assigned_by_name?: string | null;
 }
 function decodeAssignment(row: SessionRow): SessionAssignment | null {
@@ -35,7 +35,7 @@ export const sqlSessionStore: SessionStore = {
     });
   },
   async list(now) {
-    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station FROM simulator_sessions ORDER BY updated_at DESC");
+    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.feedback')) AS scenario_feedback FROM simulator_sessions ORDER BY updated_at DESC");
     return rows.map(row => {
       const staff = row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null;
       const mentee = row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null;
@@ -43,7 +43,8 @@ export const sqlSessionStore: SessionStore = {
         ...(staff && staff.expiresAt > now ? {staffId: staff.accountId, staffName: staff.displayName} : {}),
         ...(mentee && mentee.expiresAt > now ? {menteeId: mentee.accountId, menteeName: mentee.displayName} : {}),
         staffOccupied: !!staff && staff.expiresAt > now, menteeOccupied: !!mentee && mentee.expiresAt > now,
-        ...(row.assigned_mentee_id ? {assignedMenteeId: row.assigned_mentee_id, assignedMenteeName: row.assigned_mentee_name ?? undefined} : {})} satisfies SessionSummary;
+        ...(row.assigned_mentee_id ? {assignedMenteeId: row.assigned_mentee_id, assignedMenteeName: row.assigned_mentee_name ?? undefined} : {}),
+        ...(row.scenario_feedback ? {hasFeedback: true} : {})} satisfies SessionSummary;
     });
   },
   async create(record) {
@@ -69,14 +70,14 @@ export const sqlSessionStore: SessionStore = {
       return result;
     });
   },
-  async end(id, accountId, now) {
+  async end(id, accountId, now, feedback) {
     await withWriteTransaction(async connection => {
       const [rows] = await connection.execute<SessionRow[]>("SELECT * FROM simulator_sessions WHERE id=? FOR UPDATE", [id]);
       if (!rows[0]) throw new SessionError("not-found", "This session is unavailable or has ended.", 404);
       const ended = decodeSession(rows[0]);
       availableControl(ended, {accountId, staff: true}, now);
       ended.updatedAt = now;
-      await recordReplay(connection, ended, ended, "ended");
+      await recordReplay(connection, ended, ended, "ended", feedback);
       if (rows[0].scenario_runtime) {
         const record = decodeSession(rows[0]);
         if (record.scenario?.attemptId) await connection.execute("UPDATE simulator_attempts SET status='ended',finished_at=?,elapsed=?,result=? WHERE id=? AND status='active'", [Date.now(), record.exercise.elapsed, JSON.stringify({exercise: record.exercise, events: record.scenario.events}), record.scenario.attemptId]);

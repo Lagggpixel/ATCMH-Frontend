@@ -10,9 +10,10 @@ export interface TrainingConflict {
   started: number; circuit: number; setupDeadline?: number; linedUp?: boolean; takeoffCleared?: boolean; cancelledTakeoff?: boolean;
   goAround?: boolean; selfGoAround?: boolean; rollAt?: number; outcome?: string;
 }
-export interface ConflictMotion {upwind?: boolean; extendDownwind?: boolean; slowExit?: boolean; holdRunway?: boolean; holdDeparture?: boolean; speedLimit?: number}
+export interface ConflictMotion {upwind?: boolean; extendDownwind?: boolean; slowExit?: boolean; holdRunway?: boolean; holdDeparture?: boolean; speedLimit?: number; speedTarget?: number}
 type Geometry = {threshold: Point; departure: Point; heading: number; vector: Point; clearance?: number};
 export interface ConflictEngine {
+  finalSpeeds?(a: Aircraft, b: Aircraft): readonly [number, number] | undefined;
   vacateSpeed?(a: Aircraft, following: Aircraft): number | undefined;
   geometry(runway: string): Geometry;
   distance(a: Aircraft): number;
@@ -21,7 +22,7 @@ export interface ConflictEngine {
 }
 const live = (c: TrainingConflict) => c.phase !== "complete" && c.phase !== "cancelled";
 export const conflictLabels = (conflicts: readonly TrainingConflict[] = [], id: string) =>
-  [...new Set(conflicts.filter(c => live(c) && [c.first, c.second].includes(id)).map(c => CONFLICT_LABELS[c.kind]))].join(" + ");
+  [...new Set(conflicts.filter(c => live(c) && [c.first, c.second].includes(id)).map(c => c.kind === "uwc" && c.first === id ? "UWC (C)" : CONFLICT_LABELS[c.kind]))].join(" + ");
 const airborne = (a: Aircraft, airport: Airport) => a.altitude > airport.elevation + 1 && ["pattern", "heading", "takeoff", "go-around"].includes(a.mode);
 const approachTraffic = (a: Aircraft, airport: Airport) => airborne(a, airport) && !a.radar && !a.leavingCircuit && ["pattern", "heading"].includes(a.mode);
 export function startConflict(state: Exercise, airport: Airport, engine: ConflictEngine, id: string, kind: ConflictKind, first: string, second: string): string | undefined {
@@ -108,12 +109,16 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
     const motion = (p: Aircraft, patch: ConflictMotion) => {p.conflictMotion = {...p.conflictMotion, ...patch};};
     if (c.kind === "uwc") {
       if (c.phase === "setup") {
-        // Delay the nearer aircraft on downwind, or moderate final speed, until abeam.
+        // Stage the pair before final, then continuously coordinate final speeds.
         const delta = engine.distance(a) - engine.distance(b);
         const nearer = delta < 0 ? a : b;
         if (a.mode === "takeoff" || b.mode === "takeoff") c.phase = "upwind";
-        if (c.phase === "setup" && Math.abs(delta) > .25) {
+        if (c.phase === "setup" && Math.abs(delta) > .1) {
           if (nearer.leg === "downwind") motion(nearer, {extendDownwind: true});
+        }
+        if (c.phase === "setup") {
+          const speeds = engine.finalSpeeds?.(a, b);
+          if (speeds) {motion(a, {speedTarget: speeds[0]}); motion(b, {speedTarget: speeds[1]});}
         }
         if (a.mode === "takeoff") c.phase = "upwind";
       }

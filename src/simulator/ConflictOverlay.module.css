@@ -1,0 +1,49 @@
+/* Rendered inside the scope, over its top left, so it never covers the staff inspector. */
+.overlay {position:absolute;left:12px;top:12px;z-index:25;width:min(304px,calc(100% - 80px));display:flex;flex-direction:column;gap:6px;font-size:13px;color:#edf2f5;pointer-events:none}
+.overlay>* {pointer-events:auto}
+.overlay button {font:inherit;cursor:pointer}
+.header {display:flex;align-items:center;gap:8px;height:26px;padding:0 2px 0 4px;pointer-events:none}
+.header>button {pointer-events:auto}
+.heading {font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#aab7c1}
+.header .heading {text-shadow:0 0 3px #000}
+.count {font-size:11px;background:#253039;border-radius:9px;padding:1px 7px}
+.header .icon {margin-left:auto}
+.icon {flex:none;width:26px;height:26px;display:grid;place-items:center;padding:0;background:transparent;color:#aab7c1;border:1px solid transparent;border-radius:4px}
+.icon:hover:not(:disabled) {background:#253039;color:#edf2f5;border-color:#34414b}
+.icon:disabled {opacity:.45;cursor:default}
+.icon svg {width:14px;height:14px}
+.chip {align-self:flex-start;display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;background:#10151be6;color:#edf2f5;border:1px solid #34414b;border-radius:15px}
+.chip:hover {background:#1a232a}
+.chip svg {width:12px;height:12px}
+.card {display:flex;flex-direction:column;gap:8px;padding:10px 10px 10px 12px;background:#10151be6;border:1px solid #34414b;border-radius:6px}
+.card p {margin:0;font-size:12px;color:#d8dfe4}
+.title {display:flex;align-items:center;gap:8px}
+.title strong {font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge {flex:none;font-size:11px;font-weight:700;line-height:1.35;padding:1px 6px;border:1px solid;border-radius:3px}
+.badge[data-kind=ga] {color:#ffd6cf;background:#4a2423;border-color:#7a3a36}
+.badge[data-kind=uwc] {color:#cfeaff;background:#17303f;border-color:#2f5a73}
+.badge[data-kind=cancel-takeoff] {color:#edf2f5;background:#2c3740;border-color:#4a5865}
+.chip .badge {font-size:10px;padding:0 5px}
+.age,.pair,.callsign {font-family:"Simulator Mono",monospace}
+.age {font-size:11px;color:#aab7c1}
+.pair {display:flex;align-items:baseline;gap:6px;font-size:12px;min-width:0}
+.join {color:#8b97a1}
+.runway {margin-left:auto;color:#aab7c1;white-space:nowrap}
+.steps {display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:11px;color:#8b97a1}
+.steps li {padding-top:6px;border-top:3px solid #2c3740}
+.steps li[data-reached=true] {border-top-color:#ff8a80}
+.steps[data-kind=uwc] li[data-reached=true] {border-top-color:#8fd0ff}
+.steps[data-kind=cancel-takeoff] li[data-reached=true] {border-top-color:#c9d1d8}
+.steps li[aria-current=step] {color:#edf2f5;font-weight:500}
+.pairing {background:#1c1512f0;border-color:#ffb18a}
+.pairingFooter {display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aab7c1}
+.pairingFooter button {height:28px;padding:0 12px;background:#12191e;color:#edf2f5;border:1px solid #34414b;border-radius:4px;font-size:12px}
+.pairingFooter button:hover {background:#253039}
+.finished {display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;background:#10151bcc;border:1px solid #262f36;border-radius:6px;font-size:12px;color:#aab7c1}
+.finished>span {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finished strong {color:#edf2f5}
+.finished>svg {flex:none;width:14px;height:14px}
+.complete {color:#9ee6a8}
+.cancelled {color:#ffaaa4}
+@media(prefers-reduced-motion:no-preference) {.card,.finished,.chip {animation:conflictIn .18s ease-out}}
+@keyframes conflictIn {from {opacity:0;transform:translateY(-4px)}}

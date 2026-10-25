@@ -28,7 +28,7 @@ export interface SessionStore {
   list(now: number): Promise<SessionSummary[]>;
   create(record: SessionRecord): Promise<void>;
   transaction<T>(id: string, run: (record: SessionRecord) => T | Promise<T>): Promise<T>;
-  end(id: string, accountId: string, now: number): Promise<void>;
+  end(id: string, accountId: string, now: number, feedback?: string): Promise<void>;
   assigned(discordId: string, now: number): Promise<AssignedSession[]>;
   hasAssignment(discordId: string): Promise<boolean>;
   lookup(entry: {code: string} | {id: string}): Promise<SessionLookup | null>;
@@ -49,7 +49,8 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now,
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {}),
-    ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {})};
+    ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {}),
+    ...(record.scenario?.feedback ? {hasFeedback: true} : {})};
 }
 export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
@@ -183,7 +184,7 @@ export class SessionService {
       }
     });
   }
-  end(actor: Actor, id: string) {this.staff(actor); return this.store.end(id, actor.accountId, this.now());}
+  end(actor: Actor, id: string, feedback?: string) {this.staff(actor); return this.store.end(id, actor.accountId, this.now(), feedback);}
   async assign(actor: Actor, id: string, mentee: {discordId: string; name?: string} | null) {
     this.staff(actor);
     if (!actor.canAssign) throw new SessionError("forbidden", "Only mentors with Sweatbox access or administrators can assign mentees.", 403);

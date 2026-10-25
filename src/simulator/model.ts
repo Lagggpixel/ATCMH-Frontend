@@ -1,4 +1,5 @@
 import type {ReferenceInstruction, AtcManeuver} from "./reference-commands";
+export const MAX_AIRCRAFT = 100;
 export const MAX_TAXI_POINTS = 600;
 export const ILS_CAPTURE_DISTANCE_NM = 25;
 export type Frequency = "ground" | "tower" | "atis" | "approach" | "center" | "departure" | "unicom";
@@ -85,6 +86,7 @@ export interface Aircraft {
   transitionOverheadArmed?: boolean;
   departureRunway?: Runway;
   takeoffPattern?: boolean;
+  takeoffOutcome?: "rejected" | "overrun"; // Silent braking outcome; retained in motion, recovery and replay.
   lineupWait?: boolean; // Legacy lineups continue to takeoff unless explicitly waiting.
   transitionAltitude?: number; // Minimum altitude for a straight-through transition, feet MSL.
   leavingCircuit?: boolean; // Departures/transitions are not arrival sequencing targets.
@@ -200,7 +202,7 @@ export type Instruction =
 export interface Envelope {id: string; action: Action; time: number}
 export type Direction = "north" | "east" | "south" | "west";
 export interface PilotRequestSelection {id: import("./catalog").PilotRequestId; runway: Runway; direction?: Direction; takeoffDirection?: Direction | "Straight Out"; entry?: "Left Traffic" | "Right Traffic" | "Straight In"; remainingInPattern?: boolean; includeRunway?: boolean; inbound?: "default" | "runway" | "ils" | "gps" | "visual"; altitude?: Altitude; position?: "Right Downwind" | "Left Downwind" | "Right Base" | "Left Base" | "Final" | "Left Crosswind" | "Right Crosswind"; outcome?: "full-stop" | "touch-and-go"; confirmed?: boolean; approachId?: string}
-export const DEFAULTS = {airSpeed: 160, taxiSpeed: 15, patternHeight: 1500, patternWidth: 3, bankAngle: 25, bankRate: 6, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 3, minimumPatternSpeed: 80};
+export const DEFAULTS = {airSpeed: 160, taxiSpeed: 20, patternHeight: 1500, patternWidth: 3, bankAngle: 25, bankRate: 6, acceleration: 3, climbRate: 2000, descentRate: 1500, rotationSpeed: 140, upwindLength: 1.5, finalLength: 4.5, radarSeconds: 30, trailInterval: .3, sequenceSeconds: 45, sequenceDistance: 3, minimumPatternSpeed: 80};
 export const FREQUENCIES = {ground: {label: "Ground", value: "121.75"}, tower: {label: "Tower", value: "118.70"}, atis: {label: "ATIS", value: "131.35"}, approach: {label: "Approach", value: "Training"}, center: {label: "Center", value: "Training"}, departure: {label: "Departure", value: "Training"}, unicom: {label: "Unicom", value: "122.80"}};
 export const EXERCISE_WEATHER = {windDirection: 240, windSpeed: 10, visibilityKm: 10, qnh: 1001, reference: "Exercise time 00:00 (fixed conditions)"} as const;
 export const METAR = `Simulated EGPH · Wind ${EXERCISE_WEATHER.windDirection}° at ${EXERCISE_WEATHER.windSpeed}KT · Visibility ${EXERCISE_WEATHER.visibilityKm}km · QNH ${EXERCISE_WEATHER.qnh}`;

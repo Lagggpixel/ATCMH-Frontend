@@ -23,7 +23,9 @@ if (!files.length) throw new Error("No source tests discovered.");
 if (process.argv.includes("--list")) console.log(files.join("\n"));
 else {
   console.log(`Running all ${files.length} source test files (generated output and release snapshots excluded).`);
-  const result = spawnSync(process.execPath, ["--import", "tsx", "--test", "--test-concurrency=4", ...process.argv.slice(2), ...files], {
+  // node --test treats each path as a glob, so a literal "[" (dynamic route folders) must be escaped or the file is skipped.
+  const patterns = files.map(file => file.replaceAll("\\", "/").replaceAll("[", "[[]"));
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--test", "--test-concurrency=4", ...process.argv.slice(2), ...patterns], {
     cwd: root, stdio: "inherit", env: {...process.env, TSX_TSCONFIG_PATH: join(root, "tsconfig.test.json")},
   });
   if (result.error) throw result.error;

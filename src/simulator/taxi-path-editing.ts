@@ -8,6 +8,11 @@ export function remainingTaxiPath(a: Aircraft): Point[] {
   const {path, index} = taxiPathState(a);
   return taxiPathEditable(a) && index < path.length ? [a.position, ...path.slice(index)] : [];
 }
+/** Controller display retains the assigned geometry, independently of pilot progress. */
+export function assignedTaxiPath(a: Aircraft): TaxiPoint[] {
+  if (!taxiPathEditable(a)) return [];
+  return a.mode === "pushback" && a.pushback ? a.pushback.path : taxiPathState(a).path;
+}
 const gap = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const reachedHold = (a: Aircraft, index: number) => !a.runwayExit && (a.holding || a.releasedHold === index) && index === a.taxiIndex && !!a.taxiPath[index]?.hold && gap(a.position, a.taxiPath[index]) < 1e-7;
 

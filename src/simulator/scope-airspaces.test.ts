@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {getAirport} from "./airports";
-import type {RadioFacility} from "./aviation";
+import {type RadioFacility, insideAirspace} from "./aviation";
 import {airspaceOutlines, hitAirspaces, projectAirspaces} from "./scope-airspaces";
 
 const airport = getAirport({airport: "EGPH"});
+
 const {lat, lon} = airport.origin;
+
 const boundary = [[lon - 1, lat - 1], [lon + 1, lat - 1], [lon + 1, lat + 1], [lon - 1, lat + 1]];
+
 const source: RadioFacility[] = [true, false, false].map((active, i) => ({id: String(i), name: "Center", type: "center", mhz: "123.45", lat, lon, active, boundary}));
 
 test("Airspaces off preserves active and selected outlines, including a selected inactive facility", () => {
@@ -34,4 +37,10 @@ test("ordinary map taps select containing airspaces only while Airspaces is enab
   assert.deepEqual(hitAirspaces(airspaces, airport, {x: 0, y: 0}, false), []);
   assert.deepEqual(hitAirspaces(airspaces, airport, {x: 1000, y: 1000}, true), []);
   assert.equal(airspaceOutlines(airspaces, false, selected).length, 3);
+});
+
+test("Pacific airspaces do not incorrectly label airports across the antimeridian", () => {
+  const boundary = [[170, -20], [-170, -20], [-170, 20], [170, 20]];
+  assert.equal(insideAirspace(boundary, 0, 179), true); assert.equal(insideAirspace(boundary, 0, -179), true);
+  assert.equal(insideAirspace(boundary, 0, -96), false);
 });

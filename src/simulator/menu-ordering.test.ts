@@ -3,14 +3,16 @@ import test from "node:test";
 import {airportList, getAirport, runwayEnds} from "./airports";
 import {catalogFor, type MenuEntry} from "./catalog";
 import {applyEnvelope, engineFor} from "./engine";
-import {stripRunway, type Action, type Exercise, type Instruction} from "./model";
+import {stripRunway, type Action, type Exercise, type Instruction, aircraftColor} from "./model";
 
 const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
   const entry = entries.find(item => item.label === labels[0]);
   assert.ok(entry, `Missing ${labels[0]}`);
   return labels.length > 1 ? find(entry.children ?? [], ...labels.slice(1)) : entry;
 };
+
 let serial = 0;
+
 function act(state: Exercise, action: Action) {
   const result = applyEnvelope(state, {id: `ordering-${++serial}`, time: serial, action});
   assert.equal(result.error, undefined); return result.state;
@@ -102,4 +104,30 @@ test("Approach and Center put assigned approach type and runway first without ch
     state.aircraft[0].runway = null; state.aircraft[0].lastRunway = null;
     for (const type of ["ils", "gps", "visual"] as const) assert.deepEqual(find(menu(), "Expect Approach...", labels[type]).children!.map(e => e.label), environment.approaches.filter(p => p.type === type).map(p => `Runway ${p.runway}`));
   }
+});
+
+const fixture=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+test("airborne takeoff gets airborne Tower menu and label fill never changes symbol color",()=>{
+ const e=engineFor(),a=e.newAircraft("a",false);a.mode="takeoff";a.altitude=getAirport().elevation+100;a.frequency="tower";
+ const menu=catalogFor().messageMenu("tower",a);assert.ok(menu.some(m=>m.label==="Cleared to Land / for the Option"));assert.ok(!menu.some(m=>m.label==="Cleared for Takeoff"));
+ const color=aircraftColor(a,"tower");a.color="#fc473a";assert.equal(aircraftColor(a,"tower"),color);assert.equal(color,"#87cefa");
+});
+
+test("context replies keep registration order and STAR visibility needs only a STAR",()=>{
+ const state=fixture(),a=state.aircraft[0];a.arrivalProcedure="OCK1F";
+ const catalog=catalogFor(getAirport(),state.radarEnvironment),request={id:"check",aircraftId:a.id,time:0,frequency:"approach" as const,sender:"pilot" as const,text:"Scottish Approach, Speedbird, with you at 5,000ft",request:{id:"check-in" as const,runway:"24"}};
+ const menu=catalog.requestMessageMenu("approach",a,request);assert.equal(menu[0].label,"Radar Contact");assert.equal(menu[1].label,"Vectoring Instructions");assert.equal(menu.find(m=>m.label==="Radar Contact")?.suggested,true);assert.equal(menu.filter(m=>m.label==="Radar Contact").length,2);assert.notEqual(menu[0].id, menu.find(m=>m.label==="Radar Contact" && !m.suggested)!.id);assert.ok(menu.some(m=>m.label.includes("OCK1F STAR")));
+});
+
+test("Unicom options and visibility follow airborne and ground calls",()=>{
+ const engine=engineFor(),a=engine.newAircraft("unicom",true),c=catalogFor();a.frequency="unicom";
+ const available=c.pilotRequests(a).map(r=>r.id);assert.ok(available.includes("unicom-inbound"));assert.ok(!available.includes("unicom-taxi"));
+ const inbound=c.resolvePilotRequest({requestId:"unicom-inbound"})!;
+ assert.match(c.pilotRequestText(a,inbound,"24",false,{entry:"Left Traffic",outcome:"touch-and-go"}),/inbound for Touch and Goes, will make Left Traffic for Runway 24$/);
+ a.altitude=getAirport().elevation;a.mode="taxi";
+ assert.ok(c.pilotRequests(a).some(r=>r.id==="unicom-takeoff"));assert.ok(!c.pilotRequests(a).some(r=>r.id==="unicom-inbound"));
+ const takeoff=c.resolvePilotRequest({requestId:"unicom-takeoff"})!;
+ assert.match(c.pilotRequestText(a,takeoff,"24",false,{takeoffDirection:"Straight Out"}),/is taking off Runway 24, Departing Straight Out$/);
+ assert.match(c.pilotRequestText(a,takeoff,"24",true),/Remaining in the Pattern$/);
 });

@@ -32,13 +32,13 @@ test("recorded Swiss exit has bounded braking through every intermediate bend", 
 
 test("leaving a 35 kt exit for ordinary taxi speed applies gradual braking", () => {
   const engine = engineFor({airport: "KDAL"});
-  const a = {...engine.newAircraft("taxi", false), mode: "taxi" as const, position: {x: 0, y: 0}, heading: 0, speed: 35, targetSpeed: 15};
+  const a = {...engine.newAircraft("taxi", false), mode: "taxi" as const, position: {x: 0, y: 0}, heading: 0, speed: 35, targetSpeed: DEFAULTS.taxiSpeed};
   for (let i = 0; i < 150; i++) {
     const before = a.speed;
     moveGround(a, [{x: 0, y: 1}], 0, .05, false, {speedLimit: Infinity, travelLimit: Infinity});
     assert.ok(Math.abs(a.speed - before) <= DEFAULTS.acceleration * .05 + 1e-8);
   }
-  assert.equal(a.speed, 15);
+  assert.equal(a.speed, 20);
 });
 
 test("a 35 kt aircraft anticipates a hold across short nodes and resumes only when released", () => {

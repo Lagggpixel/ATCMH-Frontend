@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 import {RADAR_TOUR, SESSION_TOUR, placeTourCard, shouldStartTutorial, tutorialPreference, type TutorialOutcome, type TourRect} from "./tutorial";
 import styles from "./StaffTutorial.module.css";
 
-export default function StaffTutorial({accountId, live = false}: {accountId: string; live?: boolean}) {
+export default function StaffTutorial({accountId, live = false, label = "Tutorial", className}: {accountId: string; live?: boolean; label?: string; className?: string}) {
   const router = useRouter();
   const [open, setOpen] = useState(false), [step, setStep] = useState(0);
   const [layout, setLayout] = useState<{target: TourRect | null; left: number; top: number} | null>(null);
@@ -68,7 +68,7 @@ export default function StaffTutorial({accountId, live = false}: {accountId: str
     if (link) router.push(link.pathname);
   };
   return <>
-    <button ref={trigger} type="button" className={styles.trigger} onClick={() => {setStep(0); setLayout(null); setOpen(true);}}>Tutorial</button>
+    <button ref={trigger} type="button" className={`${styles.trigger} ${className ?? ""}`} onClick={() => {setStep(0); setLayout(null); setOpen(true);}}>{label}</button>
     {open ? createPortal(<div className={`${styles.tour} ${live ? styles.live : ""}`}>
       {layout?.target && layout.target.width > 0 && layout.target.height > 0 ? <div className={styles.spotlight} data-testid="tutorial-spotlight" aria-hidden="true" style={layout.target}/> : null}
       <section ref={card} className={styles.card} role="dialog" aria-modal="false" aria-labelledby={titleId} aria-describedby={descriptionId} style={{left: layout?.left ?? 12, top: layout?.top ?? 12, visibility: layout ? "visible" : "hidden"}}>

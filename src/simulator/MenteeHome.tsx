@@ -3,12 +3,16 @@ import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import Link from "next/link";
 import {ArrowRight} from "@phosphor-icons/react/dist/csr/ArrowRight";
 import {DeviceMobile} from "@phosphor-icons/react/dist/csr/DeviceMobile";
+import {ClockCounterClockwise} from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
 import LearningFrame from "../learning/LearningFrame";
+import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import SessionAccess from "./SessionAccess";
 import {SessionEntryForm} from "./SessionEntry";
+import TrainerNotice from "./TrainerNotice";
 import {sessionJson} from "./shared-transport";
+import {initials, viewerName} from "./session-status";
 import {sessionPath, type AssignedSession} from "./sessions";
-import LibraryFooter from "./LibraryFooter";
+import ui from "./Sweatbox.module.css";
 import styles from "./MenteeHome.module.css";
 
 const modeLabel = (station?: string) => /:approach$/.test(station ?? "") ? "Approach" : /:center$/.test(station ?? "") ? "Center" : "Ground & Tower";
@@ -20,10 +24,10 @@ const ago = (time: number, now: number) => {
   return hours < 24 ? `${hours} h ago` : new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short"}).format(time);
 };
 function status(session: AssignedSession) {
-  if (session.youConnected) return {label: "Open on another page", tone: styles.statusMuted};
-  if (session.paused) return {label: "Paused by your mentor", tone: styles.statusMuted};
-  if (session.trainerConnected) return {label: `${session.trainerName ?? "Your mentor"} is in the session`, tone: styles.statusLive};
-  return {label: "Waiting for your mentor", tone: styles.statusMuted};
+  if (session.youConnected) return {label: "Open on another page", tone: ui.idle};
+  if (session.paused) return {label: "Paused by your Mentor", tone: ui.idle};
+  if (session.trainerConnected) return {label: `${session.trainerName ?? "Your Mentor"} is in the session`, tone: ui.live};
+  return {label: "Waiting for your Mentor", tone: ui.idle};
 }
 
 /** True only in iOS/iPadOS Safari tabs, where Add to Home Screen is the reliable full-screen route. */
@@ -36,9 +40,10 @@ function useHomeScreenTip() {
 }
 
 export default function MenteeHome() {
-  return <LearningFrame product="Sweatbox"><SessionAccess embedded allowMentee role="mentee" returnTo="/sweatbox/mentee">{() => <Assigned/>}</SessionAccess></LearningFrame>;
+  const name = viewerName(usePortalAuth());
+  return <LearningFrame product="Sweatbox"><SessionAccess embedded allowMentee role="mentee" returnTo="/sweatbox/mentee">{() => <Assigned name={name}/>}</SessionAccess></LearningFrame>;
 }
-function Assigned() {
+function Assigned({name}: {name: string}) {
   const [sessions, setSessions] = useState<AssignedSession[] | null>(null), [error, setError] = useState(""), [now, setNow] = useState(() => Date.now());
   const tip = useHomeScreenTip(), generation = useRef(0);
   useEffect(() => {
@@ -54,35 +59,51 @@ function Assigned() {
     void load();
     return () => {stopped = true; clearTimeout(timer); controller?.abort();};
   }, []);
-  return <div className={styles.page}>
-    <main className={styles.content}>
-      <div className={styles.heading}><h1>Your sweatbox</h1><p>Sessions your mentor has assigned to you.</p></div>
-      {error ? <p role="alert" className={styles.error}>Could not refresh your sessions: {error}</p> : null}
-      <section aria-label="Assigned sessions" className={styles.assigned} aria-busy={sessions === null}>
-        {sessions === null ? <p role="status" className={styles.muted}>Loading your sessions…</p> : !sessions.length ? <div className={styles.empty}><h2>No sessions assigned yet</h2><p>When your mentor assigns you a session it appears here automatically. You can also join with a code or link below.</p></div> :
-          sessions.map((session, index) => {
-            const state = status(session);
-            return <article key={session.id} className={`${styles.card} ${index === 0 && session.trainerConnected ? styles.cardActive : ""}`}>
-              <div className={styles.cardText}>
-                <div className={styles.cardTitle}><h2>{session.title}</h2><span className={`${styles.status} ${state.tone}`}>{state.label}</span></div>
-                <p>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · Mentor ${session.trainerName}` : ""} · Assigned {ago(session.assignedAt, now)}</p>
-              </div>
-              <Link className={session.trainerConnected ? styles.primary : styles.secondary} href={sessionPath("mentee", session.id)}>Enter session<ArrowRight size={18} aria-hidden="true"/><span className={styles.srOnly}> {session.title}</span></Link>
-            </article>;
-          })}
-      </section>
-      <div className={styles.lower}>
-        <section aria-labelledby="join-heading" className={styles.panel}>
-          <h2 id="join-heading">Have a code or link?</h2>
-          <p>Paste the link your mentor sent, or type the session code.</p>
-          <SessionEntryForm/>
-        </section>
-        {tip ? <section aria-labelledby="tip-heading" className={styles.tip}>
-          <h2 id="tip-heading"><DeviceMobile size={20} aria-hidden="true"/>On iPhone or iPad?</h2>
-          <p>For a proper full screen, tap <strong>Share</strong> in Safari, then <strong>Add to Home Screen</strong>. Open Sweatbox from that icon from now on. You will sign in once more inside it.</p>
-        </section> : null}
+  // The session your Mentor is already in comes first; otherwise the newest assignment.
+  const next = sessions?.find(s => s.trainerConnected && !s.youConnected) ?? sessions?.[0];
+  const others = sessions?.filter(s => s !== next) ?? [];
+  const lead = sessions === null ? "Checking for sessions…" : !next ? "Nothing is assigned to you right now." : next.trainerConnected ? "Your Mentor is in the session and ready when you are." : "Your next session is ready to open.";
+  return <div className={ui.page}>
+    <main className={`${ui.content} ${ui.narrow}`}>
+      <div className={ui.heading}><div><h1>{name ? `Hi ${name}` : "Your sweatbox"}</h1><p>{lead}</p></div></div>
+      {error ? <p role="alert" className={ui.error}>Could not refresh your sessions: {error}</p> : null}
+      <div className={ui.cols}>
+        <div className={ui.stack} aria-busy={sessions === null}>
+          {sessions === null ? <p role="status" className={ui.status}>Loading your sessions…</p> : next ? <section aria-labelledby="next-heading" className={`${ui.card} ${styles.next}`}>
+            <p><span className={`${ui.pill} ${status(next).tone}`}><span className={ui.dot}/>{status(next).label}</span></p>
+            <div><h2 id="next-heading">{next.title}</h2><p className={ui.meta}>{next.airport} · {modeLabel(next.trainingStation)} · Assigned {ago(next.assignedAt, now)}</p></div>
+            <div className={styles.nextFoot}>
+              <div className={ui.person}><span className={ui.av} aria-hidden="true">{initials(next.trainerName ?? "Mentor")}</span><span><small>Your Mentor</small><strong>{next.trainerName ?? "Your Mentor"}</strong></span></div>
+              <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter session<ArrowRight size={20} aria-hidden="true"/><span className={ui.srOnly}> {next.title}</span></Link>
+            </div>
+          </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here automatically. You can also join with a code or link.</p></div>}
+          {others.length ? <section aria-labelledby="more-heading">
+            <h2 id="more-heading" className={ui.sectionTitle}>Also assigned to you</h2>
+            <div className={ui.panel}>{others.map(session => <div key={session.id} className={styles.other}>
+              <div><strong>{session.title}</strong><small>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · Mentor ${session.trainerName}` : ""} · Assigned {ago(session.assignedAt, now)}</small></div>
+              <span className={`${ui.pill} ${status(session).tone}`}><span className={ui.dot}/>{status(session).label}</span>
+              <Link className={ui.btn} href={sessionPath("mentee", session.id)}>Open<span className={ui.srOnly}> {session.title}</span></Link>
+            </div>)}</div>
+          </section> : null}
+        </div>
+        <aside className={ui.aside} aria-label="More">
+          <section aria-labelledby="join-heading" className={ui.box}>
+            <h2 id="join-heading">Got a code or link?</h2>
+            <p>Paste what your Mentor sent you, or type the session code.</p>
+            <SessionEntryForm/>
+          </section>
+          <Link href="/sweatbox/mentee/replays" className={`${ui.box} ${styles.replaysLink}`}>
+            <ClockCounterClockwise size={24} aria-hidden="true"/>
+            <span><strong>Your replays</strong><small>Watch past sessions and read your Mentor’s feedback.</small></span>
+            <ArrowRight size={18} aria-hidden="true"/>
+          </Link>
+          {tip ? <section aria-labelledby="tip-heading" className={ui.inset}>
+            <h2 id="tip-heading"><DeviceMobile size={20} aria-hidden="true"/>On iPhone or iPad?</h2>
+            <p>For a proper full screen, tap <strong>Share</strong> in Safari, then <strong>Add to Home Screen</strong>. Open Sweatbox from that icon from now on. You will sign in once more inside it.</p>
+          </section> : null}
+        </aside>
       </div>
-      <LibraryFooter/>
     </main>
+    <footer className={ui.footer}><TrainerNotice/></footer>
   </div>;
 }

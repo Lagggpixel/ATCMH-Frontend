@@ -6,6 +6,8 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {engineFor} from "./engine";
 import {IF_COLORS, IF_MAP_COLORS, pilotMessageColor} from "./if-colors";
 import {EXERCISE_WEATHER, type Exercise, type Frequency, type Message} from "./model";
+import {AIRCRAFT_CATALOG} from "./aircraft-catalog";
+import {aircraftSymbol} from "./aircraft-symbol";
 
 test("pilot colors stay consistent across renders and within IF's pastel range", () => {
   const colors = new Set<string>();
@@ -21,6 +23,7 @@ test("pilot colors stay consistent across renders and within IF's pastel range",
 });
 
 const require = createRequire(import.meta.url);
+
 function withComponents(check: (components: {Scope: typeof import("./Scope").default; MessageLog: typeof import("./MessagePanel").MessageLog; GroundQuickActions: typeof import("./GroundQuickActions").default}) => void) {
   const original = require.extensions[".css"];
   require.extensions[".css"] = module => {module.exports = {aircraftTag: "aircraftTag", tagColorDot: "tagColorDot"};};
@@ -63,3 +66,10 @@ test("ground runway choices use current wind, including calm winds and tailwinds
   assert.deepEqual(colors(5), {"06": IF_COLORS.cleared, "24": IF_COLORS.cleared});
   assert.deepEqual(colors(10), {"06": IF_COLORS.warning, "24": IF_COLORS.alert});
 }));
+
+test("all fleet identifiers, full names and aliases select the IF icon category", () => {
+  assert.ok(AIRCRAFT_CATALOG.length >= 40);
+  assert.equal(new Set(AIRCRAFT_CATALOG.map(a => a.id)).size, AIRCRAFT_CATALOG.length);
+  for (const entry of AIRCRAFT_CATALOG) for (const name of [entry.id, entry.name, ...(entry.aliases ?? [])]) assert.equal(aircraftSymbol(name), entry.symbol, name);
+  assert.equal(aircraftSymbol("BCS3"), "jet"); assert.equal(aircraftSymbol("C30J"), "military"); assert.equal(aircraftSymbol("CL35"), "regional");
+});

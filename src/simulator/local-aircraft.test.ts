@@ -94,8 +94,8 @@ test("scenario gates survive normalization; event and aircraft limits are respec
   const saved = scenarioSchema.parse(addLocalScenarioAircraft(blankScenario(), a, gate, 30));
   assert.equal(saved.aircraft[0].gateId, gate);
   assert.deepEqual(normalizeScenario(saved).aircraft[0].seed.position, a.position);
-  const full = {...blankScenario(), aircraft: Array.from({length: 50}, () => saved.aircraft[0])};
-  assert.throws(() => addLocalScenarioAircraft(full, a, gate, 0), /50/);
+  const full = {...blankScenario(), aircraft: Array.from({length: 100}, () => saved.aircraft[0])};
+  assert.throws(() => addLocalScenarioAircraft(full, a, gate, 0), /100/);
   const events = Array.from({length: 200}, () => saved.events[0]);
   assert.throws(() => addLocalScenarioAircraft({...blankScenario(), events}, a, gate, 30), /200/);
 });

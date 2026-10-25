@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
-import {catalogFor, type MenuEntry} from "./catalog";
-import {engineFor} from "./engine";
-const menuContent = (entries: MenuEntry[]): unknown[] => entries.map(({id: _id, ...entry}) => ({...entry, ...(entry.children ? {children: menuContent(entry.children)} : {})}));
+import {catalogFor, type MenuEntry, positionReportText} from "./catalog";
+import {engineFor, applyEnvelope, advance} from "./engine";
 import {getAirport} from "./airports";
+import {type Action, type Exercise, type Aircraft, type Instruction, pendingCommands, type Message} from "./model";
+import {exerciseSchema, instructionSchema} from "./protocol";
 import {ALTITUDES, altitudeFeet} from "./radar";
 import {KNOT_SPEEDS_HIGH, MACH_SPEEDS} from "./radar-speed";
-import {exerciseSchema, instructionSchema} from "./protocol";
-import {pendingCommands, type Instruction, type Message} from "./model";
+
+const menuContent = (entries: MenuEntry[]): unknown[] => entries.map(({id: _id, ...entry}) => ({...entry, ...(entry.children ? {children: menuContent(entry.children)} : {})}));
 
 const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
   const entry = entries.find(e => (e.label === labels[0] || /^\d{4,5}$/.test(labels[0]) && e.label === `${Number(labels[0]).toLocaleString("en-US")}ft`)); assert.ok(entry, labels.join(" / "));
   return labels.length === 1 ? entry : find(entry.children ?? [], ...labels.slice(1));
 };
+
 test("reference clearances have distinct pilot wording, rather than controller echoes", () => {
   const e = engineFor(), catalog = catalogFor(), a = {...e.newAircraft("reference", true), callsign: "Speedbird 1"};
   const cases: [Instruction, string, string][] = [
@@ -38,6 +40,7 @@ test("reference clearances have distinct pilot wording, rather than controller e
     assert.equal(e.readbackText(a.callsign, controller, instruction), pilot);
   }
 });
+
 test("Ground and Tower paths follow Send, immediate and Confirm terminals", () => {
   const e = engineFor(), a = e.newAircraft("ground", false), catalog = catalogFor();
   const ground = catalog.messageMenu("ground", a);
@@ -54,6 +57,7 @@ test("Ground and Tower paths follow Send, immediate and Confirm terminals", () =
   assert.equal(find(tower, "Exit runway", "Right", "Hold Short", "Runway 06", "Send").instruction?.type, "exit-runway");
   assert.ok(!find(tower, "Request Speed").children?.some(e => e.label === "Maintain Speed"));
 });
+
 test("radar choices match the reference bounds and assigned-approach clearance branches", () => {
   const e = engineFor({trainingStation: "EGPH:approach"}), state = e.initialExercise(), a = state.aircraft[0], catalog = catalogFor(getAirport(state), state.radarEnvironment);
   assert.ok(ALTITUDES.some(a => altitudeFeet(a) === 17000)); assert.ok(!ALTITUDES.some(a => altitudeFeet(a) === 17500));
@@ -69,12 +73,14 @@ test("radar choices match the reference bounds and assigned-approach clearance b
   assert.equal(find(menu, "Request Speed", "Maintain Speed", "> 250 kts", "400kts", "Or Below").instruction?.type, "radar-speed");
   assert.equal(find(menu, "Missed Approach Instructions", "Altitude and Heading", "< 10,000ft", "4000", "360").instruction?.type, "missed-approach");
 });
+
 test("request-only radar replies appear for the appropriate pilot request", () => {
   const e = engineFor({trainingStation: "EGPH:center"}), state = e.initialExercise(), a = state.aircraft[0], c = catalogFor(getAirport(state), state.radarEnvironment);
   const request = (text: string): Message => ({id: "request", aircraftId: a.id, sender: "pilot", frequency: "center", time: 0, text});
   assert.ok(!c.requestMessageMenu("center", a).some(e => e.label === "Radar Contact"));
   for (const [text, label] of [["with you at 3000", "Radar Contact"], ["requesting flight following", "Respond to Flight Following Request"], ["requesting radar vectors", "Respond to Radar Vectors Request"], ["requesting diversion", "Respond to Diversion Request"], ["minimum fuel", "Respond to Emergency"]]) assert.ok(c.requestMessageMenu("center", a, request(text)).some(e => e.label === label), label);
 });
+
 test("STAR descent menu follows route availability in Approach and Center", () => {
   for (const frequency of ["approach", "center"] as const) {
     const e = engineFor({trainingStation: `EGPH:${frequency}`}), state = e.initialExercise(), a = state.aircraft[0];
@@ -101,6 +107,7 @@ test("STAR descent menu follows route availability in Approach and Center", () =
     assert.ok(option(), "STAR visibility does not depend on route without altitude constraints");
   }
 });
+
 test("new menu instructions survive protocol serialization", () => {
   for (const frequency of ["ground", "tower", "approach", "center"] as const) {
     const e = engineFor(frequency === "ground" || frequency === "tower" ? {} : {trainingStation: `EGPH:${frequency}`}), state = e.initialExercise();
@@ -111,6 +118,7 @@ test("new menu instructions survive protocol serialization", () => {
     }
   }
 });
+
 test("holds persist, predictions do not mutate history, and a vector exits the hold", () => {
   const e = engineFor({trainingStation: "EGPH:approach"}); let state = e.initialExercise(); state.running = true;
   const a = state.aircraft[0]; a.altitude = 4000;
@@ -122,6 +130,7 @@ test("holds persist, predictions do not mutate history, and a vector exits the h
   state = e.applyEnvelope(state, {id: randomUUID(), time: 1, action: {kind: "maneuver", aircraftId: a.id, command: {type: "vector", heading: 180}}}).state;
   assert.equal(state.aircraft[0].atcManeuver, undefined);
 });
+
 test("bookmarks and no-readback commands do not manufacture pilot acknowledgements", () => {
   const e = engineFor(); let state = e.initialExercise(); const a = state.aircraft[0];
   state = e.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "tower", command: {type: "atc", action: "bookmark"}, text: ""}}).state;
@@ -155,7 +164,6 @@ test("ILS flight-level readbacks and level missed-approach replies retain the re
   assert.equal(e.readbackText("Speedbird 1", "Speedbird 1, execute missed approach, descend and maintain 4000", {type: "missed-approach", altitude: {unit: "feet", value: 4000}, fromAltitude: 4000}), "Executing missed approach, maintain 4000, Speedbird 1");
 });
 
-
 test("missed-approach calls keep the ordinary menu without suggestions", () => {
   for (const frequency of ["approach", "center"] as const) {
     const engine = engineFor({trainingStation: `EGPH:${frequency}`}), state = engine.initialExercise();
@@ -170,7 +178,6 @@ test("missed-approach calls keep the ordinary menu without suggestions", () => {
     }
   }
 });
-
 
 test("Request Approach suggests Expect Approach with a direct Radar Vectors Send option", () => {
   for (const frequency of ["approach", "center"] as const) {
@@ -206,4 +213,39 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
     assert.ok(instructionSchema.safeParse(fallback).success);
     assert.doesNotMatch(catalog.instructionText(aircraft, fallback), /undefined/);
   }
+});
+
+const act=(state:Exercise,action:Action)=>{const r=applyEnvelope(state,{id:crypto.randomUUID(),time:0,action});assert.equal(r.error,undefined);return r.state;};
+
+const fixture=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+test("fuel requests require actual airborne fuel state, flight time and confirmation",()=>{
+ let state=fixture();state.autoReadback=false;const a=state.aircraft[0];a.fuel={state:"minimum",enduranceMinutes:23};const c=catalogFor();
+ assert.ok(!c.pilotRequests(a).some(r=>r.id==="minimum-fuel"));a.flightSeconds=60;assert.ok(c.pilotRequests(a).some(r=>r.id==="minimum-fuel"));
+ const action:Action={kind:"pilot",aircraftId:a.id,text:"",request:{id:"minimum-fuel",runway:"24"}};
+ assert.match(applyEnvelope(state,{id:"unconfirmed",time:0,action}).error!,/Confirm/);
+ state=act(state,{...action,request:{...action.request!,confirmed:true}});assert.match(state.messages.at(-1)!.text,/Minimum Fuel, 23 minutes remaining\./);assert.equal(state.aircraft[0].fuel?.declared,"minimum");
+ state.running=true;state=advance(state,5);assert.ok(state.aircraft[0].fuel!.enduranceMinutes<23);assert.equal(a.fuel.enduranceMinutes,23);
+});
+
+const actForTrainerImprovements = (state: Exercise, action: Action) => {
+  const result = applyEnvelope(state, {id: randomUUID(), time: 1000, action});
+  assert.equal(result.error, undefined); return result.state;
+};
+
+const kdal = getAirport({airport: "KDAL"}), engine = engineFor({airport: "KDAL"});
+
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+
+test("position reports use the real leg/hand/runway/outcome and never assign a maneuver", () => {
+  for (const leg of ["final", "downwind", "base", "crosswind", "upwind"] as const) for (const hand of ["left", "right"] as const) for (const landing of ["full-stop", "touch-and-go"] as const) {
+    const a = {...engine.newAircraft("a", true), callsign: "N714KG", runway: "31R", leg, hand, landing};
+    const state = stateOf([a]), next = actForTrainerImprovements(state, {kind: "report-position", aircraftId: a.id});
+    assert.equal(next.messages.at(-1)!.text, `N714KG is on ${["final", "upwind"].includes(leg) ? leg : `${hand} ${leg}`} 31R, ${landing === "full-stop" ? "full stop" : "touch and go"}`);
+    assert.deepEqual(next.aircraft, state.aircraft.map(a => ({...a, pending: a.pending + 1})));
+    assert.equal(next.messages.at(-1)!.request, undefined);
+  }
+  assert.match(positionReportText({...engine.newAircraft("a", true), mode: "heading"}, kdal), /nautical miles/);
+  const ground = engine.newAircraft("ground", false);
+  assert.match(applyEnvelope(stateOf([ground]), {id: "invalid", time: 0, action: {kind: "report-position", aircraftId: ground.id}}).error!, /airborne traffic on Tower/);
 });

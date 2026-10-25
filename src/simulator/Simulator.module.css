@@ -850,8 +850,8 @@
 .mentorContext strong {padding:8px}.mentorContext button {text-align:left;min-height:40px}
 .conflictTag {display:block!important;color:#ff4545!important;font-size:11px;font-weight:800;white-space:nowrap}
 .conflictTarget {outline:2px solid #ff4545;border-radius:50%}
-.conflictPrompt {position:absolute;z-index:60;left:50%;top:90px;transform:translateX(-50%);max-width:90%;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#222c33;color:white;border:1px solid #ff4545;border-radius:6px}
-.conflictList {position:absolute;z-index:25;right:12px;top:70px;max-width:min(450px,calc(100% - 36px));font-size:12px;color:#ff6b6b;background:#10151be6;border-radius:5px;padding:5px 9px;pointer-events:auto}.conflictList:empty{display:none}.conflictList button{padding:3px 6px;margin-left:8px;font-size:11px}
+/* The training conflict overlay takes the scope's top left, so map layer errors move to the top right. */
+.scope:has([data-conflict-overlay]) .mapLayerStatus {left:auto;right:8px;max-width:calc(100% - 340px)}
 .crashAlert {position:absolute;z-index:100;top:22%;left:50%;transform:translateX(-50%);width:min(780px,90%);box-sizing:border-box;display:grid;justify-items:center;gap:16px;padding:28px;background:#960b10f5;color:white;border:6px solid #ff4b4b;box-shadow:0 0 0 12px #ff292940,0 0 80px #f004;text-align:center;animation:crashImpact .65s ease-out both;pointer-events:auto}
 .crashAlert strong {font-size:clamp(34px,6vw,84px);line-height:1.05;font-weight:900;text-transform:uppercase}.crashAlert span{font-size:20px}.crashAlert button{padding:10px 24px;background:#fff;color:#700;border:0;font-weight:bold}
 @keyframes crashImpact {0%{transform:translateX(-50%) scale(1.15);background:#ff3434}35%{transform:translateX(-50%) scale(.98)}100%{transform:translateX(-50%) scale(1)}}
@@ -868,7 +868,7 @@
   .staffSimulator {transition:grid-template-columns .22s ease}
   .staffSimulator .resetBackdrop {animation:staffFade .16s ease-out}
   .staffSimulator .resetDialog {animation:staffPop .18s ease-out}
-  .staffSimulator :is(.conflictPrompt,.conflictList>div,.error,.connectionBanner) {animation:staffFade .2s ease-out}
+  .staffSimulator :is(.error,.connectionBanner) {animation:staffFade .2s ease-out}
 }
 @keyframes staffFade {from {opacity:0}}
 @keyframes staffPop {from {opacity:0;transform:translateY(8px) scale(.98)}}

@@ -1,59 +1,6 @@
-.content{padding-top:40px}
-.library .content{padding-top:40px}
-.heading{margin-bottom:30px}
-.heading h1{margin:0 0 12px;font-size:clamp(32px,3vw,40px);line-height:1.2;letter-spacing:-.025em}
-.toolbar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.search{display:flex;align-items:center;gap:10px;flex:1;max-width:560px;min-width:260px;border:1px solid var(--dashboard-border);border-radius:7px;padding-left:14px;background:var(--dashboard-surface)}
-.search>svg{flex-shrink:0;color:var(--dashboard-muted)}
-.library .search input{border:0;background:transparent;flex:1;width:0;padding:12px 0;font-size:14px;min-height:46px}
-.library .search button{border:0;border-left:1px solid var(--dashboard-border);border-radius:0 6px 6px 0;background:transparent;min-height:46px}
-.library .toolbar select{width:auto;min-width:150px;min-height:48px;font-size:14px}
-.library .mine{min-height:48px;white-space:nowrap}
-.library .mine[aria-pressed="true"]{color:var(--dashboard-link);border-color:var(--dashboard-link);background:var(--dashboard-selected)}
-.library .clear{border:0;background:transparent;color:var(--dashboard-link)}
-.context{display:flex;align-items:center;justify-content:flex-end;gap:16px;color:var(--dashboard-muted);font-size:13px;margin:18px 0 12px}
-.table{width:100%;border-collapse:collapse;text-align:left;table-layout:fixed;font-size:14px}
-.table th{font-weight:600}
-.table thead th{padding:16px 14px;color:var(--dashboard-muted);font-size:13px;border-bottom:1px solid var(--dashboard-border)}
-.table thead th:nth-child(1){width:23%}.table thead th:nth-child(2){width:21%}.table thead th:nth-child(3){width:18%}.table thead th:nth-child(4){width:9%}.table thead th:nth-child(5){width:15%}.table thead th:nth-child(6){width:14%}
-.dateGroup th{padding:12px 14px;font-size:13px;color:var(--dashboard-muted);background:var(--dashboard-surface);border-bottom:1px solid var(--dashboard-border)}
-.row td{padding:18px 14px;border-bottom:1px solid var(--dashboard-border);vertical-align:middle;overflow-wrap:anywhere}
-.row:hover,.row:focus-within{background:var(--dashboard-selected)}
-.session a{font-weight:700;line-height:1.5}.session a:hover{text-decoration:underline;text-underline-offset:3px}
-.table small{display:block;margin-top:5px;color:var(--dashboard-muted);font-size:12px;line-height:1.5}
-.people>div{display:grid;grid-template-columns:47px minmax(0,1fr);gap:8px;align-items:baseline;margin:3px 0}
-.people span{font-size:11px;color:var(--dashboard-muted)}.people p{margin:0;line-height:1.5}
-.recorded,.duration{font-variant-numeric:tabular-nums;line-height:1.6}.duration{white-space:nowrap}
-.badge{display:inline-block;border-radius:5px;padding:6px 9px;font-size:12px;line-height:1.4}
-.recording{background:var(--dashboard-selected);color:var(--dashboard-ink)}
-.partial{background:color-mix(in srgb,#b87908 20%,var(--dashboard-surface));color:var(--dashboard-ink)}
-.summary{background:var(--dashboard-surface);color:var(--dashboard-muted);border:1px solid var(--dashboard-border)}
-.library .action a{font-size:13px;padding:10px 12px;min-height:44px;border-radius:6px;white-space:normal;width:100%}
-.pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 0;font-size:13px;color:var(--dashboard-muted)}
-.pagination p{margin:0}.pagination>div{display:flex;align-items:center;gap:16px}
-.message{padding:56px 16px;text-align:center;border-block:1px solid var(--dashboard-border);color:var(--dashboard-muted)}.message h2{color:var(--dashboard-ink);font-size:20px}
-.mobileLabel{display:none}
-.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-@media(max-width:1100px){.table thead th,.row td{padding-inline:10px}.table thead th:nth-child(1){width:21%}.table thead th:nth-child(2){width:20%}.table thead th:nth-child(3){width:18%}.table thead th:nth-child(5){width:17%}.table thead th:nth-child(6){width:15%}}
-@container(max-width:850px){
- .table,.table tbody{display:block}.table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
- .dateGroup{display:block}.dateGroup th{display:block;padding:12px}
- .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:20px 12px;border-bottom:1px solid var(--dashboard-border)}
- .row td{display:block;padding:0;border:0;min-width:0}.session{grid-column:1/-1}.session a{font-size:17px}
- .row .people{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:16px}.people>div{display:block;margin:0}.people span{display:block;margin-bottom:4px;font-size:12px}
- .mobileLabel{display:block;color:var(--dashboard-muted);font-size:12px;margin-bottom:3px}
- .action{align-self:center}.kind{align-self:center}.library .action a{min-height:46px}
- .context{align-items:flex-start}.context span{text-align:right}.search{max-width:none}
-}
-@container(max-width:650px){
- .content{width:calc(100% - 32px);padding-top:28px}.heading{margin-bottom:24px}
- .toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.search{min-width:0;grid-column:1/-1}.library .search input{font-size:16px}.library .search button{padding-inline:12px}
- .toolbar:not(:has(.mine))>select{grid-column:1/-1}
- .dateFilter{grid-column:1/-1;order:3}.library .clear{grid-column:1/-1;order:4;justify-self:start}.library .toolbar select{width:100%}
- .library .toolbar select,.library .mine{flex:1;min-width:0}.library .clear{padding:6px 0;min-height:44px}
- .context{font-size:12px;gap:12px}.row{padding-inline:4px}
- .pagination{flex-wrap:wrap;gap:14px}.pagination>div{width:100%;justify-content:space-between}.pagination button{flex:1}
-}
-
-.dateFilter{display:grid;gap:4px;font-size:12px;color:var(--dashboard-muted)}
-@media(max-width:760px){.library .content{padding-top:28px}}
+/* Replay rows keep a fixed action column so Watch and View summary never shift the table. */
+div.row{grid-template-columns:minmax(0,2.4fr) minmax(0,1.6fr) minmax(0,1fr) 150px}
+.row>a:last-child{width:150px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+@media(max-width:900px){div.row{grid-template-columns:minmax(0,1fr) 150px}}
+@media(max-width:520px){div.row{grid-template-columns:minmax(0,1fr)}.row>a:last-child{width:100%}}

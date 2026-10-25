@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise, validateAssignment} from "./engine";
+import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise, validateAssignment, engineFor} from "./engine";
 import {buildGroundRoute, destinationAt, groundRouteError, groundRouteJoin, groundRouteKind, hitGroundRoute, planPointRoute, snapGroundControl} from "./ground-route";
 import {catalogFor} from "./catalog";
 import {exerciseSchema, groundRouteSchema, menteeActionAllowed} from "./protocol";
 import {prepareQuickCommand} from "./quick-commands";
 import {moveGround} from "./ground-movement";
-import type {Airport, Instruction} from "./model";
+import type {Airport, Instruction, Action, Aircraft, Exercise} from "./model";
+import {randomUUID} from "node:crypto";
 
 const square: Airport = {...AIRPORT, features: [
   {id: "a", kind: "taxiway", name: "A", points: [{x: 10, y: 10}, {x: 11, y: 10}]},
   {id: "b", kind: "taxiway", name: "B", points: [{x: 10, y: 10}, {x: 10, y: 11}, {x: 11, y: 11}, {x: 11, y: 10}]},
   {id: "island", kind: "taxiway", name: "C", points: [{x: 12, y: 12}, {x: 13, y: 12}]},
 ]};
+
 function departure() {
   const state = initialExercise(), a = state.aircraft[1]; state.running = true; state.autoReadback = true; a.holding = true;
   const {route, error} = buildGroundRoute(AIRPORT, "taxi", [a.position, AIRPORT.runway.ends.find(end => end.id === "24")!.point], {type: "runway", id: "24"});
@@ -106,6 +108,7 @@ test("reviewed route, names and Hold choices survive send, readback, assignment 
   assert.deepEqual(restored.aircraft[1].taxiPath, route.points);
   assert.deepEqual(restored.messages.find(m => m.id === "taxi")!.instruction, command);
 });
+
 test("a route without intermediate HOLD reaches the departure entry and automatically contacts Tower when ready", () => {
   const fixture = departure(), {a, route} = fixture; fixture.state.aircraft = [a];
   const command: Instruction = {type: "taxi", runway: "24", route};
@@ -186,4 +189,34 @@ test("push/pull has two short legs, stops at the change of direction, then moves
   const tooLong = buildGroundRoute(square, "pushback", [{x: 10, y: 10}, {x: 11, y: 10}]);
   assert.ok(tooLong.route, "invalid push length still exposes editable preview geometry");
   assert.match(groundRouteError(square, tooLong.route, "pushback")!, /300 metres/);
+});
+
+const act = (state: Exercise, action: Action) => {
+  const result = applyEnvelope(state, {id: randomUUID(), time: 1000, action});
+  assert.equal(result.error, undefined); return result.state;
+};
+
+const engine = engineFor({airport: "KDAL"});
+
+const point = (runway: string, along: number, lateral = 0) => {
+  const g = engine.runwayGeometry(runway);
+  return {x: g.threshold.x + along * g.vector.x - lateral * g.vector.y, y: g.threshold.y + along * g.vector.y + lateral * g.vector.x};
+};
+
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+
+const assign = (state: Exercise, instruction: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: instruction});
+
+const radioTick = (state: Exercise) => autoReadbacks(advance(state, 2), 2000, randomUUID);
+
+test("a completed hand-drawn intersection route needs no hold flag for Tower check-in or takeoff", () => {
+  const runway = "31L", position = point(runway, .15, .04);
+  const a = {...engine.newAircraft("a", false), runway, mode: "parked" as const, position, taxiPath: [position], taxiIndex: 1, holding: false};
+  const contact = assign(stateOf([a]), {type: "frequency", frequency: "tower"});
+  const ready = radioTick(contact); assert.equal(ready.messages.length, 1); assert.match(ready.messages[0].text, /ready for departure from runway 31L/);
+  const departure = assign(ready, {type: "takeoff", runway});
+  const g = engine.runwayGeometry(runway), entry = departure.aircraft[0].taxiPath.at(-2)!;
+  assert.ok(Math.abs((entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y - .15) < 1e-7);
+  const parking = {...a, intentions: {flight: "pattern" as const, taxi: "parking" as const, afterTransition: "continue" as const}};
+  assert.equal(radioTick(assign(stateOf([parking]), {type: "frequency", frequency: "tower"})).messages.length, 0);
 });

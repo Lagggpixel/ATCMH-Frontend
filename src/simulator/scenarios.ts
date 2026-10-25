@@ -7,12 +7,12 @@ import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
 import {buildTaxiGraph} from "./taxi-routing";
 import {AIRPORT_IDS, defaultAirport, getAirport, airportSelection, trainingStation, trainingMode, runwayReferenceError, type AirportSelection} from "./airports";
-import type {Aircraft, Airport, Exercise, Point} from "./model";
+import {MAX_AIRCRAFT, type Aircraft, type Airport, type Exercise, type Point} from "./model";
 const key = z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/);
 const seconds = z.number().finite().min(0).max(86400);
 const point = z.object({x: z.number().finite().min(-2000).max(2000), y: z.number().finite().min(-2000).max(2000)});
 
-export const seedSchema = aircraftSchema.omit({patternEntry: true, airportSighting: true, reportAirportInSight: true, id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, contactTowerAtHold: true, towerCheckInPending: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
+export const seedSchema = aircraftSchema.omit({patternEntry: true, airportSighting: true, reportAirportInSight: true, id: true, lastRunway: true, taxiIndex: true, holding: true, releasedHold: true, trail: true, pending: true, reminderAt: true, sequence: true, circuit: true, patternFinalDistance: true, pushback: true, selfGoAroundPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, takeoffOutcome: true, contactTowerAtHold: true, towerCheckInPending: true, arrivalExit: true, arrivalRequest: true, runwayExit: true, transitionAltitude: true, leavingCircuit: true, lineupWait: true})
   .refine(seed => seed.mode !== "pushback", "Start aircraft parked and schedule a pushback manoeuvre instead.");
 
 export const conditionSchema = z.discriminatedUnion("type", [
@@ -44,7 +44,7 @@ export const eventSchema = z.object({id: key, title: z.string().trim().min(1).ma
 export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
   weather: weatherSchema.optional(), radarEnvironment: radarEnvironmentSchema.optional(),
   title: z.string().trim().min(1).max(80), instructorNotes: z.string().max(6000),
-  aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(50), events: z.array(eventSchema).max(200),
+  aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(MAX_AIRCRAFT), events: z.array(eventSchema).max(200),
 }).superRefine((value, ctx) => {
   const keys = new Set(value.aircraft.map(a => a.key)), events = new Set(value.events.map(e => e.id));
   const error = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
 if (process.env.ROUTE_CASE_RUN !== "1") {
-  test.skip("route case is run by route.test.ts with module mocking enabled", () => {});
+  test.skip("route case is run by its route.test.ts wrapper with module mocking enabled", () => {});
 } else {
   test("start is a CSRF-protected POST and preserves the attempt cookie", async () => {
     const quizId = "123e4567-e89b-42d3-a456-426614174000";

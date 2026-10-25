@@ -13,6 +13,7 @@ import {requireLocalSession} from "./radar-moved";
 const idSchema = z.string().uuid();
 const seatSchema = z.object({role: z.enum(["staff", "mentee"]), token: z.string().uuid()});
 const assignSchema = z.object({mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().trim().min(1).max(128).optional()}).strict().nullable()}).strict();
+const endSchema = z.object({feedback: z.string().trim().max(6000).optional()}).strict();
 const LOOKUPS_PER_MINUTE = 20;
 const noStore = {"cache-control": "no-store"};
 export function sessionFailure(error: unknown) {
@@ -62,8 +63,11 @@ async function sessionOperation(request: Request, id: string, operation: string)
     idSchema.parse(id);
     if (operation === "end") {
       const actor = await authorize(request, true);
+      // An optional body carries feedback written while archiving.
+      const text = await request.text();
+      const value = text ? endSchema.parse(JSON.parse(text)) : {};
       await requireLocal(id);
-      await service.end(actor, id);
+      await service.end(actor, id, value.feedback || undefined);
       return Response.json({ended: true}, {headers: noStore});
     }
     if (operation === "stream") return await stream(request, id);

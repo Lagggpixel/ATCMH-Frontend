@@ -54,7 +54,7 @@ test("draft markers are hollow native rings and the committed HOLD is a separate
   const {default: Overlay, GroundHoldLabels} = require("./GroundRouteOverlay") as typeof import("./GroundRouteOverlay");
   const project = (point: {x: number; y: number}) => ({x: point.x * 100, y: point.y * 100});
   const html = renderToStaticMarkup(createElement(Overlay, {airport: AIRPORT, route, project, scale: 100, onMove() {}}));
-  assert.match(html, /stroke="#ff00ff" stroke-width="4"/);
+  assert.match(html, /stroke="#ff00ff" stroke-width="2"/);
   assert.match(html, /r="3" fill="none" stroke="#fff" stroke-width="2"/);
   assert.ok(html.includes('class="groundRouteMapLabel"') && html.includes("Hold 06-24 Hold"));
   const committed = renderToStaticMarkup(createElement(GroundHoldLabels, {points: route.points, project}));
@@ -83,4 +83,41 @@ test("staff see the aircraft's automatic runway exit without a historic taxi cle
   assert.ok(staff.includes(`aria-label="${arrival.callsign} taxi route"`));
   const tower = renderToStaticMarkup(createElement(Scope, {...props, frequency: "tower"}));
   assert.ok(!tower.includes(`aria-label="${arrival.callsign} taxi route"`));
+}));
+
+test("the mentee's issued route stays complete after readback, movement, holds and completion", () => withCss(() => {
+  const {aircraft, route} = fixture();
+  const Scope = require("./Scope").default as typeof import("./Scope").default;
+  const props = {airport: AIRPORT, running: false, frequency: "ground" as const, selected: aircraft.id, onSelect() {}};
+  const line = (a: typeof aircraft, extra = {}) => {
+    const html = renderToStaticMarkup(createElement(Scope, {...props, aircraft: [a], ...extra}));
+    const overlay = html.match(/aria-label="[^"]+ taxi route">(.*?)<\/svg>/)![1];
+    assert.match(overlay, /stroke="#90ee90" stroke-width="2"/);
+    assert.match(overlay, /stroke="#000" stroke-width="4"/);
+    return overlay.match(/points="([^"]+)"/)![1];
+  };
+  const sent = line(aircraft, {sentGroundRoute: route});
+  const assigned = {...aircraft, taxiPath: structuredClone(route.points), taxiIndex: 1, mode: "taxi" as const};
+  assert.equal(line(assigned, {groundRouteCleared: true}), sent);
+  const index = Math.floor(route.points.length / 2);
+  const moving = {...assigned, position: {...route.points[index]}, taxiIndex: index + 1};
+  assert.equal(line(moving, {groundRouteCleared: true}), sent);
+  assert.equal(line({...moving, holding: true}, {groundRouteCleared: true}), sent);
+  assert.equal(line({...moving, mode: "parked", position: {...route.points.at(-1)!}, taxiIndex: route.points.length}, {groundRouteCleared: true}), sent);
+  assert.notEqual(line(moving, {frequency: "all"}), sent, "staff retain their live remaining route");
+  const rerouted = {...moving, taxiPath: [moving.position, {...moving.position, x: moving.position.x + .1}], taxiIndex: 1};
+  assert.notEqual(line(rerouted, {groundRouteCleared: true}), sent, "a replacement assignment updates the whole line");
+}));
+
+test("the mentee's pushback display keeps both push and pull legs without following the aircraft", () => withCss(() => {
+  const {aircraft} = fixture();
+  const Scope = require("./Scope").default as typeof import("./Scope").default;
+  const path = [{x: 0, y: 0}, {x: .02, y: 0}, {x: .02, y: .02}];
+  const props = {airport: AIRPORT, running: false, frequency: "ground" as const, selected: aircraft.id, groundRouteCleared: true, onSelect() {}};
+  const line = (index: number, position: {x: number; y: number}) => {
+    const a = {...aircraft, mode: "pushback" as const, position, pushback: {path, index, pullFrom: 2}};
+    const html = renderToStaticMarkup(createElement(Scope, {...props, aircraft: [a]}));
+    return html.match(/aria-label="[^"]+ taxi route"><polyline points="([^"]+)"/)![1];
+  };
+  assert.equal(line(2, {x: .02, y: .01}), line(1, {x: .01, y: 0}));
 }));

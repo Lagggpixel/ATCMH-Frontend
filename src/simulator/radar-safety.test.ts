@@ -15,9 +15,11 @@ function fixture(mode: "approach" | "center" = "approach") {
   state.aircraft = [state.aircraft[0]]; state.running = true; state.autoReadback = true;
   state.aircraft[0].callsign = "Speedbird 1"; delete state.aircraft[0].radar!.report; return state;
 }
+
 function act(state: Exercise, action: Action) {
   const result = applyEnvelope(state, {id: randomUUID(), time: 0, action}); assert.equal(result.error, undefined); return result.state;
 }
+
 function clear(state: Exercise, type: "ils" | "gps" | "visual" = "gps") {
   const p = state.radarEnvironment!.approaches.find(p => p.type === type)!;
   if (type === "gps") {
@@ -28,14 +30,17 @@ function clear(state: Exercise, type: "ils" | "gps" | "visual" = "gps") {
   state = act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: {type: "expect-approach", approachId: p.id}});
   return act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: {type: "vector", approachId: p.id}});
 }
+
 function transmit(state: Exercise, command: Instruction) {
   const a = state.aircraft[0]; state = act(state, {kind: "command", aircraftId: a.id, frequency: a.radar!.station, command, text: ""});
   return autoReadbacks(advance(state, 1.5), 1500, randomUUID);
 }
+
 test("altitude readbacks capitalize climb/descend and retain the final callsign", () => {
   assert.equal(readbackText("Speedbird 1", "Speedbird 1, climb and maintain 5000", {type: "vector", altitude: {unit: "feet", value: 5000}}), "Climb and maintain 5000, Speedbird 1");
   assert.equal(readbackText("Speedbird 1", "Speedbird 1, descend and maintain 3000", {type: "vector", altitude: {unit: "feet", value: 3000}}), "Descend and maintain 3000, Speedbird 1");
 });
+
 for (const mode of ["approach", "center"] as const) for (const type of ["ils", "gps", "visual"] as const) test(`${mode} ${type}: cleared aircraft read back and accept revised instructions`, () => {
   for (const command of [
     {type: "vector", heading: 230}, {type: "vector", altitude: {unit: "feet", value: 6000}},
@@ -95,6 +100,7 @@ test("cleared aircraft still refuses speeds outside aircraft limits", () => {
     assert.equal(state.aircraft[0].targetSpeed, before.targetSpeed);
   }
 });
+
 test("automatic speed refusals use aircraft type and restriction semantics, including Mach", () => {
   const a = fixture().aircraft[0];
   const state = transmit(fixture(), {type: "radar-speed", mode: "maintain", unit: "knots", value: 100, relation: "exact"});
@@ -107,6 +113,7 @@ test("automatic speed refusals use aircraft type and restriction semantics, incl
   a.type = "C172"; assert.equal(automaticRadarUnable(a, {type: "speed", value: 100}), null); assert.ok(automaticRadarUnable(a, {type: "speed", value: 250}));
   assert.deepEqual(aircraftSpeedLimits("A320"), {min: 135, max: 340, mach: .82}); assert.equal(aircraftSpeedLimits("unknown"), undefined);
 });
+
 test("missed approach is Unable without clearance; automatic off preserves manual control", () => {
   const command: Instruction = {type: "missed-approach", altitude: {unit: "feet", value: 6000}};
   const state = transmit(fixture(), command); assert.match(state.messages.at(-1)!.text, /^Unable, Speedbird 1$/); assert.equal(state.aircraft[0].radar!.navigation, "heading");
@@ -114,6 +121,7 @@ test("missed approach is Unable without clearance; automatic off preserves manua
   manual = act(manual, {kind: "pilot", aircraftId: manual.aircraft[0].id, replyTo: manual.messages[0].id, text: "Readback", assign: true}); assert.equal(manual.aircraft[0].targetSpeed, 100);
   const a = clear(fixture()).aircraft[0]; assert.equal(automaticRadarUnable(a, command), null);
 });
+
 test("predictive proximity uses IF strict limits and includes cleared approaches", () => {
   const state = fixture(), a = state.aircraft[0], b = {...structuredClone(a), id: "b", callsign: "Speedbird 2"}; a.position = {x: 0, y: 0}; a.altitude = 5000; b.position = {x: 1, y: 0}; b.altitude = 5500;
   const alerts = () => radarSeparationAlerts([a, b], state.radarEnvironment);
@@ -126,6 +134,7 @@ test("predictive proximity uses IF strict limits and includes cleared approaches
   b.radar!.cleared = undefined; b.radar!.guidance = "vectors"; b.radar!.transferred = true; b.frequency = "tower"; assert.equal(alerts().size, 2);
   b.active = false; a.radar!.cleared = undefined; assert.equal(alerts().size, 0);
 });
+
 test("terrain alerts use raw AGL below 1000ft and the same approach exemptions", () => {
   const state = fixture(), a = state.aircraft[0]; a.altitude = 5000;
   assert.equal(terrainClearance(a, 4000, state.radarEnvironment), undefined); assert.equal(terrainClearance(a, 4000.1, state.radarEnvironment), 999.9000000000001);
@@ -138,6 +147,7 @@ test("terrain alerts use raw AGL below 1000ft and the same approach exemptions",
   }
   a.radar!.cleared = undefined; a.radar!.guidance = "vectors"; a.radar!.transferred = true; a.frequency = "tower"; assert.equal(terrainClearance(a, 4500, state.radarEnvironment), undefined);
 });
+
 for (const type of ["gps", "visual", "ils"] as const) test(`${type}: excessive height above glide path triggers a single automatic missed approach at the correct stage`, () => {
   let state = clear(fixture(), type); const a = state.aircraft[0], p = state.radarEnvironment!.approaches.find(p => p.id === a.radar!.cleared)!, airport = getAirport(state), g = approachGeometry(airport, p.runway);
   const nm = type === "gps" ? 5 : 8;
@@ -164,4 +174,12 @@ for (const mode of ["approach", "center"] as const) for (const excess of [1, 250
   assert.equal(a.radar!.clearanceAltitudeChecked, true); assert.equal(a.radar!.captured, true);
   assert.ok(a.altitude < initialAltitude, "visual traffic must descend and recover the path");
   assert.notEqual(a.radar!.report, "missed");
+});
+
+const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+test("proximity predicts converging airborne traffic and does not exempt approaches",()=>{
+ const a=fixtureForInfiniteFlightParity().aircraft[0],b=structuredClone(a);a.position={x:-3,y:0};b.position={x:3,y:0};a.heading=90;b.heading=270;a.speed=b.speed=360;a.altitude=b.altitude=5000;b.id="b";
+ assert.equal(radarSeparationAlerts([a,b]).get(a.id)?.[0].level,"critical");a.radar!.navigation=b.radar!.navigation="approach";a.radar!.cleared=b.radar!.cleared="ils-24";assert.equal(radarSeparationAlerts([a,b]).size,2);
+ b.position={x:3,y:3};b.heading=90;assert.equal(radarSeparationAlerts([a,b]).size,0);
 });

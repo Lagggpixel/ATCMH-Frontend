@@ -311,5 +311,6 @@ test("valid cross-kind exercises can overlap and display combined labels", () =>
   const g = h.support.geometry(leader.runway!); leader.position = {x: g.threshold.x - g.vector.x * .5, y: g.threshold.y - g.vector.y * .5};
   h.state.aircraft.push(leader);
   assert.equal(startConflict(h.state, h.airport, h.support, "ga-pair", "ga", "third", "a"), undefined);
-  assert.equal(conflictLabels(h.state.conflicts, "a"), "UWC + GA");
+  assert.equal(conflictLabels(h.state.conflicts, "a"), "UWC (C) + GA");
+  assert.equal(conflictLabels(h.state.conflicts, "b"), "UWC");
 });

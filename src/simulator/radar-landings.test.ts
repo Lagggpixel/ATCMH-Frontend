@@ -119,14 +119,11 @@ for(const airport of airportList.filter(a=>a.icao!=="EGPH"))for(const type of ([
   complete(setup(type,outcome,false,airport.icao),outcome);
 });
 
-for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id))) {
-  // Pinned LIME 12 has a turnpad ahead, but its only off-runway taxiway is
-  // behind touchdown. Forward-only automatic arrivals must await instruction.
-  const awaitingBackTaxi = airport.icao === "LIME" && runway.id === "12";
-  test(`${airport.icao} runway ${runway.id}: full-stop ${awaitingBackTaxi ? "stops within runway awaiting explicit back-taxi" : "vacates mapped exit and despawns"}`,()=>{
-    complete(setup("visual","full-stop",false,airport.icao,"approach",runway.id),"full-stop");
-  });
-}
+// Per-runway exits are covered from touchdown in runway-exits. Pinned LIME 12 has a turnpad
+// ahead, but its only off-runway taxiway is behind touchdown, so forward-only arrivals must await instruction.
+test("LIME runway 12: full-stop stops within runway awaiting explicit back-taxi",()=>{
+  complete(setup("visual","full-stop",false,"LIME","approach","12"),"full-stop");
+});
 
 for(const airport of airportList)for(const runway of runwayEnds(airport).filter(end=>radarEnvironmentFor(airport).approaches.some(p=>p.runway===end.id)))test(`${airport.icao} ${runway.id}: saved stopped traffic uses forward exits or safely awaits an explicit back-taxi instruction`,()=>{
   const f=setup("visual","full-stop",false,airport.icao,"approach",runway.id),engine=engineFor(f.state),g=engine.runwayGeometry(runway.id),a=f.state.aircraft[0];

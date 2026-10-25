@@ -1,139 +1,132 @@
 "use client";
-import LibraryFooter from "./LibraryFooter";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import Link from "next/link";
-import {Trash} from "@phosphor-icons/react/dist/csr/Trash";
-import LearningFrame from "../learning/LearningFrame";
-import {ShareNetwork} from "@phosphor-icons/react/dist/csr/ShareNetwork";
+import {Plus} from "@phosphor-icons/react/dist/csr/Plus";
+import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
+import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
+import {LinkSimple} from "@phosphor-icons/react/dist/csr/LinkSimple";
 import {UserPlus} from "@phosphor-icons/react/dist/csr/UserPlus";
-import {CaretDown} from "@phosphor-icons/react/dist/csr/CaretDown";
-import MenteePicker, {assignMentee, type Mentee} from "./MenteePicker";
-import {trainingRequest} from "./TrainingLibrary";
+import LearningFrame from "../learning/LearningFrame";
 import SessionAccess from "./SessionAccess";
-import {sessionLibrary} from "./session-library";
+import SessionDialogs, {type SessionDialogState} from "./SessionDialogs";
 import StaffTutorial from "./StaffTutorial";
-import {sessionJson} from "./shared-transport";
-import {environmentLabel, trainingMode} from "./airports";
+import TrainerNotice from "./TrainerNotice";
+import {Person} from "./MentorHome";
+import {sessionLibrary} from "./session-library";
+import {lastActive, matchesFilter, menteeName, menteeState, mentorName, modeLabel, sessionFilters, sessionStatus, type SessionFilter} from "./session-status";
 import {joinPath, sessionCode, sessionPath, type SessionSummary} from "./sessions";
 import type {ScenarioRecord} from "./scenarios";
-import styles from "./StaffSessions.module.css";
+import ui from "./Sweatbox.module.css";
+
+const tone = {live: ui.live, wait: ui.wait, idle: ui.idle};
 
 export default function SessionPicker() {
   return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo="/sweatbox/staff">{(csrf, accountId, access) => <Library key={accountId} csrf={csrf} accountId={accountId} canAssign={access.canAssign}/>}</SessionAccess></LearningFrame>;
 }
-const participant = (occupied: boolean, name?: string, id?: string) => occupied ? name?.trim() || id || "Connected" : "None";
-function ActiveDate({time}: {time: number}) {
-  const value = new Date(time);
-  return <time dateTime={value.toISOString()}>{new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"}).format(value)}<small>{new Intl.DateTimeFormat("en-GB", {hour: "2-digit", minute: "2-digit", timeZone: "UTC"}).format(value)} UTC</small></time>;
-}
-const initials = (name: string) => name.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]!.toUpperCase()).join("") || "?";
+
 function Library({csrf, accountId, canAssign}: {csrf: string; accountId: string; canAssign: boolean}) {
-  const [sessions, setSessions] = useState<SessionSummary[]>([]), [manualLinkId, setManualLinkId] = useState("");
-  const [sharing, setSharing] = useState(""), [assigning, setAssigning] = useState<SessionSummary | null>(null), [mentee, setMentee] = useState<Mentee | null>(null);
-  const [loading, setLoading] = useState(true), [error, setError] = useState(""), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
-  const [dialog, setDialog] = useState<"new" | "end" | "assign" | null>(null), [scenarioId, setScenarioId] = useState(""), [busy, setBusy] = useState(false);
-  const [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
-  const [ending, setEnding] = useState<SessionSummary | null>(null);
-  const modal = useRef<HTMLDialogElement>(null);
-  const library = useRef<ReturnType<typeof sessionLibrary> | null>(null), pending = useRef(false);
-  const launch = useRef<{scenarioId: string; revision: number; requestId: string} | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]), [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
+  const [filter, setFilter] = useState<SessionFilter>("all"), [search, setSearch] = useState(""), [airport, setAirport] = useState("");
+  // Scenarios and Home link here with ?session= to open that session's panel; this only renders in the browser.
+  const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get("session") ?? ""), [manualLink, setManualLink] = useState(false);
+  const [dialog, setDialog] = useState<SessionDialogState>(null), [now, setNow] = useState(() => Date.now());
+  const library = useRef<ReturnType<typeof sessionLibrary> | null>(null), panel = useRef<HTMLElement>(null);
   useEffect(() => {
-    const sync = sessionLibrary((data, definitions) => {setSessions(data); setScenarios(definitions); setLoading(false);}, message => {setLoadError(message); setLoading(false);});
+    const sync = sessionLibrary((data, definitions) => {setSessions(data); setScenarios(definitions); setLoading(false); setNow(Date.now());}, message => {setLoadError(message); setLoading(false);});
     library.current = sync; void sync.refresh();
     return () => {sync.stop(); library.current = null;};
   }, []);
-  useEffect(() => {if (dialog) modal.current?.showModal(); else modal.current?.close();}, [dialog]);
-  const create = async () => {
-    const scenario = scenarios.find(s => s.id === scenarioId) ?? scenarios[0];
-    if (!scenario || pending.current) return;
-    pending.current = true; library.current?.invalidate(); setBusy(true); setError("");
-    if (launch.current?.scenarioId !== scenario.id)
-      launch.current = {scenarioId: scenario.id, revision: scenario.publishedRevision, requestId: crypto.randomUUID()};
-    try {
-      const data = await trainingRequest(csrf, `scenarios/${scenario.id}`, {action: "launch", revision: launch.current.revision, requestId: launch.current.requestId});
-      if (!data.sessionId) throw new Error("The session could not be confirmed. Try again.");
-      launch.current = null;
-      if (mentee) {
-        try {await assignMentee(csrf, data.sessionId, mentee); setNotice(`Session created, paused and assigned to ${mentee.name ?? mentee.discordId}.`);}
-        catch (reason) {setNotice(`Session created and paused, but it could not be assigned: ${(reason as Error).message}`);}
-      } else setNotice("Session created and paused.");
-      setDialog(null);
-    } catch (reason) {setError((reason as Error).message);}
-    finally {pending.current = false; setBusy(false); void library.current?.refresh();}
+  const query = search.trim().toLowerCase();
+  const airports = useMemo(() => [...new Set(sessions.map(s => s.airport ?? "EGPH"))].sort(), [sessions]);
+  const counts = useMemo(() => Object.fromEntries(sessionFilters.map(([key]) => [key, sessions.filter(s => matchesFilter(s, key, accountId)).length])), [sessions, accountId]);
+  const listed = sessions.filter(s => matchesFilter(s, filter, accountId) && (!airport || (s.airport ?? "EGPH") === airport) && `${s.title} ${s.airport ?? "EGPH"} ${sessionCode(s.id, s.airport)} ${menteeName(s)}`.toLowerCase().includes(query));
+  const selected = sessions.find(s => s.id === selectedId) ?? listed[0] ?? null;
+  const select = (id: string) => {
+    setSelectedId(id); setManualLink(false);
+    if (window.matchMedia("(max-width: 1060px)").matches) requestAnimationFrame(() => panel.current?.scrollIntoView({behavior: "smooth", block: "start"}));
   };
-  const traineeLink = (session: SessionSummary) => new URL(joinPath(sessionCode(session.id, session.airport)), window.location.origin).href;
+  const menteeLink = (session: SessionSummary) => new URL(joinPath(sessionCode(session.id, session.airport)), window.location.origin).href;
   const copy = async (session: SessionSummary, kind: "link" | "code") => {
-    setManualLinkId(""); setSharing("");
-    try {await navigator.clipboard.writeText(kind === "link" ? traineeLink(session) : sessionCode(session.id, session.airport)); setNotice(kind === "link" ? "Mentee link copied." : "Session code copied.");}
-    catch {setManualLinkId(session.id); setNotice("Could not copy automatically. Copy the mentee link shown in the session row.");}
+    setManualLink(false);
+    try {await navigator.clipboard.writeText(kind === "link" ? menteeLink(session) : sessionCode(session.id, session.airport)); setNotice(kind === "link" ? "Mentee link copied." : "Session code copied.");}
+    catch {setManualLink(true); setNotice("Could not copy automatically. Copy the Mentee link shown in the panel.");}
   };
-  const openAssign = (session: SessionSummary) => {
-    setAssigning(session); setError(""); setSharing("");
-    setMentee(session.assignedMenteeId ? {discordId: session.assignedMenteeId, ...(session.assignedMenteeName ? {name: session.assignedMenteeName} : {})} : null);
-    setDialog("assign");
-  };
-  const assign = async (value: Mentee | null) => {
-    if (!assigning || pending.current) return; pending.current = true; library.current?.invalidate(); setBusy(true); setError("");
-    try {
-      const data = await assignMentee(csrf, assigning.id, value);
-      setSessions(current => current.map(s => s.id === assigning.id ? data.session : s));
-      setDialog(null); setAssigning(null);
-      setNotice(value ? `Assigned to ${value.name ?? value.discordId}. They will see it in Your sweatbox.` : "Assignment removed.");
-    } catch (reason) {setError((reason as Error).message);}
-    finally {pending.current = false; setBusy(false); void library.current?.refresh();}
-  };
-  const end = async () => {
-    if (!ending || pending.current) return; pending.current = true; library.current?.invalidate(); setBusy(true); setError("");
-    try {
-      await fetch(`/api/simulator/sessions/${ending.id}`, {method: "DELETE", headers: {"x-csrf-token": csrf}}).then(sessionJson);
-      setSessions(current => current.filter(s => s.id !== ending.id)); setDialog(null); setEnding(null); setNotice("Session moved to Replays.");
-    } catch (reason) {setError((reason as Error).message);}
-    finally {pending.current = false; setBusy(false); void library.current?.refresh();}
-  };
-  return <div className={`${styles.library} ${styles.workspaceLibrary}`}>
-
-    <main className={styles.content}>
-      <div className={styles.heading}><div><h1>Sessions</h1></div><div className={styles.headingActions}><StaffTutorial accountId={accountId}/><button data-simulator-tour="new-session" className={styles.primary} disabled={loading} onClick={() => {launch.current = null; setScenarioId(scenarios[0]?.id ?? ""); setMentee(null); setError(""); setDialog("new");}}>New session</button></div></div>
-      {loadError ? <p role="alert" className={styles.error}>Could not refresh sessions: {loadError} <button onClick={() => void library.current?.refresh()}>Try again</button></p> : null}
-      {error && !dialog ? <p role="alert" className={styles.error}>{error}</p> : null}
-      <div data-simulator-tour="session-library">{loading ? <p role="status" className={styles.loading}>Loading saved sessions…</p> : !sessions.length ? <section className={styles.empty}><h2>No sessions yet</h2><p>Start a session from one of your published scenarios.</p></section> :
-        <div className={styles.tableWrap}><table aria-label="Saved Sweatbox sessions"><thead><tr><th scope="col">Session</th><th scope="col">Airport</th><th scope="col">Created by</th><th scope="col">Last active</th><th scope="col">Mentor</th><th scope="col">Mentee</th><th scope="col" className={styles.actionColumn}>Actions</th></tr></thead><tbody>{sessions.map(s => <tr key={s.id}>
-          <td data-label="Session"><div className={styles.sessionName}><strong>{s.title}</strong><small>{sessionCode(s.id, s.airport)}</small></div></td>
-          <td data-label="Airport">{s.airport ?? "EGPH"}<small>{{local: "(GT)", approach: "(A)", center: "(C)"}[trainingMode(s)]}</small></td>
-          <td data-label="Created by">{s.ownerName || s.ownerId || "Unknown"}</td>
-          <td data-label="Last active" className={styles.date}><ActiveDate time={s.updatedAt}/></td>
-          <td data-label="Mentor">{participant(s.staffOccupied, s.staffName, s.staffId)}</td>
-          <td data-label="Mentee"><MenteeCell session={s} canAssign={canAssign} onAssign={() => openAssign(s)}/></td>
-          <td className={styles.actionColumn}><div className={styles.rowActions}>
-            <span className={styles.shareMenu}>
-              <button data-simulator-tour="mentee-sharing" aria-expanded={sharing === s.id} aria-haspopup="menu" onClick={() => setSharing(current => current === s.id ? "" : s.id)}><ShareNetwork size={17} aria-hidden="true"/>Share<span className={styles.srOnly}> {s.title}</span></button>
-              {sharing === s.id ? <span role="menu" className={styles.shareOptions} onKeyDown={e => {if (e.key === "Escape") setSharing("");}}>
-                <button role="menuitem" autoFocus onClick={() => void copy(s, "link")}>Copy mentee link</button>
-                <button role="menuitem" onClick={() => void copy(s, "code")}>Copy code <code>{sessionCode(s.id, s.airport)}</code></button>
-              </span> : null}
-            </span>
-            <Link data-simulator-tour="staff-radar-link" className={styles.primary} href={sessionPath("staff", s.id)}>Enter<span className={styles.srOnly}> {s.title}</span></Link>
-            <button className={styles.deleteAction} onClick={() => {setEnding(s); setError(""); setDialog("end");}}><Trash size={17} aria-hidden="true"/>Archive<span className={styles.srOnly}> {s.title}</span></button>
-          </div>{manualLinkId === s.id ? <label className={styles.manualLink}>Mentee link<input aria-label={`Mentee link for ${s.title}`} readOnly value={traineeLink(s)} onFocus={e => e.currentTarget.select()}/></label> : null}</td>
-        </tr>)}</tbody></table></div>}</div>
-      <LibraryFooter/>
+  return <div className={ui.page}>
+    <main className={ui.content}>
+      <div className={ui.heading}><h1>Sessions</h1><div className={ui.headingActions}><StaffTutorial accountId={accountId} className={ui.btn}/><button type="button" data-simulator-tour="new-session" className={`${ui.btn} ${ui.primary}`} disabled={loading} onClick={() => setDialog({kind: "new"})}><Plus size={18} weight="bold" aria-hidden="true"/>Start a session</button></div></div>
+      {loadError ? <p role="alert" className={ui.error}>Could not refresh sessions: {loadError}<button type="button" className={ui.btn} onClick={() => void library.current?.refresh()}>Try again</button></p> : null}
+      <div className={`${ui.cols} ${ui.colsWide}`}>
+        <section aria-labelledby="list-heading" className={ui.panel} data-simulator-tour="session-library">
+          <h2 id="list-heading" className={ui.srOnly}>All sessions</h2>
+          <div className={ui.panelHead}>
+            <div className={ui.tabs} role="group" aria-label="Filter sessions" style={{flex: "1 1 auto"}}>{sessionFilters.map(([key, label]) => <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label} <span>{counts[key]}</span></button>)}</div>
+            <label className={ui.field} style={{flex: "0 1 240px"}}><span className={ui.srOnly}>Search sessions</span><MagnifyingGlass size={18} aria-hidden="true"/><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Title, airport or code"/></label>
+            <label className={ui.field}><span className={ui.srOnly}>Airport</span><select value={airport} onChange={event => setAirport(event.target.value)}><option value="">All airports</option>{airports.map(code => <option key={code}>{code}</option>)}</select></label>
+          </div>
+          {loading ? <p role="status" className={ui.status}>Loading saved sessions…</p> : listed.length ? <>
+            <div className={`${ui.row} ${ui.rowSelect} ${ui.rowHead}`} aria-hidden="true"><span>Session</span><span className={ui.rowWide}>Airport</span><span className={ui.rowWide}>Mentee</span><span className={ui.rowWide}>Status</span><span/></div>
+            {listed.map(s => {
+              const status = sessionStatus(s), mentee = menteeName(s);
+              return <button key={s.id} type="button" className={`${ui.row} ${ui.rowSelect}`} aria-pressed={selected?.id === s.id} onClick={() => select(s.id)}>
+                <span className={ui.rowTitle}><strong>{s.title}</strong><small className={ui.mono}>{sessionCode(s.id, s.airport)}</small></span>
+                <span className={`${ui.rowCell} ${ui.rowWide}`}><strong>{s.airport ?? "EGPH"}</strong><small>{modeLabel(s)}</small></span>
+                <span className={ui.rowWide}><Person name={mentee || "Unassigned"} detail={menteeState(s)} empty={!mentee} initialsFor={mentee}/></span>
+                <span className={ui.rowCell}><span className={`${ui.pill} ${tone[status.tone]}`}><span className={ui.dot}/>{status.label}</span><small className={ui.rowWide}>{lastActive(s.updatedAt, now)}</small></span>
+                <CaretRight className={ui.rowChevron} size={18} aria-hidden="true"/>
+              </button>;
+            })}
+          </> : <div className={ui.empty}><h3>{sessions.length ? "No matching sessions" : "No sessions yet"}</h3><p>{sessions.length ? "Try another filter or search." : "Start a session from one of your published scenarios."}</p>{sessions.length ? <button type="button" className={ui.btn} onClick={() => {setFilter("all"); setSearch(""); setAirport("");}}>Clear filters</button> : <button type="button" className={`${ui.btn} ${ui.primary}`} onClick={() => setDialog({kind: "new"})}>Start a session</button>}</div>}
+        </section>
+        {selected ? <SessionPanel ref={panel} session={selected} accountId={accountId} canAssign={canAssign} now={now} manualLink={manualLink ? menteeLink(selected) : ""}
+          onCopy={kind => void copy(selected, kind)} onAssign={() => setDialog({kind: "assign", session: selected})} onArchive={() => setDialog({kind: "end", session: selected})}/> : null}
+      </div>
     </main>
-    {notice ? <div className={styles.notification}><p role="status">{notice}</p><button aria-label="Dismiss notification" onClick={() => setNotice("")}>×</button></div> : null}
-    <dialog ref={modal} aria-label={dialog === "end" ? "Archive this session?" : dialog === "assign" ? "Assign mentee" : "New session"} className={styles.dialog} onCancel={e => {if (busy) e.preventDefault(); else setDialog(null);}}>
-      {dialog === "new" ? <form onSubmit={e => {e.preventDefault(); void create();}}><h2>Create training session</h2>{scenarios.length ? <><label>Published scenario<select value={scenarioId || scenarios[0]?.id} onChange={e => setScenarioId(e.target.value)}>{scenarios.map(s => <option key={s.id} value={s.id}>{s.draft.title} · {s.ownerName || s.ownerId} · Revision {s.publishedRevision}</option>)}</select></label></> : <p>No published scenarios. <Link href="/sweatbox/scenarios">Open scenarios →</Link></p>}{scenarios.length && canAssign ? <fieldset className={styles.pickerFieldset}><legend>Mentee <span>(optional)</span></legend><MenteePicker value={mentee} onChange={setMentee} disabled={busy}/></fieldset> : null}<p className={styles.airport}>{scenarios.length ? environmentLabel((scenarios.find(s => s.id === scenarioId) ?? scenarios[0]).published ?? (scenarios.find(s => s.id === scenarioId) ?? scenarios[0]).draft) : ""}</p>{error ? <p role="alert" className={styles.error}>{error}</p> : null}<div className={styles.dialogActions}><button type="button" disabled={busy} onClick={() => setDialog(null)}>Cancel</button><button className={styles.primary} disabled={busy || !scenarios.length}>{busy ? "Creating…" : "Create session"}</button></div></form> : dialog === "assign" && assigning ? <form onSubmit={e => {e.preventDefault(); void assign(mentee);}}><h2>Assign mentee</h2><p>{assigning.title} · {assigning.airport ?? "EGPH"}</p>
-        <MenteePicker value={mentee} onChange={setMentee} disabled={busy}/>
-        {mentee ? <p className={styles.assignNote}>{mentee.name ?? mentee.discordId} will see this session in Your sweatbox and get a Discord message. Only they can take the mentee seat while it is assigned{assigning.menteeOccupied && assigning.assignedMenteeId !== mentee.discordId ? ". Whoever holds the mentee seat now will be disconnected" : ""}.</p> : null}
-        {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-        <div className={styles.dialogActions}>{assigning.assignedMenteeId ? <button type="button" className={styles.danger} disabled={busy} onClick={() => void assign(null)}>Remove assignment</button> : null}<button type="button" disabled={busy} onClick={() => setDialog(null)}>Cancel</button><button className={styles.primary} disabled={busy || !mentee || mentee.discordId === assigning.assignedMenteeId}>{busy ? "Saving…" : mentee ? `Assign ${mentee.name ?? "mentee"}` : "Assign"}</button></div></form> : dialog === "end" ? <><h2>Archive this session?</h2><p><strong>{ending?.title}</strong> will close permanently. Its recording will be saved in Replays.</p>{error ? <p role="alert" className={styles.error}>{error}</p> : null}<div className={styles.dialogActions}><button autoFocus disabled={busy} onClick={() => setDialog(null)}>Keep session</button><button className={styles.danger} disabled={busy} onClick={() => void end()}>{busy ? "Archiving…" : "Archive session"}</button></div></> : null}
-    </dialog>
+    <footer className={ui.footer}><TrainerNotice/></footer>
+    {notice ? <div className={ui.notification}><p role="status">{notice}</p><button type="button" aria-label="Dismiss notification" onClick={() => setNotice("")}>×</button></div> : null}
+    <SessionDialogs state={dialog} csrf={csrf} canAssign={canAssign} scenarios={scenarios} onClose={() => setDialog(null)} onBusy={busy => {if (busy) library.current?.invalidate();}}
+      onDone={result => {
+        setDialog(null); setNotice(result.notice);
+        if (result.created) setSelectedId(result.created);
+        if (result.updated) setSessions(current => current.map(s => s.id === result.updated!.id ? result.updated! : s));
+        if (result.ended) setSessions(current => current.filter(s => s.id !== result.ended));
+        void library.current?.refresh();
+      }}/>
   </div>;
 }
-function MenteeCell({session, canAssign, onAssign}: {session: SessionSummary; canAssign: boolean; onAssign: () => void}) {
-  if (!session.assignedMenteeId) {
-    const current = participant(session.menteeOccupied, session.menteeName, session.menteeId);
-    return canAssign ? <div className={styles.menteeCell}>{session.menteeOccupied ? <span>{current}</span> : null}<button type="button" className={styles.assignButton} onClick={onAssign}><UserPlus size={18} aria-hidden="true"/>Assign mentee<span className={styles.srOnly}> to {session.title}</span></button></div> : <>{current}</>;
-  }
-  const name = session.assignedMenteeName || session.assignedMenteeId, state = session.menteeOccupied ? "In session" : "Assigned · not joined yet";
-  const content = <><span className={styles.avatar} aria-hidden="true">{initials(name)}</span><span className={styles.personText} title={`${name} · ${state}`}><strong>{name}</strong><small className={session.menteeOccupied ? styles.live : undefined}>{state}</small></span></>;
-  return canAssign ? <button type="button" className={styles.assignedButton} aria-label={`Change assigned mentee for ${session.title}: ${name}, ${state}`} onClick={onAssign}>{content}<CaretDown size={16} aria-hidden="true"/></button> : <span className={styles.assignedButton}>{content}</span>;
+
+function SessionPanel({ref, session, accountId, canAssign, now, manualLink, onCopy, onAssign, onArchive}: {
+  ref: React.Ref<HTMLElement>; session: SessionSummary; accountId: string; canAssign: boolean; now: number; manualLink: string;
+  onCopy: (kind: "link" | "code") => void; onAssign: () => void; onArchive: () => void;
+}) {
+  const status = sessionStatus(session), mentee = menteeName(session), code = sessionCode(session.id, session.airport);
+  const facts = [session.airport ?? "EGPH", modeLabel(session), session.scenario ? `From “${session.scenario.title}”` : "", session.ownerName || session.ownerId ? `Created by ${session.ownerId === accountId ? "you" : session.ownerName || session.ownerId}` : ""].filter(Boolean);
+  return <aside ref={ref} aria-labelledby="selected-heading" className={`${ui.box} ${ui.sidePanel}`}>
+    <div>
+      <span className={`${ui.pill} ${tone[status.tone]}`}><span className={ui.dot}/>{status.label}</span>
+      <h2 id="selected-heading">{session.title}</h2>
+      <p className={ui.meta}>{facts.join(" · ")}</p>
+    </div>
+    <Link data-simulator-tour="staff-radar-link" className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("staff", session.id)}>Enter session</Link>
+    <div>
+      <span className={ui.label}>People</span>
+      <div className={ui.people}>
+        <Person name={session.staffOccupied ? `${mentorName(session)}${session.staffId === accountId ? " (you)" : ""}` : "No Mentor connected"} detail={session.staffOccupied ? "Mentor · connected" : "Mentor seat free"} empty={!session.staffOccupied} initialsFor={session.staffOccupied ? mentorName(session) : ""}/>
+        <div className={ui.personRow}>
+          <Person name={mentee || "No Mentee assigned"} detail={session.assignedMenteeId ? `Assigned Mentee · ${session.menteeOccupied ? "in session" : "not joined yet"}` : session.menteeOccupied ? "Mentee · in session" : "Assign one so it shows in their Your sweatbox"} empty={!mentee} initialsFor={mentee}/>
+          {canAssign ? <button type="button" className={`${ui.btn} ${ui.small}`} onClick={onAssign}>{session.assignedMenteeId ? "Change" : <><UserPlus size={16} aria-hidden="true"/>Assign</>}<span className={ui.srOnly}> Mentee for {session.title}</span></button> : null}
+        </div>
+      </div>
+    </div>
+    <div data-simulator-tour="mentee-sharing">
+      <span className={ui.label}>Share with a Mentee</span>
+      <div className={ui.codeRow}><code className={ui.mono}>{code}</code><button type="button" className={ui.btn} onClick={() => onCopy("code")}>Copy code</button></div>
+      <button type="button" className={ui.btn} style={{width: "100%"}} onClick={() => onCopy("link")}><LinkSimple size={18} aria-hidden="true"/>Copy Mentee link</button>
+      {manualLink ? <label className={ui.manualLink}>Mentee link<input readOnly value={manualLink} onFocus={event => event.currentTarget.select()}/></label> : null}
+    </div>
+    <div className={ui.panelEnd}>
+      <small>Last active {lastActive(session.updatedAt, now).toLowerCase()}</small>
+      <button type="button" className={`${ui.btn} ${ui.quiet} ${ui.danger}`} onClick={onArchive}>Archive session<span className={ui.srOnly}> {session.title}</span></button>
+    </div>
+  </aside>;
 }

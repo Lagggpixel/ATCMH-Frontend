@@ -1,21 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
-import {createAirportEngine, engineFor} from "./engine";
+import {createAirportEngine, engineFor, applyEnvelope, autoReadbacks, advance, restoreExercise} from "./engine";
 import {getAirport, airportList, airportRunways, airportSelection} from "./airports";
 import {airportVisible} from "./command-navigation";
 import {sightingTargetKey} from "./airport-sighting";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
-import {exerciseSchema} from "./protocol";
-import type {Aircraft, Airport, Exercise, Instruction} from "./model";
+import {exerciseSchema, envelopeSchema, menteeActionAllowed} from "./protocol";
+import type {Aircraft, Airport, Exercise, Instruction, Action} from "./model";
 
 type Engine = ReturnType<typeof engineFor>;
+
 const assign = (e: Engine, s: Exercise, command: Instruction) => {
   const r = e.applyEnvelope(s, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: s.aircraft[0].id, command}});
   assert.equal(r.error, undefined, JSON.stringify(command)); return r.state;
 };
+
 const tick = (e: Engine, s: Exercise, seconds: number) => {for (let i = 0; i < seconds; i++) s = e.advance(s, 1); return s;};
+
 const radar = () => {const e = engineFor({trainingStation: "EGPH:approach"}), s = e.initialExercise(); s.running = true; delete s.aircraft[0].radar!.report; return {e, s};};
+
 const synthetic: Airport = {
   ...getAirport(), elevation: 0,
   runway: {lengthFeet: 18000, ends: [{id: "36", heading: 0, point: {x: 0, y: 0}}, {id: "18", heading: 180, point: {x: 0, y: 3}}]},
@@ -28,6 +32,7 @@ const synthetic: Airport = {
     {id: "parallel", name: "B", kind: "taxiway", points: [{x: -.3, y: 0}, {x: -.3, y: 1}, {x: -.3, y: 2}]},
   ],
 };
+
 function ground(): {e: Engine; s: Exercise; a: Aircraft} {
   const e = createAirportEngine(synthetic), s = e.initialExercise(); s.running = true; s.autoReadback = false;
   const a = e.newAircraft("operational", false); s.aircraft = [a];
@@ -164,7 +169,6 @@ test("Tower approach restriction releases on final, and Follow changes speed tow
   assert.ok(next.aircraft[0].targetSpeed < 160); assert.ok(exerciseSchema.safeParse(next).success);
 });
 
-
 test("a reversed hold entry and 360 retain valid snapshots while rolling through wings level", () => {
   for (const action of ["hold", "circle"] as const) {
     const {e, s} = radar(); s.aircraft[0].bankAngle = -25;
@@ -172,7 +176,6 @@ test("a reversed hold entry and 360 retain valid snapshots while rolling through
     for (let i = 0; i < 20; i++) {next = e.advance(next, 1); assert.ok(exerciseSchema.safeParse(next).success);}
   }
 });
-
 
 test("following traffic preserves runway holds and requires a separate crossing clearance", () => {
   const {e, s, a} = ground(); Object.assign(a, {mode: "taxi", position: {x: -.15, y: 1}, heading: 90});
@@ -200,5 +203,99 @@ test("back-taxi Ground handoff follows mapped exits at airports with mapped grou
       assert.ok(lateral >= .06 - 1e-6);
       assert.ok(exerciseSchema.safeParse(s).success);
     }
+  }
+});
+
+test("guard reaches an untuned aircraft without granting other controller commands", () => {
+  const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
+  const aircraft = engine.newAircraft("guard-test", true); aircraft.frequency = "center"; state.aircraft = [aircraft];
+  const command: Instruction = {type: "atc", action: "guard", frequency: "approach", variant: "contact"};
+  assert.equal(engine.validateControllerMessage(state, aircraft, command, "approach"), null);
+  if (command.type === "atc") {
+    assert.equal(menteeActionAllowed({kind: "command", aircraftId: aircraft.id, frequency: "approach", command, text: "Guard warning"}, state), true);
+    assert.equal(menteeActionAllowed({kind: "command", aircraftId: aircraft.id, frequency: "approach", command: {type: "vector", heading: 90}, text: "Vector"}, state), false);
+    assert.equal(menteeActionAllowed({kind: "command", aircraftId: aircraft.id, frequency: "atis", command, text: "Guard warning"}, state), false);
+  }
+  assert.ok(engine.validateControllerMessage(state, aircraft, {type: "vector", heading: 90}, "approach"));
+  assert.ok(engine.validateControllerMessage(state, aircraft, {...command, frequency: "center"}, "approach"));
+  assert.ok(engine.validateControllerMessage(state, aircraft, command, "atis"));
+  const result = engine.applyEnvelope(state, {id: "guard-warning", time: 1000, action: {kind: "command", aircraftId: aircraft.id, frequency: "approach", command}});
+  assert.equal(result.error, undefined); assert.equal(result.state.messages.at(-1)?.frequency, "approach");
+  assert.equal(result.state.aircraft[0].frequency, "center");
+  assert.deepEqual(result.state.aircraft[0].position, aircraft.position);
+  aircraft.active = false; assert.ok(engine.validateControllerMessage(state, aircraft, command, "approach"));
+});
+
+const act = (state: Exercise, action: Action) => {
+  const result = applyEnvelope(state, {id: randomUUID(), time: 1000, action});
+  assert.equal(result.error, undefined); return result.state;
+};
+
+const kdal = getAirport({airport: "KDAL"}), engine = engineFor({airport: "KDAL"});
+
+const point = (runway: string, along: number, lateral = 0) => {
+  const g = engine.runwayGeometry(runway);
+  return {x: g.threshold.x + along * g.vector.x - lateral * g.vector.y, y: g.threshold.y + along * g.vector.y + lateral * g.vector.x};
+};
+
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+
+const assignForTrainerImprovements = (state: Exercise, instruction: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: instruction});
+
+const radioTick = (state: Exercise) => autoReadbacks(advance(state, 2), 2000, randomUUID);
+
+test("All full stop is one idempotent staff-only action and survives overhead transition automation", () => {
+  let state = stateOf([engine.newAircraft("air", true), engine.newAircraft("ground", false)]);
+  state.aircraft[0].intentions = {flight: "pattern", taxi: "runway", afterTransition: "touch-and-go"};
+  state = assignForTrainerImprovements(state, {type: "transition", altitude: 1500});
+  state.aircraft[0].position = {x: 0, y: 0};
+  const envelope = {id: "full-stop", time: 1000, action: {kind: "all-full-stop"} as const};
+  state = applyEnvelope(state, envelope).state;
+  assert.ok(state.aircraft.every(a => a.landing === "full-stop"));
+  assert.equal(applyEnvelope(state, envelope).state, state);
+  state = radioTick(state);
+  assert.equal(state.aircraft[0].landing, "full-stop");
+  assert.equal(state.messages.at(-1)!.request?.id, "inbound-land");
+  assert.ok(restoreExercise(exerciseSchema.parse(state)).aircraft.every(a => a.landing === "full-stop"));
+  for (const action of [{kind: "all-full-stop"}, {kind: "report-position", aircraftId: "air"}] as Action[]) {
+    const parsed = envelopeSchema.parse({id: "staff", time: 0, action});
+    assert.equal(menteeActionAllowed(parsed.action, state), false);
+  }
+  assert.equal(envelopeSchema.safeParse({id: "edit", time: 0, action: {kind: "edit", aircraftId: "air", patch: {towerCheckInPending: true}}}).success, false);
+});
+
+test("Cancelling All full stop restores each aircraft's earlier landing intention, including traffic spawned meanwhile", () => {
+  let state = stateOf([engine.newAircraft("first", true), engine.newAircraft("second", true)]);
+  state.aircraft[0].landing = "touch-and-go"; state.aircraft[1].landing = "full-stop";
+  state = applyEnvelope(state, {id: "fs-on", time: 0, action: {kind: "all-full-stop", enabled: true}}).state;
+  assert.ok(state.aircraft.every(a => a.landing === "full-stop"));
+  const spawned = engine.newAircraft("third", true); spawned.callsign = "Shamrock 77"; spawned.landing = "touch-and-go";
+  const spawn = applyEnvelope(state, {id: "spawn", time: 0, action: {kind: "spawn", aircraft: spawned}});
+  assert.equal(spawn.error, undefined); state = spawn.state;
+  assert.equal(state.aircraft.at(-1)!.landing, "full-stop");
+  assert.ok(exerciseSchema.parse(state).fullStopAll);
+  state = applyEnvelope(state, {id: "fs-off", time: 0, action: {kind: "all-full-stop", enabled: false}}).state;
+  assert.deepEqual(state.aircraft.map(a => a.landing), ["touch-and-go", "full-stop", "touch-and-go"]);
+  assert.equal(state.fullStopAll, undefined);
+});
+
+test("intersection lineups/takeoffs stay at their entry, including lineup then takeoff and reload", () => {
+  for (const runway of ["13L", "13R", "31L", "31R"]) for (const lateral of [0, .04, -.04]) for (const tagged of [false, true]) {
+    const entry = .1, hold = {...point(runway, entry, lateral), hold: true, ...(tagged ? {runway} : {})};
+    const a = {...engine.newAircraft("a", false), runway, position: {...hold}, mode: "taxi" as const, holding: true, taxiPath: [hold], taxiIndex: 0};
+    let state = assignForTrainerImprovements(stateOf([a]), {type: "lineup", runway});
+    assert.ok(state.aircraft[0].taxiPath.every(p => Math.hypot(p.x - engine.runwayGeometry(runway).threshold.x, p.y - engine.runwayGeometry(runway).threshold.y) >= .09));
+    for (let i = 0; i < 90 && !state.aircraft[0].holding; i++) state = advance(state, 1);
+    assert.equal(state.aircraft[0].holding, true, `${runway}/${lateral}`);
+    state = assignForTrainerImprovements(restoreExercise(exerciseSchema.parse(state)), {type: "takeoff", runway});
+    let previousAlong = entry - .002, airborne = false;
+    const g = engine.runwayGeometry(runway);
+    for (let i = 0; i < 90 && !airborne; i++) {
+      state = advance(state, 1); const current = state.aircraft[0];
+      const along = (current.position.x - g.threshold.x) * g.vector.x + (current.position.y - g.threshold.y) * g.vector.y;
+      assert.ok(along >= previousAlong - 1e-6, "never back-taxis toward the threshold"); previousAlong = along;
+      airborne = current.altitude > kdal.elevation + 1;
+    }
+    assert.ok(airborne, `${runway}/${lateral}`);
   }
 });

@@ -1,5 +1,3 @@
-import {redirect} from "next/navigation";
-
-export default function Page() {
-  redirect("/sweatbox/staff");
-}
+import MentorHome from "@/src/simulator/MentorHome";
+export const metadata = {title: "ATCMH Sweatbox"};
+export default function Page() {return <MentorHome/>;}
