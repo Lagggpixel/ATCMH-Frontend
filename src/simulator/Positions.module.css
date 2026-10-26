@@ -60,6 +60,7 @@
 .panel{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:min(400px,calc(100vw - 32px));max-height:min(720px,calc(100dvh - 120px));overflow:auto;box-sizing:border-box;box-shadow:0 12px 32px #0008}
 .controls:not([open])>.panel{display:none}
 .setup{min-width:0;max-width:100%;padding:0;border:1px solid var(--dashboard-border,#45515b);border-radius:6px;color:var(--dashboard-ink,inherit);background:var(--dashboard-surface,transparent)}
+.controls>.panel{max-width:calc(100vw - 32px)}
 .setup a{color:var(--dashboard-link,#ffb18a)}
 .setup button{min-height:32px;padding:0 10px;border:1px solid var(--dashboard-border,#45515b);border-radius:4px;background:transparent;color:inherit;cursor:pointer;font:inherit}
 .setup button:disabled{opacity:.55;cursor:default}.setup button[aria-pressed=true],.setup button[aria-expanded=true]{border-color:var(--dashboard-link,#ffb18a);color:var(--dashboard-link,#ffb18a)}
