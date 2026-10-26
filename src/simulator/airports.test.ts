@@ -116,7 +116,7 @@ test("airport/station validation rejects mismatched datasets, unavailable servic
   ] as Action[]) {const result = applyEnvelope(exercise, send(action)); assert.match(result.error!, /runway/i); assert.equal(result.state, exercise);}
   assert.throws(() => getAirport({airport: "EGLL", airportDataVersion: "other"}), /version/);
   assert.deepEqual(airportStations(getAirport({airport: "CYUL"})).filter(s => !s.available).map(s => s.service), []);
-  assert.equal(trainingStation({airport: "SBBR"}).mhz, undefined);
+  assert.equal(trainingStation({airport: "SBBR"}).mhz, "121.80");
 });
 
 test("crossing clearance releases only the correct physical runway and preserves departure runway", () => {

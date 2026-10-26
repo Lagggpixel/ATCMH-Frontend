@@ -10,7 +10,7 @@ import {browserSentenceSpeechOutput} from "./sentence-output";
 import type {Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
 
-export default function RadioAudio({exercise, connected, scope, accountId, role, csrf, player, paused = false}: {exercise: Exercise; connected: boolean; scope: Frequency | "all"; accountId: string; role: "staff" | "mentee"; csrf: string; player: RadioPlayer; paused?: boolean}) {
+export default function RadioAudio({exercise, connected, scope, accountId, role, csrf, player, channel, paused = false}: {exercise: Exercise; connected: boolean; scope: Frequency | "all"; accountId: string; role: "staff" | "mentee"; csrf: string; player: RadioPlayer; channel?: string; paused?: boolean}) {
   const audio = useSyncExternalStore(player.subscribe, player.getSnapshot, player.getServerSnapshot);
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
@@ -24,7 +24,7 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
     window.addEventListener("keydown", activate);
     return () => {window.removeEventListener("pointerdown", activate); window.removeEventListener("pointerup", activate); window.removeEventListener("touchend", activate); window.removeEventListener("keydown", activate);};
   }, [player]);
-  useEffect(() => {player.observe(exercise, connected, scope, paused);}, [player, exercise, connected, scope, paused]);
+  useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);
   return <div className={styles.radioAudio}>
     <button className={styles.audioToggle} aria-label={audio.enabled ? "Mute radio audio" : "Enable radio audio"} aria-pressed={audio.enabled} disabled={!audio.available} title={audio.available ? "Read new radio messages aloud in this tab" : "Voice playback unavailable in this browser"} onClick={() => player.setEnabled(!audio.enabled)}>{audio.enabled ? <SpeakerHigh/> : <SpeakerSlash/>}<span>Audio {audio.enabled ? "on" : "off"}</span></button>

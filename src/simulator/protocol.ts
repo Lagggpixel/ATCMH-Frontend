@@ -11,6 +11,10 @@ const text = z.string().max(2000);
 const id = z.string().min(1).max(100);
 export const frequencySchema = z.enum(["ground", "tower", "atis", "approach", "center", "departure", "unicom"]);
 const frequency = frequencySchema;
+export const controllerPositionSchema = z.object({id: z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/).refine(value => !["__proto__", "constructor", "prototype"].includes(value), "Choose another controller position ID."), name: z.string().trim().min(1).max(60), service: z.literal("approach"), facilityId: id, mhz: z.string().regex(/^1[123]\d\.\d{2,3}$/), briefing: z.string().max(2000).optional()}).strict();
+export const controllerPositionsSchema = z.array(controllerPositionSchema).min(1).max(12).superRefine((positions, ctx) => {
+  for (const field of ["id", "facilityId", "mhz"] as const) if (new Set(positions.map(p => p[field])).size !== positions.length) ctx.addIssue({code: z.ZodIssueCode.custom, message: `Controller positions require unique ${field} values.`});
+});
 export const runwaySchema = z.string().regex(/^(?:0[1-9]|[12][0-9]|3[0-6])[LRC]?$/);
 const runway = runwaySchema;
 const requestDestination = z.object({name: z.string().trim().min(1).max(100), point: z.object({x: bounded(-2000, 2000), y: bounded(-2000, 2000)})});
@@ -45,7 +49,7 @@ const atis = z.object({frequencyAssignments: z.array(z.object({facilityId: id, d
 
 export const intentionsSchema = z.object({flight: z.enum(["pattern", "departure"]), taxi: z.enum(["runway", "parking"]), parkingStand: id.optional(), afterTransition: z.enum(["continue", "touch-and-go"]), overheadRadius: bounded(.1, 5).optional()}).strict();
 
-export const aircraftSchema = z.object({performanceProfile: z.enum(["C172","C208","TBM9","DH8D","A320","B738","B77W"]).optional(), groundSpeed: bounded(0,1200).optional(), track: bounded(0,360).optional(), verticalSpeed: bounded(-30000,30000).optional(), facilityId: id.optional(), flightSeconds: bounded(0,1e12).optional(), fuel: z.object({state: z.enum(["unknown","normal","minimum","emergency"]), enduranceMinutes: bounded(0,10000), declared: z.enum(["minimum","emergency"]).optional()}).optional(),assigned: z.object({airportIcao:z.string().max(4).refine(code=>AIRPORT_IDS.includes(code as typeof AIRPORT_IDS[number])).optional(),runway: runway.optional(), altitude: savedAltitudeSchema.optional(), altitudeFrom: bounded(0, 65000).optional(), heading: bounded(0, 360).optional(), expected: id.nullable().optional(), cleared: id.nullable().optional(), vectors: z.boolean().optional(), landing:z.boolean().optional(), speed: radarSpeedSchema.nullable().optional()}).optional(),groundReady: z.boolean().optional(), enginesRunning: z.boolean().optional(), conflictMotion: z.object({upwind: z.boolean().optional(), extendDownwind: z.boolean().optional(), slowExit: z.boolean().optional(), holdRunway: z.boolean().optional(), holdDeparture: z.boolean().optional(), speedLimit: bounded(0, 600).optional(), speedTarget: bounded(0, 600).optional()}).optional(), conflictRequest: pilotRequestSchema.optional(),navigationSource: z.object({revision: z.string().min(1).max(100), procedureId: z.string().max(100).optional(), routeId: z.string().max(200).optional()}).optional(),id, callsign: z.string().min(1).max(80), type: z.string().min(1).max(12), position: point,
+export const aircraftSchema = z.object({positionId: id.optional(),performanceProfile: z.enum(["C172","C208","TBM9","DH8D","A320","B738","B77W"]).optional(), groundSpeed: bounded(0,1200).optional(), track: bounded(0,360).optional(), verticalSpeed: bounded(-30000,30000).optional(), facilityId: id.optional(), flightSeconds: bounded(0,1e12).optional(), fuel: z.object({state: z.enum(["unknown","normal","minimum","emergency"]), enduranceMinutes: bounded(0,10000), declared: z.enum(["minimum","emergency"]).optional()}).optional(),assigned: z.object({airportIcao:z.string().max(4).refine(code=>AIRPORT_IDS.includes(code as typeof AIRPORT_IDS[number])).optional(),runway: runway.optional(), altitude: savedAltitudeSchema.optional(), altitudeFrom: bounded(0, 65000).optional(), heading: bounded(0, 360).optional(), expected: id.nullable().optional(), cleared: id.nullable().optional(), vectors: z.boolean().optional(), landing:z.boolean().optional(), speed: radarSpeedSchema.nullable().optional()}).optional(),groundReady: z.boolean().optional(), enginesRunning: z.boolean().optional(), conflictMotion: z.object({upwind: z.boolean().optional(), extendDownwind: z.boolean().optional(), slowExit: z.boolean().optional(), holdRunway: z.boolean().optional(), holdDeparture: z.boolean().optional(), speedLimit: bounded(0, 600).optional(), speedTarget: bounded(0, 600).optional()}).optional(), conflictRequest: pilotRequestSchema.optional(),navigationSource: z.object({revision: z.string().min(1).max(100), procedureId: z.string().max(100).optional(), routeId: z.string().max(200).optional()}).optional(),id, callsign: z.string().min(1).max(80), type: z.string().min(1).max(12), position: point,
   heading: bounded(0, 360), targetHeading: bounded(0, 360), bankAngle: bounded(-DEFAULTS.bankAngle, DEFAULTS.bankAngle).optional(), speed: bounded(0, 600), targetSpeed: bounded(0, 600), altitude: bounded(0, 60000),
   speedMode: z.enum(["auto", "manual"]).optional(),
   speedTargets: speedTargetsSchema.optional(),
@@ -96,7 +100,7 @@ function makeInstructionSchema(saved = false) {
   sequence.extend({type: z.literal("sequence"), pattern: z.boolean().optional(), cancelLanding: z.boolean().optional()}),
   z.object({type: z.literal("extend"), leg: z.enum(["upwind", "downwind"])}),
   z.object({type: z.literal("heading"), value: bounded(0, 360)}), z.object({type: z.literal("speed"), value: bounded(0, 600)}),
-  z.object({type: z.literal("runway"), runway}), z.object({type: z.literal("frequency"), frequency: frequency.nullable(), facilityId: id.optional(), facilityName: z.string().max(100).optional(), mhz: z.string().max(10).optional(), whenReady: z.boolean().optional(), from: frequency.optional()}),
+  z.object({type: z.literal("runway"), runway}), z.object({type: z.literal("frequency"), frequency: frequency.nullable(), facilityId: id.optional(), targetPositionId: id.optional(), facilityName: z.string().max(100).optional(), mhz: z.string().max(10).optional(), whenReady: z.boolean().optional(), from: frequency.optional()}),
   z.object({type: z.literal("outcome"), outcome: z.enum(["full-stop", "touch-and-go"])})]).refine(c => c.type !== "radio" || c.message !== "misc" || !!c.text?.trim(), {message: "Misc messages require text."}).refine(c => c.type !== "radar-speed" || validRadarSpeed(c), {message: "Choose a listed speed instruction."});
 }
 export const instructionSchema = makeInstructionSchema();
@@ -110,7 +114,7 @@ const action = z.discriminatedUnion("kind", [
   z.object({kind: z.literal("cancel-conflict"), conflictId: id}),
   z.object({kind: z.literal("weather"), weather: weatherSchema}),
   z.object({kind: z.literal("auto-readback"), enabled: z.boolean()}),
-  z.object({kind: z.literal("demonstrate"), enabled: z.boolean()}),
+  z.object({kind: z.literal("demonstrate"), enabled: z.boolean(), positionId: id.optional()}),
   z.object({kind: z.enum(["play", "reset"])}), z.object({kind: z.literal("pause"), visibility: z.enum(["hidden", "visible"]).optional()}), z.object({kind: z.literal("spawn"), aircraft: aircraftSchema}),
   z.object({kind: z.literal("edit"), aircraftId: id, patch: aircraftSchema.omit({assigned: true, groundSpeed: true, track: true, verticalSpeed: true, facilityId: true, flightSeconds: true,conflictMotion: true, conflictRequest: true, groundReady: true, airportSighting: true, routeNavigation: true, starDescent: true, reportAirportInSight: true, speedInstruction: true, expedited: true, followGroundId: true, atcManeuver: true, backTaxi: true, bankAngle: true, id: true, pending: true, trail: true, mode: true, leg: true, extended: true, releasedHold: true, lastRunway: true, sequence: true, circuit: true, patternFinalDistance: true, patternEntry: true, requestedPatternDeparture: true, contactTowerAtHold: true, towerCheckInPending: true, giveWay: true, groundYield: true, automaticRequest: true, parkingAfterContact: true, transitionOverheadArmed: true, departureRunway: true, takeoffPattern: true, takeoffOutcome: true, arrivalExit: true, arrivalRequest: true, lineupWait: true, transitionAltitude: true, leavingCircuit: true, runwayExit: true, goAroundRunwayHeading: true, selfGoAroundPending: true, clearedForOption: true}).partial().strict()}),
   z.object({kind: z.literal("remove"), aircraftId: id}), z.object({kind: z.literal("read"), aircraftId: id, frequency: frequency.optional()}), z.object({kind: z.literal("atis"), draft: atis}), z.object({kind: z.literal("publish-atis")}),
@@ -123,16 +127,16 @@ export const envelopeSchema = z.object({id, time: bounded(0, 1e15), action});
 
 const exerciseObject = z.object({weather: weatherSchema.optional(),
   conflicts: z.array(z.object({id, kind: z.enum(["uwc", "ga", "cancel-takeoff"]), first: id, second: id, runway, otherRunway: runway, phase: z.enum(["setup", "upwind", "requested", "active", "complete", "cancelled"]), started: bounded(0, 1e12), setupDeadline: bounded(0, 1e12).optional(), circuit: bounded(0, 1e12).int(), linedUp: z.boolean().optional(), takeoffCleared: z.boolean().optional(), cancelledTakeoff: z.boolean().optional(), goAround: z.boolean().optional(), selfGoAround: z.boolean().optional(), rollAt: bounded(0, 1e12).optional(), outcome: z.string().max(300).optional()})).max(100).optional(),
-schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS).optional(), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(), id, revision: bounded(0, 1e12).int(), elapsed: bounded(0, 1e12), running: z.boolean(), pausedByStaff: z.boolean().optional(),
+positionFeedback: z.record(z.string().max(6000)).optional(), positions: controllerPositionsSchema.optional(), schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS).optional(), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(), id, revision: bounded(0, 1e12).int(), elapsed: bounded(0, 1e12), running: z.boolean(), pausedByStaff: z.boolean().optional(),
   autoReadback: z.boolean().optional(), pauseVisibility: z.enum(["hidden", "visible"]).optional(),
-  demonstration: z.object({startedAt: bounded(0, 1e12), by: z.string().max(128).optional(), byId: z.string().max(128).optional(), spectator: z.boolean().optional(), until: bounded(0, 1e15).optional()}).strict().optional(),
+  demonstration: z.object({startedAt: bounded(0, 1e12), by: z.string().max(128).optional(), byId: z.string().max(128).optional(), positionId: id.optional(), spectator: z.boolean().optional(), until: bounded(0, 1e15).optional()}).strict().optional(),
   fullStopAll: z.record(id, z.enum(["full-stop", "touch-and-go"])).refine(v => Object.keys(v).length <= 1000).optional(),
   bookmarks: z.array(z.object({id, elapsed: bounded(0, 1e12), aircraftId: id, label: z.string().max(256)})).max(1000).optional(),
   radarEnvironment: radarEnvironmentSchema.optional(),
   callsignReservations: z.array(z.object({id, callsign: z.string().min(1).max(80)})).max(20000).optional(),
   terrainStatus: z.enum(["checking", "available", "unavailable"]).optional(),
   collisions: z.array(z.object({kind: z.enum(["aircraft", "terrain"]).optional(), id, elapsed: bounded(0, 1e12), aircraft: z.array(z.object({id, callsign: z.string().min(1).max(80)})).min(1).max(MAX_AIRCRAFT), position: point}).refine(event => event.kind === "terrain" ? event.aircraft.length === 1 : event.aircraft.length >= 2, "Aircraft collisions need two aircraft; terrain impacts need one.")).max(300).optional(),
-  aircraft: z.array(aircraftSchema).max(MAX_AIRCRAFT), messages: z.array(z.object({id, aircraftId: id, time: bounded(0, 1e15), frequency, sender: z.enum(["controller", "pilot"]), text, unableReason: z.string().max(1000).optional(), commandId: id.optional(), instruction: savedInstructionSchema.optional(), read: z.boolean().optional(), autoReadbackAt: bounded(0, 1e12).optional(), replyTo: id.optional(), retractedBy: id.optional(), acknowledged: z.boolean().optional(), clearanceCircuit: bounded(0, 1e12).int().optional(), request: pilotRequestSchema.optional(), requestCircuit: bounded(0, 1e12).int().optional(), demonstrated: z.boolean().optional()})).max(300),
+  aircraft: z.array(aircraftSchema).max(MAX_AIRCRAFT), messages: z.array(z.object({id, aircraftId: id, positionId: id.optional(), actorId: id.optional(), actorName: z.string().max(128).optional(), time: bounded(0, 1e15), frequency, sender: z.enum(["controller", "pilot"]), text, unableReason: z.string().max(1000).optional(), commandId: id.optional(), instruction: savedInstructionSchema.optional(), read: z.boolean().optional(), autoReadbackAt: bounded(0, 1e12).optional(), replyTo: id.optional(), retractedBy: id.optional(), acknowledged: z.boolean().optional(), clearanceCircuit: bounded(0, 1e12).int().optional(), request: pilotRequestSchema.optional(), requestCircuit: bounded(0, 1e12).int().optional(), demonstrated: z.boolean().optional()})).max(300),
   processed: z.array(id).max(512), atis, publishedAtis: z.string().max(20000), publishedDraft: atis.nullable()});
 // Motion frames omit immutable message/history data; full snapshots remain the recovery format.
 
@@ -141,6 +145,10 @@ export const exerciseSchema = exerciseObject.superRefine((value, ctx) => {
     if (value.schema === 2 && (!value.airport || !value.airportDataVersion || !value.trainingStation)) throw new Error("Airport and training frequency are required.");
     if (value.schema === 1 && value.airport && value.airport !== "EGPH") throw new Error("Legacy exercises use EGPH.");
     const airport = getAirport(value); trainingStation(value);
+    if (value.positions?.length) {
+      if (trainingMode(value) !== "approach") throw new Error("Splits currently require Approach training.");
+      for (const a of value.aircraft) if (a.positionId && !value.positions.some(p => p.id === a.positionId)) throw new Error("Aircraft controller position is missing.");
+    } else if (value.aircraft.some(a => a.positionId)) throw new Error("Aircraft controller position is missing.");
     const error = runwayReferenceError(value, airport); if (error) throw new Error(error);
     const mode = trainingMode(value);
     if (mode !== "local" && value.aircraft.some(a => !a.radar || a.radar.station !== mode || radarTrafficStateError(a, airport, true))) throw new Error("Radar exercises require matching airborne or takeoff traffic.");
@@ -149,7 +157,11 @@ export const exerciseSchema = exerciseObject.superRefine((value, ctx) => {
       const environment = environmentWithDestinations(airport,value.radarEnvironment ?? radarEnvironmentFor(airport),value.aircraft);
       for (const a of value.aircraft) {
         for (const id of [a.radar?.expected, a.radar?.cleared, a.radar?.requestedApproach]) if (id && !environment.approaches.some(p => p.id === id)) throw new Error("Aircraft approach is missing from the training environment.");
-        if (a.radar?.cleared && a.radar.cleared !== a.radar.expected) throw new Error("Approach clearance must match the expected approach.");
+        // Older accepted clearances can retain their expectation only on the
+        // controller strip. Read that saved state without rewriting its history.
+        const recordedExpectation = !a.radar?.expected && a.radar?.navigation === "approach"
+          && a.assigned?.expected === a.radar.cleared && a.assigned?.cleared === a.radar.cleared;
+        if (a.radar?.cleared && a.radar.cleared !== a.radar.expected && !recordedExpectation) throw new Error("Approach clearance must match the expected approach.");
       }
     }
   } catch (reason) {ctx.addIssue({code: z.ZodIssueCode.custom, message: (reason as Error).message});}

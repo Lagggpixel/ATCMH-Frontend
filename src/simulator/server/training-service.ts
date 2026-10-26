@@ -16,7 +16,7 @@ const unavailable = () => new SessionError("not-found", "This scenario is unavai
 function staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
 const scenarioRecord = (r: ScenarioRow): ScenarioRecord => {
   const published = r.published_definition ? storedScenarioSchema.parse(JSON.parse(r.published_definition)) : undefined;
-  return {id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: storedScenarioSchema.parse(JSON.parse(r.draft)), ...(published ? {published: {title: published.title, airport: published.airport, airportDataVersion: published.airportDataVersion, trainingStation: published.trainingStation}} : {})};
+  return {id: r.id, ownerId: r.owner_id, ownerName: r.owner_name ?? undefined, version: r.version, publishedRevision: r.published_revision, updatedAt: Number(r.updated_at), draft: storedScenarioSchema.parse(JSON.parse(r.draft)), ...(published ? {published: {title: published.title, airport: published.airport, airportDataVersion: published.airportDataVersion, trainingStation: published.trainingStation, ...(published.positions ? {positions: published.positions} : {})}} : {})};
 };
 
 /** Authoring and scenario lifecycle mutations share the existing SQL transaction context with sessions. */
@@ -130,7 +130,10 @@ export class TrainingService {
         if (record.scenario.attemptId !== attemptId) throw new SessionError("stale-attempt", "This attempt has already been restarted. Refresh before continuing.", 409);
         if (record.scenario.finished) throw new SessionError("attempt-finished", "Create a new session from Sessions.", 409);
         const old = record.scenario, elapsed = record.exercise.elapsed, result = JSON.stringify({exercise: record.exercise, events: old.events});
-        const created = createScenarioExercise(old.definition, sessionId, randomUUID());
+        const created = createScenarioExercise({...old.definition, ...(old.positionLayout ? {positions: old.positionLayout} : {})}, sessionId, randomUUID());
+        created.runtime.definition = old.definition; created.runtime.positionLayout = old.positionLayout;
+        if (created.exercise.positions) record.positionState = Object.fromEntries(created.exercise.positions.map(p => [p.id, record.positionState?.[p.id] ?? {}]));
+        else delete record.positionState;
         created.exercise.autoReadback = record.exercise.autoReadback ?? false;
         record.scenario = {...created.runtime, scenarioId: old.scenarioId, revision: old.revision, attemptId: randomUUID()};
         created.exercise.revision = record.exercise.revision + 1;

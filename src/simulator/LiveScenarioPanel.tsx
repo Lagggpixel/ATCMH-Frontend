@@ -15,7 +15,7 @@ const triggerLabel = (e: ScenarioEvent) => e.trigger.type === "time" ? timeLabel
 export function conditionLabel(event: ScenarioEvent, events: ScenarioEvent[]) {
   if (event.trigger.type !== "condition") return "";
   const c = event.trigger.condition;
-  const text = c.type === "hold" ? "an aircraft reaches a hold point" : c.type === "frequency" ? `an aircraft tunes to ${c.frequency}` : c.type === "leg" ? `an aircraft enters ${c.leg}` : c.type === "overhead" ? "an aircraft is overhead" : c.type === "position" ? "an aircraft reaches a location" : c.type === "altitude" ? `an aircraft reaches ${c.altitude.toLocaleString()} ft` : c.type === "radar" ? `radar state is ${c.state}` : `“${events.find(e => e.id === c.eventId)?.title ?? "another event"}” completes`;
+  const text = c.type === "controller-position" ? `an aircraft checks in with ${c.positionId}` : c.type === "hold" ? "an aircraft reaches a hold point" : c.type === "frequency" ? `an aircraft tunes to ${c.frequency}` : c.type === "leg" ? `an aircraft enters ${c.leg}` : c.type === "overhead" ? "an aircraft is overhead" : c.type === "position" ? "an aircraft reaches a location" : c.type === "altitude" ? `an aircraft reaches ${c.altitude.toLocaleString()} ft` : c.type === "radar" ? `radar state is ${c.state}` : `“${events.find(e => e.id === c.eventId)?.title ?? "another event"}” completes`;
   return `When ${text}${event.trigger.delay ? `, then ${event.trigger.delay} s` : ""}`;
 }
 

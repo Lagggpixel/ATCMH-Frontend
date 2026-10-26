@@ -1,7 +1,7 @@
 import {fetchWeatherReport} from "./weather-provider";
 import type {SessionWeatherLoader} from "./session-weather";
 import {z} from "zod/v3";
-import {envelopeSchema} from "../protocol";
+import {controllerPositionsSchema, envelopeSchema} from "../protocol";
 import {invalidRequestMessage} from "../request-validation";
 import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
 import {notifyAssignment, type AssignmentNotice} from "./assignment-notifications";
@@ -13,7 +13,7 @@ import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstra
 import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
 
 const idSchema = z.string().uuid();
-const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), token: z.string().uuid()});
+const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), token: z.string().uuid(), positionId: z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/).optional()});
 const assignSchema = z.object({mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().trim().min(1).max(128).optional()}).strict().nullable()}).strict();
 const endSchema = z.object({feedback: z.string().trim().max(6000).optional()}).strict();
 const LOOKUPS_PER_MINUTE = 20;
@@ -73,6 +73,17 @@ async function sessionOperation(request: Request, id: string, operation: string)
       return Response.json({ended: true}, {headers: noStore});
     }
     if (operation === "stream") return await stream(request, id);
+    if (operation === "positions") {
+      const actor = await authorize(request, true), value = z.object({positions: controllerPositionsSchema}).strict().parse(await body(request));
+      await requireLocal(id);
+      return Response.json({session: await service.configurePositions(actor, id, value.positions)}, {headers: noStore});
+    }
+    if (operation === "position-assignment") {
+      const actor = await authorize(request, true), value = z.object({positionId: z.string().min(1).max(32), mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().max(128).optional()}).strict().nullable(), feedback: z.string().max(6000).optional()}).strict().parse(await body(request));
+      await requireLocal(id);
+      const assignment = value.mentee ? {...value.mentee, assignedAt: Date.now(), assignedBy: actor.accountId, assignedByName: actor.displayName} : null;
+      return Response.json({session: await service.assignPosition(actor, id, value.positionId, assignment, value.feedback)}, {headers: noStore});
+    }
     if (operation === "assign") {
       const actor = await authorize(request, true);
       const value = assignSchema.parse(await body(request));
@@ -84,7 +95,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "spectator" || seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
-    if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token), {headers: noStore});
+    if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token, seat.positionId), {headers: noStore});
     if (operation === "leave") {await service.leave(actor, id, seat.role, seat.token); return Response.json({left: true}, {headers: noStore});}
     if (operation === "events") {
       if (seat.role === "mentee") throw new SessionError("forbidden", "Only staff can manage scenario events.", 403);
@@ -134,9 +145,9 @@ async function stream(request: Request, id: string) {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
           presenter = demoPresenter(frame.exercise.demonstration, seat.role, actor.accountId);
-          hub.trust(id, presenter ? "presenter" : seat.role === "mentee" ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
+          hub.trust(id, presenter ? "presenter" : seat.role === "mentee" && (!frame.exercise.demonstration?.positionId || frame.exercise.demonstration.positionId === frame.positionId) ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
-            send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
+            send({type: "snapshot", positionId: frame.positionId, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
             const {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus} = frame.exercise;
             send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus}, session: frame.session});

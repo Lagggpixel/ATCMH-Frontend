@@ -8,7 +8,7 @@ export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
 /** missedHeading is a true course, preserving existing scenario geometry. */
 export interface RadarApproach {glideslope?:boolean;airportIcao?: string; airportName?: string; elevation?: number; threshold?: Point; departure?: Point; id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
-export interface RadarEnvironment {facilityDefaultActive?: boolean; facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point; waypointType?:string; vorType?:string; slavedVariation?:number}[]; approaches: RadarApproach[]}
+export interface RadarEnvironment {controllerPositions?: import("./positions").PositionPresence[]; facilityDefaultActive?: boolean; facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point; waypointType?:string; vorType?:string; slavedVariation?:number}[]; approaches: RadarApproach[]}
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeFromRoute?: boolean; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
   approachIntercept?: {seconds: number; entered: boolean};
   gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
@@ -57,6 +57,7 @@ export interface Airport {
   features: {id: string; kind: string; name: string; points: Point[]}[];
 }
 export interface Aircraft {
+  positionId?: string;
   performanceProfile?: "C172" | "C208" | "TBM9" | "DH8D" | "A320" | "B738" | "B77W"; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
   fuel?: {state: "unknown" | "normal" | "minimum" | "emergency"; enduranceMinutes: number; declared?: "minimum" | "emergency"};
   assigned?: import("./controller-state").ControllerAssignments;
@@ -119,6 +120,7 @@ export interface Aircraft {
   followGroundId?: string;
 }
 export interface Message {
+  positionId?: string; actorId?: string; actorName?: string;
   id: string; aircraftId: string; time: number; frequency: Frequency;
   sender: "controller" | "pilot"; text: string;
   unableReason?: string; // Mentor-only explanation; never part of the radio transmission.
@@ -140,13 +142,16 @@ export interface Atis {
   expectations: string[]; remarks: string[]; notams: string[]; procedures: string[];
 }
 export interface Exercise {
+  positions?: import("./positions").ControllerPosition[];
+  positionFeedback?: Record<string, string>;
+  positionPresence?: import("./positions").PositionPresence[];
   weather?: ExerciseWeather;
   conflicts?: import("./training-conflicts").TrainingConflict[];
   callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
   // Staff, or a spectator who took over (`spectator`, held while `until` is renewed), hold the controller seat; the mentee watches a live mirror.
-  demonstration?: {startedAt: number; by?: string; byId?: string; spectator?: boolean; until?: number};
+  demonstration?: {startedAt: number; by?: string; byId?: string; spectator?: boolean; until?: number; positionId?: string};
   autoReadback?: boolean;
   fullStopAll?: Record<string, Aircraft["landing"]>; // Landing intentions to restore when staff cancel All full stop.
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
@@ -166,7 +171,7 @@ export type Action =
   | {kind: "play" | "reset"}
   | {kind: "pause"; visibility?: "hidden" | "visible"}
   | {kind: "auto-readback"; enabled: boolean}
-  | {kind: "demonstrate"; enabled: boolean}
+  | {kind: "demonstrate"; enabled: boolean; positionId?: string}
   | {kind: "spawn"; aircraft: Aircraft}
   | {kind: "edit"; aircraftId: string; patch: Partial<Aircraft>}
   | {kind: "taxi-path"; aircraftId: string; path: TaxiPoint[]; edit: import("./taxi-path-editing").TaxiPathEdit}
@@ -203,7 +208,7 @@ export type Instruction =
   | {type: "extend"; leg: "upwind" | "downwind"}
   | {type: "heading" | "speed"; value: number}
   | {type: "runway"; runway: Runway}
-  | {type: "frequency"; frequency: Frequency | null; facilityId?: string; facilityName?: string; mhz?: string; whenReady?: boolean; from?: Frequency}
+  | {type: "frequency"; frequency: Frequency | null; facilityId?: string; facilityName?: string; mhz?: string; targetPositionId?: string; whenReady?: boolean; from?: Frequency}
   | {type: "outcome"; outcome: Aircraft["landing"]};
 export interface Envelope {id: string; action: Action; time: number}
 export type Direction = "north" | "east" | "south" | "west";

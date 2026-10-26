@@ -6,10 +6,12 @@ export interface ScopeOptions {
   frequencyTrails: boolean; windsAloft: boolean; filter: string;
   /** Staff radar only: Airbus ND-style terrain dots (TERR). */
   terrain: boolean;
+  /** TERR reference altitude in feet when no aircraft is selected; 0 is AUTO (peaks). */
+  terrainReference: number;
 }
 export const initialOptions: ScopeOptions = {
   waypoints: false, navaids: false, airspaces: true, taxiways: true, approaches: true,
-  uncontrolledAirports: true, trails: true, frequencyTrails: true, windsAloft: false, filter: "none", terrain: false,
+  uncontrolledAirports: true, trails: true, frequencyTrails: true, windsAloft: false, filter: "none", terrain: false, terrainReference: 0,
 };
 export const scopeOptionRows = [
   ["waypoints", "Fixes"], ["navaids", "Navaids"], ["airspaces", "Airspaces"],

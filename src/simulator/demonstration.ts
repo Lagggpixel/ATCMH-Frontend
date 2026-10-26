@@ -3,6 +3,8 @@ import type {ReplayDemoMark} from "./replays";
 import type {MapCamera} from "./scope-camera";
 import type {Exercise, Frequency, GroundRoute, GroundRouteDestination, Point} from "./model";
 import type {VectorTarget} from "./vector-drag";
+import type {QuickCommand} from "./quick-commands";
+import {instructionSchema} from "./protocol";
 
 /** Mentor demonstration: the mentor holds the controller seat and the mentee watches a live mirror.
  * Control itself is `exercise.demonstration`; everything here is the ephemeral mirror channel. */
@@ -10,6 +12,8 @@ export const DEMO_BATCH_MS = 100;
 /** The trainee renders the pointer this far behind the trainer to smooth over network jitter. */
 export const DEMO_PLAYBACK_DELAY_MS = 120;
 export const DEMO_SENT_VISIBLE_MS = 7000;
+/** How many of the presenter's quick commands the watching screens show. */
+export const DEMO_QUICK_COMMANDS = 24;
 
 /** Whether this page holds the controller seat: the trainer's control page, or the spectator who took over. */
 export function demoPresenter(demonstration: Exercise["demonstration"], role: "staff" | "mentee" | "spectator", accountId: string) {
@@ -23,6 +27,8 @@ export interface DemoController {
   frequency: Frequency; selectedId: string | null; messageId: string | null; menuPath: string[];
   dismissedStrips: Record<string, string | null>;
 }
+/** One of the presenter's own quick commands, as the watching screens show it. */
+export type DemoQuickCommand = Omit<QuickCommand, "count" | "manual">;
 export interface DemoState extends DemoController {
   quickHidden: boolean; utility: string | null;
   vectorHeading?: number; vectorTarget?: VectorTarget; vectorAnchor?: Point;
@@ -31,6 +37,8 @@ export interface DemoState extends DemoController {
   camera: (MapCamera & {width: number; height: number}) | null;
   /** How far each scrolled list is scrolled, 0 to 1, keyed by `demoScrollKey`. */
   scroll?: Record<string, number>;
+  /** The presenter's own quick commands, best first. Watchers show these in place of theirs; nobody's list changes. */
+  quick?: DemoQuickCommand[];
 }
 /** Where the pointer is: a map position on the scope, or a spot on a labelled control or screen region. */
 export type DemoAnchor = {kind: "scope"; point: Point} | {kind: "ui"; region: string; label?: string; fx: number; fy: number};
@@ -50,6 +58,7 @@ const anchor = z.discriminatedUnion("kind", [
   z.object({kind: z.literal("ui"), region: z.string().regex(/^[a-z-]{1,40}$/), label: label.optional(), fx: finite(-1, 2), fy: finite(-1, 2)}).strict(),
 ]);
 const time = finite(-1e13, 1e13);
+const quickCommandSchema = z.object({name: label.min(1), command: instructionSchema, path: z.array(label).max(12), frequency, airport: z.string().regex(/^[A-Z0-9]{4}$/), state: z.enum(["ground", "airborne", "both"])}).strict();
 const controller = {
   frequency, selectedId: id.nullable(), messageId: id.nullable(), menuPath: z.array(label).max(12),
   dismissedStrips: z.record(z.string().max(220), id.nullable()).refine(value => Object.keys(value).length <= 300),
@@ -65,6 +74,8 @@ export const demoStateSchema = z.object({...controller,
     holds: z.record(z.string().max(80), z.boolean()).refine(value => Object.keys(value).length <= 200)}).strict().nullable(),
   camera: z.object({center: point, scale: finite(1e-6, 1e9), width: finite(0, 20000), height: finite(0, 20000)}).strict().nullable(),
   scroll: z.record(z.string().regex(/^[a-z-]{1,40}:[0-9.]{0,120}$/), finite(0, 1)).refine(value => Object.keys(value).length <= 24).optional(),
+  // A quick command this server would not accept is left off rather than losing the whole mirror frame.
+  quick: z.array(z.unknown()).max(DEMO_QUICK_COMMANDS).transform(list => list.flatMap(entry => {const parsed = quickCommandSchema.safeParse(entry); return parsed.success ? [parsed.data] : [];})).optional(),
 }).strict();
 export const demoBatchSchema = z.object({
   seq: finite(0, 1e12).int(), sentAt: time, elapsed: finite(0, 1e12), state: demoStateSchema.optional(),

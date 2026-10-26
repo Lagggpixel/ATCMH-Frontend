@@ -1,3 +1,4 @@
+import aviationData from "./data/aviation.json";
 import kbhmLegacy from "./data/kbhm-before-runway-repair.json";
 import sbbrLegacy from "./data/sbbr-before-runway-repair.json";
 import rjttLegacy from "./data/rjtt-before-runway-repair.json";
@@ -102,12 +103,19 @@ export const airportCallsign = (airport: Airport) => AIRPORT_RADIO_NAMES[airport
 export type ServiceType = Frequency | "local" | "approach" | "center";
 export interface RadioStation {id: string; service: ServiceType; name: string; airport?: string; sector?: string; mhz?: string; available: boolean}
 const labels = {departure: "Departure", unicom: "Unicom",local: "Ground & Tower", ground: "Ground", tower: "Tower", atis: "ATIS", approach: "Approach", center: "Center"};
+const primaryChannels = new Map<string, string>();
+for (const row of aviationData.rows as {kind: string; airport?: string | null; type?: string; mhz?: number | string}[]) {
+  if (row.kind !== "frequency" || !row.airport || !row.type || !row.mhz) continue;
+  const key = `${row.airport}:${row.type}`;
+  if (!primaryChannels.has(key)) primaryChannels.set(key, Number(row.mhz).toFixed(2));
+}
+
 /** IDs are independent of MHz and leave room for multiple regional sectors. */
 export function airportStations(airport: Airport): RadioStation[] {
   return (["local", "ground", "tower", "atis", "approach", "center"] as const).map(service => ({
     id: `${airport.icao}:${service}`, service, airport: airport.icao, name: `${airportCallsign(airport)} ${labels[service]}`,
     available: true,
-    mhz: airport.icao === "EGPH" ? ({ground: "121.75", tower: "118.70", atis: "131.35"} as Partial<Record<ServiceType, string>>)[service] : undefined,
+    mhz: primaryChannels.get(`${airport.icao}:${labels[service]}`) ?? (airport.icao === "EGPH" ? ({ground: "121.75", tower: "118.70", atis: "131.35"} as Partial<Record<ServiceType, string>>)[service] : undefined),
   }));
 }
 export function trainingStation(selection: AirportSelection): RadioStation {

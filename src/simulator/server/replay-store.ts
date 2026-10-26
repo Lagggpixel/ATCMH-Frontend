@@ -25,6 +25,12 @@ function participants(record: SessionRecord, previous: ReplayParticipant[] = [])
     const participant = {role, accountId: seat.accountId, ...(seat.displayName ? {name: seat.displayName} : {})};
     if (index < 0) result.push(participant); else result[index] = {...result[index], ...participant};
   }
+  for (const [positionId, state] of Object.entries(record.positionState ?? {})) {
+    const seat = state.seat; if (!seat) continue;
+    const participant = {role: "mentee" as const, accountId: seat.accountId, name: seat.displayName, positionId, positionName: record.exercise.positions?.find(p => p.id === positionId)?.name};
+    const index = result.findIndex(p => p.role === "mentee" && p.accountId === seat.accountId && p.positionId === positionId);
+    if (index < 0) result.push(participant); else result[index] = {...result[index], ...participant};
+  }
   return result;
 }
 function summary(row: ReplayRow): ReplaySummary {

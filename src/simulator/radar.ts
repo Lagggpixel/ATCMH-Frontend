@@ -196,7 +196,7 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
   } else if (c.type === "vector") {
     if (c.heading !== undefined) {a.targetHeading = magneticToTrue(c.heading, airport); r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;}
     if (c.altitude) {r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude;}
-    if (c.approachId) {delete r.missedApproach; r.navigation = "approach"; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;
+    if (c.approachId) {delete r.missedApproach; r.navigation = "approach"; r.expected = c.approachId; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;
       const approach = environment.approaches.find(item => item.id === c.approachId);
       if (approach && (!approach.airportIcao || approach.airportIcao === airport.icao)) a.runway = approach.runway;
       if (gpsJoin) {r.gpsApproach = gpsJoin; r.routeIndex = gpsJoin.index;}

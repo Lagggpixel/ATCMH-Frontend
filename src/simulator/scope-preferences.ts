@@ -13,6 +13,7 @@ const optionsSchema = z.object({
   trails: z.boolean().catch(initialOptions.trails), frequencyTrails: z.boolean().catch(initialOptions.frequencyTrails),
   windsAloft: z.boolean().catch(initialOptions.windsAloft),
   terrain: z.boolean().catch(initialOptions.terrain),
+  terrainReference: z.number().int().min(0).max(25000).refine(value => value % 1000 === 0).catch(initialOptions.terrainReference),
   filter: z.string().refine(value => value === "none" || trafficFilters.some(([filter]) => filter === value)).catch("none"),
 });
 const preferencesSchema = z.object({

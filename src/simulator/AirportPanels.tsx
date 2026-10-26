@@ -58,7 +58,8 @@ function WeatherAge({observedAt}: {observedAt?: string}) {
   return <time dateTime={observedAt} title={new Date(published).toUTCString()}>{age}</time>;
 }
 
-export default function AirportDetails({airport, origin, exerciseWeather, environment, onClose}: {
+export default function AirportDetails({controllers, traineeName, controlledServices, airport, origin, exerciseWeather, environment, onClose}: {
+  controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[];
   airport: ScopeAirport; origin: string; exerciseWeather: ExerciseWeather; environment?: RadarEnvironment; onClose: () => void;
 }) {
   const [tab, setTab] = useState<typeof tabs[number]>("INFO"), [runway, setRunway] = useState("");
@@ -87,8 +88,8 @@ export default function AirportDetails({airport, origin, exerciseWeather, enviro
           <p className={styles.airportMetadata}>{(data?.elevationFeet ?? airport.elevationFeet) !== undefined ? `${Math.round((data?.elevationFeet ?? airport.elevationFeet)!)}ft` : "Elevation unavailable"}
             {data?.airportClass ? <><br/>Class {data.airportClass}</> : null}</p>
         </div>
-        <h2>FREQUENCIES</h2>{data?.frequencies.length ? data.frequencies.map(frequency => <div key={frequency.id} className={styles.frequency}>
-          <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{facilityActive({...frequency, active: true}, environment) ? "Training" : "Inactive"} at {airport.identifier}<br/>{frequency.mhz}MHz</span>
+        <h2>FREQUENCIES</h2>{data?.frequencies.length ? data.frequencies.filter(f => controllers?.some(p => p.facilityId === f.id) || facilityActive({...f, active: true}, environment)).map(frequency => <div key={frequency.id} className={styles.frequency}>
+          <span>{frequency.type.charAt(0).toUpperCase() + frequency.type.slice(1)}</span><span>{controllers?.find(p => p.facilityId === frequency.id)?.traineeName ?? controllers?.find(p => p.facilityId === frequency.id)?.assignedName ?? (controllers?.some(p => p.facilityId === frequency.id) ? "Unstaffed" : frequency.type === "unicom" ? "Traffic" : frequency.type === "atis" ? "ATIS" : airport.identifier === origin && controlledServices?.includes(frequency.type) ? traineeName ?? "Unstaffed" : "Simulated controller")} {controllers?.find(p => p.facilityId === frequency.id)?.name ?? ""}<br/>{frequency.mhz}MHz</span>
         </div>) : <p>Frequency information unavailable.</p>}
       </> : null}
       {tab === "WX" ? <>

@@ -17,6 +17,7 @@ function conditionMet(event: ScenarioEvent, exercise: Exercise, runtime: Scenari
     case "altitude": return Math.abs(a.altitude - c.altitude) <= 25;
     case "radar": return c.state === "captured" ? !!a.radar?.captured : c.state === "missed" ? a.radar?.navigation === "missed" : c.state === "transferred" ? !!a.radar?.transferred : !!a.radar && a.flightPlan.length > 0 && a.radar.routeIndex >= a.flightPlan.length;
     case "overhead": return !!exercise.autoReadback && a.mode === "heading" && a.transitionAltitude !== undefined && distance(a.position, {x: 0, y: 0}) <= c.radius;
+    case "controller-position": return a.positionId === c.positionId && exercise.messages.some(m => m.aircraftId === a.id && m.positionId === c.positionId && m.sender === "pilot" && m.request?.id === "check-in" && !m.commandId);
     case "frequency": return a.frequency === c.frequency;
     case "hold": return a.holding && ["taxi", "lineup"].includes(a.mode);
     case "leg": return a.mode === "pattern" && a.leg === c.leg;

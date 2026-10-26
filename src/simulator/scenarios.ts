@@ -1,7 +1,8 @@
+import {facilities} from "./aviation";
 import {standPoints} from "./stand-geometry";
 import {REQUEST_IDS} from "./catalog";
 import {z} from "zod/v3";
-import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema, weatherSchema, pilotRequestSchema} from "./protocol";
+import {aircraftSchema, instructionSchema, runwaySchema, radarEnvironmentSchema, frequencySchema, weatherSchema, pilotRequestSchema, controllerPositionsSchema} from "./protocol";
 import {radarEnvironmentFor, radarTrafficStateError} from "./radar";
 import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
@@ -16,6 +17,7 @@ export const seedSchema = aircraftSchema.omit({patternEntry: true, airportSighti
   .refine(seed => seed.mode !== "pushback", "Start aircraft parked and schedule a pushback manoeuvre instead.");
 
 export const conditionSchema = z.discriminatedUnion("type", [
+  z.object({type: z.literal("controller-position"), aircraftKey: key, positionId: key}),
   z.object({type: z.literal("frequency"), aircraftKey: key, frequency: frequencySchema}),
   z.object({type: z.literal("altitude"), aircraftKey: key, altitude: z.number().min(1000).max(60000)}),
   z.object({type: z.literal("radar"), aircraftKey: key, state: z.enum(["captured", "missed", "transferred", "route-complete"])}),
@@ -42,7 +44,7 @@ export const eventSchema = z.object({id: key, title: z.string().trim().min(1).ma
 ]), actions: z.array(eventActionSchema).min(1).max(10)});
 
 export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS), airportDataDate: z.string().max(30), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(),
-  weather: weatherSchema.optional(), radarEnvironment: radarEnvironmentSchema.optional(),
+  positions: controllerPositionsSchema.optional(), weather: weatherSchema.optional(), radarEnvironment: radarEnvironmentSchema.optional(),
   title: z.string().trim().min(1).max(80), instructorNotes: z.string().max(6000),
   aircraft: z.array(z.object({key, initial: z.boolean(), seed: seedSchema, gateId: z.string().optional()})).max(MAX_AIRCRAFT), events: z.array(eventSchema).max(200),
 }).superRefine((value, ctx) => {
@@ -56,6 +58,13 @@ export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.l
     if (value.airportDataDate !== airport.sourceDate) throw new Error("Airport source date does not match the pinned dataset.");
     const invalid = runwayReferenceError(value, airport); if (invalid) throw new Error(invalid);
   } catch (reason) {error((reason as Error).message); return;}
+  if (value.positions?.length) {
+    if (trainingMode(value) !== "approach") error("Splits currently require Approach training.");
+    const channels = (value.radarEnvironment?.facilities ?? facilities).filter(f => f.airport === airport.icao && f.type === "approach");
+    if (value.positions.some(p => !channels.some(f => f.id === p.facilityId && f.mhz === p.mhz))) error("Choose Approach frequencies at this airport.");
+    for (const a of value.aircraft) if (a.seed.positionId && !value.positions.some(p => p.id === a.seed.positionId)) error(`${a.seed.callsign}: controller position is missing.`);
+    for (const event of value.events) if (event.trigger.type === "condition" && event.trigger.condition.type === "controller-position" && !value.positions.some(p => p.id === (event.trigger.type === "condition" && event.trigger.condition.type === "controller-position" ? event.trigger.condition.positionId : ""))) error(`${event.title}: controller position is missing.`);
+  } else if (value.aircraft.some(a => a.seed.positionId) || value.events.some(e => e.trigger.type === "condition" && e.trigger.condition.type === "controller-position")) error("Aircraft controller position is missing.");
   if (trainingMode(value) !== "local") {
     const environment = value.radarEnvironment ?? radarEnvironmentFor(airport);
     for (const a of value.aircraft) {
@@ -115,15 +124,15 @@ export type ScenarioAction = z.infer<typeof eventActionSchema>;
 export type EventState = {status: "scheduled" | "waiting" | "completed" | "blocked" | "skipped"; conditionAt?: number; completedAt?: number; error?: string};
 
 export interface ScenarioRuntime {
-  definition: ScenarioDefinition; generation: string; aircraftIds: Record<string, string>; events: Record<string, EventState>;
+  positionLayout?: import("./positions").ControllerPosition[]; definition: ScenarioDefinition; generation: string; aircraftIds: Record<string, string>; events: Record<string, EventState>;
   started: boolean; finished: boolean; feedback?: string; attemptId?: string; scenarioId?: string; revision?: number;
 }
 
-export const scenarioRuntimeSchema = z.object({definition: storedScenarioSchema, generation: z.string().uuid(), aircraftIds: z.record(z.string()),
+export const scenarioRuntimeSchema = z.object({positionLayout: controllerPositionsSchema.optional(), definition: storedScenarioSchema, generation: z.string().uuid(), aircraftIds: z.record(z.string()),
   events: z.record(z.object({status: z.enum(["scheduled", "waiting", "completed", "blocked", "skipped"]), conditionAt: z.number().finite().min(0).max(1e12).optional(), completedAt: z.number().finite().min(0).max(1e12).optional(), error: z.string().optional()})),
   started: z.boolean(), finished: z.boolean(), feedback: z.string().max(6000).optional(), attemptId: z.string().uuid().optional(), scenarioId: z.string().uuid().optional(), revision: z.number().int().positive().optional()});
 
-export interface ScenarioRecord {id: string; ownerId: string; ownerName?: string; isTemplate?: boolean; canEdit?: boolean; canOverride?: boolean; canCreateTemplate?: boolean; version: number; publishedRevision: number; updatedAt: number; draft: ScenarioDefinition; published?: {title: string} & AirportSelection}
+export interface ScenarioRecord {id: string; ownerId: string; ownerName?: string; isTemplate?: boolean; canEdit?: boolean; canOverride?: boolean; canCreateTemplate?: boolean; version: number; publishedRevision: number; updatedAt: number; draft: ScenarioDefinition; published?: {title: string; positions?: import("./positions").ControllerPosition[]} & AirportSelection}
 
 export interface ScenarioStaffView {title: string; instructorNotes: string; attemptId?: string; finished: boolean; events: (ScenarioEvent & EventState)[]}
 
@@ -134,21 +143,26 @@ export function seedFromAircraft(a: Aircraft) {return seedSchema.parse(a);}
 
 export function scenarioFromExercise(exercise: Exercise, title: string): ScenarioDefinition {
   const airport = getAirport(exercise);
-  return {schema: 2, ...airportSelection(airport), airportDataVersion: exercise.airportDataVersion ?? airport.dataVersion, trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.weather ? {weather:structuredClone(exercise.weather)}:{}), ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
+  return {schema: 2, ...(exercise.positions ? {positions: structuredClone(exercise.positions)} : {}), ...airportSelection(airport), airportDataVersion: exercise.airportDataVersion ?? airport.dataVersion, trainingStation: exercise.trainingStation ?? `${airport.icao}:ground`, ...(exercise.weather ? {weather:structuredClone(exercise.weather)}:{}), ...(exercise.radarEnvironment ? {radarEnvironment: structuredClone(exercise.radarEnvironment)} : {}), airportDataDate: airport.sourceDate, title, instructorNotes: "", aircraft: exercise.aircraft.map((a, i) => ({key: `aircraft-${i + 1}`, initial: true, seed: seedFromAircraft({...a, taxiPath: [a.position, ...a.taxiPath.slice(a.taxiIndex)], ...(a.mode === "pushback" ? {mode: "parked", speed: 0, targetSpeed: 0} : {})})})), events: []};
 }
 
 export const blankScenario = (selection: AirportSelection = {}): ScenarioDefinition => scenarioFromExercise({...engineFor(selection).initialExercise(), ...(selection.trainingStation ? {trainingStation: selection.trainingStation} : {}), aircraft: []}, "Untitled scenario");
 
 export function createScenarioExercise(definition: ScenarioDefinition, sessionId: string, generation: string): {exercise: Exercise; runtime: ScenarioRuntime} {
   const runtime: ScenarioRuntime = {definition: structuredClone(definition), generation, aircraftIds: Object.fromEntries(definition.aircraft.map(a => [a.key, `${generation}:${a.key}`])), events: Object.fromEntries(definition.events.map(e => [e.id, {status: e.trigger.type === "manual" ? "waiting" : "scheduled"}])), started: false, finished: false};
-  const exercise = {...engineFor(definition).initialExercise(sessionId), trainingStation: definition.trainingStation ?? `${definition.airport}:ground`, callsignReservations: definition.aircraft.map(a => ({id: runtime.aircraftIds[a.key], callsign: a.seed.callsign})), aircraft: definition.aircraft.filter(a => a.initial).map(a => materializeAircraft(runtime, a.key))};
+  const exercise = {...engineFor(definition).initialExercise(sessionId), ...(definition.positions ? {positions: structuredClone(definition.positions)} : {}), trainingStation: definition.trainingStation ?? `${definition.airport}:ground`, callsignReservations: definition.aircraft.map(a => ({id: runtime.aircraftIds[a.key], callsign: a.seed.callsign})), aircraft: definition.aircraft.filter(a => a.initial).map(a => materializeAircraft(runtime, a.key))};
+  if (definition.positions?.length && exercise.radarEnvironment) exercise.radarEnvironment = {...exercise.radarEnvironment, facilityActivity: {...exercise.radarEnvironment.facilityActivity, ...Object.fromEntries((exercise.radarEnvironment.facilities ?? facilities).filter(f => f.airport === definition.airport && f.type === "approach").map(f => [f.id, definition.positions!.some(p => p.facilityId === f.id)]))}};
   return {exercise, runtime};
 }
 
 export function materializeAircraft(runtime: ScenarioRuntime, key: string): Aircraft {
   const spec = runtime.definition.aircraft.find(a => a.key === key);
   if (!spec) throw new Error("Aircraft definition is missing.");
-  return {...engineFor(runtime.definition).newAircraft(runtime.aircraftIds[key], false), ...structuredClone(normalizeScenarioAircraft(spec, getAirport(runtime.definition)).seed), id: runtime.aircraftIds[key]};
+  const positions = runtime.positionLayout ?? runtime.definition.positions;
+  const seed = structuredClone(normalizeScenarioAircraft(spec, getAirport(runtime.definition)).seed);
+  if (positions?.length && seed.frequency === "approach") seed.positionId = positions.some(p => p.id === seed.positionId) ? seed.positionId : positions[0].id;
+  else delete seed.positionId;
+  return {...engineFor(runtime.definition).newAircraft(runtime.aircraftIds[key], false), ...seed, id: runtime.aircraftIds[key]};
 }
 
 const gateCache = new WeakMap<Airport, Airport["features"]>();

@@ -1,5 +1,6 @@
 import {facilityActive} from "./facility-activity";
 import {visualClearanceUnable} from "./radar";
+import {aircraftPosition} from "./positions";
 import {availableHandoffs, environmentWithDestinations, freshFacilityEnvironment} from "./aviation";
 import {advancePerformance, climbRate, descentRate, acceleration, rotationSpeed, performanceFor, headingForGroundTrack, densityRatio} from "./aircraft-performance";
 import {recordControllerAssignment} from "./controller-state";
@@ -606,7 +607,8 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
       else {
         a.frequency = c.frequency;
         updateRadarFrequency(a);
-        if(c.facilityId && a.radar) a.radar.transferred=true;
+        if(c.targetPositionId) {a.positionId=c.targetPositionId; if(a.radar){a.radar.transferred=false;a.radar.report="check-in";}}
+        else {delete a.positionId; if(c.facilityId && a.radar) a.radar.transferred=true;}
         if (c.frequency === "ground" && a.parkingAfterContact) {a.arrivalRequest = "taxi-parking"; delete a.parkingAfterContact;}
         if (c.frequency === "tower" && ["parked","taxi","lineup"].includes(a.mode)) {a.towerCheckInPending=true;if(atDepartureHold(a))a.automaticRequest="departure";} else delete a.towerCheckInPending;
       }
@@ -628,11 +630,11 @@ function atisText(draft: Atis): string {
 
 /** Preserve radio history while retiring instructions left behind by a retune. */
 function retireRetunedCommands(state: Exercise, before: Aircraft[]) {
-  const changed = new Map(state.aircraft.filter(a => before.some(old => old.id === a.id && old.frequency !== a.frequency)).map(a => [a.id, a.frequency]));
+  const changed = new Map(state.aircraft.filter(a => before.some(old => old.id === a.id && (old.frequency !== a.frequency || old.positionId !== a.positionId))).map(a => [a.id, {frequency: a.frequency, positionId: a.positionId}]));
   if (!changed.size) return;
   for (const a of state.aircraft) if (changed.has(a.id)) a.requestedPatternDeparture = false;
   state.messages = state.messages.map(message => {
-    if (!changed.has(message.aircraftId) || changed.get(message.aircraftId) === message.frequency || message.sender !== "controller" || message.acknowledged || !commandHasReadback(message.instruction)) return message;
+    if (!changed.has(message.aircraftId) || (changed.get(message.aircraftId)?.frequency === message.frequency && changed.get(message.aircraftId)?.positionId === message.positionId) || message.sender !== "controller" || message.acknowledged || !commandHasReadback(message.instruction)) return message;
     const retired = {...message, acknowledged: true}; delete retired.autoReadbackAt; return retired;
   });
 }
@@ -733,6 +735,8 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       }
     }
   }
+  const changedPositionId = action.kind === "edit" ? action.patch.positionId : action.kind === "spawn" ? action.aircraft.positionId : undefined;
+  if (changedPositionId && !state.positions?.some(p => p.id === changedPositionId)) return {state, error: "Controller position is unavailable."};
   if (action.kind === "command" && !action.resendOf) {
     const {replyTo} = action;
     action = {...action, command: controllerInstruction(aircraft!, action.command, radarEnvironment, next.messages.find(m => m.id === replyTo), action.frequency)};
@@ -751,12 +755,12 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
   if (action.kind === "conflict") {const error = startConflict(next, AIRPORT, conflictEngine, envelope.id, action.conflict, action.aircraftId, action.otherId); if (error) return {state, error};}
   if (action.kind === "cancel-conflict") {const c = next.conflicts?.find(c => c.id === action.conflictId); if (!c) return {state, error: "Conflict no longer exists."}; c.phase = "cancelled"; c.outcome = "Cancelled by staff"; for (const a of next.aircraft.filter(a => [c.first, c.second].includes(a.id))) {delete a.conflictMotion; delete a.conflictRequest; if (c.kind === "uwc") {a.extended = false; if (a.leg === "upwind") instruct(a, {type: "pattern", leg: "crosswind"});}}}
   switch (action.kind) {
-    case "reset": {const reset = initialExercise(state.id); reset.trainingStation = state.trainingStation; reset.autoReadback = state.autoReadback ?? false; reset.revision = state.revision + 1; reset.processed = [...state.processed.slice(-511), envelope.id]; return {state: reset};}
+    case "reset": {const reset = initialExercise(state.id); reset.trainingStation = state.trainingStation; if (state.positions) {reset.positions = structuredClone(state.positions); for (const a of reset.aircraft) if (a.frequency === "approach") a.positionId = state.positions[0].id;} reset.autoReadback = state.autoReadback ?? false; reset.revision = state.revision + 1; reset.processed = [...state.processed.slice(-511), envelope.id]; return {state: reset};}
     case "facilities": next.radarEnvironment={...radarEnvironment,facilityActivity:{...action.activity}};break;
     case "weather": next.weather = {...action.weather}; next.atis={...next.atis,weather:{...action.weather}};break;
     case "play": next.running = true; next.pausedByStaff = false; break;
     case "pause": next.running = false; next.pausedByStaff = true; next.pauseVisibility = action.visibility ?? "hidden"; break;
-    case "demonstrate": if (action.enabled) next.demonstration ??= {startedAt: next.elapsed}; else delete next.demonstration; break;
+    case "demonstrate": if (action.enabled) next.demonstration ??= {startedAt: next.elapsed, ...(action.positionId ? {positionId: action.positionId} : {})}; else delete next.demonstration; break;
     case "auto-readback": {
       next.autoReadback = action.enabled;
       if (!action.enabled) for (const a of next.aircraft) if (a.airportSighting) a.airportSighting.seconds = 0;
@@ -885,6 +889,17 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       next.messages.push({id: `${envelope.id}:pattern:${a.id}`, aircraftId: a.id, time: envelope.time, frequency: "tower", sender: "pilot", text: `${a.callsign}, unable to join the local pattern`, unableReason: join.reason ?? "No reachable pattern entry."});
     }
   }
+  if (next.positions?.length) {
+    for (const a of next.aircraft) if (a.frequency === "approach" && !a.positionId) a.positionId = next.positions[0].id;
+    // Only new split transmissions need attribution. Historical messages are immutable.
+    const previousMessages = new Set(state.messages.map(m => m.id));
+    for (const message of next.messages) if (!previousMessages.has(message.id)) {
+      const old = state.aircraft.find(a => a.id === message.aircraftId), current = next.aircraft.find(a => a.id === message.aircraftId);
+      const command = next.messages.find(m => m.id === message.commandId);
+      const source = command?.positionId ?? (current && aircraftPosition(next, current)) ?? (old && aircraftPosition(state, old));
+      if (source) message.positionId = source;
+    }
+  }
   retireRetunedCommands(next, state.aircraft);
   next.messages = next.messages.slice(-300);
   reconcileSequences(next.aircraft);
@@ -901,7 +916,10 @@ function validateControllerMessage(state: Exercise, a: Aircraft, command: Instru
   const request = state.messages.find(m => m.id === replyTo && m.aircraftId === a.id && m.frequency === frequency && m.sender === "pilot" && !m.commandId);
   if (resolveContext) command = controllerInstruction(a, command, radarEnvironment, request, frequency);
   if (resolveContext && command.type === "atc" && command.action === "diversion" && !diversionRequestDestination(a, request, frequency)) return "A diversion reply requires a pilot request with a destination airport.";
-  if (command.type === "frequency" && command.frequency !== null) {
+  if (command.type === "frequency" && command.targetPositionId) {
+    const target = state.positions?.find(p => p.id === command.targetPositionId);
+    if (!target || target.id === aircraftPosition(state, a) || command.frequency !== target.service || command.facilityId !== target.facilityId || command.mhz !== target.mhz) return "Choose another configured controller position.";
+  } else if (command.type === "frequency" && command.frequency !== null) {
     const allowed = availableHandoffs(a, AIRPORT, frequency, radarEnvironment.facilities, radarEnvironment).filter(f => facilityActive(f, radarEnvironment));
     if (!allowed.some(f => f.type === command.frequency && (!command.facilityId || f.id === command.facilityId))) return "Choose the other local controller frequency, Traffic in radar training, or Frequency Change Approved.";
   }
@@ -1203,6 +1221,14 @@ function advance(state: Exercise, seconds: number): Exercise {
     for (const a of next.aircraft) if (!a.trail.length || next.elapsed - (a.trail.at(-1)!.time ?? -Infinity) >= DEFAULTS.trailInterval - 1e-8) a.trail = [...a.trail, {...a.position, time: next.elapsed}];
   }
   next.aircraft = next.aircraft.filter(a => a.radar?.arrival?.phase !== "vacated");
+  for (const a of next.aircraft) if (next.positions?.length && a.frequency === "approach" && !a.positionId) a.positionId = next.positions[0].id;
+  // Stamp each new transmission with its source channel, including transfer readbacks.
+  for (const message of next.messages) if (!state.messages.some(m => m.id === message.id)) {
+    const old = state.aircraft.find(a => a.id === message.aircraftId), current = next.aircraft.find(a => a.id === message.aircraftId);
+    const command = next.messages.find(m => m.id === message.commandId);
+    const source = command?.positionId ?? (current && aircraftPosition(next, current)) ?? (old && aircraftPosition(state, old));
+    if (source) message.positionId = source;
+  }
   retireRetunedCommands(next, state.aircraft);
   next.revision++;
   for (const a of next.aircraft) a.trail = a.trail.filter(p => p.time !== undefined && p.time >= next.elapsed - DEFAULTS.radarSeconds - 1e-8).slice(-120);

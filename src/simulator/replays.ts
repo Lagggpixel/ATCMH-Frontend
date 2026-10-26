@@ -1,6 +1,6 @@
 import type {Aircraft, Exercise, Point} from "./model";
 
-export interface ReplayParticipant {accountId: string; name?: string; role: "staff" | "mentee"}
+export interface ReplayParticipant {accountId: string; name?: string; role: "staff" | "mentee"; positionId?: string; positionName?: string}
 export interface ReplaySummary {
   airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; sessionId: string; title: string; ownerId: string; ownerName?: string;
@@ -25,9 +25,18 @@ export interface ReplayDelta {
 export interface ReplayFrame {sequence: number; at: number; delta: ReplayDelta; interpolate: boolean}
 export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; frames: ReplayFrame[]; next: number | null}
 
+/** Shared traffic stays visible for debrief; personal position feedback follows its participant. */
+export function participantReplay(detail: ReplayDetail, accountId: string): ReplayDetail {
+  const positions = new Set(detail.replay.participants.filter(p => p.role === "mentee" && p.accountId === accountId).flatMap(p => p.positionId ? [p.positionId] : []));
+  const feedback = (value: Record<string, string>) => Object.fromEntries(Object.entries(value).filter(([id]) => positions.has(id)));
+  return {...detail, initial: detail.initial ? {...detail.initial, ...(detail.initial.positionFeedback ? {positionFeedback: feedback(detail.initial.positionFeedback)} : {})} : null,
+    frames: detail.frames.map(frame => frame.delta.state.positionFeedback ? {...frame, delta: {...frame.delta, state: {...frame.delta.state, positionFeedback: feedback(frame.delta.state.positionFeedback)}}} : frame)};
+}
+
 /** Drop transport deduplication IDs and redundant trails, never radio messages or aircraft state. */
 export function replayState(exercise: Exercise): Exercise {
-  return {...exercise, processed: [], aircraft: exercise.aircraft.map(a => ({...a, trail: []}))};
+  const saved = {...exercise}; delete saved.positionPresence;
+  return {...saved, processed: [], aircraft: exercise.aircraft.map(a => ({...a, trail: []}))};
 }
 export function replayDelta(before: Exercise, after: Exercise): ReplayDelta {
   const state: ReplayDelta["state"] = {};

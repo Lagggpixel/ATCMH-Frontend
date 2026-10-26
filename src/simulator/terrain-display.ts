@@ -2,14 +2,16 @@ import type {Point} from "./model";
 import type {MapCamera, MapSize} from "./scope-camera";
 import type {ScopeTerrain} from "./scope-map-data";
 
-/** Airbus ND / EGPWS colours. Dots stay screen-aligned like the ND's pattern. */
+/** Airbus ND / EGPWS colours. */
 export const TERRAIN_COLORS = {red: "#ff2a1a", amber: "#ffbf00", green: "#19d219", magenta: "#ff3cff", cyan: "#00e5ff"} as const;
-export type TerrainClass = "red" | "amberHigh" | "amberLow" | "greenHigh" | "greenLow" | "noData";
-const DOT_SPACING = 4, DOT_SIZE = 1.6;
-const fills: Record<TerrainClass, {color: string; dense: boolean}> = {
-  red: {color: TERRAIN_COLORS.red, dense: true}, amberHigh: {color: TERRAIN_COLORS.amber, dense: true},
-  amberLow: {color: TERRAIN_COLORS.amber, dense: false}, greenHigh: {color: TERRAIN_COLORS.green, dense: true},
-  greenLow: {color: TERRAIN_COLORS.green, dense: false}, noData: {color: TERRAIN_COLORS.magenta, dense: false},
+export type TerrainClass = "red" | "amberHigh" | "amberLow" | "greenHigh" | "greenLow" | "greenFaint" | "noData";
+const DOT_SPACING = 6, DOT_SIZE = 1.6;
+/** Density is the coarsest lattice drawn in full: 1 dense, 2 sparse (a quarter), 3 faint (a sixteenth). */
+const fills: Record<TerrainClass, {color: string; density: number}> = {
+  red: {color: TERRAIN_COLORS.red, density: 1}, amberHigh: {color: TERRAIN_COLORS.amber, density: 1},
+  amberLow: {color: TERRAIN_COLORS.amber, density: 2}, greenHigh: {color: TERRAIN_COLORS.green, density: 1},
+  greenLow: {color: TERRAIN_COLORS.green, density: 2}, greenFaint: {color: TERRAIN_COLORS.green, density: 3},
+  noData: {color: TERRAIN_COLORS.magenta, density: 2},
 };
 
 /** Bilinear elevation in feet; null where the service had no sample, undefined outside the grid. */
@@ -23,16 +25,27 @@ export function terrainElevationAt(grid: ScopeTerrain, point: Point): number | n
   return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
 }
 
-/** Relative to the reference altitude (EGPWS bands), or "peaks" against the highest terrain in view.
- * Peaks never shades ground within 1,000 ft of the field, so flat country stays black. */
+/** Relative to the reference altitude (EGPWS bands), or "peaks" against the terrain in view: ground from
+ * 500 ft above the field up to the highest point is split into thirds, densest at the top. */
 export function terrainClass(elevation: number | null, reference: number | undefined, peaks: {max: number; field: number}): TerrainClass | undefined {
   if (elevation === null) return "noData";
   if (reference !== undefined) {
     const above = elevation - reference;
     return above > 2000 ? "red" : above > 1000 ? "amberHigh" : above > -500 ? "amberLow" : above > -1000 ? "greenHigh" : above > -2000 ? "greenLow" : undefined;
   }
-  if (elevation < peaks.field + 1000) return;
-  return elevation >= peaks.max - 1500 ? "greenHigh" : elevation >= peaks.max - 4000 ? "greenLow" : undefined;
+  const floor = peaks.field + 500, range = Math.max(1500, peaks.max - floor);
+  if (elevation < floor) return;
+  const height = (elevation - floor) / range;
+  return height >= 2 / 3 ? "greenHigh" : height >= 1 / 3 ? "greenLow" : "greenFaint";
+}
+
+/** Manual REF steps: AUTO (peaks), then whole thousands from the first one at least 1,000 ft above the field. */
+export const TERRAIN_REFERENCE_MAX = 25000;
+export function stepTerrainReference(current: number, direction: 1 | -1, field: number) {
+  const lowest = Math.ceil((field + 1000) / 1000) * 1000;
+  if (!current) return direction > 0 ? lowest : 0;
+  const next = current + direction * 1000;
+  return next < lowest ? 0 : Math.min(TERRAIN_REFERENCE_MAX, next);
 }
 
 const worldAt = (camera: MapCamera, size: MapSize, x: number, y: number): Point =>
@@ -54,27 +67,50 @@ export function terrainExtremes(grid: ScopeTerrain, camera: MapCamera, size: Map
   return Number.isFinite(max) ? {max, min: Math.max(0, min)} : undefined;
 }
 
-/** Dense dots use a staggered 4 px lattice; sparse dots keep a quarter of it. */
+const even = (value: number) => (value % 2 + 2) % 2 === 0;
+/** How many times a point of the finest lattice survives halving: a staggered lattice's points at
+ * (i + odd(j)/2, j) belong to the next coarser one when j is even and i + j/2 is even. */
+function latticeLevel(i: number, j: number, limit: number) {
+  let level = 0;
+  while (level < limit && even(j) && even(i + j / 2)) {
+    const row = j / 2; i = (i - (even(row) ? 0 : 1)) / 2; j = row; level++;
+  }
+  return level;
+}
+
+/** Dots are pinned to the map so terrain does not slide under them while panning or zooming.
+ * The lattice halves in world size at each zoom doubling; the extra dots fade in between,
+ * keeping screen spacing between 3 and 6 px. Sparse bands keep a quarter of the dense dots. */
 export function drawTerrain(ctx: CanvasRenderingContext2D, grid: ScopeTerrain, camera: MapCamera, size: MapSize, reference: number | undefined, field: number, opacity = .75) {
   const extremes = terrainExtremes(grid, camera, size);
   if (!extremes) return;
   const peaks = {max: extremes.max, field};
-  const dots = new Map<TerrainClass, number[]>();
-  for (let row = 0, y = DOT_SPACING / 2; y < size.height; row++, y += DOT_SPACING) {
-    const shift = row & 1 ? DOT_SPACING / 2 : 0;
-    for (let column = 0, x = shift; x < size.width; column++, x += DOT_SPACING) {
-      const elevation = terrainElevationAt(grid, worldAt(camera, size, x, y));
+  const zoom = Math.log2(DOT_SPACING / camera.scale), spacing = 2 ** Math.floor(zoom), fade = 1 - (zoom - Math.floor(zoom));
+  const a = worldAt(camera, size, 0, size.height), b = worldAt(camera, size, size.width, 0);
+  const dots = new Map<string, {color: string; alpha: number; points: number[]}>();
+  for (let j = Math.floor(a.y / spacing) - 1; j <= Math.ceil(b.y / spacing) + 1; j++) {
+    const shift = even(j) ? 0 : .5, y = j * spacing;
+    for (let i = Math.floor(a.x / spacing - shift) - 1; i <= Math.ceil(b.x / spacing) + 1; i++) {
+      const level = latticeLevel(i, j, 3);
+      if (!level && fade < .03) continue;
+      const elevation = terrainElevationAt(grid, {x: (i + shift) * spacing, y});
       if (elevation === undefined) continue;
       const kind = terrainClass(elevation, reference, peaks);
-      if (!kind || !fills[kind].dense && (row & 1 || (column + (row >> 1)) & 1)) continue;
-      let list = dots.get(kind); if (!list) dots.set(kind, list = []);
-      list.push(x, y);
+      if (!kind) continue;
+      // Each density is fully drawn from its own lattice; the next finer one fades in while zooming.
+      const visible = fills[kind].density;
+      if (level < visible - 1) continue;
+      const alpha = level >= visible ? 1 : fade;
+      if (alpha < .03) continue;
+      const key = `${kind}:${alpha === 1 ? 1 : 0}`;
+      let group = dots.get(key); if (!group) dots.set(key, group = {color: fills[kind].color, alpha, points: []});
+      group.points.push(camera.scale * ((i + shift) * spacing - camera.center.x) + size.width / 2, size.height / 2 - camera.scale * (y - camera.center.y));
     }
   }
-  ctx.save(); ctx.globalAlpha = opacity;
-  for (const [kind, list] of dots) {
-    ctx.fillStyle = fills[kind].color;
-    for (let i = 0; i < list.length; i += 2) ctx.fillRect(list[i] - DOT_SIZE / 2, list[i + 1] - DOT_SIZE / 2, DOT_SIZE, DOT_SIZE);
+  ctx.save();
+  for (const group of dots.values()) {
+    ctx.globalAlpha = opacity * group.alpha; ctx.fillStyle = group.color;
+    for (let i = 0; i < group.points.length; i += 2) ctx.fillRect(group.points[i] - DOT_SIZE / 2, group.points[i + 1] - DOT_SIZE / 2, DOT_SIZE, DOT_SIZE);
   }
   ctx.restore();
 }

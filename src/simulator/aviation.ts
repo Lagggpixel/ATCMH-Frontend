@@ -76,5 +76,5 @@ export function freshFacilityEnvironment(airport: Airport, mode: "local" | "appr
   const own = (environment.facilities ?? facilities).filter(f => services.includes(f.type) && (f.airport === airport.icao
     || f.type === "center" && insideAirspace(f.boundary, airport.origin.lat, airport.origin.lon)));
   return {...environment, facilityDefaultActive: environment.facilityDefaultActive ?? false,
-    facilityActivity: {...Object.fromEntries([...own.map(f => [f.id, f.active]), ...services.map(type => [`${airport.icao}:${type}`, true])]), ...Object.fromEntries((environment.facilities ?? []).map(f => [f.id, f.active])), ...environment.facilityActivity}};
+    facilityActivity: {...Object.fromEntries([...own.map(f => [f.id, false]), ...own.filter((f, i) => own.findIndex(other => other.type === f.type) === i).map(f => [f.id, f.active]), ...services.map(type => [`${airport.icao}:${type}`, true]) ]), ...Object.fromEntries((environment.facilities ?? []).map(f => [f.id, f.active])), ...environment.facilityActivity}};
 }

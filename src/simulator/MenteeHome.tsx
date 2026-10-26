@@ -72,10 +72,10 @@ function Assigned() {
         {sessions === null ? <p role="status" className={ui.status}>Loading your sessions…</p> : next ? <section aria-labelledby="next-heading" className={ui.next}>
           <div className={ui.itemMain}>
             <span className={`${ui.state} ${status(next).tone}`}>{status(next).tone ? <span className={ui.dot}/> : null}{status(next).label}</span>
-            <h2 id="next-heading">{next.title}</h2>
+            <h2 id="next-heading">{next.title}</h2>{next.positions?.slice(1).map(p => <Link key={p.id} href={`${sessionPath("mentee", next.id)}?position=${p.id}`} target="_blank">Open {p.name} · {p.mhz}</Link>)}
             <small>{next.airport} · {modeLabel(next.trainingStation)}{next.trainerName ? ` · with ${next.trainerName}` : ""} · Assigned {ago(next.assignedAt, now)}</small>
           </div>
-          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter session<span className={ui.srOnly}> {next.title}</span></Link>
+          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={`${sessionPath("mentee", next.id)}${next.positions?.[0] ? `?position=${next.positions[0].id}` : ""}`}>Enter {next.positions?.[0]?.name ?? "session"}<span className={ui.srOnly}> {next.title}</span></Link>
         </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here by itself. You can also join with a code.</p></div>}
       </div>
       {others.length ? <section className={ui.group} aria-labelledby="more-heading">

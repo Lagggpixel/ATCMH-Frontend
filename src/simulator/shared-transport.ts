@@ -1,3 +1,4 @@
+import {ownsAircraft} from "./positions";
 import {prepareQuickCommand, QuickCommandManager, type QuickCommand} from "./quick-commands";
 import type {ScenarioStaffView} from "./scenarios";
 import {initialExercise} from "./engine";
@@ -11,7 +12,7 @@ import type {DemoBatch, DemoController, DemoState} from "./demonstration";
 /** A demonstration update from the trainer: the latest UI state and every batch since the last one. */
 export interface DemoFrame {seq: number; state?: DemoState; batches: DemoBatch[]}
 
-export interface SharedSessionView {queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
+export interface SharedSessionView {positionId?: string; queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
 const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
@@ -44,7 +45,7 @@ export class SharedSession {
     for (const [id, job] of this.queued) if (!job.inFlight) {job.cancelled = true; this.optimistic.delete(id);}
     this.update({error: null});
   };
-  constructor(private role: SessionMode, private id: string, private csrf: string) {}
+  constructor(private role: SessionMode, private id: string, private csrf: string, private positionId?: string) {}
   private canControl() {return this.role === "staff" || this.role === "spectator" && this.controlsEnabled;}
   setControlsEnabled = (enabled: boolean) => {
     if (this.role !== "spectator") return;
@@ -85,9 +86,10 @@ export class SharedSession {
   clearError = () => this.update({error: null});
   dispatch = (action: Action, path?: string[]) => {
     if (this.role === "spectator" && !this.controlsEnabled) return Promise.resolve(false);
+    if (this.role === "mentee" && this.view.exercise.positions?.length && "aircraftId" in action && !ownsAircraft(this.view.exercise, this.view.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, this.view.positionId)) return Promise.resolve(false);
     if (!this.send || this.view.fatal) {this.update({error: this.view.fatal ?? "Join the session before sending."}); return Promise.resolve(false);}
     // The trainer holds the controller seat; the trainee's page only watches.
-    if (this.view.exercise.demonstration && this.role === "mentee") return Promise.resolve(false);
+    if (this.view.exercise.demonstration && this.role === "mentee" && (!this.view.exercise.demonstration.positionId || this.view.exercise.demonstration.positionId === this.view.positionId)) return Promise.resolve(false);
     if (this.view.exercise.pausedByStaff && this.role === "mentee") {this.update({error: "Staff has paused this exercise."}); return Promise.resolve(false);}
     if (this.queued.size >= 100) {this.update({error: "The command queue is full. Wait for delivery or cancel unsent commands."}); return Promise.resolve(false);}
     return this.send(action, path);
@@ -143,7 +145,7 @@ export class SharedSession {
               if (stopped || job.cancelled) return;
               if (error.code === "seat-lost") {
                 // Reclaim only this page's own seat. An occupied/revoked seat is a hard failure.
-                try {await post("join"); claimed = this.role !== "spectator";}
+                try {const joined = await post("join", this.positionId ? {positionId: this.positionId} : {}); this.positionId ??= joined.positionId; this.update({positionId: joined.positionId}); claimed = this.role !== "spectator";}
                 catch (reason) {
                   const failure = reason as Error & {status?: number};
                   if (failure.status && failure.status < 500) {fatal(reason); return;}
@@ -176,7 +178,7 @@ export class SharedSession {
         const exercise = exerciseSchema.parse(value.exercise);
         if (exercise.id !== this.id) throw new Error("Received a frame for another session.");
         if (exercise.revision < this.authoritativeExercise.revision) return;
-        this.update({exercise, scenario: value.scenario, connected: true, owner: this.canControl(), session: value.session, status: "Session connected", fatal: null});
+        this.update({positionId: value.positionId ?? this.view.positionId, exercise, scenario: value.scenario, connected: true, owner: this.canControl(), session: value.session, status: "Session connected", fatal: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);
         if (motion.id === this.id && motion.revision >= this.authoritativeExercise.revision)
@@ -187,7 +189,7 @@ export class SharedSession {
     };
     const connect = async () => {
       try {
-        await post("join"); claimed = this.role !== "spectator";
+        const joined = await post("join", this.positionId ? {positionId: this.positionId} : {}); this.positionId ??= joined.positionId; this.update({positionId: joined.positionId}); claimed = this.role !== "spectator";
         if (stopped) {release(); return;}
         const response = await fetch(`${base}/stream`, {headers: {"x-simulator-role": this.role, "x-simulator-seat": token}, cache: "no-store", signal: controller.signal});
         if (!response.ok) await sessionJson(response);

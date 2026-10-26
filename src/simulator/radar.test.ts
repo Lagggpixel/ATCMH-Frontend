@@ -308,6 +308,39 @@ test("transferred radar traffic keeps radar pilot requests and cannot switch int
   assert.equal(state.aircraft[0].mode, "heading"); assert.equal(state.aircraft[0].radar!.navigation, "missed");
 });
 
+test("an accepted approach clearance retains the expectation recorded on the controller strip", () => {
+  let state = exercise(); const a = state.aircraft[0], approach = state.radarEnvironment!.approaches[0];
+  delete a.radar!.expected;
+  a.assigned = {expected: approach.id, cleared: null};
+  state = assign(state, {type: "vector", heading: 180, altitude: {unit: "feet", value: 3000}, approachId: approach.id});
+  assert.equal(state.aircraft[0].radar!.expected, approach.id);
+  assert.equal(state.aircraft[0].radar!.cleared, approach.id);
+  assert.ok(exerciseSchema.safeParse(state).success);
+});
+
+test("saved approach compatibility requires matching controller expectation and clearance", () => {
+  const state = exercise(), a = state.aircraft[0], approach = state.radarEnvironment!.approaches[0];
+  a.radar!.navigation = "approach"; a.radar!.cleared = approach.id; delete a.radar!.expected;
+  a.assigned = {expected: approach.id, cleared: approach.id};
+  assert.ok(exerciseSchema.safeParse(state).success);
+  for (const change of [
+    () => {delete a.assigned;},
+    () => {a.assigned!.cleared = null;},
+    () => {a.assigned!.expected = null;},
+    () => {a.radar!.navigation = "heading";},
+    () => {a.radar!.expected = state.radarEnvironment!.approaches[1].id;},
+    () => {a.radar!.cleared = "unknown"; a.assigned = {expected: "unknown", cleared: "unknown"};},
+  ]) {
+    a.radar!.navigation = "approach"; a.radar!.cleared = approach.id; delete a.radar!.expected;
+    a.assigned = {expected: approach.id, cleared: approach.id}; change();
+    assert.equal(exerciseSchema.safeParse(state).success, false);
+  }
+  a.radar!.navigation = "approach"; a.radar!.cleared = approach.id; delete a.radar!.expected;
+  a.assigned = {expected: approach.id, cleared: approach.id};
+  const edited = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "edit", aircraftId: a.id, patch: {radar: {...a.radar}}}});
+  assert.match(edited.error!, /clearance must match/i);
+});
+
 test("invalid approach pins and mentor edits cannot corrupt a radar exercise", () => {
   const state = exercise(); const invalid = structuredClone(state); invalid.aircraft[0].radar!.expected = "absent";
   assert.equal(exerciseSchema.safeParse(invalid).success, false);

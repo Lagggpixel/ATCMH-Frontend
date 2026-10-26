@@ -1,6 +1,7 @@
 export type SessionRole = "staff" | "mentee";
 export type SessionMode = SessionRole | "spectator";
 export interface SessionSummary {
+  positions?: import("./positions").PositionPresence[];
   airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; title: string; createdAt: number; updatedAt: number;
   ownerId?: string; ownerName?: string; staffId?: string; staffName?: string; menteeId?: string; menteeName?: string;
@@ -12,6 +13,8 @@ export interface SessionSummary {
 }
 /** The mentee's view of a session assigned to them: no other participants' identities. */
 export interface AssignedSession {
+  positions?: import("./positions").PositionPresence[];
+  positionId?: string; positionName?: string;
   id: string; title: string; airport: string; trainingStation?: string; trainerName?: string;
   assignedAt: number; trainerConnected: boolean; youConnected: boolean; paused: boolean;
 }

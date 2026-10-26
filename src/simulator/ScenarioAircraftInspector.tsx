@@ -42,6 +42,7 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
     events: initial ? d.events.map(e => ({...e, actions: e.actions.filter(action => action.type !== "spawn" || action.aircraftKey !== a.id)})).filter(e => e.actions.length)
       : [...d.events, {id: crypto.randomUUID().slice(0, 32), title: `Spawn ${a.callsign}`, trigger: {type: "time", at: 120}, actions: [{type: "spawn", aircraftKey: a.id}]}]}));
   return <div className={styles.inspector}>
+    {definition.positions?.length ? <label>Starting controller position<select disabled={readOnly} value={a.positionId ?? definition.positions[0].id} onChange={e => patch({positionId: e.target.value})}>{definition.positions.map(p => <option key={p.id} value={p.id}>{p.name} · {p.mhz}</option>)}</select></label> : null}
     <header className={styles.header}><h2>{a.callsign}</h2><p>{a.type} <span aria-hidden="true">·</span> {ground ? "Ground" : a.radar ? "Radar" : "Airborne"}</p></header>
     <div className={styles.tabs} role="tablist" aria-label="Aircraft settings">
       {tabs.map(name => <button type="button" key={name} role="tab" id={`${id}-${name}-tab`} aria-controls={`${id}-${name}-panel`} aria-selected={tab === name} tabIndex={tab === name ? 0 : -1}

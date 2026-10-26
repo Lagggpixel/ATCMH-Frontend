@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {drawTerrain, terrainClass, terrainElevationAt, terrainExtremes, terrainFigureColor, terrainHundreds, TERRAIN_COLORS} from "./terrain-display";
+import {drawTerrain, stepTerrainReference, terrainClass, terrainElevationAt, terrainExtremes, terrainFigureColor, terrainHundreds, TERRAIN_COLORS} from "./terrain-display";
 import {fetchScopeTerrain} from "./server/terrain-grid";
 import type {ScopeTerrain} from "./scope-map-data";
 
@@ -17,11 +17,25 @@ test("terrain is classified in EGPWS bands relative to the reference altitude", 
   assert.equal(terrainClass(null, 11000, peaks), "noData");
 });
 
-test("peaks mode shades the highest ground in view and leaves ground near the field black", () => {
+test("peaks mode splits ground from 500 ft above the field to the highest point into three densities", () => {
+  // Field 7,800: floor 8,300, range 5,700 to the 14,000 ft peak.
   assert.equal(terrainClass(13000, undefined, peaks), "greenHigh");
   assert.equal(terrainClass(11000, undefined, peaks), "greenLow");
-  assert.equal(terrainClass(8500, undefined, peaks), undefined);
-  assert.equal(terrainClass(900, undefined, {max: 900, field: 80}), undefined);
+  assert.equal(terrainClass(8500, undefined, peaks), "greenFaint");
+  assert.equal(terrainClass(8200, undefined, peaks), undefined);
+  // Gentle country still shows its hills; flat ground near the field stays black.
+  assert.equal(terrainClass(2000, undefined, {max: 2600, field: 100}), "greenHigh");
+  assert.equal(terrainClass(700, undefined, {max: 2600, field: 100}), "greenFaint");
+  assert.equal(terrainClass(400, undefined, {max: 900, field: 80}), undefined);
+});
+
+test("the manual reference steps through whole thousands above the field and back to AUTO", () => {
+  assert.equal(stepTerrainReference(0, 1, 7820), 9000);
+  assert.equal(stepTerrainReference(9000, 1, 7820), 10000);
+  assert.equal(stepTerrainReference(9000, -1, 7820), 0);
+  assert.equal(stepTerrainReference(0, -1, 7820), 0);
+  assert.equal(stepTerrainReference(0, 1, 80), 2000);
+  assert.equal(stepTerrainReference(25000, 1, 80), 25000);
 });
 
 test("elevation is interpolated inside the grid and unknown outside or beside missing samples", () => {
@@ -42,14 +56,31 @@ test("readout extremes only count samples in view and figures use ND colours", (
   assert.equal(terrainFigureColor(14200, undefined), TERRAIN_COLORS.green);
 });
 
-test("dense bands draw four times as many dots as sparse ones", () => {
-  const count = (elevation: number) => {
-    let dots = 0;
-    const ctx = {fillStyle: "", globalAlpha: 1, save() {}, restore() {}, fillRect() {dots++;}} as unknown as CanvasRenderingContext2D;
-    drawTerrain(ctx, grid([elevation, elevation, elevation, elevation], 2, 100), {center: {x: 0, y: 0}, scale: 1}, {width: 64, height: 64}, 11000, 7800);
-    return dots;
-  };
-  assert.equal(count(14000), 256); assert.equal(count(10600), 64); assert.equal(count(5000), 0);
+function dots(elevation: number, camera: {center: {x: number; y: number}; scale: number}) {
+  const drawn: {x: number; y: number; alpha: number}[] = [];
+  const ctx = {fillStyle: "", globalAlpha: 1, save() {}, restore() {}, fillRect(x: number, y: number) {drawn.push({x, y, alpha: this.globalAlpha});}};
+  drawTerrain(ctx as unknown as CanvasRenderingContext2D, grid([elevation, elevation, elevation, elevation], 2, 400), camera, {width: 240, height: 240}, 11000, 7800);
+  return drawn;
+}
+
+test("dense bands draw about four times as many dots as sparse ones", () => {
+  const camera = {center: {x: 0, y: 0}, scale: 6};
+  const dense = dots(14000, camera).length, sparse = dots(10600, camera).length;
+  assert.ok(dense / sparse > 3.5 && dense / sparse < 4.6, `${dense} / ${sparse}`);
+  assert.equal(dots(5000, camera).length, 0);
+});
+
+test("terrain dots stay pinned to the map while panning and fade in between zoom doublings", () => {
+  const key = (list: {x: number; y: number}[], dx = 0) => new Set(list.map(d => `${(d.x + dx).toFixed(3)},${d.y.toFixed(3)}`));
+  // Panning by a whole number of lattice cells moves every dot with the map.
+  const before = dots(14000, {center: {x: 0, y: 0}, scale: 6}), after = dots(14000, {center: {x: 2, y: 0}, scale: 6});
+  const moved = key(after, 12), common = [...key(before)].filter(item => moved.has(item));
+  assert.ok(common.length > before.length * .8);
+  // Halfway between doublings the in-between dots are half-faded; just past a doubling they are gone.
+  const half = dots(14000, {center: {x: 0, y: 0}, scale: 6 / 2 ** .5});
+  assert.ok(half.some(d => Math.abs(d.alpha - .375) < .01) && half.some(d => d.alpha === .75));
+  const zoomedOut = dots(14000, {center: {x: 0, y: 0}, scale: 6 / 1.999});
+  assert.ok(zoomedOut.every(d => d.alpha === .75));
 });
 
 test("the terrain grid samples every point once and tolerates a few missing heights", async () => {

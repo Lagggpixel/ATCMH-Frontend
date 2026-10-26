@@ -301,3 +301,16 @@ test("the browser receives explicit spoken callsigns for transmissions and manua
     if (utteranceBefore) Object.defineProperty(globalThis, "SpeechSynthesisUtterance", utteranceBefore); else Reflect.deleteProperty(globalThis, "SpeechSynthesisUtterance");
   }
 });
+
+
+test("split radio hears only its tuned channel and monitoring changes never replay backlog", () => {
+  const h = harness("ground"), exercise = {...initialExercise(), positions: [{id: "initial", name: "Initial", service: "approach" as const, facilityId: "first", mhz: "118.47"}]};
+  h.player.observe(exercise, true, "approach", false, "initial");
+  const wrong = {...message("other", "tower"), positionId: "final"}, right = {...message("own", "approach"), positionId: "initial"};
+  h.player.observe({...exercise, messages: [wrong, right]}, true, "approach", false, "initial");
+  assert.equal(h.played.length, 1); assert.match(h.played[0].text, /own/);
+  h.player.observe({...exercise, messages: [wrong, right]}, true, "all", false, "all");
+  assert.equal(h.played.length, 1, "switching monitoring cancels the old queue and baselines history");
+  h.player.observe({...exercise, messages: [wrong, right, message("new", "tower")]}, true, "all", false, "all");
+  assert.equal(h.played.length, 2); assert.match(h.played[1].text, /new/); h.close();
+});

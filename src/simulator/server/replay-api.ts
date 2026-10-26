@@ -1,3 +1,4 @@
+import {participantReplay, type ReplayDetail} from "../replays";
 import {z} from "zod/v3";
 import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
@@ -18,7 +19,7 @@ export function createReplayApi(authorize = authorizeSessionRequest, list = list
         airport: z.string().regex(/^(?:[A-Z0-9]{4})?$/).parse(params.get("airport") ?? ""),
       };
       const data = id ? await read(z.string().uuid().parse(id), pageNumber.parse(params.get("after") ?? 0), scope === "self" ? actor.accountId : undefined) : await list(pageNumber.parse(params.get("offset") ?? 0), filters);
-      return Response.json(data, {headers: {"cache-control": "no-store"}});
+      return Response.json(id && scope === "self" ? participantReplay(data as ReplayDetail, actor.accountId) : data, {headers: {"cache-control": "no-store"}});
     } catch (error) {return sessionFailure(error);}
   };
 }

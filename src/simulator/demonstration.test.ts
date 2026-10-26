@@ -107,3 +107,11 @@ test("mirrored scroll positions are bounded ratios keyed by region and path", ()
   assert.throws(() => demoStateSchema.parse({...state, scroll: {"<img>": .5}}));
   assert.throws(() => demoStateSchema.parse({...state, scroll: Object.fromEntries(Array.from({length: 25}, (_, i) => [`messages:${i}`, 0]))}));
 });
+
+test("watchers get the presenter's quick commands, without ones the server would refuse", () => {
+  const state = {frequency: "ground", selectedId: null, messageId: null, menuPath: [], dismissedStrips: {}, quickHidden: false, utility: null, vectorDraft: null, ground: null, camera: null};
+  const hold = {name: "Hold Position", command: {type: "stop"}, path: ["Hold Position"], frequency: "ground", airport: "KSFO", state: "ground"};
+  assert.deepEqual(demoStateSchema.parse({...state, quick: [hold, {...hold, name: "Bad", command: {type: "teleport"}}]}).quick, [hold]);
+  assert.equal(demoStateSchema.parse(state).quick, undefined);
+  assert.throws(() => demoStateSchema.parse({...state, quick: Array.from({length: 25}, (_, i) => ({...hold, name: `Hold ${i}`}))}));
+});

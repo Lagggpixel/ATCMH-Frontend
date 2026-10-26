@@ -40,7 +40,7 @@ export class RadioAudio {
   private output: SpeechOutput | null = null;
   private preference?: AudioPreference;
   private seen = new Set<string>();
-  private previous: {id: string; connected: boolean; elapsed: number; atis: string} | null = null;
+  private previous: {id: string; connected: boolean; elapsed: number; atis: string; channel?: string} | null = null;
   private queue: string[] = [];
   private failedText = "";
   private failureCount = 0;
@@ -76,10 +76,10 @@ export class RadioAudio {
     refresh();
     return () => {unsubscribe?.(); unsubscribeStatus?.(); this.stop(); output?.dispose?.(); this.output = null; this.previous = null; this.seen.clear();};
   }
-  observe(exercise: Exercise, connected: boolean, _scope: Frequency | "all", paused = false) {
+  observe(exercise: Exercise, connected: boolean, scope: Frequency | "all", paused = false, channel?: string) {
     this.callsigns = exercise.aircraft.map(a => a.callsign);
     const previous = this.previous;
-    const baseline = !previous || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
+    const baseline = !previous || previous.channel !== channel || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
     if (baseline) this.stop();
     else if (!connected && previous.connected) {
       const interrupted = this.state.speaking;
@@ -93,9 +93,9 @@ export class RadioAudio {
     }
     if (paused) this.cancelDraft();
     this.paused = paused;
-    const fresh = baseline || !connected ? [] : exercise.messages.filter(m => !this.seen.has(m.id));
+    const fresh = baseline || !connected ? [] : exercise.messages.filter(m => !this.seen.has(m.id) && (!exercise.positions?.length || scope === "all" || m.frequency === scope));
     if (baseline || connected) this.seen = new Set(exercise.messages.map(m => m.id));
-    this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis};
+    this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis, channel};
     if (this.state.enabled && connected) {
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
