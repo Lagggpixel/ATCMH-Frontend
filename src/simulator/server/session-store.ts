@@ -25,6 +25,11 @@ export function decodeSession(row: SessionRow): SessionRecord {
     staff: row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null, mentee: row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null, assignment: decodeAssignment(row)};
 }
 export const sqlSessionStore: SessionStore = {
+  async read(id) {
+    const rows = await queryReadOnly<SessionRow[]>("SELECT * FROM simulator_sessions WHERE id=?", [id]);
+    if (!rows[0]) throw new SessionError("not-found", "This session is unavailable or has ended.", 404);
+    return decodeSession(rows[0]);
+  },
   async autoReadback(accountId) {
     const rows = await queryReadOnly<(RowDataPacket & {auto_readback: number})[]>("SELECT auto_readback FROM simulator_staff_preferences WHERE account_id=?", [accountId]);
     return rows[0] ? rows[0].auto_readback === 1 : undefined;

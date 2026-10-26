@@ -79,6 +79,9 @@ test("the demonstration hub only relays for trusted seats while a demonstration 
   hub.trust("s1", "mentee", "mentee-token", true);
   assert.equal(hub.allowed("s1", "staff", "staff-token"), true);
   assert.equal(hub.allowed("s1", "staff", "mentee-token"), false, "a seat cannot post as another role");
+  hub.trust("s1", "watcher", "watch-token", undefined);
+  assert.equal(hub.allowed("s1", "staff", "staff-token"), true, "a lagging spectator frame never ends the mirror");
+  assert.equal(hub.allowed("s1", "presenter", "watch-token"), false, "watchers cannot post");
   let woke = 0; const stop = hub.subscribe("s1", () => woke++);
   const controller = {frequency: "ground" as const, selectedId: null, messageId: null, menuPath: [], dismissedStrips: {}};
   hub.seed("s1", controller);

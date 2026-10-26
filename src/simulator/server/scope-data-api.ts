@@ -1,11 +1,12 @@
 import {z} from "zod/v3";
 import {getAirport} from "../airports";
 import {localPoint} from "../aviation";
-import type {ScopeMapData, ScopeWinds, WindLevel} from "../scope-map-data";
+import type {ScopeMapData, ScopeTerrain, ScopeWinds, WindLevel} from "../scope-map-data";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
 import {assignedMentee} from "./session-store";
 import {sessionFailure} from "./session-api";
+import {fetchScopeTerrain} from "./terrain-grid";
 
 const location = z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), name: z.string().max(300).nullable(), lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
 const coordinate = z.object({lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180)});
@@ -70,19 +71,20 @@ export async function fetchScopeWinds(code: string): Promise<ScopeWinds> {
   return {airport: code, validAt, source: "https://open-meteo.com/", points: windPoints};
 }
 
-export function createScopeDataApi(loadMap = fetchScopeMap, loadWinds = fetchScopeWinds, authorize = authorizeSessionRequest) {
-  const cache = new Map<string, {until: number; data: Promise<ScopeMapData | ScopeWinds>}>();
+export function createScopeDataApi(loadMap = fetchScopeMap, loadWinds = fetchScopeWinds, authorize = authorizeSessionRequest, loadTerrain = fetchScopeTerrain) {
+  const cache = new Map<string, {until: number; data: Promise<ScopeMapData | ScopeWinds | ScopeTerrain>}>();
   return async (request: Request) => {
     try {
       await authorize(request, false, assignedMentee);
       const query = new URL(request.url).searchParams, code = query.get("airport") ?? "", layer = query.get("layer");
       try {getAirport({airport: code});} catch {throw new SessionError("invalid-airport", "Choose an available training airport.", 400);}
-      if (layer !== "map" && layer !== "winds") throw new SessionError("invalid-layer", "Choose a scope layer.", 400);
+      if (layer !== "map" && layer !== "winds" && layer !== "terrain") throw new SessionError("invalid-layer", "Choose a scope layer.", 400);
       const key = `${code}:${layer}`;
       let entry = cache.get(key);
       if (!entry || entry.until <= Date.now()) {
-        const data = (layer === "map" ? loadMap(code) : loadWinds(code)).catch(error => {cache.delete(key); throw error;});
-        entry = {until: Date.now() + 600_000, data}; cache.set(key, entry);
+        const data = (layer === "map" ? loadMap(code) : layer === "winds" ? loadWinds(code) : loadTerrain(code)).catch(error => {cache.delete(key); throw error;});
+        // Terrain is static and costly to sample, so it is kept for a day; map and winds refresh every ten minutes.
+        entry = {until: Date.now() + (layer === "terrain" ? 86_400_000 : 600_000), data}; cache.set(key, entry);
       }
       return Response.json(await entry.data, {headers: {"cache-control": "private, no-store"}});
     } catch (error) {

@@ -44,6 +44,8 @@ import {scopeOptionRows, trafficFilters, toggleTrafficFilter, trafficVisible} fr
 import {facilities} from "./aviation";
 import {projectAirspaces, airspaceOutlines, hitAirspaces} from "./scope-airspaces";
 import {useScopeMapData} from "./use-scope-map-data";
+import {drawTerrain, terrainExtremes} from "./terrain-display";
+import {TerrainButton, TerrainReadout} from "./TerrainReadout";
 import {windAltitudeChoices, windAtAltitude, type ScopeMapData, type ScopeWinds} from "./scope-map-data";
 import {procedureKey, procedureColor, visibleProcedures, weatherCategory, type AirportProcedure, type AirportProcedures, type ScopeAirport} from "./airport-display";
 import AirportDetails, {AirportPopup} from "./AirportPanels";
@@ -54,6 +56,7 @@ import {useCoastlines} from "./use-coastlines";
 import {readScopePreferences, scopePreferenceKey} from "./scope-preferences";
 import {useSaveScopePreferences} from "./use-scope-preferences";
 import {useProjectedPath} from "./use-projected-path";
+import {useFlightPlanPreview} from "./flight-plan-preview";
 
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
@@ -67,6 +70,7 @@ interface Props {labelFrequency?: Frequency; messages?: readonly import("./model
   mirrorVector?: {aircraftId: string; point: Point} | null; mirrorGround?: DemoGroundDraft | null; followCamera?: DemoState["camera"];
   /** A replayed trainer pointer, drawn at its map position. */
   demoPointer?: {point: Point; down?: boolean; click?: boolean} | null}
+const FLIGHT_PLAN_PREVIEW = "#ffb18a";
 export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
@@ -174,6 +178,8 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   const [camera, setCamera] = useState<MapCamera>(() => preferences.camera ?? cameraStore?.get(cameraKey) ?? {center: {x: 0, y: 0}, scale: 300});
   useEffect(() => {cameraStore?.set(cameraKey, camera);}, [cameraStore, cameraKey, camera]);
   const [options, setOptions] = useState(preferences.options);
+  const terrainOn = staffAlerts && options.terrain;
+  const terrainGrid = useScopeMapData<import("./scope-map-data").ScopeTerrain>(airport.icao, "terrain", terrainOn);
   const [selectedAirspaces, setSelectedAirspaces] = useState<string[]>([]);
   const winds = useScopeMapData<ScopeWinds>(airport.icao, "winds", options.windsAloft);
   const [windAltitude, setWindAltitude] = useState(preferences.windAltitude);
@@ -225,7 +231,11 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   const [revealedFixKey, setRevealedFixKey] = useState<string | null>(null);
   const [tap, setTap] = useState<{id: string; point: Point; choices: string[]} | null>(null);
   const selectedAircraft = snapshot.find(a => a.id === selected);
+  // ND colours are relative to one aircraft; with none selected the display falls back to peaks.
+  const terrainReference = terrainOn && selectedAircraft ? Math.round(selectedAircraft.altitude / 100) * 100 : undefined;
+  const terrainView = useMemo(() => terrainOn && terrainGrid.data ? terrainExtremes(terrainGrid.data, camera, size) : undefined, [terrainOn, terrainGrid.data, camera, size]);
   const displayedWindAltitude = windAltitude < 0 ? Math.max(0, Math.floor((selectedAircraft?.altitude ?? 0) / 1000) * 1000) : windAltitude;
+  const flightPlanPreview = useFlightPlanPreview();
   const flightPlanAircraft = shownVector ? snapshot.find(a => a.id === shownVector.aircraftId) : selectedAircraft;
   const navigationFixes = useMemo(() => scopeNavigationFixes(catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids), [catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids]);
   const fixSymbols = useMemo(() => projectFixSymbols(navigationFixes, flightPlanAircraft?.flightPlan, camera, size), [navigationFixes, flightPlanAircraft?.flightPlan, camera, size]);
@@ -305,6 +315,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     const ctx = node.getContext("2d");
     if (!ctx) return;
     ctx.scale(ratio, ratio); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, size.width, size.height);
+    if (terrainOn && terrainGrid.data) drawTerrain(ctx, terrainGrid.data, camera, size, terrainReference, AIRPORT.elevation);
     const screen = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
     const path = (points: Point[], color: string, width = 1, dashed = false) => {
       if (points.length < 2 || !mapPathVisible(points, camera, size)) return;
@@ -399,7 +410,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
       ctx.fillText(item.identifier + (activity?.approachOnly && item.isTowered ? " (APP)" : ""), symbol.x, symbol.y - 35); ctx.restore();
     }
-  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, runwayAirports, airportActivity, weather]);
+  }, [coastlines.data, scopeFontReady, camera, size, options, AIRPORT, radarMode, radarEnvironment, fixSymbols, compassRoses, airspaces, selectedAirspaces, mapLayers.data, winds.data, displayedWindAltitude, displayProcedures, procedureOpacity, cameraAltitude, approachGuides, selectedAirport?.identifier, toweredAirports, renderedAirports, runwayAirports, airportActivity, weather, terrainOn, terrainGrid.data, terrainReference]);
   const taxiAircraft = selectedAircraft && (frequency === "all" || frequency === "ground" && selectedAircraft.frequency === frequency) && taxiPathEditable(selectedAircraft) ? selectedAircraft : undefined;
   const arrivalRoute = frequency === "all" && taxiAircraft && (taxiAircraft.runwayExit || taxiAircraft.arrivalExit) ? remainingTaxiPath(taxiAircraft) : undefined;
   const physicalTaxiLine = !taxiAircraft ? [] : frequency !== "all" ? assignedTaxiPath(taxiAircraft)
@@ -434,7 +445,25 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
         path(projection, "#f3cf83", 2.5);
       }
     }
-  }, [aircraft, camera, size, options, selected, flightPlanAircraft?.id, frequency, projection, taxiLine.length, headingProjection, patternOutline, showProjectedPaths]);
+    // The flight plan editor's hovered procedure glows; fixes about to be added are dashed and numbered in order.
+    const {highlight, adding} = flightPlanPreview;
+    if (highlight) {ctx.save(); ctx.globalAlpha = .3; path(highlight.points, FLIGHT_PLAN_PREVIEW, 7); ctx.restore(); path(highlight.points, FLIGHT_PLAN_PREVIEW, 2);}
+    if (adding?.points.length) {
+      const line = [adding.from, ...adding.points].map(screen);
+      ctx.save(); ctx.beginPath(); ctx.strokeStyle = FLIGHT_PLAN_PREVIEW; ctx.lineWidth = 2.5; ctx.setLineDash([8, 6]);
+      line.forEach((s, i) => {if (!i) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);}); ctx.stroke(); ctx.setLineDash([]);
+      ctx.textBaseline = "middle";
+      adding.points.forEach((point, index) => {
+        const s = line[index + 1];
+        ctx.fillStyle = FLIGHT_PLAN_PREVIEW; ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1b2227"; ctx.textAlign = "center"; ctx.font = 'bold 11px "Simulator Fira", sans-serif'; ctx.fillText(String(index + 1), s.x, s.y + .5);
+        if (!point.name) return;
+        ctx.fillStyle = FLIGHT_PLAN_PREVIEW; ctx.textAlign = "left"; ctx.font = '12px "Simulator Fira", sans-serif';
+        ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1; ctx.fillText(point.name, s.x + 14, s.y); ctx.shadowColor = "transparent";
+      });
+      ctx.restore();
+    }
+  }, [aircraft, camera, size, options, selected, flightPlanAircraft?.id, frequency, projection, taxiLine.length, headingProjection, patternOutline, showProjectedPaths, flightPlanPreview]);
   const pointAt = (event: React.PointerEvent): Point => {const bounds = event.currentTarget.getBoundingClientRect(); return {x: camera.center.x + (event.clientX - bounds.left - size.width / 2) / camera.scale, y: camera.center.y - (event.clientY - bounds.top - size.height / 2) / camera.scale};};
   const vectorPoint = (event: {clientX: number; clientY: number}): Point => {const bounds = container.current!.getBoundingClientRect(); return {x: camera.center.x + (event.clientX - bounds.left - size.width / 2) / camera.scale, y: camera.center.y - (event.clientY - bounds.top - size.height / 2) / camera.scale};};
   const vectorAircraft = shownVector && aircraft.find(a => a.id === shownVector.aircraftId);
@@ -646,6 +675,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
     {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route</> : prediction.unavailable ? <>Projected path unavailable. <button type="button" onClick={prediction.retry}>Retry prediction</button></> : <>Projected path · {selectedAircraft.mode}<br/>{!selectedAircraft.radar && ["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>Click to reposition selected aircraft</div> : null}
     <div className={styles.scopeButtons}>
+      {staffAlerts ? <TerrainButton on={options.terrain} onToggle={() => setOptions(o => ({...o, terrain: !o.terrain}))}/> : null}
       <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => {setAirportView(null); setPopup(popup === "options" || popup === "hide" ? null : "options");}}><Gear size={32} weight="fill"/></button>
       <button aria-label="Zoom in" onClick={() => zoom(1.4)}><MagnifyingGlassPlus size={32} weight="bold"/></button>
       <button aria-label="Zoom out" onClick={() => zoom(1 / 1.4)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
@@ -669,6 +699,8 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       <span>Mentor</span>
     </div> : null}
     {overlay}
+    {terrainOn ? <TerrainReadout extremes={terrainView} error={terrainGrid.error} onRetry={terrainGrid.retry}
+      reference={terrainReference !== undefined && selectedAircraft ? {callsign: selectedAircraft.callsign, altitude: terrainReference} : undefined}/> : null}
     {terrainSamples.unavailable ? <span role="status" className={styles.terrainUnavailable}>Terrain data unavailable for {terrainSamples.unavailable} aircraft</span> : null}
     {(options.waypoints || options.navaids) && !navigation.catalog && !mapLayers.data?.navaids?.length ? <div className={styles.navigationStatus} role="status">{navigation.error ? <>Navigation fixes unavailable. <button type="button" onClick={navigation.retry}>Retry navigation</button></> : "Loading navigation fixes…"}</div> : null}
   </div>;

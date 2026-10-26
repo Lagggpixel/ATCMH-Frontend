@@ -7,6 +7,8 @@ export interface ScopeMapData {
   approaches?: {airportIcao: string; runway: string; threshold: Point; departure: Point; ils: boolean; localizer?: boolean}[];
 }
 export interface WindLevel {altitude: number; direction: number; speed: number}
+/** Terrain heights in feet on a square local grid; row 0 is the southern edge, null where unsampled. */
+export interface ScopeTerrain {airport: string; spacing: number; size: number; origin: Point; elevations: (number | null)[]}
 export interface ScopeWinds {airport: string; validAt: string; source: string; points: {point: Point; surface: WindLevel; levels: WindLevel[]}[]}
 export const windAltitudeChoices = [
   [-1, "AUTO"], [0, "SURFACE"], [3000, "3,000ft"], [8000, "8,000ft"],

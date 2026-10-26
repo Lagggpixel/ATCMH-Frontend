@@ -12,6 +12,7 @@ const optionsSchema = z.object({
   approaches: z.boolean().catch(initialOptions.approaches), uncontrolledAirports: z.boolean().catch(initialOptions.uncontrolledAirports),
   trails: z.boolean().catch(initialOptions.trails), frequencyTrails: z.boolean().catch(initialOptions.frequencyTrails),
   windsAloft: z.boolean().catch(initialOptions.windsAloft),
+  terrain: z.boolean().catch(initialOptions.terrain),
   filter: z.string().refine(value => value === "none" || trafficFilters.some(([filter]) => filter === value)).catch("none"),
 });
 const preferencesSchema = z.object({

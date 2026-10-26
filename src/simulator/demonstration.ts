@@ -1,7 +1,7 @@
 import {z} from "zod/v3";
 import type {ReplayDemoMark} from "./replays";
 import type {MapCamera} from "./scope-camera";
-import type {Frequency, GroundRoute, GroundRouteDestination, Point} from "./model";
+import type {Exercise, Frequency, GroundRoute, GroundRouteDestination, Point} from "./model";
 import type {VectorTarget} from "./vector-drag";
 
 /** Mentor demonstration: the mentor holds the controller seat and the mentee watches a live mirror.
@@ -10,6 +10,12 @@ export const DEMO_BATCH_MS = 100;
 /** The trainee renders the pointer this far behind the trainer to smooth over network jitter. */
 export const DEMO_PLAYBACK_DELAY_MS = 120;
 export const DEMO_SENT_VISIBLE_MS = 7000;
+
+/** Whether this page holds the controller seat: the trainer's control page, or the spectator who took over. */
+export function demoPresenter(demonstration: Exercise["demonstration"], role: "staff" | "mentee" | "spectator", accountId: string) {
+  if (!demonstration) return false;
+  return demonstration.spectator ? role === "spectator" && demonstration.byId === accountId : role === "staff";
+}
 
 export interface DemoGroundDraft {aircraftId: string; kind: GroundRoute["kind"]; controls: Point[]; destination: GroundRouteDestination; holds: Record<string, boolean>}
 /** The controller state both screens share while demonstrating. */

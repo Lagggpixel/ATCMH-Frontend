@@ -4,10 +4,12 @@ export interface ScopeOptions {
   waypoints: boolean; navaids: boolean; airspaces: boolean; taxiways: boolean;
   approaches: boolean; uncontrolledAirports: boolean; trails: boolean;
   frequencyTrails: boolean; windsAloft: boolean; filter: string;
+  /** Staff radar only: Airbus ND-style terrain dots (TERR). */
+  terrain: boolean;
 }
 export const initialOptions: ScopeOptions = {
   waypoints: false, navaids: false, airspaces: true, taxiways: true, approaches: true,
-  uncontrolledAirports: true, trails: true, frequencyTrails: true, windsAloft: false, filter: "none",
+  uncontrolledAirports: true, trails: true, frequencyTrails: true, windsAloft: false, filter: "none", terrain: false,
 };
 export const scopeOptionRows = [
   ["waypoints", "Fixes"], ["navaids", "Navaids"], ["airspaces", "Airspaces"],

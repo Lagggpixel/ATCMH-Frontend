@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useRef, useState, type RefObject} from "react";
+import {useEffect, useRef, useState, type ReactNode, type RefObject} from "react";
 import type {MapCamera} from "./scope-camera";
 import type {DemoFrame} from "./shared-transport";
 import {DEMO_PLAYBACK_DELAY_MS, DEMO_SENT_VISIBLE_MS, demoControl, demoPointerAt, demoPosition, type DemoAnchor, type DemoEvent, type DemoPointer} from "./demonstration";
@@ -9,38 +9,42 @@ const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(
 export type DemoSent = Extract<DemoEvent, {kind: "sent"}>;
 
 /** The trainer's bar across the top of the radar while demonstrating. */
-export function DemoTrainerBar({watcher, seconds, connected, onHandBack}: {watcher?: string; seconds: number; connected: boolean; onHandBack: () => void}) {
+export function DemoTrainerBar({watcher, seconds, connected, onHandBack, title = "Demonstrating", text}: {watcher?: string; seconds: number; connected: boolean; onHandBack: () => void; title?: string; text?: string}) {
   return <div className={`${styles.demoBar} ${styles.demoBarTrainer}`} role="status">
-    <strong><span className={styles.demoDot} aria-hidden="true"/>Demonstrating</strong>
-    <span className={styles.demoBarText}>{watcher ? `${watcher} is watching your pointer and commands.` : "Your mentee is watching your pointer and commands."}</span>
+    <strong><span className={styles.demoDot} aria-hidden="true"/>{title}</strong>
+    <span className={styles.demoBarText}>{text ?? (watcher ? `${watcher} is watching your pointer and commands.` : "Your mentee is watching your pointer and commands.")}</span>
     <time>{clock(seconds)}</time>
     <button type="button" disabled={!connected} onClick={onHandBack}>Hand back controls</button>
   </div>;
 }
 
-/** The trainee's bar across the top of the radar, and the card for the trainer's latest command. */
-export function DemoTraineeBar({follow, onFollow, sent}: {follow: boolean; onFollow: (follow: boolean) => void; sent: DemoSent | null}) {
+/** Who is demonstrating, when it is not the trainee's own trainer: a spectator, or the trainer as other staff see them. */
+export interface DemoWatchLabels {title: string; badge?: string; note?: string; follow: string; sender: string; pointer: string; actions?: ReactNode}
+/** The watching bar across the top of the radar, and the card for the presenter's latest command. */
+export function DemoTraineeBar({follow, onFollow, sent, labels}: {follow: boolean; onFollow: (follow: boolean) => void; sent: DemoSent | null; labels?: DemoWatchLabels}) {
   return <>
     <div className={`${styles.demoBar} ${styles.demoBarTrainee}`} role="status">
-      <strong>Your mentor is controlling</strong>
-      <span className={styles.demoBarText}>Your controls are paused until they hand back.</span>
-      <label><input type="checkbox" checked={follow} onChange={event => onFollow(event.target.checked)}/>Follow mentor&apos;s view</label>
+      {labels ? <strong>{labels.title}</strong> : <strong>Your mentor is controlling</strong>}
+      {labels?.badge ? <span className={styles.demoBadge}>{labels.badge}</span> : null}
+      {labels ? labels.note ? <span className={styles.demoBarText}>{labels.note}</span> : <span className={styles.demoBarText}/> : <span className={styles.demoBarText}>Your controls are paused until they hand back.</span>}
+      <label><input type="checkbox" checked={follow} onChange={event => onFollow(event.target.checked)}/>{labels ? labels.follow : <>Follow mentor&apos;s view</>}</label>
+      {labels?.actions}
     </div>
-    {sent ? <DemoSentCard key={sent.id} sent={sent}/> : null}
+    {sent ? <DemoSentCard key={sent.id} sent={sent} by={labels?.sender}/> : null}
   </>;
 }
 
 /** The trainer's latest command, live on the trainee's radar or in a replay. */
-export function DemoSentCard({sent}: {sent: {callsign: string; text: string; path: string[]}}) {
+export function DemoSentCard({sent, by}: {sent: {callsign: string; text: string; path: string[]}; by?: string}) {
   return <div className={styles.demoSent} role="status" aria-live="polite">
-    <span><strong>Mentor sent to {sent.callsign}</strong>{sent.path.length ? <span>{sent.path.join(" › ")}</span> : null}</span>
+    <span>{by ? <strong>{by} sent to {sent.callsign}</strong> : <strong>Mentor sent to {sent.callsign}</strong>}{sent.path.length ? <span>{sent.path.join(" › ")}</span> : null}</span>
     <q>{sent.text}</q>
   </div>;
 }
 
 interface Ripple {id: number; at: DemoAnchor; until: number}
 /** Draws the trainer's pointer, clicks and the control under the pointer on the trainee's screen. */
-export function DemoGhost({subscribe, root, camera}: {subscribe: (listener: (frame: DemoFrame) => void) => () => void; root: RefObject<HTMLElement | null>; camera: () => MapCamera | undefined}) {
+export function DemoGhost({subscribe, root, camera, label}: {subscribe: (listener: (frame: DemoFrame) => void) => () => void; root: RefObject<HTMLElement | null>; camera: () => MapCamera | undefined; label?: string}) {
   const cursor = useRef<HTMLDivElement>(null), ring = useRef<HTMLDivElement>(null);
   const samples = useRef<DemoPointer[]>([]), offset = useRef<number | null>(null);
   const [ripples, setRipples] = useState<Ripple[]>([]);
@@ -104,7 +108,7 @@ export function DemoGhost({subscribe, root, camera}: {subscribe: (listener: (fra
     {ripples.map(ripple => {const at = place(ripple.at); return at ? <span key={ripple.id} className={styles.demoRipple} style={at}/> : null;})}
     <div ref={cursor} className={styles.demoCursor} hidden>
       <svg width="22" height="28" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7.5 17 L11 25 L14.5 23.5 L11 15.8 L18.5 15.5 Z"/></svg>
-      <span>Mentor</span>
+      {label ? <span>{label}</span> : <span>Mentor</span>}
     </div>
   </div>;
 }

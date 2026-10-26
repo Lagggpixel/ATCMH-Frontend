@@ -8,6 +8,7 @@ export class MemoryStore implements SessionStore {
   private queue = Promise.resolve();
   async list(now: number) {return [...this.records.values()].map(r => summary(r, now));}
   async create(record: SessionRecord) {this.records.set(record.id, structuredClone(record));}
+  async read(id: string) {const record = this.records.get(id); if (!record) throw new SessionError("not-found", "Session ended", 404); return structuredClone(record);}
   transaction<T>(id: string, run: (record: SessionRecord) => T | Promise<T>): Promise<T> {
     const result = this.queue.then(async () => {
       const source = this.records.get(id); if (!source) throw new SessionError("not-found", "Session ended", 404);

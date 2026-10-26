@@ -9,11 +9,11 @@ import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type SessionStore} from "./session-service";
 import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
-import {demoBatchSchema, demoControllerSchema} from "../demonstration";
+import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstration";
 import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
 
 const idSchema = z.string().uuid();
-const seatSchema = z.object({role: z.enum(["staff", "mentee"]), token: z.string().uuid()});
+const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), token: z.string().uuid()});
 const assignSchema = z.object({mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().trim().min(1).max(128).optional()}).strict().nullable()}).strict();
 const endSchema = z.object({feedback: z.string().trim().max(6000).optional()}).strict();
 const LOOKUPS_PER_MINUTE = 20;
@@ -82,14 +82,14 @@ async function sessionOperation(request: Request, id: string, operation: string)
     }
     if (operation === "demo") return await demonstration(request, id);
     const raw = await body(request), seat = seatSchema.parse(raw);
-    const actor = await authorize(request, seat.role === "staff" && operation !== "leave", mentee);
+    const actor = await authorize(request, seat.role === "spectator" || seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
     if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token), {headers: noStore});
     if (operation === "leave") {await service.leave(actor, id, seat.role, seat.token); return Response.json({left: true}, {headers: noStore});}
     if (operation === "events") {
-      if (seat.role !== "staff") throw new SessionError("forbidden", "Only staff can manage scenario events.", 403);
+      if (seat.role === "mentee") throw new SessionError("forbidden", "Only staff can manage scenario events.", 403);
       const value = z.object({eventId: z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/), decision: z.enum(["run", "retry", "skip"])}).parse(raw);
-      return Response.json(await service.event(actor, id, seat.token, value.eventId, value.decision), {headers: noStore});
+      return Response.json(await service.event(actor, id, seat.token, value.eventId, value.decision, seat.role), {headers: noStore});
     }
     const envelope = envelopeSchema.parse(z.object({envelope: z.unknown()}).parse(raw).envelope);
     return Response.json(await service.dispatch(actor, id, seat.role, seat.token, envelope), {headers: noStore});
@@ -100,14 +100,15 @@ async function demonstration(request: Request, id: string) {
   const text = await request.text();
   if (text.length > 64_000) throw new SessionError("too-large", "Demonstration update is too large.", 413);
   const raw = JSON.parse(text) as unknown, seat = seatSchema.parse(raw);
-  if (!hub.allowed(id, seat.role, seat.token)) throw new SessionError("demo-closed", "The demonstration is not running.", 409);
-  if (seat.role === "staff") hub.publish(id, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
-  else hub.seed(id, demoControllerSchema.parse(z.object({controller: z.unknown()}).parse(raw).controller));
+  // Streams vouch for each token as the presenter, the mentee, or a watcher; only the first two may post.
+  if (hub.allowed(id, "presenter", seat.token)) hub.publish(id, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
+  else if (seat.role === "mentee" && hub.allowed(id, "mentee", seat.token)) hub.seed(id, demoControllerSchema.parse(z.object({controller: z.unknown()}).parse(raw).controller));
+  else throw new SessionError("demo-closed", "The demonstration is not running.", 409);
   return Response.json({ok: true}, {headers: noStore});
 }
 async function stream(request: Request, id: string) {
   const seat = seatSchema.parse({role: request.headers.get("x-simulator-role"), token: request.headers.get("x-simulator-seat")});
-  let actor = await authorize(request, seat.role === "staff", mentee);
+  let actor = await authorize(request, seat.role !== "mentee", mentee);
   await requireLocal(id);
   const initial = await service.frame(actor, id, seat.role, seat.token);
   const encoder = new TextEncoder();
@@ -118,9 +119,9 @@ async function stream(request: Request, id: string) {
       let contentRevision = -1, revision = -1, authorizedAt = Date.now();
       const send = (value: unknown) => {if (!cancelled) controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
       // Demonstration mirrors go out as soon as they arrive, between the regular state frames.
-      let demoSeq = 0;
+      let demoSeq = 0, presenter = false;
       const flushDemo = () => {
-        if (seat.role === "mentee") {
+        if (!presenter) {
           const update = hub.read(id, demoSeq);
           if (update) {send({type: "demo", ...update}); demoSeq = update.seq;}
         } else {
@@ -132,7 +133,8 @@ async function stream(request: Request, id: string) {
       try {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
-          hub.trust(id, seat.role, seat.token, !!frame.exercise.demonstration);
+          presenter = demoPresenter(frame.exercise.demonstration, seat.role, actor.accountId);
+          hub.trust(id, presenter ? "presenter" : seat.role === "mentee" ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
@@ -147,7 +149,7 @@ async function stream(request: Request, id: string) {
             await new Promise<void>(resolve => {const timer = setTimeout(resolve, remaining); wake = () => {clearTimeout(timer); resolve();};});
           }
           if (cancelled || request.signal.aborted) break;
-          if (Date.now() - authorizedAt >= 60_000) {actor = await authorize(request, seat.role === "staff", mentee); authorizedAt = Date.now();}
+          if (Date.now() - authorizedAt >= 60_000) {actor = await authorize(request, seat.role !== "mentee", mentee); authorizedAt = Date.now();}
           frame = await service.frame(actor, id, seat.role, seat.token);
         }
       } catch (error) {

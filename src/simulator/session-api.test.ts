@@ -68,3 +68,46 @@ test("the operation route accepts every operation the session transport posts", 
   assert.ok(posted.includes("demo"));
   for (const operation of posted) assert.match(route, new RegExp(`"${operation}"`), `${operation} is routed`);
 });
+
+test("a spectating Superadmin can demonstrate; the instructor can take it back and it lapses with the spectator's stream", async () => {
+  let now = 2_000_000;
+  const store = new MemoryStore(), service = new SessionService(store, () => now);
+  const instructor = {accountId: "instructor", staff: true, displayName: "Alex Chen"}, spectator = {accountId: "spectator", staff: true, displayName: "Jordan Lee", superAdmin: true};
+  const session = await service.create(instructor, "Spectated"), staffSeat = randomUUID(), learnerSeat = randomUUID(), watchSeat = randomUUID();
+  const learner = {accountId: "learner", staff: false};
+  await service.join(instructor, session.id, "staff", staffSeat);
+  await service.join(learner, session.id, "mentee", learnerSeat);
+  await assert.rejects(service.frame({accountId: "outsider", staff: true}, session.id, "spectator", watchSeat), {code: "forbidden"});
+  const envelope = (action: import("./model").Action) => ({id: randomUUID(), time: now, action});
+  const demo = () => store.records.get(session.id)?.exercise.demonstration;
+  // One demonstrator at a time: a spectator cannot take over or end the instructor's demonstration.
+  await service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: true}));
+  await assert.rejects(service.dispatch(spectator, session.id, "spectator", watchSeat, envelope({kind: "demonstrate", enabled: true})), {code: "demonstrating"});
+  await assert.rejects(service.dispatch(spectator, session.id, "spectator", watchSeat, envelope({kind: "demonstrate", enabled: false})), {code: "demonstrating"});
+  await service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: false}));
+  await service.dispatch(spectator, session.id, "spectator", watchSeat, envelope({kind: "demonstrate", enabled: true}));
+  assert.equal(demo()?.spectator, true); assert.equal(demo()?.by, "Jordan Lee"); assert.equal(demo()?.byId, "spectator");
+  const watched = await service.frame(learner, session.id, "mentee", learnerSeat);
+  assert.equal(watched.exercise.demonstration?.by, "Jordan Lee"); assert.equal(watched.exercise.demonstration?.byId, undefined, "the learner never sees the spectator's account");
+  const aircraft = store.records.get(session.id)!.exercise.aircraft[0];
+  await assert.rejects(service.dispatch(learner, session.id, "mentee", learnerSeat, envelope({kind: "edit", aircraftId: aircraft.id, patch: {tagAngle: 90}})), {code: "demonstrating"});
+  await assert.rejects(service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: true})), {code: "demonstrating"});
+  // The instructor leaving does not end a spectator's demonstration; the instructor taking it back does.
+  await service.leave(instructor, session.id, "staff", staffSeat);
+  assert.equal(demo()?.spectator, true);
+  await service.join(instructor, session.id, "staff", staffSeat);
+  await service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: false}));
+  assert.equal(demo(), undefined);
+  // The spectator's stream keeps the seat; once it stops, the next tick hands control back.
+  await service.dispatch(spectator, session.id, "spectator", watchSeat, envelope({kind: "demonstrate", enabled: true}));
+  now += 10_000; await service.frame(spectator, session.id, "spectator", watchSeat);
+  await service.frame(instructor, session.id, "staff", staffSeat); await service.frame(learner, session.id, "mentee", learnerSeat);
+  now += 10_000; await service.frame(instructor, session.id, "staff", staffSeat); await service.frame(learner, session.id, "mentee", learnerSeat);
+  assert.equal(demo()?.spectator, true, "renewed by the spectator's stream");
+  now += 14_000; await service.frame(instructor, session.id, "staff", staffSeat); await service.frame(learner, session.id, "mentee", learnerSeat);
+  assert.equal(demo(), undefined, "lapsed without the spectator's stream");
+  // Leaving the spectator page hands back at once.
+  await service.dispatch(spectator, session.id, "spectator", watchSeat, envelope({kind: "demonstrate", enabled: true}));
+  await service.leave(spectator, session.id, "spectator", watchSeat);
+  assert.equal(demo(), undefined);
+});

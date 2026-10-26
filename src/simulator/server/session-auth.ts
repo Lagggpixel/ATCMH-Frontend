@@ -43,7 +43,7 @@ export async function authorizeSessionRequest(request: Request, staff: boolean, 
   if (!session) throw new SessionError("unauthorized", "Your sign-in has expired. Sign in again to continue.", 401);
   const displayName = session.displayName || session.discordDisplayName || (typeof user?.username === "string" ? user.username : undefined);
   const actor: Actor = {accountId: session.accountId, staff, ...(displayName ? {displayName: displayName.slice(0, 128)} : {}), ...(session.discordId ? {discordId: session.discordId} : {})};
-  if (canAccessStaffSimulator(user)) return canAssignMentees(user) ? {...actor, canAssign: true} : actor;
+  if (canAccessStaffSimulator(user)) return {...actor, ...(canAssignMentees(user) ? {canAssign: true} : {}), ...(user?.role === "super_admin" ? {superAdmin: true} : {})};
   const denied = new SessionError("forbidden", "Sweatbox access is limited to staff, administrators, Sweatbox Testers and assigned mentees.", 403);
   if (staff || !session.discordId) throw denied;
   if (admission.anySignedIn) return {...actor, simulatorAccess: false};

@@ -37,8 +37,8 @@ import {RadioAudio as RadioPlayer} from "./radio-audio";
 import StaffTutorial from "./StaffTutorial";
 import AircraftContextMenu from "./AircraftContextMenu";
 import styles from "./Simulator.module.css";
-import {DemoGhost, DemoTraineeBar, DemoTrainerBar, useLatestSent} from "./DemoMirror";
-import {DemoRecorder, demoAnchorAt, demoScrollElement, demoScrollKey, demoScrollRatio, sameDemoState, type DemoGroundDraft, type DemoState} from "./demonstration";
+import {DemoGhost, DemoTraineeBar, DemoTrainerBar, useLatestSent, type DemoWatchLabels} from "./DemoMirror";
+import {DemoRecorder, demoAnchorAt, demoPresenter, demoScrollElement, demoScrollKey, demoScrollRatio, sameDemoState, type DemoGroundDraft, type DemoState} from "./demonstration";
 import liveTheme from "./LiveTheme.module.css";
 
 export default function Simulator({role, sessionId}: {role: SessionMode; sessionId: string}) {
@@ -75,10 +75,15 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   const [finishing, setFinishing] = useState(false);
   const fullscreenRoot = useRef<HTMLElement>(null);
   const {exercise} = view;
-  const demonstration = observing ? undefined : exercise.demonstration;
-  // The mentor holds the controller seat; the mentee watches it mirrored on their own screen.
-  const presenting = role === "staff" && !!demonstration, watching = role === "mentee" && !!demonstration;
-  const layout = presenting ? "mentee" : role;
+  const demonstration = exercise.demonstration;
+  // The mentor, or a spectator who took over, holds the controller seat; everyone else watches it mirrored.
+  // Staff and spectators can step back to their staff view while it runs.
+  const [staffView, setStaffView] = useState(false);
+  const presenting = demoPresenter(demonstration, connectionRole, accountId);
+  const watching = !!demonstration && !presenting && (role === "mentee" || !staffView);
+  const layout = presenting || watching ? "mentee" : role;
+  const presenter = demonstration?.by ?? (demonstration?.spectator ? "A spectator" : "The mentor");
+  const presenterBadge = demonstration?.spectator ? "Superadmin" : "Mentor";
   const AIRPORT = getAirport(exercise), FREQUENCIES = frequenciesFor(AIRPORT), METAR = simulatedMetar(AIRPORT, exercise.weather);
   const mode = trainingMode(exercise);
   const frequency = chosenFrequency ?? openingFrequency(exercise);
@@ -183,7 +188,7 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
       const {messagePath: menuPath, ...controller} = seedRef.current;
       void transport.sendDemoSeed({...controller, menuPath}).catch(() => {if (!cancelled && attempt < 4) setTimeout(() => send(attempt + 1), 400 * (attempt + 1));});
     };
-    send(0);
+    if (role === "mentee") send(0);
     reapply.current = () => {if (applied) setFrequency(applied.frequency);};
     const stop = transport.onDemo(frame => {
       if (frame.state && !sameDemoState(applied, frame.state)) {applied = frame.state; setMirror(applied); follow(applied);}
@@ -191,7 +196,7 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
       if (latest?.kind === "sent") setSent(latest);
     });
     return () => {cancelled = true; stop(); reapply.current = () => {}; setMirror(null); setSent(null);};
-  }, [watching, transport, setSent]);
+  }, [watching, role, transport, setSent]);
   const changeFollow = (value: boolean) => {followRef.current = value; setFollow(value); if (value) reapply.current();};
   useEffect(() => {
     const scroll = mirror?.scroll, root = fullscreenRoot.current;
@@ -206,13 +211,36 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   }, [mirror]);
   const wasWatching = useRef(false);
   useEffect(() => {
-    if (wasWatching.current && !watching) {setHandedBack(true); const timer = setTimeout(() => setHandedBack(false), 5000); wasWatching.current = false; return () => clearTimeout(timer);}
+    if (wasWatching.current && !watching) {
+      wasWatching.current = false;
+      // Staff and spectators return to their own view; only the mentee gets control back.
+      if (role !== "mentee") {setSelectedId(null); setMessageId(null); return;}
+      setHandedBack(true); const timer = setTimeout(() => setHandedBack(false), 5000); return () => clearTimeout(timer);
+    }
     wasWatching.current = watching;
-  }, [watching]);
+  }, [watching, role]);
+  const demonstrating = !!demonstration;
+  useEffect(() => {if (!demonstrating) setStaffView(false);}, [demonstrating]);
+  // A spectator's controls go back to how they were once their demonstration ends.
+  const controlsBefore = useRef(false), wasPresenting = useRef(false);
+  useEffect(() => {
+    if (observing && wasPresenting.current && !presenting && !controlsBefore.current) transport.setControlsEnabled(false);
+    wasPresenting.current = presenting;
+  }, [observing, presenting, transport]);
   const toggleDemonstration = () => {
-    if (!view.owner || !view.connected) return;
+    if (!view.connected || !observing && !view.owner) return;
     setEditMode(""); setScopeContext(null); setSpawnAt(null); setDeleteId(null); setPair(null); setSelectedId(null); setMessageId(null); setVectorHeading(undefined); setVectorTarget(undefined);
+    if (observing && !presenting) {controlsBefore.current = view.owner; transport.setControlsEnabled(true);}
     void dispatch({kind: "demonstrate", enabled: !presenting});
+  };
+  /** The mentor ends a spectator's demonstration. */
+  const takeBack = () => {if (view.owner && view.connected) void dispatch({kind: "demonstrate", enabled: false});};
+  const watchLabels: DemoWatchLabels | undefined = !watching || role === "mentee" && !demonstration?.spectator ? undefined : role === "mentee" ? {
+    title: `${presenter} is controlling`, badge: presenterBadge, note: "Your controls are paused until they hand back.", follow: "Follow their view", sender: presenter, pointer: presenter.split(" ")[0],
+  } : {
+    title: `${presenter} is demonstrating to ${view.session?.menteeName ?? "the mentee"}`, badge: presenterBadge, follow: "Follow their view",
+    sender: demonstration?.spectator ? presenter : "Mentor", pointer: demonstration?.spectator ? presenter.split(" ")[0] : "Mentor",
+    actions: <><button type="button" onClick={() => setStaffView(true)}>Staff view</button>{!observing && demonstration?.spectator ? <button type="button" data-tone="take-back" disabled={!view.owner || !view.connected} onClick={takeBack}>Take back</button> : null}</>,
   };
   useEffect(() => transport.start(), [transport]);
   useEffect(() => transport.subscribe(() => {
@@ -239,14 +267,14 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   ] : [];
   const unread = messaging ? unreadMessages(exercise, messaging.id, frequency) : 0;
   useEffect(() => {
-    if (!observing && messageId && (unread > 0 || messaging?.reminderAt != null) && view.connected && !paused) dispatch({kind: "read", aircraftId: messageId, frequency});
-  }, [messageId, unread, messaging?.reminderAt, frequency, view.connected, paused, dispatch, observing]);
+    if ((!observing || presenting) && messageId && (unread > 0 || messaging?.reminderAt != null) && view.connected && !paused) dispatch({kind: "read", aircraftId: messageId, frequency});
+  }, [messageId, unread, messaging?.reminderAt, frequency, view.connected, paused, dispatch, observing, presenting]);
   useEffect(() => {const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer);}, []);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape" && !demoRefs.current.watching) {setPair(null); setSpawnAt(null); setDeleteId(null); setScopeContext(null); setMessageId(null); setUtility(null); setScopeContext(null); setSelectedId(null); setVectorHeading(undefined); setVectorTarget(undefined); setEditMode("");}};
     window.addEventListener("keydown", escape); return () => window.removeEventListener("keydown", escape);
   }, []);
-  const openMessages = (a: Aircraft, path?: string[]) => {if (watching) return; const saved = menuPaths.current.get(a.id); setMessagePath(path ?? (saved?.frequency === frequency ? saved.path : []));setSelectedId(null); setMessageId(a.id); setLivePath(path ?? (saved?.frequency === frequency ? saved.path : [])); setUtility(null); if (!paused && !observing) dispatch({kind: "read", aircraftId: a.id, frequency});};
+  const openMessages = (a: Aircraft, path?: string[]) => {if (watching) return; const saved = menuPaths.current.get(a.id); setMessagePath(path ?? (saved?.frequency === frequency ? saved.path : []));setSelectedId(null); setMessageId(a.id); setLivePath(path ?? (saved?.frequency === frequency ? saved.path : [])); setUtility(null); if (!paused && (!observing || presenting)) dispatch({kind: "read", aircraftId: a.id, frequency});};
   const select = (id: string | null) => {
     if (watching) return;
     if (pair && id) {
@@ -280,10 +308,10 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
   if (!view.session) return <SessionNotice title={view.status}><Link href={exitPath}>Return to {role === "staff" ? "sessions" : "Your sweatbox"}</Link></SessionNotice>;
   return <main ref={fullscreenRoot} className={`${styles.simulator} ${liveTheme.theme} ${layout === "staff" ? styles.staffSimulator : styles.menteeSimulator} ${watching ? follow ? styles.demoLocked : styles.demoBrowsing : ""}`}>
     <div className={styles.exerciseContents} inert={hiddenByPause} aria-hidden={hiddenByPause || undefined}>
-    {layout === "staff" ? <><StaffToolbar demonstrate={observing ? undefined : {on: presenting, available: view.owner && view.connected && !!view.session.menteeOccupied && !paused, onToggle: toggleDemonstration}} observer={observing ? {enabled: view.owner, connected: view.connected, onToggle: () => {transport.setControlsEnabled(!view.owner); setEditMode(""); setSpawnAt(null); setDeleteId(null); setScopeContext(null);}} : undefined} tutorial={<StaffTutorial accountId={accountId} live/>} sessionId={sessionId} sessionTitle={view.session.title} exercise={exercise} dispatch={dispatch} owner={view.owner} status={view.status} audio={<RadioAudio csrf={csrf} player={radioPlayer} accountId={accountId} role={role} exercise={exercise} connected={view.connected} scope="all"/>} onReset={() => {select(null); setEditMode("");}} scenario={!!view.scenario} onRestart={() => {if (!view.owner || !view.connected) return; void trainingRequest(csrf, `attempts/${sessionId}`, {action: "restart", attemptId: view.scenario?.attemptId}).catch(e => setTrainingError(e.message));}} onFinish={view.scenario && !view.scenario.finished ? () => setFinishing(true) : undefined} extra={view.scenario ? <LiveScenarioPanel canControl={view.owner && view.connected} scenario={view.scenario} elapsed={exercise.elapsed} running={exercise.running} connected={view.connected} onEvent={transport.scenarioEvent}/> : null}/><TrafficRoster onSpawn={() => {setScopeContext(null); setSpawnAt({});}} exercise={exercise} selected={selected} onSelect={select} dispatch={dispatch} owner={view.owner}/></> : <><nav className={styles.sidebar} aria-label="Simulator frequencies" data-demo-region="frequencies">{controlledFrequencies(exercise).map(key => <button key={key} aria-pressed={frequency === key} className={`${frequency === key ? styles.activeFrequency : ""} ${frequencyPending[key] ? styles.pendingRequest : ""}`} onClick={() => {setFrequency(key); setMessageId(null); setSelectedId(null); setVectorHeading(undefined); setQuickHidden(false);}}><span className={styles.facilityLabel}><small>{AIRPORT.icao}</small>{FREQUENCIES[key].label}</span><span className={styles.frequencyValue}>{FREQUENCIES[key].value}{frequencyPending[key] ? ` (${frequencyPending[key]})` : ""}</span></button>)}{presenting ? null : <Link href={exitPath} className={styles.exit} onClick={role === "mentee" ? event => {if (!window.confirm("Leave this session? You can rejoin from Your sweatbox.")) event.preventDefault();} : undefined}>Leave</Link>}</nav>
+    {layout === "staff" ? <><StaffToolbar demonstrate={{on: presenting, available: (observing || view.owner) && view.connected && !!view.session.menteeOccupied && !paused && !demonstration, onToggle: toggleDemonstration, busy: demonstration && !presenting ? presenter : undefined, onWatch: demonstration ? () => setStaffView(false) : undefined}} observer={observing ? {label: "Superadmin spectating", enabled: view.owner, connected: view.connected, onToggle: () => {transport.setControlsEnabled(!view.owner); setEditMode(""); setSpawnAt(null); setDeleteId(null); setScopeContext(null);}} : undefined} tutorial={<StaffTutorial accountId={accountId} live/>} sessionId={sessionId} sessionTitle={view.session.title} exercise={exercise} dispatch={dispatch} owner={view.owner} status={view.status} audio={<RadioAudio csrf={csrf} player={radioPlayer} accountId={accountId} role={role} exercise={exercise} connected={view.connected} scope="all"/>} onReset={() => {select(null); setEditMode("");}} scenario={!!view.scenario} onRestart={() => {if (!view.owner || !view.connected) return; void trainingRequest(csrf, `attempts/${sessionId}`, {action: "restart", attemptId: view.scenario?.attemptId}).catch(e => setTrainingError(e.message));}} onFinish={view.scenario && !view.scenario.finished ? () => setFinishing(true) : undefined} extra={view.scenario ? <LiveScenarioPanel canControl={view.owner && view.connected} scenario={view.scenario} elapsed={exercise.elapsed} running={exercise.running} connected={view.connected} onEvent={transport.scenarioEvent}/> : null}/><TrafficRoster onSpawn={() => {setScopeContext(null); setSpawnAt({});}} exercise={exercise} selected={selected} onSelect={select} dispatch={dispatch} owner={view.owner}/></> : <><nav className={styles.sidebar} aria-label="Simulator frequencies" data-demo-region="frequencies">{controlledFrequencies(exercise).map(key => <button key={key} aria-pressed={frequency === key} className={`${frequency === key ? styles.activeFrequency : ""} ${frequencyPending[key] ? styles.pendingRequest : ""}`} onClick={() => {setFrequency(key); setMessageId(null); setSelectedId(null); setVectorHeading(undefined); setQuickHidden(false);}}><span className={styles.facilityLabel}><small>{AIRPORT.icao}</small>{FREQUENCIES[key].label}</span><span className={styles.frequencyValue}>{FREQUENCIES[key].value}{frequencyPending[key] ? ` (${frequencyPending[key]})` : ""}</span></button>)}{presenting ? null : <Link href={exitPath} className={styles.exit} onClick={role === "mentee" ? event => {if (!window.confirm("Leave this session? You can rejoin from Your sweatbox.")) event.preventDefault();} : undefined}>Leave</Link>}</nav>
     <header className={styles.topBanner} data-demo-region="banner"><span>{METAR}<small>Simulation only · <a href="/sweatbox/about" target="_blank" rel="noreferrer">About & sources</a></small></span><RadioAudio csrf={csrf} player={radioPlayer} accountId={accountId} role={role} exercise={exercise} connected={view.connected} paused={paused} scope={frequency}/><span>UTC {now ? new Date(now).toISOString().slice(11, 19) : "--:--:--"}Z · Exercise {elapsed}</span><FullscreenButton target={fullscreenRoot}/></header></>}
     {frequency === "atis" && layout === "mentee" ? <AtisPanel exercise={exercise} dispatch={dispatch} connected={!paused && !view.fatal}/> : <>
-      <Scope labelFrequency={frequency} messages={exercise.messages} accountId={accountId} overlay={presenting && demonstration ? <DemoTrainerBar watcher={view.session.menteeName} seconds={Math.max(0, exercise.elapsed - demonstration.startedAt)} connected={view.owner && view.connected} onHandBack={toggleDemonstration}/> : watching ? <DemoTraineeBar follow={follow} onFollow={changeFollow} sent={sent}/> : layout === "staff" ? <ConflictOverlay accountId={accountId} conflicts={exercise.conflicts} aircraft={exercise.aircraft} elapsed={exercise.elapsed} pairing={pair ? {kind: pair.kind, callsign: exercise.aircraft.find(a => a.id === pair.first)?.callsign} : null} enabled={view.owner && view.connected} onCancel={conflictId => void dispatch({kind: "cancel-conflict", conflictId})} onCancelPairing={() => setPair(null)}/> : undefined} missingStripControls={missingStripControls} elapsed={exercise.elapsed} openStripId={layout === "mentee" && messaging?.frequency === frequency ? messaging.id : undefined} weather={exercise.weather} conflictTags={layout === "staff" ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined} conflictTargets={pair ? exercise.aircraft.filter(a => a.id !== pair.first && a.active && (pair.kind !== "cancel-takeoff" || a.altitude <= AIRPORT.elevation + 1)).map(a => a.id) : undefined} focusRequest={focusRequest} onScopeContextMenu={layout === "staff" && view.owner && view.connected ? target => {setScopeContext(target); setEditMode("");} : undefined} cameraStore={scopeCameras} cameraKey={cameraKey} key={cameraKey} onDemoScope={presenting ? setScopeDemo : undefined} mirrorVector={watching ? mirror?.vectorDraft ?? null : undefined} mirrorGround={watching ? mirror?.ground ?? null : undefined} followCamera={watching && follow ? mirror?.camera : undefined} airport={AIRPORT} radarEnvironment={exercise.radarEnvironment} radarMode={mode === "local" ? undefined : mode} measureVectors={layout === "staff" && mode !== "local" && !editMode} onVector={layout === "mentee" && mode !== "local" && !view.fatal && !paused && !watching ? (id, heading, release, target) => {select(id); setVectorHeading(heading); setVectorTarget(target); setVectorAnchor(release);} : undefined} contextPoint={vectorHeading === undefined ? undefined : vectorAnchor} groundRouteMode={layout === "staff" ? "staff" : undefined} groundRouteRequest={layout === "staff" ? groundRouteRequest : undefined} onGroundClearance={layout === "staff" && view.owner && mode === "local" ? async (id, command) => await dispatch({kind: "maneuver", aircraftId: id, command}) !== false : layout === "mentee" && mode === "local" && frequency === "ground" && !view.fatal && !paused && !watching ? async (id, command) => {const a = exercise.aircraft.find(a => a.id === id); if (!a) return false; const request = pendingPilotMessage(exercise, id, frequency); return await dispatch({kind: "command", aircraftId: id, command, frequency, text: catalogFor(AIRPORT, exercise.radarEnvironment).instructionText(a, command), ...(request ? {replyTo: request.id} : {})}) !== false;} : undefined} sentGroundRoute={sentGroundRoute} groundRouteCleared={physicalRouteVisible} onTagAngle={view.connected && !paused && !watching && (layout === "mentee" || view.owner) ? (id, angle) => void dispatch({kind: "edit", aircraftId: id, patch: {tagAngle: angle}}) : undefined} pendingAircraft={pendingAircraft} autoReadback={exercise.autoReadback} running={exercise.running} aircraft={exercise.aircraft} frequency={layout === "staff" ? "all" : frequency} giveWayTargets={giveWayTargets} selected={selected?.id ?? null} onSelect={select} onPoint={point} editMode={layout === "staff" && view.owner ? editMode : ""} context={context}/>
+      <Scope labelFrequency={frequency} messages={exercise.messages} accountId={accountId} overlay={presenting && demonstration ? <DemoTrainerBar watcher={view.session.menteeName} seconds={Math.max(0, exercise.elapsed - demonstration.startedAt)} connected={view.owner && view.connected} onHandBack={toggleDemonstration} {...(observing ? {title: "Demonstrating as spectator", text: `${view.session.menteeName ?? "Your mentee"}${view.session.staffName ? ` and mentor ${view.session.staffName} are` : " is"} watching.`} : {})}/> : watching ? <DemoTraineeBar follow={follow} onFollow={changeFollow} sent={sent} labels={watchLabels}/> : layout === "staff" ? <ConflictOverlay accountId={accountId} conflicts={exercise.conflicts} aircraft={exercise.aircraft} elapsed={exercise.elapsed} pairing={pair ? {kind: pair.kind, callsign: exercise.aircraft.find(a => a.id === pair.first)?.callsign} : null} enabled={view.owner && view.connected} onCancel={conflictId => void dispatch({kind: "cancel-conflict", conflictId})} onCancelPairing={() => setPair(null)}/> : undefined} missingStripControls={missingStripControls} elapsed={exercise.elapsed} openStripId={layout === "mentee" && messaging?.frequency === frequency ? messaging.id : undefined} weather={exercise.weather} conflictTags={layout === "staff" ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined} conflictTargets={pair ? exercise.aircraft.filter(a => a.id !== pair.first && a.active && (pair.kind !== "cancel-takeoff" || a.altitude <= AIRPORT.elevation + 1)).map(a => a.id) : undefined} focusRequest={focusRequest} onScopeContextMenu={layout === "staff" && view.owner && view.connected ? target => {setScopeContext(target); setEditMode("");} : undefined} cameraStore={scopeCameras} cameraKey={cameraKey} key={cameraKey} onDemoScope={presenting ? setScopeDemo : undefined} mirrorVector={watching ? mirror?.vectorDraft ?? null : undefined} mirrorGround={watching ? mirror?.ground ?? null : undefined} followCamera={watching && follow ? mirror?.camera : undefined} airport={AIRPORT} radarEnvironment={exercise.radarEnvironment} radarMode={mode === "local" ? undefined : mode} measureVectors={layout === "staff" && mode !== "local" && !editMode} onVector={layout === "mentee" && mode !== "local" && !view.fatal && !paused && !watching ? (id, heading, release, target) => {select(id); setVectorHeading(heading); setVectorTarget(target); setVectorAnchor(release);} : undefined} contextPoint={vectorHeading === undefined ? undefined : vectorAnchor} groundRouteMode={layout === "staff" ? "staff" : undefined} groundRouteRequest={layout === "staff" ? groundRouteRequest : undefined} onGroundClearance={layout === "staff" && view.owner && mode === "local" ? async (id, command) => await dispatch({kind: "maneuver", aircraftId: id, command}) !== false : layout === "mentee" && mode === "local" && frequency === "ground" && !view.fatal && !paused && !watching ? async (id, command) => {const a = exercise.aircraft.find(a => a.id === id); if (!a) return false; const request = pendingPilotMessage(exercise, id, frequency); return await dispatch({kind: "command", aircraftId: id, command, frequency, text: catalogFor(AIRPORT, exercise.radarEnvironment).instructionText(a, command), ...(request ? {replyTo: request.id} : {})}) !== false;} : undefined} sentGroundRoute={sentGroundRoute} groundRouteCleared={physicalRouteVisible} onTagAngle={view.connected && !paused && !watching && (layout === "mentee" || view.owner) ? (id, angle) => void dispatch({kind: "edit", aircraftId: id, patch: {tagAngle: angle}}) : undefined} pendingAircraft={pendingAircraft} autoReadback={exercise.autoReadback} running={exercise.running} aircraft={exercise.aircraft} frequency={layout === "staff" ? "all" : frequency} giveWayTargets={giveWayTargets} selected={selected?.id ?? null} onSelect={select} onPoint={point} editMode={layout === "staff" && view.owner ? editMode : ""} context={context}/>
       {layout === "staff" ? <StaffPanel prepareSpeech={radioPlayer.prepareDraft} exercise={exercise} selected={selected} dispatch={dispatch} onSelect={select} editMode={editMode} onEditMode={setEditMode} onPlanTaxi={(aircraftId, runway) => {setEditMode(""); setGroundRouteRequest({aircraftId, runway, serial: Date.now()});}} owner={view.owner} status={view.status}/> : <aside className={styles.rightPanel} aria-label="Flight strips and messages" data-demo-region="panel" inert={Boolean(messaging)} aria-hidden={Boolean(messaging) || undefined}>
         <div className={styles.strips} aria-label="Flight strips" data-demo-region="strips"><header className={styles.stripsHeader}><h2>{FREQUENCIES[frequency].label} traffic</h2><span>{exercise.aircraft.filter(a => a.frequency === frequency).length}</span></header>{flightStrips(exercise, frequency).map(a => {
           const pending = pendingRequestCount(exercise, a.id, frequency);
@@ -308,7 +336,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     <div className={styles.rotatePrompt}><h1>Sweatbox</h1><p>Rotate your phone or tablet to landscape, or use a larger screen.</p><Link href={exitPath}>Return to Sweatbox</Link></div>
     </div>
     {hiddenByPause ? <section className={styles.pauseScreen} role="status" aria-labelledby="exercise-paused-title"><Pause size={40} weight="fill" aria-hidden="true"/><h1 id="exercise-paused-title" ref={pauseTitle} tabIndex={-1}>{view.session.scenario?.finished ? "Exercise finished" : "Exercise paused"}</h1><Link href={exitPath}>Exit simulator</Link></section> : null}
-    {watching ? <DemoGhost subscribe={transport.onDemo} root={fullscreenRoot} camera={scopeCamera}/> : null}
+    {watching ? <DemoGhost subscribe={transport.onDemo} root={fullscreenRoot} camera={scopeCamera} label={watchLabels?.pointer}/> : null}
     {handedBack ? <div className={`${styles.visiblePause} ${styles.demoHandedBack}`} role="status">You have control again</div> : null}
     <CrashAlert exercise={exercise} connected={view.connected} paused={paused}/>
   </main>;

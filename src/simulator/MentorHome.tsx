@@ -27,11 +27,11 @@ export default function MentorHome({returnTo = "/sweatbox"}: {returnTo?: string}
   const mentee = !auth.loading && !!auth.session && !auth.error && !canAccessStaffSimulator(auth.adminUser);
   useEffect(() => {if (mentee) router.replace("/sweatbox/mentee");}, [mentee, router]);
   return <LearningFrame product="Sweatbox">{mentee ? <SessionNotice embedded title="Opening Your sweatbox…"/> :
-    <SessionAccess embedded role="staff" returnTo={returnTo}>{(csrf, accountId, access) => <Sessions key={accountId} csrf={csrf} accountId={accountId} canAssign={access.canAssign}/>}</SessionAccess>}
+    <SessionAccess embedded role="staff" returnTo={returnTo}>{(csrf, accountId, access) => <Sessions key={accountId} csrf={csrf} accountId={accountId} canAssign={access.canAssign} superAdmin={access.superAdmin}/>}</SessionAccess>}
   </LearningFrame>;
 }
 
-function Sessions({csrf, accountId, canAssign}: {csrf: string; accountId: string; canAssign: boolean}) {
+function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accountId: string; canAssign: boolean; superAdmin: boolean}) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]), [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
   const [mine, setMine] = useState(false), [search, setSearch] = useState(""), [joining, setJoining] = useState(false);
@@ -94,6 +94,7 @@ function Sessions({csrf, accountId, canAssign}: {csrf: string; accountId: string
               <button type="button" className={ui.linkButton} onClick={() => void copy(s, "code")}>Copy code</button>
               <button type="button" className={ui.linkButton} onClick={() => void copy(s, "link")}>Copy Mentee link</button>
               {canAssign ? <button type="button" className={ui.linkButton} onClick={() => setDialog({kind: "assign", session: s})}>{s.assignedMenteeId ? "Change Mentee" : "Assign a Mentee"}</button> : null}
+              {superAdmin ? <Link className={ui.linkButton} href={sessionPath("spectator", s.id)} style={{display: "inline-flex", alignItems: "center"}}>Spectate<span className={ui.srOnly}> {s.title}</span></Link> : null}
               <button type="button" className={`${ui.linkButton} ${ui.dangerLink} ${ui.push}`} onClick={() => setDialog({kind: "end", session: s})}>Archive…<span className={ui.srOnly}> {s.title}</span></button>
               {manualLink ? <label className={ui.manualLink} style={{flexBasis: "100%"}}>Mentee link<input readOnly value={manualLink} onFocus={event => event.currentTarget.select()}/></label> : null}
             </div> : null}

@@ -101,7 +101,10 @@ export class SharedSession {
       method: "POST", headers, credentials: "same-origin", keepalive, body: JSON.stringify({role: this.role, token, ...extra}),
       ...(!keepalive ? {signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)])} : {}),
     }).then(sessionJson);
-    const release = () => {if (claimed) {claimed = false; void post("leave", {}, true).catch(() => {});}};
+    // Spectators hold no seat; they only post leave to hand back a demonstration they may be giving.
+    const release = () => {
+      if (claimed || this.role === "spectator" && this.view.exercise.demonstration?.spectator) {claimed = false; void post("leave", {}, true).catch(() => {});}
+    };
     const fatal = (reason: unknown) => {
       const failure = reason as Error & {code?: string; status?: number};
       this.update({connected: false, owner: false, fatal: failure.message, code: failure.code ?? "unavailable"});

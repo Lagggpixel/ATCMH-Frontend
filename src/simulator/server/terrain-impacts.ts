@@ -3,10 +3,11 @@ import {randomUUID} from "node:crypto";
 import {airportRunways, getAirport, trainingMode} from "../airports";
 import type {Aircraft, Airport, Exercise, Point} from "../model";
 import {rawTerrainElevation, terrainCoordinates} from "../terrain";
+import {radarEnvironmentFor} from "../radar";
 
 type Position = {point: Point; altitude: number; elapsed: number};
 type Track = {generation: number; started: number; observed: Position; checked?: Position; pending: boolean; unavailable: boolean; touched: number};
-type Job = {key: string; generation: number; from: Position; to: Position; aircraft: Aircraft; airport: Airport};
+type Job = {key: string; generation: number; from: Position; to: Position; aircraft: Aircraft; airport: Airport; landingRunway?: string};
 type Impact = {generation: number; position: Point; elapsed: number};
 export interface TerrainImpactProvider {apply(exercise: Exercise): boolean; request(exercise: Exercise): void}
 const eligible = (a: Aircraft) => a.active && !!a.radar && !a.radar.arrival && a.radar.departure?.phase !== "roll"
@@ -48,6 +49,7 @@ export class TerrainImpacts implements TerrainImpactProvider {
   request(exercise: Exercise) {
     if (!exercise.running || trainingMode(exercise) === "local") return;
     const airport = getAirport(exercise), time = this.now();
+    const environment = exercise.radarEnvironment ?? radarEnvironmentFor(airport);
     for (const a of exercise.aircraft.filter(eligible)) {
       const key = this.key(exercise, a.id);
       const position = {point: {...a.position}, altitude: a.altitude, elapsed: exercise.elapsed};
@@ -70,7 +72,11 @@ export class TerrainImpacts implements TerrainImpactProvider {
       // After a long outage do not extrapolate across an unobserved interval.
       if (position.elapsed - from.elapsed > 20) {track.checked = undefined; track.unavailable = true;}
       track.pending = true;
-      this.queue.push({key, generation: track.generation, from: track.checked ?? position, to: position, aircraft: structuredClone(a), airport});
+      // Saved arrivals may have an empty/stale physical runway until touchdown.
+      // Only their cleared local approach can identify the landing surface.
+      const approach = environment.approaches.find(p => p.id === a.radar?.cleared);
+      const landingRunway = approach && (!approach.airportIcao || approach.airportIcao === airport.icao) ? approach.runway : undefined;
+      this.queue.push({key, generation: track.generation, from: track.checked ?? position, to: position, aircraft: structuredClone(a), airport, landingRunway});
     }
     for (const [key, track] of this.tracks) if (time - track.touched > 120_000) {this.tracks.delete(key); this.impacts.delete(key);}
     queueMicrotask(() => this.drain());
@@ -81,10 +87,10 @@ export class TerrainImpacts implements TerrainImpactProvider {
       void this.sample(job).finally(() => {this.workers--; this.drain();});
     }
   }
-  private landingSurface(a: Aircraft, airport: Airport, point: Point, altitude: number) {
+  private landingSurface(a: Aircraft, airport: Airport, point: Point, altitude: number, runway: string | undefined) {
     if (!a.radar?.captured || !a.radar.transferred || !radarArrivalFrequency(a.frequency) || a.radar.navigation !== "approach") return false;
-    const pair = airportRunways(airport).find(p => p.ends.some(end => end.id === a.runway));
-    const start = pair?.ends.find(end => end.id === a.runway)?.point, end = pair?.ends.find(end => end.id !== a.runway)?.point;
+    const pair = airportRunways(airport).find(p => p.ends.some(end => end.id === runway));
+    const start = pair?.ends.find(end => end.id === runway)?.point, end = pair?.ends.find(end => end.id !== runway)?.point;
     if (!start || !end) return false;
     const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
     const along = ((point.x - start.x) * dx + (point.y - start.y) * dy) / length;
@@ -92,7 +98,7 @@ export class TerrainImpacts implements TerrainImpactProvider {
     return along >= -.1 && along <= length && lateral <= Math.max(.012, (pair?.widthFeet ?? 100) / 12152) && altitude >= airport.elevation - 5;
   }
   private async sample(job: Job) {
-    const {from, to, key, generation, airport, aircraft} = job;
+    const {from, to, key, generation, airport, aircraft, landingRunway} = job;
     const length = Math.hypot(to.point.x - from.point.x, to.point.y - from.point.y);
     const steps = Math.max(1, Math.ceil(length / .025));
     const signal = AbortSignal.timeout(6000);
@@ -106,7 +112,7 @@ export class TerrainImpacts implements TerrainImpactProvider {
         if (!Number.isFinite(elevation)) throw new Error("Terrain unavailable");
         if (this.heights.size >= 5000) this.heights.delete(this.heights.keys().next().value!);
         this.heights.set(cacheKey, elevation);
-        if (altitude <= elevation && !this.landingSurface(aircraft, airport, point, altitude)) {
+        if (altitude <= elevation && !this.landingSurface(aircraft, airport, point, altitude, landingRunway)) {
           hit = {generation, position: point, elapsed: from.elapsed + (to.elapsed - from.elapsed) * t}; break;
         }
       }

@@ -1,0 +1,17 @@
+/* Airbus ND terrain readout. B612 Mono is not bundled; the scope's mono fallback keeps the figures aligned. */
+.readout {position:absolute;right:62px;bottom:10px;z-index:4;display:flex;align-items:flex-end;gap:8px;pointer-events:none;font-family:"B612 Mono",ui-monospace,"Cascadia Mono",Consolas,monospace}
+.figures {display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding:5px 8px;background:#000;border:1px solid #3a3a3a;font-size:15px;line-height:18px;color:#8a8a8a}
+.figures b {font-weight:400}
+.title {color:#00e5ff;font-size:13px}
+.figures[data-failed] .title,.figures[data-failed] b {color:#ffbf00}
+.legend {display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:5px 8px;background:#000d;border:1px solid #262626;font-size:11px;line-height:14px;color:#e8e8e8}
+.legend button {pointer-events:auto;color:inherit;text-decoration:underline;background:transparent;border:0;padding:0;font:inherit;cursor:pointer;min-height:0}
+.reference {color:#fff}
+.key {display:flex;flex-wrap:wrap;gap:4px 8px}
+.key>span {display:inline-flex;align-items:center;gap:4px}
+.key i {display:inline-block;width:14px;height:10px;border:1px solid #333;background-color:#000;background-image:radial-gradient(currentColor .9px,transparent 1.2px);background-size:5.5px 5.5px}
+.key i[data-dense] {background-size:3px 3px}
+.button {flex-direction:column;gap:3px;font-family:"B612 Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:10px;font-weight:700;letter-spacing:.04em}
+.button i {display:block;width:20px;height:4px;border-radius:1px;background:#2a2a2a}
+.button i[data-on] {background:#19d219;box-shadow:0 0 6px #19d219b3}
+@media(max-width:900px),(max-height:550px) {.legend {display:none}}

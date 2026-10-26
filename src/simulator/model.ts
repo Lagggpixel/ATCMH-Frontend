@@ -26,7 +26,9 @@ export const radarControlFrequency = (a: Pick<Aircraft, "radar">) => a.radar?.re
 export type Point = {x: number; y: number}; // Nautical miles east/north of the airport.
 /** Published hold courses use true north, like the simulator's local map geometry. */
 export interface PublishedHold {inbound: number; hand: "left" | "right"; maxSpeed?: number; legSeconds?: number}
-export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; waypointType?: string; vorType?: string; slavedVariation?: number; hold?: PublishedHold; finalApproachFix?: boolean};
+export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; waypointType?: string; vorType?: string; slavedVariation?: number; hold?: PublishedHold; finalApproachFix?: boolean; procedure?: RouteProcedure};
+/** Marks fixes added together from one published procedure; `key` tells two copies of the same procedure apart. */
+export type RouteProcedure = {key: string; type: "SID" | "STAR" | "Approach"; name: string; transition?: string};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";
@@ -143,7 +145,8 @@ export interface Exercise {
   callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
-  demonstration?: {startedAt: number; by?: string}; // Staff hold the controller seat; the mentee watches a live mirror.
+  // Staff, or a spectator who took over (`spectator`, held while `until` is renewed), hold the controller seat; the mentee watches a live mirror.
+  demonstration?: {startedAt: number; by?: string; byId?: string; spectator?: boolean; until?: number};
   autoReadback?: boolean;
   fullStopAll?: Record<string, Aircraft["landing"]>; // Landing intentions to restore when staff cancel All full stop.
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];

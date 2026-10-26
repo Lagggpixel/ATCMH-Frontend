@@ -1,9 +1,9 @@
 "use client";
 import {useEffect, useState} from "react";
-import type {ScopeMapData, ScopeWinds} from "./scope-map-data";
+import type {ScopeMapData, ScopeTerrain, ScopeWinds} from "./scope-map-data";
 
-const cache = new Map<string, {until: number; data: Promise<ScopeMapData | ScopeWinds>}>();
-export function useScopeMapData<T extends ScopeMapData | ScopeWinds>(airport: string, layer: "map" | "winds", enabled: boolean) {
+const cache = new Map<string, {until: number; data: Promise<ScopeMapData | ScopeWinds | ScopeTerrain>}>();
+export function useScopeMapData<T extends ScopeMapData | ScopeWinds | ScopeTerrain>(airport: string, layer: "map" | "winds" | "terrain", enabled: boolean) {
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{key: string; data?: T; error?: string}>();
   const key = `${airport}:${layer}`;

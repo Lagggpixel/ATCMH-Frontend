@@ -28,10 +28,12 @@ export class DemoHub {
     return channel;
   }
   private notify(channel: Channel) {for (const listener of [...channel.listeners]) listener();}
-  /** Called after each authorised stream frame: the seat token may post for a few seconds. */
-  trust(id: string, role: string, token: string, active: boolean) {
+  /** Called after each authorised stream frame: the seat token may post for a few seconds. Spectators'
+   * frames are unlocked reads that can lag, so they leave `active` (undefined) to the seated pages. */
+  trust(id: string, role: string, token: string, active: boolean | undefined) {
     const channel = this.channel(id);
     channel.seats.set(token, {role, until: this.now() + TRUST_MS});
+    if (active === undefined) return;
     if (channel.active && !active) {channel.state = undefined; channel.seed = undefined; channel.batches = [];}
     channel.active = active;
   }

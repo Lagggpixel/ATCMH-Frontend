@@ -1,4 +1,4 @@
-import type {Aircraft, Point, RoutePoint} from "./model";
+import type {Aircraft, Point, RouteProcedure, RoutePoint} from "./model";
 import type {NavigationCatalog, NavigationRoute} from "./navigation-data";
 
 export type NavigationFilter = "All" | "Waypoint" | "SID" | "STAR" | "Approach";
@@ -34,6 +34,44 @@ export function flightPlanPatch(aircraft: Aircraft, flightPlan: RoutePoint[], li
   const routeIndex = !live ? 0 : kept ?? Math.min(r.routeIndex, flightPlan.length);
   const navigation = !flightPlan.length ? r.navigation === "route" || !live ? "heading" : r.navigation : live || aircraft.flightPlan.length ? r.navigation : "route";
   return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : {})};
+}
+
+/** One row of the editor: a lone fix, or consecutive fixes added from one procedure. */
+export type FlightPlanItem = {start: number; end: number; procedure?: RouteProcedure};
+export function flightPlanItems(points: RoutePoint[]): FlightPlanItem[] {
+  const items: FlightPlanItem[] = [];
+  points.forEach((point, index) => {
+    const last = items.at(-1);
+    if (point.procedure && last?.procedure?.key === point.procedure.key) last.end = index;
+    else items.push({start: index, end: index, ...(point.procedure ? {procedure: point.procedure} : {})});
+  });
+  return items;
+}
+
+/** Tags a procedure's fixes so the editor shows and moves them together; a new key keeps repeated copies apart. */
+export function tagProcedure(points: RoutePoint[], route: Pick<NavigationRoute, "type" | "name">, transition?: string, key = Math.random().toString(36).slice(2, 12)): RoutePoint[] {
+  const procedure: RouteProcedure = {key, type: route.type, name: route.name, ...(transition && transition.toUpperCase() !== route.name.toUpperCase() ? {transition} : {})};
+  return points.map(point => ({...point, procedure}));
+}
+
+/** Moves fixes start..end so they begin at `slot`, an index of the unchanged plan. Slots inside the range are no-ops. */
+export function moveFlightPlanRange(points: RoutePoint[], start: number, end: number, slot: number): RoutePoint[] {
+  if (start < 0 || start > end || end >= points.length || slot < 0 || slot > points.length || slot >= start && slot <= end + 1) return points;
+  const block = points.slice(start, end + 1), rest = [...points.slice(0, start), ...points.slice(end + 1)];
+  const at = slot > end ? slot - block.length : slot;
+  return [...rest.slice(0, at), ...block, ...rest.slice(at)];
+}
+
+/** Moves the item starting at `start` past one whole neighbouring item, so procedures are never split. */
+export function moveFlightPlanItem(points: RoutePoint[], start: number, direction: -1 | 1): RoutePoint[] {
+  const items = flightPlanItems(points), index = items.findIndex(item => item.start === start);
+  const item = items[index], neighbour = items[index + direction];
+  return item && neighbour ? moveFlightPlanRange(points, item.start, item.end, direction < 0 ? neighbour.start : neighbour.end + 1) : points;
+}
+
+/** The fixes an append would add after the existing plan, without the merged join; empty past the 200-fix limit. */
+export function appendedFixes(existing: RoutePoint[], incoming: RoutePoint[]): RoutePoint[] {
+  try {return appendFlightPlan(existing, incoming).slice(existing.length);} catch {return [];}
 }
 
 export function moveFlightPlanLeg(points: RoutePoint[], from: number, to: number): RoutePoint[] {
@@ -78,6 +116,32 @@ export async function fetchNavigationRoute(catalog: NavigationCatalog, procedure
   const route = value as NavigationRoute;
   if (route.airport !== catalog.airport || route.revision !== catalog.revision || route.procedureId !== procedureId || route.routeId !== routeId || !route.points?.length) throw new Error("Navigation data changed. Refresh the catalogue and try again.");
   return route;
+}
+
+// Route previews refetch on every hover, so reuse loaded procedures for the catalogue revision.
+const loadedRoutes = new Map<string, Promise<NavigationRoute>>();
+export function loadNavigationRoute(catalog: NavigationCatalog, procedureId: string, routeId: string): Promise<NavigationRoute> {
+  const key = JSON.stringify([catalog.airport, catalog.revision, procedureId, routeId]);
+  let route = loadedRoutes.get(key);
+  if (!route) {
+    route = fetchNavigationRoute(catalog, procedureId, routeId);
+    route.catch(() => loadedRoutes.delete(key));
+    loadedRoutes.set(key, route);
+  }
+  return route;
+}
+
+/** Resolves typed entries to tagged fixes, plus the navigation source and STAR the aircraft should record. */
+export async function typedRoutePoints(catalog: NavigationCatalog, entries: TypedRouteEntry[]) {
+  let points: RoutePoint[] = [], source: Aircraft["navigationSource"] = {revision: catalog.revision}, star: string | undefined;
+  for (const entry of entries) {
+    if ("point" in entry) {points = appendFlightPlan(points, [entry.point]); continue;}
+    const route = await loadNavigationRoute(catalog, entry.procedure.id, entry.route.id);
+    points = appendFlightPlan(points, tagProcedure(route.points, route, entry.route.name));
+    source = {revision: route.revision, procedureId: route.procedureId, routeId: route.routeId};
+    if (route.type === "STAR") star = route.name;
+  }
+  return {points, source, star};
 }
 
 export function legAltitudeLabel(points: RoutePoint[], index: number, initialAltitude: number) {

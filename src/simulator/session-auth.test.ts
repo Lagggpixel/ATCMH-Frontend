@@ -40,7 +40,7 @@ test("every simulator seat enforces staff/admin/tester access, central sign-in, 
     : {active, displayName, accountId: "101", discordId: "650180912486678528", expiresAt: "2099-01-01T00:00:00Z", impersonating: false}), {status: String(input).includes("/admin/me") ? permissionStatus : 200, headers: {"content-type": "application/json"}});
   const request = (method = "GET", origin = "https://atcmh.test", supplied = csrf) => new Request("https://atcmh.test/api/simulator/sessions", {method, headers: {cookie: `__Host-atcmh_session=${token}`, origin, "x-csrf-token": supplied}});
   const status = (expected: number) => (e: unknown) => e instanceof SessionError && e.status === expected;
-  const discordId = "650180912486678528", trainer = (staff: boolean) => ({accountId: "101", staff, discordId, canAssign: true});
+  const discordId = "650180912486678528", trainer = (staff: boolean) => ({accountId: "101", staff, discordId, canAssign: true, ...(role === "super_admin" ? {superAdmin: true} : {})});
   try {
     assert.deepEqual(await authorizeSessionRequest(request(), true), trainer(true));
     await assert.rejects(authorizeSessionRequest(new Request("https://atcmh.test"), false), status(401));

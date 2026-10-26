@@ -17,7 +17,7 @@ function storage(t: TestContext) {
 }
 const changed = (): ScopePreferences => ({
   options: {waypoints: true, navaids: true, airspaces: false, taxiways: false, approaches: false,
-    uncontrolledAirports: false, trails: false, frequencyTrails: false, windsAloft: true, filter: "below15"},
+    uncontrolledAirports: false, trails: false, frequencyTrails: false, windsAloft: true, filter: "below15", terrain: true},
   camera: {center: {x: 2.5, y: -6.75}, scale: 120}, windAltitude: 13000, procedureOpacity: .4,
 });
 
