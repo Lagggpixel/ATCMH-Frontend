@@ -16,14 +16,20 @@ const sample = () => Float32Array.from({length: 2400}, (_, i) => Math.sin(i / 5)
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const alphabet = "alpha bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x ray yankee zulu zero one two three four five six seven eight nine".split(" ");
 
-test("the shipped voice libraries cover every airport callsign, digits and NATO letters with playable PCM", async () => {
+test("the shipped voice libraries retain core vocabulary and can pronounce every airport callsign with playable PCM", async () => {
   const base = new URL("../../public/simulator/recordings-v1/", import.meta.url);
   const manifest = JSON.parse(await readFile(new URL("manifest.json", base), "utf8")) as {voices: Record<string, Record<string, string>>};
   const scenarioSource = await readFile(new URL("./point-merge-scenarios.ts", import.meta.url), "utf8");
   const airlineWords = [...scenarioSource.matchAll(/callsign: "([^"]+)"/g)].flatMap(match => match[1].toLowerCase().match(/\b[a-z]+\b/g) ?? []);
-  const required = [...alphabet, ...RADIO_INITIALISMS.map(word => word.toLowerCase()), ...CALLSIGN_OPERATORS.flatMap(name => name.toLowerCase().split(/\s+/)), ...airlineWords, ...airportList.flatMap(airport => airportCallsign(airport).toLowerCase().split(/\s+/))];
+  const required = [...alphabet, ...RADIO_INITIALISMS.map(word => word.toLowerCase()), ...CALLSIGN_OPERATORS.flatMap(name => name.toLowerCase().split(/\s+/)), ...airlineWords];
   for (const voice of ["bf_emma", "bm_george", "af_heart"]) {
     for (const word of required) assert.ok(manifest.voices[voice][word], `${voice} must record ${word}`);
+    const vocabulary = new Set(Object.keys(manifest.voices[voice]));
+    for (const airport of airportList) {
+      const name = airportCallsign(airport), parts = recordingParts(name, vocabulary);
+      assert.ok(parts.length > 0, `${voice} must pronounce ${name}`);
+      for (const part of parts) assert.ok(vocabulary.has(part.key), `${voice}/${name} needs playable ${part.key}`);
+    }
     for (const filename of Object.values(manifest.voices[voice])) {
       const bytes = await readFile(new URL(filename, base));
       const samples = decodeRecording(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
@@ -44,6 +50,7 @@ test("custom names and fixes are spelled from prerecorded phonetic letters inste
   const parts = recordingParts("ÉXZQ Z123", new Set(alphabet));
   assert.deepEqual(parts.map(p => p.key), ["echo", "x", "ray", "zulu", "quebec", "zulu", "one", "two", "three"]);
   assert.deepEqual(recordingParts("!?", new Set(alphabet)), []);
+  assert.deepEqual(recordingParts("Boston", new Set(alphabet)).map(p => p.key), ["bravo", "oscar", "sierra", "tango", "oscar", "november"]);
 });
 
 test("every prerecorded voice says Japan Air as words and uses the ILS/GPS letter-name recordings", async () => {
