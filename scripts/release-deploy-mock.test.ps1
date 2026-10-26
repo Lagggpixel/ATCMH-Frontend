@@ -1,4 +1,4 @@
-param([ValidateSet('success','endpoint','missing-container','concurrent-compose','environment','public-version','unrelated')][string]$Scenario = 'success')
+param([ValidateSet('success','endpoint','missing-container','missing-retention','divergent-retention','concurrent-compose','environment','public-version','unrelated')][string]$Scenario = 'success')
 $ErrorActionPreference='Stop'
 $global:mockScenario=$Scenario
 # Entire deployment exercised offline: no real credential, network or backup I/O.
@@ -6,10 +6,10 @@ $global:mockput = $false
 $global:mockcomposeReads = 0
 $global:mockold = 'registry.lagggpixel.com/atcmh-frontend:26.10.40'
 $global:mocknew = 'registry.lagggpixel.com/atcmh-frontend:26.10.41'
-$global:mockcompose = @('services:', '  web:', "    image: $global:mockold", '  retention:', '    image: registry.lagggpixel.com/atcmh-frontend:1.8.58', '') -join [Environment]::NewLine
+$global:mockcompose = @('services:', '  web:', "    image: $global:mockold", '  retention:', "    image: $global:mockold", '') -join [Environment]::NewLine
 $global:mockrelease = @{
   checked=$true;qa=@{passed=$true};published=@{imageId='sha256:new'};imageId='sha256:new';version='26.10.41'
-  target=@{stack=30;stackName='atcmh';endpoint=3;image='registry.lagggpixel.com/atcmh-frontend';origin='https://www.atcmh.org';containers=@('atcmh-frontend')}
+  target=@{stack=30;stackName='atcmh';endpoint=3;image='registry.lagggpixel.com/atcmh-frontend';origin='https://www.atcmh.org';containers=@('atcmh-frontend','atcmh-simulator-retention')}
 } | ConvertTo-Json -Depth 15
 function Resolve-Path { [pscustomobject]@{Path=(Join-Path $PSScriptRoot 'mock-receipt.json')} }
 function Get-Content { $global:mockrelease }
@@ -34,6 +34,7 @@ function Invoke-RestMethod {
       if ($Method -cne 'Put') {throw 'Unexpected write method'}
       $payload = $Body | ConvertFrom-Json
       if ($payload.Prune -or -not $payload.PullImage) {throw 'Unsafe deployment flags'}
+      if ($global:mockScenario -in @('missing-container','missing-retention','divergent-retention')) {throw 'Invalid retention state reached deployment write'}
       $expected = $global:mockcompose.Replace($global:mockold,$global:mocknew)
       if ($payload.StackFileContent -cne $expected) {throw 'Unexpected Compose mutation'}
       $global:mockput=$true
@@ -49,13 +50,18 @@ function Invoke-RestMethod {
     }
     '/docker/containers/json\?all=true$' {
       $values = @(@{Id='web';Names=@('/atcmh-frontend');ImageID='sha256:old';Labels=@{'com.docker.compose.project'='atcmh'}},
+        @{Id='retention';Names=@('/atcmh-simulator-retention');ImageID='sha256:old';Labels=@{'com.docker.compose.project'='atcmh'}},
         @{Id='other';Names=@('/unrelated');ImageID='sha256:other';Labels=@{'com.docker.compose.project'='other'}})
-      if ($global:mockScenario -eq 'missing-container') { Write-Output -NoEnumerate @($values[1]); return }
-      if ($global:mockput -and $global:mockScenario -eq 'unrelated') { $values[1].Id='recreated' }
+      if ($global:mockScenario -eq 'missing-container') { Write-Output -NoEnumerate @($values[1],$values[2]); return }
+      if ($global:mockScenario -eq 'missing-retention') { Write-Output -NoEnumerate @($values[0],$values[2]); return }
+      if ($global:mockput -and $global:mockScenario -eq 'unrelated') { $values[2].Id='recreated' }
       Write-Output -NoEnumerate $values; return
     }
     '/docker/containers/web/json$' {
-      return @{Config=@{Image=$global:mockold};Image=$(if ($global:mockput) {'sha256:new'} else {'sha256:old'});RestartCount=0;State=@{Running=$true;OOMKilled=$false;Health=@{Status='healthy'}}}
+      return @{Config=@{Image=$(if ($global:mockput) {$global:mocknew} else {$global:mockold})};Image=$(if ($global:mockput) {'sha256:new'} else {'sha256:old'});RestartCount=0;State=@{Running=$true;OOMKilled=$false;Health=@{Status='healthy'}}}
+    }
+    '/docker/containers/retention/json$' {
+      return @{Config=@{Image=$(if ($global:mockput) {$global:mocknew} elseif ($global:mockScenario -eq 'divergent-retention') {'registry.lagggpixel.com/atcmh-frontend:1.8.58'} else {$global:mockold})};Image=$(if ($global:mockput) {'sha256:new'} else {'sha256:old'});RestartCount=0;State=@{Running=$true;OOMKilled=$false}}
     }
     default { throw 'Unexpected API request in offline deployment test' }
   }

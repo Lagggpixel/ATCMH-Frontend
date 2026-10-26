@@ -47,7 +47,7 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
     document.addEventListener("keydown", escape);
     return () => {document.removeEventListener("pointerdown", dismiss, true); document.removeEventListener("keydown", escape);};
   }, [onDismiss, closing]);
-  const popup = <div ref={anchor} className={styles.contextAnchor} data-closing={closing} inert={closing} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
+  const popup = <div ref={anchor} className={styles.contextAnchor} data-demo-region="scope-menu" data-closing={closing} inert={closing} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
   const host = scope.current?.closest("main");
   return host ? createPortal(popup, host) : popup;
 }

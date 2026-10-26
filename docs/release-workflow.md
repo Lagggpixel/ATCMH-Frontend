@@ -115,10 +115,13 @@ interrupted deployment requires inspection rather than an automatic retry.
 
 | Host | Image | Stack / endpoint | Updated services |
 | --- | --- | --- | --- |
-| ATCMH | `registry.lagggpixel.com/atcmh-frontend` | 30 `atcmh` / 3 | `atcmh-frontend` |
+| ATCMH | `registry.lagggpixel.com/atcmh-frontend` | 30 `atcmh` / 3 | `atcmh-frontend`, `atcmh-simulator-retention` |
 | Sweatbox | `registry.lagggpixel.com/sweatbox` | 66 `sweatbox` / 3 | `sweatbox`, `sweatbox-retention` |
 
-ATCMH retention stays pinned to its existing version. Backend, private speech,
+Each host's web and retention services use the same versioned image and advance
+together. Deployment refuses missing retention services or differing preceding
+versions, and verifies both runtime image identities after the fresh pull.
+Backend, private speech,
 navigation provider, shared datasets, databases and other stacks are outside this
 web workflow. Schema/data migrations still need their own reviewed backup and
 deployment sequence before consumers are started. No migrations run implicitly.

@@ -87,8 +87,8 @@ test("publication gates reject failed checks, changed source/image, missing or a
   assert.throws(() => requireQA(receipt, "source", "image"), /browser QA/);
 });
 
-test("release mappings keep ATCMH retention, backend, speech and persistent assets outside web updates", () => {
-  assert.deepEqual(releaseTarget("atcmh-frontend").containers, ["atcmh-frontend"]);
+test("release mappings update each host's web and retention together", () => {
+  assert.deepEqual(releaseTarget("atcmh-frontend").containers, ["atcmh-frontend", "atcmh-simulator-retention"]);
   assert.deepEqual(releaseTarget("sweatbox").containers, ["sweatbox", "sweatbox-retention"]);
   assert.equal(releaseTarget("atcmh-frontend").stack, 30);
   assert.equal(releaseTarget("sweatbox").stack, 66);
@@ -149,14 +149,14 @@ test("PowerShell deployment changes only expected image lines and rejects drift/
   assert.equal(result.status, 0, result.stderr);
 });
 
-for (const scenario of ["success", "endpoint", "missing-container", "concurrent-compose", "environment", "public-version", "unrelated"]) {
+for (const scenario of ["success", "endpoint", "missing-container", "missing-retention", "divergent-retention", "concurrent-compose", "environment", "public-version", "unrelated"]) {
   test(`offline Portainer deployment: ${scenario}`, {skip: process.platform !== "win32"}, () => {
     const script = fileURLToPath(new URL("./release-deploy-mock.test.ps1", import.meta.url));
     const result = spawnSync("pwsh", ["-NoProfile", "-File", script, "-Scenario", scenario], {encoding: "utf8"});
     if (scenario === "success") assert.equal(result.status, 0, result.stderr);
     else {
       assert.notEqual(result.status, 0, "Unsafe/drifted deployment was accepted");
-      const expected = {endpoint: /endpoint identity/, "missing-container": /container missing/, "concurrent-compose": /Stack changed/, environment: /preservation failed/, "public-version": /Public version\/health mismatch/, unrelated: /unrelated container changed/};
+      const expected = {endpoint: /endpoint identity/, "missing-container": /container missing/, "missing-retention": /container missing/, "divergent-retention": /versions diverged/, "concurrent-compose": /Stack changed/, environment: /preservation failed/, "public-version": /Public version\/health mismatch/, unrelated: /unrelated container changed/};
       assert.match(result.stderr, expected[scenario]);
     }
   });

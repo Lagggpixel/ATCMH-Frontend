@@ -23,7 +23,7 @@ try {
     $target = $release.target
     if (-not $release.checked -or -not $release.qa -or -not $release.published -or $release.published.imageId -cne $release.imageId) { throw 'Incomplete release checks/publication' }
     # Restrict reusable deployment to the two verified web stacks.
-    $expected = if ($target.stack -eq 30) { @{name='atcmh';image='registry.lagggpixel.com/atcmh-frontend';containers=@('atcmh-frontend');origin='https://www.atcmh.org'} }
+    $expected = if ($target.stack -eq 30) { @{name='atcmh';image='registry.lagggpixel.com/atcmh-frontend';containers=@('atcmh-frontend','atcmh-simulator-retention');origin='https://www.atcmh.org'} }
       elseif ($target.stack -eq 66) { @{name='sweatbox';image='registry.lagggpixel.com/sweatbox';containers=@('sweatbox','sweatbox-retention');origin='https://sweatbox.lagggpixel.com'} }
       else { throw 'Unrecognised deployment stack' }
     if ($target.endpoint -ne 3 -or $target.stackName -cne $expected.name -or $target.image -cne $expected.image -or $target.origin -cne $expected.origin -or ($target.containers -join ',') -cne ($expected.containers -join ',')) { throw 'Deployment mapping changed' }
@@ -33,7 +33,7 @@ try {
     function Invoke-ReleasePortainer([string]$Path, [string]$Method = 'Get', $Body = $null) {
         $parameters = @{Uri="https://portainer.lagggpixel.com/api$Path";Method=$Method;Headers=@{'X-API-Key'=$credential.GetNetworkCredential().Password};TimeoutSec=180}
         if ($null -ne $Body) { $parameters.ContentType='application/json'; $parameters.Body=ConvertTo-Json -InputObject $Body -Depth 90 -Compress }
-        try { return (Invoke-RestMethod @parameters) } catch { throw "Portainer $Method $Path failed; response withheld" }
+        try { $response = Invoke-RestMethod @parameters; foreach ($item in $response) { $item } } catch { throw "Portainer $Method $Path failed; response withheld" }
     }
     $endpoint = Invoke-ReleasePortainer '/endpoints/3'
     $info = Invoke-ReleasePortainer '/endpoints/3/docker/info'

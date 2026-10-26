@@ -23,6 +23,8 @@ export interface DemoState extends DemoController {
   vectorDraft: {aircraftId: string; point: Point} | null;
   ground: DemoGroundDraft | null;
   camera: (MapCamera & {width: number; height: number}) | null;
+  /** How far each scrolled list is scrolled, 0 to 1, keyed by `demoScrollKey`. */
+  scroll?: Record<string, number>;
 }
 /** Where the pointer is: a map position on the scope, or a spot on a labelled control or screen region. */
 export type DemoAnchor = {kind: "scope"; point: Point} | {kind: "ui"; region: string; label?: string; fx: number; fy: number};
@@ -56,6 +58,7 @@ export const demoStateSchema = z.object({...controller,
     destination: z.object({type: z.enum(["point", "runway", "parking"]), id: id.optional()}).strict(),
     holds: z.record(z.string().max(80), z.boolean()).refine(value => Object.keys(value).length <= 200)}).strict().nullable(),
   camera: z.object({center: point, scale: finite(1e-6, 1e9), width: finite(0, 20000), height: finite(0, 20000)}).strict().nullable(),
+  scroll: z.record(z.string().regex(/^[a-z-]{1,40}:[0-9.]{0,120}$/), finite(0, 1)).refine(value => Object.keys(value).length <= 24).optional(),
 }).strict();
 export const demoBatchSchema = z.object({
   seq: finite(0, 1e12).int(), sentAt: time, elapsed: finite(0, 1e12), state: demoStateSchema.optional(),
@@ -93,6 +96,28 @@ export function demoAnchorAt(root: HTMLElement, target: EventTarget | null, clie
   const area = (region === "root" ? root : regionElement!).getBoundingClientRect();
   return {kind: "ui", region, fx: area.width ? (clientX - area.left) / area.width : .5, fy: area.height ? (clientY - area.top) / area.height : .5};
 }
+
+/** Names a scrolled list by its region and its place under it, which is the same on both screens. */
+export function demoScrollKey(root: HTMLElement, element: Element): string | null {
+  const region = element.closest<HTMLElement>("[data-demo-region]");
+  if (!region || !root.contains(region)) return null;
+  const path: number[] = [];
+  for (let node = element; node !== region && node.parentElement; node = node.parentElement) path.unshift([...node.parentElement.children].indexOf(node));
+  return `${region.dataset.demoRegion}:${path.join(".")}`;
+}
+/** The list a scroll key names on this screen. */
+export function demoScrollElement(root: HTMLElement, key: string): HTMLElement | null {
+  const [region, path] = key.split(":");
+  // A closing popup can still be on screen beside the one that replaced it.
+  let node: Element | null = root.querySelector(`[data-demo-region="${region}"]:not([data-closing="true"])`) ?? root.querySelector(`[data-demo-region="${region}"]`);
+  for (const index of path ? path.split(".").map(Number) : []) node = node?.children[index] ?? null;
+  return node instanceof HTMLElement ? node : null;
+}
+/** How far a list is scrolled, from 0 at the top to 1 at the bottom. */
+export const demoScrollRatio = (element: Element) => {
+  const range = element.scrollHeight - element.clientHeight;
+  return range > 0 ? Math.min(1, Math.max(0, element.scrollTop / range)) : 0;
+};
 
 /** Finds the control an anchor names on this screen, preferring a visible one. */
 export function demoControl(root: HTMLElement, at: DemoAnchor) {

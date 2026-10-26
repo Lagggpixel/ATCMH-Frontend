@@ -49,7 +49,7 @@ function treeHash(directory) {
 
 export function releaseTarget(name) {
   const targets = {
-    "atcmh-frontend": {image: "registry.lagggpixel.com/atcmh-frontend", origin: "https://www.atcmh.org", stack: 30, stackName: "atcmh", containers: ["atcmh-frontend"]},
+    "atcmh-frontend": {image: "registry.lagggpixel.com/atcmh-frontend", origin: "https://www.atcmh.org", stack: 30, stackName: "atcmh", containers: ["atcmh-frontend", "atcmh-simulator-retention"]},
     sweatbox: {image: "registry.lagggpixel.com/sweatbox", origin: "https://sweatbox.lagggpixel.com", stack: 66, stackName: "sweatbox", containers: ["sweatbox", "sweatbox-retention"]},
   };
   if (!targets[name]) throw new Error(`Unknown release project: ${name}`);

@@ -4,7 +4,7 @@ import {applyEnvelope, initialExercise} from "./engine";
 import {envelopeSchema, exerciseSchema} from "./protocol";
 import {applyReplayDelta, replayDelta} from "./replays";
 import {replayEvents, replaySnapshots} from "./replay-events";
-import {demoBatchSchema, demoPointerAt, demoReplayMarks, replayDemoAt, type DemoBatch} from "./demonstration";
+import {demoBatchSchema, demoStateSchema, demoPointerAt, demoReplayMarks, replayDemoAt, type DemoBatch} from "./demonstration";
 import {DemoHub} from "./server/demo-hub";
 
 const batch = (seq: number, extra: Partial<DemoBatch> = {}): DemoBatch => ({seq, sentAt: 10_000, elapsed: 50, pointer: [], events: [], ...extra});
@@ -95,4 +95,12 @@ test("the demonstration hub only relays for trusted seats while a demonstration 
   hub.trust("s1", "staff", "staff-token", false);
   assert.equal(hub.read("s1", 0), null, "ending the demonstration clears the mirror");
   stop();
+});
+
+test("mirrored scroll positions are bounded ratios keyed by region and path", () => {
+  const state = {frequency: "ground", selectedId: null, messageId: null, menuPath: [], dismissedStrips: {}, quickHidden: false, utility: null, vectorDraft: null, ground: null, camera: null};
+  assert.deepEqual(demoStateSchema.parse({...state, scroll: {"scope-menu:0": .5, "messages:1.2": 1}}).scroll, {"scope-menu:0": .5, "messages:1.2": 1});
+  assert.throws(() => demoStateSchema.parse({...state, scroll: {"scope-menu:0": 2}}));
+  assert.throws(() => demoStateSchema.parse({...state, scroll: {"<img>": .5}}));
+  assert.throws(() => demoStateSchema.parse({...state, scroll: Object.fromEntries(Array.from({length: 25}, (_, i) => [`messages:${i}`, 0]))}));
 });
