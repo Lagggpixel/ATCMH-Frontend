@@ -35,16 +35,52 @@ test("three trainees independently occupy three positions in one simulation", as
   assert.equal(frame.session.positions?.[1].traineeName, "Second trainee");
   assert.equal(JSON.stringify(frame).includes(h.tokens[0]), false, "seat tokens never enter public presence");
 });
-test("same account can hold different positions in different windows, but not duplicate a position", async () => {
+test("a mentee assigned to several positions bandboxes them in one page, and a second page must take the seat over", async () => {
   const h = await harness();
   await h.service.assignPosition(h.trainer, h.session.id, h.positions[1].id, {discordId: h.first.discordId, name: h.first.displayName, assignedAt: 1000, assignedBy: h.trainer.accountId});
-  await h.join(h.first, 0); await h.join(h.first, 1);
-  await assert.rejects(h.join(h.first, 0, randomUUID()), {code: "seat-occupied"});
-  assert.equal((await h.service.frame(h.first, h.session.id, "mentee", h.tokens[1])).positionId, h.positions[1].id);
+  const joined = await h.join(h.first, 1);
+  assert.deepEqual(joined.positionIds, [h.positions[0].id, h.positions[1].id]);
+  assert.equal(joined.positionId, h.positions[0].id);
+  await assert.rejects(h.join(h.first, 0, randomUUID()), {code: "seat-open-elsewhere"});
+  const moved = randomUUID();
+  assert.deepEqual((await h.service.join(h.first, h.session.id, "mentee", moved, undefined, true)).positionIds, [h.positions[0].id, h.positions[1].id]);
+  await assert.rejects(h.service.frame(h.first, h.session.id, "mentee", h.tokens[1]), {code: "seat-lost"});
+  const presence = (await h.service.frame(h.trainer, h.session.id, "staff", h.control)).session.positions!;
+  assert.deepEqual(presence.map(p => p.bandboxId), [h.positions[0].id, h.positions[0].id, undefined]);
+});
+test("bandboxes: one frequency for owned traffic, no handoff inside, demonstration covers all, split off and add mid-session", async () => {
+  const h = await harness();
+  await h.service.assignPosition(h.trainer, h.session.id, h.positions[1].id, {discordId: h.first.discordId, name: h.first.displayName, assignedAt: 1000, assignedBy: h.trainer.accountId});
+  await h.join(h.first, 0); await h.join(h.third, 2);
+  const record = await h.store.read(h.session.id);
+  const inFinal = record.exercise.aircraft.find(a => a.positionId === h.positions[1].id) ?? record.exercise.aircraft.find(a => a.frequency === "approach")!;
+  await h.store.transaction(h.session.id, r => {r.exercise.aircraft = r.exercise.aircraft.map(a => a.id === inFinal.id ? {...a, frequency: "approach", positionId: h.positions[1].id} : a); r.contentRevision++;});
+  await h.dispatch(h.first, "mentee", h.tokens[0], {kind: "command", aircraftId: inFinal.id, command: {type: "vector", heading: 90}, frequency: "approach", text: "Heading 90"});
+  assert.equal((await h.store.read(h.session.id)).exercise.messages.find(m => m.sender === "controller")?.positionId, h.positions[1].id);
+  const final = h.positions[1];
+  await assert.rejects(h.dispatch(h.first, "mentee", h.tokens[0], {kind: "command", aircraftId: inFinal.id, frequency: "approach", text: "Contact Final", command: {type: "frequency", frequency: "approach", targetPositionId: final.id, facilityId: final.facilityId, mhz: final.mhz}}), {code: "forbidden"});
+  await h.dispatch(h.trainer, "staff", h.control, {kind: "demonstrate", enabled: true, positionId: final.id});
+  assert.equal((await h.store.read(h.session.id)).exercise.demonstration?.positionId, h.positions[0].id);
+  await assert.rejects(h.dispatch(h.first, "mentee", h.tokens[0], {kind: "command", aircraftId: inFinal.id, command: {type: "vector", heading: 100}, frequency: "approach", text: "Heading 100"}), {code: "demonstrating"});
+  await h.dispatch(h.trainer, "staff", h.control, {kind: "command", aircraftId: inFinal.id, command: {type: "vector", heading: 110}, frequency: "approach", text: "Heading 110"});
+  await h.dispatch(h.trainer, "staff", h.control, {kind: "demonstrate", enabled: false});
+  // Split off Final to the third mentee: the first keeps Initial, the third bandboxes Final with South at once.
+  await h.service.assignPosition(h.trainer, h.session.id, final.id, {discordId: h.third.discordId, name: h.third.displayName, assignedAt: 2000, assignedBy: h.trainer.accountId});
+  assert.deepEqual((await h.service.frame(h.first, h.session.id, "mentee", h.tokens[0])).positionIds, [h.positions[0].id]);
+  assert.deepEqual((await h.service.frame(h.third, h.session.id, "mentee", h.tokens[2])).positionIds, [final.id, h.positions[2].id]);
+});
+test("a mentor can bandbox open positions and work them on one page", async () => {
+  const h = await harness();
+  for (const p of h.positions.slice(1)) await h.service.assignPosition(h.trainer, h.session.id, p.id, null);
+  const view = await h.service.join(h.trainer, h.session.id, "mentee", randomUUID(), `${h.positions[1].id},${h.positions[2].id}`);
+  assert.deepEqual(view.positionIds, [h.positions[1].id, h.positions[2].id]);
+  await assert.rejects(h.service.join(h.trainer, h.session.id, "mentee", randomUUID(), h.positions[0].id), {code: "not-assigned"});
 });
 test("assignment and seat ownership cannot be bypassed with a position ID or another token", async () => {
   const h = await harness(); await h.join(h.first, 0);
-  await assert.rejects(h.join(h.first, 1), {code: "not-assigned"});
+  // Asking for someone else's position only reaches the mentee's own seat.
+  await assert.rejects(h.join(h.first, 1), {code: "seat-open-elsewhere"});
+  assert.equal((await h.store.read(h.session.id)).positionState?.[h.positions[1].id]?.seat ?? null, null);
   await assert.rejects(h.service.frame(h.second, h.session.id, "mentee", h.tokens[0]), {code: "seat-lost"});
   const aircraftId = (await h.store.read(h.session.id)).exercise.aircraft[0].id;
   await h.join(h.second, 1);

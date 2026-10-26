@@ -41,7 +41,7 @@ export function recordingParts(text: string, vocabulary: ReadonlySet<string>): R
 
 export interface RecordingPlayback {
   activate(): void;
-  play(samples: Float32Array, sampleRate: number, settings: VoiceSettings): Promise<void>;
+  play(samples: Float32Array, sampleRate: number, settings: VoiceSettings, started?: () => void): Promise<void>;
   cancel(): void;
   dispose(): void;
 }
@@ -87,7 +87,12 @@ export function createRecordedSpeechOutput(library: RecordingLibrary, playback: 
     void samples.catch(() => {});
     return {key: keyFor(text, settings), controller, samples};
   };
-  const cancelPlayback = () => {generation++; request?.abort(); request = undefined; loading = undefined; playback.cancel(); status("");};
+  const cancelPlayback = (preservePrimer = false) => {
+    const busy = Boolean(request);
+    generation++; request?.abort(); request = undefined; loading = undefined;
+    if (!preservePrimer || busy) playback.cancel();
+    status("");
+  };
   const cancel = () => {prepared?.controller.abort(); prepared = undefined; cancelPlayback();};
   return {
     voices: () => RECORDED_VOICES,
@@ -104,7 +109,7 @@ export function createRecordedSpeechOutput(library: RecordingLibrary, playback: 
       const pending = prepared?.key === keyFor(text, settings) ? prepared : undefined;
       if (!pending) prepared?.controller.abort();
       prepared = undefined;
-      cancelPlayback();
+      cancelPlayback(true);
       const current = generation;
       const job = pending ?? load(text, settings);
       request = job.controller;
@@ -114,14 +119,14 @@ export function createRecordedSpeechOutput(library: RecordingLibrary, playback: 
         const samples = await job.samples;
         if (current !== generation) return;
         loading = undefined;
-        status("Prerecorded radio voice");
-        await playback.play(samples, 24000, settings);
+        status("Preparing radio playback…");
+        await playback.play(samples, 24000, settings, () => {if (current === generation) status("Prerecorded radio voice");});
         if (current === generation) {request = undefined; end();}
       };
-      void run().catch(() => {
+      void run().catch(reason => {
         if (current !== generation) return;
         job.controller.abort(); playback.cancel(); request = undefined;
-        status("Radio clips could not play. Click or press a key to retry."); error();
+        status("Radio clips could not play. Click or press a key to retry."); error(reason);
       });
     },
     cancel,
@@ -185,32 +190,68 @@ export function recordingWav(samples: Float32Array, sampleRate: number): ArrayBu
 export function browserRecordingPlayback(): RecordingPlayback {
   const audio = new Audio(); audio.preload = "auto";
   let url: string | undefined, settle: (() => void) | undefined, unlocked = false, generation = 0;
+  let active = false, primer: Promise<void> | undefined, started: (() => void) | undefined;
   const cancel = () => {
-    generation++; audio.onended = null; audio.onerror = null; audio.pause();
+    generation++; active = false; primer = undefined; started = undefined;
+    audio.onended = null; audio.onerror = null; audio.pause();
     audio.removeAttribute("src"); audio.load();
     if (url) {URL.revokeObjectURL(url); url = undefined;}
     settle?.(); settle = undefined;
   };
   return {
     activate() {
-      if (unlocked || url) return;
+      if (active) {
+        // A device may suspend the element on lock/background or route changes.
+        // Resume that same transmission synchronously from the next gesture.
+        if (audio.paused) {
+          const current = generation;
+          void audio.play().then(() => {if (current === generation) started?.();}).catch(() => {});
+        }
+        return;
+      }
+      if (unlocked || primer) return;
       const current = generation;
       // Prime the same media element synchronously in the user's gesture.
-      url = URL.createObjectURL(new Blob([recordingWav(new Float32Array(1), 24000)], {type: "audio/wav"}));
+      if (url) URL.revokeObjectURL(url);
+      url = URL.createObjectURL(new Blob([recordingWav(new Float32Array(1200), 24000)], {type: "audio/wav"}));
       audio.src = url;
-      audio.onended = () => {if (current === generation) cancel();};
-      void audio.play().then(() => {if (current === generation) unlocked = true;}).catch(() => {if (current === generation) cancel();});
+      primer = audio.play().then(() => {if (current === generation) unlocked = true;})
+        .catch(() => {if (current === generation) unlocked = false;})
+        .finally(() => {if (current === generation) primer = undefined;});
     },
-    async play(samples, sampleRate, settings) {
+    async play(samples, sampleRate, settings, onStarted) {
+      // Cached audio can arrive before the gesture's play() promise resolves.
+      // Do not abort the unlock while the browser is still processing it.
+      const before = generation;
+      let primeTimer: ReturnType<typeof setTimeout> | undefined;
+      if (primer) await Promise.race([primer, new Promise<void>(resolve => {primeTimer = setTimeout(resolve, 1000);})]).finally(() => clearTimeout(primeTimer));
+      if (before !== generation) return;
       cancel(); const current = generation;
+      active = true;
       url = URL.createObjectURL(new Blob([recordingWav(samples, sampleRate)], {type: "audio/wav"}));
       audio.src = url; audio.volume = settings.volume; audio.playbackRate = settings.rate; audio.preservesPitch = true;
-      const finished = new Promise<void>((resolve, reject) => {settle = resolve; audio.onended = () => resolve(); audio.onerror = () => reject(new Error("Radio playback failed"));});
-      // Attach the failure handler before play() can reject under autoplay policy.
-      const playing = audio.play();
-      try {await Promise.all([playing, finished]); if (current === generation) unlocked = true;}
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
+      let fail!: (reason: unknown) => void;
+      const finished = new Promise<void>((resolve, reject) => {
+        fail = reject;
+        settle = resolve; audio.onended = () => resolve(); audio.onerror = () => reject(new Error("Radio playback failed"));
+        // Never leave the entire radio queue stuck on a lost media event.
+        watchdog = setTimeout(() => reject(new Error("Radio playback did not start")), 4000);
+        let notified = false;
+        started = () => {
+          if (current !== generation || notified) return;
+          notified = true; unlocked = true; clearTimeout(watchdog); onStarted?.();
+          watchdog = setTimeout(() => reject(new Error("Radio playback stalled")), samples.length / sampleRate / settings.rate * 1000 + 15000);
+        };
+      });
+      // Completion/cancellation also settles when a device never resolves play().
+      try {
+        void audio.play().then(() => {if (current === generation) started?.();})
+          .catch(reason => {if (current === generation) fail(reason);});
+        await finished;
+      }
       catch (error) {if (current === generation) unlocked = false; throw error;}
-      finally {if (current === generation) cancel();}
+      finally {clearTimeout(watchdog); if (current === generation) cancel();}
     },
     cancel,
     dispose: cancel,

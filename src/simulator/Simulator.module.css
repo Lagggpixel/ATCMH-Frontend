@@ -1084,3 +1084,9 @@
 .demoSwitch[aria-checked=true]>span {border-color:var(--dashboard-link)}
 .demoSwitch[aria-checked=true]>span::after {transform:translateX(12px);background:var(--dashboard-link)}
 .demoHandedBack {border-color:#91e98d;background:#1d3320;color:#c9f5c6}
+
+/* Bandbox: one Approach button and a banner for a controller holding several positions. */
+.bandboxTag {align-self:center;padding:1px 7px;border-radius:99px;background:var(--dashboard-warning-bg,#3a2a10);color:var(--dashboard-warning-text,#ffc55c);font-size:11px;font-weight:700;line-height:1.5}
+.bandboxBanner {display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:5px 12px;border:1px solid var(--dashboard-border);border-radius:6px;font-size:13px;white-space:nowrap;color:var(--dashboard-ink)}
+.bandboxBanner>span {width:8px;height:8px;border-radius:50%;background:var(--dashboard-success-text,#3fb36f)}
+@media (max-width:900px) {.bandboxBanner {white-space:normal}}

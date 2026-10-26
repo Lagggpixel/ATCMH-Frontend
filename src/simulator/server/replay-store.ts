@@ -123,6 +123,11 @@ export async function listReplays(offset: number, filters: ReplayFilters = {}) {
   return {replays: all.slice(offset, offset + 50), next: all.length > offset + 50 ? offset + 50 : null};
 }
 /** With menteeId, only a replay that account took part in as the Mentee is readable. */
+/** The newest finished replay of a session that has since been archived. */
+export async function endedReplay(sessionId: string): Promise<ReplaySummary | null> {
+  const rows = await queryReadOnly<ReplayRow[]>("SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback FROM simulator_replays WHERE session_id=? AND ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT 1", [sessionId]);
+  return rows[0] ? summary(rows[0]) : null;
+}
 export async function readReplay(id: string, after: number, menteeId?: string): Promise<ReplayDetail> {
   const detail = await readAnyReplay(id, after);
   if (menteeId && !detail.replay.participants.some(p => p.role === "mentee" && p.accountId === menteeId))

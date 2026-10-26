@@ -1,0 +1,42 @@
+/* Joining, seat and ended screens for the live page. Uses the site's dashboard tokens, so both themes follow the app. */
+.page{min-height:100dvh;display:flex;flex-direction:column;background:var(--dashboard-canvas,#f7f5f0);color:var(--dashboard-ink,#25282c);font-family:var(--font-site,system-ui,sans-serif);font-size:15px;line-height:1.45}
+.page *{box-sizing:border-box}
+.header{padding:16px 24px}
+.brand{font-weight:700;font-size:16px;color:var(--dashboard-ink,#25282c)!important;text-decoration:none}
+.center{flex:1;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{width:100%;max-width:480px;padding:28px;border:1px solid var(--dashboard-border,#dedbd5);border-radius:14px;background:var(--dashboard-surface,#fff);display:flex;flex-direction:column;gap:16px}
+.card h1{margin:0;font-size:24px;line-height:1.2;font-weight:700;overflow-wrap:anywhere}
+.text{margin:6px 0 0;color:var(--dashboard-muted,#62666d)}
+.icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--dashboard-selected,#f8e9e4);color:var(--dashboard-link,#b94025)}
+.icon[data-tone=wait]{background:var(--dashboard-warning-bg,#fbf0d9);color:var(--dashboard-warning-text,#7a4f00)}
+.icon[data-tone=done]{background:var(--dashboard-success-bg,#e3f4ea);color:var(--dashboard-success-text,#1a6b3c)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.steps{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.steps li{display:flex;align-items:center;gap:10px}
+.steps li>span:first-child{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;border:2px solid var(--dashboard-border,#dedbd5)}
+.steps li[data-state=done]>span:first-child{background:var(--dashboard-success-text,#1a6b3c);border-color:var(--dashboard-success-text,#1a6b3c)}
+.steps li[data-state=now]>span:first-child{border-color:var(--dashboard-link,#b94025)}
+.steps li[data-state=next]{color:var(--dashboard-muted,#62666d)}
+.box{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--dashboard-border,#dedbd5);background:var(--dashboard-secondary,var(--dashboard-canvas,#faf8f4))}
+.box strong{display:block;font-weight:600}.box small{font-size:14px;color:var(--dashboard-muted,#62666d)}
+.stripe{width:6px;align-self:stretch;min-height:34px;border-radius:2px;background:var(--dashboard-link,#b94025)}
+.stripe[data-tone=live]{background:var(--dashboard-success-text,#1a6b3c)}
+.feedback{margin:0;padding:12px 14px;border-radius:10px;background:var(--dashboard-secondary,var(--dashboard-canvas,#faf8f4));font-size:14px;white-space:pre-wrap}
+.feedback span{display:block;font-weight:600;font-size:13px;color:var(--dashboard-muted,#62666d)}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:4px}
+.primary,.secondary{min-height:44px;padding:0 18px;border-radius:8px;font:inherit;font-weight:600;display:inline-flex;align-items:center;cursor:pointer;text-decoration:none}
+.primary{border:0;background:var(--dashboard-button,#b94025);color:var(--dashboard-on-button,#fff)!important}
+.primary:hover{background:var(--dashboard-button-hover,var(--dashboard-button,#9f321b))}
+.secondary{border:1px solid var(--dashboard-border,#dedbd5);background:var(--dashboard-surface,#fff);color:var(--dashboard-ink,#25282c)}
+.link{min-height:44px;display:inline-flex;align-items:center;color:var(--dashboard-link,#b94025)!important;font-weight:600;text-decoration:none}
+.link:hover{text-decoration:underline}
+.hint{margin:0;font-size:13px;color:var(--dashboard-muted,#62666d)}
+.code{margin:0;padding-top:12px;border-top:1px solid var(--dashboard-border,#dedbd5);font-size:13px;color:var(--dashboard-muted,#62666d)}
+.code span{font-family:"B612 Mono","Simulator Mono",ui-monospace,monospace;color:var(--dashboard-ink,#25282c)}
+.footer{padding:12px 24px 16px;font-size:12px}
+.footer p{margin:0}
+.page :is(a,button):focus-visible{outline:3px solid var(--dashboard-link,#b94025);outline-offset:2px}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:520px){.card{padding:22px}.card h1{font-size:22px}}

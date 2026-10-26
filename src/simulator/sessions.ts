@@ -36,5 +36,5 @@ export const SESSION_LEASE_MS = 15_000;
 export const SESSION_FRAME_MS = 200;
 
 export class SessionError extends Error {
-  constructor(public code: string, message: string, public status = 409) {super(message);}
+  constructor(public code: string, message: string, public status = 409, public retryAt?: number, public detail?: Record<string, unknown>) {super(message);}
 }

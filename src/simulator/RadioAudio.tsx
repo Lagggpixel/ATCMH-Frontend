@@ -5,8 +5,9 @@ import {airportCallsign, getAirport, defaultRunway} from "./airports";
 import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
 import {SpeakerSlash} from "@phosphor-icons/react/dist/csr/SpeakerSlash";
-import {RadioAudio as RadioPlayer, aviationSpeech, browserAudioPreference, radioMessageText} from "./radio-audio";
+import {RadioAudio as RadioPlayer, aviationSpeech, browserAudioPreference, browserAudioActivation, radioMessageText} from "./radio-audio";
 import {browserSentenceSpeechOutput} from "./sentence-output";
+import {browserRecordedSpeechOutput} from "./recorded-output";
 import type {Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
 
@@ -15,15 +16,9 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const close = () => {setOpen(false); settingsButton.current?.focus();};
-  useEffect(() => player.start(resilientSpeechOutput(browserSentenceSpeechOutput(csrf), browserSpeechOutput()), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
-  useEffect(() => {
-    const activate = player.activate;
-    window.addEventListener("pointerdown", activate);
-    window.addEventListener("pointerup", activate);
-    window.addEventListener("touchend", activate);
-    window.addEventListener("keydown", activate);
-    return () => {window.removeEventListener("pointerdown", activate); window.removeEventListener("pointerup", activate); window.removeEventListener("touchend", activate); window.removeEventListener("keydown", activate);};
-  }, [player]);
+  useEffect(() => player.start(resilientSpeechOutput(browserSentenceSpeechOutput(csrf),
+    resilientSpeechOutput(browserRecordedSpeechOutput(), browserSpeechOutput(), 4000)), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
+  useEffect(() => browserAudioActivation(player.activate), [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);
   return <div className={styles.radioAudio}>

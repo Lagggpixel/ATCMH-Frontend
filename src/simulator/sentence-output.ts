@@ -65,9 +65,10 @@ export function createSentenceSpeechOutput(loadSpeech: SentenceLoader, playback:
       void (async () => {
         const samples = await load(text, settings, "play");
         if (current !== generation) return;
-        status("Radio voice"); await playback.play(samples, 24000, settings);
+        status("Preparing radio playback…");
+        await playback.play(samples, 24000, settings, () => {if (current === generation) status("Radio voice");});
         if (current === generation) {active = false; status(""); end();}
-      })().catch(() => {if (current === generation) {active = false; playback.cancel(); error();}});
+      })().catch(reason => {if (current === generation) {active = false; playback.cancel(); error(reason);}});
     },
     cancel,
     dispose: () => {disposed = true; cancel(); playback.dispose(); cache.clear(); bytes = 0;},
@@ -80,7 +81,9 @@ export function browserSentenceSpeechOutput(csrf: string): SpeechOutput | null {
   const warmController = new AbortController();
   const warm = () => {
     if (warmed || disposed) return; warmed = true;
-    void fetch("/api/simulator/speech", {cache: "no-store", signal: warmController.signal}).catch(() => {warmed = false;});
+    void fetch("/api/simulator/speech", {cache: "no-store", signal: warmController.signal})
+      .then(response => {if (!response.ok) warmed = false;})
+      .catch(() => {warmed = false;});
   };
   const output = createSentenceSpeechOutput(async (text, settings, signal, priority) => {
     const response = await fetch("/api/simulator/speech", {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf},

@@ -7,7 +7,7 @@ import {RADIO_INITIALISMS, radioDisplayText, radioInitialismSpeech} from "./radi
 
 const message = (id: string, frequency: Message["frequency"] = "ground", sender: Message["sender"] = "controller"): Message => ({id, frequency, sender, aircraftId: "demo-ground", time: 1, text: `Easy 571, taxi to Runway 24, hold short (${id})`});
 function harness(scope: "all" | "ground" | "tower" = "all") {
-  const played: {text: string; settings: VoiceSettings; end: () => void; error: () => void}[] = [];
+  const played: {text: string; settings: VoiceSettings; end: () => void; error: (reason?: unknown) => void}[] = [];
   let cancelled = 0, voiceListener = () => {};
   const output: SpeechOutput = {
     voices: () => [{id: "local", name: "Local English", language: "en-GB", local: true}],
@@ -27,12 +27,40 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
 test("radio defaults on, loads device voices and is safe during server rendering", () => {
   const h = harness();
   assert.equal(h.player.getSnapshot().enabled, true);
-  assert.equal(h.player.getSnapshot().rate, 1.15);
+  assert.equal(h.player.getSnapshot().rate, 1.5);
   assert.equal(h.player.getSnapshot().voices[0].id, "local");
   assert.equal(h.played.length, 0); // Mounting does not produce an announcement.
   h.observe([message("fresh")]); assert.equal(h.played.length, 1);
   assert.equal(browserSpeechOutput(), null);
   h.close();
+});
+
+test("returning players overwrite their previous speed without changing saved mute preferences", () => {
+  const h = harness(); h.player.setSettings({rate: .85}); h.close();
+  const saved: boolean[] = [];
+  const close = h.player.start(h.output, {read: () => false, write: value => saved.push(value)});
+  assert.equal(h.player.getSnapshot().rate, 1.5);
+  assert.equal(h.player.getSnapshot().enabled, false);
+  assert.deepEqual(saved, []);
+  h.player.setEnabled(true); assert.equal(h.played.at(-1)!.settings.rate, 1.5);
+  h.player.setSettings({rate: 1.7}); assert.equal(h.player.getSnapshot().rate, 1.7);
+  close();
+});
+
+test("opening a session prepares its published ATIS silently and never prepares while muted or paused", () => {
+  const h = harness(), prepared: string[] = [];
+  h.output.prepare = text => prepared.push(text);
+  const player = new RadioAudio(), close = player.start(h.output);
+  const exercise = {...initialExercise(), publishedAtis: "Edinburgh information Alpha. Wind 240 at 5."};
+  player.observe(exercise, true, "tower");
+  assert.equal(prepared.length, 1); assert.match(prepared[0], /Wind two four zero at five/);
+  assert.equal(h.played.length, 0);
+  player.observe(exercise, true, "tower"); assert.equal(prepared.length, 1, "repeated frames do not repeat preparation");
+  close(); h.close();
+  for (const muted of [true, false]) {
+    const another = new RadioAudio(), cleanup = another.start(h.output, {read: () => !muted, write() {}});
+    another.observe(exercise, true, "tower", !muted); assert.equal(prepared.length, 1); cleanup();
+  }
 });
 
 test("reviewed drafts debounce without transmitting, and cancel on replacement, mute or pause", t => {
@@ -174,6 +202,18 @@ test("ATIS history and muted/offline publications never replay on recovery", () 
   h.player.observe({...state, publishedAtis: "Edinburgh information CHARLIE."}, true, "tower");
   assert.equal(h.played.length, 0); h.close();
 });
+test("repeated autoplay denials during one tap never discard the queued transmission", () => {
+  const h = harness(); h.observe([message("blocked")]);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    h.played.at(-1)!.error(new DOMException("Interaction required", "NotAllowedError"));
+    assert.equal(h.player.getSnapshot().enabled, true);
+    h.player.activate();
+    assert.equal(h.played.at(-1)!.text, h.played[0].text);
+  }
+  h.played.at(-1)!.end(); assert.equal(h.player.getSnapshot().speaking, ""); assert.equal(h.player.getSnapshot().error, "");
+  h.close();
+});
+
 test("autoplay failures preserve enabled audio and retry the queued message on the next interaction", () => {
   const h = harness(); h.enable(); h.observe([message("one"), message("two")]); h.played[0].error();
   assert.equal(h.player.getSnapshot().enabled, true); assert.match(h.player.getSnapshot().error, /Click or press a key/);

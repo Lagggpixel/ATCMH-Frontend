@@ -107,7 +107,7 @@ test("PCM cache evicts old entries and teardown releases worker resources", asyn
 
 test("radio queue preserves pause/resume and suppresses AI results after disconnect", async () => {
   const h = setup(), player = new RadioAudio(); const close = player.start(h.output);
-  assert.equal(player.getSnapshot().rate, 1.15);
+  assert.equal(player.getSnapshot().rate, 1.5);
   const initial = initialExercise(); player.observe(initial, true, "all");
   const state = {...initial, messages: [{id: "fresh", aircraftId: initial.aircraft[0].id, sender: "controller" as const, time: 1, frequency: "tower" as const, text: "Runway 24, cleared for takeoff."}]};
   player.observe(state, true, "all"); assert.equal(h.generated.length, 1);

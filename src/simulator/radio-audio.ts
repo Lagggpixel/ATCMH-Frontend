@@ -7,7 +7,7 @@ export interface VoiceSettings {voice: string; rate: number; volume: number; all
 export interface SpeechOutput {
   voices(): RadioVoice[];
   onVoicesChanged(listener: () => void): () => void;
-  speak(text: string, settings: VoiceSettings, end: () => void, error: () => void): void;
+  speak(text: string, settings: VoiceSettings, end: () => void, error: (reason?: unknown) => void): void;
   prepare?(text: string, settings: VoiceSettings): void;
   prepareDraft?(text: string, settings: VoiceSettings): void;
   cancelDraft?(): void;
@@ -20,7 +20,8 @@ export interface SpeechOutput {
 interface AudioState extends VoiceSettings {
   available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
 }
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: 1.15, volume: 1, speaking: "", error: "", status: ""};
+export const DEFAULT_RADIO_RATE = 1.5;
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: ""};
 export interface AudioPreference {read(): boolean | undefined; write(enabled: boolean): void}
 /** Only the on/off choice persists; online voice consent remains per tab. */
 export function browserAudioPreference(accountId: string, role: "staff" | "mentee"): AudioPreference {
@@ -28,6 +29,18 @@ export function browserAudioPreference(accountId: string, role: "staff" | "mente
   return {
     read: () => {try {const value = window.localStorage.getItem(key); return value === "true" ? true : value === "false" ? false : undefined;} catch {return undefined;}},
     write: enabled => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Audio still works when browser storage is unavailable. */ }},
+  };
+}
+
+/** Radar controls stop bubbling events; unlock before those handlers consume a gesture. */
+export function browserAudioActivation(activate: () => void) {
+  const gestures = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
+  const resume = () => {if (document.visibilityState === "visible") activate();};
+  for (const event of gestures) window.addEventListener(event, activate, {capture: true, passive: true});
+  document.addEventListener("visibilitychange", resume); window.addEventListener("pageshow", resume);
+  return () => {
+    for (const event of gestures) window.removeEventListener(event, activate, true);
+    document.removeEventListener("visibilitychange", resume); window.removeEventListener("pageshow", resume);
   };
 }
 export const radioMessageText = (message: Message, callsigns: readonly string[] = []) => aviationSpeech(message.text, callsigns);
@@ -68,7 +81,8 @@ export class RadioAudio {
   start(output: SpeechOutput | null, preference?: AudioPreference) {
     this.output = output;
     this.preference = preference;
-    this.update({available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
+    // Speed is tab-local. Reset returning players as well as newly created ones.
+    this.update({rate: DEFAULT_RADIO_RATE, available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
     if (this.state.enabled) output?.warm?.();
     const refresh = () => {this.update({voices: output?.voices() ?? []}); this.next();};
     const unsubscribe = output?.onVoicesChanged(refresh);
@@ -97,6 +111,9 @@ export class RadioAudio {
     if (baseline || connected) this.seen = new Set(exercise.messages.map(m => m.id));
     this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis, channel};
     if (this.state.enabled && connected) {
+      // The published broadcast is already known when a session opens. Prepare it
+      // silently so Read published ATIS does not need a cold synthesis request.
+      if (baseline && !paused && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.output?.prepare?.(aviationSpeech(exercise.publishedAtis), this.state);
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
@@ -142,11 +159,12 @@ export class RadioAudio {
     const text = this.queue.shift()!;
     const generation = this.generation;
     this.update({speaking: text, error: ""});
-    const error = () => {
+    const error = (reason?: unknown) => {
       if (generation !== this.generation) return;
       this.generation++; this.output?.cancel();
-      this.failureCount = this.failedText === text ? this.failureCount + 1 : 1; this.failedText = text;
-      if (this.failureCount >= 2) {
+      const blocked = reason instanceof Error && reason.name === "NotAllowedError";
+      if (!blocked) {this.failureCount = this.failedText === text ? this.failureCount + 1 : 1; this.failedText = text;}
+      if (!blocked && this.failureCount >= 2) {
         this.update({speaking: "", error: "A radio message could not play. Its text remains in the message log.", status: "Playback failed; continuing with the next message"});
         this.waitingForRetry = false; queueMicrotask(() => this.next()); return;
       }

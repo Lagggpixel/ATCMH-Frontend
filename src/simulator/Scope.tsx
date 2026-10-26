@@ -63,7 +63,7 @@ export type {ScopeOptions} from "./scope-options";
 
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
-interface Props {controllerPositionId?: string; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
+interface Props {controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
   /** Trainer demonstrating: reports drafts so the trainee can watch them. */
   onDemoScope?: (scope: {vectorDraft: {aircraftId: string; point: Point} | null; ground: DemoGroundDraft | null}) => void;
   /** Trainee watching: the trainer's drafts and view, shown instead of this page's own. */
@@ -75,9 +75,12 @@ export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
 }
-function ScopeView({controllerPositionId, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer}: Props & {preferenceKey?: string}) {
+function ScopeView({controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
-  const displayedAircraft = useCallback((a: Aircraft) => controllerPositionId && a.positionId !== controllerPositionId ? {...a, frequency: null} : a, [controllerPositionId]);
+  // Aircraft of positions this controller does not hold stay on the scope but off its frequency.
+  const heldKey = controllerPositionIds?.join(",") ?? controllerPositionId ?? "";
+  const foreign = useCallback((positionId?: string) => !!heldKey && !heldKey.split(",").includes(positionId ?? ""), [heldKey]);
+  const displayedAircraft = useCallback((a: Aircraft) => foreign(a.positionId) ? {...a, frequency: null} : a, [foreign]);
   const coastlines = useCoastlines();
   const mapLayers = useScopeMapData<ScopeMapData>(airport.icao, "map", true);
   const vectorEnabled = measureVectors || !!onVector;
@@ -168,10 +171,10 @@ function ScopeView({controllerPositionId, controllers, traineeName, controlledSe
   useEffect(() => {
     const current = vectorDrag.current;
     const target = current && snapshot.find(a => a.id === current.aircraftId);
-    if (current && (!vectorEnabled || !target || !measureVectors && (target.frequency !== frequency || !!controllerPositionId && target.positionId !== controllerPositionId || target.radar?.transferred) || !airborne(target, airport) || selected !== current.selection)) {
+    if (current && (!vectorEnabled || !target || !measureVectors && (target.frequency !== frequency || foreign(target.positionId) || target.radar?.transferred) || !airborne(target, airport) || selected !== current.selection)) {
       suppressClick.current = true; cancelVector();
     }
-  }, [controllerPositionId, snapshot, vectorEnabled, measureVectors, frequency, airport, selected, cancelVector]);
+  }, [foreign, snapshot, vectorEnabled, measureVectors, frequency, airport, selected, cancelVector]);
   // All callers mount the scope after SessionAccess resolves the browser's identity.
   const [preferences] = useState(() => readScopePreferences(preferenceKey));
   const fitted = useRef(Boolean(preferences.camera || cameraStore?.has(cameraKey)));
@@ -600,7 +603,7 @@ function ScopeView({controllerPositionId, controllers, traineeName, controlledSe
               return;
             }
             if (onGateDrop && gates?.length && a.id === selected && !running && event.button === 0 && event.isPrimary) {event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); gateDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, moved: false}; return;}
-            if (!vectorEnabled || event.button !== 0 || !event.isPrimary || !measureVectors && (a.frequency !== frequency || !!controllerPositionId && a.positionId !== controllerPositionId || a.radar?.transferred) || !airborne(a, airport)) return;
+            if (!vectorEnabled || event.button !== 0 || !event.isPrimary || !measureVectors && (a.frequency !== frequency || foreign(a.positionId) || a.radar?.transferred) || !airborne(a, airport)) return;
             cancelVector();
             event.currentTarget.setPointerCapture(event.pointerId);
             const start = {x: event.clientX, y: event.clientY};
@@ -648,7 +651,7 @@ function ScopeView({controllerPositionId, controllers, traineeName, controlledSe
             if (current.armed && suppressClick.current) {
               suppressClick.current = true;
               const point = vectorPoint(event);
-              if (!measureVectors && onVector && a.frequency === frequency && (!controllerPositionId || a.positionId === controllerPositionId) && !a.radar?.transferred && airborne(a, airport) && outsideVectorCircle(a.position, point, camera.scale)) {
+              if (!measureVectors && onVector && a.frequency === frequency && !foreign(a.positionId) && !a.radar?.transferred && airborne(a, airport) && outsideVectorCircle(a.position, point, camera.scale)) {
                 const preview = vectorPreview(a, point, AIRPORT, radarEnvironment, camera.scale);
                 onVector(a.id, preview.heading, {x: event.clientX, y: event.clientY}, preview.target);
               }

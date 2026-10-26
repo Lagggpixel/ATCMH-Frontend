@@ -42,7 +42,8 @@ test("one control and one mentee seat, even when simultaneous claims race", asyn
     const results = await Promise.allSettled([service.join(actor, s.id, role, randomUUID()), service.join(actor, s.id, role, randomUUID())]);
     assert.equal(results.filter(r => r.status === "fulfilled").length, 1);
     const rejected = results.find(r => r.status === "rejected") as PromiseRejectedResult;
-    assert.equal(rejected.reason.code, "seat-occupied");
+    // The same account on a second page is told its seat is open elsewhere, and can move it.
+    assert.equal(rejected.reason.code, "seat-open-elsewhere");
   }
   assert.equal((await service.list(staff))[0].staffOccupied, true);
   assert.equal((await service.list(staff))[0].menteeOccupied, true);

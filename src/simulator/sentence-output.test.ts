@@ -17,11 +17,22 @@ test("loading the first sentence does not interrupt touch audio activation", asy
 });
 function harness() {
   const loaded: {text: string; settings: VoiceSettings; signal: AbortSignal; priority: string; resolve: (samples: Float32Array) => void; reject: (error: Error) => void}[] = [];
-  const played: {samples: Float32Array; settings: VoiceSettings; end: () => void}[] = [];
+  const played: {samples: Float32Array; settings: VoiceSettings; end: () => void; started?: () => void}[] = [];
   const load: SentenceLoader = (text, settings, signal, priority) => new Promise((resolve, reject) => loaded.push({text, settings, signal, priority, resolve, reject}));
-  const playback: RecordingPlayback = {activate() {}, cancel() {}, dispose() {}, play: (samples, _rate, settings) => new Promise(end => played.push({samples, settings, end}))};
+  const playback: RecordingPlayback = {activate() {}, cancel() {}, dispose() {}, play: (samples, _rate, settings, started) => new Promise(end => played.push({samples, settings, end, started}))};
   return {output: createSentenceSpeechOutput(load, playback), loaded, played};
 }
+
+test("generated samples do not announce playback until the media element actually starts", async () => {
+  const h = harness(), statuses: string[] = [];
+  h.output.onStatusChanged!(status => statuses.push(status));
+  h.output.speak("ready but blocked", settings, () => {}, () => assert.fail("Playback failed"));
+  h.loaded[0].resolve(samples()); await flush();
+  assert.equal(statuses.at(-1), "Preparing radio playback…");
+  assert.equal(statuses.includes("Radio voice"), false);
+  h.played[0].started!(); assert.equal(statuses.at(-1), "Radio voice");
+  h.played[0].end(); await flush(); h.output.dispose!();
+});
 test("full-sentence playback makes one synthesis request and preserves its internal rhythm", async () => {
   assert.equal(browserSentenceSpeechOutput("csrf"), null);
   const h = harness(); let ended = 0;

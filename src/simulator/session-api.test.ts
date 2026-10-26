@@ -19,7 +19,7 @@ test("HTTP session contract streams shared commands, rejects duplicate seats and
   assert.equal((await store.list(Date.now())).length, 0);
   const session = await new SessionService(store).create({accountId: "101", staff: true}, "Contract exercise"), control = randomUUID(), student = randomUUID();
   assert.equal((await api.sessionOperation(request("POST", {role: "staff", token: control}), session.id, "join")).status, 200);
-  const collision = await api.sessionOperation(request("POST", {role: "staff", token: randomUUID()}), session.id, "join"); assert.equal(collision.status, 409); assert.equal((await collision.json()).code, "seat-occupied");
+  const collision = await api.sessionOperation(request("POST", {role: "staff", token: randomUUID()}), session.id, "join"); assert.equal(collision.status, 409); assert.equal((await collision.json()).code, "seat-open-elsewhere");
   assert.equal((await api.sessionOperation(request("POST", {role: "mentee", token: student}, {cookie: "103"}), session.id, "join")).status, 200);
   const stream = await api.sessionOperation(request("GET", undefined, {cookie: "103", "x-simulator-role": "mentee", "x-simulator-seat": student}), session.id, "stream");
   assert.match(stream.headers.get("content-type")!, /text\/event-stream/);

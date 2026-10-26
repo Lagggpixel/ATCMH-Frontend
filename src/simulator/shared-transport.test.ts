@@ -41,20 +41,83 @@ test("shared client reconnects with its seat, retries a command idempotently and
   } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
 });
 
-test("duplicate page receives a clear fatal error without releasing the active page's seat", async () => {
+for (const role of ["staff", "mentee"] as const) test(`${role} retries an occupied seat every five seconds and connects when it becomes free`, async t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const originalFetch = globalThis.fetch, originalWindow = globalThis.window;
+  globalThis.window = new EventTarget() as unknown as Window & typeof globalThis;
+  const id = randomUUID(), tokens: string[] = [];
+  let joins = 0, leaves = 0;
+  globalThis.fetch = async (input, init) => {
+    const path = String(input), body = init?.body ? JSON.parse(String(init.body)) : {};
+    if (path.endsWith("/join")) {
+      joins++; tokens.push(body.token);
+      assert.equal(body.role, role);
+      assert.equal(body.positionId, "final");
+      return joins < 3 ? Response.json({code: "seat-occupied", error: "The page is already open."}, {status: 409}) : Response.json({positionId: "final"});
+    }
+    if (path.endsWith("/leave")) {leaves++; return Response.json({});}
+    assert.ok(path.endsWith("/stream"));
+    return new Response(new ReadableStream<Uint8Array>({start(controller) {
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({type: "snapshot", exercise: initialExercise(id), session: {id}, positionId: "final"})}\n\n`));
+      init?.signal?.addEventListener("abort", () => controller.close(), {once: true});
+    }}));
+  };
+  const session = new SharedSession(role, id, "csrf", "final"), stop = session.start();
+  const tick = async (ms: number) => {t.mock.timers.tick(ms); await new Promise<void>(resolve => setImmediate(resolve));};
+  try {
+    await tick(0);
+    assert.equal(joins, 1);
+    assert.equal(session.getSnapshot().code, "seat-occupied");
+    assert.match(session.getSnapshot().fatal!, /Retrying automatically every 5 seconds/);
+    assert.equal(session.getSnapshot().owner, false);
+    await tick(4999); assert.equal(joins, 1);
+    await tick(1); assert.equal(joins, 2);
+    assert.equal(leaves, 0, "waiting never releases the active page's seat");
+    await tick(4999); assert.equal(joins, 2);
+    await tick(1); assert.equal(joins, 3);
+    assert.equal(new Set(tokens).size, 1);
+    assert.equal(session.getSnapshot().connected, true);
+    assert.equal(session.getSnapshot().fatal, null);
+    assert.equal(session.getSnapshot().code, null);
+    assert.equal(session.getSnapshot().positionId, "final");
+    stop(); await tick(5000);
+    assert.equal(joins, 3);
+    assert.equal(leaves, 1);
+  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow; t.mock.timers.reset();}
+});
+
+for (const exit of ["cleanup", "pagehide"] as const) test(`occupied-seat retries stop on ${exit} without releasing another page's seat`, async t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const originalFetch = globalThis.fetch, originalWindow = globalThis.window, events = new EventTarget();
+  globalThis.window = events as unknown as Window & typeof globalThis;
+  let calls = 0;
+  globalThis.fetch = async input => {
+    calls++; assert.ok(String(input).endsWith("/join"));
+    return Response.json({code: "seat-occupied", error: "The page is already open."}, {status: 409});
+  };
+  const session = new SharedSession("staff", randomUUID(), "csrf"), stop = session.start();
+  try {
+    t.mock.timers.tick(0); await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(calls, 1);
+    if (exit === "pagehide") events.dispatchEvent(new Event("pagehide")); else stop();
+    t.mock.timers.tick(15000); await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(calls, 1);
+  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow; t.mock.timers.reset();}
+});
+
+test("access failures remain terminal instead of retrying", async t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
   const originalFetch = globalThis.fetch, originalWindow = globalThis.window;
   globalThis.window = new EventTarget() as unknown as Window & typeof globalThis;
   let calls = 0;
-  globalThis.fetch = async () => {calls++; return Response.json({code: "seat-occupied", error: "The control page is already open."}, {status: 409});};
-  const session = new SharedSession("staff", randomUUID(), "csrf"), stop = session.start();
+  globalThis.fetch = async () => {calls++; return Response.json({code: "not-assigned", error: "This session is assigned to another trainee."}, {status: 403});};
+  const session = new SharedSession("mentee", randomUUID(), "csrf"), stop = session.start();
   try {
-    await new Promise<void>(resolve => {
-      const unsubscribe = session.subscribe(() => {if (session.getSnapshot().fatal) {unsubscribe(); resolve();}});
-    });
-    assert.equal(session.getSnapshot().code, "seat-occupied");
-    assert.equal(session.getSnapshot().owner, false);
-    stop(); assert.equal(calls, 1);
-  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
+    t.mock.timers.tick(0); await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(session.getSnapshot().code, "not-assigned");
+    t.mock.timers.tick(15000); await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(calls, 1);
+  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow; t.mock.timers.reset();}
 });
 
 

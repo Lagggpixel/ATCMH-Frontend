@@ -6,20 +6,22 @@ import {invalidRequestMessage} from "../request-validation";
 import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
 import {notifyAssignment, type AssignmentNotice} from "./assignment-notifications";
 import {authorizeSessionRequest} from "./session-auth";
-import {SessionService, type SessionStore} from "./session-service";
+import {SessionService, type Actor, type SessionStore} from "./session-service";
+import {endedReplay} from "./replay-store";
 import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
 import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstration";
 import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
 
 const idSchema = z.string().uuid();
-const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), token: z.string().uuid(), positionId: z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/).optional()});
+// positionId may list several positions, comma separated, when a mentor bandboxes them.
+const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), token: z.string().uuid(), positionId: z.string().regex(/^[a-zA-Z0-9_-]{1,32}(,[a-zA-Z0-9_-]{1,32}){0,11}$/).optional(), takeover: z.boolean().optional()});
 const assignSchema = z.object({mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().trim().min(1).max(128).optional()}).strict().nullable()}).strict();
 const endSchema = z.object({feedback: z.string().trim().max(6000).optional()}).strict();
 const LOOKUPS_PER_MINUTE = 20;
 const noStore = {"cache-control": "no-store"};
 export function sessionFailure(error: unknown) {
-  if (error instanceof SessionError) return Response.json({code: error.code, error: error.message}, {status: error.status, headers: noStore});
+  if (error instanceof SessionError) return Response.json({code: error.code, error: error.message, ...(error.detail ? {detail: error.detail} : {})}, {status: error.status, headers: noStore});
   if (error instanceof z.ZodError) return Response.json({code: "invalid-request", error: invalidRequestMessage(error)}, {status: 400, headers: noStore});
   if (error instanceof SyntaxError) return Response.json({code: "invalid-request", error: "The request body must contain valid JSON."}, {status: 400, headers: noStore});
   console.error("Simulator session request failed", error instanceof Error ? error.name : "Unknown error");
@@ -95,7 +97,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "spectator" || seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
-    if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token, seat.positionId), {headers: noStore});
+    if (operation === "join") return Response.json(await service.join(actor, id, seat.role, seat.token, seat.positionId, seat.takeover).catch(error => ended(error, id, actor)), {headers: noStore});
     if (operation === "leave") {await service.leave(actor, id, seat.role, seat.token); return Response.json({left: true}, {headers: noStore});}
     if (operation === "events") {
       if (seat.role === "mentee") throw new SessionError("forbidden", "Only staff can manage scenario events.", 403);
@@ -105,6 +107,15 @@ async function sessionOperation(request: Request, id: string, operation: string)
     const envelope = envelopeSchema.parse(z.object({envelope: z.unknown()}).parse(raw).envelope);
     return Response.json(await service.dispatch(actor, id, seat.role, seat.token, envelope), {headers: noStore});
   } catch (error) {return sessionFailure(error);}
+}
+/** An archived session is gone from the live table; say it ended and point at its replay instead of "unavailable". */
+async function ended(error: unknown, id: string, actor: Actor): Promise<never> {
+  if (!(error instanceof SessionError) || error.code !== "not-found") throw error;
+  const replay = await endedReplay(id).catch(() => null);
+  if (!replay) throw error;
+  if (!actor.staff && !replay.participants.some(p => p.accountId === actor.accountId)) throw error;
+  throw new SessionError("ended", "This session has ended. Everything in it was saved.", 410, undefined, {replayId: replay.id, title: replay.title, endedAt: replay.endedAt, duration: replay.duration,
+    ...(replay.ownerName ? {trainer: replay.ownerName} : {}), ...(replay.feedback ? {feedback: replay.feedback} : {}), staff: actor.staff});
 }
 /** The mirror channel trusts only seat tokens its own authorised streams vouched for in the last few seconds. */
 async function demonstration(request: Request, id: string) {
@@ -121,7 +132,7 @@ async function stream(request: Request, id: string) {
   const seat = seatSchema.parse({role: request.headers.get("x-simulator-role"), token: request.headers.get("x-simulator-seat")});
   let actor = await authorize(request, seat.role !== "mentee", mentee);
   await requireLocal(id);
-  const initial = await service.frame(actor, id, seat.role, seat.token);
+  const initial = await service.frame(actor, id, seat.role, seat.token).catch(error => ended(error, id, actor));
   const encoder = new TextEncoder();
   let cancelled = false, wake: (() => void) | undefined;
   const unsubscribe = hub.subscribe(id, () => wake?.());
@@ -147,7 +158,7 @@ async function stream(request: Request, id: string) {
           presenter = demoPresenter(frame.exercise.demonstration, seat.role, actor.accountId);
           hub.trust(id, presenter ? "presenter" : seat.role === "mentee" && (!frame.exercise.demonstration?.positionId || frame.exercise.demonstration.positionId === frame.positionId) ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
-            send({type: "snapshot", positionId: frame.positionId, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
+            send({type: "snapshot", positionId: frame.positionId, positionIds: frame.positionIds, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
             const {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus} = frame.exercise;
             send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus}, session: frame.session});

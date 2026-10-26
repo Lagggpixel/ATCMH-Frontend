@@ -1,4 +1,4 @@
-import {assignmentMatches, hasPositionAssignment, positionForToken, allPositionSeats, positionPresence, type PositionState} from "./position-state";
+import {assignmentMatches, hasPositionAssignment, positionsForToken, heldWith, allPositionSeats, positionPresence, type PositionState} from "./position-state";
 import {controllerPositionsSchema} from "../protocol";
 import type {ControllerPosition} from "../positions";
 import type {PositionAssignment} from "./position-state";
@@ -83,15 +83,18 @@ export class SessionService {
   private seat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
     if (role === "spectator") {assertSuperAdmin(actor); return;}
     if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
-    const positionId = role === "mentee" ? positionForToken(record, token) : undefined;
+    // A bandboxing seat holds several positions with one token; all of them are renewed together.
+    const held = role === "mentee" ? positionsForToken(record, token) : [], positionId = held[0];
     const seat = positionId ? record.positionState?.[positionId].seat : record[role];
     if (!seat || seat.token !== token || seat.accountId !== actor.accountId || seat.expiresAt <= now)
       throw new SessionError("seat-lost", "This page no longer holds its seat. Return to the session and join again.", 409);
-    if (positionId && record.positionState?.[positionId].assignment && !assignmentMatches(record.positionState[positionId].assignment, actor)) throw new SessionError("not-assigned", "This controller position is assigned to another trainee.", 403);
+    if (held.some(id => record.positionState?.[id].assignment && !assignmentMatches(record.positionState[id].assignment, actor))) throw new SessionError("not-assigned", "This controller position is assigned to another trainee.", 403);
     if (role === "mentee" && record.exercise.positions?.length && !positionId) throw new SessionError("seat-lost", "Choose a controller position and rejoin.", 409);
+    for (const id of held) record.positionState![id].seat!.expiresAt = now + SESSION_LEASE_MS;
     seat.expiresAt = now + SESSION_LEASE_MS;
   }
-  private view(record: SessionRecord, role: SessionMode, now: number, positionId?: string) {
+  private view(record: SessionRecord, role: SessionMode, now: number, positionIds: string[] = []) {
+    const positionId = positionIds[0];
     const exercise = role !== "mentee" ? record.exercise : {...record.exercise, aircraft: record.exercise.aircraft.map(a => {
       if (!a.radar?.missedReason) return a;
       const radar = {...a.radar}; delete radar.missedReason; return {...a, radar};
@@ -107,8 +110,12 @@ export class SessionService {
     if (role === "mentee") delete exercise.callsignReservations;
     if (role === "mentee") delete exercise.conflicts;
     const visible = {...exercise, positionPresence: positionPresence(record, now)};
-    if (role === "mentee" && positionId) {visible.messages = exercise.messages.filter(m => m.positionId === positionId || m.frequency === "atis"); visible.positionFeedback = exercise.positionFeedback?.[positionId] ? {[positionId]: exercise.positionFeedback[positionId]} : undefined;}
-    return {session: summary(record, now), exercise: visible, ...(positionId ? {positionId} : {}), contentRevision: record.contentRevision,
+    if (role === "mentee" && positionId) {
+      visible.messages = exercise.messages.filter(m => m.positionId && positionIds.includes(m.positionId) || m.frequency === "atis");
+      const feedback = Object.entries(exercise.positionFeedback ?? {}).filter(([id]) => positionIds.includes(id));
+      visible.positionFeedback = feedback.length ? Object.fromEntries(feedback) : undefined;
+    }
+    return {session: summary(record, now), exercise: visible, ...(positionId ? {positionId, positionIds} : {}), contentRevision: record.contentRevision,
       ...(record.scenario && role !== "mentee" ? {scenario: scenarioStaffView(record.scenario)} : {})};
   }
   private tick(record: SessionRecord, now: number) {
@@ -153,25 +160,53 @@ export class SessionService {
     await this.store.create(record);
     return summary(record, now);
   }
-  join(actor: Actor, id: string, role: SessionMode, token: string, requestedPosition?: string) {
+  /** `requested` lists the positions a mentor wants to work (comma separated); `takeover` moves this account's own seat from another page. */
+  join(actor: Actor, id: string, role: SessionMode, token: string, requested?: string, takeover = false) {
     if (role === "spectator") return this.frame(actor, id, role, token);
     return this.store.transaction(id, record => {
       if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
       const now = this.now();
-      const choices = record.exercise.positions ?? [];
-      const permitted = choices.filter(p => {const assignment = record.positionState?.[p.id]?.assignment; return assignment ? assignmentMatches(assignment, actor) : actor.staff;});
-      const positionId = role === "mentee" && choices.length ? requestedPosition ?? permitted.find(p => !record.positionState?.[p.id]?.seat || record.positionState[p.id].seat!.expiresAt <= now || record.positionState[p.id].seat!.token === token)?.id ?? permitted[0]?.id : undefined;
-      if (role === "mentee" && choices.length && (!positionId || !permitted.some(p => p.id === positionId))) throw new SessionError("not-assigned", "You are not assigned to that controller position.", 403);
-      const current = positionId ? record.positionState?.[positionId]?.seat : record[role];
-      if (current && current.expiresAt > now && (current.token !== token || current.accountId !== actor.accountId))
-        throw new SessionError("seat-occupied", `The ${role === "staff" ? "control" : "mentee"} page is already open. Close the existing page before joining here.`, 409);
+      const held = role === "mentee" ? this.chooseHeld(record, actor, token, now, requested) : [];
+      const seats = held.length ? held.map(p => record.positionState?.[p]?.seat) : [record[role]];
+      const current = seats.find(seat => seat && seat.expiresAt > now && (seat.token !== token || seat.accountId !== actor.accountId));
+      if (current && !(takeover && current.accountId === actor.accountId)) {
+        const holder = current.accountId === actor.accountId ? undefined : current.displayName;
+        throw new SessionError(current.accountId === actor.accountId ? "seat-open-elsewhere" : "seat-occupied", current.accountId === actor.accountId
+          ? "Your seat is open on another page. Only one page can hold it at a time."
+          : `${holder ?? "Someone else"} has the ${role === "staff" ? "Mentor" : "Mentee"} seat. Only one person can hold a seat at a time.`, 409, undefined, {role, ...(holder ? {holder} : {})});
+      }
       this.tick(record, now);
       const joined = {token, accountId: actor.accountId, displayName: actor.displayName, expiresAt: now + SESSION_LEASE_MS, ...(actor.discordId ? {discordId: actor.discordId} : {})};
-      if (positionId) {record.positionState ??= {}; record.positionState[positionId] = {...record.positionState[positionId], seat: joined};}
-      else record[role] = joined;
+      if (held.length) {
+        record.positionState ??= {};
+        // Moving or reshaping a bandbox: positions this account held on another page, or no longer requests, are released.
+        for (const [positionId, state] of Object.entries(record.positionState)) if (state.seat?.accountId === actor.accountId && !held.includes(positionId)) state.seat = null;
+        for (const positionId of held) record.positionState[positionId] = {...record.positionState[positionId], seat: {...joined}};
+      } else record[role] = joined;
       record.updatedAt = now;
-      return this.view(record, role, now, positionId);
+      return this.view(record, role, now, held);
     });
+  }
+  /**
+   * The positions a mentee seat takes: every position assigned to this mentee, so an assignment to several is a bandbox.
+   * Mentors work the open positions they ask for (several at once to bandbox them), or the first free one.
+   */
+  private chooseHeld(record: SessionRecord, actor: Actor, token: string, now: number, requested?: string) {
+    const choices = record.exercise.positions ?? [];
+    if (!choices.length) return [];
+    const assigned = choices.filter(p => assignmentMatches(record.positionState?.[p.id]?.assignment, actor)).map(p => p.id);
+    const open = choices.filter(p => !record.positionState?.[p.id]?.assignment).map(p => p.id);
+    // Mentees always take everything assigned to them; only mentors pick positions.
+    const asked = actor.staff ? requested?.split(",").filter(Boolean) ?? [] : [];
+    if (asked.length) {
+      if (asked.some(p => !assigned.includes(p) && !open.includes(p))) throw new SessionError("not-assigned", "You are not assigned to that controller position.", 403);
+      // Asking for one assigned position still takes the whole assigned bandbox.
+      return choices.map(p => p.id).filter(p => asked.includes(p) || assigned.includes(p));
+    }
+    if (assigned.length) return assigned;
+    const free = open.find(p => {const seat = record.positionState?.[p]?.seat; return !seat || seat.expiresAt <= now || seat.token === token;});
+    if (actor.staff && (free ?? open[0])) return [free ?? open[0]];
+    throw new SessionError("not-assigned", "You are not assigned to that controller position.", 403);
   }
   async frame(actor: Actor, id: string, role: SessionMode, token: string) {
     if (role === "spectator") {
@@ -187,13 +222,13 @@ export class SessionService {
           const held = current.exercise.demonstration;
           if (held && demoPresenter(held, role, actor.accountId)) current.exercise.demonstration = {...held, until: now + SESSION_LEASE_MS};
         });
-      return this.view(record, role, now, positionForToken(record, token));
+      return this.view(record, role, now, positionsForToken(record, token));
     }
     const view = await this.store.transaction(id, record => {
       const now = this.now();
       this.seat(record, actor, role, token, now); this.tick(record, now);
       record.updatedAt = now;
-      return this.view(record, role, now, positionForToken(record, token));
+      return this.view(record, role, now, positionsForToken(record, token));
     });
     this.sightings.request(view.exercise);
     this.terrain.request(view.exercise);
@@ -208,15 +243,19 @@ export class SessionService {
     return this.store.transaction(id, async record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
       const {action} = envelope;
-      const actingPosition = role === "mentee" ? positionForToken(record, token) : record.exercise.demonstration?.positionId;
-      const sharedAtis = ["atis", "publish-atis", "weather"].includes(action.kind) && actingPosition === record.exercise.positions?.[0]?.id;
+      // A bandbox acts for all its positions; a demonstration acts for every position the demonstrated seat holds.
+      const demonstrated = record.exercise.demonstration?.positionId;
+      const acting = role === "mentee" ? positionsForToken(record, token) : demonstrated ? heldWith(record, demonstrated) : [];
+      const actingPosition = acting[0];
+      const sharedAtis = ["atis", "publish-atis", "weather"].includes(action.kind) && !!record.exercise.positions?.[0] && acting.includes(record.exercise.positions[0].id);
       if (record.exercise.positions?.length && role === "mentee" && ["atis", "publish-atis", "weather"].includes(action.kind) && !sharedAtis) throw new SessionError("forbidden", "The first controller position publishes the shared ATIS.", 403);
       if (!sharedAtis && record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command")) {
-        if (!actingPosition || !("aircraftId" in action) || !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, actingPosition)) throw new SessionError("forbidden", "This aircraft belongs to another controller position.", 403);
+        if (!actingPosition || !("aircraftId" in action) || !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft belongs to another controller position.", 403);
       }
       if (action.kind === "command" && action.command.type === "frequency" && action.command.targetPositionId) {
         const target = record.positionState?.[action.command.targetPositionId]?.seat;
         if (!target || target.expiresAt <= now) throw new SessionError("position-offline", "The receiving controller position is not connected.", 409);
+        if (acting.includes(action.command.targetPositionId)) throw new SessionError("forbidden", "That position is already part of your bandbox.", 409);
       }
       if (action.kind === "play" && record.exercise.positions?.some(p => !record.positionState?.[p.id]?.seat || record.positionState[p.id].seat!.expiresAt <= now)) throw new SessionError("position-offline", "Connect every position, or combine positions, before starting.", 409);
       const current = record.exercise.demonstration;
@@ -226,9 +265,11 @@ export class SessionService {
         // One demonstrator at a time; the mentor can take back a spectator's demonstration, not the reverse.
         if (current && !presenter && (action.enabled || role === "spectator")) throw new SessionError("demonstrating", `${current.by ?? (current.spectator ? "A spectator" : "The mentor")} is demonstrating.`, 409);
         if (action.enabled && record.exercise.positions?.length && (!action.positionId || !record.exercise.positions.some(p => p.id === action.positionId))) throw new SessionError("position-required", "Choose the position to demonstrate.", 409);
+        // Demonstrating any position of a bandbox demonstrates the whole bandbox, keyed by its primary position.
+        if (action.enabled && action.positionId) envelope.action = {...action, positionId: heldWith(record, action.positionId)[0]};
         if (action.enabled && !current && !([record.mentee, ...allPositionSeats(record)].some(s => s && s.expiresAt > now))) throw new SessionError("no-mentee", "Wait for your mentee to join before demonstrating.", 409);
       }
-      if (role === "mentee" && current && (!current.positionId || current.positionId === actingPosition)) throw new SessionError("demonstrating", current.spectator ? `${current.by ?? "A spectator"} is controlling. Your controls return when they hand back.` : "Your mentor is controlling. Your controls return when they hand back.", 409);
+      if (role === "mentee" && current && (!current.positionId || acting.includes(current.positionId))) throw new SessionError("demonstrating", current.spectator ? `${current.by ?? "A spectator"} is controlling. Your controls return when they hand back.` : "Your mentor is controlling. Your controls return when they hand back.", 409);
       // While demonstrating, the presenter's radio commands follow the mentee's rules so the demonstration is faithful.
       if (demoPresenter(current, role, actor.accountId) && action.kind === "command" && !menteeActionAllowed(action, record.exercise)) throw new SessionError("forbidden", "Mentees cannot send that on this frequency, so it cannot be demonstrated.", 403);
       if (role === "mentee" && !menteeActionAllowed(envelope.action, record.exercise)) throw new SessionError("forbidden", "This action is unavailable for this training mode or frequency.", 403);
@@ -237,11 +278,16 @@ export class SessionService {
       if (role === "mentee" && record.exercise.pausedByStaff) throw new SessionError("paused", "Staff has paused this exercise.", 409);
       if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
       if (record.scenario && envelope.action.kind === "reset") throw new SessionError("scenario-reset", "Use Restart attempt to restore the published scenario.", 409);
-      if (record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command") && "aircraftId" in action && !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, actingPosition)) throw new SessionError("forbidden", "This aircraft has transferred to another controller position.", 403);
+      if (record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command") && "aircraftId" in action && !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft has transferred to another controller position.", 403);
       const result = applyEnvelope(record.exercise, {...envelope, time: now});
       if (result.error) throw new SessionError("invalid-command", result.error, 422);
       const sent = result.state.messages.find(m => m.id === envelope.id && m.sender === "controller");
-      if (sent && result.state !== record.exercise) {sent.actorId = actor.accountId; sent.actorName = actor.displayName; if (actingPosition) sent.positionId = actingPosition;}
+      if (sent && result.state !== record.exercise) {
+        sent.actorId = actor.accountId; sent.actorName = actor.displayName;
+        // Inside a bandbox the message belongs to the position that owns the aircraft, so a later split keeps its history.
+        const owner = "aircraftId" in action ? record.exercise.aircraft.find(a => a.id === action.aircraftId)?.positionId : undefined;
+        if (actingPosition) sent.positionId = owner && acting.includes(owner) ? owner : actingPosition;
+      }
       if (result.state !== record.exercise) record.contentRevision++;
       record.exercise = envelope.action.kind === "reset" && result.state !== record.exercise ? applySessionWeather(result.state, report) : result.state; record.updatedAt = now;
       if (envelope.action.kind === "demonstrate" && record.exercise.demonstration && !current) record.exercise.demonstration = {...record.exercise.demonstration,
@@ -272,9 +318,9 @@ export class SessionService {
   leave(actor: Actor, id: string, role: SessionMode, token: string) {
     if (role === "spectator") return this.leaveSpectating(actor, id);
     return this.store.transaction(id, record => {
-      const positionId = role === "mentee" ? positionForToken(record, token) : undefined;
-      if (positionId && record.positionState?.[positionId]?.seat?.accountId === actor.accountId) {
-        this.tick(record, this.now()); record.positionState[positionId].seat = null;
+      const held = role === "mentee" ? positionsForToken(record, token) : [];
+      if (held.length && record.positionState?.[held[0]]?.seat?.accountId === actor.accountId) {
+        this.tick(record, this.now()); for (const positionId of held) record.positionState[positionId].seat = null;
         if (record.exercise.running) {record.exercise = {...record.exercise, running: false, pausedByStaff: true, pauseVisibility: "visible", revision: record.exercise.revision + 1}; record.contentRevision++;}
         return;
       }
@@ -341,8 +387,11 @@ export class SessionService {
       if (!record.exercise.positions?.some(p => p.id === positionId)) throw new SessionError("not-found", "Controller position is unavailable.", 404);
       record.positionState ??= {}; const previous = record.positionState[positionId] ?? {};
       const changed = previous.assignment?.accountId !== assignment?.accountId || previous.assignment?.discordId !== assignment?.discordId || previous.assignment?.name !== assignment?.name;
-      record.positionState[positionId] = {...previous, ...(feedback !== undefined ? {feedback} : {}), assignment: assignment ?? undefined, ...(changed ? {seat: null} : {})};
-      if (changed && record.exercise.running) {record.exercise = {...record.exercise, running: false, pausedByStaff: true, pauseVisibility: "visible", revision: record.exercise.revision + 1}; record.contentRevision++;}
+      // Assigning someone who is already connected adds the position to their bandbox at once, even mid-session.
+      const now = this.now();
+      const joined = assignment && Object.entries(record.positionState).find(([id, state]) => id !== positionId && state.seat && state.seat.expiresAt > now && assignmentMatches(assignment, state.seat))?.[1].seat;
+      record.positionState[positionId] = {...previous, ...(feedback !== undefined ? {feedback} : {}), assignment: assignment ?? undefined, ...(changed ? {seat: joined ? {...joined} : null} : {})};
+      if (changed && !joined && record.exercise.running) {record.exercise = {...record.exercise, running: false, pausedByStaff: true, pauseVisibility: "visible", revision: record.exercise.revision + 1}; record.contentRevision++;}
       if (feedback !== undefined) {record.exercise = {...record.exercise, positionFeedback: {...record.exercise.positionFeedback, [positionId]: feedback}, revision: record.exercise.revision + 1}; record.contentRevision++;}
       record.updatedAt = this.now(); return summary(record, this.now());
     });
