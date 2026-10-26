@@ -52,6 +52,11 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {}),
     ...(record.scenario?.feedback ? {hasFeedback: true} : {})};
 }
+export function endDemonstration(record: SessionRecord) {
+  const exercise = {...record.exercise, revision: record.exercise.revision + 1};
+  delete exercise.demonstration;
+  record.exercise = exercise; record.contentRevision++;
+}
 export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
@@ -99,6 +104,8 @@ export class SessionService {
       if (record.exercise.collisions?.at(-1)?.id !== collision) record.contentRevision++;
     }
     record.tickAt = now;
+    // A mentor who closes the page or loses the connection hands control back on their own.
+    if (record.exercise.demonstration && !(record.staff && record.staff.expiresAt > now)) endDemonstration(record);
   }
   list(actor: Actor) {this.staff(actor); return this.store.list(this.now());}
   async create(actor: Actor, title: string, imported?: Exercise, scenario?: ScenarioRuntime) {
@@ -145,6 +152,12 @@ export class SessionService {
     }
     return this.store.transaction(id, async record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
+      const {action} = envelope;
+      if (action.kind === "demonstrate" && role !== "staff") throw new SessionError("forbidden", "Only the mentor at the control page can demonstrate.", 403);
+      if (action.kind === "demonstrate" && action.enabled && !(record.mentee && record.mentee.expiresAt > now)) throw new SessionError("no-mentee", "Wait for your mentee to join before demonstrating.", 409);
+      if (role === "mentee" && record.exercise.demonstration) throw new SessionError("demonstrating", "Your mentor is controlling. Your controls return when they hand back.", 409);
+      // While demonstrating, the mentor's radio commands follow the mentee's rules so the demonstration is faithful.
+      if (role === "staff" && record.exercise.demonstration && action.kind === "command" && !menteeActionAllowed(action, record.exercise)) throw new SessionError("forbidden", "Mentees cannot send that on this frequency, so it cannot be demonstrated.", 403);
       if (role === "mentee" && !menteeActionAllowed(envelope.action, record.exercise)) throw new SessionError("forbidden", "This action is unavailable for this training mode or frequency.", 403);
       if (role === "mentee" && record.exercise.pausedByStaff) throw new SessionError("paused", "Staff has paused this exercise.", 409);
       this.tick(record, now);
@@ -154,6 +167,7 @@ export class SessionService {
       if (result.error) throw new SessionError("invalid-command", result.error, 422);
       if (result.state !== record.exercise) record.contentRevision++;
       record.exercise = envelope.action.kind === "reset" && result.state !== record.exercise ? applySessionWeather(result.state, report) : result.state; record.updatedAt = now;
+      if (envelope.action.kind === "demonstrate" && record.exercise.demonstration && actor.displayName) record.exercise.demonstration = {...record.exercise.demonstration, by: actor.displayName.slice(0, 128)};
       if (record.scenario && envelope.action.kind === "play") {
         const result = advanceScenario(record.exercise, record.scenario, 0, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
@@ -181,6 +195,7 @@ export class SessionService {
     return this.store.transaction(id, record => {
       if (record[role]?.token === token && record[role]?.accountId === actor.accountId) {
         this.tick(record, this.now()); record[role] = null;
+        if (role === "staff" && record.exercise.demonstration) endDemonstration(record);
       }
     });
   }

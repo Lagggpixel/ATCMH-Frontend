@@ -38,3 +38,24 @@ test("HTTP session contract streams shared commands, rejects duplicate seats and
     assert.equal((await api.sessionOperation(request("POST", {role: "staff", token: control}), "bad-id", "join")).status, 400);
   } finally {await reader.cancel();}
 });
+
+test("demonstrating locks the learner's controls and ends when the instructor leaves", async () => {
+  let now = 1_000_000;
+  const store = new MemoryStore(), service = new SessionService(store, () => now);
+  const instructor: Actor = {accountId: "instructor", staff: true, displayName: "Alex Chen"};
+  const session = await service.create(instructor, "Demonstration"), staffSeat = randomUUID(), learnerSeat = randomUUID();
+  const learner: Actor = {accountId: "learner", staff: false, learnerSession: session.id};
+  await service.join(instructor, session.id, "staff", staffSeat);
+  const envelope = (action: import("./model").Action) => ({id: randomUUID(), time: now, action});
+  await assert.rejects(service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: true})), {code: /^no-(trainee|mentee)$/});
+  await service.join(learner, session.id, "mentee", learnerSeat);
+  await assert.rejects(service.dispatch(learner, session.id, "mentee", learnerSeat, envelope({kind: "demonstrate", enabled: true})), {code: "forbidden"});
+  await service.dispatch(instructor, session.id, "staff", staffSeat, envelope({kind: "demonstrate", enabled: true}));
+  assert.equal(store.records.get(session.id)?.exercise.demonstration?.by, "Alex Chen");
+  const aircraft = store.records.get(session.id)!.exercise.aircraft[0];
+  await assert.rejects(service.dispatch(learner, session.id, "mentee", learnerSeat, envelope({kind: "edit", aircraftId: aircraft.id, patch: {tagAngle: 90}})), {code: "demonstrating"});
+  now += 1_000;
+  await service.leave(instructor, session.id, "staff", staffSeat);
+  assert.equal(store.records.get(session.id)?.exercise.demonstration, undefined);
+  await service.dispatch(learner, session.id, "mentee", learnerSeat, envelope({kind: "edit", aircraftId: aircraft.id, patch: {tagAngle: 90}}));
+});

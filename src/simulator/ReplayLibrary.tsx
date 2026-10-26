@@ -22,6 +22,8 @@ import {radioDisplayText} from "./radio-text";
 import {adjacentMoment, currentMoment, replayMoments, type ReplayMoment} from "./replay-moments";
 import {modeLabel} from "./session-status";
 import type {Message} from "./model";
+import {DemoSentCard} from "./DemoMirror";
+import {replayDemoAt} from "./demonstration";
 import Scope from "./Scope";
 import {MessageLog} from "./MessagePanel";
 import ReplayIndex from "./ReplayIndex";
@@ -73,7 +75,7 @@ function ReplayViewer({id, accountId, mentor}: {id: string; accountId: string; m
   </main>;
 }
 
-const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain};
+const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration};
 type PanelTab = "moments" | "radio" | "atis";
 
 function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId: string; mentor: boolean}) {
@@ -107,6 +109,8 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
   }, [playing, speed, replay.duration]);
   const seek = (value: number, keepPlaying = false) => {if (!keepPlaying) setPlaying(false); position.current = Math.max(0, Math.min(replay.duration, value)); setTime(position.current);};
   const exercise = timeline?.at(time);
+  const demoMarks = useMemo(() => frames.flatMap(frame => frame.delta.demo ?? []), [frames]);
+  const demo = replayDemoAt(demoMarks, time);
   const list = moments ?? [];
   const active = currentMoment(list, time), previous = adjacentMoment(list, time, -1), next = adjacentMoment(list, time, 1);
   const incident = list.find(m => (m.kind === "separation" || m.kind === "terrain" || m.kind === "collision") && m.at <= time && time <= Math.max(m.end ?? m.at, m.at + 5));
@@ -124,7 +128,7 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
       <div className={styles.scope}>
         {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
           conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
-          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected}/></div>
+          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : undefined}/></div>
           : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
         {incident ? <div className={styles.incident} role="status"><span className={`${styles.k} ${markClass[incident.kind]}`}/><span><strong>{incident.label}</strong> · {incident.detail} · {timeLabel(incident.at)}{incident.end !== undefined && incident.end > incident.at ? ` to ${timeLabel(incident.end)}` : ""}</span></div> : null}
       </div>
@@ -179,6 +183,6 @@ function RadioLog({messages, frequencies, callsign}: {messages: Message[]; frequ
   useEffect(() => {const element = log.current; if (element) element.scrollTop = element.scrollHeight;}, [last]);
   return <div ref={log} className={styles.radioLog} role="log" aria-label="Recorded radio messages">{messages.length ? messages.map((m, index) => <p key={m.id} data-latest={index === messages.length - 1 || undefined}>
     <time className={styles.mono} dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 16)}</time>
-    <span><strong className={m.sender === "controller" ? styles.atc : undefined}>{m.sender === "controller" ? frequencies?.[m.frequency]?.label ?? "ATC" : callsign(m.aircraftId)}</strong> {radioDisplayText(m.text)}</span>
+    <span><strong className={m.sender === "controller" ? styles.atc : undefined}>{m.sender === "controller" ? frequencies?.[m.frequency]?.label ?? "ATC" : callsign(m.aircraftId)}</strong> {radioDisplayText(m.text)}{m.demonstrated ? <small> · Sent by mentor</small> : null}</span>
   </p>) : <p className={styles.muted}>Nothing said yet.</p>}</div>;
 }

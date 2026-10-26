@@ -63,6 +63,8 @@
 .k.kSeparation{transform:rotate(45deg) scale(.85)}
 .kTerrain{background:var(--sb-danger)}
 .mark.kTerrain{width:6px;border-radius:0}
+.kDemonstration{background:#ff7a4d}
+.k.kDemonstration{border-radius:50% 50% 2px 2px}
 .kMeta{background:transparent;border:2px solid var(--dashboard-muted);border-radius:50%}
 .incident .k{margin:0}
 

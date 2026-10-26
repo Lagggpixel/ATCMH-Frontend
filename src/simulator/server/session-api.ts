@@ -9,6 +9,8 @@ import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type SessionStore} from "./session-service";
 import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
+import {demoBatchSchema, demoControllerSchema} from "../demonstration";
+import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
 
 const idSchema = z.string().uuid();
 const seatSchema = z.object({role: z.enum(["staff", "mentee"]), token: z.string().uuid()});
@@ -29,7 +31,7 @@ async function body(request: Request) {
   return JSON.parse(text) as unknown;
 }
 export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport,
-  notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment) {
+  notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub) {
 const service = new SessionService(store, undefined, undefined, undefined, undefined, weather);
 const mentee = {hasAssignment: (discordId: string) => store.hasAssignment(discordId)};
 const lookups = new Map<string, number[]>();
@@ -78,6 +80,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
       if (result.changed && value.mentee) void notify({discordId: value.mentee.discordId, title: result.session.title, airport: result.session.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor"});
       return Response.json({session: result.session}, {headers: noStore});
     }
+    if (operation === "demo") return demonstration(request, id);
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
@@ -92,6 +95,16 @@ async function sessionOperation(request: Request, id: string, operation: string)
     return Response.json(await service.dispatch(actor, id, seat.role, seat.token, envelope), {headers: noStore});
   } catch (error) {return sessionFailure(error);}
 }
+/** The mirror channel trusts only seat tokens its own authorised streams vouched for in the last few seconds. */
+async function demonstration(request: Request, id: string) {
+  const text = await request.text();
+  if (text.length > 64_000) throw new SessionError("too-large", "Demonstration update is too large.", 413);
+  const raw = JSON.parse(text) as unknown, seat = seatSchema.parse(raw);
+  if (!hub.allowed(id, seat.role, seat.token)) throw new SessionError("demo-closed", "The demonstration is not running.", 409);
+  if (seat.role === "staff") hub.publish(id, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
+  else hub.seed(id, demoControllerSchema.parse(z.object({controller: z.unknown()}).parse(raw).controller));
+  return Response.json({ok: true}, {headers: noStore});
+}
 async function stream(request: Request, id: string) {
   const seat = seatSchema.parse({role: request.headers.get("x-simulator-role"), token: request.headers.get("x-simulator-seat")});
   let actor = await authorize(request, seat.role === "staff", mentee);
@@ -99,13 +112,27 @@ async function stream(request: Request, id: string) {
   const initial = await service.frame(actor, id, seat.role, seat.token);
   const encoder = new TextEncoder();
   let cancelled = false, wake: (() => void) | undefined;
+  const unsubscribe = hub.subscribe(id, () => wake?.());
   const response = new ReadableStream<Uint8Array>({
     async start(controller) {
       let contentRevision = -1, revision = -1, authorizedAt = Date.now();
       const send = (value: unknown) => {if (!cancelled) controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
+      // Demonstration mirrors go out as soon as they arrive, between the regular state frames.
+      let demoSeq = 0;
+      const flushDemo = () => {
+        if (seat.role === "mentee") {
+          const update = hub.read(id, demoSeq);
+          if (update) {send({type: "demo", ...update}); demoSeq = update.seq;}
+        } else {
+          const seed = hub.readSeed(id, demoSeq);
+          if (seed) send({type: "demo-seed", controller: seed.controller});
+          demoSeq = Math.max(demoSeq, hub.read(id, 0)?.seq ?? demoSeq);
+        }
+      };
       try {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
+          hub.trust(id, seat.role, seat.token, !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
@@ -113,7 +140,12 @@ async function stream(request: Request, id: string) {
             send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus}, session: frame.session});
           } else send({type: "presence", session: frame.session});
           revision = frame.exercise.revision;
-          await new Promise<void>(resolve => {const timer = setTimeout(resolve, SESSION_FRAME_MS); wake = () => {clearTimeout(timer); resolve();};});
+          for (const deadline = Date.now() + SESSION_FRAME_MS; !cancelled && !request.signal.aborted;) {
+            flushDemo();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            await new Promise<void>(resolve => {const timer = setTimeout(resolve, remaining); wake = () => {clearTimeout(timer); resolve();};});
+          }
           if (cancelled || request.signal.aborted) break;
           if (Date.now() - authorizedAt >= 60_000) {actor = await authorize(request, seat.role === "staff", mentee); authorizedAt = Date.now();}
           frame = await service.frame(actor, id, seat.role, seat.token);
@@ -121,7 +153,7 @@ async function stream(request: Request, id: string) {
       } catch (error) {
         const failure = error instanceof SessionError ? error : new SessionError("unavailable", "Connection interrupted. Reconnecting…", 503);
         send({type: "failure", code: failure.code, error: failure.message, status: failure.status});
-      } finally {if (!cancelled) controller.close();}
+      } finally {unsubscribe(); if (!cancelled) controller.close();}
     },
     cancel() {cancelled = true; wake?.();},
   });

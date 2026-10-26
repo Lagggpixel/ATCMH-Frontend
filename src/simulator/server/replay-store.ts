@@ -2,6 +2,8 @@ import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly} from "../../lib/db";
 import {exerciseSchema} from "../protocol";
+import {demoReplayMarks} from "../demonstration";
+import {demoHub} from "./demo-hub";
 import {replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
 import {SessionError} from "../sessions";
 import type {SessionRecord} from "./session-service";
@@ -55,7 +57,10 @@ export async function recordReplay(connection: ReplayConnection, record: Session
   let sequence = Number(row.sequence_no), duration = Number(row.duration);
   if (elapsed >= 1 || changed || ended) {
     duration += elapsed; sequence++;
-    await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(replayDelta(previous, state)), changed ? 0 : 1]);
+    // The trainer's pointer and commands since the last frame ride along with it.
+    const demo = demoReplayMarks(demoHub.drainTrace(record.id), duration, state.elapsed);
+    const delta = {...replayDelta(previous, state), ...(demo.length ? {demo} : {})};
+    await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(delta), changed ? 0 : 1]);
     await connection.execute("UPDATE simulator_replays SET last_state=?,sequence_no=?,duration=?,content_revision=? WHERE id=?", [JSON.stringify(state), sequence, duration, record.contentRevision, row.id]);
   }
   const people = JSON.stringify(participants(record, JSON.parse(row.participants)));

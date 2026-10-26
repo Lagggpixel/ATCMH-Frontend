@@ -4,13 +4,13 @@ import {radarApproachExempt, radarSeparationAlerts, separationLabel, terrainClea
 import {applyReplayDelta, type ReplayFrame} from "./replays";
 import {rawTerrainElevation, terrainCoordinates} from "./terrain";
 
-export type ReplayEventKind = "separation" | "terrain" | "bookmark";
+export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration";
 export interface ReplayEvent {
   id: string; kind: ReplayEventKind; at: number; end?: number;
   label: string; detail: string; aircraftIds: string[];
 }
 export interface ReplaySnapshot {at: number; state: Exercise}
-export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark"};
+export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration"};
 
 /** Same-time commands form one visible state, just as they do when seeking. */
 export function replaySnapshots(initial: Exercise, frames: ReplayFrame[]): ReplaySnapshot[] {
@@ -50,6 +50,9 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
     }
     return current;
   });
+  // A trainer demonstration spans from taking control until handing back.
+  const demonstrations = incidentEvents(snapshots, ({state}) => new Map(state.demonstration
+    ? [[String(state.demonstration.startedAt), {kind: "demonstration" as const, label: state.demonstration.by ?? "Staff", detail: "Controls taken", aircraftIds: []}]] : []));
   const bookmarks = new Map<string, ReplayEvent>();
   const start = snapshots[0].state.elapsed;
   for (const {state} of snapshots) for (const mark of state.bookmarks ?? []) {
@@ -58,7 +61,7 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
     bookmarks.set(mark.id, {id: `bookmark:${mark.id}`, kind: "bookmark", at, label: mark.label,
       detail: state.aircraft.find(a => a.id === mark.aircraftId)?.callsign ?? "Instructor bookmark", aircraftIds: [mark.aircraftId]});
   }
-  return [...events, ...bookmarks.values()].filter(e => e.at <= duration).sort(compareReplayEvents);
+  return [...events, ...demonstrations, ...bookmarks.values()].filter(e => e.at <= duration).sort(compareReplayEvents);
 }
 export const compareReplayEvents = (a: ReplayEvent, b: ReplayEvent) => a.at - b.at || a.id.localeCompare(b.id);
 

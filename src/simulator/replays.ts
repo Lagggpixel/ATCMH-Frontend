@@ -1,4 +1,4 @@
-import type {Aircraft, Exercise} from "./model";
+import type {Aircraft, Exercise, Point} from "./model";
 
 export interface ReplayParticipant {accountId: string; name?: string; role: "staff" | "mentee"}
 export interface ReplaySummary {
@@ -13,9 +13,14 @@ export const recordingLabel = (replay: ReplaySummary) => replay.kind === "record
   ? replay.duration <= 0 ? "No elapsed time" : replay.partial ? "Partial recording" : "Recorded session"
   : replay.kind === "snapshot" ? "Final snapshot" : "Summary only";
 
+/** The trainer's pointer, clicks and sent commands during a demonstration, in replay seconds. */
+export interface ReplayDemoMark {at: number; point?: Point; down?: true; click?: true; sent?: {callsign: string; text: string; path: string[]}}
 export interface ReplayDelta {
   state: Partial<Omit<Exercise, "aircraft">>;
+  /** Optional exercise fields that ended, such as a demonstration. */
+  unset?: (keyof Exercise)[];
   aircraft: {id: string; value?: Partial<Aircraft>; unset?: (keyof Aircraft)[]; remove?: true}[];
+  demo?: ReplayDemoMark[];
 }
 export interface ReplayFrame {sequence: number; at: number; delta: ReplayDelta; interpolate: boolean}
 export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; frames: ReplayFrame[]; next: number | null}
@@ -43,7 +48,8 @@ export function replayDelta(before: Exercise, after: Exercise): ReplayDelta {
     return Object.keys(value).length || unset.length ? [{id: a.id, value, ...(unset.length ? {unset} : {})}] : [];
   });
   for (const id of previous.keys()) aircraft.push({id, remove: true});
-  return {state, aircraft};
+  const unset = (Object.keys(before) as (keyof Exercise)[]).filter(key => key !== "aircraft" && !(key in after));
+  return {state, aircraft, ...(unset.length ? {unset} : {})};
 }
 export function applyReplayDelta(before: Exercise, delta: ReplayDelta): Exercise {
   const aircraft = new Map(before.aircraft.map(a => [a.id, a]));
@@ -55,7 +61,9 @@ export function applyReplayDelta(before: Exercise, delta: ReplayDelta): Exercise
       aircraft.set(change.id, value);
     }
   }
-  return {...before, ...delta.state, aircraft: [...aircraft.values()]};
+  const next = {...before, ...delta.state, aircraft: [...aircraft.values()]};
+  for (const key of delta.unset ?? []) delete (next as Partial<Exercise>)[key];
+  return next;
 }
 /** Checkpoints bound seek work without copying every complete frame into memory. */
 export class ReplayTimeline {

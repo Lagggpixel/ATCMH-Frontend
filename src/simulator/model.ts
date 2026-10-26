@@ -127,6 +127,7 @@ export interface Message {
   acknowledged?: boolean; // Silent frequency-release acknowledgement.
   request?: PilotRequestSelection;
   requestCircuit?: number;
+  demonstrated?: boolean; // Sent by the mentor while demonstrating from the controller seat.
 }
 export interface ExerciseWeather {windDirection: number; windSpeed: number; windGust?: number; variableWind?: boolean; visibilityKm: number; qnh: number; temperature?: number; dewpoint?: number; reference: string; observedAt?: string; rawMetar?: string; source?: string}
 export interface Atis {
@@ -142,6 +143,7 @@ export interface Exercise {
   callsignReservations?: {id: string; callsign: string}[]; // Includes scheduled and previously removed traffic.
   schema: 1 | 2; airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; revision: number; elapsed: number; running: boolean; pausedByStaff?: boolean; pauseVisibility?: "hidden" | "visible";
+  demonstration?: {startedAt: number; by?: string}; // Staff hold the controller seat; the mentee watches a live mirror.
   autoReadback?: boolean;
   fullStopAll?: Record<string, Aircraft["landing"]>; // Landing intentions to restore when staff cancel All full stop.
   bookmarks?: {id: string; elapsed: number; aircraftId: string; label: string}[];
@@ -161,6 +163,7 @@ export type Action =
   | {kind: "play" | "reset"}
   | {kind: "pause"; visibility?: "hidden" | "visible"}
   | {kind: "auto-readback"; enabled: boolean}
+  | {kind: "demonstrate"; enabled: boolean}
   | {kind: "spawn"; aircraft: Aircraft}
   | {kind: "edit"; aircraftId: string; patch: Partial<Aircraft>}
   | {kind: "taxi-path"; aircraftId: string; path: TaxiPoint[]; edit: import("./taxi-path-editing").TaxiPathEdit}

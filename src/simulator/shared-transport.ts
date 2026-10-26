@@ -6,6 +6,10 @@ import {invalidRequestMessage} from "./request-validation";
 import {recordControllerAssignment} from "./controller-state";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionMode, SessionSummary} from "./sessions";
+import type {DemoBatch, DemoController, DemoState} from "./demonstration";
+
+/** A demonstration update from the trainer: the latest UI state and every batch since the last one. */
+export interface DemoFrame {seq: number; state?: DemoState; batches: DemoBatch[]}
 
 export interface SharedSessionView {queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
 const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
@@ -27,6 +31,14 @@ export class SharedSession {
   scenarioEvent = (eventId: string, decision: "run" | "retry" | "skip") => this.manageEvent?.(eventId, decision);
   private send: ((action: Action, path?: string[]) => Promise<boolean>) | null = null;
   private controlsEnabled = false;
+  private demoListeners = new Set<(frame: DemoFrame) => void>();
+  private seedListeners = new Set<(controller: DemoController) => void>();
+  private postDemo: ((body: object) => Promise<unknown>) | null = null;
+  /** Mirror frames bypass React state: pointer samples arrive many times a second. */
+  onDemo = (listener: (frame: DemoFrame) => void) => {this.demoListeners.add(listener); return () => {this.demoListeners.delete(listener);};};
+  onDemoSeed = (listener: (controller: DemoController) => void) => {this.seedListeners.add(listener); return () => {this.seedListeners.delete(listener);};};
+  sendDemo = (batch: DemoBatch) => this.postDemo ? this.postDemo({batch}) : Promise.reject(new Error("Not connected."));
+  sendDemoSeed = (controller: DemoController) => this.postDemo ? this.postDemo({controller}) : Promise.reject(new Error("Not connected."));
   private queued = new Map<string, {cancelled: boolean; inFlight: boolean}>();
   cancelQueued = () => {
     for (const [id, job] of this.queued) if (!job.inFlight) {job.cancelled = true; this.optimistic.delete(id);}
@@ -74,6 +86,8 @@ export class SharedSession {
   dispatch = (action: Action, path?: string[]) => {
     if (this.role === "spectator" && !this.controlsEnabled) return Promise.resolve(false);
     if (!this.send || this.view.fatal) {this.update({error: this.view.fatal ?? "Join the session before sending."}); return Promise.resolve(false);}
+    // The trainer holds the controller seat; the trainee's page only watches.
+    if (this.view.exercise.demonstration && this.role === "mentee") return Promise.resolve(false);
     if (this.view.exercise.pausedByStaff && this.role === "mentee") {this.update({error: "Staff has paused this exercise."}); return Promise.resolve(false);}
     if (this.queued.size >= 100) {this.update({error: "The command queue is full. Wait for delivery or cancel unsent commands."}); return Promise.resolve(false);}
     return this.send(action, path);
@@ -93,6 +107,7 @@ export class SharedSession {
       this.update({connected: false, owner: false, fatal: failure.message, code: failure.code ?? "unavailable"});
     };
     let commands = Promise.resolve();
+    this.postDemo = extra => post("demo", extra);
     this.send = (action, path) => {
       const envelope: Envelope = {id: crypto.randomUUID(), time: Date.now(), action: structuredClone(action)};
       const validation = envelopeSchema.safeParse(envelope);
@@ -164,6 +179,8 @@ export class SharedSession {
         if (motion.id === this.id && motion.revision >= this.authoritativeExercise.revision)
           this.update({exercise: {...this.authoritativeExercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
       } else if (value.type === "presence") this.update({session: value.session});
+      else if (value.type === "demo") for (const listener of this.demoListeners) listener(value as DemoFrame);
+      else if (value.type === "demo-seed") for (const listener of this.seedListeners) listener(value.controller as DemoController);
     };
     const connect = async () => {
       try {
@@ -194,6 +211,6 @@ export class SharedSession {
     const pageShow = (event: PageTransitionEvent) => {if (event.persisted) window.location.reload();};
     window.addEventListener("pagehide", pageHide);
     window.addEventListener("pageshow", pageShow);
-    return () => {stopped = true; clearTimeout(timer); controller.abort(); release(); this.send = null; this.manageEvent = null; window.removeEventListener("pagehide", pageHide); window.removeEventListener("pageshow", pageShow);};
+    return () => {stopped = true; clearTimeout(timer); controller.abort(); release(); this.send = null; this.manageEvent = null; this.postDemo = null; window.removeEventListener("pagehide", pageHide); window.removeEventListener("pageshow", pageShow);};
   }
 }

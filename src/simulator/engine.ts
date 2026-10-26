@@ -755,6 +755,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
     case "weather": next.weather = {...action.weather}; next.atis={...next.atis,weather:{...action.weather}};break;
     case "play": next.running = true; next.pausedByStaff = false; break;
     case "pause": next.running = false; next.pausedByStaff = true; next.pauseVisibility = action.visibility ?? "hidden"; break;
+    case "demonstrate": if (action.enabled) next.demonstration ??= {startedAt: next.elapsed}; else delete next.demonstration; break;
     case "auto-readback": {
       next.autoReadback = action.enabled;
       if (!action.enabled) for (const a of next.aircraft) if (a.airportSighting) a.airportSighting.seconds = 0;
@@ -873,7 +874,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       const radarText = original ? undefined : radarInstructionText(aircraft!, c, radarEnvironment, AIRPORT);
       const referenceText = c.type === "atc" ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) : undefined;
       const groundText = c.type === "taxi" ? catalogFor(AIRPORT, radarEnvironment, selection.weather).instructionText(aircraft!, c) + (calculatedHold ? `, hold short${calculatedHold.runway ? ` of runway ${calculatedHold.runway}` : " at waypoint"}` : "") : undefined;
-      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : referenceText ?? groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
+      next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: action.frequency, sender: "controller", text: original ? original.text : referenceText ?? groundText ?? (radarText === undefined ? action.text : `${aircraft!.callsign}, ${radarText}`), instruction: c, ...(c.type === "land" ? {clearanceCircuit: aircraft!.circuit ?? 0} : {}), ...(action.replyTo ? {replyTo: action.replyTo} : {}), ...(next.demonstration ? {demonstrated: true} : {}), ...(next.autoReadback && commandHasReadback(c) ? {autoReadbackAt: next.elapsed + AUTO_READBACK_DELAY} : {})}); break;
     }
   }
   for (const a of next.aircraft) {

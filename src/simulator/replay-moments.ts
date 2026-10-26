@@ -3,7 +3,7 @@ import {trainingMode} from "./airports";
 import {replayEvents, replaySnapshots} from "./replay-events";
 import type {ReplayFrame} from "./replays";
 
-export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision";
+export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration";
 export interface ReplayMoment {id: string; kind: MomentKind; at: number; end?: number; label: string; detail: string; aircraftIds: string[]}
 
 /**
@@ -17,9 +17,11 @@ export function replayMoments(initial: Exercise, frames: ReplayFrame[], final: E
   if (trainingMode(initial) === "local") {
     for (const mark of final.bookmarks ?? []) if (within(mark.elapsed - start))
       moments.push({id: `bookmark:${mark.id}`, kind: "bookmark", at: mark.elapsed - start, label: mark.label, detail: callsign(mark.aircraftId) ?? "Mentor bookmark", aircraftIds: [mark.aircraftId]});
+    for (const event of replayEvents(replaySnapshots(initial, frames), duration)) if (event.kind === "demonstration")
+      moments.push({...event, label: "Mentor demonstration", detail: event.label});
   } else {
     for (const event of replayEvents(replaySnapshots(initial, frames), duration))
-      moments.push({...event, kind: event.kind, label: event.kind === "separation" ? "Separation incident" : event.label, detail: event.kind === "separation" ? `${event.label} · ${event.detail}` : event.detail});
+      moments.push({...event, kind: event.kind, label: event.kind === "separation" ? "Separation incident" : event.kind === "demonstration" ? "Mentor demonstration" : event.label, detail: event.kind === "separation" ? `${event.label} · ${event.detail}` : event.kind === "demonstration" ? event.label : event.detail});
   }
   for (const collision of final.collisions ?? []) if (within(collision.elapsed - start))
     moments.push({id: `collision:${collision.id}`, kind: collision.kind === "terrain" ? "terrain" : "collision", at: collision.elapsed - start,
