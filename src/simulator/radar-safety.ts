@@ -26,27 +26,17 @@ export function radarApproachExempt(a: Aircraft, environment?: RadarEnvironment)
   return r.navigation === "approach" && !!approach && (approach.type !== "ils" || !!(r.localizer ?? r.captured));
 }
 export interface SeparationAlert {otherId: string; lateral: number; vertical: number; seconds: number; level: "warning" | "alert" | "critical"}
-/** Infinite Flight MapControl.CheckProximity: 45 second velocity prediction,
- * two-second samples, with distances in three dimensions. */
+/** Current loss of separation: both horizontal and vertical minima are breached. */
 export function radarSeparationAlerts(aircraft: Aircraft[], environment?: RadarEnvironment, frequency: Frequency | "all" = "all", airport?: Airport) {
   const alerts = new Map<string, SeparationAlert[]>();
   const range = frequency === "ground" ? 10000 / 1852 : frequency === "tower" || frequency === "atis" ? 50000 / 1852 : frequency === "center" ? environment?.range ?? 200 : 125000 / 1852;
   const airborne = aircraft.filter(a => a.active && !!a.radar && a.altitude > (airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
     && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode)
     && (frequency === "all" || a.frequency === frequency) && Math.hypot(a.position.x, a.position.y) <= range);
-  const velocity = (a: Aircraft) => {const h = (a.track ?? a.heading) * Math.PI / 180, s = (a.groundSpeed ?? a.speed) / 3600; return {x: Math.sin(h) * s, y: Math.cos(h) * s, z: (a.verticalSpeed ?? 0) / 60};};
   for (let i = 0; i < airborne.length; i++) for (let j = i + 1; j < airborne.length; j++) {
     const a = airborne[i], b = airborne[j], lateral = Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y), vertical = Math.abs(a.altitude - b.altitude);
-    const va = velocity(a), vb = velocity(b);
-    let level: SeparationAlert["level"] | undefined, seconds = 0;
-    for (let t = 0; t <= 45; t += 2) {
-      const z = Math.abs(a.altitude - b.altitude + (va.z - vb.z) * t);
-      const distance = Math.hypot(a.position.x - b.position.x + (va.x - vb.x) * t, a.position.y - b.position.y + (va.y - vb.y) * t, z / 6076.12);
-      const next = distance < .5 && z < 1000 ? "critical" : distance < 1.5 && z < 750 ? "alert" : distance < 2 && z < 500 ? "warning" : undefined;
-      if (next && (!level || ["warning", "alert", "critical"].indexOf(next) > ["warning", "alert", "critical"].indexOf(level))) {level = next; seconds = t;}
-    }
-    if (!level) continue;
-    for (const [one, other] of [[a, b], [b, a]]) alerts.set(one.id, [...(alerts.get(one.id) ?? []), {otherId: other.id, lateral, vertical, seconds, level}]);
+    if (lateral >= 3 || vertical >= 1000) continue;
+    for (const [one, other] of [[a, b], [b, a]]) alerts.set(one.id, [...(alerts.get(one.id) ?? []), {otherId: other.id, lateral, vertical, seconds: 0, level: "alert"}]);
   }
   return alerts;
 }

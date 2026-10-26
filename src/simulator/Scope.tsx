@@ -100,7 +100,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   }, [airport, radarMode, radarEnvironment?.range]);
   const aircraft = useRadarAircraft(snapshot, running, autoReadback, airport, radarEnvironment, weather);
   const staffAlerts = frequency === "all" && !!radarMode;
-  const separation = staffAlerts ? radarSeparationAlerts(aircraft, radarEnvironment, frequency, AIRPORT) : new Map<string, import("./radar-safety").SeparationAlert[]>();
+  const separation = staffAlerts ? radarSeparationAlerts(snapshot, radarEnvironment, frequency, AIRPORT) : new Map<string, import("./radar-safety").SeparationAlert[]>();
   const terrainSamples = useAircraftTerrain(snapshot, airport, staffAlerts);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);

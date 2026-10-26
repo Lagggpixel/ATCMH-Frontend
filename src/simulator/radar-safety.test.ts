@@ -122,11 +122,16 @@ test("missed approach is Unable without clearance; automatic off preserves manua
   const a = clear(fixture()).aircraft[0]; assert.equal(automaticRadarUnable(a, command), null);
 });
 
-test("predictive proximity uses IF strict limits and includes cleared approaches", () => {
+test("current separation uses strict 3nm / 1000ft limits and includes cleared approaches", () => {
   const state = fixture(), a = state.aircraft[0], b = {...structuredClone(a), id: "b", callsign: "Speedbird 2"}; a.position = {x: 0, y: 0}; a.altitude = 5000; b.position = {x: 1, y: 0}; b.altitude = 5500;
   const alerts = () => radarSeparationAlerts([a, b], state.radarEnvironment);
   assert.equal(alerts().size, 2); assert.equal(separationLabel(alerts().get(a.id)![0]), "1nm 500ft");
-  b.position.x = 3; assert.equal(alerts().size, 0); b.position.x = 1; b.altitude = 7000; assert.equal(alerts().size, 0); b.altitude = 5500;
+  b.position.x = 3; assert.equal(alerts().size, 0);
+  b.position.x = 3.001; assert.equal(alerts().size, 0);
+  b.position.x = 2.999; b.altitude = 5999; assert.equal(alerts().size, 2);
+  b.altitude = 6000; assert.equal(alerts().size, 0);
+  b.altitude = 6001; assert.equal(alerts().size, 0);
+  b.position.x = 1; b.altitude = 5500;
   const gps = state.radarEnvironment!.approaches.find(p => p.type === "gps")!;
   a.radar!.navigation = "approach"; a.radar!.cleared = gps.id; assert.equal(alerts().size, 2);
   b.radar!.navigation = "approach"; b.radar!.cleared = gps.id; assert.equal(alerts().size, 2);
@@ -178,8 +183,11 @@ for (const mode of ["approach", "center"] as const) for (const excess of [1, 250
 
 const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
 
-test("proximity predicts converging airborne traffic and does not exempt approaches",()=>{
+test("separation ignores future convergence and flags current breaches even while diverging",()=>{
  const a=fixtureForInfiniteFlightParity().aircraft[0],b=structuredClone(a);a.position={x:-3,y:0};b.position={x:3,y:0};a.heading=90;b.heading=270;a.speed=b.speed=360;a.altitude=b.altitude=5000;b.id="b";
- assert.equal(radarSeparationAlerts([a,b]).get(a.id)?.[0].level,"critical");a.radar!.navigation=b.radar!.navigation="approach";a.radar!.cleared=b.radar!.cleared="ils-24";assert.equal(radarSeparationAlerts([a,b]).size,2);
- b.position={x:3,y:3};b.heading=90;assert.equal(radarSeparationAlerts([a,b]).size,0);
+ assert.equal(radarSeparationAlerts([a,b]).size,0);
+ a.position={x:0,y:0};b.position={x:2.9,y:0};a.track=a.heading=270;b.track=b.heading=90;a.verticalSpeed=-3000;b.verticalSpeed=3000;b.altitude=5900;
+ assert.deepEqual(radarSeparationAlerts([a,b]).get(a.id),[{otherId:"b",lateral:2.9,vertical:900,seconds:0,level:"alert"}]);
+ a.radar!.navigation=b.radar!.navigation="approach";a.radar!.cleared=b.radar!.cleared="ils-24";assert.equal(radarSeparationAlerts([a,b]).size,2);
+ b.position={x:3,y:3};assert.equal(radarSeparationAlerts([a,b]).size,0);
 });

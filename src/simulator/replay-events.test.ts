@@ -41,12 +41,16 @@ test("bookmarks use recording-relative time, survive later removal, and omit pre
   assert.equal(events.length, 1); assert.equal(events[0].at, 5); assert.equal(events[0].label, "Review vector");
 });
 
-test("separation respects the live radar's strict limits and approach exemptions", () => {
+test("separation respects current minima and includes cleared approaches", () => {
   const state = fixture(), [a, b] = state.aircraft;
   b.altitude = 6000; assert.equal(replayEvents([{at: 0, state}], 1).length, 0);
   b.altitude = 7000;
   const approach = state.radarEnvironment!.approaches.find(p => p.type === "gps")!;
   for (const aircraft of [a, b]) {aircraft.radar!.cleared = approach.id; aircraft.radar!.navigation = "approach";}
+  assert.equal(replayEvents([{at: 0, state}], 1).length, 0);
+  b.position.x = 2.999; b.altitude = 5999;
+  assert.equal(replayEvents([{at: 0, state}], 1).length, 1);
+  b.position.x = 6; a.track = a.heading = 90; b.track = b.heading = 270; a.speed = b.speed = 360; b.altitude = a.altitude;
   assert.equal(replayEvents([{at: 0, state}], 1).length, 0);
 });
 
