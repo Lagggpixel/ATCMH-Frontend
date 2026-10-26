@@ -173,7 +173,7 @@ export function replayDemoAt(marks: readonly ReplayDemoMark[], time: number) {
 /** Pointer samples interpolated at a time on the trainer's clock. */
 export function demoPointerAt(samples: readonly DemoPointer[], time: number): DemoPointer | null {
   if (!samples.length) return null;
-  let index = samples.findIndex(sample => sample.t > time);
+  const index = samples.findIndex(sample => sample.t > time);
   if (index === -1) return samples.at(-1)!;
   if (index === 0) return samples[0];
   const before = samples[index - 1], after = samples[index];
@@ -195,6 +195,8 @@ export class DemoRecorder {
   constructor(private post: (batch: DemoBatch) => Promise<unknown>, private elapsed: () => number, private now = () => performance.now()) {}
   start() {if (!this.timer) this.timer = setInterval(() => void this.flush(), DEMO_BATCH_MS);}
   stop() {if (this.timer) clearInterval(this.timer); this.timer = null; this.pointer = []; this.events = []; this.sentState = null;}
+  /** Replaces the exercise clock, for callers that can only read it after rendering. */
+  setClock(elapsed: () => number) {this.elapsed = elapsed;}
   setState(state: Omit<DemoState, "camera">) {this.state = {...state, camera: null};}
   /** The scope view is read when each batch goes out rather than on every pan frame. */
   setCamera(camera: () => DemoState["camera"]) {this.camera = camera;}

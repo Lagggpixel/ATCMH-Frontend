@@ -249,7 +249,11 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   }, [focusRequest]);
   const navigationCamera = useScopeCamera(camera, setCamera, size);
   // A trainee following a demonstration sees the area the trainer sees, fitted to this screen.
-  useEffect(() => {if (followCamera && size.width && size.height) setCamera(followedCamera(followCamera, size));}, [followCamera, size]);
+  useEffect(() => {
+    if (!followCamera || !size.width || !size.height) return;
+    const frame = requestAnimationFrame(() => setCamera(followedCamera(followCamera, size)));
+    return () => cancelAnimationFrame(frame);
+  }, [followCamera, size]);
   const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useLayoutEffect(() => {
     const node = container.current;

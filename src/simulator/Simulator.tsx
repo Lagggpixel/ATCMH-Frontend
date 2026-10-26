@@ -94,7 +94,8 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   const physicalRouteVisible = !!groundRouteAssigned || !!groundRouteAnswered && !!reviewedGroundRoute && !!selected && ["taxi", "pushback", "lineup", "rollout"].includes(selected.mode);
   const demoRefs = useRef({presenting, watching, exercise, cameraKey: ""});
   useEffect(() => {demoRefs.current.presenting = presenting; demoRefs.current.watching = watching; demoRefs.current.exercise = exercise;});
-  const [recorder] = useState(() => new DemoRecorder(batch => transport.sendDemo(batch), () => demoRefs.current.exercise.elapsed));
+  const [recorder] = useState(() => new DemoRecorder(batch => transport.sendDemo(batch), () => 0));
+  useEffect(() => {recorder.setClock(() => demoRefs.current.exercise.elapsed);}, [recorder]);
   /** While demonstrating, every command the mentor sends is shown to the mentee word for word. */
   const dispatch = useCallback((action: Action, path?: string[]) => {
     const {presenting, exercise} = demoRefs.current;
@@ -146,25 +147,26 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   useEffect(() => {
     if (!watching) return;
     let cancelled = false;
+    let applied: DemoState | null = null;
+    // The mentee's controls track the mentor's as each demonstration frame arrives.
+    const follow = (mirror: DemoState) => {
+      setFrequency(mirror.frequency); setSelectedId(mirror.selectedId); setMessageId(mirror.messageId);
+      setMessagePath(current => current.join("/") === mirror.menuPath.join("/") ? current : mirror.menuPath);
+      setDismissedStrips(mirror.dismissedStrips); setQuickHidden(mirror.quickHidden); setUtility(mirror.utility as ContextAction | null);
+      setVectorHeading(mirror.vectorHeading); setVectorTarget(mirror.vectorTarget); setVectorAnchor(mirror.vectorAnchor);
+    };
     const send = (attempt: number) => {
       const {messagePath: menuPath, ...controller} = seedRef.current;
       void transport.sendDemoSeed({...controller, menuPath}).catch(() => {if (!cancelled && attempt < 4) setTimeout(() => send(attempt + 1), 400 * (attempt + 1));});
     };
     send(0);
     const stop = transport.onDemo(frame => {
-      if (frame.state) setMirror(current => sameDemoState(current, frame.state) ? current : frame.state!);
+      if (frame.state && !sameDemoState(applied, frame.state)) {applied = frame.state; setMirror(applied); follow(applied);}
       const latest = frame.batches.flatMap(batch => batch.events).findLast(event => event.kind === "sent");
       if (latest?.kind === "sent") setSent(latest);
     });
     return () => {cancelled = true; stop(); setMirror(null); setSent(null);};
   }, [watching, transport, setSent]);
-  useEffect(() => {
-    if (!mirror) return;
-    setFrequency(mirror.frequency); setSelectedId(mirror.selectedId); setMessageId(mirror.messageId);
-    setMessagePath(current => current.join("/") === mirror.menuPath.join("/") ? current : mirror.menuPath);
-    setDismissedStrips(mirror.dismissedStrips); setQuickHidden(mirror.quickHidden); setUtility(mirror.utility as ContextAction | null);
-    setVectorHeading(mirror.vectorHeading); setVectorTarget(mirror.vectorTarget); setVectorAnchor(mirror.vectorAnchor);
-  }, [mirror]);
   const wasWatching = useRef(false);
   useEffect(() => {
     if (wasWatching.current && !watching) {setHandedBack(true); const timer = setTimeout(() => setHandedBack(false), 5000); wasWatching.current = false; return () => clearTimeout(timer);}
