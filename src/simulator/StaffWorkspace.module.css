@@ -114,7 +114,10 @@
 .removeArea p {margin:0;font-size:calc(12 * var(--controller-font-unit,1px));color:var(--ws-muted)}
 
 /* Top bar: clock and Play together, then mentee view, audio and Session. */
-.toolbar.toolbar {gap:10px;padding:0 16px;min-height:48px}
+.toolbar.toolbar {flex-wrap:wrap;gap:8px 10px;padding:6px 16px;min-height:48px}
+.toolbar>* {flex-shrink:0}
+.toolbar>label {display:flex;align-items:center;gap:6px;white-space:nowrap}
+.toolbar>label select {max-width:180px}
 .toolbar>a:first-child {white-space:nowrap}
 .clock.clock {display:inline-flex;align-items:center;gap:8px;font-size:calc(13 * var(--controller-font-unit,1px));color:var(--dashboard-muted)}
 .clock::before {content:"";width:8px;height:8px;border-radius:50%;background:#e9bf7d;flex-shrink:0;transition:background-color .2s}
