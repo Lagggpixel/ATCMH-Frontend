@@ -110,7 +110,7 @@ test("Tower when ready waits for an assigned departure hold and requests the act
   const prediction = predictAircraft(state.aircraft, 1); assert.equal(prediction[0].frequency, "ground");
   state = tick(state); state = tick(state);
   assert.equal(state.aircraft[0].frequency, "tower"); assert.equal(state.messages.length, 1);
-  assert.match(state.messages[0].text, /ready for departure from runway 06, remaining in the pattern/);
+  assert.match(state.messages[0].text, /ready for departure at runway 06, remaining in the pattern/);
 });
 
 test("transition has live position wording and a first green shortcut sharing the original altitude menu", () => {

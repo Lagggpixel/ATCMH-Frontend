@@ -213,7 +213,7 @@ test("a completed hand-drawn intersection route needs no hold flag for Tower che
   const runway = "31L", position = point(runway, .15, .04);
   const a = {...engine.newAircraft("a", false), runway, mode: "parked" as const, position, taxiPath: [position], taxiIndex: 1, holding: false};
   const contact = assign(stateOf([a]), {type: "frequency", frequency: "tower"});
-  const ready = radioTick(contact); assert.equal(ready.messages.length, 1); assert.match(ready.messages[0].text, /ready for departure from runway 31L/);
+  const ready = radioTick(contact); assert.equal(ready.messages.length, 1); assert.match(ready.messages[0].text, /ready for departure at runway 31L/);
   const departure = assign(ready, {type: "takeoff", runway});
   const g = engine.runwayGeometry(runway), entry = departure.aircraft[0].taxiPath.at(-2)!;
   assert.ok(Math.abs((entry.x - g.threshold.x) * g.vector.x + (entry.y - g.threshold.y) * g.vector.y - .15) < 1e-7);

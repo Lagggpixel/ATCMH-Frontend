@@ -264,6 +264,30 @@
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
         }
       }
+    },
+    {
+      "icao": "KBOS",
+      "data": "/simulator/data/kbos.json",
+      "sourceDate": "2026-10-25",
+      "dataVersion": "99ba0e35795d0f9a2dbd122d642376d970e4622a740c607e8c59d350fe4be714",
+      "bounds": [
+        -71.035,
+        42.345,
+        -70.98,
+        42.39
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-71.035,42.345,-71.0075,42.3675",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-71.0075,42.345,-70.98,42.3675",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-71.035,42.3675,-71.0075,42.39",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-71.0075,42.3675,-70.98,42.39"
+      ],
+      "sources": {
+        "osmSha256": "87875032359441ed8476d7c0197db8857b3ad666a35bc0e36b5c119f8cb53ebb",
+        "airportsSha256": "fe7f0d9dc2646e41b0cc520f1733d99b9c76a6b26a3e6a55f66fa89e62083ad5",
+        "runwaysSha256": "3de8cb3bd4662f7d0ca851ad0e90a41cb822058cdf0dc2a2cd783f0330f756a9",
+        "runwayGeometry": "Joined OSM runway centerline segments; true headings derived from projected endpoints"
+      }
     }
   ]
 }

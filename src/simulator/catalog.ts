@@ -202,7 +202,7 @@ const REQUESTS: PilotRequest[] = [
   {id: "frequency-change", label: "Frequency Change", legacyLabel: "Request frequency change", text: "requesting frequency change"},
   {id: "inbound-land", label: "Request Landing", legacyLabel: "Inbound for landing", text: "inbound for landing", runway: true, phase: "airborne"},
   {id: "inbound-option", label: "Request the Option", legacyLabel: "Inbound for touch and go", text: "inbound, requesting the option", runway: true, phase: "airborne"},
-  {id: "departure", label: "Request Takeoff", legacyLabel: "Ready for departure", text: "ready for departure from", runway: true, phase: "ground"},
+  {id: "departure", label: "Request Takeoff", legacyLabel: "Ready for departure", text: "ready for departure at", runway: true, phase: "ground"},
   {id: "departure-direction", label: "Request Departure", legacyLabel: "Request departure to direction", text: "requesting departure to the", phase: "airborne"},
   {id: "pattern-entry", label: "Request Pattern Entry", legacyLabel: "Request pattern entry", text: "requesting pattern entry for", runway: true},
   {id: "runway-change", label: "Request Runway Change", legacyLabel: "Request runway change", text: "requesting", runway: true},

@@ -517,7 +517,63 @@
     "VNLK": {
       "06": {"localizer": false, "glideslope": false},
       "24": {"localizer": false, "glideslope": false}
+    },
+    "KBOS": {
+      "04L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "22R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "15L": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "33R": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "04R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "22L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "09": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "27": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "15R": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "33L": {
+        "localizer": true,
+        "glideslope": true
+      },
+      "14": {
+        "localizer": false,
+        "glideslope": false
+      },
+      "32": {
+        "localizer": false,
+        "glideslope": false
+      }
     }
   },
-  "highTerrainVerifiedOn": "2026-10-19"
+  "highTerrainVerifiedOn": "2026-10-19",
+  "airportSources": {
+    "KBOS": {
+      "verifiedOn": "2026-10-25",
+      "source": "InfiniteHorizon if_runway_end / if_localizer / if_glideslope; read-only export"
+    }
+  }
 }

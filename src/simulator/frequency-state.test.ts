@@ -145,7 +145,7 @@ test("Tower contact before arrival at the hold reports ready exactly once; Autom
   state = restoreExercise(exerciseSchema.parse(state));
   for (let t = 0; t < 90 && !state.messages.length; t++) state = radioTick(state);
   assert.equal(state.messages.length, 1);
-  assert.match(state.messages[0].text, /ready for departure from runway 31L/);
+  assert.match(state.messages[0].text, /ready for departure at runway 31L/);
   state = radioTick(state); assert.equal(state.messages.length, 1);
   const off = radioTick({...stateOf([a]), autoReadback: false}); assert.equal(off.messages.length, 0);
 });

@@ -25,6 +25,7 @@ import phog from "./data/phog.json";
 import nzaa from "./data/nzaa.json";
 import lbsf from "./data/lbsf.json";
 import kjfk from "./data/kjfk.json";
+import kbos from "./data/kbos.json";
 import scel from "./data/scel.json";
 import ebbr from "./data/ebbr.json";
 import eddl from "./data/eddl.json";
@@ -43,9 +44,9 @@ import eidwLegacy from "./data/eidw-2026-10-17.json";
 import rjtt from "./data/rjtt.json";
 import {EXERCISE_WEATHER, type Aircraft, type Airport, type Frequency} from "./model";
 
-export const AIRPORT_IDS = ["EGPH", "EGLL", "KBHM", "CYUL", "ROAH", "KDAL", "SBBR", "LFMN", "KONT", "KLAS", "LGAV", "PHOG", "NZAA", "LBSF", "KJFK", "SCEL", "EBBR", "EDDL", "CYYC", "LIME", "KSLC", "KSAN", "EGSS", "TNCM", "OAKB", "LQSA", "EDDS", "LTFM", "EIDW", "RJTT", "KASE", "VNLK"] as const;
+export const AIRPORT_IDS = ["EGPH", "EGLL", "KBHM", "CYUL", "ROAH", "KDAL", "SBBR", "LFMN", "KONT", "KLAS", "LGAV", "PHOG", "NZAA", "LBSF", "KJFK", "KBOS", "SCEL", "EBBR", "EDDL", "CYYC", "LIME", "KSLC", "KSAN", "EGSS", "TNCM", "OAKB", "LQSA", "EDDS", "LTFM", "EIDW", "RJTT", "KASE", "VNLK"] as const;
 export type AirportId = typeof AIRPORT_IDS[number];
-export const airportData = {EGPH: egph, EGLL: egll, KBHM: kbhm, CYUL: cyul, ROAH: roah, KDAL: kdal, SBBR: sbbr, LFMN: lfmn, KONT: kont, KLAS: klas, LGAV: lgav, PHOG: phog, NZAA: nzaa, LBSF: lbsf, KJFK: kjfk, SCEL: scel, EBBR: ebbr, EDDL: eddl, CYYC: cyyc, LIME: lime, KSLC: kslc, KSAN: ksan, EGSS: egss, TNCM: tncm, OAKB: oakb, LQSA: lqsa, EDDS: edds, LTFM: ltfm, EIDW: eidw, RJTT: rjtt, KASE: kase, VNLK: vnlk};
+export const airportData = {EGPH: egph, EGLL: egll, KBHM: kbhm, CYUL: cyul, ROAH: roah, KDAL: kdal, SBBR: sbbr, LFMN: lfmn, KONT: kont, KLAS: klas, LGAV: lgav, PHOG: phog, NZAA: nzaa, LBSF: lbsf, KJFK: kjfk, KBOS: kbos, SCEL: scel, EBBR: ebbr, EDDL: eddl, CYYC: cyyc, LIME: lime, KSLC: kslc, KSAN: ksan, EGSS: egss, TNCM: tncm, OAKB: oakb, LQSA: lqsa, EDDS: edds, LTFM: ltfm, EIDW: eidw, RJTT: rjtt, KASE: kase, VNLK: vnlk};
 const snapshots: Record<AirportId, Airport> = {
   EGPH: {...egph, dataVersion: egph.sourceDate, runways: [{...egph.runway, id: "06/24"}]},
   EGLL: {...egll, runway: egll.runways[0]}, KBHM: {...kbhm, runway: kbhm.runways[0]},
@@ -55,6 +56,7 @@ const snapshots: Record<AirportId, Airport> = {
   KLAS: {...klas, runway: klas.runways[0]}, LGAV: {...lgav, runway: lgav.runways[0]},
   PHOG: {...phog, runway: phog.runways[0]}, NZAA: {...nzaa, runway: nzaa.runways[0]},
   LBSF: {...lbsf, runway: lbsf.runways[0]},
+  KBOS: {...kbos, runway: kbos.runways[0]},
   SCEL: {...scel, runway: scel.runways[0]},
   EBBR: {...ebbr, runway: ebbr.runways[0]},
   EDDL: {...eddl, runway: eddl.runways[0]},

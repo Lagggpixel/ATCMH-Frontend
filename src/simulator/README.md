@@ -479,3 +479,10 @@ snapshots and are registered for saved scenario/session/replay pins. New
 scenarios use the corrected versions; starting a new session from an old pinned
 scenario alone does not change its geometry. Author a new scenario to use the
 new dataset. No stored scenarios or sessions are rewritten by this repair.
+
+
+### Boston Logan (KBOS)
+
+KBOS supports Ground & Tower, Approach and Center with six runway pairs and a pinned 25 October 2026 snapshot. OpenStreetMap airport tiles are merged by element ID; OurAirports supplies the reference position, elevation and runway dimensions. Reviewed joined OSM centreline endpoints provide true runway headings, including the short 15L/33R axis that disagrees with the CSV bearing by 0.396 degrees. The snapshot retains mapped taxiways and oriented parking positions; routes remain schematic training data. Public source bounds, tile URLs and SHA-256 hashes appear in `public/simulator/data-notice.json`. Existing airport snapshots remain unchanged.
+
+A read-only InfiniteHorizon navigation export supplies Boston facilities, twelve runway ends and approach equipment. ILS is available on 04R, 22L, 27, 15R and 33L; all twelve ends have schematic GPS and visual training approaches. These are simulator guides rather than published procedure geometry. Magnetic headings use the existing pinned WMM-2025 model/date.

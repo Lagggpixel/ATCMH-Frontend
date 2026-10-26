@@ -52,6 +52,7 @@ import {drawCoastlines} from "./coastlines";
 import {useCoastlines} from "./use-coastlines";
 import {readScopePreferences, scopePreferenceKey} from "./scope-preferences";
 import {useSaveScopePreferences} from "./use-scope-preferences";
+import {useProjectedPath} from "./use-projected-path";
 
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
@@ -80,7 +81,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   const radarEnvironment = useMemo(() => radarMode ? {...(configuredEnvironment ?? radarEnvironmentFor(airport)),
     fixes: catalogueFixes} : configuredEnvironment,
   [radarMode, configuredEnvironment, airport, catalogueFixes]);
-  const {followedAircraft, headingProjection, patternOutline, projectedPath} = useMemo(() => engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
+  const {followedAircraft, headingProjection, patternOutline} = useMemo(() => engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
   const airportCamera = useMemo(() => {
     const points = airport.features.flatMap(f => f.points);
     const bounds = {left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)), bottom: Math.min(...points.map(p => p.y)), top: Math.max(...points.map(p => p.y))};
@@ -381,10 +382,9 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
   const physicalTaxiLine = !taxiAircraft ? [] : frequency !== "all" ? assignedTaxiPath(taxiAircraft)
     : taxiAircraft.mode === "pushback" && taxiAircraft.pushback ? [taxiAircraft.position, ...taxiAircraft.pushback.path.slice(taxiAircraft.pushback.index)] : remainingTaxiPath(taxiAircraft);
   const taxiLine = arrivalRoute ?? (sentGroundRoute || groundRouteCleared || frequency === "all" ? sentGroundRoute?.points ?? physicalTaxiLine : []);
-  const projection = useMemo(() => {
-    const a = snapshot.find(a => a.id === selected);
-    return a && showProjectedPaths && frequency === "all" && remainingTaxiPath(a).length < 2 ? projectedPath(a, 120, snapshot, autoReadback) : [];
-  }, [snapshot, selected, frequency, autoReadback, projectedPath, showProjectedPaths]);
+  const prediction = useProjectedPath(snapshot, selected, airport, radarEnvironment, weather, autoReadback,
+    !!selectedAircraft && showProjectedPaths && frequency === "all" && remainingTaxiPath(selectedAircraft).length < 2);
+  const projection = prediction.points;
   const following = frequency === "all" ? scopeFollowTarget(snapshot, aircraft, selected, followedAircraft) : undefined;
   useLayoutEffect(() => {
     const node = trafficCanvas.current; if (!node) return;
@@ -618,7 +618,7 @@ function ScopeView({labelFrequency, messages, preferenceKey, overlay, missingStr
       {tap?.id === selected && tap.choices.length > 1 ? <div className={`${styles.aircraftMenu} ${styles.radarQuick}`} role="menu" aria-label="Choose aircraft">{tap.choices.map(id => {const a = snapshot.find(item => item.id === id); return a ? <button key={id} role="menuitem" onClick={() => {setTap({...tap, id, choices: []}); onSelect(id);}}>{a.callsign}</button> : null;})}</div> : aircraftContext}
     </>} : null}/>
     {following && trafficVisible(following, options.filter, frequency) ? <span role="img" aria-label={`Traffic to follow: ${following.callsign}`} className={styles.followingRing} style={{left: project(following.position).x, top: project(following.position).y}}/> : null}
-    {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route</> : <>Projected path · {selectedAircraft.mode}<br/>{!selectedAircraft.radar && ["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
+    {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route</> : prediction.unavailable ? <>Projected path unavailable. <button type="button" onClick={prediction.retry}>Retry prediction</button></> : <>Projected path · {selectedAircraft.mode}<br/>{!selectedAircraft.radar && ["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>Click to reposition selected aircraft</div> : null}
     <div className={styles.scopeButtons}>
       <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => {setAirportView(null); setPopup(popup === "options" || popup === "hide" ? null : "options");}}><Gear size={32} weight="fill"/></button>

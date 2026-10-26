@@ -161,8 +161,8 @@ test("ground requests remain phase-specific, keep legacy revisions readable, and
   assert.ok(!requests.some(r => r.id === "pattern-entry"));
   assert.equal(resolvePilotRequest({label: "Request pattern entry"})?.id, "pattern-entry");
   const departure = requests.find(r => r.id === "departure")!;
-  assert.equal(pilotRequestText(a, departure, "06"), "Easy 571, ready for departure from runway 06");
-  assert.equal(pilotRequestText(a, departure, "06", true), "Easy 571, ready for departure from runway 06, remaining in the pattern");
+  assert.equal(pilotRequestText(a, departure, "06"), "Easy 571, ready for departure at runway 06");
+  assert.equal(pilotRequestText(a, departure, "06", true), "Easy 571, ready for departure at runway 06, remaining in the pattern");
 });
 
 const act = (state: Exercise, action: Action) => {
