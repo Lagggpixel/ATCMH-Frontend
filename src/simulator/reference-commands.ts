@@ -146,6 +146,10 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
     delete a.arrivalExit; delete a.runwayExit; delete a.contactTowerAtHold;
   }
   if (c.action === "circle" || c.action === "hold") {
+    if (c.action === "hold" && c.altitude && a.radar) {
+      a.radar.targetAltitude = {...c.altitude}; a.radar.altitudeAssignedFrom = a.altitude;
+      delete a.radar.altitudeFromRoute; delete a.starDescent; delete a.followRouteAltitudes;
+    }
     const point = c.point ?? (c.index === undefined ? {...a.position} : a.flightPlan[c.index]);
     if (c.action === "hold") {a.targetSpeed = Math.min(a.speed, altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265); if (!a.radar) a.speedMode = "manual";}
     a.atcManeuver = {kind: c.action, hand: c.hand ?? "right", remaining: 360, heading: a.heading, previousMode: a.radar ? "heading" : a.mode, previousLeg: a.leg, altitude: c.altitude ? altitudeFeet(c.altitude) : a.altitude,

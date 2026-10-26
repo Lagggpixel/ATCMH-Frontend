@@ -22,6 +22,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
   ] as const) {
     let state = engineFor({trainingStation: `EGPH:${mode}`}).initialExercise();
     state.running = true; state.autoReadback = true;
+    state = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: state.aircraft[0].id, command: {type: "vector", altitude: {unit: "feet", value: 6000}}}}).state;
     const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.heading = magneticToTrue(from, getAirport(state)); delete a.radar!.report;
     const c = {type: "vector" as const, heading};
     assert.equal(catalogFor(getAirport(state)).instructionText(a, c), `Speedbird 1, ${phrase}`);

@@ -177,7 +177,7 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
   if (r.navigation === "missed") r.missedApproach = true; // Older snapshots have no phase flag.
   // A vertical instruction must leave the lateral clearance and banked turn intact.
   if (c.type === "vector" && c.heading === undefined && !c.approachId) {
-    if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude; delete a.starDescent; delete a.followRouteAltitudes;}
+    if (c.altitude) {r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude; delete a.starDescent; delete a.followRouteAltitudes;}
     return;
   }
   delete r.gpsApproach;
@@ -195,14 +195,14 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
     r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false; if (r.navigation === "approach") r.navigation = "heading";
   } else if (c.type === "vector") {
     if (c.heading !== undefined) {a.targetHeading = magneticToTrue(c.heading, airport); r.navigation = "heading"; r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;}
-    if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;}
+    if (c.altitude) {r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude;}
     if (c.approachId) {delete r.missedApproach; r.navigation = "approach"; r.cleared = c.approachId; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;
       if (gpsJoin) {r.gpsApproach = gpsJoin; r.routeIndex = gpsJoin.index;}
     }
   } else if (c.type === "route") {
     r.navigation = "route"; r.routeIndex = c.index;
     a.targetHeading = radarHeading(a.position, a.flightPlan[c.index]);
-    if (c.altitude) {r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;}
+    if (c.altitude) {r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude;}
     r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false;
     a.clearedToLand = false; a.clearedForOption = false;
   }
@@ -211,7 +211,7 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
     if (expected && (!expected.airportIcao || expected.airportIcao===airport.icao)) a.runway = expected.runway;
     r.guidance = undefined;
     if (c.heading !== undefined) a.targetHeading = magneticToTrue(c.heading, airport);
-    r.navigation = "missed"; r.missedApproach = true; r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false; r.targetAltitude = {...c.altitude}; r.altitudeAssignedFrom = a.altitude;
+    r.navigation = "missed"; r.missedApproach = true; r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false; r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude;
     r.speed = undefined;
     a.clearedToLand = false; a.clearedForOption = false; a.targetSpeed = automaticRadarTarget(a); a.speedMode = "auto";
   }
@@ -234,8 +234,8 @@ export function touchdownRadar(a: Aircraft, airport: Airport, runway: Aircraft["
   if (a.landing === "touch-and-go") {
     delete r.arrival; r.departure = {runway: runway!, phase: "roll", touchAndGo: true};
     r.targetAltitude = {unit: "feet", value: Math.max(5000, Math.ceil((airport.elevation + 3000) / 500) * 500)};
-    r.altitudeAssignedFrom = airport.elevation; a.targetSpeed = automaticRadarTarget(a);
-  } else {delete r.departure; delete r.targetAltitude; r.arrival = {runway: runway!, phase: "rollout"}; a.targetSpeed = 0;}
+    delete r.altitudeFromRoute; r.altitudeAssignedFrom = airport.elevation; a.targetSpeed = automaticRadarTarget(a);
+  } else {delete r.departure; delete r.targetAltitude; delete r.altitudeFromRoute; r.arrival = {runway: runway!, phase: "rollout"}; a.targetSpeed = 0;}
 }
 function automaticMissed(a: Aircraft, airport: Airport, environment: RadarEnvironment, reason: string) {
   const altitude = ALTITUDES.find(value => altitudeFeet(value) >= Math.max(a.altitude, 5000, airport.elevation + 2000)) ?? ALTITUDES[ALTITUDES.length - 1];

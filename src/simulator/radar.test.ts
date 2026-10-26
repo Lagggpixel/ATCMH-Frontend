@@ -106,6 +106,7 @@ test("vector preview follows the free endpoint and preserves distance, time and 
 });
 test("all heading instructions round consistently in transmissions, readbacks and assigned movement", () => {
   let state = exercise();
+  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 6000}});
   state = command(state, {type: "vector", heading: 224});
   assert.match(state.messages.at(-1)!.text, /heading 220/);
   assert.deepEqual(state.messages.at(-1)!.instruction, {type: "vector", heading: 220});
@@ -175,6 +176,7 @@ for (const mode of ["approach", "center"] as const) for (const heading of [0, 22
   a.heading = a.targetHeading = 90; a.altitude = 3000;
   // Outside localizer capture: the drag vector must steer the aircraft to final.
   a.position = {x: 30, y: 30}; a.radar!.expected = approach.id;
+  state = assign(state, {type: "vector", altitude: {unit: "feet", value: 3000}});
   const target = Math.round(heading / 10) * 10 % 360;
   state = command(state, {type: "vector", heading, approachId: approach.id});
   assert.equal(state.aircraft[0].targetHeading, 90);

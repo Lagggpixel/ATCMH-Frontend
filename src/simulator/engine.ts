@@ -20,7 +20,7 @@ import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
 import {assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
 import {runwayGoAroundDue, runwayLateralClear, runwayOccupied} from "./runway-safety";
-import {automaticRadarUnable} from "./radar-safety";
+import {automaticRadarUnable, headingOnlyUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed, radarPerformance} from "./radar-speed";
 import {gpsApproachJoin} from "./gps-approach";
 
@@ -131,7 +131,7 @@ function joinRadarPattern(a: Aircraft) {
     : !candidates.length ? "Current altitude and heading leave no reachable pattern entry; more vectors or descent are required." : undefined;
   if (reason) {r.patternJoin = {status: "unable", reason}; return;}
   r.patternJoin = {status: "joining"}; r.captured = false; r.localizer = false; r.glideslope = false;
-  r.targetAltitude = undefined; r.altitudeAssignedFrom = undefined; r.speed = undefined;
+  r.targetAltitude = undefined; delete r.altitudeFromRoute; r.altitudeAssignedFrom = undefined; r.speed = undefined;
   a.mode = "pattern"; a.leg = candidates[0].leg; a.leavingCircuit = false; a.extended = false; a.speedMode = "auto";
   delete a.transitionAltitude; clearLanding(a);
   automaticSpeed(a);
@@ -296,6 +296,7 @@ function validateInstruction(a: Aircraft, command: Instruction, frequency?: stri
 }
 
 function validateAssignment(a: Aircraft, command: Instruction, frequency?: string, traffic: Aircraft[] = []): string | null {
+  if (frequency !== undefined) {const error = headingOnlyUnable(a, command); if (error) return error;}
   if (command.type === "atc") return referenceInstructionError(a, command, AIRPORT, traffic, true);
   if (command.type === "radio") return "Radio messages do not assign aircraft movement.";
   if (a.radar && !["vector", "expect-approach", "missed-approach", "route", "heading", "speed", "radar-speed", "frequency"].includes(command.type)) return "This instruction is unavailable in radar training.";
@@ -801,7 +802,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       if (action.patch.tag !== undefined && action.patch.tagAngle === undefined) delete aircraft!.tagAngle;
       if (aircraft!.radar && (action.patch.targetSpeed !== undefined || action.patch.speedMode !== undefined)) delete aircraft!.radar.speed;
       if (action.patch.frequency !== undefined) updateRadarFrequency(aircraft!);
-      if (aircraft!.radar && action.patch.altitude !== undefined) {aircraft!.radar.targetAltitude = undefined; aircraft!.radar.altitudeAssignedFrom = undefined;}
+      if (aircraft!.radar && action.patch.altitude !== undefined) {aircraft!.radar.targetAltitude = undefined; delete aircraft!.radar.altitudeFromRoute; aircraft!.radar.altitudeAssignedFrom = undefined;}
       if (action.patch.intentions && aircraft!.transitionAltitude !== undefined) aircraft!.transitionOverheadArmed = intentionsOf(aircraft!).afterTransition === "touch-and-go"; if (action.patch.targetSpeed !== undefined && action.patch.speedMode === undefined) aircraft!.speedMode = "manual"; if (action.patch.runway && action.patch.runway !== state.aircraft.find(a => a.id === action.aircraftId)?.runway) aircraft!.lastRunway = state.aircraft.find(a => a.id === action.aircraftId)?.runway ?? aircraft!.lastRunway; break;
     case "read": for (const m of next.messages) if (m.aircraftId === aircraft!.id && m.sender === "pilot" && (!action.frequency || m.frequency === action.frequency)) m.read = true; aircraft!.reminderAt = null; break;
     case "atis": next.atis = currentAtisOptions(action.draft); break;

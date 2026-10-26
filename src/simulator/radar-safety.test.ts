@@ -49,7 +49,9 @@ for (const mode of ["approach", "center"] as const) for (const type of ["ils", "
     {type: "radar-speed", mode: "discretion"},
     {type: "radar-speed", mode: "approach", value: 160, until: 4},
   ] satisfies Instruction[]) {
-    const initial = clear(fixture(mode), type), clearance = initial.aircraft[0].radar!.cleared;
+    let initial = clear(fixture(mode), type);
+    initial = act(initial, {kind: "maneuver", aircraftId: initial.aircraft[0].id, command: {type: "vector", altitude: {unit: "feet", value: 5000}}});
+    const clearance = initial.aircraft[0].radar!.cleared;
     initial.aircraft[0].altitude = 5000;
     const state = transmit(initial, command), a = state.aircraft[0];
     const sent = state.messages.find(message => message.sender === "controller")!, reply = state.messages.at(-1)!;
@@ -182,6 +184,122 @@ for (const mode of ["approach", "center"] as const) for (const excess of [1, 250
 });
 
 const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+for (const mode of ["approach", "center"] as const) test(`${mode}: an accepted holding altitude permits heading-only exit from the hold`, () => {
+  let state = fixture(mode);
+  state.aircraft[0].flightPlan = [{x: 60, y: 40, altitude: 7000}];
+  state.aircraft[0].radar!.navigation = "route";
+  state.aircraft[0].followRouteAltitudes = true;
+  state = advance(state, 1);
+  state = transmit(state, {type: "atc", action: "hold", hand: "right", altitude: {unit: "feet", value: 6000}});
+  assert.equal(state.aircraft[0].atcManeuver?.kind, "hold");
+  assert.equal(state.aircraft[0].radar!.altitudeFromRoute, undefined);
+  state = transmit(state, {type: "vector", heading: 90});
+  assert.equal(state.messages.at(-1)!.unableReason, undefined);
+  assert.equal(state.aircraft[0].atcManeuver, undefined);
+  assert.deepEqual(state.aircraft[0].radar!.targetAltitude, {unit: "feet", value: 6000});
+});
+
+for (const mode of ["approach", "center"] as const) test(`${mode}: route altitude provenance survives disabling the profile and snapshot reload`, () => {
+  let state = fixture(mode);
+  const a = state.aircraft[0];
+  a.flightPlan = [{x: 60, y: 40, altitude: 7000}];
+  a.radar!.navigation = "route"; a.followRouteAltitudes = true;
+  state = advance(state, 1);
+  assert.equal(state.aircraft[0].radar!.altitudeFromRoute, true);
+  state.aircraft[0].followRouteAltitudes = false;
+  state = engineFor(state).restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+  state = transmit(state, {type: "vector", heading: 90});
+  assert.match(state.messages.at(-1)!.unableReason!, /Assign an altitude/);
+  assert.equal(state.aircraft[0].radar!.navigation, "route");
+  state = transmit(state, {type: "vector", heading: 90, altitude: {unit: "feet", value: 6000}});
+  assert.equal(state.messages.at(-1)!.unableReason, undefined);
+  assert.equal(state.aircraft[0].radar!.altitudeFromRoute, undefined);
+  assert.equal(state.aircraft[0].radar!.navigation, "heading");
+  state = transmit(state, {type: "vector", heading: 180});
+  assert.equal(state.messages.at(-1)!.unableReason, undefined);
+});
+
+test("legacy route profiles cannot use their unmarked planned altitude as an assignment", () => {
+  const a = fixture().aircraft[0];
+  a.radar!.navigation = "route"; a.radar!.targetAltitude = {unit: "feet", value: 6000};
+  for (const profile of ["starDescent", "followRouteAltitudes"] as const) {
+    a[profile] = true;
+    assert.match(automaticRadarUnable(a, {type: "vector", heading: 90})!, /Assign an altitude/);
+    delete a[profile];
+  }
+});
+
+for (const mode of ["approach", "center"] as const) for (const navigation of ["heading", "route"] as const) test(`${mode} ${navigation}: heading-only is Unable without an assigned altitude after reload`, () => {
+  let initial = fixture(mode);
+  const a = initial.aircraft[0];
+  a.flightPlan = [{x: 60, y: 40, name: "NEXT", altitude: 7000}, {x: 80, y: 40, altitude: 9000}];
+  a.radar!.navigation = navigation;
+  a.followRouteAltitudes = true;
+  a.starDescent = true;
+  initial = engineFor(initial).restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(initial))));
+  const expected = advance(initial, 1.5).aircraft[0];
+  const state = transmit(initial, {type: "vector", heading: 0}), actual = state.aircraft[0];
+  const reply = state.messages.at(-1)!;
+  assert.equal(reply.text, "Unable, Speedbird 1");
+  assert.match(reply.unableReason!, /Assign an altitude/);
+  assert.equal(reply.commandId, state.messages.find(m => m.sender === "controller")!.id);
+  assert.equal(actual.targetHeading, expected.targetHeading);
+  assert.deepEqual(actual.radar, expected.radar);
+  assert.deepEqual(actual.flightPlan, expected.flightPlan);
+  assert.equal(actual.followRouteAltitudes, true);
+  assert.equal(actual.starDescent, true);
+  assert.equal(autoReadbacks(state, 3000, randomUUID).messages.length, state.messages.length);
+});
+
+for (const mode of ["approach", "center"] as const) for (const altitude of [{unit: "feet", value: 6000}, {unit: "flight-level", value: 310}] as const) test(`${mode}: accepted ${altitude.unit} altitude permits a later heading-only route exit`, () => {
+  let state = fixture(mode);
+  state.aircraft[0].flightPlan = [{x: 60, y: 40}, {x: 80, y: 40}];
+  state.aircraft[0].radar!.navigation = "route";
+  state = transmit(state, {type: "vector", altitude});
+  assert.deepEqual(state.aircraft[0].radar!.targetAltitude, altitude);
+  state = engineFor(state).restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+  state = transmit(state, {type: "vector", heading: 90});
+  assert.equal(state.messages.at(-1)!.unableReason, undefined);
+  assert.equal(state.aircraft[0].targetHeading, magneticToTrue(90, getAirport(state)));
+  assert.equal(state.aircraft[0].radar!.navigation, "heading");
+  assert.deepEqual(state.aircraft[0].radar!.targetAltitude, altitude);
+});
+
+for (const mode of ["approach", "center"] as const) test(`${mode}: an unaccepted altitude on the controller strip does not permit heading-only vectors`, () => {
+  let state = fixture(mode);
+  const a = state.aircraft[0];
+  state = act(state, {kind: "command", aircraftId: a.id, frequency: mode, command: {type: "vector", altitude: {unit: "feet", value: 6000}}, text: ""});
+  assert.ok(state.aircraft[0].assigned?.altitude);
+  assert.equal(state.aircraft[0].radar!.targetAltitude, undefined);
+  state = transmit(state, {type: "vector", heading: 90});
+  assert.match(state.messages.at(-1)!.unableReason!, /Assign an altitude/);
+  assert.equal(state.aircraft[0].radar!.targetAltitude, undefined);
+  assert.equal(state.aircraft[0].targetHeading, a.targetHeading);
+});
+
+test("heading with an approach clearance also requires altitude; combined vectors remain available", () => {
+  const a = fixture().aircraft[0], altitude = {unit: "feet", value: 6000} as const;
+  assert.match(automaticRadarUnable(a, {type: "vector", heading: 0, approachId: "ils-24"})!, /Assign an altitude/);
+  assert.equal(automaticRadarUnable(a, {type: "vector", heading: 0, altitude}), null);
+  assert.equal(automaticRadarUnable(a, {type: "vector", altitude}), null);
+  assert.equal(automaticRadarUnable(a, {type: "vector", approachId: "ils-24"}), null);
+});
+
+test("manual Unable explains the missing altitude and leaves route guidance intact", () => {
+  let state = fixture(); state.autoReadback = false;
+  state.aircraft[0].flightPlan = [{x: 60, y: 40}];
+  state.aircraft[0].radar!.navigation = "route";
+  state = transmit(state, {type: "vector", heading: 90});
+  assert.equal(state.messages.filter(m => m.sender === "pilot").length, 0);
+  const before = structuredClone(state.aircraft[0]);
+  const accepted = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "pilot", aircraftId: before.id, replyTo: state.messages.at(-1)!.id, text: "Readback", assign: true}});
+  assert.match(accepted.error!, /Assign an altitude/);
+  assert.equal(accepted.state, state);
+  state = act(state, {kind: "pilot", aircraftId: before.id, replyTo: state.messages.at(-1)!.id, text: "Unable, Speedbird 1"});
+  assert.match(state.messages.at(-1)!.unableReason!, /Assign an altitude/);
+  assert.deepEqual(state.aircraft[0], before);
+});
 
 test("separation ignores future convergence and flags current breaches even while diverging",()=>{
  const a=fixtureForInfiniteFlightParity().aircraft[0],b=structuredClone(a);a.position={x:-3,y:0};b.position={x:3,y:0};a.heading=90;b.heading=270;a.speed=b.speed=360;a.altitude=b.altitude=5000;b.id="b";

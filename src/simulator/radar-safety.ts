@@ -3,8 +3,14 @@ import {performanceFor} from "./aircraft-performance";
 import type {Aircraft, Airport, Frequency, Instruction, RadarEnvironment} from "./model";
 import {aircraftSpeedLimits, machKnots} from "./radar-speed";
 
+export function headingOnlyUnable(a: Aircraft, c: Instruction): string | null {
+  return a.radar && c.type === "vector" && c.heading !== undefined && !c.altitude && (!a.radar.targetAltitude || a.radar.altitudeFromRoute || a.followRouteAltitudes || a.starDescent)
+    ? "Assign an altitude before issuing a heading-only vector." : null;
+}
+
 /** Automatic pilot decisions only; manual mentor assignment remains available. */
 export function automaticRadarUnable(a: Aircraft, c: Instruction): string | null {
+  const headingError = headingOnlyUnable(a, c); if (headingError) return headingError;
   const profile=performanceFor(a);
   if(profile && (c.type==="vector" || c.type==="route" || c.type==="missed-approach") && c.altitude && (c.altitude.unit==="feet"?c.altitude.value:c.altitude.value*100)>profile.ceiling)return "Altitude exceeds aircraft ceiling.";
   if (!a.radar && !profile) return null;
