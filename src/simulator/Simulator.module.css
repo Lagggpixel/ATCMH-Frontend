@@ -1066,6 +1066,8 @@
 @keyframes demoRipple {from {transform:scale(.3);opacity:1} to {transform:scale(1.4);opacity:0}}
 @media (prefers-reduced-motion: reduce) {.demoRipple {animation:none;opacity:.6}}
 .demoLocked :is([data-demo-region=frequencies], [data-demo-region=strips], [data-demo-region=messages], [data-demo-region=scope-menu]) {pointer-events:none}
+/* Not following: the trainee may look at other frequencies, but still cannot act. */
+.demoBrowsing :is([data-demo-region=strips], [data-demo-region=messages], [data-demo-region=scope-menu]) {pointer-events:none}
 .demoSwitch {display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--dashboard-border);border-radius:4px;background:var(--dashboard-surface);color:var(--dashboard-ink);white-space:nowrap;cursor:pointer}
 .demoSwitch:disabled {opacity:.55;cursor:not-allowed}
 .demoSwitch>span {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}

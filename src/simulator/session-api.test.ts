@@ -59,3 +59,12 @@ test("demonstrating locks the learner's controls and ends when the instructor le
   assert.equal(store.records.get(session.id)?.exercise.demonstration, undefined);
   await service.dispatch(learner, session.id, "mentee", learnerSeat, envelope({kind: "edit", aircraftId: aircraft.id, patch: {tagAngle: 90}}));
 });
+
+test("the operation route accepts every operation the session transport posts", async () => {
+  const {readFile} = await import("node:fs/promises");
+  const route = await readFile(new URL("../app/api/simulator/sessions/[id]/[operation]/route.ts", import.meta.url), "utf8");
+  const transport = await readFile(new URL("./shared-transport.ts", import.meta.url), "utf8");
+  const posted = [...transport.matchAll(/post\("([a-z-]+)"/g)].map(match => match[1]);
+  assert.ok(posted.includes("demo"));
+  for (const operation of posted) assert.match(route, new RegExp(`"${operation}"`), `${operation} is routed`);
+});

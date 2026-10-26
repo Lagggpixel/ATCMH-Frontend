@@ -80,7 +80,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
       if (result.changed && value.mentee) void notify({discordId: value.mentee.discordId, title: result.session.title, airport: result.session.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor"});
       return Response.json({session: result.session}, {headers: noStore});
     }
-    if (operation === "demo") return demonstration(request, id);
+    if (operation === "demo") return await demonstration(request, id);
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
