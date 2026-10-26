@@ -54,7 +54,7 @@ test("a Mentee's replay scope admits any signed-in account but filters to their 
   const calls: unknown[] = [];
   const api = createReplayApi(async (_request, staff, admission) => {calls.push({staff, admission}); return {accountId: "mentee-account", staff: false, simulatorAccess: false};},
     async (offset, filters) => {calls.push({offset, filters}); return {replays: [], next: null};},
-    async (id, after, menteeId) => {calls.push({id, after, menteeId}); return {replay: {id}, initial: null, frames: [], next: null} as unknown as ReplayDetail;});
+    async (id, after, menteeId) => {calls.push({id, after, menteeId}); return {replay: {id, participants: [{role: "mentee", accountId: "mentee-account"}]}, initial: null, frames: [], next: null} as unknown as ReplayDetail;});
   assert.equal((await api(new Request("https://example.com/api/simulator/replays?scope=self&offset=50"))).status, 200);
   const id = randomUUID();
   assert.equal((await api(new Request(`https://example.com/api/simulator/replays/${id}?scope=self&after=7`), id)).status, 200);
