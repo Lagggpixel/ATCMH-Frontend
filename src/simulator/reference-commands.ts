@@ -149,7 +149,7 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
   }
   if (c.action === "circle" || c.action === "hold") {
     if (c.action === "hold" && c.altitude && a.radar) {
-      a.radar.targetAltitude = {...c.altitude}; a.radar.altitudeAssignedFrom = a.altitude;
+      delete a.radar.climbUntilAssigned; a.radar.targetAltitude = {...c.altitude}; a.radar.altitudeAssignedFrom = a.altitude;
       delete a.radar.altitudeFromRoute; delete a.starDescent; delete a.followRouteAltitudes;
     }
     const point = c.point ?? (c.index === undefined ? {...a.position} : a.flightPlan[c.index]);

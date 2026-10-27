@@ -1,3 +1,4 @@
+import {applyDepartureOrigin, type DepartureAirport} from "./departure-airports";
 import {magneticToTrue} from "./magnetic-headings";
 import {profileForType, performanceFor} from "./aircraft-performance";
 import {engineFor} from "./engine";
@@ -7,7 +8,7 @@ import {automaticRadarTarget} from "./radar-speed";
 import type {Aircraft, Exercise, Point, RadarState} from "./model";
 
 export interface SpawnOptions {
-  airborne: boolean; runway?: string; position?: Point; heading?: number; altitude?: number; speed?: number;
+  airborne: boolean; runway?: string; origin?: DepartureAirport; position?: Point; heading?: number; altitude?: number; speed?: number;
   callsign: string; type: string; landing: Aircraft["landing"];
   flight?: RadarState["flight"]; requestedApproach?: string; departureDirection?: RadarState["departureDirection"];
 }
@@ -20,7 +21,11 @@ export function createSpawnAircraft(exercise: Exercise, id: string, options: Spa
   if (!a.callsign || !a.type) throw new Error("Enter an aircraft callsign and type.");
   if (mode !== "local") {
     a.radar = {...a.radar!, flight: options.flight, requestedApproach: options.flight === "return" ? options.requestedApproach : undefined, departureDirection: options.departureDirection};
-    if (!options.airborne) a = radarTakeoffAircraft(a, airport, options.runway ?? defaultRunway(airport));
+    if (!options.airborne) {
+      const localRunway = options.origin && options.origin.icao !== airport.icao ? defaultRunway(airport) : options.runway ?? defaultRunway(airport);
+      a = radarTakeoffAircraft(a, airport, localRunway);
+      if (options.origin && options.origin.icao !== airport.icao) applyDepartureOrigin(a, airport, options.origin, options.runway ?? options.origin.runways[0].id);
+    }
   }
   if (options.airborne) {
     if (mode === "local") a.automaticRequest = a.landing === "touch-and-go" ? "inbound-option" : "inbound-land";

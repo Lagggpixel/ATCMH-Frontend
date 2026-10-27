@@ -1,3 +1,4 @@
+import {applyDepartureOrigin, type DepartureAirport} from "./departure-airports";
 import {profileForType, performanceFor} from "./aircraft-performance";
 import {getAirport, runwayEnds, trainingMode, type AirportSelection} from "./airports";
 import {callsignConflict} from "./callsigns";
@@ -7,9 +8,9 @@ import {aircraftSchema} from "./protocol";
 import {gatesFor, normalizeScenarioAircraft, seedFromAircraft, standPlacement, type ScenarioDefinition} from "./scenarios";
 import {MAX_AIRCRAFT, type Aircraft, type Leg, type Point} from "./model";
 
-export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom";
+export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom" | "takeoff";
 export interface LocalAircraftOptions {
-  placement: LocalPlacement; callsign: string; type: string; runway: string; gateId?: string;
+  placement: LocalPlacement; callsign: string; type: string; runway: string; origin?: DepartureAirport; gateId?: string;
   distance: number; leg: Leg; hand: Aircraft["hand"]; height: number; speed: number | "auto"; heading: number; position?: Point;
   landing: Aircraft["landing"]; flight: "pattern" | "departure"; frequency: "ground" | "tower" | null;
 }
@@ -26,7 +27,7 @@ export function availableLocalGate(selection: AirportSelection, aircraft: readon
 export function createLocalAircraft(selection: AirportSelection, id: string, options: LocalAircraftOptions, existingCallsigns: readonly string[] = []): Aircraft {
   if (trainingMode(selection) !== "local") throw new Error("Choose a Ground & Tower session.");
   const airport = getAirport(selection), engine = engineFor(selection);
-  if (!runwayEnds(airport).some(end => end.id === options.runway)) throw new Error("Choose a runway at this airport.");
+  if (options.placement !== "takeoff" && !runwayEnds(airport).some(end => end.id === options.runway)) throw new Error("Choose a runway at this airport.");
   const callsign = options.callsign.trim(), type = options.type.trim();
   if (!callsign || !type) throw new Error("Enter an aircraft callsign and type.");
   const conflict = callsignConflict(callsign, existingCallsigns); if (conflict) throw new Error(conflict);
@@ -37,7 +38,12 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
     if (!Number.isFinite(value) || value < min || value > max) throw new Error(`${label} must be between ${min} and ${max}.`);
     return value;
   };
-  if (options.placement === "ground") {
+  if (options.placement === "takeoff") {
+    if (!options.origin) throw new Error("Choose a departure airport.");
+    if ((performanceFor(a)?.ceiling ?? 60000) < airport.elevation + 1500) throw new Error("The aircraft cannot climb to the overhead altitude.");
+    a.runway = runwayEnds(airport)[0].id; a.frequency = "tower"; a.targetSpeed = 220; a.speedMode = "auto";
+    applyDepartureOrigin(a, airport, options.origin, options.runway);
+  } else if (options.placement === "ground") {
     if (!options.position || !Number.isFinite(options.position.x) || !Number.isFinite(options.position.y) || Math.max(Math.abs(options.position.x), Math.abs(options.position.y)) > 2000) throw new Error("Choose a valid ground position.");
     Object.assign(a, {position: {...options.position}, altitude: airport.elevation, speed: 0, targetSpeed: 0, mode: "parked", groundReady: true, heading: magneticToTrue(bounded(options.heading, 0, 360, "Heading"), airport)});
     a.targetHeading = a.heading;

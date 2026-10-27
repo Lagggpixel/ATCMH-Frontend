@@ -38,11 +38,11 @@ export default function ReplayLibrary({id}: {id?: string}) {
   if (!id) return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo="/sweatbox/replays">{(_csrf, accountId) => <ReplayIndex accountId={accountId}/>}</SessionAccess></LearningFrame>;
   // Mentees may open a replay too; the server only returns ones they took part in.
   return <DashboardThemeProvider><div className={styles.theme}><SessionAccess embedded allowMentee role="mentee" returnTo={`/sweatbox/replays/${id}`}>
-    {(_csrf, accountId, access) => <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId} mentor={access.simulator}/>}
+    {(csrf, accountId, access) => <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId} csrf={csrf} mentor={access.simulator}/>}
   </SessionAccess></div></DashboardThemeProvider>;
 }
 
-function ReplayViewer({id, accountId, mentor}: {id: string; accountId: string; mentor: boolean}) {
+function ReplayViewer({id, accountId, mentor, csrf}: {id: string; accountId: string; mentor: boolean; csrf: string}) {
   const [detail, setDetail] = useState<ReplayDetail | null>(null), [error, setError] = useState(""), [retry, setRetry] = useState(0);
   const back = mentor ? "/sweatbox/replays" : "/sweatbox/mentee/replays";
   useEffect(() => {
@@ -69,10 +69,19 @@ function ReplayViewer({id, accountId, mentor}: {id: string; accountId: string; m
       <Image className={styles.logo} src="/assets/logo-Czz1Kl8u.png" width={24} height={28} alt=""/>
       <div className={styles.title}><h1>{detail?.replay.title ?? "Session replay"}</h1>{detail ? <p>{facts.join(" · ")}</p> : null}</div>
     </header>
+    {detail && mentor ? <FeedbackEditor detail={detail} csrf={csrf} onSaved={setDetail}/> : null}
     {error ? <div className={styles.message}><p role="alert">{error}</p><button className={styles.btn} onClick={() => {setError(""); setRetry(value => value + 1);}}>Try again</button></div>
       : detail ? <Playback key={detail.replay.id} detail={detail} accountId={accountId} mentor={mentor}/> : <p role="status" className={styles.message}>Loading recording…</p>}
     <footer className={styles.footer}><TrainerNotice/></footer>
   </main>;
+}
+
+function FeedbackEditor({detail, csrf, onSaved}: {detail: ReplayDetail; csrf: string; onSaved: (detail: ReplayDetail) => void}) {
+  const [editing, setEditing] = useState(false), [position, setPosition] = useState(""), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  return <section className={`${styles.feedback} ${styles.feedbackEditor}`}><h2>Update feedback</h2>{editing ? <form onSubmit={async event => {event.preventDefault(); setBusy(true); setError(""); try {const response = await fetch(`/api/simulator/replays/${detail.replay.id}`, {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf}, body: JSON.stringify({expected: position ? detail.positionFeedback?.[position] ?? "" : detail.replay.feedback ?? "", feedback: draft, ...(position ? {positionId: position} : {})})}).then(sessionJson); onSaved(position ? {...detail, positionFeedback: {...detail.positionFeedback, [position]: response.feedback}} : {...detail, replay: {...detail.replay, feedback: response.feedback}}); setEditing(false);} catch (reason) {setError((reason as Error).message);} finally {setBusy(false);}}}>
+    <label>Feedback for <select value={position} onChange={event => {const id = event.target.value; setPosition(id); setDraft(id ? detail.positionFeedback?.[id] ?? "" : detail.replay.feedback ?? "");}}><option value="">All mentees</option>{(detail.feedbackPositions ?? detail.initial?.positions)?.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+    <label>Feedback<textarea aria-label="Feedback" rows={6} maxLength={6000} value={draft} onChange={event => setDraft(event.target.value)}/></label>{error ? <p role="alert">{error}</p> : null}<div className={styles.feedbackActions}><button className={`${styles.btn} ${styles.primary}`} disabled={busy}>Save feedback</button><button type="button" className={styles.btn} disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div>
+  </form> : <button type="button" className={styles.btn} onClick={() => {setPosition(""); setDraft(detail.replay.feedback ?? ""); setEditing(true);}}>Edit feedback</button>}</section>;
 }
 
 const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration};
@@ -158,7 +167,8 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
     <aside className={styles.side} aria-label="Replay details">
       <section aria-labelledby="feedback-heading" className={styles.feedback}>
         <h2 id="feedback-heading"><ChatCircleText size={18} aria-hidden="true"/>Mentor feedback</h2>
-        <p className={replay.feedback ? undefined : styles.muted}>{replay.feedback ?? "No feedback was saved with this session."}</p>
+        <p className={replay.feedback ? undefined : styles.muted}>{replay.feedback ?? "No general feedback was saved with this session."}</p>
+        {Object.entries(detail.positionFeedback ?? {}).filter(([, text]) => text).map(([id, text]) => <p key={id}><strong>{detail.feedbackPositions?.find(p => p.id === id)?.name ?? id}</strong>: {text}</p>)}
       </section>
       <div className={styles.tabs} role="tablist" aria-label="Replay panel">{([["moments", "Key moments", moments ? list.length - 2 : null], ["radio", "Radio", exercise?.messages.length ?? 0], ["atis", "ATIS", null]] as const).map(([key, label, count]) =>
         <button key={key} role="tab" id={`replay-${key}-tab`} aria-controls="replay-panel" aria-selected={tab === key} onClick={() => setTab(key)}>{label}{count !== null ? <span> {count}</span> : null}</button>)}</div>

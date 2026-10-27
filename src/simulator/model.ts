@@ -12,6 +12,7 @@ export interface RadarEnvironment {controllerPositions?: import("./positions").P
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeFromRoute?: boolean; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
   approachIntercept?: {seconds: number; entered: boolean};
   gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
+  climbUntilAssigned?: boolean; // Continue departure climb until an altitude is assigned.
   inboundSpeed?: number; // Initial/profile speed, separate from a persistent ATC instruction.
   finalSpeedProfile?: boolean; // A distance-limited speed has released on aligned final.
   routeSpeed?: number;
@@ -57,6 +58,7 @@ export interface Airport {
   features: {id: string; kind: string; name: string; points: Point[]}[];
 }
 export interface Aircraft {
+  originDeparture?: {icao: string; runway: string; elevation: number; threshold: Point; departure: Point; phase: "roll" | "climb" | "overhead" | "directed" | "complete"};
   positionId?: string;
   performanceProfile?: "C172" | "C208" | "TBM9" | "DH8D" | "A320" | "B738" | "B77W"; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
   fuel?: {state: "unknown" | "normal" | "minimum" | "emergency"; enduranceMinutes: number; declared?: "minimum" | "emergency"};

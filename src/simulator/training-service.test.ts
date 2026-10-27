@@ -37,6 +37,9 @@ class Database {
       else t.preferences.push({account_id: v[0], auto_readback: v[1], updated_at: v[2]});
       return [{affectedRows: 1}, []];
     }
+    if (sql.startsWith("SELECT POSITION_ID,FEEDBACK FROM SIMULATOR_REPLAY_POSITION_FEEDBACK")) return select([]);
+    if (sql.startsWith("SELECT PARTICIPANTS,TITLE FROM SIMULATOR_REPLAYS")) return select(t.replays.filter(r => r.id === v[0]));
+    if (sql.startsWith("SELECT FEEDBACK FROM SIMULATOR_REPLAYS")) return select(t.replays.filter(r => r.id === v[0] && r.session_id === v[1] && r.ended_at !== null));
     if (sql.startsWith("SELECT * FROM SIMULATOR_REPLAYS")) return select(t.replays.filter(r => sql.includes("SESSION_ID=?") ? r.session_id === v[0] : r.id === v[0] && r.ended_at !== null).sort((a,b) => Number(b.status === "recording") - Number(a.status === "recording") || Number(b.started_at) - Number(a.started_at)).slice(0,1));
     if (sql.startsWith("INSERT INTO SIMULATOR_REPLAYS")) {t.replays.push({id:v[0],session_id:v[1],attempt_id:v[2],owner_id:v[3],owner_name:v[4],title:v[5],started_at:v[6],content_revision:v[7],initial_state:v[8],last_state:v[9],participants:v[10],partial:v[11],sequence_no:0,duration:0,status:"recording",ended_at:null});return [{affectedRows:1},[]];}
     if (sql.startsWith("INSERT INTO SIMULATOR_REPLAY_FRAMES")) {if (this.failReplayInsert) throw new Error("Simulated recording failure"); t.frames.push({replay_id:v[0],sequence_no:v[1],at_seconds:v[2],delta:v[3],interpolate:v[4]});return [{affectedRows:1},[]];}
@@ -150,9 +153,10 @@ test("scenario SQL lifecycle is atomic, pinned, shared between staff and preserv
     const secondAttempt = String(db.tables.attempts[2].id);
     await service.finish(other, sessionId, "Good frequency transfer", secondAttempt);
     assert.equal(db.tables.attempts[2].status, "finished"); assert.equal(db.tables.attempts[2].feedback, "Good frequency transfer");
-    await service.finish(other, sessionId, "duplicate cannot overwrite", secondAttempt);
+    await assert.rejects(service.finish(other, sessionId, "duplicate cannot overwrite", secondAttempt), /unavailable/);
     assert.equal(db.tables.attempts[2].feedback, "Good frequency transfer");
-    await sessions.end(other, sessionId); assert.equal(db.tables.sessions.length, 0);
+    assert.equal(db.tables.sessions.length, 0);
+    assert.deepEqual(await service.finish(other, sessionId, "Good frequency transfer", secondAttempt), {finished: true});
     // A failed attempt insert rolls back the session created in the same transaction.
     db.failAttemptInsert = true;
     await assert.rejects(service.launchScenario(staff, scenario.id, 2), /Simulated/);
@@ -243,5 +247,18 @@ test("retries of a scenario launch reuse the recorded attempt and reject request
     await service.publish(actor, saved.id, published.version);
     await assert.rejects(service.launchScenario(actor, saved.id, 2, requestId), {code: "request-conflict"});
     assert.equal(db.tables.sessions.length, 1);
+  } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
+});
+
+test("finish and archive rolls back when recording fails", async () => {
+  const db = new Database(); setPoolForTests(db as unknown as Pool); setWritePoolForTests(db as unknown as Pool);
+  const staff = {accountId: "10001", staff: true};
+  try {
+    const training = new TrainingService(); let scenario = await training.save(staff, blankScenario()); scenario = await training.publish(staff, scenario.id, scenario.version);
+    const session = await training.launchScenario(staff, scenario.id, 1), before = structuredClone(db.tables), attempt = String(db.tables.attempts[0].id);
+    db.failReplayInsert = true; await assert.rejects(training.finish(staff, session.sessionId, "Feedback", attempt), /recording failure/);
+    assert.deepEqual(db.tables, before);
+    db.failReplayInsert = false; await training.finish(staff, session.sessionId, "Feedback", attempt);
+    assert.equal(db.tables.sessions.length, 0); assert.equal(db.tables.attempts[0].feedback, "Feedback");
   } finally {setPoolForTests(undefined); setWritePoolForTests(undefined);}
 });

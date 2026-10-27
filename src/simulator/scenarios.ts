@@ -181,6 +181,7 @@ export const isGroundSpawn = (seed: z.infer<typeof seedSchema>, airport: Airport
 /** Legacy surface positions become gate spawns without invalidating saved schema-1 scenarios. */
 
 export function normalizeScenarioAircraft(spec: ScenarioDefinition["aircraft"][number], AIRPORT: Airport = defaultAirport): ScenarioDefinition["aircraft"][number] {
+  if (spec.seed.originDeparture && !spec.seed.radar) return {...spec, gateId: undefined};
   if (spec.seed.radar) return {...spec, gateId: undefined, seed: {...spec.seed, radar: {...spec.seed.radar, transferred: spec.seed.frequency !== (spec.seed.radar.returningToApproach ? "approach" : spec.seed.radar.station)}}};
   if (!isGroundSpawn(spec.seed, AIRPORT)) return {...spec, gateId: undefined};
   const scenarioGates = gatesFor(AIRPORT);

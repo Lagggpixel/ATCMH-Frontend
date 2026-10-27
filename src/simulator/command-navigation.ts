@@ -24,6 +24,7 @@ export function updateRouteConstraints(a: Aircraft) {
   const point = a.flightPlan[a.radar.routeIndex];
   if (!point) {delete a.starDescent; return;}
   if (point.altitude !== undefined) {
+    delete a.radar.climbUntilAssigned;
     a.radar.targetAltitude = point.altitude >= 18000 ? {unit: "flight-level", value: point.altitude / 100} : {unit: "feet", value: point.altitude};
     a.radar.altitudeFromRoute = true;
     a.radar.altitudeAssignedFrom ??= a.altitude;

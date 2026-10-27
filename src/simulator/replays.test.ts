@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {initialExercise, newAircraft} from "./engine";
-import {applyReplayDelta, replayDelta, replayState, ReplayTimeline, canPlayReplay, recordingLabel, type ReplayFrame, type ReplaySummary} from "./replays";
+import {participantReplay, applyReplayDelta, replayDelta, replayState, ReplayTimeline, canPlayReplay, recordingLabel, type ReplayFrame, type ReplaySummary} from "./replays";
 import {createReplayApi} from "./server/replay-api";
 import {SessionError} from "./sessions";
-import {setPoolForTests} from "../lib/db";
+import {setPoolForTests, setWritePoolForTests} from "../lib/db";
 import type {Pool} from "mysql2/promise";
 import {listReplays, readReplay} from "./server/replay-store";
+import {updateReplayFeedback} from "./server/replay-feedback";
 
 test("empty recordings remain reviewable without being advertised as playable", () => {
   const replay = {kind: "recording", duration: 0, partial: false} as ReplaySummary;
@@ -95,11 +96,12 @@ test("replay endpoints require simulator staff authorization before reading, val
 
 test("replay reader paginates recorded frames and exposes surviving legacy snapshots or summary-only attempts", async () => {
   const id = randomUUID(), exercise = initialExercise(id);
-  const header = {id, session_id: id, owner_id: "staff", owner_name: "Mentor", title: "Recorded", started_at: 1, ended_at: 2, status: "ended", duration: 501, sequence_no: 501, initial_state: JSON.stringify(exercise), participants: "[]", partial: 0};
+  const header = {id, session_id: id, owner_id: "staff", owner_name: "Mentor", title: "Recorded", started_at: 1, ended_at: 2, status: "ended", duration: 501, sequence_no: 501, initial_state: JSON.stringify(exercise), last_state: JSON.stringify(exercise), participants: "[]", partial: 0};
   const oldId = randomUUID(), missingId = randomUUID();
   const old = {id: oldId, session_id: oldId, title: "Old", owner_id: "staff", learner_id: "learner", started_at: 1, finished_at: 3, elapsed: 45, status: "finished", feedback: "Review", result: JSON.stringify({exercise})};
   const absent = {...old, id: missingId, finished_at: 4, result: null};
   const pool = {async execute(sql: string, values: unknown[] = []) {
+    if (sql.includes("FROM simulator_replay_position_feedback")) return [[], []];
     if (sql.includes("FROM simulator_replay_frames")) return [Array.from({length: 501}, (_, i) => ({sequence_no: i + 1, at_seconds: i + 1, delta: JSON.stringify({state: {elapsed: i + 1}, aircraft: []}), interpolate: 1})).filter(f => f.sequence_no > Number(values[1])).slice(0, 500), []];
     if (sql.includes("FROM simulator_replays WHERE id=?")) return [values[0] === id ? [header] : [], []];
     if (sql.includes("FROM simulator_attempts a")) return [sql.includes("a.id=?") ? [old, absent].filter(a => a.id === values[0]) : [old, absent], []];
@@ -143,4 +145,25 @@ test("replay filters bind historical staff identity and search before both sourc
     assert.deepEqual(legacy.values, ["mentor-id", "KDAL", "50%_'"]);
     assert.ok(queries.every(query => !query.sql.includes("mentor-id") && !query.sql.includes("50%_'")));
   } finally {setPoolForTests(undefined);}
+});
+
+test("feedback amendments require staff, reject stale edits and notify mentees once", async () => {
+  const id = randomUUID(), attempt = randomUUID(), exercise = initialExercise(id);
+  const row = {id, session_id: randomUUID(), attempt_id: attempt, owner_id: "trainer", ended_at: 2, title: "Training", feedback: "Original", last_state: JSON.stringify(exercise), participants: JSON.stringify([{role: "mentee", accountId: "one"}, {role: "mentee", accountId: "one"}, {role: "mentee", accountId: "two"}])};
+  const notices: string[] = [], statements: string[] = [];
+  const connection = {query: async () => {}, commit: async () => {}, rollback: async () => {}, release() {}, execute: async (sql: string, values: unknown[]) => {statements.push(sql); if (sql.startsWith("SELECT * FROM simulator_replays")) return [[{...row}], []]; if (sql.startsWith("UPDATE simulator_replays")) row.feedback = String(values[0]); return [{affectedRows: 1}, []];}};
+  setWritePoolForTests({getConnection: async () => connection} as unknown as Pool);
+  const notify = async (notice: {accountId?: string}) => {notices.push(notice.accountId!); return true;};
+  try {
+    await assert.rejects(updateReplayFeedback(id, {accountId: "other", staff: false}, "Original", "New", notify), /access/);
+    await assert.rejects(updateReplayFeedback(id, {accountId: "trainer", staff: true}, "stale", "New", notify), /changed/);
+    await updateReplayFeedback(id, {accountId: "trainer", staff: true}, "Original", "New", notify);
+    assert.equal(row.feedback, "New"); assert.equal(statements.some(sql => sql.startsWith("UPDATE simulator_attempts")), true);
+    assert.deepEqual(notices, ["one", "two"]);
+    await updateReplayFeedback(id, {accountId: "trainer", staff: true}, "New", "New", notify); assert.equal(notices.length, 2);
+  } finally {setWritePoolForTests(undefined);}
+});
+test("amended position feedback is filtered to the mentee's recorded positions", () => {
+  const detail = {replay: {participants: [{role: "mentee", accountId: "one", positionId: "north"}, {role: "mentee", accountId: "two", positionId: "south"}]}, initial: null, frames: [], next: null, positionFeedback: {north: "First", south: "Private"}} as unknown as import("./replays").ReplayDetail;
+  assert.deepEqual(participantReplay(detail, "one").positionFeedback, {north: "First"});
 });

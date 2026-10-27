@@ -1,5 +1,6 @@
 import aviationData from "./data/aviation.json";
 import kbhmLegacy from "./data/kbhm-before-runway-repair.json";
+import kbhmBeforeApron from "./data/kbhm-before-apron-links.json";
 import sbbrLegacy from "./data/sbbr-before-runway-repair.json";
 import rjttLegacy from "./data/rjtt-before-runway-repair.json";
 import cyycLegacy from "./data/cyyc-before-axis-repair.json";
@@ -81,6 +82,7 @@ const snapshots: Record<AirportId, Airport> = {
 export const defaultAirport = snapshots.EGPH;
 // Keep saved exercises on the geometry against which their positions were captured.
 const legacyDublin: Airport = {...eidwLegacy, runway: eidwLegacy.runways[0]};
+const legacyKbhmApron: Airport = {...kbhmBeforeApron, runway: kbhmBeforeApron.runways[0]};
 const legacyRunways: Partial<Record<AirportId, Airport>> = Object.fromEntries(
   [kbhmLegacy, sbbrLegacy, rjttLegacy, cyycLegacy, klasLegacy, lgavLegacy, nzaaLegacy, roahLegacy, scelLegacy]
     .map(airport => [airport.icao, {...airport, runway: airport.runways[0]}]));
@@ -88,7 +90,8 @@ export type AirportSelection = {traffic?: readonly Pick<Aircraft,"destination">[
 export function getAirport(selection: AirportSelection = {}): Airport {
   const id = selection.airport ?? "EGPH";
   if (!Object.hasOwn(snapshots, id)) throw new Error("This airport is not available.");
-  const legacy = id === "EIDW" ? legacyDublin : legacyRunways[id as AirportId];
+  const legacy = id === "EIDW" ? legacyDublin : id === "KBHM" && selection.airportDataVersion === kbhmBeforeApron.dataVersion
+    ? legacyKbhmApron : legacyRunways[id as AirportId];
   const airport = legacy && selection.airportDataVersion === legacy.dataVersion ? legacy : snapshots[id as AirportId];
   if (selection.airportDataVersion && selection.airportDataVersion !== airport.dataVersion)
     throw new Error("This airport data version is unavailable. Restore its pinned snapshot before opening this exercise.");
@@ -144,6 +147,7 @@ export function runwayReferenceError(value: unknown, airport: Airport): string |
     if (!value || typeof value !== "object") return true;
     if (Array.isArray(value)) return value.every(visit);
     return Object.entries(value).every(([key, item]) => {
+      if (key === "originDeparture") return true; // Validated as a self-contained runway snapshot.
       if(key==="runway" && typeof (value as {airportIcao?:string}).airportIcao === "string" && (value as {airportIcao?:string}).airportIcao!==airport.icao)return true;
       if (["runway", "lastRunway", "departureRunway"].includes(key) && typeof item === "string") return allowed.has(item);
       if (["departures", "arrivals"].includes(key) && Array.isArray(item)) return item.every(id => allowed.has(id));

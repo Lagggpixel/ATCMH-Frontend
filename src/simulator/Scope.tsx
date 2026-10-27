@@ -1,4 +1,5 @@
 "use client";
+import {departureAirports, nearestDepartureAirport} from "./departure-airports";
 import {facilityActive} from "./facility-activity";
 import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
@@ -487,7 +488,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     if (point) routing.start(selectedAircraft, point, end ? {type: "runway", id: end.id} : destinationAt(airport, point), "taxi");
   } : undefined) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
     <div className={styles.mapSurface} onPointerDown={event => {
       if (event.button !== 0 || vectorDrag.current) return;
       if (routing.draft?.route && !routing.busy && !groundDrag.current) {

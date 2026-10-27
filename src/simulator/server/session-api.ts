@@ -4,7 +4,7 @@ import {z} from "zod/v3";
 import {controllerPositionsSchema, envelopeSchema} from "../protocol";
 import {invalidRequestMessage} from "../request-validation";
 import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
-import {notifyAssignment, type AssignmentNotice} from "./assignment-notifications";
+import {notifyAssignment, notifyFeedback, type AssignmentNotice} from "./assignment-notifications";
 import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type Actor, type SessionStore} from "./session-service";
 import {endedReplay} from "./replay-store";
@@ -71,7 +71,9 @@ async function sessionOperation(request: Request, id: string, operation: string)
       const text = await request.text();
       const value = text ? endSchema.parse(JSON.parse(text)) : {};
       await requireLocal(id);
+      const previous = value.feedback ? await store.read(id) : undefined;
       await service.end(actor, id, value.feedback || undefined);
+      if (value.feedback && !previous?.scenario?.feedback) {const replay = await endedReplay(id).catch(() => null); if (replay && replay.feedback === value.feedback) for (const accountId of new Set(replay.participants.filter(p => p.role === "mentee").map(p => p.accountId))) void notifyFeedback({accountId, title: replay.title, airport: replay.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor", replayId: replay.id});}
       return Response.json({ended: true}, {headers: noStore});
     }
     if (operation === "stream") return await stream(request, id);
@@ -84,7 +86,11 @@ async function sessionOperation(request: Request, id: string, operation: string)
       const actor = await authorize(request, true), value = z.object({positionId: z.string().min(1).max(32), mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().max(128).optional()}).strict().nullable(), feedback: z.string().max(6000).optional()}).strict().parse(await body(request));
       await requireLocal(id);
       const assignment = value.mentee ? {...value.mentee, assignedAt: Date.now(), assignedBy: actor.accountId, assignedByName: actor.displayName} : null;
-      return Response.json({session: await service.assignPosition(actor, id, value.positionId, assignment, value.feedback)}, {headers: noStore});
+      const before = await store.read(id), prior = before.positionState?.[value.positionId];
+      const result = await service.assignPosition(actor, id, value.positionId, assignment, value.feedback);
+      if (assignment && prior?.assignment?.discordId !== assignment.discordId) void notify({discordId: assignment.discordId!, title: result.title, airport: result.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor"});
+      if (value.feedback !== undefined && value.feedback !== (prior?.feedback ?? "")) {const discordId = prior?.assignment?.discordId; const accountId = prior?.seat?.accountId; if (discordId || accountId) void notifyFeedback({...(discordId ? {discordId} : {accountId}), title: result.title, airport: result.airport ?? "EGPH", trainer: actor.displayName ?? "Your mentor"});}
+      return Response.json({session: result}, {headers: noStore});
     }
     if (operation === "assign") {
       const actor = await authorize(request, true);

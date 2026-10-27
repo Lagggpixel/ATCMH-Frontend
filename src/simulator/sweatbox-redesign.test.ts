@@ -67,7 +67,7 @@ test("a Mentee's replay scope admits any signed-in account but filters to their 
 test("Mentee replay queries bind the Mentee seat, and reading someone else's replay looks missing", async () => {
   const queries: {sql: string; values: unknown[]}[] = [];
   const id = randomUUID(), exercise = initialExercise(id);
-  const row = {id, session_id: id, owner_id: "staff", owner_name: "Mentor", title: "Recorded", started_at: 1, ended_at: 2, status: "ended", duration: 0, sequence_no: 0, initial_state: JSON.stringify(exercise),
+  const row = {id, session_id: id, owner_id: "staff", owner_name: "Mentor", title: "Recorded", started_at: 1, ended_at: 2, status: "ended", duration: 0, sequence_no: 0, initial_state: JSON.stringify(exercise), last_state: JSON.stringify(exercise),
     participants: JSON.stringify([{role: "staff", accountId: "staff"}, {role: "mentee", accountId: "alex"}]), partial: 0, feedback: "Nice work"};
   setPoolForTests({async execute(sql: string, values: unknown[] = []) {
     queries.push({sql, values});

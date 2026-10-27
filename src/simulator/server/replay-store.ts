@@ -145,9 +145,12 @@ async function readAnyReplay(id: string, after: number): Promise<ReplayDetail> {
   }
   const row = rows[0], initial = exerciseSchema.parse(JSON.parse(row.initial_state));
   rejectMovedRadar(initial);
+  const finalState = exerciseSchema.parse(JSON.parse(row.last_state));
+  const amendments = await queryReadOnly<(RowDataPacket & {position_id: string; feedback: string})[]>("SELECT position_id,feedback FROM simulator_replay_position_feedback WHERE replay_id=?", [id]);
+  const positionFeedback = {...finalState.positionFeedback, ...Object.fromEntries(amendments.map(item => [item.position_id, item.feedback]))};
   row.airport = initial.airport; row.airport_data_version = initial.airportDataVersion; row.training_station = initial.trainingStation;
   const frames = await queryReadOnly<(RowDataPacket & {sequence_no: number; at_seconds: number; delta: string; interpolate: number})[]>("SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no LIMIT 500", [id, after]);
   const result: ReplayFrame[] = frames.map(f => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate}));
   const last = result.at(-1)?.sequence ?? after;
-  return {replay: summary(row), initial: exerciseSchema.parse(JSON.parse(row.initial_state)), frames: result, next: last < Number(row.sequence_no) ? last : null};
+  return {replay: summary(row), initial: exerciseSchema.parse(JSON.parse(row.initial_state)), frames: result, positionFeedback, feedbackPositions: finalState.positions, next: last < Number(row.sequence_no) ? last : null};
 }

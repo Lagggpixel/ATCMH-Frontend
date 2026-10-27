@@ -103,3 +103,11 @@
 
 @media(max-width:1000px){.body{grid-template-columns:minmax(0,1fr)}.stage{border-right:0}.scope{min-height:55vh}.side{border-top:1px solid var(--dashboard-border)}.panel{max-height:420px}}
 @media(max-width:760px){.logo{display:none}.header{padding:10px 16px}.transport{padding:12px 16px 16px}.controls .spacer{display:none}.scope{min-height:50vh}}
+
+.feedbackEditor{background:var(--dashboard-header)}
+.feedbackEditor form{display:grid;gap:14px;max-width:760px}
+.feedbackEditor label{display:grid;gap:6px;font-size:14px;font-weight:600}
+.feedbackEditor :is(select,textarea){width:100%;min-width:0;border:1px solid var(--dashboard-border);border-radius:8px;padding:10px 12px;background:var(--dashboard-inset);color:var(--dashboard-ink);font:inherit;font-size:16px}
+.feedbackEditor select{min-height:44px}.feedbackEditor textarea{resize:vertical;min-height:120px}
+.feedbackEditor :is(select,textarea):focus-visible{outline:3px solid var(--dashboard-link);outline-offset:2px}
+.feedbackActions{display:flex;flex-wrap:wrap;gap:8px}

@@ -3,11 +3,12 @@ import {fetchWeatherReport} from "./weather-provider";
 import {applySessionWeather, requestSessionWeather} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
-import {queryReadOnly, withWriteTransaction} from "../../lib/db";
+import {queryReadOnly, withWriteTransaction, afterWriteCommit} from "../../lib/db";
 import {storedScenarioSchema, scenarioSchema, scenarioSchemaFor, normalizeScenario, createScenarioExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
 import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
 import {availableControl, SessionService, type Actor} from "./session-service";
+import {notifyFeedback} from "./assignment-notifications";
 import {isRadarStation, rejectMovedRadar} from "./radar-moved";
 
 interface ScenarioRow extends RowDataPacket {id: string; owner_id: string; owner_name: string | null; version: number; published_revision: number; updated_at: number; draft: string; published_definition?: string | null}
@@ -114,6 +115,16 @@ export class TrainingService {
         return {finished: true, attemptId: record.scenario.attemptId, elapsed: record.exercise.elapsed, result: JSON.stringify({exercise: record.exercise, events: record.scenario.events})};
       }).then(async value => {
         if (value.attemptId) await connection.execute("UPDATE simulator_attempts SET status='finished',finished_at=?,feedback=?,elapsed=?,result=? WHERE id=? AND status='active'", [Date.now(), feedback, value.elapsed!, value.result!, value.attemptId]);
+        if (feedback && value.attemptId) {
+          const [rows] = await connection.execute<(RowDataPacket & {participants: string; title: string})[]>("SELECT participants,title FROM simulator_replays WHERE id=?", [attemptId]);
+          if (rows[0]) {const replay = rows[0]; const ids = new Set((JSON.parse(replay.participants) as {role: string; accountId: string}[]).filter(p => p.role === "mentee").map(p => p.accountId)); afterWriteCommit(() => {for (const accountId of ids) void notifyFeedback({accountId, title: replay.title, airport: "EGPH", trainer: actor.displayName ?? "Your mentor", replayId: attemptId});});}
+        }
+        await sqlSessionStore.end(sessionId, actor.accountId, Date.now());
+        return {finished: true};
+      }).catch(async error => {
+        if (!(error instanceof SessionError) || error.code !== "not-found") throw error;
+        const [rows] = await connection.execute<(RowDataPacket & {feedback: string | null})[]>("SELECT feedback FROM simulator_replays WHERE id=? AND session_id=? AND ended_at IS NOT NULL", [attemptId, sessionId]);
+        if (!rows[0] || (rows[0].feedback ?? "") !== feedback) throw error;
         return {finished: true};
       });
     });

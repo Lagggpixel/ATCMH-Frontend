@@ -1,4 +1,5 @@
 "use client";
+import {useRouter} from "next/navigation";
 import {useEffect, useRef, useState} from "react";
 import {ListBullets} from "@phosphor-icons/react/dist/csr/ListBullets";
 import {Warning} from "@phosphor-icons/react/dist/csr/Warning";
@@ -58,6 +59,7 @@ export default function LiveScenarioPanel({scenario, elapsed, running, connected
 }
 
 export function FinishAttemptDialog({sessionId, csrf, scenario, elapsed, canControl, onClose}: {sessionId: string; csrf: string; scenario: ScenarioStaffView; elapsed: number; canControl: boolean; onClose: () => void}) {
+  const router = useRouter();
   const [feedback, setFeedback] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {form.current?.querySelector("textarea")?.focus();}, []);
@@ -65,14 +67,14 @@ export function FinishAttemptDialog({sessionId, csrf, scenario, elapsed, canCont
   return <div className={styles.finishBackdrop} onKeyDown={e => {if (e.key === "Escape" && !busy) onClose();}}>
     <form ref={form} role="dialog" aria-modal="true" aria-labelledby="finish-attempt-title" className={styles.finishDialog} onSubmit={async e => {
       e.preventDefault(); if (!canControl) return; setBusy(true); setError("");
-      try {await trainingRequest(csrf, `attempts/${sessionId}`, {action: "finish", feedback, attemptId: scenario.attemptId}); onClose();}
+      try {await trainingRequest(csrf, `attempts/${sessionId}`, {action: "finish", feedback, attemptId: scenario.attemptId}); router.push("/sweatbox/replays");}
       catch (reason) {setError((reason as Error).message); setBusy(false);}
     }}>
       <header><h2 id="finish-attempt-title">Finish attempt</h2><button type="button" className={styles.liveIcon} onClick={onClose} aria-label="Close"><X aria-hidden="true"/></button></header>
       <div className={styles.finishStats}><span><strong>{completed}</strong>done</span><span><strong>{skipped}</strong>skipped</span><span><strong>{timeLabel(elapsed)}</strong>run time</span></div>
-      <label>Feedback for mentee<textarea rows={7} maxLength={6000} value={feedback} onChange={e => setFeedback(e.target.value)}/></label>
+      <p>Finishing closes this session and saves its replay.</p><label>Feedback for mentee<textarea rows={7} maxLength={6000} value={feedback} onChange={e => setFeedback(e.target.value)}/></label>
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
-      <footer><button type="button" onClick={onClose}>Cancel</button><button className={styles.livePrimary} disabled={busy || !canControl}>Finish and save</button></footer>
+      <footer><button type="button" onClick={onClose}>Cancel</button><button className={styles.livePrimary} disabled={busy || !canControl}>Finish and archive</button></footer>
     </form>
   </div>;
 }

@@ -97,6 +97,19 @@ export class TerrainImpacts implements TerrainImpactProvider {
     const lateral = Math.abs((point.x - start.x) * dy - (point.y - start.y) * dx) / length;
     return along >= -.1 && along <= length && lateral <= Math.max(.012, (pair?.widthFeet ?? 100) / 12152) && altitude >= airport.elevation - 5;
   }
+  private departureSurface(a: Aircraft, airport: Airport, point: Point, altitude: number) {
+    if (a.radar?.departure?.phase !== "climb") return false;
+    const pair = airportRunways(airport).find(p => p.ends.some(end => end.id === a.radar?.departure?.runway));
+    const start = a.originDeparture?.threshold ?? pair?.ends.find(end => end.id === a.radar?.departure?.runway)?.point;
+    const end = a.originDeparture?.departure ?? pair?.ends.find(end => end.id !== a.radar?.departure?.runway)?.point;
+    const elevation = a.originDeparture?.elevation ?? airport.elevation;
+    if (!start || !end) return false;
+    const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
+    if (length < .01) return false;
+    const along = ((point.x - start.x) * dx + (point.y - start.y) * dy) / length;
+    const lateral = Math.abs((point.x - start.x) * dy - (point.y - start.y) * dx) / length;
+    return along >= 0 && along <= length && lateral <= Math.max(.012, (a.originDeparture ? 100 : pair?.widthFeet ?? 100) / 12152) && altitude >= elevation - 5;
+  }
   private async sample(job: Job) {
     const {from, to, key, generation, airport, aircraft, landingRunway} = job;
     const length = Math.hypot(to.point.x - from.point.x, to.point.y - from.point.y);
@@ -112,7 +125,7 @@ export class TerrainImpacts implements TerrainImpactProvider {
         if (!Number.isFinite(elevation)) throw new Error("Terrain unavailable");
         if (this.heights.size >= 5000) this.heights.delete(this.heights.keys().next().value!);
         this.heights.set(cacheKey, elevation);
-        if (altitude <= elevation && !this.landingSurface(aircraft, airport, point, altitude, landingRunway)) {
+        if (altitude <= elevation && !this.landingSurface(aircraft, airport, point, altitude, landingRunway) && !this.departureSurface(aircraft, airport, point, altitude)) {
           hit = {generation, position: point, elapsed: from.elapsed + (to.elapsed - from.elapsed) * t}; break;
         }
       }

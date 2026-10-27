@@ -58,7 +58,7 @@ function establishedFinal(a: Aircraft, environment?: RadarEnvironment, airport?:
 export function radarSeparationAlerts(aircraft: Aircraft[], environment?: RadarEnvironment, frequency: Frequency | "all" = "all", airport?: Airport) {
   const alerts = new Map<string, SeparationAlert[]>();
   const range = frequency === "ground" ? 10000 / 1852 : frequency === "tower" || frequency === "atis" ? 50000 / 1852 : frequency === "center" ? environment?.range ?? 200 : 125000 / 1852;
-  const airborne = aircraft.filter(a => a.active && !!a.radar && a.altitude > (airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
+  const airborne = aircraft.filter(a => a.active && !!a.radar && a.altitude > (a.originDeparture?.elevation ?? airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
     && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode)
     && (frequency === "all" || a.frequency === frequency) && Math.hypot(a.position.x, a.position.y) <= range);
   for (let i = 0; i < airborne.length; i++) for (let j = i + 1; j < airborne.length; j++) {

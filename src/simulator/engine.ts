@@ -1,3 +1,4 @@
+import {departureGeometry} from "./departure-airports";
 import {facilityActive} from "./facility-activity";
 import {visualClearanceUnable} from "./radar";
 import {aircraftPosition} from "./positions";
@@ -310,7 +311,7 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
   if (command.type === "frequency" && command.whenReady && (command.frequency !== "tower" || !ground)) return "Contact Tower when ready requires ground traffic and Tower as the destination.";
   if (command.type === "taxi" && command.contactTowerWhenReady && (!command.runway || command.destination === "parking")) return "Contact Tower when ready requires taxi to a runway.";
   if (["give-way", "pushback", "taxi", "stop", "hold-short", "cross", "takeoff", "lineup", "exit-runway"].includes(command.type) && !ground && !(command.type === "takeoff" && a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1)) return "This instruction requires ground traffic.";
-  if (["land", "cancel-landing", "go-around", "pattern", "extend", "heading", "transition", "departure"].includes(command.type) && (ground || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1)) return "This instruction requires airborne traffic.";
+  if (["land", "cancel-landing", "go-around", "pattern", "extend", "heading", "transition", "departure"].includes(command.type) && (ground || a.mode === "takeoff" && a.altitude <= (a.originDeparture?.elevation ?? AIRPORT.elevation) + 1)) return "This instruction requires airborne traffic.";
   if ((command.type === "taxi" || command.type === "pushback") && command.route) {
     if (groundRouteJoin(a, command.route) === undefined) return "Aircraft has moved away from this route. Recalculate it.";
     if (command.type === "pushback" && (a.speed > .2 || a.enginesRunning === true)) return "Routed pushback requires stopped traffic with engines off.";
@@ -500,6 +501,10 @@ function queueRunwayExit(a: Aircraft, side: "left" | "right" | "any", instructio
 
 function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   c = roundedHeadingInstruction(c);
+  if (!a.radar && a.originDeparture && ["heading", "transition", "departure", "pattern", "go-around", "route"].includes(c.type)) {
+    if (c.type === "heading" && a.altitude < AIRPORT.elevation + DEFAULTS.patternHeight) a.originDeparture.phase = "directed";
+    else delete a.originDeparture;
+  }
   // A sequenced entry from upwind must establish space before turning into the
   // predecessor's circuit. Keep the requested leg until the physical merge is safe.
   const entry = c.type === "pattern" && (c.leg === "crosswind" || c.leg === "downwind")
@@ -790,7 +795,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       const spawned = structuredClone(action.aircraft);
       next.aircraft.push(spawned);
       if (next.fullStopAll) {next.fullStopAll[spawned.id] = spawned.landing; fullStop(spawned);}
-      if (!options.suppressSpawnRequest && spawned.active && spawned.frequency && spawned.frequency !== "atis") {
+      if (!options.suppressSpawnRequest && !spawned.originDeparture && spawned.active && spawned.frequency && spawned.frequency !== "atis") {
         const ground = spawned.altitude <= AIRPORT.elevation + 1;
         const requestId = spawned.frequency === "unicom" ? ground ? "unicom-taxi" : "unicom-inbound"
           : ground ? groundReady(spawned, AIRPORT) ? "taxi-runway" : "pushback"
@@ -1177,9 +1182,9 @@ function stepTraffic(aircraft: Aircraft[], dt: number, autoGoAround = false) {
   const guidance = aircraft.map(a => sequenceGuidance(a, aircraft));
   resolveGroundPriorities(aircraft, AIRPORT.elevation);
   const ground = aircraft.map(a => {return groundGuidance(a, aircraft, AIRPORT.elevation);});
-  aircraft.forEach((a, index) => {const previous={...a.position,altitude:a.altitude}; move(a, dt, guidance[index], ground[index], autoGoAround, aircraft); if (a.altitude > AIRPORT.elevation + 1) advancePerformance(a, previous, dt, EXERCISE_WEATHER); else {a.groundSpeed = a.speed; a.track = a.heading; a.verticalSpeed = 0;} if(a.altitude>AIRPORT.elevation+1){a.flightSeconds=(a.flightSeconds??0)+dt; if(a.fuel) a.fuel={...a.fuel,enduranceMinutes:Math.max(0,a.fuel.enduranceMinutes-dt/60)};}});
+  aircraft.forEach((a, index) => {const previous={...a.position,altitude:a.altitude}; move(a, dt, guidance[index], ground[index], autoGoAround, aircraft); if (a.altitude > (a.originDeparture?.elevation ?? AIRPORT.elevation) + 1) advancePerformance(a, previous, dt, EXERCISE_WEATHER); else {a.groundSpeed = a.speed; a.track = a.heading; a.verticalSpeed = 0;} if(a.altitude>(a.originDeparture?.elevation ?? AIRPORT.elevation)+1){a.flightSeconds=(a.flightSeconds??0)+dt; if(a.fuel) a.fuel={...a.fuel,enduranceMinutes:Math.max(0,a.fuel.enduranceMinutes-dt/60)};}});
 }
-const motionCopy = (a: Aircraft): Aircraft => ({...a, ...(a.airportSighting ? {airportSighting: {...a.airportSighting}} : {}), position: {...a.position}, ...(a.routeNavigation ? {routeNavigation: {...a.routeNavigation}} : {}), ...(a.atcManeuver ? {atcManeuver: {...a.atcManeuver, ...(a.atcManeuver.center ? {center: {...a.atcManeuver.center}} : {})}} : {}), ...(a.radar ? {radar: {...a.radar, ...(a.radar.gpsApproach ? {gpsApproach: {...a.radar.gpsApproach}} : {}), ...(a.radar.approachIntercept ? {approachIntercept: {...a.radar.approachIntercept}} : {}), ...(a.radar.departure ? {departure: {...a.radar.departure}} : {}), ...(a.radar.arrival ? {arrival: {...a.radar.arrival}} : {}), ...(a.radar.patternJoin ? {patternJoin: {...a.radar.patternJoin}} : {})}} : {}), ...(a.pushback ? {pushback: {...a.pushback}} : {})});
+const motionCopy = (a: Aircraft): Aircraft => ({...a, ...(a.originDeparture ? {originDeparture: {...a.originDeparture, threshold: {...a.originDeparture.threshold}, departure: {...a.originDeparture.departure}}} : {}), ...(a.airportSighting ? {airportSighting: {...a.airportSighting}} : {}), position: {...a.position}, ...(a.routeNavigation ? {routeNavigation: {...a.routeNavigation}} : {}), ...(a.atcManeuver ? {atcManeuver: {...a.atcManeuver, ...(a.atcManeuver.center ? {center: {...a.atcManeuver.center}} : {})}} : {}), ...(a.radar ? {radar: {...a.radar, ...(a.radar.gpsApproach ? {gpsApproach: {...a.radar.gpsApproach}} : {}), ...(a.radar.approachIntercept ? {approachIntercept: {...a.radar.approachIntercept}} : {}), ...(a.radar.departure ? {departure: {...a.radar.departure}} : {}), ...(a.radar.arrival ? {arrival: {...a.radar.arrival}} : {}), ...(a.radar.patternJoin ? {patternJoin: {...a.radar.patternJoin}} : {})}} : {}), ...(a.pushback ? {pushback: {...a.pushback}} : {})});
 
 function advance(state: Exercise, seconds: number): Exercise {
   if (!state.running || !Number.isFinite(seconds) || seconds <= 0) return state;
@@ -1264,6 +1269,33 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     if (a.radar.arrival.phase === "stopped") return;
   }
   if (a.radar && !a.radar.arrival && (!a.radar.patternJoin || a.radar.patternJoin.status === "unable")) {moveRadar(a, dt, AIRPORT, radarEnvironment, traffic, autoGoAround, EXERCISE_WEATHER); return;}
+  if (a.originDeparture) {
+    const origin = a.originDeparture, geometry = departureGeometry(origin);
+    const targetAltitude = AIRPORT.elevation + 1500;
+    if (a.speedMode !== "manual") a.targetSpeed = Math.max(performanceFor(a)?.climbSpeed ?? DEFAULTS.airSpeed, rotationSpeed(a) + 10);
+    a.speed = approach(a.speed, a.targetSpeed, acceleration(a) * dt);
+    if (origin.phase === "roll" && a.speed >= rotationSpeed(a)) origin.phase = "climb";
+    if (origin.phase === "directed") {
+      a.mode = "heading";
+      a.altitude = approach(a.altitude, targetAltitude, climbRate(a) / 60 * dt);
+      turnAircraft(a, dt);
+      if (a.altitude >= targetAltitude) delete a.originDeparture;
+    } else if (origin.phase !== "overhead") {
+      a.heading = a.targetHeading = geometry.heading;
+      if (origin.phase === "climb") {
+        a.altitude = approach(a.altitude, targetAltitude, climbRate(a) / 60 * dt);
+        if (a.altitude > origin.elevation + 1) a.mode = "heading";
+        if (a.altitude >= targetAltitude) {origin.phase = "overhead"; a.mode = "heading";}
+      }
+    } else {
+      a.mode = "heading";
+      if (distance(a.position, {x: 0, y: 0}) <= .3) delete a.originDeparture;
+      else {a.targetHeading = bearing(a.position, {x: 0, y: 0}); turnAircraft(a, dt);}
+    }
+    const stride = a.speed / 3600 * dt;
+    a.position = {x: a.position.x + Math.sin(a.heading * radians) * stride, y: a.position.y + Math.cos(a.heading * radians) * stride};
+    return;
+  }
   const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY);
   let target: Point | null = null;
   if (a.mode === "parked") return;
