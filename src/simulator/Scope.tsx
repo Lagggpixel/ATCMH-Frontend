@@ -331,10 +331,9 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     for (const airspace of airspaceOutlines(airspaces, options.airspaces, selectedAirspaces, radarEnvironment?.facilityActivity, radarEnvironment?.facilityDefaultActive)) {
       const halfWidth = size.width / camera.scale / 2, halfHeight = size.height / camera.scale / 2;
       if (airspace.right < camera.center.x - halfWidth || airspace.left > camera.center.x + halfWidth || airspace.top < camera.center.y - halfHeight || airspace.bottom > camera.center.y + halfHeight) continue;
-      const points = [...airspace.points, airspace.points[0]];
       // Pinned center/FIR boundaries use IF's silver, with white edging on highlights.
-      path(points, airspace.width === 3 ? "#ffffff" : "#000000", airspace.width + (airspace.width === 3 ? 2 : 1));
-      path(points, "#c0c0c0", airspace.width);
+      for (const segment of airspace.segments) path(segment, airspace.width === 3 ? "#ffffff" : "#000000", airspace.width + (airspace.width === 3 ? 2 : 1));
+      for (const segment of airspace.segments) path(segment, "#c0c0c0", airspace.width);
     }
     ctx.save(); ctx.globalAlpha = procedureOpacity;
     for (const overlay of displayProcedures) for (const route of overlay.routes) {

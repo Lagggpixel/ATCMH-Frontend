@@ -8,8 +8,16 @@ export function projectAirspaces(airport: Airport, configured?: readonly RadioFa
   return [...merged.values()].flatMap(facility => {
     const boundary = facility.boundary;
     if (!Array.isArray(boundary) || boundary.length < 3 || boundary.some(p => !Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return [];
-    const points = boundary.map(([lon, lat]: number[]) => localPoint(airport, lat, lon));
-    return [{id: facility.id, boundary, points, active: configured ? configured.some(item => item.id === facility.id && item.active) : facility.active,
+    // Project each edge on its shortest longitude arc, choosing the world copy
+    // nearest the airport. This also handles the final edge of polar rings.
+    const segments = boundary.map(([lon, lat]: number[], index: number) => {
+      const [nextLon, nextLat] = boundary[(index + 1) % boundary.length];
+      const delta = ((nextLon - lon + 540) % 360) - 180;
+      const shift = 360 * Math.round((airport.origin.lon - (lon + delta / 2)) / 360);
+      return [localPoint(airport, lat, lon + shift), localPoint(airport, nextLat, lon + delta + shift)];
+    });
+    const points = segments.flat();
+    return [{id: facility.id, boundary, segments, active: configured ? configured.some(item => item.id === facility.id && item.active) : facility.active,
       left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)), bottom: Math.min(...points.map(p => p.y)), top: Math.max(...points.map(p => p.y))}];
   });
 }
