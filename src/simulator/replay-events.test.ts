@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor} from "./engine";
+import {getAirport} from "./airports";
+import {approachGeometry} from "./radar";
 import {replayDelta} from "./replays";
 import {groupReplayEvents, replayEvents, replaySnapshots, replayTerrainEvents, type ReplayEvent, type ReplaySnapshot} from "./replay-events";
 
@@ -52,6 +54,21 @@ test("separation respects current minima and includes cleared approaches", () =>
   assert.equal(replayEvents([{at: 0, state}], 1).length, 1);
   b.position.x = 6; a.track = a.heading = 90; b.track = b.heading = 270; a.speed = b.speed = 360; b.altitude = a.altitude;
   assert.equal(replayEvents([{at: 0, state}], 1).length, 0);
+});
+
+test("replay incidents use the same mixed final spacing as the staff radar", () => {
+  const state = fixture(), airport = getAirport(state), env = state.radarEnvironment!, base = env.approaches[0];
+  const g = approachGeometry(airport, base.runway);
+  env.approaches = [{...base, id: "visual-final", type: "visual"}, {...base, id: "gps-final", type: "gps"}];
+  const [a, b] = state.aircraft;
+  for (const [aircraft, distance, id] of [[a, 4, "visual-final"], [b, 6.75, "gps-final"]] as const) {
+    aircraft.position = {x: g.threshold.x - g.vector.x * distance, y: g.threshold.y - g.vector.y * distance};
+    aircraft.track = g.heading; aircraft.altitude = airport.elevation + 3000;
+    Object.assign(aircraft.radar!, {navigation: "approach", cleared: id, captured: true, missedApproach: false});
+  }
+  assert.equal(replayEvents([{at: 0, state}], 1).length, 0);
+  b.position = {x: g.threshold.x - g.vector.x * 6.49, y: g.threshold.y - g.vector.y * 6.49};
+  assert.equal(replayEvents([{at: 0, state}], 1).filter(event => event.kind === "separation").length, 1);
 });
 
 test("nearby events group responsively while keeping each original event/time available", () => {

@@ -172,12 +172,15 @@ test("native magnification uses scale ratios and ignores invalid samples", () =>
   for (const factor of [0, -1, NaN, Infinity]) {m.magnify(point, factor); assert.deepEqual(m.camera, before);}
 });
 
-test("buttons zoom smoothly, decay and preserve the map centre", () => {
-  for (const factor of [1.4, 1 / 1.4]) {
+test("buttons follow IF's altitude velocity and preserve the map centre", () => {
+  for (const factor of [2, 0.5]) {
     const m = fixture(); m.zoom(factor); assert.deepEqual(m.camera, initial());
-    assert.equal(m.step(16), true); assert.ok(Math.abs(m.camera.scale - 100) < Math.abs(100 * factor - 100));
+    const altitude = mapCameraAltitude(m.camera, size);
+    assert.equal(m.step(16), true);
+    close(mapCameraAltitude(m.camera, size), altitude + (altitude / factor - altitude) * 6 * (1 - Math.exp(-5 * .016)) / 5);
     for (let i = 0; i < 300; i++) m.step(16);
-    assert.ok(Math.abs(m.camera.scale - 100 * factor) < .1); samePoint(m.camera.center, initial().center);
+    assert.ok(Math.abs(mapCameraAltitude(m.camera, size) - altitude * (1 + (1 / factor - 1) * 6 / 5)) < .01);
+    samePoint(m.camera.center, initial().center);
   }
 });
 

@@ -22,6 +22,10 @@ test("Approach and Center quick menus expose aircraft utilities once and disable
         assert.equal(buttons[0][1].includes("disabled"), !connected, `${frequency}: ${label} connection state`);
       }
       assert.equal([...html.matchAll(/>Other Message<\/button>/g)].length, 1);
+      assert.ok(html.indexOf(">Assign Altitude</button>") < html.indexOf(">Hold</button>"));
+      aircraft.atcManeuver = {kind: "hold", hand: "right", remaining: 360, heading: 0, previousMode: "heading", previousLeg: "downwind", altitude: 5000};
+      const holdingHtml = renderToStaticMarkup(React.createElement(RadarQuickPopup, {aircraft, exercise, frequency, connected, dispatch: () => {}, onMessages: () => {}, onAction: () => {}, onSent: () => {}}));
+      assert.ok(holdingHtml.indexOf(">Assign Altitude</button>") < holdingHtml.indexOf(">Exit Hold</button>"));
       assert.ok(!html.includes("›"));
     }
   } finally {

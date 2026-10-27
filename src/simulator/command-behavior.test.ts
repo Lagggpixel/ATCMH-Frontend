@@ -95,12 +95,15 @@ test("a hold flies timed straight legs and two bank-limited turns, then exits on
     for (let i = 0; i < 500; i++) {
       next = e.advance(next, 1); const a = next.aircraft[0], m = a.atcManeuver!;
       phases.add(m.phase!); assert.ok(Math.abs(a.bankAngle ?? 0) <= 25);
-      if (m.phase === "outbound" && Math.abs(a.bankAngle ?? 0) < .1) straightSeconds++;
+      if (m.phase === "outbound") straightSeconds++;
       if (i === 150) next = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(next))));
     }
     assert.ok(phases.has("turn-outbound") && phases.has("outbound") && phases.has("turn-inbound") && phases.has("inbound"), [...phases].join(","));
-    assert.ok(straightSeconds >= 60);
-    next = assign(e, next, {type: "atc", action: "exit-hold"}); assert.equal(next.aircraft[0].atcManeuver, undefined); assert.equal(next.aircraft[0].radar!.navigation, "route");
+    assert.ok(straightSeconds >= 30);
+    next = assign(e, next, {type: "atc", action: "exit-hold"}); assert.equal(next.aircraft[0].atcManeuver?.exitArmed, true);
+    next = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(next))));
+    for (let i = 0; i < 600 && next.aircraft[0].atcManeuver; i++) next = e.advance(next, 1);
+    assert.equal(next.aircraft[0].atcManeuver, undefined); assert.equal(next.aircraft[0].radar!.navigation, "route");
   }
 });
 

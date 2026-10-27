@@ -4,13 +4,13 @@ import {DEFAULTS, type Aircraft} from "./model";
 const radians = Math.PI / 180;
 const knotsToMetresPerSecond = 1852 / 3600;
 const gravity = 9.80665;
-const clampBank = (bank: number) => Math.max(-DEFAULTS.bankAngle, Math.min(DEFAULTS.bankAngle, bank));
+const clampBank = (bank: number, limit = DEFAULTS.bankAngle) => Math.max(-limit, Math.min(limit, bank));
 const rateFactor = (speed: number) => gravity / (Math.max(1, speed) * knotsToMetresPerSecond) / radians;
 
 /** Coordinated turn, using the same airspeed as the simulator's flight motion.
  * FAA PHAK chapter 5: rate is proportional to tan(bank) / airspeed. */
 export const bankTurnRate = (speed: number, bank: number) => rateFactor(speed) * Math.tan(bank * radians);
-export const bankTurnRadius = (speed: number) => speed / 3600 / (bankTurnRate(speed, DEFAULTS.bankAngle) * radians);
+export const bankTurnRadius = (speed: number, bank = DEFAULTS.bankAngle) => speed / 3600 / (bankTurnRate(speed, bank) * radians);
 /** Start the corner early enough to include rolling into the bank. NM. */
 export const bankTurnLead = (speed: number) => bankTurnRadius(speed) + speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate / 2;
 
@@ -26,14 +26,14 @@ function rolloutHeading(speed: number, bank: number) {
   return Math.sign(bank) * rateFactor(speed) * -Math.log(Math.cos(bank * radians)) / (DEFAULTS.bankRate * radians);
 }
 
-export function turnAircraft(a: Pick<Aircraft, "heading" | "targetHeading" | "speed" | "bankAngle"> & Partial<Pick<Aircraft,"performanceProfile"|"altitude">>, seconds: number) {
+export function turnAircraft(a: Pick<Aircraft, "heading" | "targetHeading" | "speed" | "bankAngle"> & Partial<Pick<Aircraft,"performanceProfile"|"altitude">>, seconds: number, maxBank = DEFAULTS.bankAngle) {
   const speed=a.performanceProfile?trueAirspeed(a.speed,a.altitude??0):a.speed;
   let remaining = Math.max(0, seconds);
   while (remaining > 1e-8) {
-    const dt = Math.min(.05, remaining), bank = clampBank(a.bankAngle ?? 0);
+    const dt = Math.min(.05, remaining), bank = clampBank(a.bankAngle ?? 0, maxBank);
     const angle = ((a.targetHeading - a.heading + 540) % 360) - 180;
     if (Math.abs(angle) < 1e-9 && Math.abs(bank) < 1e-9) {a.bankAngle = 0; return;}
-    let low = clampBank(bank - DEFAULTS.bankRate * dt), high = clampBank(bank + DEFAULTS.bankRate * dt);
+    let low = clampBank(bank - DEFAULTS.bankRate * dt, maxBank), high = clampBank(bank + DEFAULTS.bankRate * dt, maxBank);
     const requiredHeading = (next: number) => headingDuringRoll(speed, bank, next, dt) + rolloutHeading(speed, next);
     // Choose the largest reachable bank that can still roll out on the selected
     // heading. A new clearance inside the stopping arc must finish rolling first.

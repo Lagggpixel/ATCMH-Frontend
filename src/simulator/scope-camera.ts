@@ -114,17 +114,25 @@ export class ScopeCameraMotion {
     this.camera = transformCamera(this.camera, this.size, point, point, factor);
   }
 
-  zoom(factor: number) {this.cancel(); this.zoomVelocity = Math.log(factor) * DECAY;}
+  zoom(factor: number) {
+    this.cancel();
+    if (!Number.isFinite(factor) || factor <= 0) return;
+    const altitude = Math.max(mapCameraAltitude(this.camera, this.size), 1000);
+    this.zoomVelocity = (altitude / factor - altitude) * 6;
+  }
 
   /** Integrate exponential decay analytically so 30/60/120 Hz give the same motion. */
   step(milliseconds: number) {
     const elapsed = Math.max(0, Math.min(64, milliseconds)) / 1000;
     const decay = Math.exp(-DECAY * elapsed), travel = (1 - decay) / DECAY;
     const center = {x: this.size.width / 2, y: this.size.height / 2};
-    this.camera = transformCamera(this.camera, this.size, center, {x: center.x + this.velocity.x * travel, y: center.y + this.velocity.y * travel}, Math.exp(this.zoomVelocity * travel));
+    const altitude = mapCameraAltitude(this.camera, this.size);
+    const nextAltitude = Math.max(MIN_MAP_CAMERA_ALTITUDE, Math.min(MAX_MAP_CAMERA_ALTITUDE, altitude + this.zoomVelocity * travel));
+    this.camera = transformCamera(this.camera, this.size, center, {x: center.x + this.velocity.x * travel, y: center.y + this.velocity.y * travel}, altitude / nextAltitude);
     this.velocity.x *= decay; this.velocity.y *= decay; this.zoomVelocity *= decay;
+    if ((nextAltitude === MIN_MAP_CAMERA_ALTITUDE && this.zoomVelocity < 0) || (nextAltitude === MAX_MAP_CAMERA_ALTITUDE && this.zoomVelocity > 0)) this.zoomVelocity = 0;
     if (Math.hypot(this.velocity.x, this.velocity.y) < 2) this.velocity = {x: 0, y: 0};
-    if (Math.abs(this.zoomVelocity) < .002) this.zoomVelocity = 0;
+    if (Math.abs(this.zoomVelocity) < .01) this.zoomVelocity = 0;
     return !!(this.velocity.x || this.velocity.y || this.zoomVelocity);
   }
 }

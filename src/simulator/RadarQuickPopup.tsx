@@ -44,9 +44,8 @@ export default function RadarQuickPopup({aircraft, exercise, frequency, heading,
       return <button key={altitudeLabel(altitude)} role="menuitem" title={invalid ?? undefined} disabled={!connected || sending || !!invalid || picker === "approach" && !expected} onClick={() => void send(command)}>{altitudeLabel(altitude)}</button>;
     })}</div></> : <>
       {heading !== undefined ? <button role="menuitem" disabled={!connected || sending} onClick={() => void send({type: "vector", heading})}>Send</button> : null}
-      {aircraft.atcManeuver?.kind !== "hold" ? <button role="menuitem" disabled={!connected} onClick={() => onAction("hold")}>Hold</button> : null}
-      {aircraft.atcManeuver?.kind === "hold" ? <button role="menuitem" disabled={!connected} onClick={() => void send({type: "atc", action: "exit-hold"})}>Exit Hold, Continue as Filed</button> : null}
       <button role="menuitem" disabled={!connected} onClick={() => setPicker("altitude")}>Assign Altitude</button>
+      {aircraft.atcManeuver?.kind !== "hold" ? <button role="menuitem" disabled={!connected} onClick={() => onAction("hold")}>Hold</button> : <button role="menuitem" disabled={!connected || sending || !!aircraft.atcManeuver.exitArmed} onClick={() => void send({type: "atc", action: "exit-hold"})}>Exit Hold</button>}
       {target ? <>
         <button role="menuitem" disabled={!connected || sending || !!directError} title={directError ?? undefined} onClick={() => void send(directCommand!)}>Direct To {target.name}</button>
         <button role="menuitem" disabled={!connected || sending || !!directError} title={directError ?? undefined} onClick={() => setPicker("direct-altitude")}>Direct To {target.name} + Assign Altitude</button>

@@ -1,7 +1,9 @@
 import {groundRouteText} from "./ground-route";
 import {trueToMagnetic, magneticToTrue} from "./magnetic-headings";
-import {acceleration} from "./aircraft-performance";
-import type {Aircraft, Airport, Altitude, Frequency, Instruction, Point, RadarEnvironment} from "./model";
+import {acceleration, headingForGroundTrack, trueAirspeed} from "./aircraft-performance";
+import {holdEntryType} from "./holding";
+import {startHoldPath, trackHoldPath} from "./hold-path";
+import type {Aircraft, Airport, Altitude, ExerciseWeather, Frequency, Instruction, Point, RadarEnvironment} from "./model";
 import {DEFAULTS} from "./model";
 import {airportCallsign, getAirport, defaultRunway, frequenciesFor} from "./airports";
 import {altitudeFeet, altitudeLabel, validAltitude} from "./radar";
@@ -21,7 +23,7 @@ export interface AtcManeuver {
   heading: number; previousMode: Aircraft["mode"]; previousLeg: Aircraft["leg"];
   altitude: number; center?: Point; inbound?: number;
   published?: boolean; fixName?: string; maxSpeed?: number; legSeconds?: number;
-  entryTrack?: number;
+  geometric?: boolean; pathStage?: "entry" | "circuit"; pathArrival?: number; pathSpeed?: number; pathSeconds?: number; pathIndex?: number; entryTrack?: number; exitArmed?: boolean; holdIndex?: number; followHoldRoute?: boolean; entryType?: "direct" | "parallel" | "teardrop"; turnSign?: number; legDistance?: number; legProgress?: number;
   phase?: "entry" | "turn-outbound" | "outbound" | "turn-inbound" | "inbound"; timer?: number; turnRemaining?: number;
 }
 export const altitudeWords = (a: Altitude) => a.unit === "feet" ? `${a.value} feet` : `flight level ${a.value}`;
@@ -153,10 +155,14 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
     const point = c.point ?? (c.index === undefined ? {...a.position} : a.flightPlan[c.index]);
     if (c.action === "hold") {a.targetSpeed = Math.min(a.speed, altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265); if (!a.radar) a.speedMode = "manual";}
     a.atcManeuver = {kind: c.action, hand: c.hand ?? "right", remaining: 360, heading: a.heading, previousMode: a.radar ? "heading" : a.mode, previousLeg: a.leg, altitude: c.altitude ? altitudeFeet(c.altitude) : a.altitude,
-      ...(c.action === "hold" ? {center: {...point}, inbound: c.inbound===undefined ? c.index === undefined ? a.heading : courseTo(a.position, point) : magneticToTrue(c.inbound,airport), ...(c.name?{fixName:c.name}:{}), phase: c.index === undefined ? "turn-outbound" : "entry", timer: 0, turnRemaining: 180} : {})};
+      ...(c.action === "hold" ? {geometric: true, center: {...point}, inbound: c.inbound===undefined ? c.index === undefined ? a.heading : courseTo(a.position, point) : magneticToTrue(c.inbound,airport), ...(c.name?{fixName:c.name}:{}), ...(c.index !== undefined && a.flightPlan[c.index] && Math.hypot(a.flightPlan[c.index].x - point.x, a.flightPlan[c.index].y - point.y) < .000001 ? {holdIndex: c.index, followHoldRoute: a.radar?.navigation === "route" && a.radar.routeIndex <= c.index} : {}), phase: c.index === undefined ? "turn-outbound" : "entry", timer: 0, turnRemaining: 180} : {})};
     if (a.radar) {a.mode = "heading"; if ("departure" in a.radar) delete a.radar.departure; if ("patternJoin" in a.radar) delete a.radar.patternJoin; a.radar.navigation = "heading"; a.radar.cleared = undefined; a.radar.captured = false; a.radar.localizer = false; if ("glideslope" in a.radar) a.radar.glideslope = false;}
   }
-  if (c.action === "exit-hold" || c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
+  if (c.action === "exit-hold") {
+    if (a.atcManeuver?.kind === "hold" && a.atcManeuver.phase !== "entry") a.atcManeuver.exitArmed = true;
+    else resumeRoute(a);
+  }
+  if (c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
   if (["flight-following", "expect-unable"].includes(c.action) && !a.flightPlan.length) assignDestination(a, a.destination ?? {name: airportCallsign(airport), point: {x: 0, y: 0}}, false);
   if (c.action === "diversion" && c.variant !== "deny") {
     const target = c.name && c.point ? {name: c.name, point: c.point} : a.diversionDestination;
@@ -176,7 +182,7 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
   }
 }
 /** Timed racetrack legs and bank-limited 180-degree turns around the assigned fix. */
-export function moveReference(a: Aircraft, dt: number): boolean {
+export function moveReference(a: Aircraft, dt: number, weather?: ExerciseWeather): boolean {
   const m = a.atcManeuver;
   if (!m || !a.active) return false;
   if (m.kind === "hold") a.targetSpeed = Math.min(a.targetSpeed, m.maxSpeed ?? Infinity, m.altitude <= 6000 ? 200 : m.altitude <= 14000 ? 230 : 265);
@@ -184,37 +190,78 @@ export function moveReference(a: Aircraft, dt: number): boolean {
   if (m.kind === "circle") a.targetHeading = (a.heading + sign * Math.min(90, Math.max(0, m.remaining)) + 360) % 360;
   else {
     m.center ??= {...a.position}; m.inbound ??= m.heading; m.phase ??= "entry";
+    if (m.phase === "entry" && m.followHoldRoute && m.holdIndex !== undefined && a.radar && a.radar.routeIndex < m.holdIndex) {
+      const next = a.flightPlan[a.radar.routeIndex];
+      if (next && Math.hypot(a.position.x - next.x, a.position.y - next.y) <= Math.max(.08, a.speed / 3600 * 2)) a.radar.routeIndex++;
+      if (a.radar.routeIndex < m.holdIndex && a.flightPlan[a.radar.routeIndex]) {
+        a.targetHeading = courseTo(a.position, a.flightPlan[a.radar.routeIndex]);
+        turnAircraft(a, dt);
+        a.speed += Math.sign(a.targetSpeed - a.speed) * Math.min(Math.abs(a.targetSpeed - a.speed), acceleration(a) * dt);
+        const stride = a.speed / 3600 * dt;
+        a.position = {x: a.position.x + Math.sin(a.heading * Math.PI / 180) * stride, y: a.position.y + Math.cos(a.heading * Math.PI / 180) * stride};
+        moveAltitude(a, m.altitude, dt);
+        return true;
+      }
+    }
+    if (m.geometric && (m.pathStage || m.phase !== "entry" || Math.hypot(a.position.x - m.center.x, a.position.y - m.center.y) <= Math.max(.08, a.speed / 3600 * 2))) {
+      if (!m.pathStage || m.pathSpeed === undefined || m.pathSeconds === undefined || m.pathStage === "entry" && m.pathArrival === undefined) startHoldPath(a, weather);
+      if (trackHoldPath(a, dt, weather)) {
+        if (a.radar && m.holdIndex !== undefined && a.flightPlan[m.holdIndex] && Math.hypot(a.flightPlan[m.holdIndex].x - m.center.x, a.flightPlan[m.holdIndex].y - m.center.y) < .000001) a.radar.routeIndex = m.holdIndex + 1;
+        resumeRoute(a);
+        return false;
+      }
+      a.speed += Math.sign(a.targetSpeed - a.speed) * Math.min(Math.abs(a.targetSpeed - a.speed), acceleration(a) * dt);
+      const stride = a.speed / 3600 * dt;
+      a.position = {x: a.position.x + Math.sin(a.heading * Math.PI / 180) * stride, y: a.position.y + Math.cos(a.heading * Math.PI / 180) * stride};
+      moveAltitude(a, m.altitude, dt);
+      return true;
+    }
     if (m.phase === "entry" || m.phase === "inbound") {
       const delta = {x: a.position.x - m.center.x, y: a.position.y - m.center.y};
       const passed = delta.x * Math.sin(m.inbound * Math.PI / 180) + delta.y * Math.cos(m.inbound * Math.PI / 180) >= 0;
       if (Math.hypot(delta.x, delta.y) <= Math.max(.08, a.speed / 3600 * 2) || m.phase === "inbound" && passed) {
-        if (m.published && m.phase === "entry") {
-          const entryAngle = sign * courseDifference(m.inbound, a.heading);
-          // The OCK STAR joins from the west: a teardrop keeps its entry on the holding side.
-          if (entryAngle > 110) {m.entryTrack = (m.inbound + 180 - sign * 30 + 360) % 360;}
+        if (m.phase === "inbound" && m.exitArmed) {
+          if (a.radar && m.holdIndex !== undefined && a.flightPlan[m.holdIndex] && Math.hypot(a.flightPlan[m.holdIndex].x - m.center.x, a.flightPlan[m.holdIndex].y - m.center.y) < .000001) a.radar.routeIndex = m.holdIndex + 1;
+          resumeRoute(a);
+          return false;
         }
+        const entering = m.phase === "entry";
+        const track = a.track ?? a.heading;
+        if (entering) {
+          m.entryType = holdEntryType(track, m.inbound, m.hand);
+          if (m.entryType === "teardrop") m.entryTrack = (m.inbound + 180 - sign * 30 + 360) % 360;
+          else if (m.entryType === "parallel") m.entryTrack = (m.inbound + 180) % 360;
+        }
+        m.legDistance = Math.max(1, trueAirspeed(a.speed, a.altitude, weather) / 3600 * (m.legSeconds ?? holdingLegSeconds(m.altitude)));
+        m.legProgress = 0;
         m.phase = "turn-outbound";
-        m.turnRemaining = m.published ? ((m.entryTrack ?? m.inbound + 180) - a.heading) * sign % 360 + 360 : 180;
-        if (m.published) m.turnRemaining %= 360;
+        const target = m.entryTrack ?? (m.inbound + 180) % 360;
+        const shortest = courseDifference(track, target);
+        m.turnSign = entering && m.entryType !== "direct" ? Math.sign(shortest) || sign : sign;
+        m.turnRemaining = ((target - track) * m.turnSign % 360 + 360) % 360;
       }
-      else a.targetHeading = courseTo(a.position, m.center);
+      else a.targetHeading = m.phase === "entry" ? courseTo(a.position, m.center) : headingForGroundTrack(courseTo(a.position, m.center), a, weather);
     }
     if (m.phase === "turn-outbound" || m.phase === "turn-inbound") {
       m.turnRemaining ??= 180;
-      a.targetHeading = (a.heading + sign * Math.min(90, Math.max(0, m.turnRemaining)) + 360) % 360;
+      a.targetHeading = (a.heading + (m.turnSign ?? sign) * Math.min(90, Math.max(0, m.turnRemaining)) + 360) % 360;
     } else if (m.phase === "outbound") {
-      a.targetHeading = m.entryTrack ?? (m.inbound + 180) % 360;
-      m.timer = (m.timer ?? 0) + dt;
-      if (m.timer >= (m.legSeconds ?? holdingLegSeconds(m.altitude))) {
+      a.targetHeading = headingForGroundTrack(m.entryTrack ?? (m.inbound + 180) % 360, a, weather);
+      m.legProgress ??= (m.timer ?? 0) * (a.groundSpeed ?? trueAirspeed(a.speed, a.altitude, weather)) / 3600;
+      m.timer = Math.min(120, (m.timer ?? 0) + dt);
+      m.legDistance ??= Math.max(1, trueAirspeed(a.speed, a.altitude, weather) / 3600 * (m.legSeconds ?? holdingLegSeconds(m.altitude)));
+      m.legProgress = (m.legProgress ?? 0) + (a.groundSpeed ?? trueAirspeed(a.speed, a.altitude, weather)) / 3600 * dt;
+      if (m.legProgress >= m.legDistance) {
         m.phase = "turn-inbound";
-        m.turnRemaining = m.published ? ((m.inbound - a.heading) * sign % 360 + 360) % 360 : 180;
-        delete m.entryTrack;
+        m.turnSign = sign;
+        m.turnRemaining = m.entryType === "parallel" ? 225 : ((m.inbound - (a.track ?? a.heading)) * sign % 360 + 360) % 360;
+        delete m.entryTrack; delete m.entryType;
       }
     }
   }
   const previous = a.heading;
-  turnAircraft(a, dt);
-  const turned = sign * courseDifference(previous, a.heading);
+  turnAircraft(a, dt, m.kind === "hold" && m.phase !== "entry" ? 20 : DEFAULTS.bankAngle);
+  const turned = (m.turnSign ?? sign) * courseDifference(previous, a.heading);
   if (m.kind === "circle") m.remaining -= turned;
   else if (m.phase === "turn-outbound" || m.phase === "turn-inbound") {
     m.turnRemaining = (m.turnRemaining ?? 180) - turned;

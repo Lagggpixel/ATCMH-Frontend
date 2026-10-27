@@ -876,7 +876,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       const calculatedTaxi = c.type === "taxi" && c.runway && !c.route ? planTaxiRoute(AIRPORT, aircraft!.position, c.runway) : undefined;
       const calculatedHold = calculatedTaxi?.path?.find(p => p.hold);
       if (c.type === "taxi" && calculatedTaxi?.path) c = {...c, contactTowerWhenReady: c.contactTowerWhenReady !== false && !calculatedHold};
-      if(c.type==="atc" && c.action==="hold"){const point=c.index===undefined?undefined:aircraft!.flightPlan[c.index];c={...c,...(point?{point:{x:point.x,y:point.y},...(point.waypointType?{waypointType:point.waypointType}:{}),name:point.name??radarEnvironment.fixes.find(f=>distance(f.point,point)<.001)?.id??`Waypoint ${c.index!+1}`} : {}),inbound:trueToMagnetic(point?bearing(aircraft!.position,point):aircraft!.heading,AIRPORT)};}
+      if(c.type==="atc" && c.action==="hold"){const point=c.index===undefined?undefined:aircraft!.flightPlan[c.index];c={...c,...(point?{point:{x:point.x,y:point.y},...(point.waypointType?{waypointType:point.waypointType}:{}),name:point.name??radarEnvironment.fixes.find(f=>distance(f.point,point)<.001)?.id??`Waypoint ${c.index!+1}`} : {}),inbound:trueToMagnetic(point?bearing(c.index! > 0 ? aircraft!.flightPlan[c.index! - 1] : aircraft!.position,point):aircraft!.heading,AIRPORT)};}
       conflictCommand(next, aircraft!.id, c, conflictEngine, false);
       if (c.type === "missed-approach" && !action.resendOf) c = {...c, fromAltitude: aircraft!.altitude};
       if (c.type === "atc" && c.action === "bookmark") {next.bookmarks = [...(next.bookmarks ?? []), {id: envelope.id, elapsed: next.elapsed, aircraftId: aircraft!.id, label: c.text ?? aircraft!.callsign}]; break;}
@@ -1254,7 +1254,7 @@ function advance(state: Exercise, seconds: number): Exercise {
 }
 
 function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: GroundGuidance, autoGoAround: boolean, traffic: Aircraft[]) {
-  if (moveReference(a, dt)) return;
+  if (moveReference(a, dt, EXERCISE_WEATHER)) return;
   if (["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1) a.bankAngle = 0;
   if (!a.active) return;
   // Resume old full-stop snapshots using the same mapped exits as new arrivals.

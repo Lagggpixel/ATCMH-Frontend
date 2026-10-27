@@ -142,6 +142,35 @@ test("current separation uses strict 3nm / 1000ft limits and includes cleared ap
   b.active = false; a.radar!.cleared = undefined; assert.equal(alerts().size, 0);
 });
 
+test("established mixed approaches use 2.5nm final spacing with conservative geometry", () => {
+  const state = fixture(), airport = getAirport(state), env = state.radarEnvironment!;
+  const base = env.approaches[0], g = approachGeometry(airport, base.runway);
+  env.approaches = (["ils", "gps", "visual"] as const).map(type => ({...base, id: type, type}));
+  const a = state.aircraft[0], b = {...structuredClone(a), id: "b"};
+  const place = (aircraft: typeof a, distance: number, offset = 0) => {
+    aircraft.position = {x: g.threshold.x - g.vector.x * distance + g.vector.y * offset, y: g.threshold.y - g.vector.y * distance - g.vector.x * offset};
+    aircraft.track = g.heading; aircraft.altitude = airport.elevation + 3000;
+  };
+  const setApproach = (aircraft: typeof a, type: "ils" | "gps" | "visual") => {
+    Object.assign(aircraft.radar!, {navigation: "approach", cleared: type, localizer: type === "ils", captured: type !== "visual", missedApproach: false});
+  };
+  const alerts = () => radarSeparationAlerts([a, b], env, "all", airport).size;
+  for (const first of ["ils", "gps", "visual"] as const) for (const second of ["ils", "gps", "visual"] as const) {
+    setApproach(a, first); setApproach(b, second); place(a, 4); place(b, 6.501);
+    assert.equal(alerts(), 0, `${first}/${second} above 2.5nm`);
+    place(b, 6.49); b.altitude += 1500; assert.equal(alerts(), 2, `${first}/${second} below 2.5nm even with altitude separation`);
+    b.altitude = a.altitude; place(b, 6.75); assert.equal(alerts(), 0);
+  }
+  setApproach(a, "visual"); setApproach(b, "gps"); place(a, 4); place(b, 6.75);
+  place(a, 4, 0.251); assert.equal(alerts(), 2, "outside centerline corridor");
+  place(a, 4); a.track = (g.heading + 15.1) % 360; assert.equal(alerts(), 2, "not aligned");
+  a.track = g.heading; a.radar!.navigation = "missed"; assert.equal(alerts(), 2);
+  a.radar!.navigation = "approach"; b.radar!.captured = false; assert.equal(alerts(), 2);
+  b.radar!.captured = true; place(a, 7.3); place(b, 10.05); assert.equal(alerts(), 2, "outside 10nm");
+  place(a, 4); place(b, 6.75); env.approaches[1].runway = "other"; assert.equal(alerts(), 2);
+  assert.equal(radarSeparationAlerts([a, b], env).size, 2, "missing airport falls back to normal spacing");
+});
+
 test("terrain alerts use raw AGL below 1000ft and the same approach exemptions", () => {
   const state = fixture(), a = state.aircraft[0]; a.altitude = 5000;
   assert.equal(terrainClearance(a, 4000, state.radarEnvironment), undefined); assert.equal(terrainClearance(a, 4000.1, state.radarEnvironment), 999.9000000000001);
