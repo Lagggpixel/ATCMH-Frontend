@@ -77,16 +77,17 @@ test("corrupt or inaccessible storage leaves spawning usable with defaults", t =
   assert.doesNotThrow(() => saveSpawnPreferences("mentor", exercise, defaults));
 });
 
-for (const airport of airportList) for (const landing of ["touch-and-go", "full-stop"] as const) test(`${airport.icao}: airborne ${landing} spawn calls Tower once when automatic pilots run`, () => {
+for (const airport of airportList) for (const landing of ["touch-and-go", "full-stop"] as const) test(`${airport.icao}: airborne ${landing} spawn calls Tower immediately without repeating`, () => {
   const engine = engineFor({airport: airport.icao, trainingStation: `${airport.icao}:tower`});
   let state: Exercise = {...engine.initialExercise(), aircraft: [], running: false};
   const aircraft = createSpawnAircraft(state, randomUUID(), {airborne: true, callsign: "Test 123", type: "A320", landing, position: {x: 4, y: 9}});
   const envelope = envelopeSchema.parse({id: randomUUID(), time: 0, action: {kind: "spawn", aircraft}});
   state = engine.applyEnvelope(state, envelope).state;
-  assert.equal(engine.autoReadbacks(state, 0, randomUUID).messages.length, 0, "paused spawns wait for Start");
+  assert.equal(state.messages.length, 1, "spawn calls immediately even while paused");
+  assert.equal(engine.autoReadbacks(state, 0, randomUUID).messages.length, 1);
   state = {...state, running: true, autoReadback: false};
   state = engine.autoReadbacks(state, 1, randomUUID);
-  assert.equal(state.messages.length, 0, "manual pilots stay silent");
+  assert.equal(state.messages.length, 1, "manual pilots do not repeat the call");
   state = engine.autoReadbacks({...state, autoReadback: true}, 2, randomUUID);
   assert.equal(state.messages.length, 1);
   assert.equal(state.messages[0].frequency, "tower");

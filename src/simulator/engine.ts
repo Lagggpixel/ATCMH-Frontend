@@ -798,6 +798,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
         const request = resolvePilotRequest({requestId})!;
         const selection = {id: request.id, runway: spawned.runway ?? DEFAULT_RUNWAY, ...(requestId === "unicom-inbound" ? {outcome: spawned.landing} : {})};
         next.messages.push({id: envelope.id, aircraftId: spawned.id, time: envelope.time, frequency: spawned.frequency, sender: "pilot", text: pilotRequestText(spawned, request, selection.runway, false, {...selection, exercise: next}), request: selection, requestCircuit: spawned.circuit ?? 0, read: false});
+        delete spawned.automaticRequest;
         if (spawned.radar && ["check-in", "approach-request", "intentions"].includes(spawned.radar.report ?? "")) delete spawned.radar.report;
       }
       break;
