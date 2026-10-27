@@ -65,6 +65,9 @@ export function executeScenarioEvent(exercise: Exercise, runtime: ScenarioRuntim
       }
       const result = applyEnvelope(next, {id: `${runtime.generation}:${event.id}:${i}`, time: now, action}, {
         legacyPatternEntry: spec.type === "request" && action.kind === "pilot" && action.request?.id === "pattern-entry",
+        suppressSpawnRequest: spec.type === "spawn" && runtime.definition.events.some(other =>
+          (other.id === event.id || event.trigger.type === "time" && other.trigger.type === "time" && other.trigger.at === event.trigger.at) &&
+          other.actions.some(candidate => (candidate.type === "request" || candidate.type === "transmission") && candidate.aircraftKey === spec.aircraftKey)),
       });
       if (result.error) throw new Error(result.error);
       next = result.state;

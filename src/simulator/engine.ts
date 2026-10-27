@@ -693,7 +693,7 @@ const conflictEngine = {finalSpeeds: uwcFinalSpeeds, vacateSpeed: (a: Aircraft, 
   return Math.max(5, Math.min(15, target));
 }, geometry: runwayGeometry, distance: arrivalDistance, instruct: (a: Aircraft, c: Instruction) => instruct(a, c), lineupError: (a: Aircraft) => departureRoute(a, a.runway ?? DEFAULT_RUNWAY).error};
 
-function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatternEntry?: boolean} = {}): {state: Exercise; error?: string} {
+function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatternEntry?: boolean; suppressSpawnRequest?: boolean} = {}): {state: Exercise; error?: string} {
   if (state.processed.includes(envelope.id)) return {state};
   const next = structuredClone(state);
   let action = envelope.action;
@@ -784,7 +784,24 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       next.messages.push({id: envelope.id, aircraftId: aircraft!.id, time: envelope.time, frequency: "tower", sender: "pilot", text: positionReportText(aircraft!, AIRPORT), read: false});
       break;
     }
-    case "spawn": if (next.aircraft.length >= MAX_AIRCRAFT) return {state, error: `This exercise supports up to ${MAX_AIRCRAFT} aircraft.`}; if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."}; next.aircraft.push(action.aircraft); if (next.fullStopAll) {next.fullStopAll[action.aircraft.id] = action.aircraft.landing; fullStop(next.aircraft.at(-1)!);} break;
+    case "spawn": {
+      if (next.aircraft.length >= MAX_AIRCRAFT) return {state, error: `This exercise supports up to ${MAX_AIRCRAFT} aircraft.`};
+      if (next.aircraft.some(a => a.id === action.aircraft.id)) return {state, error: "Aircraft already exists."};
+      const spawned = structuredClone(action.aircraft);
+      next.aircraft.push(spawned);
+      if (next.fullStopAll) {next.fullStopAll[spawned.id] = spawned.landing; fullStop(spawned);}
+      if (!options.suppressSpawnRequest && spawned.active && spawned.frequency && spawned.frequency !== "atis") {
+        const ground = spawned.altitude <= AIRPORT.elevation + 1;
+        const requestId = spawned.frequency === "unicom" ? ground ? "unicom-taxi" : "unicom-inbound"
+          : ground ? groundReady(spawned, AIRPORT) ? "taxi-runway" : "pushback"
+          : spawned.frequency === "tower" ? spawned.landing === "touch-and-go" ? "inbound-option" : "inbound-land" : "request-approach";
+        const request = resolvePilotRequest({requestId})!;
+        const selection = {id: request.id, runway: spawned.runway ?? DEFAULT_RUNWAY, ...(requestId === "unicom-inbound" ? {outcome: spawned.landing} : {})};
+        next.messages.push({id: envelope.id, aircraftId: spawned.id, time: envelope.time, frequency: spawned.frequency, sender: "pilot", text: pilotRequestText(spawned, request, selection.runway, false, {...selection, exercise: next}), request: selection, requestCircuit: spawned.circuit ?? 0, read: false});
+        if (spawned.radar && ["check-in", "approach-request", "intentions"].includes(spawned.radar.report ?? "")) delete spawned.radar.report;
+      }
+      break;
+    }
     case "remove": if (next.fullStopAll) delete next.fullStopAll[action.aircraftId]; reserveCallsigns(next, [aircraft!]); next.aircraft = next.aircraft.filter(a => a.id !== action.aircraftId); removeConflictAircraft(next, action.aircraftId); break;
     case "taxi-path": {const error = applyTaxiPathEdit(aircraft!, action.path, action.edit); if (error) return {state, error}; break;}
     case "edit":

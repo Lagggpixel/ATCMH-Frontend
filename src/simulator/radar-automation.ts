@@ -1,6 +1,6 @@
 import type {Aircraft} from "./model";
 
-export const MAX_ILS_INTERCEPT = 35;
+export const MAX_ILS_INTERCEPT = 45;
 export const GLIDESLOPE_DEVIATION_FEET = 100;
 
 /** Remember both sides of final: a frame can cross the entire capture corridor. */

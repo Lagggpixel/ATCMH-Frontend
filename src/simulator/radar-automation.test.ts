@@ -49,14 +49,14 @@ for (const station of ["approach", "center"] as const) {
     const f = fixture(station); f.step(); f.a.altitude = f.glide + 20; f.step();
     assert.equal(f.a.radar!.navigation, "approach");
   });
-  for (const side of [-1, 1]) for (const angle of [36, 40, 60]) test(`${station}: ${side * angle} degree intercept misses only after crossing final`, () => {
+  for (const side of [-1, 1]) for (const angle of [46, 50, 60]) test(`${station}: ${side * angle} degree intercept misses only after crossing final`, () => {
     const f = fixture(station, "ils", 8, side, side * angle);
     f.a.speed = f.a.targetSpeed = 180; f.a.speedMode = "manual";
     f.step(); assert.equal(f.a.radar!.navigation, "approach"); assert.notEqual(f.a.radar!.localizer, true);
     for (let i = 0; i < 1800 && f.a.radar!.navigation !== "missed"; i++) f.step();
-    assert.equal(f.a.radar!.navigation, "missed"); assert.match(f.a.radar!.missedReason!, /intercept exceeds 35/);
+    assert.equal(f.a.radar!.navigation, "missed"); assert.match(f.a.radar!.missedReason!, /intercept exceeds 45/);
   });
-  for (const angle of [-35, 35]) test(`${station}: ${angle} degrees remains an allowed intercept`, () => {
+  for (const angle of [-45, 45]) test(`${station}: ${angle} degrees remains an allowed intercept`, () => {
     const f = fixture(station, "ils", 8, Math.sign(angle) * .1, angle); f.step();
     assert.equal(f.a.radar!.localizer, true); assert.notEqual(f.a.radar!.report, "missed");
   });
@@ -89,7 +89,7 @@ for (const station of ["approach", "center"] as const) {
 test("localizer crossing detection survives an entire skipped capture corridor and serialized state", () => {
   const f = fixture(); assert.equal(missedLocalizerReason(f.a, -8, 1, 60, 25), undefined);
   const restored = exerciseSchema.parse(JSON.parse(JSON.stringify(f.state))).aircraft[0];
-  assert.match(missedLocalizerReason(restored, -7, -1, 60, 25)!, /60.*35/);
+  assert.match(missedLocalizerReason(restored, -7, -1, 60, 25)!, /60.*45/);
   assignRadar(f.a, {type: "vector", heading: 90}, f.airport, f.env); assert.equal(f.a.radar!.localizerIntercept, undefined);
 });
 test("trainer repositioning across final is not mistaken for a flown localizer crossing", () => {

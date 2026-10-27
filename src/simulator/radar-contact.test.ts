@@ -46,7 +46,7 @@ for (const airport of ["EGPH", "LTFM", "EIDW", "RJTT"]) for (const station of ["
   });
 }
 
-test("scheduled arrivals check in without assigning the filed runway or clearance", () => {
+test("scheduled arrivals request an approach without assigning the filed runway or clearance", () => {
   const definition = blankScenario({airport: "LTFM", trainingStation: "LTFM:approach"});
   const engine = engineFor(definition), a = engine.newAircraft("arrival", true);
   a.runway = null; a.flightPlan = [{x: 0, y: -10, name: "RW35R"}];
@@ -57,8 +57,8 @@ test("scheduled arrivals check in without assigning the filed runway or clearanc
   for (let t = 0; t < 3; t++) state = advanceScenario(state, created.runtime, 1, t * 1000).exercise;
   state = engine.autoReadbacks(state, 3000, randomUUID);
   assert.equal(state.messages.length, 1);
-  assert.equal(state.messages[0].request?.id, "check-in");
-  assert.match(state.messages[0].text, /, with you at [\d,]+ft$/);
+  assert.equal(state.messages[0].request?.id, "request-approach");
+  assert.match(state.messages[0].text, /requesting ILS approach/);
   assert.equal(state.aircraft[0].runway, null);
   assert.equal(state.aircraft[0].radar!.expected, undefined);
   assert.equal(state.aircraft[0].radar!.cleared, undefined);
