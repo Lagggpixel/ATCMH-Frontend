@@ -1,21 +1,63 @@
-.dialog {width:540px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);margin:auto;padding:0;border:1px solid var(--dashboard-border,#666);border-radius:8px;background:var(--dashboard-surface,#171b20);color:var(--dashboard-ink,#eee);box-shadow:0 16px 60px #0006;overflow:auto;font:14px/1.45 Arial,sans-serif;color-scheme:dark}
+.dialog {width:600px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);margin:auto;padding:0;border:1px solid var(--dashboard-border,#45515b);border-radius:10px;background:var(--dashboard-surface,#1b2227);color:var(--dashboard-ink,#edf2f5);box-shadow:0 18px 60px #0008;overflow:auto;font:14px/1.45 Arial,sans-serif;color-scheme:dark;--accent:var(--dashboard-link,#ffb18a);--chosen:var(--dashboard-selected,#392b25);--field:#141a1e;--muted:var(--staff-muted,#abb4be)}
 .dialog::backdrop {background:#111a}
-.form {display:grid;gap:18px;padding:24px}
-.form h2 {font-size:22px;font-weight:500;margin:0}
-.form p {margin:0;color:var(--staff-muted,#abb4be)}
-.form label {display:grid;gap:6px;min-width:0;font-size:13px}
-.form input,.form select {box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--dashboard-border,#666);border-radius:4px;background:var(--dashboard-surface,#171b20);color:inherit;font:inherit}
-.form button {min-height:40px;padding:8px 12px;border:1px solid var(--dashboard-border,#666);border-radius:4px;background:var(--dashboard-surface,#171b20);color:inherit;font:inherit;cursor:pointer;text-align:center}
+.form {display:grid}
+.form p {margin:0;color:var(--muted)}
+.form label {display:grid;gap:5px;min-width:0;font-size:12.5px;color:var(--muted)}
+.form input,.form select {box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--dashboard-border,#45515b);border-radius:6px;background:var(--field);color:var(--dashboard-ink,#edf2f5);font:inherit;font-size:14px}
+.form button {min-height:40px;padding:8px 14px;border:1px solid var(--dashboard-border,#45515b);border-radius:6px;background:var(--dashboard-surface,#1b2227);color:inherit;font:inherit;cursor:pointer;text-align:center}
 .form button:disabled {opacity:.45;cursor:default}
-.form :is(input,select,button):focus-visible {outline:2px solid #80dce8;outline-offset:2px}
-.fields {border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}
-.pair {display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.callsign {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
-.summary {padding:12px;border:1px solid var(--dashboard-border,#666);border-radius:4px;font-size:13px}
-.error {color:#ffb9a9!important}
-.actions {display:flex;justify-content:flex-end;gap:10px}
-.form .primary {border-color:var(--dashboard-link,#80dce8);background:var(--dashboard-selected,#26343d)}
-@media(max-width:460px) {.form {padding:18px;gap:16px}.pair {grid-template-columns:1fr}.actions button {flex:1}}
+.form :is(input,select,button,summary):focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.header {display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 24px 14px;border-bottom:1px solid var(--dashboard-border,#45515b)}
+.header h2 {font-size:21px;font-weight:500;margin:0}
+.header p {font-size:13px}
+.form .memory {display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.form .memory button {min-height:32px;padding:4px 6px;border:0;background:none;color:var(--accent)}
+.fields {border:0;padding:18px 24px 4px;margin:0;display:grid;gap:20px;min-width:0}
+.section {border:0;padding:0;margin:0;display:grid;gap:10px;min-width:0}
+.section legend {padding:0;margin-bottom:10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tiles {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.form .tile {display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:8px;background:var(--field);text-align:left}
+.tile svg {flex:none;width:20px;height:20px;color:var(--muted)}
+.tile b {display:block;font-size:13.5px}
+.tile small {display:block;color:var(--muted);font-size:12px}
+.form .tile[aria-pressed=true] {border-color:var(--accent);background:var(--chosen);box-shadow:inset 0 0 0 1px var(--accent)}
+.tile[aria-pressed=true] svg {color:var(--accent)}
+.detail {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--dashboard-border,#45515b);border-radius:8px;background:#161c20}
+.detail .wide {grid-column:span 2}
+.detail .note {grid-column:1/-1}
+.pair {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.callsign {display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px;align-items:end}
+.form .callsign button {display:grid;place-items:center;width:40px;padding:0}
+.callsign svg {width:17px;height:17px}
+.calls {display:grid;gap:8px}
+.call {border:1px solid var(--dashboard-border,#45515b);border-radius:8px;background:var(--field)}
+.call[data-checked] {border-color:var(--accent);background:var(--chosen)}
+.form .call > label {display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;color:inherit;font-size:14px;cursor:pointer}
+.form .call input[type=radio] {width:16px;min-height:0;height:16px;margin:2px 0 0;accent-color:var(--accent)}
+.call b {font-weight:600}
+.call small {display:block;color:var(--muted);font-size:12.5px}
+.then {display:grid;gap:8px;margin:0 12px 12px 40px;padding-top:10px;border-top:1px dashed var(--dashboard-border,#45515b)}
+.thenLabel {font-size:12.5px;color:var(--muted)}
+.segments {display:flex;flex-wrap:wrap;width:max-content;max-width:100%;border:1px solid var(--dashboard-border,#45515b);border-radius:7px;overflow:hidden}
+.form .segments button {min-height:36px;padding:6px 12px;border:0;border-right:1px solid var(--dashboard-border,#45515b);border-radius:0;background:var(--field);color:var(--muted);font-size:13px}
+.form .segments button:last-child {border-right:0}
+.form .segments button[aria-checked=true] {background:var(--chosen);color:var(--dashboard-ink,#edf2f5);box-shadow:inset 0 -2px 0 var(--accent)}
+.radius,.form .inline {display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.form .radius input,.form .inline input {width:80px;min-height:34px;padding:4px 8px}
+.appears {display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.note {font-size:12.5px}
+.more {border-top:1px solid var(--dashboard-border,#45515b);padding:4px 0 8px}
+.more summary {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;cursor:pointer;color:var(--muted);font-size:13px;list-style:none}
+.more summary::-webkit-details-marker {display:none}
+.more summary b {color:var(--dashboard-ink,#edf2f5)}
+.more summary svg {flex:none;width:16px;height:16px}
+.more[open] summary svg {transform:rotate(180deg)}
+.more[open] > .pair {margin:4px 0 10px}
+.error {margin:0 24px!important;color:#ffb9a9!important}
+.actions {display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 24px 20px}
+.actions p {margin-right:auto!important;font-size:12.5px}
+.form .primary {border-color:#b94025;background:#b94025;color:#fff;font-weight:600}
+@media(max-width:560px) {.dialog {width:100vw;max-width:100vw;max-height:calc(100dvh - 32px);margin:auto 0 0;border-radius:14px 14px 0 0}.header,.fields,.actions {padding-left:16px;padding-right:16px}.tiles {grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.form .tile {flex-direction:column;justify-content:center;gap:4px;min-height:64px;padding:8px 4px;text-align:center}.tile small {display:none}.detail {grid-template-columns:1fr 1fr}.detail .wide {grid-column:1/-1}.pair {grid-template-columns:1fr}.then {margin-left:12px}.segments {width:auto}.actions {position:sticky;bottom:0;background:var(--dashboard-surface,#1b2227);border-top:1px solid var(--dashboard-border,#45515b)}.actions p {display:none}.actions button {flex:1;min-height:48px}}
 @keyframes pop {from {opacity:0;transform:translateY(8px) scale(.98)}}
 @keyframes fade {from {opacity:0}}
 @media(prefers-reduced-motion:no-preference) {.dialog[open] {animation:pop .18s ease-out}.dialog[open]::backdrop {animation:fade .18s ease-out}}

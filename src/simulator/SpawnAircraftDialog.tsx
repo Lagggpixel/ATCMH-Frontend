@@ -66,7 +66,7 @@ function RadarSpawnAircraftDialog({accountId, exercise, position, originIcao, en
 
 export default function SpawnAircraftDialog(props: Parameters<typeof RadarSpawnAircraftDialog>[0]) {
   if (trainingMode(props.exercise) !== "local") return <RadarSpawnAircraftDialog {...props}/>;
-  return <LocalAircraftDialog selection={props.exercise} aircraft={props.exercise.aircraft} callsigns={exerciseCallsigns(props.exercise)} position={props.position} originIcao={props.originIcao} enabled={props.enabled} onClose={props.onClose} onAdd={async aircraft => {
+  return <LocalAircraftDialog selection={props.exercise} aircraft={props.exercise.aircraft} callsigns={exerciseCallsigns(props.exercise)} accountId={props.accountId} position={props.position} originIcao={props.originIcao} enabled={props.enabled} onClose={props.onClose} onAdd={async aircraft => {
     const action: Action = {kind: "spawn", aircraft};
     const invalid = engineFor(props.exercise).applyEnvelope(props.exercise, {id: crypto.randomUUID(), time: 0, action}).error;
     if (invalid) throw new Error(invalid);

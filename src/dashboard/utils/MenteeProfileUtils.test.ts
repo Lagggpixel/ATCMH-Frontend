@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {getMenteeAvailabilityRows, getMenteeTimeline} from "./MenteeProfileUtils.ts";
+import {getMenteeAvailabilityRows, getMenteeTimeline, getWeeklyAvailabilityHours} from "./MenteeProfileUtils.ts";
 import type {AdminMentee} from "../types/AdminMentee.ts";
 
 test("availability represents midnight, overnight and full-day windows without losing the original day", () => {
@@ -10,6 +10,13 @@ test("availability represents midnight, overnight and full-day windows without l
     assert.deepEqual(rows[2], {day: "Sunday", label: "22:00 – 02:00 (next day)", segments: [{start: 1320, end: 1440}, {start: 0, end: 120}]});
     assert.match(rows[3].label, /24 hours/);
     assert.equal(rows[3].segments.reduce((total, segment) => total + segment.end - segment.start, 0), 1440);
+});
+
+test("a day with several comma-separated windows draws each one and totals the week", () => {
+    const rows = getMenteeAvailabilityRows("Saturday: 1000-1300, 1900-0000\nSunday: 1200-1400, oops");
+    assert.deepEqual(rows[0], {day: "Saturday", label: "10:00 – 13:00, 19:00 – 00:00 (to midnight)", segments: [{start: 600, end: 780}, {start: 1140, end: 1440}]});
+    assert.deepEqual(rows[1], {day: "Sunday", label: "1200-1400, oops", segments: []});
+    assert.equal(getWeeklyAvailabilityHours(rows), 8);
 });
 
 test("legacy and malformed availability stays readable rather than becoming a fabricated chart", () => {

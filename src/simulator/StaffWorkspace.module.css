@@ -95,6 +95,7 @@
 
 /* Setup tasks (also used by intentions and radar setup). */
 .setupForm {display:grid;gap:12px;min-width:0}
+.intentionPlan {margin:0;font-size:12.5px;line-height:1.4;color:var(--staff-muted,#abb4be)}
 .setupForm>fieldset {min-width:0}
 .setupSection {display:grid;gap:14px;min-width:0}
 .setupSection>p {font-size:calc(12 * var(--controller-font-unit,1px));color:var(--ws-muted);margin:0;line-height:1.5}

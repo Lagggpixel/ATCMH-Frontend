@@ -110,3 +110,21 @@ test("radar accepts a nearby departure below a high controlled airport elevation
   assert.ok(state.aircraft[0].altitude < getAirport(definition).elevation);
   assert.equal(exerciseSchema.safeParse(JSON.parse(JSON.stringify(state))).success, true);
 });
+
+test("Ground & Tower departures request transition once airborne and head for the overhead when cleared", () => {
+  const selection = {airport: "EGPH", trainingStation: "EGPH:local"}; const engine = engineFor(selection);
+  const a = createLocalAircraft(selection, "local", {origin, placement: "takeoff", callsign: "TEST123", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower", call: "transition", afterTransition: "touch-and-go", overheadRadius: 1});
+  assert.equal(a.originDeparture?.callPending, true);
+  let state = engine.initialExercise(); state.aircraft = []; state.autoReadback = true;
+  state = engine.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft: a}}).state;
+  assert.equal(state.messages.length, 0);
+  state.running = true;
+  for (let n = 0; n < 120 && !state.messages.length; n++) state = engine.autoReadbacks(engine.advance(state, 1), 1000 + n, randomUUID);
+  assert.equal(state.messages[0]?.request?.id, "transition"); assert.ok(state.aircraft[0].altitude > origin.elevation + 150);
+  const result = engine.applyEnvelope(state, {id: randomUUID(), time: 2000, action: {kind: "maneuver", aircraftId: "local", command: {type: "transition", altitude: 2000}}});
+  assert.equal(result.error, undefined); const cleared = result.state.aircraft[0];
+  assert.equal(cleared.transitionOverheadArmed, true);
+  assert.ok(Math.abs(((engine.bearing(cleared.position, {x: 0, y: 0}) - cleared.targetHeading + 540) % 360) - 180) < 1);
+  const quiet = createLocalAircraft(selection, "quiet", {origin, placement: "takeoff", callsign: "TEST124", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower", call: "quiet"});
+  assert.equal(quiet.originDeparture?.callPending, undefined);
+});

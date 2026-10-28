@@ -1,21 +1,19 @@
-import {memo, startTransition, type ChangeEvent, type FormEvent, type MouseEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
+import {memo, startTransition, type ChangeEvent, type FormEvent, type MouseEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from "react";
 import {ArrowLeftIcon as ArrowLeft} from "@phosphor-icons/react/ArrowLeft";
 import {CalendarBlankIcon as CalendarBlank} from "@phosphor-icons/react/CalendarBlank";
 import {CaretDownIcon as CaretDown} from "@phosphor-icons/react/CaretDown";
 import {CaretRightIcon as CaretRight} from "@phosphor-icons/react/CaretRight";
 import {CaretUpIcon as CaretUp} from "@phosphor-icons/react/CaretUp";
 import {CaretUpDownIcon as CaretUpDown} from "@phosphor-icons/react/CaretUpDown";
+import {CheckIcon as Check} from "@phosphor-icons/react/Check";
 import {CheckCircleIcon as CheckCircle} from "@phosphor-icons/react/CheckCircle";
 import {CircleIcon as Circle} from "@phosphor-icons/react/Circle";
-import {ClockIcon as Clock} from "@phosphor-icons/react/Clock";
-import {GlobeIcon as Globe} from "@phosphor-icons/react/Globe";
+import {DotsThreeIcon as DotsThree} from "@phosphor-icons/react/DotsThree";
 import {MagnifyingGlassIcon as MagnifyingGlass} from "@phosphor-icons/react/MagnifyingGlass";
 import {MinusCircleIcon as MinusCircle} from "@phosphor-icons/react/MinusCircle";
-import {NoteIcon as Note} from "@phosphor-icons/react/Note";
+import {PencilSimpleIcon as PencilSimple} from "@phosphor-icons/react/PencilSimple";
 import {SparkleIcon as Sparkle} from "@phosphor-icons/react/Sparkle";
-import {UserIcon as User} from "@phosphor-icons/react/User";
 import {UserPlusIcon as UserPlus} from "@phosphor-icons/react/UserPlus";
-import {UsersIcon as Users} from "@phosphor-icons/react/Users";
 import {XIcon as X} from "@phosphor-icons/react/X";
 import {XCircleIcon as XCircle} from "@phosphor-icons/react/XCircle";
 import {useLocation, useNavigate, useParams, useSearchParams} from "@/src/dashboard/next-navigation";
@@ -37,7 +35,7 @@ import {createSessionEditForm, toSessionUpdatePayload, type SessionEditForm} fro
 import {generateHalfHourLocalSuggestions} from "../../utils/SessionTime.ts";
 import SessionTimeDisplay, {SessionTimePreview} from "./SessionTimeDisplay";
 import {getMenteeActionPolicy} from "../../utils/AdminMenteeActionPolicy.ts";
-import {getMenteeAvailabilityRows, getMenteeTimeline, type MenteeTimelineStep} from "../../utils/MenteeProfileUtils.ts";
+import {getMenteeAvailabilityRows, getMenteeTimeline, getWeeklyAvailabilityHours, type MenteeTimelineStep} from "../../utils/MenteeProfileUtils.ts";
 import {
     MENTEE_STATUS_FILTERS,
     countHeldSessions,
@@ -107,13 +105,11 @@ const stateLabels: Record<AdminMentee["state"], string> = {
 };
 
 type MentorFilter = "all" | "mine" | "unassigned";
-type MenteeView = "cards" | "table";
 type MenteeStateAction = "pickup" | "pass";
 type ProfileTab = "sessions" | "signups" | "notes";
 const MENTOR_FILTER_PARAM = "mentorFilter";
 const STATUS_FILTER_PARAM = "status";
 const MENTEE_SEARCH_PARAM = "search";
-const MENTEE_VIEW_PARAM = "view";
 const MAX_ASSIGNMENT_CODE_POINTS = 1500;
 const countUnicodeCodePoints = (value: string): number => {
     let count = 0;
@@ -126,25 +122,22 @@ const countUnicodeCodePoints = (value: string): number => {
 type MenteeActionPolicy = ReturnType<typeof getMenteeActionPolicy>;
 type SessionFormState = {mentorId: string; airport: string; pilots: string; time: string};
 
-// The table is the default because it compares mentees at a glance; cards stay one click away.
-const normalizeMenteeView = (value: string | null): MenteeView => value === "cards" ? "cards" : "table";
-
 // "waitlist" was the old combined filter, so old links still land on unassigned mentees.
 const normalizeMentorFilter = (value: string | null): MentorFilter => {
     if (value === "waitlist") return "unassigned";
     return value === "mine" || value === "unassigned" ? value : "all";
 };
 
-const stateActionCopy: Record<MenteeStateAction, { title: string; description: string; confirmLabel: string }> = {
+const stateActionCopy: Record<MenteeStateAction, { title: (name: string) => string; description: (name: string, mentor?: string) => string; confirmLabel: string }> = {
     pickup: {
-        title: "Pick up this mentee?",
-        description: "This assigns the mentee to you and moves them out of the waitlist. Continue?",
-        confirmLabel: "Confirm pickup",
+        title: name => `Pick up ${name}?`,
+        description: name => `This assigns ${name} to you and moves them off the waitlist.`,
+        confirmLabel: "Pick up mentee",
     },
     pass: {
-        title: "Pass this mentee?",
-        description: "This marks the mentee as passed and ends the active mentorship. Continue?",
-        confirmLabel: "Confirm pass",
+        title: name => `Pass ${name}?`,
+        description: (name, mentor) => `This marks ${name} as passed and ends the active mentorship${mentor ? ` with ${mentor}` : ""}.`,
+        confirmLabel: "Pass mentee",
     },
 };
 
@@ -193,12 +186,11 @@ const AdminMentees = ({
         existingAssignment?: SessionAssignment
     } | undefined>();
 
-    const view = normalizeMenteeView(searchParams.get(MENTEE_VIEW_PARAM));
     const requestedMentorFilter = normalizeMentorFilter(searchParams.get(MENTOR_FILTER_PARAM));
     const mentorFilter: MentorFilter = requestedMentorFilter === "mine" && !adminUser ? "all" : requestedMentorFilter;
     const statusFilter: MenteeStatusFilter = normalizeMenteeStatusFilter(searchParams.get(STATUS_FILTER_PARAM))
         ?? (searchParams.get(MENTOR_FILTER_PARAM) === "waitlist" ? "waitlisted" : "all");
-    const [sortState, setSortState] = useState<{status: MenteeStatusFilter; sort: MenteeSort}>();
+    const [sortState, setSortState] = useState<{status: MenteeStatusFilter; sort: MenteeSort | undefined}>();
     const menteeSort = useMemo(
         () => sortState?.status === statusFilter ? sortState.sort : defaultMenteeSort(statusFilter),
         [sortState, statusFilter],
@@ -297,7 +289,7 @@ const AdminMentees = ({
         return listQuery ? `${path}?${listQuery}` : path;
     }, [listQuery]);
 
-    const updateListQuery = useCallback((updates: {search?: string; mentorFilter?: MentorFilter; status?: MenteeStatusFilter; view?: MenteeView}) => {
+    const updateListQuery = useCallback((updates: {search?: string; mentorFilter?: MentorFilter; status?: MenteeStatusFilter}) => {
         const nextParams = new URLSearchParams(listQuery);
         if (updates.search !== undefined) {
             if (updates.search.trim()) nextParams.set(MENTEE_SEARCH_PARAM, updates.search);
@@ -311,7 +303,6 @@ const AdminMentees = ({
             if (updates.status === "all") nextParams.delete(STATUS_FILTER_PARAM);
             else nextParams.set(STATUS_FILTER_PARAM, updates.status);
         }
-        if (updates.view !== undefined) nextParams.set(MENTEE_VIEW_PARAM, updates.view);
         const query = nextParams.toString();
         startTransition(() => navigate(`${location.pathname}${query ? `?${query}` : ""}`, {replace: true}));
     }, [listQuery, location.pathname, navigate]);
@@ -345,6 +336,12 @@ const AdminMentees = ({
         resetMenteePagination();
         setSortState({status: statusFilter, sort: nextMenteeSort(menteeSort, key)});
     }, [menteeSort, resetMenteePagination, statusFilter]);
+
+    // Phones have no sortable headers, so a select picks the same sort directly.
+    const handleSortSelect = useCallback((sort: MenteeSort | undefined) => {
+        resetMenteePagination();
+        setSortState({status: statusFilter, sort});
+    }, [resetMenteePagination, statusFilter]);
 
     useEffect(() => {
         let current = true;
@@ -415,6 +412,7 @@ const AdminMentees = ({
             const candidates = await ApiUtils.getAutoMatchCandidates(token, autoMatchAvailability, autoMatchLeniency);
             setAutoMatchCandidates(candidates ?? []);
             setAutoMatchSearched(true);
+            setAutoMatchOpen(false);
             resetMenteePagination();
         } catch (err) {
             setAutoMatchError(err instanceof Error ? err.message : String(err));
@@ -431,7 +429,11 @@ const AdminMentees = ({
         updateListQuery({search: "", mentorFilter: "all", status: "all"});
     }, [resetMenteePagination, searchParam, updateListQuery]);
 
-    const handleViewChange = useCallback((nextView: MenteeView) => updateListQuery({view: nextView}), [updateListQuery]);
+    const clearAutoMatch = useCallback(() => {
+        setAutoMatchCandidates([]);
+        setAutoMatchSearched(false);
+        resetMenteePagination();
+    }, [resetMenteePagination]);
     // The helper only matches waitlisted mentees, so opening it from another tab moves to the waitlist first.
     const handleAutoMatchToggleOpen = useCallback(() => {
         if (statusFilter === "waitlisted") {
@@ -701,14 +703,13 @@ const AdminMentees = ({
                     statusCounts={statusCounts}
                     sort={menteeSort}
                     now={listNow}
-                    view={view}
                     adminUser={adminUser}
                     getUserName={getUserName}
                     onSearchChange={handleMenteeSearchChange}
                     onMentorFilterChange={handleMentorFilterChange}
                     onStatusFilterChange={handleStatusFilterChange}
                     onSortChange={handleSortChange}
-                    onViewChange={handleViewChange}
+                    onSortSelect={handleSortSelect}
                     onClearFilters={clearMenteeFilters}
                     onOpenMentee={handleOpenMentee}
                     autoMatchOpen={autoMatchOpen}
@@ -722,19 +723,22 @@ const AdminMentees = ({
                     onAutoMatchAvailabilityChange={setAutoMatchAvailability}
                     onAutoMatchLeniencyChange={setAutoMatchLeniency}
                     onAutoMatchSearch={handleAutoMatchSearch}
+                    onAutoMatchClear={clearAutoMatch}
                 />
             )}
 
-            {pendingStateAction ? (
+            {pendingStateAction && selectedMentee ? (
                 <MenteeActionConfirmation
                     action={pendingStateAction}
+                    mentee={selectedMentee}
+                    getUserName={getUserName}
                     onCancel={() => setPendingStateAction(undefined)}
                     onConfirm={handleStateActionConfirm}
                 />
             ) : null}
 
-            {showTerminateModal && (
-                <MenteeTerminationDialog reason={terminateReason} onReasonChange={setTerminateReason} onCancel={() => setShowTerminateModal(false)} onConfirm={handleTerminateConfirm} busy={busyAction === "terminate"}/>
+            {showTerminateModal && selectedMentee && (
+                <MenteeTerminationDialog mentee={selectedMentee} getUserName={getUserName} reason={terminateReason} onReasonChange={setTerminateReason} onCancel={() => setShowTerminateModal(false)} onConfirm={handleTerminateConfirm} busy={busyAction === "terminate"}/>
             )}
 
             {assignmentSession && selectedMentee ? (
@@ -763,14 +767,13 @@ interface MenteeListPageProps {
     statusCounts: Record<MenteeStatusFilter, number>;
     sort: MenteeSort | undefined;
     now: number;
-    view: MenteeView;
     adminUser: AdminUser | undefined;
     getUserName: (id?: string) => string;
     onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
     onMentorFilterChange: (value: string) => void;
     onStatusFilterChange: (status: MenteeStatusFilter) => void;
     onSortChange: (key: MenteeSortKey) => void;
-    onViewChange: (view: MenteeView) => void;
+    onSortSelect: (sort: MenteeSort | undefined) => void;
     onClearFilters: () => void;
     onOpenMentee: (id: number) => void;
     autoMatchOpen: boolean;
@@ -784,7 +787,18 @@ interface MenteeListPageProps {
     onAutoMatchAvailabilityChange: (value: string) => void;
     onAutoMatchLeniencyChange: (value: AutoMatchLeniency) => void;
     onAutoMatchSearch: (event: FormEvent) => void;
+    onAutoMatchClear: () => void;
 }
+
+// Phones have no sortable headers, so these mirror the most useful header sorts.
+const PHONE_SORT_OPTIONS: {label: string; sort: MenteeSort}[] = [
+    {label: "Longest waiting", sort: {key: "since", direction: "asc"}},
+    {label: "Next session", sort: {key: "next", direction: "asc"}},
+    {label: "Most recent session", sort: {key: "last", direction: "desc"}},
+    {label: "Most sessions", sort: {key: "sessions", direction: "desc"}},
+    {label: "Name", sort: {key: "name", direction: "asc"}},
+];
+const sortValue = (sort: MenteeSort | undefined) => sort ? `${sort.key}-${sort.direction}` : "";
 
 const MenteeListPage = ({
                             pagination,
@@ -794,14 +808,13 @@ const MenteeListPage = ({
                             statusCounts,
                             sort,
                             now,
-                            view,
                             adminUser,
                             getUserName,
                             onSearchChange,
                             onMentorFilterChange,
                             onStatusFilterChange,
                             onSortChange,
-                            onViewChange,
+                            onSortSelect,
                             onClearFilters,
                             onOpenMentee,
                             autoMatchOpen,
@@ -815,6 +828,7 @@ const MenteeListPage = ({
                             onAutoMatchAvailabilityChange,
                             onAutoMatchLeniencyChange,
                             onAutoMatchSearch,
+                            onAutoMatchClear,
                         }: MenteeListPageProps) => {
     const hasFilters = Boolean(filter.trim()) || mentorFilter !== "all" || statusFilter !== "all";
     const autoMatchCandidateById = useMemo(
@@ -823,10 +837,12 @@ const MenteeListPage = ({
     );
     const autoMatchVisible = statusFilter === "waitlisted" && autoMatchOpen;
     const autoMatchActive = statusFilter === "waitlisted" && autoMatchSearched;
+    const currentSortValue = sortValue(sort);
+    const customSort = sort != null && !PHONE_SORT_OPTIONS.some(option => sortValue(option.sort) === currentSortValue);
     return (
-        <main className={styles.menteesListPage} aria-label="Mentees">
+        <main className={styles.menteesListPage} aria-labelledby="mentees-title">
             <div className={styles.menteesIntro}>
-                <p>Track the waitlist, your mentees and their mentorship.</p>
+                <h1 id="mentees-title">Mentees</h1>
                 <button
                     type="button"
                     className={styles.autoMatchToggleButton}
@@ -834,8 +850,9 @@ const MenteeListPage = ({
                     aria-expanded={autoMatchVisible}
                     onClick={onAutoMatchToggleOpen}
                 >
-                    <Sparkle size={17} aria-hidden="true"/>
-                    <span>{autoMatchVisible ? "Hide match helper" : "Match helper"}</span>
+                    <Sparkle size={18} aria-hidden="true"/>
+                    <span className={styles.longLabel}>Match helper</span>
+                    <span className={styles.shortLabel}>Match</span>
                     {autoMatchActive ? <span className={styles.autoMatchToggleCount}>{autoMatchCandidates.length}</span> : null}
                 </button>
             </div>
@@ -855,7 +872,7 @@ const MenteeListPage = ({
                 ))}
             </div>
 
-            <section className={styles.menteesToolbar} aria-label="Mentee filters and view options">
+            <section className={styles.menteesToolbar} aria-label="Mentee filters">
                 <label className={styles.searchField} htmlFor="mentee-search">
                     <span className={styles.visuallyHidden}>Search mentees</span>
                     <MagnifyingGlass size={18} aria-hidden="true"/>
@@ -864,8 +881,14 @@ const MenteeListPage = ({
                         type="search"
                         value={filter}
                         onChange={onSearchChange}
-                        placeholder="Search name, Discord ID, IFC, recruiter..."
+                        placeholder="Name, Discord ID, IFC, recruiter…"
                     />
+                </label>
+                <label className={styles.phoneStatusField} htmlFor="mentee-status-select">
+                    <span>Status</span>
+                    <select id="mentee-status-select" value={statusFilter} onChange={event => onStatusFilterChange(normalizeMenteeStatusFilter(event.target.value) ?? "all")}>
+                        {MENTEE_STATUS_FILTERS.map(option => <option key={option.value} value={option.value}>{option.label} ({statusCounts[option.value]})</option>)}
+                    </select>
                 </label>
                 <label className={styles.mentorField} htmlFor="mentor-filter">
                     <span>Mentor</span>
@@ -876,61 +899,48 @@ const MenteeListPage = ({
                     </select>
                 </label>
                 <div className={styles.filterFieldMeta}>
-                    <span>{pagination.totalItems} matching {pagination.totalItems === 1 ? "record" : "records"}</span>
+                    <span>{pagination.totalItems} {autoMatchActive ? (pagination.totalItems === 1 ? "match" : "matches") : (pagination.totalItems === 1 ? "mentee" : "mentees")}</span>
                     {hasFilters ? (
-                        <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button>
+                        <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>
+                            <span className={styles.longLabel}>Clear filters</span>
+                            <span className={styles.shortLabel}>Clear</span>
+                        </button>
                     ) : null}
-                </div>
-                <div className={styles.viewSwitcher} role="group" aria-label="Mentee list view">
-                    <button type="button" aria-pressed={view === "table"} className={view === "table" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("table")}>Table</button>
-                    <button type="button" aria-pressed={view === "cards"} className={view === "cards" ? styles.viewButtonActive : undefined} onClick={() => onViewChange("cards")}>Cards</button>
+                    <label className={styles.phoneSortField} htmlFor="mentee-sort-select">
+                        <span>Sort</span>
+                        <select id="mentee-sort-select" value={currentSortValue} onChange={event => {
+                            onSortSelect(PHONE_SORT_OPTIONS.find(option => sortValue(option.sort) === event.target.value)?.sort);
+                        }}>
+                            <option value="">Default order</option>
+                            {customSort ? <option value={currentSortValue}>Custom order</option> : null}
+                            {PHONE_SORT_OPTIONS.map(option => <option key={option.label} value={sortValue(option.sort)}>{option.label}</option>)}
+                        </select>
+                    </label>
                 </div>
             </section>
 
-            {autoMatchVisible ? (
-                <AutoMatchPanel
-                    candidates={autoMatchCandidates}
-                    availability={autoMatchAvailability}
-                    leniency={autoMatchLeniency}
-                    searched={autoMatchSearched}
-                    busy={autoMatchBusy}
-                    error={autoMatchError}
-                    onAvailabilityChange={onAutoMatchAvailabilityChange}
-                    onLeniencyChange={onAutoMatchLeniencyChange}
-                    onSearch={onAutoMatchSearch}
-                />
+            {autoMatchActive ? (
+                <div className={styles.autoMatchResultBanner} role="status">
+                    <p>Showing waitlisted mentees whose availability is close to yours.</p>
+                    <button type="button" onClick={onAutoMatchClear}>Show whole waitlist</button>
+                </div>
             ) : null}
 
             {pagination.paginatedItems.length > 0 ? (
-                view === "cards" ? (
-                    <div className={styles.menteesCardGrid} aria-label="Mentees in card view">
-                        {pagination.paginatedItems.map(mentee => (
-                            <MenteeCard
-                                key={mentee.id}
-                                mentee={mentee}
-                                now={now}
-                                getUserName={getUserName}
-                                onOpen={onOpenMentee}
-                                match={autoMatchActive ? autoMatchCandidateById.get(mentee.id) : undefined}
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <MenteeTable
-                        mentees={pagination.paginatedItems}
-                        now={now}
-                        sort={sort}
-                        statusFilter={statusFilter}
-                        getUserName={getUserName}
-                        onOpen={onOpenMentee}
-                        onSortChange={onSortChange}
-                        autoMatchActive={autoMatchActive}
-                        candidateById={autoMatchCandidateById}
-                    />
-                )
+                <MenteeTable
+                    mentees={pagination.paginatedItems}
+                    now={now}
+                    sort={sort}
+                    statusFilter={statusFilter}
+                    getUserName={getUserName}
+                    onOpen={onOpenMentee}
+                    onSortChange={onSortChange}
+                    autoMatchActive={autoMatchActive}
+                    candidateById={autoMatchCandidateById}
+                />
             ) : (
                 <div className={styles.menteesEmptyState}>
-                    <h3>No mentees match these filters</h3>
+                    <h2>No mentees match these filters</h2>
                     <p>Try a broader search or clear the filters to see the full queue.</p>
                     {hasFilters ? <button type="button" className={styles.clearFiltersButton} onClick={onClearFilters}>Clear filters</button> : null}
                 </div>
@@ -941,107 +951,80 @@ const MenteeListPage = ({
                 totalItems={pagination.totalItems}
                 className={styles.menteesPagination}
             />
+
+            {autoMatchVisible ? (
+                <AutoMatchPanel
+                    availability={autoMatchAvailability}
+                    leniency={autoMatchLeniency}
+                    busy={autoMatchBusy}
+                    error={autoMatchError}
+                    onAvailabilityChange={onAutoMatchAvailabilityChange}
+                    onLeniencyChange={onAutoMatchLeniencyChange}
+                    onSearch={onAutoMatchSearch}
+                    onClose={onAutoMatchToggleOpen}
+                />
+            ) : null}
         </main>
     );
 };
 
 interface AutoMatchPanelProps {
-
-    candidates: AutoMatchCandidate[];
     availability: string;
     leniency: AutoMatchLeniency;
-    searched: boolean;
     busy: boolean;
     error: string | undefined;
     onAvailabilityChange: (value: string) => void;
     onLeniencyChange: (value: AutoMatchLeniency) => void;
     onSearch: (event: FormEvent) => void;
+    onClose: () => void;
 }
 
+// A side drawer keeps the list visible behind it; results filter the waitlist once the search runs.
 const AutoMatchPanel = memo(function AutoMatchPanel({
-                            candidates,
                             availability,
                             leniency,
-                            searched,
                             busy,
                             error,
                             onAvailabilityChange,
                             onLeniencyChange,
                             onSearch,
+                            onClose,
                         }: AutoMatchPanelProps) {
+    const drawerRef = useMenteeDialogFocus(onClose);
+    useBodyScrollLock();
     return (
-    <section id="auto-match-panel" className={styles.autoMatchPanel} aria-labelledby="auto-match-title">
-        <div className={styles.autoMatchHeader}>
-            <div>
-                <p className={styles.autoMatchEyebrow}>Waitlist helper</p>
-                <h2 id="auto-match-title">Auto-match by weekly UTC availability</h2>
-                <p>Set when you are available on each weekday, then find waitlisted mentees whose profile matches your schedule.</p>
-            </div>
-            <span className={styles.autoMatchCount}>{candidates.length} {candidates.length === 1 ? "match" : "matches"}</span>
+        <div className={styles.drawerBackdrop} role="presentation" onClick={onClose}>
+            <aside ref={drawerRef} id="auto-match-panel" className={styles.autoMatchPanel} role="dialog" aria-modal="true" aria-labelledby="auto-match-title" onClick={event => event.stopPropagation()}>
+                <header className={styles.autoMatchHeader}>
+                    <div>
+                        <h2 id="auto-match-title">Match helper</h2>
+                        <p>Find waitlisted mentees whose weekly availability is close to yours. Times are UTC.</p>
+                    </div>
+                    <button type="button" className={styles.dialogClose} onClick={onClose} aria-label="Close match helper"><X size={20} aria-hidden="true"/></button>
+                </header>
+
+                <form className={styles.autoMatchForm} onSubmit={onSearch}>
+                    <fieldset>
+                        <legend>Your availability</legend>
+                        <WeeklyAvailabilityEditor id="mentor-weekly-availability" value={availability} onChange={onAvailabilityChange}/>
+                    </fieldset>
+                    <div className={styles.autoMatchActions}>
+                        <label>
+                            <span>Match leniency</span>
+                            <select value={leniency} onChange={event => onLeniencyChange(event.target.value as AutoMatchLeniency)}>
+                                <option value="strict">Strict · overlap only</option>
+                                <option value="medium">Medium · up to 30 min gap</option>
+                                <option value="very-loose">Very loose · up to 2 hr gap</option>
+                            </select>
+                        </label>
+                        <button type="submit" className={styles.primaryButton} disabled={busy}>{busy ? "Finding…" : "Find matches"}</button>
+                    </div>
+                </form>
+
+                {error ? <p className={styles.autoMatchError} role="alert">{error}</p> : null}
+                <p className={styles.autoMatchHint}>Your availability and leniency are saved to your account. Results filter the waitlist behind this panel.</p>
+            </aside>
         </div>
-
-        <form className={styles.autoMatchForm} onSubmit={onSearch}>
-            <div>
-                <p className={styles.autoMatchHint}>Times are in UTC. Turn on each day you are available, then choose a start and end time.</p>
-                <WeeklyAvailabilityEditor id="mentor-weekly-availability" value={availability} onChange={onAvailabilityChange}/>
-            </div>
-            <div className={styles.autoMatchActions}>
-                <label>
-                    <span>Match leniency</span>
-                    <select value={leniency} onChange={event => onLeniencyChange(event.target.value as AutoMatchLeniency)}>
-                        <option value="strict">Strict · overlap only</option>
-                        <option value="medium">Medium · up to 30 min gap</option>
-                        <option value="very-loose">Very loose · up to 2 hr gap</option>
-                    </select>
-                </label>
-                <button type="submit" disabled={busy}>{busy ? "Finding…" : "Find matches"}</button>
-            </div>
-        </form>
-
-        {error ? <p className={styles.autoMatchError} role="alert">{error}</p> : null}
-        {searched ? <p className={styles.autoMatchResultHint} role="status">Matches now filter the main cards or table below.</p> : null}
-    </section>
-    );
-});
-
-interface MenteeCardProps {
-    mentee: AdminMentee;
-    now: number;
-    getUserName: (id?: string, fallback?: string | null) => string;
-    onOpen: (id: number) => void;
-    match?: AutoMatchCandidate;
-}
-
-const MenteeCard = memo(function MenteeCard({mentee, now, getUserName, onOpen, match}: MenteeCardProps) {
-    const nextSession = getNextSession(mentee, now);
-    return (
-    <article className={styles.menteeCard}>
-        {match ? (
-            <div className={styles.menteeCardMatchBar}>
-                <span>{formatAutoMatchSummary(match)}</span>
-                <span>{match.timezone || "Timezone not provided"}</span>
-            </div>
-        ) : null}
-        <button type="button" className={styles.menteeCardOpen} onClick={() => onOpen(mentee.id)}>
-            <span className={styles.menteeCardHeader}>
-                <span>
-                    <strong>{getUserName(mentee.mentee, mentee.ifcName)}</strong>
-                    <small>#{mentee.id} · {formatIfcDisplay(mentee)}</small>
-                </span>
-                <span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span>
-            </span>
-            <span className={styles.menteeCardDetails}>
-                <span><small>Mentor</small><strong>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Unassigned"}</strong></span>
-                <span><small>Recruiter</small><strong>{mentee.recruiter || "Not set"}</strong></span>
-                <span><small>Next session</small><strong>{nextSession ? formatNextSession(nextSession) : "None booked"}</strong></span>
-                <span><small>Sessions</small><strong>{mentee.sessions.length}</strong></span>
-            </span>
-            <span className={styles.menteeCardFooter}>
-                <span>{describeMenteeSince(mentee, now)}</span>
-                <span>Open profile</span>
-            </span>
-        </button>
-    </article>
     );
 });
 
@@ -1072,6 +1055,10 @@ const openRowUnlessControl = (event: MouseEvent<HTMLTableRowElement>, open: () =
     if ((event.target as HTMLElement).closest("button, a, input, select")) return;
     open();
 };
+
+// The wait bar fills over two months and turns amber once a mentee has waited a month.
+const WAIT_BAR_DAYS = 60;
+const LONG_WAIT_DAYS = 30;
 
 const MenteeTable = memo(function MenteeTable({mentees, now, sort, statusFilter, getUserName, onOpen, onSortChange, autoMatchActive, candidateById}: MenteeTableProps) {
     return (
@@ -1104,6 +1091,10 @@ const MenteeTable = memo(function MenteeTable({mentees, now, sort, statusFilter,
                 const lastSession = getLastSession(mentee, now);
                 const lastSessionTime = toTimestamp(lastSession?.time);
                 const hasMentor = getAssignedMentorId(mentee) != null;
+                const waitlistTime = mentee.state === "waitlisted" ? toTimestamp(mentee.waitlistTime) : undefined;
+                const waitDays = waitlistTime == null ? undefined : daysBetween(waitlistTime, now);
+                const active = mentee.state === "waitlisted" || mentee.state === "picked_up";
+                const nothingBooked = mentee.state === "picked_up" && !nextSession;
                 return (
                     <tr key={mentee.id} className={styles.menteeRow} onClick={event => openRowUnlessControl(event, () => onOpen(mentee.id))}>
                         <th scope="row" data-label="Mentee">
@@ -1120,9 +1111,19 @@ const MenteeTable = memo(function MenteeTable({mentees, now, sort, statusFilter,
                             </div>
                         </th>
                         <td data-label="Status"><span className={`${styles.stateBadge} ${styles[`${mentee.state}Badge`]}`}>{stateLabels[mentee.state]}</span></td>
-                        <td data-label="Mentor" className={hasMentor ? undefined : styles.mutedCell}>{hasMentor ? getMentorDisplayName(mentee, getUserName) : "Unassigned"}</td>
-                        <td data-label="Waiting / since">{describeMenteeSince(mentee, now)}</td>
-                        <td data-label="Next session" className={nextSession ? undefined : styles.mutedCell}>{nextSession ? formatNextSession(nextSession) : "None booked"}</td>
+                        <td data-label="Mentor" className={hasMentor ? undefined : styles.mutedCell}><span className={styles.phoneLabel}>Mentor </span>{hasMentor ? getMentorDisplayName(mentee, getUserName) : "Unassigned"}</td>
+                        <td data-label="Waiting / since">
+                            <span className={waitDays == null ? undefined : styles.waitText}>{describeMenteeSince(mentee, now)}</span>
+                            {waitDays == null ? null : (
+                                <span className={styles.waitBar} data-long={waitDays >= LONG_WAIT_DAYS ? "true" : undefined} aria-hidden="true">
+                                    <span style={{width: `${Math.min(100, waitDays / WAIT_BAR_DAYS * 100)}%`}}/>
+                                </span>
+                            )}
+                        </td>
+                        <td data-label="Next session" data-empty={!nextSession && !nothingBooked ? "true" : undefined} className={nextSession ? undefined : styles.mutedCell}>
+                            {nextSession ? <><span className={styles.phoneLabel}>Next: </span>{formatNextSession(nextSession)}</> : <span className={styles.desktopOnly}>{active ? "None booked" : "—"}</span>}
+                            {nothingBooked ? <span className={styles.attentionFlag}>Nothing booked</span> : null}
+                        </td>
                         <td data-label="Last session" className={lastSessionTime == null ? styles.mutedCell : undefined}>{lastSessionTime == null ? "None yet" : formatDaysAgo(lastSessionTime, now)}</td>
                         <td data-label="Sessions" className={styles.numericCell}>{mentee.sessions.length}</td>
                         <td className={styles.rowChevron} aria-hidden="true"><CaretRight size={16}/></td>
@@ -1194,6 +1195,8 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                           }: MenteeProfilePageProps) => {
     const [activeTab, setActiveTab] = useState<ProfileTab>("sessions");
     const [scheduleOpen, setScheduleOpen] = useState(false);
+    // One session dialog serves every list; sign-ups from other mentorships open read-only.
+    const [viewedSession, setViewedSession] = useState<{session: Session; editable: boolean}>();
     const tabsRef = useRef<HTMLElement>(null);
     const now = useMemo(() => selectedMentee ? Date.now() : 0, [selectedMentee]);
 
@@ -1201,57 +1204,63 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
         return (
             <main className={styles.profileNotFound}>
                 <button type="button" className={styles.profileBackButton} onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>Back to mentees</button>
-                <h2>Mentee not found</h2>
+                <h1>Mentee not found</h1>
                 <p>This mentee record may have been removed or you may not have access to it.</p>
             </main>
         );
     }
 
+    const menteeName = getUserName(selectedMentee.mentee, selectedMentee.ifcName);
     const nextSession = getNextSession(selectedMentee, now);
+    const assignmentsAvailable = assignments.length > 0;
+    const openSession = (session: Session, editable: boolean) => setViewedSession({session, editable});
     const showSessions = () => {
         setActiveTab("sessions");
         tabsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
     };
-    const sessionSectionProps = {
-        getUserName,
-        busyAction,
-        attendeeInputs,
-        assignments,
-        sessionTimeSuggestions,
-        onAttendeeInputChange,
-        onUpdateSession,
-        onAddAttendee,
-        onRemoveAttendee,
-        onCancelSession,
-        onOpenAssignmentGenerator,
+    const refreshViewed = (updatedSession: Session | undefined) => {
+        if (updatedSession) setViewedSession(current => current ? {...current, session: updatedSession} : current);
+        return updatedSession;
     };
-    const tabs: {id: ProfileTab; label: string; count: number}[] = [
-        {id: "sessions", label: "Training sessions", count: selectedMentee.sessions.length},
-        {id: "signups", label: "Session sign-up history", count: attendedSessions.length},
-        {id: "notes", label: "Notes", count: selectedMenteeNotes.length},
+    const tabs: {id: ProfileTab; label: string; shortLabel: string; count: number}[] = [
+        {id: "sessions", label: "Training sessions", shortLabel: "Sessions", count: selectedMentee.sessions.length},
+        {id: "signups", label: "Session sign-ups", shortLabel: "Sign-ups", count: attendedSessions.length},
+        {id: "notes", label: "Notes", shortLabel: "Notes", count: selectedMenteeNotes.length},
     ];
+    const primaryAction = selectedActionPolicy?.canPickup
+        ? <button type="button" className={styles.profilePrimaryAction} onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up mentee</button>
+        : selectedActionPolicy?.canPass
+            ? <button type="button" className={styles.profilePrimaryAction} onClick={onPass} disabled={busyAction === "pass"}><Check size={18} weight="bold" aria-hidden="true"/>Pass mentee</button>
+            : null;
 
     return (
         <main className={styles.profilePage} aria-labelledby="mentee-profile-title">
             <nav className={styles.profileBreadcrumb} aria-label="Breadcrumb">
                 <button type="button" className={styles.profileBackButton} onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>Back to mentees</button>
             </nav>
-            <MenteeProfileEditor key={selectedMentee.id} mentee={selectedMentee} token={profileToken} onSaved={onProfileChanged} triggerClassName={styles.profileEditButton}>
+            <MenteeProfileEditor
+                key={selectedMentee.id}
+                mentee={selectedMentee}
+                menteeName={menteeName}
+                token={profileToken}
+                onSaved={onProfileChanged}
+                triggerClassName={styles.profileSecondaryAction}
+                triggerContent={<><PencilSimple size={17} aria-hidden="true"/>Edit<span className={styles.longLabel}>&nbsp;profile</span></>}
+            >
                 {editProfileButton => <>
                     <section className={styles.profileHeaderCard}>
                         <header className={styles.profileHeader}>
                             <div className={styles.profileIdentity}>
                                 <div className={styles.profileTitleRow}>
-                                    <h2 id="mentee-profile-title">{getUserName(selectedMentee.mentee, selectedMentee.ifcName)}</h2>
+                                    <h1 id="mentee-profile-title">{menteeName}</h1>
                                     <span className={`${styles.stateBadge} ${styles[`${selectedMentee.state}Badge`]}`}>{stateLabels[selectedMentee.state]}</span>
                                 </div>
-                                <p>Record #{selectedMentee.id} · IFC: {formatIfcDisplay(selectedMentee)}</p>
+                                <p>Record #{selectedMentee.id} · IFC {formatIfcDisplay(selectedMentee)} · Discord {selectedMentee.mentee}</p>
                             </div>
                             <div className={styles.profileActionButtons}>
                                 {editProfileButton}
-                                {selectedActionPolicy?.canSchedule ? <button type="button" className={styles.profileSecondaryAction} onClick={() => setScheduleOpen(true)}><CalendarBlank size={18} aria-hidden="true"/>Schedule session</button> : null}
-                                {selectedActionPolicy?.canPickup ? <button type="button" onClick={onPickup} disabled={busyAction === "pickup"}><UserPlus size={18} aria-hidden="true"/>Pick up</button> : null}
-                                {selectedActionPolicy?.canPass ? <button type="button" onClick={onPass} disabled={busyAction === "pass"}><CheckCircle size={18} aria-hidden="true"/>Pass</button> : null}
+                                {selectedActionPolicy?.canSchedule ? <button type="button" className={styles.profileSecondaryAction} onClick={() => setScheduleOpen(true)}><CalendarBlank size={17} aria-hidden="true"/>Schedule<span className={styles.longLabel}>&nbsp;session</span></button> : null}
+                                {primaryAction}
                                 {selectedActionPolicy?.canTerminate ? <MenteeProfileActionMenu onTerminate={onTerminate} busy={busyAction === "terminate"}/> : null}
                             </div>
                         </header>
@@ -1260,18 +1269,23 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
 
                     <AdminToast message={actionError} onDismiss={onDismissActionError}/>
 
-                    <MenteeProfileOverview
+                    <MenteeNextSession
                         mentee={selectedMentee}
+                        session={nextSession}
+                        now={now}
                         getUserName={getUserName}
-                        nextSession={nextSession}
                         canSchedule={selectedActionPolicy?.canSchedule ?? false}
-                        assignmentsAvailable={assignments.length > 0}
+                        assignmentsAvailable={assignmentsAvailable}
                         onSchedule={() => setScheduleOpen(true)}
                         onShowSessions={showSessions}
+                        onView={session => openSession(session, true)}
                         onOpenAssignmentGenerator={onOpenAssignmentGenerator}
                     />
                 </>}
             </MenteeProfileEditor>
+
+            <MenteeMentorshipDetails mentee={selectedMentee} getUserName={getUserName}/>
+            <MenteeAvailability mentee={selectedMentee}/>
 
             <section ref={tabsRef} className={styles.profileTabsCard} aria-label="Mentee records">
                 <div className={styles.profileTabs} role="tablist" aria-label="Mentee records">
@@ -1293,12 +1307,14 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                                 document.getElementById(`mentee-tab-${next.id}`)?.focus();
                             }}
                         >
-                            {tab.label}<span className={styles.statusTabCount}>{tab.count}</span>
+                            <span className={styles.longLabel}>{tab.label}</span>
+                            <span className={styles.shortLabel}>{tab.shortLabel}</span>
+                            <span className={styles.tabCount}>{tab.count}</span>
                         </button>
                     ))}
                 </div>
 
-                <div id="mentee-panel-sessions" role="tabpanel" aria-labelledby="mentee-tab-sessions" hidden={activeTab !== "sessions"} className={styles.profileTraining}>
+                <div id="mentee-panel-sessions" role="tabpanel" aria-labelledby="mentee-tab-sessions" hidden={activeTab !== "sessions"} className={styles.profileTabPanel}>
                     {selectedMentee.sessions.length === 0 ? (
                         <div className={styles.profileTabEmpty}>
                             <p>No mentee training sessions scheduled or previously held.</p>
@@ -1306,16 +1322,16 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                         </div>
                     ) : null}
                     {selectedSessions.future.length > 0 ? (
-                        <SessionSection title="Upcoming sessions" sessions={selectedSessions.future} editable {...sessionSectionProps}/>
+                        <SessionSection title="Upcoming" sessions={selectedSessions.future} now={now} getUserName={getUserName} assignmentsAvailable={assignmentsAvailable} onView={session => openSession(session, true)} onOpenAssignmentGenerator={onOpenAssignmentGenerator}/>
                     ) : null}
                     {selectedSessions.past.length > 0 ? (
-                        <SessionSection title="Past sessions" sessions={selectedSessions.past} editable {...sessionSectionProps}/>
+                        <SessionSection title="Past" sessions={selectedSessions.past} now={now} getUserName={getUserName} assignmentsAvailable={assignmentsAvailable} onView={session => openSession(session, true)} onOpenAssignmentGenerator={onOpenAssignmentGenerator}/>
                     ) : null}
                 </div>
-                <div id="mentee-panel-signups" role="tabpanel" aria-labelledby="mentee-tab-signups" hidden={activeTab !== "signups"}>
-                    <AttendedSessionSection title="Session sign-up history" sessions={attendedSessions} editable={false} {...sessionSectionProps}/>
+                <div id="mentee-panel-signups" role="tabpanel" aria-labelledby="mentee-tab-signups" hidden={activeTab !== "signups"} className={styles.profileTabPanel}>
+                    <AttendedSessionSection sessions={attendedSessions} now={now} getUserName={getUserName} onView={session => openSession(session, false)}/>
                 </div>
-                <div id="mentee-panel-notes" role="tabpanel" aria-labelledby="mentee-tab-notes" hidden={activeTab !== "notes"}>
+                <div id="mentee-panel-notes" role="tabpanel" aria-labelledby="mentee-tab-notes" hidden={activeTab !== "notes"} className={styles.profileTabPanel}>
                     <UserNotesSection notes={selectedMenteeNotes} getUserName={getUserName}/>
                 </div>
             </section>
@@ -1324,6 +1340,7 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
 
             {scheduleOpen && selectedActionPolicy?.canSchedule ? (
                 <MenteeScheduleDialog
+                    menteeName={menteeName}
                     sessionForm={sessionForm}
                     onSessionFormChange={onSessionFormChange}
                     sessionTimeSuggestions={sessionTimeSuggestions}
@@ -1335,82 +1352,415 @@ const MenteeProfilePage = ({profileToken, onProfileChanged,
                     }}
                 />
             ) : null}
+
+            {viewedSession ? (
+                <SessionDetailsModal
+                    session={viewedSession.session}
+                    getUserName={getUserName}
+                    editable={viewedSession.editable}
+                    readOnlyNote={viewedSession.editable ? undefined : `${menteeName} joined this session as a pilot. It belongs to ${getUserName(viewedSession.session.mentee)}’s mentorship, so it is read-only here.`}
+                    busyAction={busyAction}
+                    attendeeInput={attendeeInputs[viewedSession.session.id] ?? ""}
+                    sessionTimeSuggestions={sessionTimeSuggestions}
+                    onAttendeeInputChange={value => onAttendeeInputChange(viewedSession.session.id, value)}
+                    onUpdateSession={async form => refreshViewed(await onUpdateSession(viewedSession.session.id, form))}
+                    onAddAttendee={async event => refreshViewed(await onAddAttendee(event, viewedSession.session.id))}
+                    onRemoveAttendee={async attendeeId => refreshViewed(await onRemoveAttendee(viewedSession.session.id, attendeeId))}
+                    onCancelSession={async () => refreshViewed(await onCancelSession(viewedSession.session.id))}
+                    onClose={() => setViewedSession(undefined)}
+                />
+            ) : null}
         </main>
     );
 };
 
-const MenteeScheduleDialog = ({sessionForm, onSessionFormChange, sessionTimeSuggestions, busy, onCancel, onSubmit}: {
+const DAY_MS = 86_400_000;
+const sessionTileFormat = new Intl.DateTimeFormat("en-GB", {weekday: "short", day: "numeric", month: "short", timeZone: "UTC"});
+const sessionHeadlineFormat = new Intl.DateTimeFormat("en-GB", {weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC"});
+
+const getDateParts = (time: number) => {
+    const parts = sessionTileFormat.formatToParts(new Date(time));
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(candidate => candidate.type === type)?.value ?? "";
+    return {weekday: part("weekday"), day: part("day"), month: part("month")};
+};
+
+// "Thu 29 Oct, 18:30 UTC" reads the same whatever the browser locale.
+const formatSessionHeadline = (time: number) => {
+    const parts = sessionHeadlineFormat.formatToParts(new Date(time));
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(candidate => candidate.type === type)?.value ?? "";
+    return `${part("weekday")} ${part("day")} ${part("month")}, ${part("hour")}:${part("minute")} UTC`;
+};
+
+const describeTimeUntil = (time: number, now: number) => {
+    const minutes = Math.round((time - now) / 60_000);
+    if (minutes < 60) return "Starting soon";
+    if (minutes < 24 * 60) return `In ${Math.round(minutes / 60)} h`;
+    const days = Math.floor((time - now) / DAY_MS);
+    return `In ${days} ${days === 1 ? "day" : "days"}`;
+};
+
+// Local time depends on the browser, so it is filled in after hydration.
+const LocalTime = ({time}: {time: number}) => {
+    const [local, setLocal] = useState("");
+    useEffect(() => setLocal(new Intl.DateTimeFormat(undefined, {hour: "2-digit", minute: "2-digit"}).format(new Date(time))), [time]);
+    return local ? <> · {local} your time</> : null;
+};
+
+const MenteeNextSession = ({mentee, session, now, getUserName, canSchedule, assignmentsAvailable, onSchedule, onShowSessions, onView, onOpenAssignmentGenerator}: {
+    mentee: AdminMentee;
+    session: Session | undefined;
+    now: number;
+    getUserName: (id?: string) => string;
+    canSchedule: boolean;
+    assignmentsAvailable: boolean;
+    onSchedule: () => void;
+    onShowSessions: () => void;
+    onView: (session: Session) => void;
+    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
+}) => {
+    const time = toTimestamp(session?.time);
+    if (!session || time == null) {
+        return (
+            <section className={`${styles.profileBlock} ${styles.nextSessionBlock}`} aria-labelledby="mentee-next-session-title">
+                <div className={styles.nextSessionTile} data-empty="true" aria-hidden="true"><CalendarBlank size={26}/></div>
+                <div className={styles.nextSessionText}>
+                    <h2 id="mentee-next-session-title" className={styles.blockEyebrow}>Next session</h2>
+                    <p className={styles.nextSessionTime}>No session booked</p>
+                    {mentee.sessions.length > 0 ? <p>{mentee.sessions.length} {mentee.sessions.length === 1 ? "session" : "sessions"} on record.</p> : null}
+                </div>
+                <div className={styles.nextSessionActions}>
+                    {canSchedule ? <button type="button" className={styles.secondaryButton} onClick={onSchedule}>Schedule session</button> : null}
+                    {mentee.sessions.length > 0 ? <button type="button" className={styles.secondaryButton} onClick={onShowSessions}>Past sessions</button> : null}
+                </div>
+            </section>
+        );
+    }
+    const date = getDateParts(time);
+    return (
+        <section className={`${styles.profileBlock} ${styles.nextSessionBlock}`} aria-labelledby="mentee-next-session-title">
+            <div className={styles.nextSessionTile} aria-hidden="true">
+                <span>{date.weekday}</span>
+                <strong>{date.day}</strong>
+                <span>{date.month}</span>
+            </div>
+            <div className={styles.nextSessionText}>
+                <h2 id="mentee-next-session-title" className={styles.blockEyebrow}>Next session</h2>
+                <p className={styles.nextSessionTime}>{formatSessionHeadline(time)}</p>
+                <p>{describeTimeUntil(time, now)}<LocalTime time={time}/> · {session.airport || "No airport"} · Mentor {getUserName(session.mentor)} · {formatPilotCount(session)} pilots</p>
+            </div>
+            <div className={styles.nextSessionActions}>
+                <button type="button" className={styles.secondaryButton} disabled={!assignmentsAvailable} onClick={() => onOpenAssignmentGenerator(session)}>
+                    {session.hasAssignment ? "Edit assignment" : "Generate assignment"}
+                </button>
+                <button type="button" className={styles.secondaryButton} onClick={() => onView(session)}>View session</button>
+            </div>
+        </section>
+    );
+};
+
+const MenteeMentorshipDetails = ({mentee, getUserName}: {mentee: AdminMentee; getUserName: (id?: string) => string}) => (
+    <section className={styles.profileBlock} aria-labelledby="mentee-details-title">
+        <h2 id="mentee-details-title" className={styles.blockTitle}>Mentorship details</h2>
+        <dl className={styles.profileFacts}>
+            <div><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
+            <div><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
+            <div><dt>Region</dt><dd>{mentee.region || "Not provided"}</dd></div>
+            <div><dt>Timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
+        </dl>
+        {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}
+    </section>
+);
+
+const MenteeAvailability = ({mentee}: {mentee: AdminMentee}) => {
+    const availability = getMenteeAvailabilityRows(mentee.availability);
+    const hours = getWeeklyAvailabilityHours(availability);
+    return (
+        <section className={styles.profileBlock} aria-labelledby="mentee-availability-title">
+            <div className={styles.blockHeading}>
+                <h2 id="mentee-availability-title" className={styles.blockTitle}>Weekly availability (UTC)</h2>
+                <span>{availability.length > 0 ? `${hours} h a week · ` : ""}00:00 is midnight at the end of the day</span>
+            </div>
+            {availability.length > 0 ? <>
+                <div className={styles.availabilityRuler} aria-hidden="true"><span/><span><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></span></div>
+                <dl className={styles.profileAvailabilityList}>
+                    {availability.map(({day, label, segments}, index) => <div key={`${day}-${index}`} data-empty={segments.length === 0 ? "true" : undefined}>
+                        <dt>{day}</dt>
+                        <dd>
+                            <div className={styles.availabilityTrack} aria-hidden="true">
+                                {segments.map((segment, segmentIndex) => <span key={segmentIndex} style={{left: `${segment.start / 1440 * 100}%`, width: `${(segment.end - segment.start) / 1440 * 100}%`}}/>)}
+                            </div>
+                            <span>{label}</span>
+                        </dd>
+                    </div>)}
+                </dl>
+            </> : <p className={styles.blockEmpty}>Availability not provided.</p>}
+        </section>
+    );
+};
+
+const UserNotesSection = ({notes, getUserName}: { notes: UserNote[]; getUserName: (id?: string) => string }) => (
+    <section className={styles.userNotesSection}>
+        <p className={styles.tabIntro}>Staff notes on this member, newest first. Notes are added from User notes.</p>
+        {notes.length === 0 ? (
+            <p className={styles.blockEmpty}>No notes yet for this mentee.</p>
+        ) : (
+            <div className={styles.userNotesList}>
+                {notes.map(note => (
+                    <article key={note.id} className={`${styles.userNoteItem} ${note.active ? "" : styles.inactiveUserNote}`}>
+                        <div className={styles.userNoteMeta}>
+                            <strong>{getUserName(note.staff)}</strong>
+                            <span>{formatAdminUtcDate(note.time)}</span>
+                            <span className={`${styles.sessionPill} ${note.active ? styles.pillHeld : styles.pillCancelled}`}>{note.active ? "Active" : "Inactive"}</span>
+                        </div>
+                        <p>{note.note}</p>
+                    </article>
+                ))}
+            </div>
+        )}
+    </section>
+);
+
+type SessionStatusTone = "scheduled" | "held" | "interrupted" | "notHeld" | "cancelled";
+const sessionPillClass: Record<SessionStatusTone, string> = {
+    scheduled: styles.pillScheduled,
+    held: styles.pillHeld,
+    interrupted: styles.pillInterrupted,
+    notHeld: styles.pillCancelled,
+    cancelled: styles.pillCancelled,
+};
+
+// Past sessions count as held unless feedback says otherwise, matching the "Sessions held" stat.
+const getSessionStatus = (session: Session, now: number): {label: string; tone: SessionStatusTone} => {
+    if (session.cancelled) return {label: "Cancelled", tone: "cancelled"};
+    const time = toTimestamp(session.time);
+    if (time == null || time >= now) return {label: "Scheduled", tone: "scheduled"};
+    if (session.trainingOutcome === "NOT_HELD") return {label: "Not held", tone: "notHeld"};
+    if (session.trainingOutcome === "INTERRUPTED") return {label: "Interrupted", tone: "interrupted"};
+    return {label: "Held", tone: "held"};
+};
+
+const SessionStatusPill = ({session, now}: {session: Session; now: number}) => {
+    const status = getSessionStatus(session, now);
+    return <span className={`${styles.sessionPill} ${sessionPillClass[status.tone]}`}>{status.label}</span>;
+};
+
+// Fixed columns keep View in the same place whether or not a row has an assignment button.
+const SessionRows = ({sessions, now, statusHeading, compact, describe, renderActions}: {
+    sessions: Session[];
+    now: number;
+    statusHeading: string;
+    compact?: boolean;
+    describe: (session: Session) => string;
+    renderActions: (session: Session) => ReactNode;
+}) => (
+    <div className={`${styles.sessionList} ${compact ? styles.sessionListCompact : ""}`}>
+        <div className={styles.sessionListHeader} aria-hidden="true"><span>Date &amp; time (UTC)</span><span>Session</span><span>{statusHeading}</span><span>Actions</span></div>
+        <ul>
+            {sessions.map(session => (
+                <li key={session.id} className={styles.sessionRow} data-cancelled={session.cancelled ? "true" : undefined}>
+                    <span className={styles.sessionRowTime}><SessionTimeDisplay value={session.time}/></span>
+                    <span className={styles.sessionRowMeta}>{describe(session)}</span>
+                    <span className={styles.sessionRowStatus}><SessionStatusPill session={session} now={now}/></span>
+                    <span className={styles.sessionRowActions}>{renderActions(session)}</span>
+                </li>
+            ))}
+        </ul>
+    </div>
+);
+
+const SessionSection = ({title, sessions, now, getUserName, assignmentsAvailable, onView, onOpenAssignmentGenerator}: {
+    title: string;
+    sessions: Session[];
+    now: number;
+    getUserName: (id?: string) => string;
+    assignmentsAvailable: boolean;
+    onView: (session: Session) => void;
+    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
+}) => (
+    <section className={styles.sessionsSection} aria-label={`${title} sessions`}>
+        <h3 className={styles.blockEyebrow}>{title}</h3>
+        <SessionRows
+            sessions={sessions}
+            now={now}
+            statusHeading="Status"
+            describe={session => `${session.airport || "No airport"} · Mentor ${getUserName(session.mentor)} · ${formatPilotCount(session)} pilots`}
+            renderActions={session => <>
+                <button type="button" className={styles.viewButton} aria-label={`View session #${session.id}, ${formatAdminUtcDate(session.time)}`} onClick={() => onView(session)}>View</button>
+                {!session.cancelled ? (
+                    <button
+                        type="button"
+                        className={styles.assignmentButton}
+                        aria-label={`${session.hasAssignment ? "Edit" : "Generate"} assignment for session #${session.id}`}
+                        onClick={() => onOpenAssignmentGenerator(session)}
+                        disabled={!assignmentsAvailable}
+                    >
+                        {session.hasAssignment ? "Edit" : "Generate"}<span className={styles.longLabel}>&nbsp;assignment</span>
+                    </button>
+                ) : null}
+            </>}
+        />
+    </section>
+);
+
+const AttendedSessionSection = ({sessions, now, getUserName, onView}: {
+    sessions: Session[];
+    now: number;
+    getUserName: (id?: string) => string;
+    onView: (session: Session) => void;
+}) => {
+    const [showAll, setShowAll] = useState(false);
+    const visibleSessions = showAll ? sessions : sessions.slice(0, 4);
+
+    return (
+        <section className={styles.profileSignupSection} aria-label="Session sign-ups">
+            <p className={styles.tabIntro}>Sessions this mentee joined as a pilot, newest first. Times are UTC. Status is as recorded.</p>
+            {sessions.length === 0 ? (
+                <p className={styles.blockEmpty}>No pilot sign-ups recorded.</p>
+            ) : (
+                <div id="mentee-signup-history">
+                    <SessionRows
+                        sessions={visibleSessions}
+                        now={now}
+                        statusHeading="Recorded status"
+                        compact
+                        describe={session => `${session.airport || "No airport"} · Mentor ${getUserName(session.mentor)} · Mentee ${getUserName(session.mentee)}`}
+                        renderActions={session => (
+                            <button type="button" className={styles.viewButton} aria-label={`View session at ${session.airport || "unknown airport"}, ${formatAdminUtcDate(session.time)}`} onClick={() => onView(session)}>View</button>
+                        )}
+                    />
+                </div>
+            )}
+            {sessions.length > 4 ? <button type="button" className={styles.profileHistoryToggle} aria-expanded={showAll} aria-controls="mentee-signup-history" onClick={() => setShowAll(value => !value)}>
+                {showAll ? "Show fewer" : `View all ${sessions.length}`}<CaretRight size={15} aria-hidden="true"/>
+            </button> : null}
+        </section>
+    );
+};
+
+const useBodyScrollLock = () => {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = previousOverflow; };
+    }, []);
+};
+
+type DialogSize = "small" | "medium" | "large" | "wide";
+
+// Every mentee dialog shares one frame: phones get a bottom sheet for small confirmations and a full screen for the rest.
+const MenteeDialog = ({size, titleId, title, eyebrow, pill, subtitle, closeLabel = "Close", onDismiss, dismissDisabled = false, closeOnBackdrop = false, role = "dialog", describedBy, tabs, footer, children}: {
+    size: DialogSize;
+    titleId: string;
+    title: ReactNode;
+    eyebrow?: ReactNode;
+    pill?: ReactNode;
+    subtitle?: ReactNode;
+    closeLabel?: string;
+    onDismiss: () => void;
+    dismissDisabled?: boolean;
+    closeOnBackdrop?: boolean;
+    role?: "dialog" | "alertdialog";
+    describedBy?: string;
+    tabs?: ReactNode;
+    footer?: ReactNode;
+    children: ReactNode;
+}) => {
+    const dismiss = () => { if (!dismissDisabled) onDismiss(); };
+    const dialogRef = useMenteeDialogFocus(dismiss);
+    useBodyScrollLock();
+    return (
+        <div className={styles.dialogBackdrop} data-size={size} role="presentation" onClick={closeOnBackdrop ? dismiss : undefined}>
+            <div ref={dialogRef} className={styles.dialog} data-size={size} role={role} aria-modal="true" aria-labelledby={titleId} aria-describedby={describedBy} onClick={event => event.stopPropagation()}>
+                <header className={styles.dialogHeader}>
+                    <div className={styles.dialogHeading}>
+                        {eyebrow ? <p className={styles.dialogEyebrow}>{eyebrow}</p> : null}
+                        <div className={styles.dialogTitleRow}><h2 id={titleId}>{title}</h2>{pill}</div>
+                        {subtitle ? <div className={styles.dialogSubtitle}>{subtitle}</div> : null}
+                    </div>
+                    <button type="button" className={styles.dialogClose} onClick={dismiss} disabled={dismissDisabled} aria-label={closeLabel}><X size={20} aria-hidden="true"/></button>
+                </header>
+                {tabs}
+                <div className={styles.dialogBody}>{children}</div>
+                {footer ? <footer className={styles.dialogFooter}>{footer}</footer> : null}
+            </div>
+        </div>
+    );
+};
+
+const MenteeScheduleDialog = ({menteeName, sessionForm, onSessionFormChange, sessionTimeSuggestions, busy, onCancel, onSubmit}: {
+    menteeName: string;
     sessionForm: SessionFormState;
     onSessionFormChange: (changes: Partial<SessionFormState>) => void;
     sessionTimeSuggestions: string[];
     busy: boolean;
     onCancel: () => void;
     onSubmit: (event: FormEvent) => void;
-}) => {
-    const dialogRef = useMenteeDialogFocus(onCancel);
-    return <div className={styles.modalBackdrop} role="presentation" onClick={onCancel}>
-        <div ref={dialogRef} className={styles.scheduleModal} role="dialog" aria-modal="true" aria-labelledby="mentee-schedule-title" onClick={event => event.stopPropagation()}>
-            <h3 id="mentee-schedule-title">Schedule session</h3>
-            <form className={styles.actionPanel} onSubmit={onSubmit}>
-                <p className={styles.actionPanelDescription}>Create the next practical session for this mentee.</p>
-                <label>Mentor Discord ID<input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Blank for you"/></label>
-                <div className={styles.inlineInputs}>
-                    <label>Airport<input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="ICAO code" maxLength={5} required/></label>
-                    <label>Pilot places<input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/></label>
-                </div>
-                <label className={styles.utcDateTimeLabel}>
-                    <span>Session time (your local time)</span>
-                    <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
-                    <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
-                    <SessionTimePreview value={sessionForm.time}/>
-                </label>
-                <div className={styles.modalActions}>
-                    <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
-                    <button type="submit" disabled={busy}>Schedule session</button>
-                </div>
-            </form>
-        </div>
-    </div>;
-};
+}) => (
+    <MenteeDialog
+        size="medium"
+        titleId="mentee-schedule-title"
+        eyebrow={menteeName}
+        title="Schedule session"
+        closeLabel="Close scheduling"
+        onDismiss={onCancel}
+        footer={<>
+            <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
+            <button type="submit" form="mentee-schedule-form" className={styles.primaryButton} disabled={busy}>Schedule session</button>
+        </>}
+    >
+        <form id="mentee-schedule-form" className={styles.dialogForm} onSubmit={onSubmit}>
+            <p className={styles.dialogText}>Create the next practical session for this mentee.</p>
+            <label>Mentor Discord ID<input value={sessionForm.mentorId} onChange={event => onSessionFormChange({mentorId: event.target.value})} placeholder="Blank for you"/></label>
+            <div className={styles.inlineInputs}>
+                <label>Airport<input value={sessionForm.airport} onChange={event => onSessionFormChange({airport: event.target.value.toUpperCase()})} placeholder="ICAO code" maxLength={5} required/></label>
+                <label>Pilot places<input type="number" min="1" max="99" value={sessionForm.pilots} onChange={event => onSessionFormChange({pilots: event.target.value})} required/></label>
+            </div>
+            <label className={styles.utcDateTimeLabel}>
+                <span>Session time (your local time)</span>
+                <input type="datetime-local" list="session-time-suggestions" value={sessionForm.time} onChange={event => onSessionFormChange({time: event.target.value})} required/>
+                <datalist id="session-time-suggestions">{sessionTimeSuggestions.map(value => <option key={value} value={value}/>)}</datalist>
+                <SessionTimePreview value={sessionForm.time}/>
+            </label>
+        </form>
+    </MenteeDialog>
+);
 
-const MenteeActionConfirmation = ({
-                                    action,
-                                    onCancel,
-                                    onConfirm,
-                                }: {
+const MenteeActionConfirmation = ({action, mentee, getUserName, onCancel, onConfirm}: {
     action: MenteeStateAction;
+    mentee: AdminMentee;
+    getUserName: (id?: string, fallback?: string | null) => string;
     onCancel: () => void;
     onConfirm: () => void;
 }) => {
     const copy = stateActionCopy[action];
-    const dialogRef = useMenteeDialogFocus(onCancel);
+    const name = getUserName(mentee.mentee, mentee.ifcName);
+    const mentorId = getAssignedMentorId(mentee);
+    const now = useMemo(() => Date.now(), []);
+    const [headline, held] = getMentorshipStats(mentee, now);
+    const nextTime = toTimestamp(getNextSession(mentee, now)?.time);
     return (
-        <div className={styles.modalBackdrop} role="presentation" onClick={onCancel} onKeyDown={event => {
-            if (event.key === "Escape") onCancel();
-        }}>
-            <div
-                ref={dialogRef}
-                className={styles.confirmationModal}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="mentee-action-confirmation-title"
-                aria-describedby="mentee-action-confirmation-description"
-                onClick={event => event.stopPropagation()}
-            >
-                <h3 id="mentee-action-confirmation-title">{copy.title}</h3>
-                <p id="mentee-action-confirmation-description">{copy.description}</p>
-                <div className={styles.modalActions}>
-                    <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
-                    <button
-                        type="button"
-                        className={action === "pass" ? styles.dangerButton : undefined}
-                        onClick={onConfirm}
-                    >
-                        {copy.confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </div>
+        <MenteeDialog
+            size="small"
+            role="alertdialog"
+            titleId="mentee-action-confirmation-title"
+            describedBy="mentee-action-confirmation-description"
+            title={copy.title(name)}
+            closeLabel="Cancel"
+            onDismiss={onCancel}
+            closeOnBackdrop
+            footer={<>
+                <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
+                <button type="button" className={styles.primaryButton} onClick={onConfirm}>{copy.confirmLabel}</button>
+            </>}
+        >
+            <p id="mentee-action-confirmation-description" className={styles.dialogText}>{copy.description(name, mentorId ? getUserName(mentorId) : undefined)}</p>
+            {action === "pass" ? (
+                <ul className={styles.dialogSummary}>
+                    <li>{headline.label} {headline.value} · {held.value} {held.value === "1" ? "session" : "sessions"} held</li>
+                    {nextTime != null ? <li>The upcoming session on {formatShortUtcDate(nextTime)} stays booked</li> : null}
+                </ul>
+            ) : null}
+        </MenteeDialog>
     );
 };
 
@@ -1439,58 +1789,82 @@ const useMenteeDialogFocus = (onDismiss: () => void) => {
         document.addEventListener("keydown", onKeyDown, true);
         return () => {
             document.removeEventListener("keydown", onKeyDown, true);
-            const target = opener?.closest("details:not([open])")?.querySelector<HTMLElement>("summary") ?? opener;
-            if (target?.isConnected) target.focus();
+            if (opener?.isConnected) opener.focus();
         };
     }, []);
     return dialogRef;
 };
 
 const DetailItem = ({label, value}: {label: string; value: string}) => (
-    <div className={styles.detailItem}><span>{label}</span><strong>{value}</strong></div>
+    <div className={styles.detailItem}><dt>{label}</dt><dd>{value}</dd></div>
 );
 
-const MenteeTerminationDialog = ({reason, onReasonChange, onCancel, onConfirm, busy}: {
+const MenteeTerminationDialog = ({mentee, getUserName, reason, onReasonChange, onCancel, onConfirm, busy}: {
+    mentee: AdminMentee; getUserName: (id?: string, fallback?: string | null) => string;
     reason: string; onReasonChange: (value: string) => void; onCancel: () => void; onConfirm: (event: FormEvent) => void; busy: boolean;
 }) => {
-    const dialogRef = useMenteeDialogFocus(onCancel);
-    return <div className={styles.modalBackdrop} role="presentation" onClick={onCancel}>
-        <div ref={dialogRef} className={styles.terminateModal} role="dialog" aria-modal="true" aria-labelledby="mentee-termination-title" onClick={event => event.stopPropagation()}>
-            <h3 id="mentee-termination-title">Terminate Mentee</h3>
-            <form onSubmit={onConfirm}>
-                <label>Reason for termination<textarea value={reason} onChange={event => onReasonChange(event.target.value)} required/></label>
-                <div className={styles.modalActions}>
-                    <button type="button" onClick={onCancel}>Cancel</button>
-                    <button type="submit" disabled={busy}>Confirm Terminate</button>
-                </div>
+    const name = getUserName(mentee.mentee, mentee.ifcName);
+    const mentorId = getAssignedMentorId(mentee);
+    return (
+        <MenteeDialog
+            size="small"
+            titleId="mentee-termination-title"
+            describedBy="mentee-termination-description"
+            title={`Terminate ${name}?`}
+            closeLabel="Cancel termination"
+            onDismiss={onCancel}
+            dismissDisabled={busy}
+            footer={<>
+                <button type="button" className={styles.secondaryButton} onClick={onCancel} disabled={busy}>Cancel</button>
+                <button type="submit" form="mentee-termination-form" className={styles.dangerButton} disabled={busy}>Terminate mentee</button>
+            </>}
+        >
+            <form id="mentee-termination-form" className={styles.dialogForm} onSubmit={onConfirm}>
+                <p id="mentee-termination-description" className={styles.dialogText}>
+                    This ends {name}’s {mentorId ? `mentorship with ${getUserName(mentorId)}` : "place on the waitlist"}. The reason is shown on the profile.
+                </p>
+                <label>Reason for termination<textarea rows={4} value={reason} onChange={event => onReasonChange(event.target.value)} required/></label>
             </form>
-        </div>
-    </div>;
+        </MenteeDialog>
+    );
 };
 
 const MenteeProfileActionMenu = ({onTerminate, busy}: {onTerminate: () => void; busy: boolean}) => {
-    const menuRef = useRef<HTMLDetailsElement>(null);
+    const [open, setOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const toggleRef = useRef<HTMLButtonElement>(null);
     useEffect(() => {
+        if (!open) return;
+        menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
         const closeOutside = (event: PointerEvent) => {
-            if (!menuRef.current?.contains(event.target as Node) && menuRef.current) menuRef.current.open = false;
+            if (!menuRef.current?.parentElement?.contains(event.target as Node)) setOpen(false);
         };
         document.addEventListener("pointerdown", closeOutside);
         return () => document.removeEventListener("pointerdown", closeOutside);
-    }, []);
-    return <details ref={menuRef} className={styles.profileActionMenu} onKeyDown={event => {
-        if (event.key === "Escape") {
-            event.currentTarget.open = false;
-            event.currentTarget.querySelector("summary")?.focus();
+    }, [open]);
+    return <div className={styles.profileActionMenu} onKeyDown={event => {
+        if (event.key === "Escape" && open) {
+            event.stopPropagation();
+            setOpen(false);
+            toggleRef.current?.focus();
         }
     }}>
-        <summary>Actions<CaretDown size={15} aria-hidden="true"/></summary>
-        <div className={styles.profileActionPopover}>
-            <button type="button" className={styles.dangerStateAction} disabled={busy} onClick={() => {
-                if (menuRef.current) menuRef.current.open = false;
+        <button ref={toggleRef} type="button" className={styles.profileMoreButton} aria-label="More actions" aria-haspopup="menu" aria-expanded={open} aria-controls="mentee-more-actions" onClick={() => setOpen(value => !value)}>
+            <DotsThree size={20} weight="bold" aria-hidden="true"/>
+        </button>
+        {open ? <div ref={menuRef} id="mentee-more-actions" className={styles.profileActionPopover} role="menu" aria-label="More actions">
+            <p aria-hidden="true">Mentorship</p>
+            <button type="button" role="menuitem" className={styles.dangerStateAction} disabled={busy} onClick={() => {
+                setOpen(false);
+                // The dialog returns focus to whatever was focused when it opened, so hand that to the toggle.
+                toggleRef.current?.focus();
                 onTerminate();
-            }}>Terminate</button>
-        </div>
-    </details>;
+            }}>
+                <XCircle size={18} aria-hidden="true"/>
+                <span>Terminate mentee…<small>Ends the mentorship with a reason</small></span>
+            </button>
+        </div> : null}
+    </div>;
 };
 
 const timelineIcons: Record<MenteeTimelineStep["state"], typeof Circle> = {
@@ -1553,384 +1927,11 @@ const MenteeMentorshipProgress = ({mentee, now}: {mentee: AdminMentee; now: numb
     </div>
 );
 
-const MenteeProfileOverview = ({mentee, getUserName, nextSession, canSchedule, assignmentsAvailable, onSchedule, onShowSessions, onOpenAssignmentGenerator}: {
-    mentee: AdminMentee;
-    getUserName: (id?: string) => string;
-    nextSession: Session | undefined;
-    canSchedule: boolean;
-    assignmentsAvailable: boolean;
-    onSchedule: () => void;
-    onShowSessions: () => void;
-    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
-}) => {
-    const availability = getMenteeAvailabilityRows(mentee.availability);
-    return (
-        <div className={styles.profileCards}>
-            <section className={styles.profileCard} aria-labelledby="mentee-next-session-title">
-                <div className={styles.profileCardHeading}>
-                    <CalendarBlank size={21} aria-hidden="true"/>
-                    <h3 id="mentee-next-session-title">Next session</h3>
-                </div>
-                {nextSession ? <>
-                    <p className={styles.profileNextSessionTime}><SessionTimeDisplay value={nextSession.time}/></p>
-                    <dl className={styles.profileFactList}>
-                        <div><dt>Airport</dt><dd>{nextSession.airport || "Not set"}</dd></div>
-                        <div><dt>Mentor</dt><dd>{getUserName(nextSession.mentor)}</dd></div>
-                        <div><dt>Pilots</dt><dd>{formatPilotCount(nextSession)}</dd></div>
-                    </dl>
-                    <div className={styles.profileCardActions}>
-                        <button type="button" className={styles.assignmentButton} disabled={!assignmentsAvailable} onClick={() => onOpenAssignmentGenerator(nextSession)}>
-                            {nextSession.hasAssignment ? "Edit assignment" : "Generate assignment"}
-                        </button>
-                        <button type="button" className={styles.profileLinkButton} onClick={onShowSessions}>All sessions<CaretRight size={14} aria-hidden="true"/></button>
-                    </div>
-                </> : <>
-                    <p className={styles.profileCardEmpty}>No session booked.</p>
-                    <div className={styles.profileCardActions}>
-                        {canSchedule ? <button type="button" className={styles.secondaryButton} onClick={onSchedule}>Schedule session</button> : null}
-                        {mentee.sessions.length > 0 ? <button type="button" className={styles.profileLinkButton} onClick={onShowSessions}>Past sessions<CaretRight size={14} aria-hidden="true"/></button> : null}
-                    </div>
-                </>}
-            </section>
-
-            <section className={`${styles.profileCard} ${styles.profileOwnership}`} aria-labelledby="mentee-ownership-title">
-                <div className={styles.profileCardHeading}>
-                    <Users size={21} aria-hidden="true"/>
-                    <h3 id="mentee-ownership-title">Ownership details</h3>
-                </div>
-                <dl>
-                    <div><User size={18} aria-hidden="true"/><dt>Mentor</dt><dd>{getAssignedMentorId(mentee) ? getMentorDisplayName(mentee, getUserName) : "Not assigned"}</dd></div>
-                    <div><Users size={18} aria-hidden="true"/><dt>Recruiter</dt><dd>{mentee.recruiter || "Not set"}</dd></div>
-                    <div><Globe size={18} aria-hidden="true"/><dt>Mentee region</dt><dd>{mentee.region || "Not provided"}</dd></div>
-                    <div><Clock size={18} aria-hidden="true"/><dt>Mentee timezone</dt><dd>{mentee.timezone || "Not provided"}</dd></div>
-                </dl>
-                {mentee.terminationReason ? <div className={styles.profileTerminationReason}><strong>Termination reason</strong><p>{mentee.terminationReason}</p></div> : null}
-            </section>
-
-            <section className={`${styles.profileCard} ${styles.profileAvailability}`} aria-labelledby="mentee-availability-title">
-                <div className={styles.profileCardHeading}>
-                    <Clock size={21} aria-hidden="true"/>
-                    <h3 id="mentee-availability-title">Weekly availability (UTC)</h3>
-                </div>
-                <p>00:00 means midnight at the end of the day.</p>
-                {availability.length > 0 ? <dl className={styles.profileAvailabilityList}>
-                    {availability.map(({day, label, segments}, index) => <div key={`${day}-${index}`}>
-                        <dt>{day}</dt>
-                        <dd>
-                            <div className={styles.availabilityTrack} aria-hidden="true">
-                                {segments.map((segment, segmentIndex) => <span key={segmentIndex} style={{left: `${segment.start / 1440 * 100}%`, width: `${(segment.end - segment.start) / 1440 * 100}%`}}/>)}
-                            </div>
-                            <span>{label}</span>
-                        </dd>
-                    </div>)}
-                </dl> : <p className={styles.profileMissingAvailability}>Availability not provided.</p>}
-            </section>
-        </div>
-    );
-};
-
-const UserNotesSection = ({notes, getUserName}: { notes: UserNote[]; getUserName: (id?: string) => string }) => (
-    <section className={styles.userNotesSection}>
-        <div className={styles.profileSectionHeading}><Note size={23} aria-hidden="true"/><h3>Notes</h3></div>
-        {notes.length === 0 ? (
-            <p className={styles.profileEmptyNotes}>No notes yet for this mentee.</p>
-        ) : (
-            <div className={styles.userNotesList}>
-                {notes.map(note => (
-                    <article key={note.id}
-                             className={`${styles.userNoteItem} ${note.active ? "" : styles.inactiveUserNote}`}>
-                        <div className={styles.userNoteMeta}>
-                            <span>{formatAdminUtcDate(note.time)}</span>
-                            <span>{getUserName(note.staff)}</span>
-                            <span>{note.active ? "Active" : "Inactive"}</span>
-                        </div>
-                        <p>{note.note}</p>
-                    </article>
-                ))}
-            </div>
-        )}
-    </section>
-);
-
-interface SessionSectionProps {
-    title: string;
-    sessions: Session[];
-    getUserName: (id?: string) => string;
-    editable: boolean;
-    busyAction: string | undefined;
-    attendeeInputs: Record<string, string>;
-    assignments: AdminAssignment[];
-    sessionTimeSuggestions: string[];
-    onAttendeeInputChange: (sessionId: number, value: string) => void;
-    onUpdateSession: (sessionId: number, form: SessionEditForm) => Promise<Session | undefined>;
-    onAddAttendee: (event: FormEvent, sessionId: number) => Promise<Session | undefined>;
-    onRemoveAttendee: (sessionId: number, attendeeId: string) => Promise<Session | undefined>;
-    onCancelSession: (sessionId: number) => Promise<Session | undefined>;
-    onOpenAssignmentGenerator: (session: Session, existingAssignment?: SessionAssignment) => void;
-}
-
-const SessionSection = ({
-                            title,
-                            sessions,
-                            getUserName,
-                            editable,
-                            busyAction,
-                            attendeeInputs,
-                            assignments,
-                            sessionTimeSuggestions,
-                            onAttendeeInputChange,
-                            onUpdateSession,
-                            onAddAttendee,
-                            onRemoveAttendee,
-                            onCancelSession,
-                            onOpenAssignmentGenerator
-                        }: SessionSectionProps) => {
-    const [viewedSession, setViewedSession] = useState<Session | undefined>();
-
-    return (
-        <section className={styles.sessionsSection}>
-            <h3>{title}</h3>
-            {sessions.length === 0 ? (
-                <p className={styles.emptyState}>No {title.toLowerCase()}.</p>
-            ) : (
-                <div className={styles.sessionsTableWrap}>
-                    <table
-                        className={`${styles.sessionsTable} ${editable ? styles.sessionsTableEditable : styles.sessionsTableReadonly}`}>
-                        <thead>
-                        <tr>
-                            <th scope="col">Time (UTC)</th>
-                            <th>Mentor</th>
-                            <th>Airport</th>
-                            <th>Pilots</th>
-                            <th>Status</th>
-                            <th>Attendees</th>
-                            <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {sessions.map(session => (
-                            <tr key={session.id} className={session.cancelled ? styles.cancelledSession : undefined}>
-                                <td data-label="Time (UTC)"><SessionTimeDisplay value={session.time}/></td>
-                                <td data-label="Mentor">{getUserName(session.mentor)}</td>
-                                <td data-label="Airport">{session.airport || "Not set"}</td>
-                                <td data-label="Pilots">{formatPilotCount(session)}</td>
-                                <td data-label="Status">
-                                    <span
-                                        className={`${styles.sessionStatus} ${session.cancelled ? styles.sessionStatusCancelled : styles.sessionStatusScheduled}`}>
-                                        {session.cancelled ? "Cancelled" : "Scheduled"}
-                                    </span>
-                                </td>
-                                <td data-label="Attendees">
-                                    <span className={styles.readOnlySession}>
-                                        {session.attendees.length}
-                                    </span>
-                                </td>
-                                <td data-label="Actions">
-                                    <div className={styles.sessionRowActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.secondaryButton}
-                                            onClick={() => setViewedSession(session)}
-                                        >
-                                            View
-                                        </button>
-                                        {!session.cancelled ? (
-                                            session.hasAssignment ? (
-                                                <button
-                                                    type="button"
-                                                    className={styles.assignmentButton}
-                                                    onClick={() => onOpenAssignmentGenerator(session, undefined)}
-                                                    disabled={assignments.length === 0}
-                                                >
-                                                    Edit
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    className={styles.assignmentButton}
-                                                    onClick={() => onOpenAssignmentGenerator(session)}
-                                                    disabled={assignments.length === 0}
-                                                >
-                                                    Generate
-                                                </button>
-                                            )
-                                        ) : null}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {viewedSession ? (
-                <SessionDetailsModal
-                    session={viewedSession}
-                    getUserName={getUserName}
-                    editable={editable}
-                    busyAction={busyAction}
-                    attendeeInput={attendeeInputs[viewedSession.id] ?? ""}
-                    sessionTimeSuggestions={sessionTimeSuggestions}
-                    onAttendeeInputChange={value => onAttendeeInputChange(viewedSession.id, value)}
-                    onUpdateSession={async form => {
-                        const updatedSession = await onUpdateSession(viewedSession.id, form);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onAddAttendee={async event => {
-                        const updatedSession = await onAddAttendee(event, viewedSession.id);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onRemoveAttendee={async attendeeId => {
-                        const updatedSession = await onRemoveAttendee(viewedSession.id, attendeeId);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onCancelSession={async () => {
-                        const updatedSession = await onCancelSession(viewedSession.id);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onClose={() => setViewedSession(undefined)}
-                />
-            ) : null}
-        </section>
-    );
-};
-
-const AttendedSessionSection = ({
-                                    title,
-                                    sessions,
-                                    getUserName,
-                                    editable,
-                                    busyAction,
-                                    attendeeInputs,
-                                    sessionTimeSuggestions,
-                                    onAttendeeInputChange,
-                                    onUpdateSession,
-                                    onAddAttendee,
-                                    onRemoveAttendee,
-                                    onCancelSession
-                                }: SessionSectionProps) => {
-    const [viewedSession, setViewedSession] = useState<Session | undefined>();
-    const [showAll, setShowAll] = useState(false);
-    const visibleSessions = showAll ? sessions : sessions.slice(0, 4);
-
-    return (
-        <section className={styles.profileSignupSection}>
-            <div className={styles.profileSignupHeading}>
-                <div className={styles.profileSectionHeading}>
-                    <CalendarBlank size={23} aria-hidden="true"/>
-                    <h3>{title}</h3>
-                </div>
-                {sessions.length > 4 ? <button type="button" className={styles.profileHistoryToggle} aria-expanded={showAll} aria-controls="mentee-signup-history" onClick={() => setShowAll(value => !value)}>
-                    {showAll ? "Show fewer" : `View all ${sessions.length}`}<CaretRight size={15} aria-hidden="true"/>
-                </button> : null}
-            </div>
-            {sessions.length === 0 ? (
-                <p className={styles.profileEmptyNotes}>No pilot sign-ups recorded.</p>
-            ) : (
-                <div id="mentee-signup-history" className={styles.profileSignupTableWrap}>
-                    <table className={styles.profileSignupTable}>
-                        <caption className={styles.visuallyHidden}>Pilot sign-up history, newest first. Times are UTC. Status is as recorded.</caption>
-                        <thead>
-                        <tr>
-                            <th scope="col">Date (UTC)</th>
-                            <th scope="col">Airport</th>
-                            <th scope="col">Mentor</th>
-                            <th scope="col">Recorded status</th>
-                            <th scope="col">Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {visibleSessions.map(session => (
-                            <tr key={session.id}>
-                                <td data-label="Date (UTC)"><SessionTimeDisplay value={session.time}/></td>
-                                <td data-label="Airport">{session.airport || "Not set"}</td>
-                                <td data-label="Mentor">{getUserName(session.mentor)}</td>
-                                <td data-label="Recorded status">
-                                    <span
-                                        className={`${styles.sessionStatus} ${session.cancelled ? styles.sessionStatusCancelled : styles.sessionStatusScheduled}`}>
-                                        {session.cancelled ? "Cancelled" : "Scheduled"}
-                                    </span>
-                                </td>
-                                <td data-label="Actions">
-                                    <div className={styles.sessionRowActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.secondaryButton}
-                                            aria-label={`View session at ${session.airport || "unknown airport"}, ${formatAdminUtcDate(session.time)}`}
-                                            onClick={() => setViewedSession(session)}
-                                        >
-                                            View
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {viewedSession ? (
-                <SessionDetailsModal
-                    session={viewedSession}
-                    getUserName={getUserName}
-                    editable={editable}
-                    busyAction={busyAction}
-                    attendeeInput={attendeeInputs[viewedSession.id] ?? ""}
-                    sessionTimeSuggestions={sessionTimeSuggestions}
-                    onAttendeeInputChange={value => onAttendeeInputChange(viewedSession.id, value)}
-                    onUpdateSession={async form => {
-                        const updatedSession = await onUpdateSession(viewedSession.id, form);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onAddAttendee={async event => {
-                        const updatedSession = await onAddAttendee(event, viewedSession.id);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onRemoveAttendee={async attendeeId => {
-                        const updatedSession = await onRemoveAttendee(viewedSession.id, attendeeId);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onCancelSession={async () => {
-                        const updatedSession = await onCancelSession(viewedSession.id);
-                        if (updatedSession) {
-                            setViewedSession(updatedSession);
-                        }
-                        return updatedSession;
-                    }}
-                    onClose={() => setViewedSession(undefined)}
-                />
-            ) : null}
-        </section>
-    );
-};
-
 interface SessionDetailsModalProps {
     session: Session;
     getUserName: (id?: string) => string;
     editable: boolean;
+    readOnlyNote?: string;
     busyAction: string | undefined;
     attendeeInput: string;
     sessionTimeSuggestions: string[];
@@ -1946,6 +1947,7 @@ const SessionDetailsModal = ({
                                  session,
                                  getUserName,
                                  editable,
+                                 readOnlyNote,
                                  busyAction,
                                  attendeeInput,
                                  sessionTimeSuggestions,
@@ -1956,15 +1958,9 @@ const SessionDetailsModal = ({
                                  onCancelSession,
                                  onClose
                              }: SessionDetailsModalProps) => {
-    const dialogRef = useMenteeDialogFocus(() => { if (!busyAction) onClose(); });
     const [activeTab, setActiveTab] = useState("details");
     const tabs = ["details", "feedback", "attendees"] as const;
-
-    useEffect(() => {
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = previousOverflow; };
-    }, []);
+    const now = useMemo(() => Date.now(), []);
     const sessionEditable = editable && !session.cancelled;
     const [editForm, setEditForm] = useState(() => createSessionEditForm(session));
     const [editState, setEditState] = useState("");
@@ -2007,221 +2003,217 @@ const SessionDetailsModal = ({
 
     const submitSessionUpdate = async (event: FormEvent) => {
         event.preventDefault();
-        setEditState("Saving...");
+        setEditState("Saving…");
         const updatedSession = await onUpdateSession(editForm);
         setEditState(updatedSession ? "Saved" : "");
     };
 
-    return (
-        <div className={styles.sessionDetailsOverlay} role="presentation">
-            <div ref={dialogRef} className={styles.sessionDetailsModal} role="dialog" aria-modal="true"
-                 aria-labelledby={`session-details-${session.id}`}>
-                <header className={styles.sessionDetailsHeader}>
-                    <div>
-                        <p className={styles.sessionEyebrow}>Session #{session.id}</p>
-                        <h2 id={`session-details-${session.id}`}>Session details</h2>
-                        <SessionTimeDisplay value={session.time}/>
-                    </div>
-                    <span className={styles.sessionStatus} data-cancelled={session.cancelled}>{session.cancelled ? "Cancelled" : "Scheduled"}</span>
-                    <button type="button" className={styles.sessionCloseIcon} onClick={onClose} disabled={Boolean(busyAction)} aria-label="Close session details"><X size={20}/></button>
-                </header>
-
-                <div className={styles.sessionTabs} role="tablist" aria-label="Session sections">
-                    {tabs.map(tab => (
-                        <button key={tab} type="button" role="tab" id={`session-${session.id}-tab-${tab}`}
-                                aria-controls={`session-${session.id}-panel-${tab}`} aria-selected={activeTab === tab}
-                                tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)}
-                                onKeyDown={event => {
-                                    const index = tabs.indexOf(tab);
-                                    const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
-                                        : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
-                                        : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : undefined;
-                                    if (next === undefined) return;
-                                    event.preventDefault();
-                                    setActiveTab(tabs[next]);
-                                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
-                                }}>
-                            {tab === "details" ? "Details" : tab === "feedback" ? "Feedback" : `Attendees (${session.attendees.length})`}
-                        </button>
-                    ))}
-                </div>
-                <div className={styles.sessionDetailsContent}>
-                    <div role="tabpanel" id={`session-${session.id}-panel-details`} aria-labelledby={`session-${session.id}-tab-details`} hidden={activeTab !== "details"} tabIndex={0}>
-                        <section className={styles.sessionDetailsGrid} aria-label="Session summary">
-                            <DetailItem label="Mentor" value={getUserName(session.mentor)}/>
-                            <DetailItem label="Mentee" value={getUserName(session.mentee)}/>
-                            <DetailItem label="Airport" value={session.airport || "Not set"}/>
-                            <DetailItem label="Pilots" value={formatPilotCount(session)}/>
-                            <DetailItem label="Assignment" value={session.hasAssignment ? "Sent" : "Not sent"}/>
-                            {session.messageId ? <DetailItem label="Message ID" value={session.messageId}/> : null}
-                        </section>
-
-                        {sessionEditable ? (
-                            <section className={styles.sessionDetailsBlock}>
-                                <h3>Edit Session</h3>
-                                <form id={`session-edit-${session.id}`} className={styles.sessionEditForm} onSubmit={submitSessionUpdate}>
-                                    <label>
-                                        <span>Airport</span>
-                                        <input
-                                            value={editForm.airport}
-                                            onChange={event => {
-                                                setEditForm(prev => ({...prev, airport: event.target.value.toUpperCase()}));
-                                                setEditState("");
-                                            }}
-                                            maxLength={5}
-                                            required
-                                        />
-                                    </label>
-                                    <label>
-                                        <span>Requested pilots</span>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="99"
-                                            value={editForm.pilots}
-                                            onChange={event => {
-                                                setEditForm(prev => ({...prev, pilots: event.target.value}));
-                                                setEditState("");
-                                            }}
-                                            required
-                                        />
-                                    </label>
-                                    <label>
-                                        <span>Session time (your local time)</span>
-                                        <input
-                                            type="datetime-local"
-                                            list={`session-time-suggestions-${session.id}`}
-                                            value={editForm.time}
-                                            onChange={event => {
-                                                setEditForm(prev => ({...prev, time: event.target.value}));
-                                                setEditState("");
-                                            }}
-                                            required
-                                        />
-                                        <datalist id={`session-time-suggestions-${session.id}`}>
-                                            {sessionTimeSuggestions.map(value => (
-                                                <option key={value} value={value}/>
-                                            ))}
-                                        </datalist>
-                                        <SessionTimePreview value={editForm.time}/>
-                                    </label>
-                                </form>
-                            </section>
-                        ) : null}
-
-                    </div>
-                    <div role="tabpanel" id={`session-${session.id}-panel-feedback`} aria-labelledby={`session-${session.id}-tab-feedback`} hidden={activeTab !== "feedback"} tabIndex={0}>
-                        <SessionFeedbackPanel sessionId={session.id} outcome={session.trainingOutcome}/>
-                    </div>
-                    <div role="tabpanel" id={`session-${session.id}-panel-attendees`} aria-labelledby={`session-${session.id}-tab-attendees`} hidden={activeTab !== "attendees"} tabIndex={0}>
-                        <section className={styles.sessionDetailsBlock}>
-                            <h3>Attendees</h3>
-                            {session.attendees.length === 0 ? (
-                                <p className={styles.emptyState}>No attendees added.</p>
-                            ) : (
-                                <div className={styles.attendeesList}>
-                                    {session.attendees.map(attendeeId => (
-                                        <span key={attendeeId} className={styles.attendeeItem}>
-                                            {getUserName(attendeeId)}
-                                            {sessionEditable ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onRemoveAttendee(attendeeId)}
-                                                    disabled={Boolean(busyAction)}
-                                                    aria-label={`Remove ${getUserName(attendeeId)}`}
-                                                >
-                                                    Remove
-                                                </button>
-                                            ) : null}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-
-                        {sessionEditable ? (
-                            <section className={styles.sessionDetailsBlock}>
-                                <h3>Add attendee</h3>
-                                <div className={styles.sessionActions}>
-                                    <form onSubmit={onAddAttendee}>
-                                        <input
-                                            value={attendeeInput}
-                                            onChange={event => onAttendeeInputChange(event.target.value)}
-                                            placeholder="Attendee Discord ID"
-                                            aria-label="Attendee Discord ID"
-                                            required
-                                        />
-                                        <button type="submit" disabled={Boolean(busyAction)}>Add</button>
-                                    </form>
-
-                                </div>
-                            </section>
-                        ) : null}
-                    </div>
-                </div>
-                <footer className={styles.sessionDetailsFooter}>
-                    <div>{sessionEditable ? (
-                        <>
-                            <button
-                                ref={cancelSessionButton}
-                                type="button"
-                                className={styles.dangerButton}
-                                onClick={() => {
-                                    setCancelError(undefined);
-                                    setShowCancelConfirmation(true);
-                                }}
-                                disabled={Boolean(busyAction)}
-                                aria-haspopup="dialog"
-                                aria-controls={`cancel-session-confirmation-${session.id}`}
-                            >
-                                Cancel Session
-                            </button>
-                            {showCancelConfirmation ? (
-                                <dialog
-                                    ref={cancelConfirmationDialog}
-                                    id={`cancel-session-confirmation-${session.id}`}
-                                    className={styles.sessionCancelConfirmation}
-                                    aria-labelledby={`cancel-session-prompt-${session.id}`}
-                                    aria-describedby={`cancel-session-description-${session.id}`}
-                                    onCancel={event => {
-                                        event.preventDefault();
-                                        if (!busyAction) dismissCancelConfirmation();
-                                    }}
-                                >
-                                    <h3 id={`cancel-session-prompt-${session.id}`}>Cancel this session?</h3>
-                                    <p id={`cancel-session-description-${session.id}`}>The session will be marked as cancelled.</p>
-                                    {cancelError ? <p role="alert">{cancelError}</p> : null}
-                                    <div className={styles.modalActions}>
-                                        <button
-                                            ref={keepSessionButton}
-                                            type="button"
-                                            className={styles.secondaryButton}
-                                            onClick={dismissCancelConfirmation}
-                                            disabled={Boolean(busyAction)}
-                                        >
-                                            Keep Session
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={styles.dangerButton}
-                                            onClick={confirmCancellation}
-                                            disabled={Boolean(busyAction)}
-                                        >
-                                            {busyAction === `cancel-${session.id}` ? "Cancelling..." : "Confirm Cancellation"}
-                                        </button>
-                                    </div>
-                                </dialog>
-                            ) : null}
-                        </>
-                    ) : null}</div>
-                    <div className={styles.sessionFooterActions}>
-                        <span role="status" className={styles.sessionSaveStatus}>{editState}</span>
-                        <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={Boolean(busyAction)}>Close</button>
-                        {sessionEditable && activeTab === "details" ? <button type="submit" form={`session-edit-${session.id}`} disabled={Boolean(busyAction)}>Save Changes</button> : null}
-                    </div>
-                </footer>
-            </div>
+    const tabList = (
+        <div className={styles.dialogTabs} role="tablist" aria-label="Session sections">
+            {tabs.map(tab => (
+                <button key={tab} type="button" role="tab" id={`session-${session.id}-tab-${tab}`}
+                        aria-controls={`session-${session.id}-panel-${tab}`} aria-selected={activeTab === tab}
+                        tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)}
+                        onKeyDown={event => {
+                            const index = tabs.indexOf(tab);
+                            const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
+                                : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
+                                : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : undefined;
+                            if (next === undefined) return;
+                            event.preventDefault();
+                            setActiveTab(tabs[next]);
+                            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+                        }}>
+                    {tab === "details" ? "Details" : tab === "feedback" ? "Feedback" : `Attendees (${session.attendees.length})`}
+                </button>
+            ))}
         </div>
+    );
+
+    return (
+        <MenteeDialog
+            size="large"
+            titleId={`session-details-${session.id}`}
+            eyebrow={`Session #${session.id}`}
+            title="Session details"
+            pill={<SessionStatusPill session={session} now={now}/>}
+            subtitle={<SessionTimeDisplay value={session.time}/>}
+            closeLabel="Close session details"
+            onDismiss={onClose}
+            dismissDisabled={Boolean(busyAction)}
+            tabs={tabList}
+            footer={<>
+                {sessionEditable && activeTab === "details" ? (
+                    <button
+                        ref={cancelSessionButton}
+                        type="button"
+                        className={styles.dangerGhostButton}
+                        onClick={() => {
+                            setCancelError(undefined);
+                            setShowCancelConfirmation(true);
+                        }}
+                        disabled={Boolean(busyAction)}
+                        aria-haspopup="dialog"
+                        aria-controls={`cancel-session-confirmation-${session.id}`}
+                    >
+                        Cancel session
+                    </button>
+                ) : null}
+                <span role="status" className={styles.dialogStatus}>{editState}</span>
+                <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={Boolean(busyAction)}>Close</button>
+                {sessionEditable && activeTab === "details" ? <button type="submit" form={`session-edit-${session.id}`} className={styles.primaryButton} disabled={Boolean(busyAction)}>Save changes</button> : null}
+            </>}
+        >
+            <div role="tabpanel" id={`session-${session.id}-panel-details`} aria-labelledby={`session-${session.id}-tab-details`} hidden={activeTab !== "details"} tabIndex={0} className={styles.dialogPanel}>
+                {readOnlyNote ? <p className={styles.dialogNote}>{readOnlyNote}</p> : null}
+                <dl className={styles.sessionDetailsGrid} aria-label="Session summary">
+                    <DetailItem label="Mentor" value={getUserName(session.mentor)}/>
+                    <DetailItem label="Mentee" value={getUserName(session.mentee)}/>
+                    <DetailItem label="Airport" value={session.airport || "Not set"}/>
+                    <DetailItem label="Pilots" value={formatPilotCount(session)}/>
+                    <DetailItem label="Assignment" value={session.hasAssignment ? "Sent" : "Not sent"}/>
+                    {session.messageId ? <DetailItem label="Message ID" value={session.messageId}/> : null}
+                </dl>
+
+                {sessionEditable ? (
+                    <section className={styles.sessionDetailsBlock} aria-labelledby={`session-edit-title-${session.id}`}>
+                        <h3 id={`session-edit-title-${session.id}`}>Edit session</h3>
+                        <form id={`session-edit-${session.id}`} className={styles.dialogForm} onSubmit={submitSessionUpdate}>
+                            <div className={styles.inlineInputs}>
+                                <label>
+                                    Airport
+                                    <input
+                                        value={editForm.airport}
+                                        onChange={event => {
+                                            setEditForm(prev => ({...prev, airport: event.target.value.toUpperCase()}));
+                                            setEditState("");
+                                        }}
+                                        maxLength={5}
+                                        required
+                                    />
+                                </label>
+                                <label>
+                                    Requested pilots
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="99"
+                                        value={editForm.pilots}
+                                        onChange={event => {
+                                            setEditForm(prev => ({...prev, pilots: event.target.value}));
+                                            setEditState("");
+                                        }}
+                                        required
+                                    />
+                                </label>
+                            </div>
+                            <label className={styles.utcDateTimeLabel}>
+                                <span>Session time (your local time)</span>
+                                <input
+                                    type="datetime-local"
+                                    list={`session-time-suggestions-${session.id}`}
+                                    value={editForm.time}
+                                    onChange={event => {
+                                        setEditForm(prev => ({...prev, time: event.target.value}));
+                                        setEditState("");
+                                    }}
+                                    required
+                                />
+                                <datalist id={`session-time-suggestions-${session.id}`}>
+                                    {sessionTimeSuggestions.map(value => (
+                                        <option key={value} value={value}/>
+                                    ))}
+                                </datalist>
+                                <SessionTimePreview value={editForm.time}/>
+                            </label>
+                        </form>
+                    </section>
+                ) : null}
+            </div>
+            <div role="tabpanel" id={`session-${session.id}-panel-feedback`} aria-labelledby={`session-${session.id}-tab-feedback`} hidden={activeTab !== "feedback"} tabIndex={0} className={styles.dialogPanel}>
+                <SessionFeedbackPanel sessionId={session.id} outcome={session.trainingOutcome}/>
+            </div>
+            <div role="tabpanel" id={`session-${session.id}-panel-attendees`} aria-labelledby={`session-${session.id}-tab-attendees`} hidden={activeTab !== "attendees"} tabIndex={0} className={styles.dialogPanel}>
+                <section className={styles.sessionDetailsBlock} aria-labelledby={`session-attendees-title-${session.id}`}>
+                    <h3 id={`session-attendees-title-${session.id}`}>Attendees</h3>
+                    {session.attendees.length === 0 ? (
+                        <p className={styles.blockEmpty}>No attendees added.</p>
+                    ) : (
+                        <ul className={styles.attendeesList}>
+                            {session.attendees.map(attendeeId => (
+                                <li key={attendeeId}>
+                                    <span><strong>{getUserName(attendeeId)}</strong> <small>{attendeeId}</small></span>
+                                    {sessionEditable ? (
+                                        <button
+                                            type="button"
+                                            className={styles.dangerTextButton}
+                                            onClick={() => onRemoveAttendee(attendeeId)}
+                                            disabled={Boolean(busyAction)}
+                                            aria-label={`Remove ${getUserName(attendeeId)}`}
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+
+                {sessionEditable ? (
+                    <section className={styles.sessionDetailsBlock} aria-labelledby={`session-add-attendee-${session.id}`}>
+                        <h3 id={`session-add-attendee-${session.id}`}>Add attendee</h3>
+                        <form className={styles.addAttendeeForm} onSubmit={onAddAttendee}>
+                            <input
+                                value={attendeeInput}
+                                onChange={event => onAttendeeInputChange(event.target.value)}
+                                placeholder="Attendee Discord ID"
+                                aria-label="Attendee Discord ID"
+                                required
+                            />
+                            <button type="submit" className={styles.secondaryButton} disabled={Boolean(busyAction)}>Add</button>
+                        </form>
+                    </section>
+                ) : null}
+            </div>
+
+            {showCancelConfirmation ? (
+                <dialog
+                    ref={cancelConfirmationDialog}
+                    id={`cancel-session-confirmation-${session.id}`}
+                    className={styles.sessionCancelConfirmation}
+                    aria-labelledby={`cancel-session-prompt-${session.id}`}
+                    aria-describedby={`cancel-session-description-${session.id}`}
+                    onCancel={event => {
+                        event.preventDefault();
+                        if (!busyAction) dismissCancelConfirmation();
+                    }}
+                >
+                    <h3 id={`cancel-session-prompt-${session.id}`}>Cancel this session?</h3>
+                    <p id={`cancel-session-description-${session.id}`}>{formatAdminUtcDate(session.time)}{session.airport ? ` at ${session.airport}` : ""} will be marked as cancelled.</p>
+                    {cancelError ? <p role="alert" className={styles.dialogError}>{cancelError}</p> : null}
+                    <div className={styles.dialogActions}>
+                        <button
+                            ref={keepSessionButton}
+                            type="button"
+                            className={styles.secondaryButton}
+                            onClick={dismissCancelConfirmation}
+                            disabled={Boolean(busyAction)}
+                        >
+                            Keep session
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.dangerButton}
+                            onClick={confirmCancellation}
+                            disabled={Boolean(busyAction)}
+                        >
+                            {busyAction === `cancel-${session.id}` ? "Cancelling…" : "Cancel session"}
+                        </button>
+                    </div>
+                </dialog>
+            ) : null}
+        </MenteeDialog>
     );
 };
 
@@ -2462,168 +2454,150 @@ const AssignmentGeneratorModal = ({
         }
     };
 
+
+    const overLimit = messageCodePointCount > MAX_ASSIGNMENT_CODE_POINTS;
+    const sessionTime = toTimestamp(session.time);
     return (
-        <div className={styles.assignmentModalOverlay} role="presentation">
-            <div className={styles.assignmentModal} role="dialog" aria-modal="true"
-                 aria-labelledby="assignment-modal-title">
-                <header className={styles.assignmentModalHeader}>
-                    <div>
-                        <h2 id="assignment-modal-title">{isEditMode ? "Edit Assignment" : "Assignment Generator"}</h2>
-                        <p>{session.airport || "No airport"} - {formatAdminUtcDate(session.time, {showUtcSuffix: false})}</p>
+        <MenteeDialog
+            size="wide"
+            titleId="assignment-modal-title"
+            eyebrow={`Session #${session.id} · ${session.airport || "No airport"} · ${sessionTime == null ? "Date not set" : formatAdminUtcDate(sessionTime)}`}
+            title={isEditMode ? "Edit assignment" : "Generate assignment"}
+            subtitle={isEditMode ? "Already sent to the session thread. Saving updates that message." : undefined}
+            closeLabel="Close assignment"
+            onDismiss={onClose}
+            dismissDisabled={sending}
+            footer={sortedAssignments.length === 0 ? (
+                <button type="button" className={styles.secondaryButton} onClick={onClose}>Close</button>
+            ) : <>
+                <span role="status" className={styles.dialogStatus}>{sendState || copyState}</span>
+                {sentThreadUrl ? <a className={styles.dialogLink} href={sentThreadUrl} target="_blank" rel="noreferrer">Open thread</a> : null}
+                <button type="button" className={styles.secondaryButton} onClick={copyText}>Copy text</button>
+                <button type="button" className={styles.primaryButton} onClick={sendAssignment}
+                        disabled={!selectedAssignment || !messageText.trim() || sending || (isEditMode && assignmentLoadState !== "loaded")}>
+                    {isEditMode ? "Save & update" : "Send to thread"}
+                </button>
+            </>}
+        >
+            {sortedAssignments.length === 0 ? (
+                <p className={styles.blockEmpty}>No active assignments are available yet.</p>
+            ) : (
+                <div className={styles.assignmentGeneratorStack}>
+                    <div className={styles.assignmentGeneratorToolbar}>
+                        <label>
+                            <span>Assignment</span>
+                            <select value={selectedAssignment?.id ?? 0}
+                                    onChange={event => changeAssignment(Number(event.target.value))}>
+                                {sortedAssignments.map(assignment => (
+                                    <option key={assignment.id} value={assignment.id}>
+                                        {assignment.airport} - {assignment.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <button type="button" className={styles.secondaryButton} onClick={autoFill}>Auto-fill</button>
+                        <button type="button" className={styles.secondaryButton} onClick={clearSlots}>Clear</button>
                     </div>
-                    <button type="button" onClick={onClose}>Close</button>
-                </header>
 
-                {sortedAssignments.length === 0 ? (
-                    <p className={styles.emptyState}>No active assignments are available yet.</p>
-                ) : (
-                    <div className={styles.assignmentGeneratorStack}>
-                        <section className={styles.assignmentGeneratorToolbar}>
-                            <label>
-                                <span>Assignment</span>
-                                <select value={selectedAssignment?.id ?? 0}
-                                        onChange={event => changeAssignment(Number(event.target.value))}>
-                                    {sortedAssignments.map(assignment => (
-                                        <option key={assignment.id} value={assignment.id}>
-                                            {assignment.airport} - {assignment.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <div className={styles.assignmentToolbarActions}>
-                                <button type="button" onClick={autoFill}>Auto-fill</button>
-                                <button type="button" onClick={clearSlots}>Clear</button>
+                    <div className={styles.assignmentBoard}>
+                        <section className={styles.attendeeTray} aria-labelledby="assignment-pool-title">
+                            <div className={styles.boardHeader}>
+                                <h3 id="assignment-pool-title">Unassigned attendees</h3>
+                                <span>{unassignedAttendees.length}</span>
                             </div>
-                        </section>
-
-                        <section className={styles.assignmentBoard}>
-                            <div className={styles.attendeeTray}>
-                                <div className={styles.boardHeader}>
-                                    <h3>Unassigned attendees</h3>
-                                    <span>{unassignedAttendees.length}</span>
-                                </div>
-                                <div className={styles.attendeePool} aria-label="Unassigned session attendees">
-                                    {unassignedAttendees.length === 0 ? (
-                                        <span>All attendees assigned</span>
-                                    ) : unassignedAttendees.map(attendeeId => (
-                                        <button
-                                            key={attendeeId}
-                                            type="button"
-                                            className={selectedAttendeeId === attendeeId ? styles.attendeeChipSelected : undefined}
-                                            draggable
-                                            onClick={() => setSelectedAttendeeId(prev => prev === attendeeId ? undefined : attendeeId)}
-                                            onDragStart={event => event.dataTransfer.setData("text/plain", String(attendeeId))}
-                                        >
-                                            {getUserName(attendeeId)}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className={styles.assignmentSlotBoard}>
-                                {selectedAssignment?.groups.map((group, groupIndex) => (
-                                    <article key={`${group.name}-${groupIndex}`} className={styles.assignmentSlotGroup}>
-                                        <div className={styles.boardHeader}>
-                                            <h3>{group.name}</h3>
-                                            <span>{group.slots.length} slots</span>
-                                        </div>
-                                        <div className={styles.assignmentSlotRows}>
-                                            {group.slots.map((slot, slotIndex) => {
-                                                const slotKey = getAssignmentSlotKey(slot.id, `${groupIndex}-${slotIndex}`);
-                                                const assignedAttendee = slotAssignments[slotKey];
-                                                return (
-                                                    <div
-                                                        key={slotKey}
-                                                        className={`${styles.assignmentSlotCard} ${selectedAttendeeId != null ? styles.assignmentSlotCardSelectable : ""}`}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={() => handleSlotClick(slotKey)}
-                                                        onKeyDown={event => {
-                                                            if (event.key === "Enter" || event.key === " ") {
-                                                                event.preventDefault();
-                                                                handleSlotClick(slotKey);
-                                                            }
-                                                        }}
-                                                        onDragOver={event => event.preventDefault()}
-                                                        onDrop={event => assignFromDrag(slotKey, event.dataTransfer.getData("text/plain"))}
-                                                    >
-                                                        <div className={styles.assignmentSlotText}>
-                                                            <strong>{slot.label}</strong>
-                                                            {slot.details ? <span>{slot.details}</span> : null}
-                                                        </div>
-                                                        <div className={styles.assignmentSlotAssignee}>
-                                                            {assignedAttendee != null ? (
-                                                                <button type="button" onClick={event => {
-                                                                    event.stopPropagation();
-                                                                    assignAttendeeToSlot(slotKey, undefined);
-                                                                }}>
-                                                                    {getUserName(assignedAttendee)} x
-                                                                </button>
-                                                            ) : (
-                                                                <span>Drop or tap to assign</span>
-                                                            )}
-                                                            <select
-                                                                value={assignedAttendee ?? ""}
-                                                                onClick={event => event.stopPropagation()}
-                                                                onChange={event => assignFromSelect(slotKey, event.target.value)}
-                                                                aria-label={`Assign ${slot.label}`}
-                                                            >
-                                                                <option value="">Unassigned</option>
-                                                                {sessionAttendees.map(attendeeId => (
-                                                                    <option key={attendeeId}
-                                                                            value={attendeeId}>{getUserName(attendeeId)}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </article>
+                            <div className={styles.attendeePool}>
+                                {unassignedAttendees.length === 0 ? (
+                                    <span>All attendees assigned</span>
+                                ) : unassignedAttendees.map(attendeeId => (
+                                    <button
+                                        key={attendeeId}
+                                        type="button"
+                                        aria-pressed={selectedAttendeeId === attendeeId}
+                                        draggable
+                                        onClick={() => setSelectedAttendeeId(prev => prev === attendeeId ? undefined : attendeeId)}
+                                        onDragStart={event => event.dataTransfer.setData("text/plain", String(attendeeId))}
+                                    >
+                                        {getUserName(attendeeId)}
+                                    </button>
                                 ))}
                             </div>
+                            <p>Drag a name onto a slot, or tap a name and then a slot.</p>
                         </section>
 
-                        <section className={styles.assignmentPreviewFold}>
-                            <div className={styles.previewFoldHeader}>
-                                <button type="button" onClick={() => setPreviewOpen(open => !open)}>
-                                    {previewOpen ? "Hide Preview" : "Show Preview"}
-                                </button>
-                                <div className={styles.copyRow}>
-                                    <span>{sendState || copyState}</span>
-                                    <span
-                                        className={messageCodePointCount > MAX_ASSIGNMENT_CODE_POINTS ? styles.assignmentCharacterCountExceeded : undefined}
-                                        aria-live="polite"
-                                    >
-                                        {messageCodePointCount} / {MAX_ASSIGNMENT_CODE_POINTS} Unicode code points
-                                    </span>
-                                    <button type="button" onClick={copyText}>Copy Text</button>
-                                    <button type="button" onClick={sendAssignment}
-                                            disabled={!selectedAssignment || !messageText.trim() || sending || (isEditMode && assignmentLoadState !== "loaded")}>
-                                        {isEditMode ? "Save & Update" : "Send"}
-                                    </button>
-                                    {sentThreadUrl ? (
-                                        <a href={sentThreadUrl} target="_blank" rel="noreferrer">Open Thread</a>
-                                    ) : null}
-                                </div>
-                            </div>
-                            {previewOpen ? (
-                                <textarea
-                                    value={messageText}
-                                    onChange={event => {
-                                        setPreviewText(event.target.value);
-                                        setPreviewDirty(true);
-                                        setCopyState("");
-                                        setSendState("");
-                                    }}
-                                    rows={16}
-                                />
-                            ) : null}
-                        </section>
+                        <div className={styles.assignmentSlotBoard}>
+                            {selectedAssignment?.groups.map((group, groupIndex) => (
+                                <section key={`${group.name}-${groupIndex}`} className={styles.assignmentSlotGroup} aria-labelledby={`assignment-group-${groupIndex}`}>
+                                    <div className={styles.boardHeader}>
+                                        <h3 id={`assignment-group-${groupIndex}`}>{group.name}</h3>
+                                        <span>{group.slots.length} {group.slots.length === 1 ? "slot" : "slots"}</span>
+                                    </div>
+                                    {group.slots.map((slot, slotIndex) => {
+                                        const slotKey = getAssignmentSlotKey(slot.id, `${groupIndex}-${slotIndex}`);
+                                        const assignedAttendee = slotAssignments[slotKey];
+                                        return (
+                                            // Tapping a slot is a pointer shortcut; the select is the keyboard path.
+                                            <div
+                                                key={slotKey}
+                                                className={styles.assignmentSlotCard}
+                                                data-selectable={selectedAttendeeId != null ? "true" : undefined}
+                                                onClick={() => handleSlotClick(slotKey)}
+                                                onDragOver={event => event.preventDefault()}
+                                                onDrop={event => assignFromDrag(slotKey, event.dataTransfer.getData("text/plain"))}
+                                            >
+                                                <span className={styles.assignmentSlotText}>
+                                                    <strong>{slot.label}</strong>
+                                                    {slot.details ? <span>{slot.details}</span> : null}
+                                                </span>
+                                                <select
+                                                    value={assignedAttendee ?? ""}
+                                                    data-assigned={assignedAttendee != null ? "true" : undefined}
+                                                    onClick={event => event.stopPropagation()}
+                                                    onChange={event => assignFromSelect(slotKey, event.target.value)}
+                                                    aria-label={`Assign ${slot.label}`}
+                                                >
+                                                    <option value="">Unassigned</option>
+                                                    {sessionAttendees.map(attendeeId => (
+                                                        <option key={attendeeId} value={attendeeId}>{getUserName(attendeeId)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })}
+                                </section>
+                            ))}
+                        </div>
                     </div>
-                )}
-            </div>
-        </div>
+
+                    <section className={styles.assignmentPreviewFold}>
+                        <button type="button" className={styles.previewToggle} aria-expanded={previewOpen} aria-controls="assignment-preview" onClick={() => setPreviewOpen(open => !open)}>
+                            <span>Message preview</span>
+                            <span className={overLimit ? styles.assignmentCharacterCountExceeded : undefined} aria-live="polite">
+                                {messageCodePointCount} / {MAX_ASSIGNMENT_CODE_POINTS} characters
+                            </span>
+                            <CaretDown size={16} aria-hidden="true" className={previewOpen ? styles.caretOpen : undefined}/>
+                        </button>
+                        {previewOpen ? (
+                            <div id="assignment-preview" className={styles.previewBody}>
+                                <label>
+                                    <span className={styles.visuallyHidden}>Assignment message</span>
+                                    <textarea
+                                        value={messageText}
+                                        onChange={event => {
+                                            setPreviewText(event.target.value);
+                                            setPreviewDirty(true);
+                                            setCopyState("");
+                                            setSendState("");
+                                        }}
+                                        rows={12}
+                                    />
+                                </label>
+                                <p>Edits here replace the generated text. Changing slots regenerates it.</p>
+                            </div>
+                        ) : null}
+                    </section>
+                </div>
+            )}
+        </MenteeDialog>
     );
 };
 
@@ -2642,7 +2616,7 @@ const formatPilotCount = (session: Session) => {
         return String(session.attendees.length);
     }
 
-    return `${session.attendees.length}/${session.pilots}`;
+    return `${session.attendees.length} of ${session.pilots}`;
 };
 
 const getMenteeSessionCount = (mentee: AdminMentee, session: Session) => {

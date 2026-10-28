@@ -1,3 +1,4 @@
+import {z} from "zod/v3";
 import {applyDepartureOrigin, type DepartureAirport} from "./departure-airports";
 import {profileForType, performanceFor} from "./aircraft-performance";
 import {getAirport, runwayEnds, trainingMode, type AirportSelection} from "./airports";
@@ -6,13 +7,39 @@ import {engineFor} from "./engine";
 import {magneticToTrue} from "./magnetic-headings";
 import {aircraftSchema} from "./protocol";
 import {gatesFor, normalizeScenarioAircraft, seedFromAircraft, standPlacement, type ScenarioDefinition} from "./scenarios";
-import {MAX_AIRCRAFT, type Aircraft, type Leg, type Point} from "./model";
+import {MAX_AIRCRAFT, type Aircraft, type Intentions, type Leg, type Point} from "./model";
 
 export type LocalPlacement = "ground" | "gate" | "final" | "circuit" | "custom" | "takeoff";
 export interface LocalAircraftOptions {
   placement: LocalPlacement; callsign: string; type: string; runway: string; origin?: DepartureAirport; gateId?: string;
   distance: number; leg: Leg; hand: Aircraft["hand"]; height: number; speed: number | "auto"; heading: number; position?: Point;
   landing: Aircraft["landing"]; flight: "pattern" | "departure"; frequency: "ground" | "tower" | null;
+  call?: Intentions["call"]; afterTransition?: Intentions["afterTransition"]; overheadRadius?: number;
+}
+
+/** Form settings remembered between spawns; never identity, gate or clicked position. */
+const preferencesSchema = z.object({
+  placement: z.enum(["ground", "gate", "final", "circuit", "custom", "takeoff"]), type: z.string().min(1).max(10), runway: z.string().max(10), originIcao: z.string().regex(/^[A-Z0-9]{4}$/).optional(),
+  distance: z.number().min(1).max(25), leg: z.enum(["upwind", "crosswind", "downwind", "base", "final"]), height: z.number().min(1).max(60000), speed: z.union([z.number().min(40).max(600), z.literal("auto")]),
+  heading: z.number().min(0).max(360), landing: z.enum(["full-stop", "touch-and-go"]), flight: z.enum(["pattern", "departure"]), frequency: z.enum(["ground", "tower"]).nullable(),
+  call: z.enum(["inbound", "transition", "quiet"]), afterTransition: z.enum(["continue", "touch-and-go", "land"]), overheadRadius: z.number().min(.1).max(5),
+}).partial();
+export type LocalSpawnPreferences = z.infer<typeof preferencesSchema>;
+const preferenceKey = (accountId: string, icao: string) => `simulator:local-spawn:v1:${accountId}:${icao}`;
+
+export function readLocalSpawnPreferences(accountId: string, icao: string): LocalSpawnPreferences {
+  try {const result = preferencesSchema.safeParse(JSON.parse(window.localStorage.getItem(preferenceKey(accountId, icao)) ?? "null")); return result.success ? result.data : {};}
+  catch {return {};}
+}
+
+export function saveLocalSpawnPreferences(accountId: string, icao: string, options: LocalAircraftOptions) {
+  const {placement, type, runway, origin, distance, leg, height, speed, heading, landing, flight, frequency, call, afterTransition, overheadRadius} = options;
+  try {window.localStorage.setItem(preferenceKey(accountId, icao), JSON.stringify(preferencesSchema.parse({placement, type, runway, originIcao: origin?.icao, distance, leg, height, speed, heading, landing, flight, frequency, call, afterTransition, overheadRadius})));}
+  catch { /* Adding aircraft remains available when browser storage is blocked. */ }
+}
+
+export function clearLocalSpawnPreferences(accountId: string, icao: string) {
+  try {window.localStorage.removeItem(preferenceKey(accountId, icao));} catch { /* Nothing to clear. */ }
 }
 
 export function availableLocalGate(selection: AirportSelection, aircraft: readonly Pick<Aircraft, "active" | "position" | "altitude">[]) {
@@ -33,16 +60,18 @@ export function createLocalAircraft(selection: AirportSelection, id: string, opt
   const conflict = callsignConflict(callsign, existingCallsigns); if (conflict) throw new Error(conflict);
   const a = engine.newAircraft(id, options.placement !== "gate");
   Object.assign(a, {callsign, type, ...(profileForType(type)?{performanceProfile:profileForType(type)}:{}), runway: options.runway, landing: options.landing, hand: options.hand, frequency: options.frequency,
-    intentions: {flight: options.flight, taxi: "runway", afterTransition: "continue"}});
+    intentions: {flight: options.flight, taxi: "runway", ...(options.call ? {call: options.call} : {}), afterTransition: options.afterTransition ?? "continue", ...(options.call === "transition" ? {overheadRadius: options.overheadRadius ?? 1} : {})}});
   const bounded = (value: number, min: number, max: number, label: string) => {
     if (!Number.isFinite(value) || value < min || value > max) throw new Error(`${label} must be between ${min} and ${max}.`);
     return value;
   };
+  if (options.call === "transition") bounded(options.overheadRadius ?? 1, .1, 5, "Overhead radius (NM)");
   if (options.placement === "takeoff") {
     if (!options.origin) throw new Error("Choose a departure airport.");
     if ((performanceFor(a)?.ceiling ?? 60000) < airport.elevation + 1500) throw new Error("The aircraft cannot climb to the overhead altitude.");
     a.runway = runwayEnds(airport)[0].id; a.frequency = "tower"; a.targetSpeed = 220; a.speedMode = "auto";
     applyDepartureOrigin(a, airport, options.origin, options.runway);
+    if (options.call && options.call !== "quiet") a.originDeparture!.callPending = true;
   } else if (options.placement === "ground") {
     if (!options.position || !Number.isFinite(options.position.x) || !Number.isFinite(options.position.y) || Math.max(Math.abs(options.position.x), Math.abs(options.position.y)) > 2000) throw new Error("Choose a valid ground position.");
     Object.assign(a, {position: {...options.position}, altitude: airport.elevation, speed: 0, targetSpeed: 0, mode: "parked", groundReady: true, heading: magneticToTrue(bounded(options.heading, 0, 360, "Heading"), airport)});

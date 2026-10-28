@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     defaultWeeklyAvailability,
     isCanonicalWeeklyAvailability,
+    nextAvailabilityRange,
     parseWeeklyAvailability,
     serializeWeeklyAvailability,
 } from "./weekly-availability";
@@ -12,8 +13,8 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), "u
 
 test("structured availability serializes to the shared backend contract", () => {
     const entries = defaultWeeklyAvailability();
-    entries[0] = {...entries[0], available: true, start: "09:30", end: "17:45"};
-    entries[6] = {...entries[6], available: true, start: "00:00", end: "23:59"};
+    entries[0] = {...entries[0], available: true, ranges: [{start: "09:30", end: "17:45"}]};
+    entries[6] = {...entries[6], available: true, ranges: [{start: "00:00", end: "23:59"}]};
 
     const value = serializeWeeklyAvailability(entries);
     assert.equal(value, [
@@ -39,9 +40,24 @@ test("saved canonical drafts restore into editable controls", () => {
         "Sunday: Not available",
     ].join("\r\n"));
 
-    assert.deepEqual(restored[1], {day: "Tuesday", available: true, start: "08:30", end: "16:15"});
+    assert.deepEqual(restored[1], {day: "Tuesday", available: true, ranges: [{start: "08:30", end: "16:15"}]});
     assert.equal(restored[0].available, false);
     assert.equal(isCanonicalWeeklyAvailability(serializeWeeklyAvailability(restored)), true);
+});
+
+test("a day can list up to three comma-separated times", () => {
+    const entries = defaultWeeklyAvailability();
+    entries[5] = {...entries[5], available: true, ranges: [{start: "10:00", end: "13:00"}, {start: "19:00", end: "00:00"}]};
+    const value = serializeWeeklyAvailability(entries);
+    assert.match(value, /^Saturday: 1000-1300, 1900-0000$/m);
+    assert.equal(isCanonicalWeeklyAvailability(value), true);
+    assert.deepEqual(parseWeeklyAvailability(value)[5].ranges, entries[5].ranges);
+
+    const four = value.replace("Saturday: 1000-1300, 1900-0000", "Saturday: 0100-0200, 0300-0400, 0500-0600, 0700-0800");
+    assert.equal(isCanonicalWeeklyAvailability(four), false);
+    assert.equal(isCanonicalWeeklyAvailability(value.replace("1900-0000", "")), false);
+    assert.deepEqual(nextAvailabilityRange([{start: "10:00", end: "13:00"}]), {start: "14:00", end: "16:00"});
+    assert.deepEqual(nextAvailabilityRange([{start: "20:00", end: "23:30"}]), {start: "00:30", end: "02:30"});
 });
 
 test("canonical validation rejects missing days and invalid UTC times", () => {

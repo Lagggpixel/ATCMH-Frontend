@@ -68,10 +68,5 @@ export default function PositionSetup({selection, value, onChange, disabled = fa
       {room > 0 && free.length ? <button type="button" onClick={() => onChange([...positions, {id: `position-${crypto.randomUUID().slice(0, 8)}`, name: `Approach ${positions.length + 1}`, service: "approach", facilityId: free[0].id, mhz: free[0].mhz}])}>+ Add position</button> : null}
       <span>{free.length ? `${free.length} ${free.length === 1 ? "channel" : "channels"} left at ${airport.icao}` : `Every ${airport.icao} approach channel is in use`}</span>
     </div> : null}
-    <div className={styles.notes}>
-      <p><strong>One shared sky</strong>All positions fly the same traffic. Aircraft move between positions only after a frequency handoff.</p>
-      <p><strong>One mentee each</strong>Assign a mentee to each position when you start a session. You can work an empty position yourself.</p>
-      <p><strong>Starting owner</strong>Set it on each aircraft. The first position publishes the shared ATIS.</p>
-    </div>
   </fieldset>;
 }

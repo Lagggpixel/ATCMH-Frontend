@@ -1,35 +1,52 @@
+/* Matches the mentee dialogs in AdminMentees.module.css: same header, body and footer rhythm. */
 .editor {
-    width: min(760px, calc(100% - 32px));
+    width: min(640px, calc(100% - 32px));
     max-width: none;
-    max-height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 48px);
     box-sizing: border-box;
     padding: 0;
-    border: 1px solid var(--border-color, #64748b);
+    border: 1px solid var(--dashboard-border, var(--border-color));
     border-radius: 12px;
-    background: var(--surface-color, #fff);
-    color: var(--text-color, #1e293b);
-    box-shadow: var(--panel-shadow, 0 24px 80px #0004);
+    background: var(--dashboard-surface, var(--surface-color));
+    color: var(--dashboard-ink, var(--text-color));
+    box-shadow: 0 24px 60px var(--dashboard-shadow-color, #0004);
     overflow: hidden;
 }
-.editor::backdrop { background: var(--dashboard-backdrop, rgba(5, 8, 12, .72)); }
-.form { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
-.header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
-.header h2 { margin: 0; font-size: 1.25rem; }
+.editor::backdrop { background: var(--dashboard-backdrop, rgb(18 38 74 / 28%)); }
+.form { display: flex; flex-direction: column; max-height: calc(100dvh - 50px); }
+.header { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; border-bottom: 1px solid var(--dashboard-border, var(--border-color)); }
+.header h2 { margin: 0; font-size: 22px; line-height: 1.25; }
+.eyebrow { margin: 0 0 2px; color: var(--dashboard-muted, var(--muted-text)); font-size: 13px; font-weight: 700; }
 .body { min-height: 0; overflow-y: auto; }
-.editor .fields { border: 0; padding: 20px; margin: 0; min-width: 0; display: grid; gap: .75rem; }
-.description { margin: 0 0 .25rem; color: var(--muted-text, inherit); font-size: .875rem; }
-.fields h4 { margin: .5rem 0 0; }
-.editor input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid var(--border-color, #64748b); border-radius: 6px; background: transparent; color: inherit; }
-.editor select { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem; border: 1px solid var(--border-color, #64748b); border-radius: 6px; background: var(--surface-color, #fff); color: inherit; font: inherit; }
-.editor button { padding: .65rem 1rem; border: 1px solid var(--border-color, #64748b); background: transparent; color: inherit; border-radius: 6px; cursor: pointer; }
+.editor .fields { display: grid; gap: 18px; min-width: 0; margin: 0; padding: 20px 24px; border: 0; }
+.description { margin: 0; color: var(--dashboard-muted, var(--muted-text)); font-size: 14px; }
+.locationFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.field label { font-size: 14px; font-weight: 700; }
+.hint { margin: 0; color: var(--dashboard-muted, var(--muted-text)); font-size: 13px; }
+.availability { min-width: 0; margin: 0; padding: 0; border: 0; }
+.availability legend { margin-bottom: 4px; padding: 0; font-size: 15px; font-weight: 700; }
+.availability > div { margin-top: 12px; }
+.error { margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--dashboard-danger-bg, var(--danger-bg)); color: var(--dashboard-danger-text, var(--danger-text)); font-size: 14px; }
+.editor select { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--dashboard-input-border, var(--border-color)); border-radius: 6px; background: var(--dashboard-inset, var(--input-bg)); color: inherit; font: inherit; font-size: 15px; }
+.editor .actions button, .editor .closeButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--dashboard-input-border, var(--border-color)); border-radius: 6px; background: var(--dashboard-surface, var(--surface-color)); color: inherit; cursor: pointer; font: inherit; font-weight: 700; }
 .editor button:disabled { cursor: wait; opacity: .6; }
-.editor .closeButton { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; font-size: 1.5rem; }
-.actions { display: flex; flex-shrink: 0; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; padding: 16px 20px; border-top: 1px solid var(--border-color); }
-.editor .saveButton { background: var(--primary-color, #2563eb); border-color: transparent; color: #fff; }
+.editor :is(button, select, input):focus-visible { outline: 3px solid var(--dashboard-focus, var(--accent-color)); outline-offset: 2px; }
+.editor .closeButton { flex-shrink: 0; width: 44px; padding: 0; border: 0; background: transparent; }
+.editor .closeButton:hover { background: var(--dashboard-secondary, var(--surface-2-color)); }
+.actions { display: flex; flex-shrink: 0; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--dashboard-border, var(--border-color)); background: var(--dashboard-secondary, var(--surface-2-color)); }
+.editor .saveButton { border-color: transparent; background: var(--dashboard-button, var(--primary-color)); color: var(--dashboard-on-button, #fff); }
+.editor .saveButton:hover:not(:disabled) { background: var(--dashboard-button-hover, var(--primary-color)); }
+.savedStatus { margin: 0; color: var(--dashboard-success-text, var(--success-text)); font-size: 14px; font-weight: 700; }
+
+/* On phones the editor is a full-screen sheet with the actions pinned at the bottom. */
 @media (max-width: 620px) {
-    .editor { width: calc(100% - 16px); max-height: calc(100dvh - 16px); border-radius: 10px; }
-    .form { max-height: calc(100dvh - 18px); }
-    .header, .actions { padding: 12px; }
-    .editor .fields { padding: 16px 12px; }
-    .actions button { flex: 1; }
+    .editor { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+    .form { height: 100%; max-height: 100dvh; }
+    .header { padding: 16px; }
+    .header h2 { font-size: 20px; }
+    .editor .fields { padding: 16px; }
+    .locationFields { grid-template-columns: minmax(0, 1fr); }
+    .editor select { font-size: 16px; }
+    .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
 }

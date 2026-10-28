@@ -47,7 +47,8 @@ export interface TrafficSequence {number: number; traffic?: string; followingId?
 export type TaxiPoint = Point & {hold?: boolean; runway?: Runway; name?: string};
 export type GroundRouteDestination = {type: "point" | "runway" | "parking"; id?: string};
 export interface GroundRoute {airport: string; kind: "taxi" | "pushback"; controls: Point[]; destination: GroundRouteDestination; points: TaxiPoint[]; controlIndices: number[]}
-export interface Intentions {flight: "pattern" | "departure"; taxi: "runway" | "parking"; parkingStand?: string; afterTransition: "continue" | "touch-and-go"; overheadRadius?: number}
+/** call: what an airborne aircraft first asks Tower for (default inbound per its landing). afterTransition: what a transiting aircraft does overhead. */
+export interface Intentions {flight: "pattern" | "departure"; taxi: "runway" | "parking"; parkingStand?: string; call?: "inbound" | "transition" | "quiet"; afterTransition: "continue" | "touch-and-go" | "land"; overheadRadius?: number}
 export const intentionsOf = (a: Pick<Aircraft, "intentions">): Intentions => ({flight: "pattern", taxi: "runway", afterTransition: "continue", ...a.intentions});
 export interface Airport {
   icao: string; name: string; elevation: number; sourceDate: string;
@@ -58,7 +59,7 @@ export interface Airport {
   features: {id: string; kind: string; name: string; points: Point[]}[];
 }
 export interface Aircraft {
-  originDeparture?: {icao: string; runway: string; elevation: number; threshold: Point; departure: Point; phase: "roll" | "climb" | "overhead" | "directed" | "complete"};
+  originDeparture?: {icao: string; runway: string; elevation: number; threshold: Point; departure: Point; phase: "roll" | "climb" | "overhead" | "directed" | "complete"; callPending?: boolean};
   positionId?: string;
   performanceProfile?: "C172" | "C208" | "TBM9" | "DH8D" | "A320" | "B738" | "B77W"; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
   fuel?: {state: "unknown" | "normal" | "minimum" | "emergency"; enduranceMinutes: number; declared?: "minimum" | "emergency"};
@@ -86,7 +87,7 @@ export interface Aircraft {
   intentions?: Intentions;
   giveWay?: {aircraftId: string; description: string};
   groundYield?: {aircraftId: string; point: Point};
-  automaticRequest?: "taxi" | "departure" | "inbound-option" | "inbound-land";
+  automaticRequest?: "taxi" | "departure" | "inbound-option" | "inbound-land" | "transition";
   parkingAfterContact?: boolean;
   transitionOverheadArmed?: boolean;
   departureRunway?: Runway;

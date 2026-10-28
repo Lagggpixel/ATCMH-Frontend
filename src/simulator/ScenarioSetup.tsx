@@ -2,7 +2,6 @@
 import {airportList, airportSelection, getAirport, trainingMode, type AirportId} from "./airports";
 import {radarEnvironmentFor} from "./radar";
 import PositionSetup from "./PositionSetup";
-import RadarEnvironmentEditor from "./RadarEnvironmentEditor";
 import type {ScenarioDefinition} from "./scenarios";
 import styles from "./ScenarioSetup.module.css";
 
@@ -30,9 +29,8 @@ export default function ScenarioSetup({definition, onChange, locked = false, com
         {airportList.map(a => <option key={a.icao} value={a.icao}>{a.icao} · {a.name}</option>)}
       </select></label>
     </div>
+    <p className={styles.summary}>{airport.name} · {airport.runways?.length ?? 1} runway {(airport.runways?.length ?? 1) === 1 ? "pair" : "pairs"} · {airport.elevation.toLocaleString()} ft elevation</p>
     {locked ? <p id="airport-locked" className={styles.help}>Remove traffic and events to change frequency or airport.</p> : null}
-    <div className={styles.summary}><strong>{airport.icao} · {trainingMode(definition) === "local" ? "Ground & Tower" : trainingMode(definition) === "approach" ? "Approach" : "Center"}</strong><span>{airport.runways?.length ?? 1} runway {(airport.runways?.length ?? 1) === 1 ? "pair" : "pairs"} · {airport.elevation.toLocaleString()} ft elevation</span></div>
     <PositionSetup selection={definition} value={definition.positions} aircraft={startingAircraft(definition)} onChange={positions => onChange({...definition, positions, aircraft: definition.aircraft.map(a => ({...a, seed: {...a.seed, positionId: positions.some(p => p.id === a.seed.positionId) ? a.seed.positionId : positions[0].id}}))})}/>
-    {trainingMode(definition) !== "local" ? <RadarEnvironmentEditor airport={airport} value={definition.radarEnvironment ?? radarEnvironmentFor(airport)} onChange={radarEnvironment => onChange({...definition, radarEnvironment})}/> : null}
   </section>;
 }

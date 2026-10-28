@@ -66,7 +66,10 @@ function aircraftPhase(a: Aircraft) {
   if (a.mode === "parked") return "Parked";
   if (a.mode === "taxi") return "Taxi";
   if (a.mode === "pushback") return "Pushback";
-  if (["lineup", "takeoff", "rollout"].includes(a.mode)) return "Ground";
+  if (["lineup", "takeoff", "rollout"].includes(a.mode) && !a.originDeparture) return "Ground";
+  if (a.originDeparture) return a.originDeparture.phase === "roll" ? "Takeoff roll" : intentionsOf(a).call === "transition" ? "Departed · transit" : "Departed";
+  if (a.transitionAltitude !== undefined) return "Transit";
+  if (!a.radar && a.mode === "heading" && intentionsOf(a).call === "transition") return "Wants transit";
   return "Airborne";
 }
 

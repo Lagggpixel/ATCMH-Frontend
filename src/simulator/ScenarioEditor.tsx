@@ -1,6 +1,8 @@
 "use client";
 import {randomCallsign} from "./callsigns";
 import LocalAircraftDialog from "./LocalAircraftDialog";
+import MentorContextMenu, {type ScopeContext} from "./MentorContextMenu";
+import SpawnAircraftDialog from "./SpawnAircraftDialog";
 import {addLocalScenarioAircraft} from "./local-aircraft";
 import {memo, useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties} from "react";
 import Link from "next/link";
@@ -37,7 +39,7 @@ import {blankScenario, normalizeScenario, normalizeScenarioAircraft, gatesFor, i
 import {sessionJson} from "./shared-transport";
 import {trainingRequest} from "./TrainingLibrary";
 import ScenarioEventEditor, {defaultEvent} from "./ScenarioEventEditor";
-import {MAX_AIRCRAFT, type Exercise, type Point, type Runway} from "./model";
+import {MAX_AIRCRAFT, intentionsOf, type Exercise, type Point, type Runway} from "./model";
 import type {GroundClearance} from "./GroundRouteEditor";
 import sim from "./Simulator.module.css";
 import styles from "./Training.module.css";
@@ -58,6 +60,7 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
   const [selected, setSelected] = useState(""), [eventId, setEventId] = useState(""), [notes, setNotes] = useState(false), [editMode, setEditMode] = useState(""), [timeline, setTimeline] = useState(true);
   const [taxiRequest, setTaxiRequest] = useState<{aircraftId: string; runway?: string; serial: number}>();
   const [addingAircraft, setAddingAircraft] = useState(false);
+  const [scopeMenu, setScopeMenu] = useState<ScopeContext | null>(null), [spawnAt, setSpawnAt] = useState<{point?: Point; originIcao?: string} | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [saved, setSaved] = useState(() => JSON.stringify(blankScenario()));
   const dirty = JSON.stringify(draft) !== saved;
@@ -158,10 +161,20 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
   const openEvent = (id: string) => {setEventId(id); setNotes(false); setEditMode("");};
   const spawnTimes = new Map(draft.events.flatMap(e => e.trigger.type === "time" ? e.actions.flatMap(a => a.type === "spawn" ? [[a.aircraftKey, e.trigger.type === "time" ? e.trigger.at : 0] as const] : []) : []));
   const present = (key: string) => !preview || preview.exercise.aircraft.some(a => a.id === preview.runtime.aircraftIds[key]);
+  // The pilot's plan as a chip, so the traffic list reads like the scenario.
+  const plan = (seed: ScenarioDefinition["aircraft"][number]["seed"]) => {
+    if (seed.radar || isGroundSpawn(seed, AIRPORT)) return "";
+    const intentions = intentionsOf(seed);
+    return intentions.call === "quiet" ? "Quiet" : intentions.call === "transition" ? intentions.afterTransition === "continue" ? "Transit" : `Transit → ${intentions.afterTransition === "land" ? "Land" : "T&G"}` : seed.landing === "touch-and-go" ? "T&G" : "Land";
+  };
+  const closeSpawn = () => {setAddingAircraft(false); setSpawnAt(null);};
+  // Radar spawns are validated against the scenario as it would start.
+  const spawnExercise = (() => {if (!spawnAt || radarMode === "local") return null; try {return createScenarioExercise(draft, "scenario-spawn", "spawn").exercise;} catch {return null;}})();
   const trafficRow = (p: ScenarioDefinition["aircraft"][number]) => {
     const live = preview?.exercise.aircraft.find(a => a.id === preview.runtime.aircraftIds[p.key]), frequency = preview ? live?.frequency : p.seed.frequency, at = spawnTimes.get(p.key);
     return <button key={p.key} className={styles.trafficRow} data-absent={!present(p.key) || undefined} aria-pressed={selected === p.key && !eventId} onClick={() => select(p.key)}>
-      <span><strong>{p.seed.callsign}</strong><small>{!present(p.key) ? "Not here yet" : `${p.seed.type}${p.gateId && !preview ? ` · Gate ${gateName(AIRPORT, p.gateId)}` : ""}`}</small></span>
+      <span><strong>{p.seed.callsign}</strong><small>{!present(p.key) ? "Not here yet" : `${p.seed.type}${p.gateId && !preview ? ` · Gate ${gateName(AIRPORT, p.gateId)}` : ""}${p.seed.originDeparture && !p.seed.radar ? ` · From ${p.seed.originDeparture.icao}` : ""}`}</small></span>
+      {!preview && plan(p.seed) ? <em className={styles.planChip}>{plan(p.seed)}</em> : null}
       {!p.initial && at !== undefined && !preview ? <time>{timeLabel(at)}</time> : frequency ? <span className={styles.chip}>{FREQUENCY_SHORT[frequency]}</span> : null}
     </button>;
   };
@@ -194,7 +207,7 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
       </div>
       {record ? <footer>Created by {record.ownerName || record.ownerId}</footer> : null}
     </aside>
-    <div className={styles.editorScope}><EditorScope messages={preview?.exercise.messages} accountId={accountId} key={`${AIRPORT.icao}:${radarMode}`} airport={AIRPORT} radarEnvironment={draft.radarEnvironment} radarMode={radarMode === "local" ? undefined : radarMode} autoReadback={preview?.exercise.autoReadback} aircraft={preview?.exercise.aircraft ?? scopeAircraft} running={preview?.exercise.running ?? false} frequency="all" gates={!preview && ground && !editMode ? scopeGates : undefined} selectedGate={spec?.gateId} onGateSelect={selectGate} onGateDrop={placeAtGate} selected={preview ? preview.runtime.aircraftIds[selected] ?? null : selected || null} onSelect={selectOnScope} editMode={preview ? "" : editMode} onPoint={point} groundRouteMode="scenario" groundRouteRequest={preview ? undefined : taxiRequest} onGroundClearance={preview ? undefined : saveTaxiRoute}/></div>
+    <div className={styles.editorScope}><EditorScope onScopeContextMenu={true && !preview && !editMode ? setScopeMenu : undefined} messages={preview?.exercise.messages} accountId={accountId} key={`${AIRPORT.icao}:${radarMode}`} airport={AIRPORT} radarEnvironment={draft.radarEnvironment} radarMode={radarMode === "local" ? undefined : radarMode} autoReadback={preview?.exercise.autoReadback} aircraft={preview?.exercise.aircraft ?? scopeAircraft} running={preview?.exercise.running ?? false} frequency="all" gates={!preview && ground && !editMode ? scopeGates : undefined} selectedGate={spec?.gateId} onGateSelect={selectGate} onGateDrop={placeAtGate} selected={preview ? preview.runtime.aircraftIds[selected] ?? null : selected || null} onSelect={selectOnScope} editMode={preview ? "" : editMode} onPoint={point} groundRouteMode="scenario" groundRouteRequest={preview ? undefined : taxiRequest} onGroundClearance={preview ? undefined : saveTaxiRoute}/></div>
     <aside className={styles.inspector} aria-label="Scenario settings">
     {event && brokenEvents.has(event.id) ? <p role="alert" className={styles.error}>{brokenEvents.get(event.id)}</p> : null}
     {preview ? <div className={styles.testPanel}>
@@ -206,9 +219,16 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
     </div> : notes ? <div className={styles.inspectorFields}><p className={styles.kicker}>Mentor notes</p><label>Notes only mentors see during the session<textarea rows={10} maxLength={6000} value={draft.instructorNotes} onChange={e => setDraft({...draft, instructorNotes: e.target.value})}/></label></div> : event ? <ScenarioEventEditor event={event} definition={draft} onChange={value => setDraft(d => ({...d, events: d.events.map(e => e.id === value.id ? value : e)}))} onRemove={() => {setDraft(d => ({...d, events: d.events.filter(e => e.id !== event.id)})); setEventId("");}} onPickPosition={() => setEditMode("condition")}/> : a && spec ? <ScenarioAircraftInspector key={selected} definition={draft} aircraft={a} onChange={setDraft} onRemove={removeAircraft} editMode={editMode} onEditMode={setEditMode} onPlanTaxi={runway => setTaxiRequest({aircraftId: selected, runway, serial: Date.now()})} onError={setError}/> : <ScenarioSetup compact definition={draft} onChange={setDraft} locked={!!draft.aircraft.length || !!draft.events.length}/>}
     </aside>
     <ScenarioTimeline events={draft.events} selected={eventId} broken={brokenEvents} preview={preview} open={timeline} onToggle={() => setTimeline(!timeline)} onSelect={openEvent} onAdd={addEvent} onRun={runAt} onMove={index => setDraft(d => {const events = [...d.events]; [events[index - 1], events[index]] = [events[index], events[index - 1]]; return {...d, events};})}/>
-    {addingAircraft && !preview ? <LocalAircraftDialog selection={draft} aircraft={aircraft} callsigns={draft.aircraft.map(a => a.seed.callsign)} scenario enabled onAdd={(next, gateId, at) => {
+    {scopeMenu && !preview ? <MentorContextMenu target={scopeMenu} enabled={true && draft.aircraft.length < MAX_AIRCRAFT} onConflict={() => undefined} onDelete={() => undefined} onClose={() => setScopeMenu(null)}
+      onSpawn={() => {setSpawnAt({point: scopeMenu.point}); setScopeMenu(null);}} onSpawnAirport={originIcao => {setSpawnAt({originIcao}); setScopeMenu(null);}}/> : null}
+    {(addingAircraft || spawnAt) && !preview && radarMode === "local" ? <LocalAircraftDialog selection={draft} accountId={accountId} position={spawnAt?.point} originIcao={spawnAt?.originIcao} aircraft={aircraft} callsigns={draft.aircraft.map(a => a.seed.callsign)} scenario enabled onAdd={(next, gateId, at) => {
       const updated = addLocalScenarioAircraft(draft, next, gateId, at); setDraft(updated); select(next.id); return true;
-    }} onClose={() => setAddingAircraft(false)}/> : null}
+    }} onClose={closeSpawn}/> : null}
+    {spawnAt && spawnExercise && !preview && radarMode !== "local" ? <SpawnAircraftDialog accountId={accountId} exercise={spawnExercise} position={spawnAt.point} originIcao={spawnAt.originIcao} enabled={true} onSpawned={() => undefined} onClose={closeSpawn} dispatch={action => {
+      if (action.kind !== "spawn") return false;
+      const key = `traffic-${crypto.randomUUID().slice(0, 8)}`;
+      setDraft(addLocalScenarioAircraft(draft, {...action.aircraft, id: key}, undefined, 0)); select(key); return true;
+    }}/> : null}
     {editMode ? <div className={styles.pickHint}>{editMode === "condition" ? "Click the condition location" : "Click to place aircraft"}<button onClick={() => setEditMode("")}>Done</button></div> : null}
     {error || notice ? <div className={`${styles.editorNotice} ${error ? styles.error : ""}`} role={error ? "alert" : "status"}>{error || notice}<button aria-label="Dismiss notice" onClick={() => {setError(""); setNotice("");}}><X aria-hidden="true"/></button></div> : null}
   </main></EditorScreen>;

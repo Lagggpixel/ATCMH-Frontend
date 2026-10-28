@@ -42,11 +42,43 @@
     accent-color: var(--accent-color, var(--accent, #22d3ee));
 }
 
+.availabilityRanges {
+    display: grid;
+    gap: .45rem;
+}
+
+/* The third column keeps every range aligned whether or not it has a Remove button. */
 .availabilityTimes {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 5.25rem;
+    align-items: center;
     gap: .65rem;
 }
+
+.extraRange {
+    padding: .3rem .4rem;
+    margin: 0 -.4rem;
+    border-radius: .55rem;
+    background: color-mix(in srgb, var(--accent-color, var(--accent, #22d3ee)) 9%, transparent);
+}
+
+.addRange, .removeRange {
+    justify-self: start;
+    min-height: 2.25rem;
+    padding: 0 .4rem;
+    border: 0;
+    border-radius: .45rem;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 700;
+}
+
+.addRange { color: var(--accent-color, var(--accent, #22d3ee)); }
+.removeRange { color: var(--dashboard-danger-text, var(--error-color, #b63d43)); }
+.addRange:hover, .removeRange:hover { text-decoration: underline; text-underline-offset: 3px; }
+.addRange:focus-visible, .removeRange:focus-visible { outline: 3px solid #9bbcff; outline-offset: 2px; }
 
 .availabilityTimes label {
     display: flex;
@@ -81,6 +113,16 @@
 
 @media (max-width: 480px) {
     .availabilityTimes {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .availabilityTimes label {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .2rem;
+    }
+
+    .removeRange {
+        grid-column: 1 / -1;
     }
 }

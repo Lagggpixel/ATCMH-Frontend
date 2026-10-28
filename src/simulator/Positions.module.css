@@ -51,7 +51,6 @@
 .tags{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}.tags span{padding:2px 8px;border-radius:99px;background:var(--dashboard-inset,#2a343b);color:var(--dashboard-ink,inherit)}.tags .atis{background:var(--dashboard-selected,#3a2a22);color:var(--dashboard-link,#ffb18a)}
 .add{display:flex;align-items:center;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--dashboard-muted,#b0bdc6)}
 .add button{min-height:36px;padding:0 12px;border:1px dashed var(--dashboard-input-border,#45515b);border-radius:4px;background:transparent;color:var(--dashboard-ink,inherit);cursor:pointer;font:inherit}
-.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:0;padding:12px 14px;border:1px solid var(--dashboard-border,#45515b);border-radius:6px;font-size:13px;line-height:1.45;color:var(--dashboard-muted,#b0bdc6)}.notes strong{display:block;margin-bottom:2px;color:var(--dashboard-ink,inherit)}
 .help{font-size:12px;line-height:1.5;margin:0;color:var(--dashboard-muted,#b0bdc6)}
 .fields :focus-visible,.setup button:focus-visible,.setup a:focus-visible{outline:2px solid var(--dashboard-link,#ffb18a);outline-offset:2px}
 

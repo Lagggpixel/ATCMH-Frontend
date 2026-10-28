@@ -44,6 +44,7 @@
 .trafficRow small{display:block;font-size:11px;color:var(--dashboard-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trafficRow time{font-size:11px;color:var(--dashboard-muted);font-variant-numeric:tabular-nums}
 .editor .trafficRow[data-absent]{opacity:.55}
+.editor .planChip{flex:none;font-size:11px;font-style:normal;color:var(--dashboard-link);border:1px solid currentColor;border-radius:999px;padding:1px 7px;white-space:nowrap}
 .outlineNote{margin:0 10px 10px;font-size:12px;line-height:1.5;color:var(--dashboard-muted)}
 .outline footer{color:var(--dashboard-muted);font-size:11px;padding:12px 10px 0;margin-top:8px;border-top:1px solid var(--dashboard-border)}
 .editorScope{grid-column:2;grid-row:2;min-width:0;min-height:0;position:relative;background:black}.editorScope>div{position:absolute;inset:0}

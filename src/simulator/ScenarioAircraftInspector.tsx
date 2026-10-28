@@ -93,7 +93,6 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
       <section className={styles.panel} role="tabpanel" id={`${id}-Intentions-panel`} aria-labelledby={`${id}-Intentions-tab`} hidden={tab !== "Intentions"}>
         {a.radar ? <RadarSeedControls aircraft={a} airport={airport} environment={definition.radarEnvironment ?? radarEnvironmentFor(airport)} onEdit={patch} includeRoutes={false}/> : <>
           <div className={styles.section}><h3>Flight intentions</h3><IntentionsControls airport={airport} aircraft={a} onEdit={patch}/>
-            {!ground ? <button type="button" onClick={() => onChange(d => {const id = `transition-${a.id}`.slice(0, 32); return {...d, events: [...d.events.filter(e => e.id !== id), {id, title: "Request transition at Start", trigger: {type: "time", at: 0}, actions: [{type: "request", aircraftKey: a.id, requestId: "transition", runway: a.runway ?? defaultRunway(airport)}]}]};})}>Request Transition at Start</button> : null}
           </div>
           <div className={styles.section}><h3>Traffic pattern</h3><div className={styles.pair}><label>Traffic<select value={a.hand} onChange={e => patch({hand: e.target.value as "left" | "right"})}><option>left</option><option>right</option></select></label></div>
             {!ground && a.mode === "pattern" ? <label>Initial pattern leg<select value={a.leg} onChange={e => patch({leg: e.target.value as Leg})}>{["upwind", "crosswind", "downwind", "base", "final"].map(leg => <option key={leg}>{leg}</option>)}</select></label> : null}</div>

@@ -501,6 +501,7 @@ function queueRunwayExit(a: Aircraft, side: "left" | "right" | "any", instructio
 
 function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   c = roundedHeadingInstruction(c);
+  const viaOverhead = !a.radar && !!a.originDeparture && c.type === "transition";
   if (!a.radar && a.originDeparture && ["heading", "transition", "departure", "pattern", "go-around", "route"].includes(c.type)) {
     if (c.type === "heading" && a.altitude < AIRPORT.elevation + DEFAULTS.patternHeight) a.originDeparture.phase = "directed";
     else delete a.originDeparture;
@@ -595,7 +596,7 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
     case "lineup":
     case "takeoff": {const route = departureRoute(a, a.runway ?? DEFAULT_RUNWAY); a.sequence = undefined; if (c.type === "takeoff") {a.takeoffPattern = !c.straightOut && (!!c.hand || intentionsOf(a).flight === "pattern"); if (c.straightOut) {a.transitionAltitude = c.straightOut; a.leavingCircuit = true;} if (c.hand) a.hand = c.hand;} a.lineupWait = c.type === "lineup"; a.mode = "lineup"; a.taxiPath = route.path ?? []; if (c.type === "takeoff" && a.taxiPath.length) {const end = a.taxiPath.at(-1)!, g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), remaining = distance(g.threshold, g.departure) - runwayCoordinates(end, g).along; a.taxiPath = [...a.taxiPath, add(end, g.vector, Math.min(.06, Math.max(0, remaining / 2)))];} a.taxiIndex = 1; a.holding = false; a.releasedHold = null; a.targetSpeed = DEFAULTS.taxiSpeed; a.leg = "upwind"; a.extended = false; break;}
     case "exit-runway": {queueRunwayExit(a, c.side, "exit-runway", c); a.landing = "full-stop"; a.clearedToLand = false; a.mode = "rollout"; a.holding = false; a.sequence = undefined; break;}
-    case "transition": a.transitionOverheadArmed = intentionsOf(a).afterTransition === "touch-and-go"; a.mode = "heading"; a.targetHeading = a.heading; a.transitionAltitude = c.altitude; a.leavingCircuit = true; a.clearedToLand = false; a.extended = false; a.sequence = undefined; break;
+    case "transition": a.transitionOverheadArmed = intentionsOf(a).afterTransition !== "continue"; a.mode = "heading"; a.targetHeading = viaOverhead ? bearing(a.position, {x: 0, y: 0}) : a.heading; a.transitionAltitude = c.altitude; a.leavingCircuit = true; a.clearedToLand = false; a.extended = false; a.sequence = undefined; break;
     case "departure": a.mode = "heading"; a.targetHeading = {north: 0, east: 90, south: 180, west: 270}[c.direction]; a.leavingCircuit = true; a.clearedToLand = false; a.extended = false; a.sequence = undefined; break;
     case "land": a.clearedToLand = true; a.clearedForOption = !!c.option; if (!c.option) a.landing = "full-stop"; a.optionHand = c.option ? c.hand : undefined; if (c.number === 1) a.sequence = undefined; break;
     case "cancel-landing": clearLanding(a); break;
@@ -795,11 +796,12 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       const spawned = structuredClone(action.aircraft);
       next.aircraft.push(spawned);
       if (next.fullStopAll) {next.fullStopAll[spawned.id] = spawned.landing; fullStop(spawned);}
-      if (!options.suppressSpawnRequest && !spawned.originDeparture && spawned.active && spawned.frequency && spawned.frequency !== "atis") {
-        const ground = spawned.altitude <= AIRPORT.elevation + 1;
+      const firstCall = intentionsOf(spawned).call;
+      const ground = spawned.altitude <= AIRPORT.elevation + 1, quiet = !ground && !spawned.radar && firstCall === "quiet";
+      if (!options.suppressSpawnRequest && !quiet && !spawned.originDeparture && spawned.active && spawned.frequency && spawned.frequency !== "atis") {
         const requestId = spawned.frequency === "unicom" ? ground ? "unicom-taxi" : "unicom-inbound"
           : ground ? groundReady(spawned, AIRPORT) ? "taxi-runway" : "pushback"
-          : spawned.frequency === "tower" ? spawned.landing === "touch-and-go" ? "inbound-option" : "inbound-land" : "request-approach";
+          : spawned.frequency === "tower" ? !spawned.radar && firstCall === "transition" ? "transition" : spawned.landing === "touch-and-go" ? "inbound-option" : "inbound-land" : "request-approach";
         const request = resolvePilotRequest({requestId})!;
         const selection = {id: request.id, runway: spawned.runway ?? DEFAULT_RUNWAY, ...(requestId === "unicom-inbound" ? {outcome: spawned.landing} : {})};
         next.messages.push({id: envelope.id, aircraftId: spawned.id, time: envelope.time, frequency: spawned.frequency, sender: "pilot", text: pilotRequestText(spawned, request, selection.runway, false, {...selection, exercise: next}), request: selection, requestCircuit: spawned.circuit ?? 0, read: false});
@@ -830,7 +832,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       if (aircraft!.radar && (action.patch.targetSpeed !== undefined || action.patch.speedMode !== undefined)) delete aircraft!.radar.speed;
       if (action.patch.frequency !== undefined) updateRadarFrequency(aircraft!);
       if (aircraft!.radar && action.patch.altitude !== undefined) {aircraft!.radar.targetAltitude = undefined; delete aircraft!.radar.altitudeFromRoute; aircraft!.radar.altitudeAssignedFrom = undefined;}
-      if (action.patch.intentions && aircraft!.transitionAltitude !== undefined) aircraft!.transitionOverheadArmed = intentionsOf(aircraft!).afterTransition === "touch-and-go"; if (action.patch.targetSpeed !== undefined && action.patch.speedMode === undefined) aircraft!.speedMode = "manual"; if (action.patch.runway && action.patch.runway !== state.aircraft.find(a => a.id === action.aircraftId)?.runway) aircraft!.lastRunway = state.aircraft.find(a => a.id === action.aircraftId)?.runway ?? aircraft!.lastRunway; break;
+      if (action.patch.intentions && aircraft!.transitionAltitude !== undefined) aircraft!.transitionOverheadArmed = intentionsOf(aircraft!).afterTransition !== "continue"; if (action.patch.targetSpeed !== undefined && action.patch.speedMode === undefined) aircraft!.speedMode = "manual"; if (action.patch.runway && action.patch.runway !== state.aircraft.find(a => a.id === action.aircraftId)?.runway) aircraft!.lastRunway = state.aircraft.find(a => a.id === action.aircraftId)?.runway ?? aircraft!.lastRunway; break;
     case "read": for (const m of next.messages) if (m.aircraftId === aircraft!.id && m.sender === "pilot" && (!action.frequency || m.frequency === action.frequency)) m.read = true; aircraft!.reminderAt = null; break;
     case "atis": next.atis = currentAtisOptions(action.draft); break;
     case "publish-atis": next.atis = currentAtisOptions(next.atis); next.publishedAtis = atisText(next.atis); next.publishedDraft = structuredClone(next.atis); break;
@@ -1213,7 +1215,14 @@ function advance(state: Exercise, seconds: number): Exercise {
         if (!target || !target.active || target.altitude >= AIRPORT.elevation + 1000 || !groundConflict(a, target) && distance(a.position, target.position) > GROUND.spacing) delete a.giveWay;
       }
       if (state.autoReadback && a.transitionOverheadArmed && a.mode === "heading" && a.frequency === "tower" && distance(a.position, {x: 0, y: 0}) <= (intentionsOf(a).overheadRadius ?? 1)) {
+        const after = intentionsOf(a).afterTransition;
+        if (after === "land") fullStop(a); else if (after === "touch-and-go" && !next.fullStopAll) a.landing = "touch-and-go";
         delete a.transitionOverheadArmed; a.automaticRequest = a.landing === "touch-and-go" ? "inbound-option" : "inbound-land";
+      }
+      // Traffic from another airfield makes its first call once it is airborne.
+      if (state.autoReadback && a.originDeparture?.callPending && a.frequency === "tower" && a.mode === "heading" && a.altitude >= a.originDeparture.elevation + 200) {
+        delete a.originDeparture.callPending;
+        a.automaticRequest = intentionsOf(a).call === "transition" ? "transition" : a.landing === "touch-and-go" ? "inbound-option" : "inbound-land";
       }
     }
     // Frequency changes are authoritative, never made by rendering predictions.

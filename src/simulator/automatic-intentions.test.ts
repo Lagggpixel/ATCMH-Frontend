@@ -199,3 +199,13 @@ test("scenario overhead conditions respect Automatic and fire once without dupli
   assert.equal(state.messages.length, 1); assert.equal(runtime.events.overhead.status, "completed");
   assert.equal(state.aircraft[0].clearedToLand, false);
 });
+
+test("transit traffic can call inbound to land overhead; spawned traffic can request transition or stay quiet", () => {
+  let state = stateOf([{...newAircraft("a", true), position: {x: .2, y: .2}, landing: "touch-and-go", intentions: {flight: "pattern", taxi: "runway", afterTransition: "land", overheadRadius: 1}}]);
+  state = assign(state, {type: "transition", altitude: 1500});
+  state = tick(state); state = tick(state);
+  assert.equal(state.messages[0]?.request?.id, "inbound-land"); assert.equal(state.aircraft[0].landing, "full-stop");
+  const spawn = (id: string, call: "transition" | "quiet") => act(stateOf([]), {kind: "spawn", aircraft: {...newAircraft(id, true), frequency: "tower", intentions: {flight: "pattern", taxi: "runway", call, afterTransition: "touch-and-go"}}});
+  assert.equal(spawn("t", "transition").messages[0]?.request?.id, "transition");
+  assert.equal(spawn("q", "quiet").messages.length, 0);
+});

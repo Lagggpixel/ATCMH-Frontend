@@ -107,6 +107,7 @@
 .knowledgeCheckImages { display: grid; gap: 14px; margin: 0 0 18px; }
 .knowledgeCheckImage { min-width: 0; margin: 0; text-align: center; }
 .knowledgeCheckImage img, .knowledgeCheckImage video { display: block; max-width: 100%; max-height: 420px; margin: 0 auto; border: 1px solid var(--dashboard-border, #475569); border-radius: 8px; background: var(--dashboard-inset, #050a15); object-fit: contain; }
+.knowledgeCheckImage video { width: min(100%, 820px); max-height: 560px; }
 .knowledgeCheckImage figcaption { margin-top: 7px; color: var(--dashboard-muted, #cbd5e1); font-size: .86rem; line-height: 1.45; }
 .privateGateLocked { text-align: left; }
 .privateGateLocked p, .privateGateLocked .prerequisiteStatus, .privateGateLocked .prerequisiteItem { text-align: left; }
