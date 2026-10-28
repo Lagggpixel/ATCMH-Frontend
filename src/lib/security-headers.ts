@@ -4,19 +4,22 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
   const isProduction = nodeEnv === "production";
   const { dashboardApiUrl } = resolvePublicRuntimeConfig(env, nodeEnv);
   const guideMedia = ["/pilot-guide", "/dashboard/pilot-guide"].includes(pathname.replace(/\/$/, ""));
+  // Dashboard and Exams use client navigation, so their initial document must
+  // allow the course editor and reader media on subsequent routes.
+  const courseMedia = /^\/(?:dashboard|exams)(?:\/|$)/.test(pathname);
   const simulator = /^\/(?:sweatbox|simulator)(?:\/|$)/.test(pathname);
   const contentSecurityPolicy = [
     "default-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
     `frame-src blob:${guideMedia ? " https://www.youtube-nocookie.com" : ""}`,
-    ...(guideMedia ? ["media-src 'self' https:"] : []),
+    ...(courseMedia ? ["media-src 'self' blob: https:"] : guideMedia ? ["media-src 'self' https:"] : []),
     `form-action 'self' ${dashboardApiUrl}`,
     "object-src blob:",
     `script-src 'self' 'unsafe-inline'${simulator ? " 'wasm-unsafe-eval'" : ""}${isProduction ? "" : " 'unsafe-eval'"}`,
     ...(simulator ? ["worker-src 'self'"] : []),
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    `img-src 'self' data: https:${courseMedia ? " blob:" : ""}`,
     "font-src 'self' data:",
     `connect-src 'self' ${dashboardApiUrl}${simulator ? " https://terrain.infinitehorizon.app" : ""}`,
     ...(isProduction ? ["upgrade-insecure-requests"] : []),

@@ -22,15 +22,26 @@ test("terrain lookup connections are restricted to simulator pages", () => {
 test("YouTube embeds and direct videos are scoped to guide reader and editor", () => {
     for (const path of ["/pilot-guide", "/pilot-guide/", "/dashboard/pilot-guide", "/dashboard/pilot-guide/"]) {
         assert.match(csp(path), /frame-src blob: https:\/\/www\.youtube-nocookie\.com;/);
-        assert.match(csp(path), /media-src 'self' https:;/);
+        assert.match(csp(path), /media-src 'self' (?:blob: )?https:;/);
         assert.doesNotMatch(csp(path), /frame-src[^;]+youtube\.com/);
     }
 });
 test("other routes retain their original frame and media restrictions", () => {
-    for (const path of ["", "/", "/dashboard", "/dashboard/courses", "/pilot-guide-other", "/pilot-guide/subpage", "/dashboard/pilot-guide/subpage"]) {
+    for (const path of ["", "/", "/pilot-guide-other", "/pilot-guide/subpage"]) {
         assert.match(csp(path), /frame-src blob:;/);
         assert.doesNotMatch(csp(path), /youtube|media-src/);
     }
     assert.match(csp("/pilot-guide"), /frame-ancestors 'none'/);
     assert.match(csp("/pilot-guide"), /upgrade-insecure-requests/);
+});
+
+
+test("course editor previews and course videos work after dashboard or exams client navigation", () => {
+    for (const path of ["/dashboard", "/dashboard/courses/abc/edit", "/exams", "/exams/courses/abc"]) {
+        assert.match(csp(path), /img-src 'self' data: https: blob:;/);
+        assert.match(csp(path), /media-src 'self' blob: https:;/);
+    }
+    for (const path of ["/", "/dashboard-other", "/exams-other"]) {
+        assert.doesNotMatch(csp(path), /img-src[^;]*blob:|media-src/);
+    }
 });
