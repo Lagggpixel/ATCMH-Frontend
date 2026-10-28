@@ -39,6 +39,8 @@ export class ScopeCameraMotion {
   private doubleZoom?: {point: Point; camera: MapCamera};
   private velocity = {x: 0, y: 0};
   private zoomVelocity = 0;
+  // A pinch ends without inertia, even when the last finger pans a little before lifting.
+  private pinched = false;
 
   constructor(public camera: MapCamera, public size: MapSize) {this.camera = clampCamera(camera, size);}
 
@@ -50,7 +52,7 @@ export class ScopeCameraMotion {
     this.stop();
     this.pointers.set(id, point);
     if (this.pointers.size > 1) {
-      this.doubleZoom = undefined; this.lastTap = undefined;
+      this.doubleZoom = undefined; this.lastTap = undefined; this.pinched = true;
       this.drag = {start: point, at, moved: true, type};
     } else {
       const tap = this.lastTap;
@@ -89,8 +91,9 @@ export class ScopeCameraMotion {
     const tap = !!drag && !drag.moved && this.pointers.size === 1;
     this.pointers.delete(id);
     if (tap && at - drag!.at < 300) this.lastTap = {point, at, type: drag!.type};
-    if (this.doubleZoom || !drag?.moved || at - drag.at > 80 || this.pointers.size) this.stop();
+    if (this.pinched || this.doubleZoom || !drag?.moved || at - drag.at > 80 || this.pointers.size) this.stop();
     this.doubleZoom = undefined;
+    if (!this.pointers.size) this.pinched = false;
     this.drag = this.pointers.size ? {start: [...this.pointers.values()][0], at, moved: true, type: drag?.type ?? "touch"} : undefined;
     return tap;
   }
@@ -100,6 +103,7 @@ export class ScopeCameraMotion {
     if (id !== undefined && !this.pointers.has(id)) return;
     if (id === undefined) this.pointers.clear(); else this.pointers.delete(id);
     this.stop(); this.lastTap = undefined; this.doubleZoom = undefined;
+    if (!this.pointers.size) this.pinched = false;
     this.drag = this.pointers.size ? {start: [...this.pointers.values()][0], at: 0, moved: true, type: "touch"} : undefined;
   }
 

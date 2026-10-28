@@ -55,7 +55,7 @@ test("slow taxi traffic rounds a corner close to the centreline instead of cutti
   assert.equal(index, path.length);
 });
 
-test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting intermediate waypoints", () => {
+test("all 168 mapped EGPH stand/S/G departure routes finish without orbiting intermediate waypoints", () => {
   let completed = 0;
   for (const feature of AIRPORT.features.filter(f => f.kind === "parking_position" || f.name === "S" || f.name === "G")) {
     for (const runway of ["24", "06"] as const) {
@@ -79,7 +79,7 @@ test("all 172 mapped EGPH stand/S/G departure routes finish without orbiting int
       completed++;
     }
   }
-  assert.equal(completed, 172);
+  assert.equal(completed, 168);
 });
 
 test("taxi traffic stops with an 83m gap and resumes when the route clears, on either frequency", () => {

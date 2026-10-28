@@ -15,6 +15,6 @@ export default function VectorTerrain({latitude, longitude}: TerrainPoint) {
   const updating = !sample || sample.latitude !== latitude || sample.longitude !== longitude;
   return <abbr style={{textDecoration: "none"}} aria-busy={updating}
     title={updating ? "Updating endpoint terrain; any displayed elevation is the previous sample" : "Endpoint ground elevation rounded up to 100 ft"}>
-    {!sample ? "…" : sample.feet === null ? "Terrain unavailable" : `${sample.feet}ft~`}{updating && sample ? " ↻" : ""}
+    {!sample ? "…" : sample.feet === null ? "Terrain unavailable" : `${sample.feet.toLocaleString("en-US")}ft`}{updating && sample ? " ↻" : ""}
   </abbr>;
 }

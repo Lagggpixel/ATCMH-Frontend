@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
-import {airportList, airportRunways, airportStations, defaultAirport, defaultRunway, getAirport, trainingStation, runwayEnds, openingFrequency, frequenciesFor, environmentLabel} from "./airports";
+import {airportList, airportRunways, airportStations, airportSupportsTraining, defaultAirport, defaultRunway, getAirport, trainingStation, runwayEnds, openingFrequency, frequenciesFor, environmentLabel} from "./airports";
 import {advance, applyEnvelope, engineFor, restoreExercise} from "./engine";
 import {catalogFor} from "./catalog";
-import {blankScenario, createScenarioExercise, gatesFor, scenarioFromExercise, scenarioSchema, seedFromAircraft, standPlacement} from "./scenarios";
+import {blankScenario, createScenarioExercise, gatesFor, scenarioFromExercise, scenarioSchema, scenarioSchemaFor, seedFromAircraft, standPlacement} from "./scenarios";
 import {advanceScenario} from "./scenario-engine";
 import {exerciseSchema, runwaySchema} from "./protocol";
 import {planTaxiRoute} from "./taxi-routing";
@@ -33,7 +33,9 @@ test("saved Dublin exercises retain their original pinned runway geometry", () =
 });
 for (const airport of airportList) {
   test(`${airport.icao}: new scenarios group Ground and Tower while legacy opening frequencies remain readable`, () => {
-    const definition = scenarioSchema.parse(blankScenario({airport: airport.icao}));
+    const draft = blankScenario({airport: airport.icao});
+    if (!airportSupportsTraining(airport, "local")) assert.equal(scenarioSchema.safeParse(draft).success, false);
+    const definition = (airportSupportsTraining(airport, "local") ? scenarioSchema : scenarioSchemaFor(draft)).parse(draft);
     assert.equal(definition.trainingStation, `${airport.icao}:local`);
     const {exercise} = createScenarioExercise(definition, "local", randomUUID());
     assert.equal(exercise.trainingStation, `${airport.icao}:local`);
@@ -47,7 +49,7 @@ for (const airport of airportList) {
     const seed = seedFromAircraft(engine.newAircraft("air", true));
     definition.aircraft = [{key: "arrival", initial: true, seed}];
     definition.events = [{id: "request", title: "Arrival", trigger: {type: "time", at: 0}, actions: [{type: "request", aircraftKey: "arrival", requestId: "inbound-land", runway: defaultRunway(airport)}]}];
-    const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(JSON.parse(JSON.stringify(definition))), "session", randomUUID());
+    const {exercise, runtime} = createScenarioExercise((airportSupportsTraining(airport, "local") ? scenarioSchema : scenarioSchemaFor(definition)).parse(JSON.parse(JSON.stringify(definition))), "session", randomUUID());
     exercise.running = true;
     const after = advanceScenario(exercise, runtime, 1, 1000).exercise;
     assert.ok(after.messages[0].text.toLowerCase().includes(`runway ${defaultRunway(airport).toLowerCase()}`));
@@ -67,7 +69,7 @@ for (const airport of airportList) {
     assert.ok(catalogFor(airport).pilotRequestText({...engine.newAircraft("a", false), frequency: "ground"}, {id: "taxi-runway", label: "Request Taxi", runway: true}, defaultRunway(airport)).includes(defaultRunway(airport)));
   });
 
-  if (airport.features.some(feature => feature.kind === "parking_position")) {
+  if (airportSupportsTraining(airport, "local") && airport.features.some(feature => feature.kind === "parking_position")) {
   test(`${airport.icao}: mapped departure routes retain runway holds and documented routing limits`, () => {
     assert.ok(gatesFor(airport).length);
     for (const end of runwayEnds(airport)) {
@@ -75,6 +77,20 @@ for (const airport of airportList) {
       // Boston 14/32 and 33R have no stand-connected hold reachable under the existing
       // overlapping-runway protection. Preserve that refusal; staff route manually.
       if (airport.icao === "KBOS" && ["14", "32", "33R"].includes(end.id)) {assert.equal(route, undefined); continue;}
+      // Dublin 16's default hold is inside runway 10L/28R protection. Use the explicit N intersection route.
+      if (airport.icao === "EIDW" && end.id === "16") {assert.equal(route, undefined); continue;}
+      // Princess Juliana's mapped network has no stand-connected 28 departure entry.
+      if (airport.icao === "TNCM" && end.id === "28") {assert.equal(route, undefined); continue;}
+      // The mapped Sarajevo network has no 11 departure entry near that threshold.
+      if (airport.icao === "LQSA" && end.id === "11") {assert.equal(route, undefined); continue;}
+      // Kahului's mapped network does not reach a 23 departure entry.
+      if (airport.icao === "PHOG" && end.id === "23") {assert.equal(route, undefined); continue;}
+      // Brussels 25L's nearby mapped entries are disconnected from the apron network.
+      if (airport.icao === "EBBR" && end.id === "25L") {assert.equal(route, undefined); continue;}
+      // Bergamo's secondary 12/30 runway has no connected mapped departure entry.
+      if (airport.icao === "LIME" && (end.id === "12" || end.id === "30")) {assert.equal(route, undefined); continue;}
+      // Lukla's mapped apron connects at the 24 end; 06 is used for arrivals.
+      if (airport.icao === "VNLK" && end.id === "06") {assert.equal(route, undefined); continue;}
       assert.ok(route?.path, `${end.id}: no connected route`);
       assert.equal(route.path.at(-1)!.hold, undefined); assert.equal(route.path.at(-1)!.runway, end.id);
       assert.ok(exerciseSchema.safeParse({...engineFor({airport: airport.icao}).initialExercise(), aircraft: [{...engineFor({airport: airport.icao}).newAircraft("route", false), taxiPath: route.path}]}).success);
@@ -82,7 +98,7 @@ for (const airport of airportList) {
   });
 
   test(`${airport.icao}: ground traffic reaches its departure hold after explicit crossing clearances`, () => {
-    const engine = engineFor({airport: airport.icao}), runway = defaultRunway(airport);
+    const engine = engineFor({airport: airport.icao}), runway = airport.icao === "TNCM" ? "10" : airport.icao === "VNLK" ? "24" : defaultRunway(airport);
     const gate = gatesFor(airport).find(gate => planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, runway).path)!;
     const aircraft = {...engine.newAircraft("taxi", false), ...standPlacement(gate.id, false, airport)!};
     let state = {...engine.initialExercise(), aircraft: [aircraft], running: true};

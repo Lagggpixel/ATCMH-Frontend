@@ -3,16 +3,19 @@ import test from "node:test";
 import {createRequire} from "node:module";
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
-import {airportList, defaultRunway} from "./airports";
+import {airportList, airportSupportsTraining, defaultRunway} from "./airports";
 import {addLocalScenarioAircraft, createLocalAircraft, type LocalAircraftOptions} from "./local-aircraft";
-import {blankScenario, createScenarioExercise, normalizeScenario, scenarioSchema} from "./scenarios";
+import {blankScenario, createScenarioExercise, normalizeScenario, scenarioSchema, scenarioSchemaFor} from "./scenarios";
 
 for (const airport of airportList) test(`${airport.icao}: explicit surface scenarios save and materialize without a mapped gate`, () => {
   const position = {...airport.features.find(f => f.kind === "taxiway")!.points[0]};
   const options: LocalAircraftOptions = {placement: "ground", position, callsign: "Easy 25", type: "A320", runway: defaultRunway(airport),
     distance: 5, leg: "downwind", hand: "left", height: 1500, speed: 160, heading: 90, landing: "full-stop", flight: "departure", frequency: "ground"};
   const aircraft = createLocalAircraft({airport: airport.icao}, "surface", options);
-  const definition = normalizeScenario(scenarioSchema.parse(addLocalScenarioAircraft(blankScenario({airport: airport.icao}), aircraft, undefined, 0)));
+  const draft = addLocalScenarioAircraft(blankScenario({airport: airport.icao}), aircraft, undefined, 0);
+  const localAvailable = airportSupportsTraining(airport, "local");
+  if (!localAvailable) assert.equal(scenarioSchema.safeParse(draft).success, false);
+  const definition = normalizeScenario((localAvailable ? scenarioSchema : scenarioSchemaFor(draft)).parse(draft));
   assert.equal(definition.aircraft[0].gateId, undefined);
   assert.deepEqual(definition.aircraft[0].seed.position, position);
   const {exercise} = createScenarioExercise(definition, "surface-session", "generation");

@@ -1,0 +1,38 @@
+.page{max-width:928px;margin:0 auto;padding:40px 24px 48px;color:var(--dashboard-ink);font-family:var(--font-site)}
+.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:32px}
+.heading h1{font-size:32px;line-height:1.15;letter-spacing:-.015em;font-weight:700;margin:0 0 8px}
+.heading p{font-size:18px;line-height:1.5;color:var(--dashboard-muted);margin:0}
+.preview{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--dashboard-link);padding:12px 0;font:inherit;font-size:15px;font-weight:600;white-space:nowrap}
+.preview:hover{color:var(--dashboard-button-hover)}
+.day{display:grid;grid-template-columns:140px minmax(0,1fr)}
+.date{display:flex;flex-direction:column;gap:2px;padding:2px 18px 0 0;font-size:15px;font-weight:600;line-height:1.5;white-space:nowrap}
+.date span{color:var(--dashboard-muted)}
+.updates{border-left:1px solid var(--dashboard-border);padding-left:32px;position:relative}
+.marker{position:absolute;top:8px;left:-5px;color:var(--dashboard-border)}
+.day[data-latest=true] .marker{color:var(--dashboard-link)}
+.updates article{padding:0 0 20px;margin:0 0 20px;border-bottom:1px solid var(--dashboard-border)}
+.updates h2{font-size:18px;line-height:1.35;font-weight:700;margin:0 0 4px}
+.updates p{font-size:16px;line-height:1.5;color:var(--dashboard-muted);max-width:65ch;margin:0}
+.day:last-child article:last-child{border:0;padding-bottom:0;margin-bottom:0}
+.day:not(:first-child) .date{padding-top:8px}
+.day:not(:first-child) .marker{top:12px}
+.empty{padding:28px 24px;border:1px dashed var(--dashboard-border);border-radius:12px;background:var(--dashboard-surface);color:var(--dashboard-muted);font-size:15px}
+.dialog{box-sizing:border-box;width:min(680px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:0;margin:auto;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-family:var(--font-site);box-shadow:0 16px 64px var(--dashboard-shadow-color)}
+.dialog[open]{display:flex;flex-direction:column}
+.dialog::backdrop{background:var(--dashboard-backdrop,rgb(10 12 16 / 45%))}
+.dialogHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:28px 32px 24px;border-bottom:1px solid var(--dashboard-border);flex-shrink:0}
+.dialogHeader h2{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px;font-weight:750}
+.dialogHeader p{font-size:18px;line-height:1.5;color:var(--dashboard-muted);margin:0}
+.close{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border:1px solid var(--dashboard-border);border-radius:5px;background:var(--dashboard-secondary);color:var(--dashboard-ink)}
+.dialogBody{padding:24px 32px;overflow:auto;overscroll-behavior:contain;min-height:0}
+.dialogBody section+section{border-top:1px solid var(--dashboard-border);margin-top:24px;padding-top:24px}
+.dialogBody h3{margin:0 0 18px;font-size:16px;color:var(--dashboard-link);font-weight:650}
+.dialogBody ul{list-style:none;margin:0;padding:0}
+.dialogBody li+li{margin-top:20px}
+.dialogBody h4{font-size:20px;line-height:1.35;margin:0 0 5px}
+.dialogBody p{font-size:17px;line-height:1.5;margin:0;color:var(--dashboard-muted)}
+.dialogFooter{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 32px;border-top:1px solid var(--dashboard-border);flex-shrink:0}
+.dialogFooter a{font-size:17px}
+.primary{padding:10px 24px;min-height:46px;border:1px solid var(--dashboard-button);border-radius:5px;font:inherit;font-size:17px;font-weight:650;background:var(--dashboard-button);color:var(--dashboard-on-button)}
+.primary:hover{background:var(--dashboard-button-hover)}
+@media(max-width:760px){.page{padding:24px 16px 40px}.heading{flex-direction:column;gap:8px;margin-bottom:24px}.heading h1{font-size:30px}.heading p{font-size:16px}.preview{padding:8px 0;min-height:44px}.day{grid-template-columns:1fr;gap:10px}.date{flex-direction:row;gap:8px;padding:0}.updates{margin-left:4px;padding-left:22px}.day:not(:first-child){margin-top:8px}.day:not(:first-child) .date{padding-top:0}.dialog{max-height:calc(100dvh - 24px)}.dialogHeader{padding:22px}.dialogHeader h2{font-size:27px}.dialogBody{padding:22px}.dialogFooter{padding:18px 22px;gap:16px}.dialogFooter a{font-size:16px}.primary{padding-inline:18px}}

@@ -13,6 +13,9 @@ const interpolate = (a: Point, b: Point, t: number): Point => ({x: a.x + (b.x - 
 const cross = (a: Point, b: Point) => a.x * b.y - a.y * b.x;
 const subtract = (a: Point, b: Point): Point => ({x: a.x - b.x, y: a.y - b.y});
 const cache = new WeakMap<Airport, TaxiGraph>();
+const holdDistance = (pair: {taxiHoldClearanceFeet?: number; widthFeet?: number}) => pair.taxiHoldClearanceFeet
+  ? Math.max(pair.taxiHoldClearanceFeet, (pair.widthFeet ?? 0) / 2 + 50) / 6076
+  : TAXI_ROUTING.holdDistance;
 /** Split mapped centerlines and mark each runway's protected edges separately. */
 
 export function buildTaxiGraph(airport: Airport): TaxiGraph {
@@ -29,15 +32,16 @@ export function buildTaxiGraph(airport: Airport): TaxiGraph {
     const start = pair.ends[0].point, end = pair.ends[1].point, length = distance(start, end);
     const vector = {x: (end.x - start.x) / length, y: (end.y - start.y) / length};
     const local = (p: Point) => ({x: (p.x - start.x) * vector.x + (p.y - start.y) * vector.y, y: (p.x - start.x) * -vector.y + (p.y - start.y) * vector.x});
-    const inside = (p: Point) => {const q = local(p); return q.x > -TAXI_ROUTING.runwayEndMargin + 1e-8 && q.x < length + TAXI_ROUTING.runwayEndMargin - 1e-8 && Math.abs(q.y) < TAXI_ROUTING.holdDistance - 1e-8;};
-    return {pair, length, local, inside};
+    const clearance = holdDistance(pair);
+    const inside = (p: Point) => {const q = local(p); return q.x > -TAXI_ROUTING.runwayEndMargin + 1e-8 && q.x < length + TAXI_ROUTING.runwayEndMargin - 1e-8 && Math.abs(q.y) < clearance - 1e-8;};
+    return {pair, length, local, inside, clearance};
   });
   const graph: TaxiGraph = {points: [], edges: [], holds: [], runwayHolds: {}}, ids = new Map<string, number>();
   const node = (p: Point) => {const key = `${p.x.toFixed(7)},${p.y.toFixed(7)}`; const existing = ids.get(key); if (existing !== undefined) return existing; const id = graph.points.length; ids.set(key, id); graph.points.push(p); graph.edges.push([]); return id;};
   for (const segment of segments) {
     for (const area of areas) {
       const a = area.local(segment.a), b = area.local(segment.b);
-      for (const [axis, values] of [["x", [-TAXI_ROUTING.runwayEndMargin, area.length + TAXI_ROUTING.runwayEndMargin]], ["y", [-TAXI_ROUTING.holdDistance, 0, TAXI_ROUTING.holdDistance]]] as const) {
+      for (const [axis, values] of [["x", [-TAXI_ROUTING.runwayEndMargin, area.length + TAXI_ROUTING.runwayEndMargin]], ["y", [-area.clearance, 0, area.clearance]]] as const) {
         const delta = b[axis] - a[axis];
         if (Math.abs(delta) > 1e-12) for (const value of values) {const t = (value - a[axis]) / delta; if (t > 0 && t < 1) segment.cuts.push(t);}
       }
@@ -52,7 +56,13 @@ export function buildTaxiGraph(airport: Airport): TaxiGraph {
     }
   }
   for (const area of areas) {
-    const holds = graph.points.flatMap((p, i) => {const q = area.local(p); return q.x >= -TAXI_ROUTING.runwayEndMargin - 1e-6 && q.x <= area.length + TAXI_ROUTING.runwayEndMargin + 1e-6 && Math.abs(Math.abs(q.y) - TAXI_ROUTING.holdDistance) < 1e-6 ? [i] : [];});
+    const holds = graph.points.flatMap((p, i) => {
+      const q = area.local(p);
+      const side = q.x >= -TAXI_ROUTING.runwayEndMargin - 1e-6 && q.x <= area.length + TAXI_ROUTING.runwayEndMargin + 1e-6 && Math.abs(Math.abs(q.y) - area.clearance) < 1e-6;
+      const end = Math.abs(q.y) <= area.clearance + 1e-6 && (Math.abs(q.x + TAXI_ROUTING.runwayEndMargin) < 1e-6 || Math.abs(q.x - area.length - TAXI_ROUTING.runwayEndMargin) < 1e-6)
+        && graph.edges[i].some(edge => edge.protectedBy?.includes(area.pair.id));
+      return side || end ? [i] : [];
+    });
     graph.runwayHolds![area.pair.id] = holds; graph.holds.push(...holds);
   }
   cache.set(airport, graph); return graph;
@@ -84,7 +94,7 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
   const v = {x: (last.x - first.x) / length, y: (last.y - first.y) / length};
   const along = (position.x - first.x) * v.x + (position.y - first.y) * v.y;
   const lateral = Math.abs((position.x - first.x) * -v.y + (position.y - first.y) * v.x);
-  if (along > -TAXI_ROUTING.runwayEndMargin && along < length + TAXI_ROUTING.runwayEndMargin && lateral < TAXI_ROUTING.holdDistance - 1e-7) return {error: "Aircraft is inside the runway protected area. Reposition onto a taxiway before calculating a departure route."};
+  if (along > -TAXI_ROUTING.runwayEndMargin && along < length + TAXI_ROUTING.runwayEndMargin && lateral < holdDistance(pair) - 1e-7) return {error: "Aircraft is inside the runway protected area. Reposition onto a taxiway before calculating a departure route."};
   const holds = source.runwayHolds?.[pair.id] ?? source.holds;
   // Some thresholds have only an intersection connector. Departure uses that
   // mapped entry and checks its remaining runway rather than silently back-taxiing.
@@ -97,33 +107,48 @@ export function planTaxiRoute(airport: Airport, position: Point, runway: Runway,
 }
 
 export function routeToNodes(source: TaxiGraph, position: Point, goals: number[], hold: boolean, blocked: Point[] = [], forbidden?: string, airport?: Airport): {path: TaxiPoint[]; distance: number; error?: undefined} | {error: string; path?: undefined; distance?: undefined} {
-  const graph: TaxiGraph = {points: [...source.points], edges: source.edges.map(edges => edges.filter(edge => (!forbidden || !edge.protectedBy?.includes(forbidden)) && (edge.protectedBy?.length ?? 0) < 2)), holds: source.holds};
-  let nearest: {from: number; to: number; point: Point; gap: number} | undefined;
-  graph.edges.forEach((edges, from) => edges.forEach(({to}) => {if (to < from) return; const a = graph.points[from], b = graph.points[to], dx = b.x - a.x, dy = b.y - a.y; const t = Math.max(0, Math.min(1, ((position.x - a.x) * dx + (position.y - a.y) * dy) / (dx * dx + dy * dy))); const point = interpolate(a, b, t), gap = distance(position, point); if (!nearest || gap < nearest.gap) nearest = {from, to, point, gap};}));
+  const graph: TaxiGraph = {points: [...source.points], edges: source.edges.map(edges => edges.filter(edge => !forbidden || !edge.protectedBy?.includes(forbidden))), holds: source.holds};
+  let nearest: {from: number; to: number; point: Point; gap: number; protectedBy: string[]} | undefined;
+  graph.edges.forEach((edges, from) => edges.forEach(({to, protectedBy}) => {if (to < from) return; const a = graph.points[from], b = graph.points[to], dx = b.x - a.x, dy = b.y - a.y; const t = Math.max(0, Math.min(1, ((position.x - a.x) * dx + (position.y - a.y) * dy) / (dx * dx + dy * dy))); const point = interpolate(a, b, t), gap = distance(position, point); if (!nearest || gap < nearest.gap) nearest = {from, to, point, gap, protectedBy: protectedBy ?? []};}));
   if (!nearest || nearest.gap > TAXI_ROUTING.snapDistance) return {error: "No mapped taxiway near this aircraft. Reposition it onto a taxiway or stand centerline."};
-  const snap = nearest as {from: number; to: number; point: Point; gap: number};
-  const start = graph.points.length; graph.points.push(snap.point); graph.edges.push([{to: snap.from, distance: distance(snap.point, graph.points[snap.from])}, {to: snap.to, distance: distance(snap.point, graph.points[snap.to])}]);
+  const snap = nearest as {from: number; to: number; point: Point; gap: number; protectedBy: string[]};
+  if (snap.protectedBy.length && distance(snap.point, graph.points[snap.from]) > 1e-7 && distance(snap.point, graph.points[snap.to]) > 1e-7) return {error: "Aircraft is inside a runway protected area. Reposition before calculating a route."};
+  const start = graph.points.length; graph.points.push(snap.point); graph.edges.push([snap.from, snap.to].map(to => {
+    const length = distance(snap.point, graph.points[to]);
+    return {to, distance: length, ...(length > 1e-7 ? {protectedBy: snap.protectedBy} : {})};
+  }));
   const obstructed = (from: Point, to: Point) => blocked.some(p => {
     const dx = to.x - from.x, dy = to.y - from.y, length = dx * dx + dy * dy;
     const t = length ? Math.max(0, Math.min(1, ((p.x - from.x) * dx + (p.y - from.y) * dy) / length)) : 0;
     return distance(p, interpolate(from, to, t)) < .025;
   });
   graph.edges = graph.edges.map((edges, from) => edges.filter(edge => !obstructed(graph.points[from], graph.points[edge.to])));
-  const route = aStar(graph, start, goals);
+  const safeGoals = goals.filter(id => source.edges[id]?.some(edge => !edge.protectedBy?.length));
+  const route = aStar(graph, start, safeGoals);
   if (!route) return {error: "No connected taxiway route to this destination. Reposition or draw a route manually."};
-  const crossingHolds = new Map<Point, string>();
-  for (let i = 0; i < route.length - 1; i++) {
-    const edge = graph.edges[route[i]].find(e => e.to === route[i + 1]);
-    const prior = i ? graph.edges[route[i - 1]].find(e => e.to === route[i]) : undefined;
-    const entered = edge?.protectedBy?.find(id => !prior?.protectedBy?.includes(id));
-    if (entered && airport) crossingHolds.set(graph.points[route[i]], airportRunways(airport).find(pair => pair.id === entered)!.ends[0].id);
+  const crossingHolds = new Map<Point, string[]>();
+  // Obtain every clearance for a continuous overlap before entering it. Stopping
+  // at a later boundary could otherwise leave the aircraft on another runway.
+  for (let i = 0; i < route.length - 1;) {
+    const protectedBy = graph.edges[route[i]].find(e => e.to === route[i + 1])?.protectedBy ?? [];
+    if (!protectedBy.length) {i++; continue;}
+    const start = i, runways = new Set<string>();
+    while (i < route.length - 1) {
+      const edge = graph.edges[route[i]].find(e => e.to === route[i + 1]);
+      if (!edge?.protectedBy?.length) break;
+      edge.protectedBy.forEach(id => runways.add(id)); i++;
+    }
+    if (airport) crossingHolds.set(graph.points[route[start]], [...runways].map(id => airportRunways(airport).find(pair => pair.id === id)!.ends[0].id));
   }
   const points: TaxiPoint[] = [];
-  for (const p of [position, ...route.map(id => graph.points[id])]) {
-    const value = {...p, ...(crossingHolds.has(p) ? {hold: true, runway: crossingHolds.get(p)} : {})};
-    if (points.length && distance(p, points.at(-1)!) <= 1e-7) Object.assign(points.at(-1)!, value);
+  for (const p of [{...position}, ...route.map(id => graph.points[id])]) {
+    const runways = crossingHolds.get(p) ?? [];
+    const value = {...p, ...(runways.length ? {hold: true, runway: runways[0]} : {})};
+    if (points.length && distance(p, points.at(-1)!) <= 1e-7 && !points.at(-1)!.hold) Object.assign(points.at(-1)!, value);
     else points.push(value);
+    for (const runway of runways.slice(1)) points.push({...p, hold: true, runway});
   }
+  if (points[0]?.hold) points.unshift({x: points[0].x, y: points[0].y});
   // Graph intersections on a straight centerline do not need extra steering points.
   // Preserve every turn and every runway boundary/hold, including crossing exits.
   for (let i = points.length - 2; i > 0; i--) {

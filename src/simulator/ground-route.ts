@@ -72,10 +72,12 @@ export function snapGroundControl(airport: Airport, point: Point, parkingRadius:
 /** A runway drag targets the nearby entry hold, including intersection entries. */
 function planRunwayDestination(airport: Airport, start: Point, point: Point, runway: string): ReturnType<typeof planTaxiRoute> {
   const inferred = destinationAt(airport, point);
-  if (inferred.type !== "runway" || inferred.id !== runway) return planTaxiRoute(airport, start, runway);
   const graph = buildTaxiGraph(airport), pair = airportRunways(airport).find(pair => pair.ends.some(end => end.id === runway))!;
   const holds = graph.runwayHolds?.[pair.id] ?? [];
   const nearest = Math.min(...holds.map(index => gap(graph.points[index], point)));
+  // An explicitly selected intersection may be closer to the reciprocal end.
+  // Only honor it when the control is actually near a hold for this runway pair.
+  if ((inferred.type !== "runway" || inferred.id !== runway) && nearest > TAXI_ROUTING.snapDistance) return planTaxiRoute(airport, start, runway);
   if (!Number.isFinite(nearest)) return {error: "No mapped hold-short point is available for this runway."};
   return routeToNodes(graph, start, holds.filter(index => gap(graph.points[index], point) <= nearest + .001), true, [], pair.id, airport);
 }
@@ -127,6 +129,7 @@ export function groundRouteError(airport: Airport, route: GroundRoute, kind: Gro
   if (!built.route || built.error) return built.error!;
   const canonical = built.route;
   if (canonical.points.length !== route.points.length || canonical.controlIndices.some((n, i) => route.controlIndices[i] !== n) || route.controlIndices.length !== canonical.controlIndices.length || canonical.points.some((p, i) => gap(p, route.points[i]) > 1e-7 || p.name !== route.points[i].name || p.runway !== route.points[i].runway)) return "The mapped route changed. Recalculate before sending.";
+  if (canonical.points.some((p, i) => i < canonical.points.length - 1 && p.hold && p.runway && !route.points[i].hold)) return "A runway crossing hold cannot be removed.";
   return null;
 }
 

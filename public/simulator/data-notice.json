@@ -33,11 +33,15 @@
       "icao": "EGLL",
       "data": "/simulator/data/egll.json",
       "sourceDate": "2026-10-11",
-      "dataVersion": "d7ede30f598ef663f1b07361cc52010ca0f3fbc35de401f4be4bc74f9dd6e565",
+      "dataVersion": "1fd438e0e0544d5273cb2f7d9b41afeb62724dbcf539e0b43671101b4727d101",
       "sources": {
         "osmSha256": "5b9960287dad2c603e9919275667a84b378a168878006aed396538b22dbafd03",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "terminal4StandRepair": "Terminal 4 parking endpoints and intermediate segments checked against NATS AD 2-EGLL-2-5 stand coordinates.",
+        "terminal4StandChart": "https://www.aurora.nats.co.uk/htmlAIP/Publications/2023-05-18-AIRAC/graphics/224487.pdf",
+        "stand422Repair": "OSM line 405711679 endpoint reconciled to stand 422 using NATS AD 2-EGLL-2-5 chart coordinates.",
+        "stand430Repair": "Duplicate mapped approaches share the same charted stand endpoint; retain the straighter parking line and the other as a taxilane."
       },
       "bounds": [
         -0.501439,
@@ -55,11 +59,18 @@
       "icao": "KBHM",
       "data": "/simulator/data/kbhm.json",
       "sourceDate": "2026-10-11",
-      "dataVersion": "d8cd867d9600e01e1c3bd7b7377a32be107b9bfa6d4f6a255630539d7114040c",
+      "dataVersion": "a9648e4202a624027c6035db9f6cf57d71dcf83c471b54b626ce911fe42b1f93",
       "sources": {
         "osmSha256": "327c88bdc60aafdec963b56fc86f509df2dd407b8215002d93f1a06530637e4b",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "runwayGeometry": "Joined named OSM runway centerline segments; true headings derived from projected endpoints (2026-10-24 repair)",
+        "apronConnections": "Simulator-created links from mapped stand centerlines to the existing apron taxiway network (2026-10-27); approximate, not surveyed",
+        "c1Dedup": {
+          "map": "https://www.openstreetmap.org/way/1192263260",
+          "chart": "https://data.ntsb.gov/Docket/Document/docBLOB?FileExtension=.PDF&FileName=Party+Submission+-+Airbus-Master.PDF&ID=40412470",
+          "note": "Concourse C1 mapped branch ends at a junction; preserve as taxilane."
+        }
       },
       "bounds": [
         -86.783599,
@@ -75,11 +86,24 @@
       "icao": "CYUL",
       "data": "/simulator/data/cyul.json",
       "sourceDate": "2026-10-11",
-      "dataVersion": "10b159bdc3d9ee0a19ad81aa601560638aac14933ebb79f92466215d995da262",
+      "dataVersion": "07ef8ed653e5c97a2533f6fa6dc84b4216898d07dd4133f1697adda465a8792b",
       "sources": {
         "osmSha256": "ff277fc19a2e1d0f475d00f791af51fee1b8855131b05e25ac1cfd48122cb5e1",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "inferredApronConnectors": {
+          "chart": "https://czul.ca/pdf/CYUL_2024_Pilot_Briefing.pdf",
+          "map": "https://www.openstreetmap.org/way/1303794265",
+          "note": "28 estimated straight extensions from mapped stand centerlines to adjacent mapped taxiways, each under 25 m. Names and approximate terminal/apron areas are shown in the 2024 simulation briefing; connector geometry is inferred, not independently mapped or surveyed. Eleven terminal gate nodes were separately checked within 34 m of the mapped parking endpoints; these nodes identify terminal gates, not aircraft stop coordinates.",
+          "gateNodeCrossCheck": "https://www.openstreetmap.org/node/1175496246"
+        },
+        "twelveInferredApronConnectors": {
+          "chart": "https://czul.ca/pdf/CYUL_2024_Pilot_Briefing.pdf",
+          "map": "https://www.openstreetmap.org/way/1303794278",
+          "note": "Twelve named mapped stand lines checked against the 2024 apron diagram. Straight extensions to mapped taxiways are estimated, 21\u201332 m long, and not independently mapped. Extensions do not cross other mapped stand lines."
+        },
+        "stand87aLink": "Mapped stand 87A ends at the identically named OSM parking marker. Its 17.62 m straight extension to the mapped taxiway is inferred, not surveyed; the mapped stop is unchanged.",
+        "twoShortLinks": "Stands 84A and 2 match named OSM parking nodes. Short 3.21 and 4.39 m straight inferred links join existing estimated stand 84 and 2A connectors respectively; neither new segment nor earlier connectors are independently surveyed. https://www.openstreetmap.org/node/8742209203 https://www.openstreetmap.org/node/8749647212"
       },
       "bounds": [
         -73.7770146484375,
@@ -125,11 +149,12 @@
       "icao": "KDAL",
       "data": "/simulator/data/kdal.json",
       "sourceDate": "2026-10-11",
-      "dataVersion": "793e3052dcae882d3e12af870d726244cd7f0864afb1b9e08e052d82f3b195fc",
+      "dataVersion": "fe7273cbe5a8b88caa4f823f936cc4b742c15e084ed6fa7aa7cdeed3411d1285",
       "sources": {
         "osmSha256": "22df05c6563e208014d4ba646513bdcc212b2bba4f895fd38e4d714a4d0d77ff",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "apronLinks": "Four inferred straight 3.5-7.7 m extensions to mapped taxiways for mapped stands 1, 2, 4 and 6; stop ends correspond to named OSM terminal gate markers and gates are shown on the operator terminal map https://www.dallas-lovefield.com/home/showpublisheddocument/2689/637964988062900000 . Gate markers are not surveyed aircraft stop coordinates."
       },
       "bounds": [
         -96.8755025024414,
@@ -148,11 +173,18 @@
       "icao": "SBBR",
       "data": "/simulator/data/sbbr.json",
       "sourceDate": "2026-10-11",
-      "dataVersion": "612815f1c5e1d58724df60b6ac34c011a27f103ba2af2453547e131f90d2eb04",
+      "dataVersion": "056f164b56552a38e4dbe85c544ee25211f625ff7b26a0c41dd4d9d2b7faac09",
       "sources": {
         "osmSha256": "f11445f973d28c620b9c5965559c6adbeab96e5345eb2a425197b201a0df354d",
         "airportsSha256": "bee4e45e2f3b3acb463af0b2bf7bd2fa5abbb324cb9519766fcab0acb33ecaaf",
-        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533"
+        "runwaysSha256": "bcc84c682d36c38e585f116855ae7f72bb590647efba354a6ae05caa2c66d533",
+        "runwayGeometry": "Joined named OSM runway centerline segments; true headings derived from projected endpoints (2026-10-24 repair)",
+        "stand17And18Dedup": {
+          "map": "https://www.openstreetmap.org/node/2865127193",
+          "chart": "https://aisweb.decea.mil.br/download/?apikey=1587263166&arquivo=81548cef-7a66-4d4a-ba3ee2ab4938709a",
+          "note": "Stands 17 and 18 use mapped terminal parking nodes; shared approach branches remain taxi lines."
+        },
+        "tinyApronLinks": "Four inferred straight extensions, each below 0.4 m, connect OSM stands 79-82 to the existing mapped apron line. Labels retained from mapped stands; stop positions were not resurveyed. See https://www.openstreetmap.org/ and https://www.ifatc.org/gates?code=SBBR ."
       },
       "bounds": [
         -47.951998626708985,
@@ -170,13 +202,13 @@
       "icao": "CYYC",
       "data": "/simulator/data/cyyc.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "fc1689bf15fe5fe3d6ad1ad33bfc95f473d97ecba5551079ac1db00b62e03850",
+      "dataVersion": "d81943aee11e5934a50b53ceb73b1240ffb138a8f2594359bf3e20742e208f86",
       "sources": {
         "osmSha256": "4a4751fd70643d2b16da1c265dbf576e618c63a0622ff72faf347c25352b6ba9",
         "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
         "runwaysSha256": "72e9e8dd888578cb22dff2db7c8493b0aa97238b8de11b7e8b98512e4e9c2fcd",
         "runwayGeometry": "OurAirports endpoint coordinates; true headings derived from pinned projected endpoints",
-        "groundStands": "Uninspected parking centerlines omitted; radar-only addition",
+        "groundStands": "23 OpenStreetMap parking-position lines; terminal extract sha256 45e4d76bee6de2921f10362dece9d2401953b43f084f48258b730f292f969621; direction confirmed by matching named mapped parking nodes, names and approximate terminal areas compared with the Lido stand table effective 5 October 2023 https://randomflightdatabase.fr/cartes/Lido1/CYYC.pdf (coordinates rounded to 0.1 minute). To connect stand lines to mapped taxiways, first segments were extrapolated straight to the nearest intersection (3.3-14.7 metres); these short connections are inferred, not mapped. Additional stands await verification.",
         "upstreamRunwaysSha256": "eff294dc5c055e7bb48ef43cb3b564399f2741bbfbba0c18c085aea7b9ab988b",
         "runwayGeometryCorrection": {
           "date": "2026-10-25",
@@ -186,14 +218,20 @@
             "17R/35L"
           ],
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
-        }
+        },
+        "stands37And38": "OSM parking lines 37 and 38 end at matching named parking nodes; area agrees with 5 Oct 2023 Lido stand table https://randomflightdatabase.fr/cartes/Lido1/CYYC.pdf (coordinates rounded to 0.1 minute). Their mapped lead-ins are extended by 16.1 and 16.2 m to existing taxi lines; those connections are inferred, not surveyed.",
+        "stands2to4": "Named OSM parking nodes 9563650866, 9563650870, 9563650891 match mapped stops 2-4; chart shows stand group but does not publish their coordinates https://randomflightdatabase.fr/cartes/Lido1/CYYC.pdf . Straight tangent links 11.75, 6.41 and 5.63 m to mapped taxiway are inferred; pavement coverage and paint not independently verified.",
+        "eightTerminalLinks": "Stands 12, 18, 34, 36, 35A, 50, 54 and 59 end at identically named mapped parking nodes. The airport authority 2026 airside manual domestic aircraft movements map shows the general apron and lead-in layout https://www.yyc.com/portals/0/2026%20Airside%20Traffic%20Directives%20%28ATD%29%20%26%20AVOP%20Manual%20with%20TR-2026-01.pdf . The 11.8-31.2 m straight continuations to mapped taxiways are inferred and not individually surveyed or verified as painted guidance; 12 joins an earlier inferred connection. No additional mapped stand lines are crossed by these estimates.",
+        "fiveTerminalLinks": "Stands 14, 16, 21A, 21B and 51 end at named OSM parking markers. Calgary Airport authority 2026 airside manual shows the general domestic apron and stand lead-ins https://www.yyc.com/portals/0/2026%20Airside%20Traffic%20Directives%20%28ATD%29%20%26%20AVOP%20Manual%20with%20TR-2026-01.pdf . Straight 33.9-42.7 m continuations to mapped taxiways are inferred, not individually surveyed or verified as painted lines; proper-crossing checks found no mapped stand or building intersection.",
+        "internationalTerminalLinks": "32 stands 70B-97B end at identically named OSM parking nodes. Calgary Airport authority 2026 manual shows the general international apron and stand lead-ins https://www.yyc.com/portals/0/2026%20Airside%20Traffic%20Directives%20%28ATD%29%20%26%20AVOP%20Manual%20with%20TR-2026-01.pdf . Straight 8.6-32.6 m connections to mapped taxiways are inferred and not individually surveyed or verified as painted guidance; proper-crossing checks excluded stand and building intersections and two mutually crossing candidate links.",
+        "additionalFiveTerminalLinks": "Stands 1A, 1B, 1C, 53 and 55A end at named OSM parking markers. Calgary Airport authority 2026 airside manual illustrates the domestic apron and stand lead-ins https://www.yyc.com/portals/0/2026%20Airside%20Traffic%20Directives%20%28ATD%29%20%26%20AVOP%20Manual%20with%20TR-2026-01.pdf . Straight 23.0-34.4 m continuations to mapped taxiways are inferred, not individually surveyed or verified as painted guidance; proper-crossing checks found no mapped stand or building intersection."
       }
     },
     {
       "icao": "KLAS",
       "data": "/simulator/data/klas.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "5a519df65628490ef68fa2d38015eb7d632e4c66ad1513129b1f6f8f0cd38b12",
+      "dataVersion": "86f77a7aa95dba4ab104c988583a8a49688a15d4b10056cf7a1d4705aa80bc6e",
       "sources": {
         "osmSha256": "e31df7a51b78f8c1658d73217e1b9d83013caaf670d678df8930608c96e4067c",
         "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
@@ -204,6 +242,41 @@
             "01L/19R"
           ],
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        },
+        "terminalStandOrientation": {
+          "map": "https://www.openstreetmap.org/node/2024887096",
+          "chart": "https://fsweb.harryreidairport.com/fswebfile/17593f56-3911-4c2b-9909-2c764a9675ed/1401910/Drinking%20Water%20Quality%20Control%20Plan.pdf",
+          "note": "Ten parking lines reversed toward their correspondingly named mapped terminal gates; this verifies orientation by proximity, not exact aircraft stop coordinates. C19, C20 and C21 reclassified as taxilanes because their mapped positions are over 130 m from their named gate nodes, pending independent position verification."
+        },
+        "sixInferredApronConnectors": {
+          "map": "https://www.openstreetmap.org/node/2024887123",
+          "terminalMap": "https://fsweb.harryreidairport.com/fswebfile/17593f56-3911-4c2b-9909-2c764a9675ed/1401910/Drinking%20Water%20Quality%20Control%20Plan.pdf",
+          "note": "Six mapped stand lines confirmed near named terminal gate nodes; estimated straight extensions to mapped taxiways are each under 25 m and are not independently mapped. Gate nodes indicate terminal location, not the aircraft stopping point."
+        },
+        "additionalTerminalOrientations": {
+          "map": "https://www.openstreetmap.org/node/2024887141",
+          "chart": "https://www.harryreidairport.com/pubfile/c74367d2-98c3-460b-a3eb-af1aa9ebce6c/395709/EGates-WalkingMap.pdf",
+          "note": "Fifteen more mapped stand centerlines reversed toward their correspondingly named mapped terminal gate nodes. Nodes identify the terminal entrance, not surveyed aircraft stopping positions. Duplicate E5 lines were left pending review."
+        },
+        "threeInferredApronConnectors": {
+          "map": "https://www.openstreetmap.org/node/2024887159",
+          "terminalMap": "https://fsweb.harryreidairport.com/fswebfile/3a680072-05ae-4ad4-af2c-3e89c0931338/395707/ABGates-WalkingMap.pdf",
+          "note": "Three mapped stand lines checked against named terminal gates; estimated straight extensions to mapped taxiways are each under 25 m and are not independently mapped."
+        },
+        "fiveInferredEConnectors": {
+          "map": "https://www.openstreetmap.org/node/5250889861",
+          "terminalMap": "https://www.harryreidairport.com/pubfile/c74367d2-98c3-460b-a3eb-af1aa9ebce6c/395709/EGates-WalkingMap.pdf",
+          "note": "Five terminal E mapped stand lines checked against named terminal nodes; estimated straight extensions to mapped taxiways are each under 27 m and are not independently mapped."
+        },
+        "threeLongerInferredConnectors": {
+          "map": "https://www.openstreetmap.org/node/2024887145",
+          "terminalMap": "https://fsweb.harryreidairport.com/fswebfile/17593f56-3911-4c2b-9909-2c764a9675ed/1401910/Drinking%20Water%20Quality%20Control%20Plan.pdf",
+          "note": "Three mapped stand lines checked against named terminal nodes; estimated straight extensions to mapped taxiways are between 30 and 34 m and are not independently mapped."
+        },
+        "three40mInferredConnectors": {
+          "map": "https://www.openstreetmap.org/node/2024887110",
+          "terminalMap": "https://fsweb.harryreidairport.com/fswebfile/17593f56-3911-4c2b-9909-2c764a9675ed/1401910/Drinking%20Water%20Quality%20Control%20Plan.pdf",
+          "note": "Three mapped stand lines checked against named terminal nodes; estimated straight extensions to mapped taxiways are 37\u201341 m and not independently mapped. They do not cross other mapped parking lines."
         }
       }
     },
@@ -211,7 +284,7 @@
       "icao": "LGAV",
       "data": "/simulator/data/lgav.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "ff0697f42c09605d11877a393891f5d3c670cadd59e29f13aa92c7a9bb8967f2",
+      "dataVersion": "c2aa323b831ca1477918916f19954495861610e5f656387f7cc4f7271735e7a7",
       "sources": {
         "osmSha256": "fca74f5518b9255ab9fa1ccd3ab9b30ac5892ca0698389403104ae881c3fe194",
         "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
@@ -223,14 +296,18 @@
             "03R/21L"
           ],
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
-        }
+        },
+        "parkingGeometry": "17 named positions oriented to their co-located OSM parking-position nose-wheel nodes (2026-10-28 extract).",
+        "parkingOsmSha256": "d3d925b19ecd292619b603045041ba1a97377f5fe64fe73aa3c4481698158687",
+        "taxilaneStands": "Named OSM parking nodes at existing taxilane endpoints, checked against rounded 2023 Lido Athens stand coordinates.",
+        "taxilaneStandChart": "https://randomflightdatabase.fr/cartes/Lido1/LGAV.pdf"
       }
     },
     {
       "icao": "NZAA",
       "data": "/simulator/data/nzaa.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "c47e9c5c560b92888cc644f764cf826f81e01ad8c31b55312ded514125e4bddf",
+      "dataVersion": "c3189df30e63d341f1d52a80fbe6077959b87b6149acae93807b1f1f6ce56089",
       "sources": {
         "osmSha256": "d24c8be5befaeb63dc215f8a4fc9d8d7abc9f253c9a43fa2c1e9200d531d0ba6",
         "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
@@ -241,6 +318,58 @@
             "05R/23L"
           ],
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
+        },
+        "domesticStandRepair": "Domestic stands 24, 28-33: OSM stand-line segments reconciled with published NZAA domestic stand coordinates; intermediate segments remain taxilanes.",
+        "domesticStandChart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.08_53.09.pdf",
+        "internationalStandRepair": {
+          "map": "https://www.openstreetmap.org/way/1097803689",
+          "chart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.08_53.09.pdf",
+          "note": "Stands 9 and 10: orient mapped lines toward the terminal and retain junction branches as taxilanes."
+        },
+        "stand52And56Repair": {
+          "map": "https://www.openstreetmap.org/node/9816383781",
+          "standAllocation": "https://www.aucklandairport.co.nz/content/dam/aia/files/airfield-information/apron-stand-allocation.pdf",
+          "note": "Orient stand 52 and 56 centerlines toward mapped parking nodes; connecting curves remain taxilanes."
+        },
+        "remoteStandRepair": {
+          "map": "https://www.openstreetmap.org/node/9681421522",
+          "chart": "https://www.aucklandairport.co.nz/content/dam/aia/files/airfield-information/apron-stand-allocation.pdf",
+          "note": "Stands 34-36 and 50A-50C use mapped parking nodes; split lines and preserve all centerline segments."
+        },
+        "moreDomesticStandRepair": {
+          "map": "https://www.openstreetmap.org/node/9681400511",
+          "chart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.02_53.03.pdf",
+          "note": "Domestic parking nodes define stop positions; preserve centerline segments as taxilanes."
+        },
+        "internationalNodeRepair": {
+          "map": "https://www.openstreetmap.org/node/9679212813",
+          "chart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.08_53.09.pdf",
+          "remoteChart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.10.pdf",
+          "note": "Stand stopping nodes preserved, branch segments remain taxi lines."
+        },
+        "remote80And81": {
+          "map": "https://www.openstreetmap.org/node/9679212784",
+          "chart": "https://randomflightdatabase.fr/cartes/Lido1/NZAA.pdf",
+          "note": "Mapped stop nodes define stands 80 and 81; lead-in branches remain taxi lines."
+        },
+        "closedDomestic5759": {
+          "notice": "https://notamify.com/notams/NZAA",
+          "note": "F2894/26 reports stands 57-59 permanently closed; retain mapped paths as taxi lines."
+        },
+        "sharedBranchCorrection": {
+          "chart": "https://www.aip.net.nz/assets/AIP/Aerodrome-Charts/Auckland-NZAA/NZAA_53.08_53.09.pdf",
+          "map": "https://www.openstreetmap.org/way/1097805381",
+          "note": "Five shared centerline segments bearing multiple stand numbers are taxi branches, not individual stand positions. Their geometry is unchanged."
+        },
+        "stand84Repair": {
+          "chart": "https://property.aucklandairport.co.nz/content/dam/aia/files/airfield-information/apron-stand-allocation.pdf",
+          "map": "https://www.openstreetmap.org/way/1098366781",
+          "note": "Stand 84 is the projection of the airport-published stand coordinates onto the mapped line (5.93 m away). Other 84 segments are retained as taxilanes rather than duplicate stands."
+        },
+        "stand48EBranchRepair": {
+          "chart": "https://property.aucklandairport.co.nz/content/dam/aia/files/airfield-information/apron-stand-allocation.pdf",
+          "map": "https://www.openstreetmap.org/node/10066634218",
+          "note": "The airport allocation document lists stand 48A but not 48E, while an older map has a 48E node. Five 48A/48E-labelled curved branches are not verified stop points and are kept as taxiways; both stands remain unavailable pending a current stop position and lead-in."
         }
       }
     },
@@ -248,7 +377,7 @@
       "icao": "SCEL",
       "data": "/simulator/data/scel.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "40a43b43b66052e471dfd2d8db1d758569c96d2aef78737b830e433f05e7f8ad",
+      "dataVersion": "71e5beb3f33339c9099d1978a6230e3658c3f10c056fb0bfeb2176bb4816b4c5",
       "sources": {
         "osmSha256": "166e230d31c7b9124bd6391956a9edca6973b2f922df46192371045adad4b6a8",
         "airportsSha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
@@ -262,14 +391,17 @@
             "17L/35R"
           ],
           "source": "Joined pinned OSM runway centerlines; true headings derived from endpoints"
-        }
+        },
+        "parkingGeometry": "OpenStreetMap named nose-wheel nodes joined to parking-position ways (2026-10-28 extract).",
+        "parkingOsmSha256": "e2f7a0a77037b427c21698bf3ffb4d4aa9606737892eb2b7220d4a351dfc6d85",
+        "a02Deduplication": "Two mapped A02 lead-ins share the same named parking node. Keep the straight lead-in as the single stand and retain the alternative lead-in as a taxilane; the original mapped geometry is unchanged."
       }
     },
     {
       "icao": "KBOS",
       "data": "/simulator/data/kbos.json",
       "sourceDate": "2026-10-25",
-      "dataVersion": "99ba0e35795d0f9a2dbd122d642376d970e4622a740c607e8c59d350fe4be714",
+      "dataVersion": "3be6b6801e33208fc168891355511686d6fe9e52f7f5d471defdfc16a4db0caf",
       "bounds": [
         -71.035,
         42.345,
@@ -286,7 +418,8 @@
         "osmSha256": "87875032359441ed8476d7c0197db8857b3ad666a35bc0e36b5c119f8cb53ebb",
         "airportsSha256": "fe7f0d9dc2646e41b0cc520f1733d99b9c76a6b26a3e6a55f66fa89e62083ad5",
         "runwaysSha256": "3de8cb3bd4662f7d0ca851ad0e90a41cb822058cdf0dc2a2cd783f0330f756a9",
-        "runwayGeometry": "Joined OSM runway centerline segments; true headings derived from projected endpoints"
+        "runwayGeometry": "Joined OSM runway centerline segments; true headings derived from projected endpoints",
+        "standDeduplication": "B29 and C12 branch lines retain their OSM geometry as taxilanes; a single parking line for each ends nearest the mapped terminal gate node. C12 area also compared with rounded 18 January 2024 Lido chart https://randomflightdatabase.fr/cartes/Lido1/KBOS.pdf."
       }
     }
   ]

@@ -7,7 +7,7 @@ import {SessionService} from "./server/session-service";
 import {sqlSessionStore} from "./server/session-store";
 import {blankScenario, scenarioFromExercise, seedFromAircraft} from "./scenarios";
 import {newAircraft, engineFor} from "./engine";
-import {airportList} from "./airports";
+import {airportList, airportSupportsTraining} from "./airports";
 import {randomUUID} from "node:crypto";
 import {readReplay} from "./server/replay-store";
 import {ReplayTimeline} from "./replays";
@@ -83,26 +83,33 @@ test("all airports persist through publish, pinned revision, launch, restart and
   const service = new TrainingService(), staff = {accountId: "10001", staff: true};
   try {
     for (const airport of airportList) {
-      const definition = blankScenario({airport: airport.icao});
+      const local = airportSupportsTraining(airport, "local");
+      if (!local) {
+        await assert.rejects(service.save(staff, blankScenario({airport: airport.icao, trainingStation: `${airport.icao}:approach`})), /Radar training has moved/);
+        continue;
+      }
+      const firstStation = `${airport.icao}:local`;
+      const secondStation = `${airport.icao}:tower`;
+      const definition = blankScenario({airport: airport.icao, trainingStation: firstStation});
       definition.aircraft = [{key: "air", initial: true, seed: seedFromAircraft(engineFor(definition).newAircraft("air", true))}];
       let scenario = await service.save(staff, definition);
       scenario = await service.publish(staff, scenario.id, scenario.version);
-      scenario = await service.save(staff, {...definition, trainingStation: `${airport.icao}:tower`}, scenario.id, scenario.version);
-      assert.equal((await service.scenarios(staff)).find(s => s.id === scenario.id)!.published!.trainingStation, `${airport.icao}:local`);
+      scenario = await service.save(staff, {...definition, trainingStation: secondStation}, scenario.id, scenario.version);
+      assert.equal((await service.scenarios(staff)).find(s => s.id === scenario.id)!.published!.trainingStation, firstStation);
       scenario = await service.publish(staff, scenario.id, scenario.version);
       const latest = await service.launchScenario(staff, scenario.id, 2);
       const sessions = new SessionService(sqlSessionStore), token = randomUUID();
-      assert.equal((await sessions.join(staff, latest.sessionId, "staff", token)).exercise.trainingStation, `${airport.icao}:tower`);
+      assert.equal((await sessions.join(staff, latest.sessionId, "staff", token)).exercise.trainingStation, secondStation);
       const started = await service.launchScenario(staff, scenario.id, 1), seat = randomUUID();
       const joined = await sessions.join(staff, started.sessionId, "staff", seat);
-      assert.equal(joined.exercise.airport, airport.icao); assert.equal(joined.exercise.trainingStation, `${airport.icao}:local`);
+      assert.equal(joined.exercise.airport, airport.icao); assert.equal(joined.exercise.trainingStation, firstStation);
       assert.equal(joined.exercise.airportDataVersion, airport.dataVersion);
       await service.restart(staff, started.sessionId, joined.scenario!.attemptId!);
       const resumed = await sessions.frame(staff, started.sessionId, "staff", seat);
-      assert.equal(resumed.exercise.trainingStation, `${airport.icao}:local`); assert.equal(resumed.exercise.airportDataVersion, airport.dataVersion);
+      assert.equal(resumed.exercise.trainingStation, firstStation); assert.equal(resumed.exercise.airportDataVersion, airport.dataVersion);
       await service.finish(staff, started.sessionId, "Training complete", resumed.scenario!.attemptId!);
       const replay = await readReplay(resumed.scenario!.attemptId!, 0);
-      assert.equal(replay.initial!.airport, airport.icao); assert.equal(replay.replay.trainingStation, `${airport.icao}:local`);
+      assert.equal(replay.initial!.airport, airport.icao); assert.equal(replay.replay.trainingStation, firstStation);
       const foreign = blankScenario({airport: airport.icao === "EGPH" ? "EGLL" : "EGPH"});
       await assert.rejects(service.save(staff, foreign, scenario.id, scenario.version), /Clear traffic/);
     }

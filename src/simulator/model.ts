@@ -54,7 +54,7 @@ export interface Airport {
   icao: string; name: string; elevation: number; sourceDate: string;
   origin: {lat: number; lon: number}; osmAttribution: string;
   runway: {lengthFeet: number; ends: {id: string; heading: number; point: Point}[]};
-  runways?: {id: string; lengthFeet: number; widthFeet?: number; exitClearanceFeet?: number; ends: {id: string; heading: number; point: Point}[]}[];
+  runways?: {id: string; lengthFeet: number; widthFeet?: number; exitClearanceFeet?: number; taxiHoldClearanceFeet?: number; ends: {id: string; heading: number; point: Point}[]}[];
   dataVersion?: string;
   features: {id: string; kind: string; name: string; points: Point[]}[];
 }

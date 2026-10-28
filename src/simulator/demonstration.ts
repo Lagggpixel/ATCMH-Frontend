@@ -32,7 +32,7 @@ export type DemoQuickCommand = Omit<QuickCommand, "count" | "manual">;
 export interface DemoState extends DemoController {
   quickHidden: boolean; utility: string | null;
   vectorHeading?: number; vectorTarget?: VectorTarget; vectorAnchor?: Point;
-  vectorDraft: {aircraftId: string; point: Point} | null;
+  vectorDraft: {aircraftId: string; point: Point; initial?: boolean} | null;
   ground: DemoGroundDraft | null;
   camera: (MapCamera & {width: number; height: number}) | null;
   /** How far each scrolled list is scrolled, 0 to 1, keyed by `demoScrollKey`. */
@@ -68,7 +68,7 @@ export const demoStateSchema = z.object({...controller,
   quickHidden: z.boolean(), utility: z.string().max(40).nullable(),
   vectorHeading: finite(0, 360).optional(), vectorAnchor: point.optional(),
   vectorTarget: z.object({index: finite(0, 500).int(), name: label, point}).strict().optional(),
-  vectorDraft: z.object({aircraftId: id, point}).strict().nullable(),
+  vectorDraft: z.object({aircraftId: id, point, initial: z.boolean().optional()}).strict().nullable(),
   ground: z.object({aircraftId: id, kind: z.enum(["taxi", "pushback"]), controls: z.array(point).min(2).max(24),
     destination: z.object({type: z.enum(["point", "runway", "parking"]), id: id.optional()}).strict(),
     holds: z.record(z.string().max(80), z.boolean()).refine(value => Object.keys(value).length <= 200)}).strict().nullable(),

@@ -7,7 +7,7 @@ import {radarEnvironmentFor, radarTrafficStateError} from "./radar";
 import {callsignConflict} from "./callsigns";
 import {engineFor} from "./engine";
 import {buildTaxiGraph} from "./taxi-routing";
-import {AIRPORT_IDS, defaultAirport, getAirport, airportSelection, trainingStation, trainingMode, runwayReferenceError, type AirportSelection} from "./airports";
+import {AIRPORT_IDS, defaultAirport, getAirport, airportSelection, airportTrainingError, trainingStation, trainingMode, runwayReferenceError, type AirportSelection} from "./airports";
 import {MAX_AIRCRAFT, type Aircraft, type Airport, type Exercise, type Point} from "./model";
 const key = z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/);
 const seconds = z.number().finite().min(0).max(86400);
@@ -105,6 +105,13 @@ export const storedScenarioSchema = z.object({schema: z.union([z.literal(1), z.l
 /** Existing aircraft keep their authored callsigns; additions and renames must be unique. */
 export function scenarioSchemaFor(previous?: z.infer<typeof storedScenarioSchema>) {
   return storedScenarioSchema.superRefine((value, ctx) => {
+    // Old saved scenarios remain editable; new or changed selections must use
+    // the airport's currently supported training modes.
+    try {
+      const unchangedSelection = previous && previous.airport === value.airport && trainingMode(previous) === trainingMode(value);
+      const availability = unchangedSelection ? undefined : airportTrainingError(value);
+      if (availability) ctx.addIssue({code: z.ZodIssueCode.custom, path: ["trainingStation"], message: availability});
+    } catch { /* The stored schema reports invalid airport and frequency selections. */ }
     const preserved = new Map(previous?.aircraft.map(a => [a.key, a.seed.callsign]));
     for (const [index, a] of value.aircraft.entries()) {
       if (preserved.get(a.key) === a.seed.callsign) continue;
@@ -166,7 +173,7 @@ export function materializeAircraft(runtime: ScenarioRuntime, key: string): Airc
 }
 
 const gateCache = new WeakMap<Airport, Airport["features"]>();
-/** Offer stands connected to a mapped runway hold; never invent apron connections. */
+/** Offer stands connected through recorded surface lines to a runway hold. */
 export function gatesFor(airport: Airport) {
   const cached = gateCache.get(airport); if (cached) return cached;
   const graph = buildTaxiGraph(airport), reachable = new Set(graph.holds), queue = [...reachable];
@@ -206,8 +213,12 @@ export const normalizeScenario = (definition: ScenarioDefinition): ScenarioDefin
 export function standPlacement(id: string, reverse = false, AIRPORT: Airport = defaultAirport): {position: Point; heading: number} | undefined {
   const stand = AIRPORT.features.find(f => f.id === id && f.kind === "parking_position");
   if (!stand || stand.points.length < 2) return;
-  const points=standPoints(AIRPORT,stand);
-  const [a,b]=reverse?[points.at(-1)!,points[0]]:[points[0],points.at(-1)!];
+  const mapped = standPoints(AIRPORT, stand);
+  const points = reverse ? mapped.toReversed() : mapped;
+  const b = points.at(-1)!;
+  // A curved lead-in's final segment, not its overall chord, gives the
+  // aircraft's direction at the parking position. Ignore duplicate end nodes.
+  const a = points.slice(0, -1).findLast(p => p.x !== b.x || p.y !== b.y) ?? b;
   return {position: {...b}, heading: (Math.atan2(b.x - a.x, b.y - a.y) * 180 / Math.PI + 360) % 360};
 }
 

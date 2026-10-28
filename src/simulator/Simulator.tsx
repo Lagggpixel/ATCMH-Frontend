@@ -125,11 +125,11 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
     return transport.dispatch(action, path);
   }, [transport, recorder]);
   const [livePath, setLivePath] = useState<string[]>([]);
-  const scopeDemo = useRef<{vectorDraft: {aircraftId: string; point: Point} | null; ground: DemoGroundDraft | null}>({vectorDraft: null, ground: null});
+  const scopeDemo = useRef<{vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}>({vectorDraft: null, ground: null});
   const controllerDemo = useRef<Omit<DemoState, "camera" | "vectorDraft" | "ground"> | null>(null);
   const scrollDemo = useRef<Record<string, number>>({});
   const pushDemo = useCallback(() => {if (controllerDemo.current) recorder.setState({...controllerDemo.current, ...scopeDemo.current, scroll: scrollDemo.current});}, [recorder]);
-  const setScopeDemo = useCallback((scope: {vectorDraft: {aircraftId: string; point: Point} | null; ground: DemoGroundDraft | null}) => {
+  const setScopeDemo = useCallback((scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => {
     scopeDemo.current = scope; pushDemo();
   }, [pushDemo]);
   const [mirror, setMirror] = useState<DemoState | null>(null);

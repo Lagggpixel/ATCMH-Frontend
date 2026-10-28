@@ -198,6 +198,11 @@ test("back-taxi Ground handoff follows mapped exits at airports with mapped grou
       const g = e.runwayGeometry(end.id), a = e.newAircraft("mapped", false);
       Object.assign(a, {runway: end.id, frequency: "tower", position: {x: g.threshold.x + (g.departure.x - g.threshold.x) * .99, y: g.threshold.y + (g.departure.y - g.threshold.y) * .99}, heading: (g.heading + 180) % 360});
       let s = {...e.initialExercise(), aircraft: [a], running: true, autoReadback: false};
+      // These mapped-stand airports do not have connected runway exit geometry.
+      if (airport.icao === "LIME" && ["12", "30"].includes(end.id) || airport.icao === "VNLK") {
+        assert.match(backTaxiRoute(airport, a, end.id, true).error!, /No mapped runway exit/);
+        continue;
+      }
       s = assign(e, s, {type: "atc", action: "back-taxi", runway: end.id, contactGround: true});
       for (let i = 0; i < 300 && s.aircraft[0].backTaxi; i++) s = e.advance(s, 1);
       const endAircraft = s.aircraft[0];

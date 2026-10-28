@@ -22,7 +22,7 @@ const marketingNavLinks = [
   {label: "Exam Center", href: "/exams"},
 ];
 
-function UserMenu({showDashboard, showWraps, onLogout}: {showDashboard: boolean; showWraps: boolean; onLogout: () => void}) {
+function UserMenu({showDashboard, showWraps, menuLinks = [], onLogout}: {showDashboard: boolean; showWraps: boolean; menuLinks?: readonly MenuLink[]; onLogout: () => void}) {
   const pathname = usePathname();
   const AccountLink = pathname === "/dashboard/pilot-guide" || pathname === "/pilot-guide" || pathname.startsWith("/exams/courses") ? "a" : Link;
   const {session, avatarUrl} = usePortalAuth();
@@ -34,17 +34,20 @@ function UserMenu({showDashboard, showWraps, onLogout}: {showDashboard: boolean;
       <AccountLink href="/account">Account</AccountLink>
       {showWraps ? <AccountLink href="/wraps">Your wrap</AccountLink> : null}
       {showDashboard ? <AccountLink href="/dashboard">Dashboard</AccountLink> : null}
+      {menuLinks.map(link => <a key={link.href} href={link.href}>{link.label}</a>)}
       <button type="button" onClick={onLogout}>Log out</button>
     </div>
   </details>;
 }
 
-export function AuthNavigation({showLogin}: {showLogin: boolean}) {
+/** Extra account-menu links for one area of the site, such as the Sweatbox changelog. */
+export interface MenuLink {href: string; label: string}
+export function AuthNavigation({showLogin, menuLinks}: {showLogin: boolean; menuLinks?: readonly MenuLink[]}) {
   const {session, adminUser, loading, error, logout} = usePortalAuth();
   const state = headerAuthState({loading, hasSession: Boolean(session), hasAdminPermission: Boolean(adminUser && adminUser.canAccessDashboard !== false), dashboardUnavailable: Boolean(error)});
   if (state === "loading") return <span className="nav-auth-loading" aria-label="Checking account"/>;
   if (state === "signed-out" || state === "unavailable") return showLogin ? <Link className="nav-login" href={homeLoginHref("dashboard", "/")}>Login</Link> : null;
-  return <UserMenu showDashboard={state === "admin"} showWraps={adminUser?.role === "super_admin" && session?.impersonating === false} onLogout={() => void logout(false)}/>;
+  return <UserMenu showDashboard={state === "admin"} showWraps={adminUser?.role === "super_admin" && session?.impersonating === false} menuLinks={menuLinks} onLogout={() => void logout(false)}/>;
 }
 
 function NavigationLinks() {

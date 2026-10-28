@@ -30,6 +30,17 @@ test("routing refuses off-airport positions and runway shortcuts", () => {
   assert.match(planTaxiRoute(AIRPORT, {x: 10, y: 10}, "24").error!, /No mapped taxiway/);
   assert.match(planTaxiRoute(AIRPORT, {x: 0, y: 0}, "24").error!, /protected area/);
 });
+test("Santiago routes to a mapped runway-end entry without entering the protected area", () => {
+  const airport = getAirport({airport: "SCEL"}), graph = buildTaxiGraph(airport);
+  const gate = gatesFor(airport).find(item => item.name === "B01")!;
+  const route = planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, "17R");
+  assert.ok(route.path, route.error);
+  const last = route.path.at(-1)!;
+  const runway = airport.runways!.find(pair => pair.id === "17R/35L")!;
+  assert.ok(gap(last, runway.ends[0].point) < .1);
+  assert.equal(last.runway, "17R");
+  assert.ok(graph.runwayHolds![runway.id].some(i => gap(graph.points[i], last) < 1e-6));
+});
 test("taxi-to-runway assignment calculates a route and simulated traffic stops short", () => {
   let state = initialExercise(); const a = state.aircraft[1]; a.taxiPath = [];
   const entry = {instruction: {...commandTasks("ground", a).find(t => t.id === "taxi")!.command, runway: "06" as const, contactTowerWhenReady: false}};

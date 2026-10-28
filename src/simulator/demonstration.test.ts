@@ -100,6 +100,14 @@ test("the demonstration hub only relays for trusted seats while a demonstration 
   stop();
 });
 
+test("demonstration preserves the initial vector label and accepts older drag frames", () => {
+  const state = {frequency: "approach", selectedId: null, messageId: null, menuPath: [], dismissedStrips: {}, quickHidden: false, utility: null, ground: null, camera: null};
+  const vectorDraft = {aircraftId: "a1", point: {x: 1, y: 2}, initial: true};
+  assert.deepEqual(demoStateSchema.parse({...state, vectorDraft}).vectorDraft, vectorDraft);
+  assert.deepEqual(demoStateSchema.parse({...state, vectorDraft: {aircraftId: "a1", point: vectorDraft.point}}).vectorDraft, {aircraftId: "a1", point: vectorDraft.point});
+  assert.throws(() => demoStateSchema.parse({...state, vectorDraft: {...vectorDraft, initial: "yes"}}));
+});
+
 test("mirrored scroll positions are bounded ratios keyed by region and path", () => {
   const state = {frequency: "ground", selectedId: null, messageId: null, menuPath: [], dismissedStrips: {}, quickHidden: false, utility: null, vectorDraft: null, ground: null, camera: null};
   assert.deepEqual(demoStateSchema.parse({...state, scroll: {"scope-menu:0": .5, "messages:1.2": 1}}).scroll, {"scope-menu:0": .5, "messages:1.2": 1});

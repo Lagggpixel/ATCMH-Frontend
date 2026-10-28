@@ -42,6 +42,16 @@ test("two-to-one transition and automatic lost capture do not jump or click", ()
   assert.equal(m.up(1, 70), false);
 });
 
+test("a pinch never leaves inertia, even after the last finger pans", () => {
+  const m = fixture();
+  m.down(1, {x: 400, y: 400}, 0, "touch"); m.down(2, {x: 600, y: 400}, 1, "touch");
+  m.move(2, {x: 700, y: 400}, 20); m.up(2, 30);
+  m.move(1, {x: 440, y: 400}, 40); m.move(1, {x: 480, y: 400}, 50); m.up(1, 55);
+  assert.equal(m.step(16), false);
+  m.down(1, point, 100, "touch"); m.move(1, {x: 750, y: 300}, 120); m.up(1, 125);
+  assert.equal(m.step(16), true);
+});
+
 test("pinch rotation does not rotate the scope", () => {
   const m = fixture();
   m.down(1, {x: 400, y: 400}, 0, "touch"); m.down(2, {x: 600, y: 400}, 1, "touch");

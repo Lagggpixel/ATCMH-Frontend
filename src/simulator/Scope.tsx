@@ -62,13 +62,33 @@ import {useFlightPlanPreview} from "./flight-plan-preview";
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
 
+function VectorPreviewBox({point, size, children}: {point: Point; size: {width: number; height: number}; children: React.ReactNode}) {
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = box.current, scope = element?.parentElement;
+    if (!element || !scope) return;
+    const position = () => {
+      element.style.left = `${point.x}px`; element.style.top = `${point.y}px`;
+      const bounds = element.getBoundingClientRect(), map = scope.getBoundingClientRect();
+      const dx = bounds.left < map.left ? map.left - bounds.left : Math.min(0, map.right - bounds.right);
+      const dy = bounds.top < map.top ? map.top - bounds.top : Math.min(0, map.bottom - bounds.bottom);
+      element.style.left = `${point.x + dx}px`; element.style.top = `${point.y + dy}px`;
+    };
+    position();
+    const observer = new ResizeObserver(position);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [point.x, point.y, size.width, size.height]);
+  return <div ref={box} className={styles.vectorPreviewBox} role="status" aria-label="Vector details">{children}</div>;
+}
+
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
 interface Props {controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
   /** Trainer demonstrating: reports drafts so the trainee can watch them. */
-  onDemoScope?: (scope: {vectorDraft: {aircraftId: string; point: Point} | null; ground: DemoGroundDraft | null}) => void;
+  onDemoScope?: (scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => void;
   /** Trainee watching: the trainer's drafts and view, shown instead of this page's own. */
-  mirrorVector?: {aircraftId: string; point: Point} | null; mirrorGround?: DemoGroundDraft | null; followCamera?: DemoState["camera"];
+  mirrorVector?: DemoState["vectorDraft"]; mirrorGround?: DemoGroundDraft | null; followCamera?: DemoState["camera"];
   /** A replayed trainer pointer, drawn at its map position. */
   demoPointer?: {point: Point; down?: boolean; click?: boolean} | null}
 const FLIGHT_PLAN_PREVIEW = "#ffb18a";
@@ -121,7 +141,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     Promise.all([document.fonts.load('400 12px "Simulator Fira"'), document.fonts.load('700 10px "Simulator Fira"'), document.fonts.load('400 15px "Simulator Aircraft"', "\ue871\ue870\ue8e7\ue907\ue84a\ue851")]).then(() => {if (active) setScopeFontReady(true);}).catch(() => {});
     return () => {active = false;};
   }, []);
-  const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; last: Point; selection: string | null; armed: boolean; timer?: ReturnType<typeof setTimeout>} | null>(null);
+  const vectorDrag = useRef<{aircraftId: string; pointerId: number; start: Point; last: Point; selection: string | null; armed: boolean; started?: boolean; timer?: ReturnType<typeof setTimeout>} | null>(null);
   const suppressClick = useRef(false);
   // Staff and scenario authors drag any ground aircraft; trainees route only their Ground traffic.
   const groundRouting = !!onGroundClearance && (!!groundRouteMode || frequency === "ground");
@@ -146,7 +166,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   const gateDrag = useRef<{aircraftId: string; pointerId: number; start: Point; moved: boolean} | null>(null);
   const [gateDraft, setGateDraft] = useState<{aircraftId: string; point: Point; gateId?: string} | null>(null);
   const cancelGate = () => {gateDrag.current = null; setGateDraft(null);};
-  const [vectorDraft, setVectorDraft] = useState<{aircraftId: string; point: Point} | null>(null);
+  const [vectorDraft, setVectorDraft] = useState<DemoState["vectorDraft"]>(null);
   const shownVector = mirrorVector !== undefined ? mirrorVector : vectorDraft;
   const ownGroundDraft = routing.draft;
   useEffect(() => {
@@ -160,6 +180,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   const tagDrag = useRef<{aircraftId: string; pointerId: number; start: Point; at: number; moved: boolean; angle?: number} | null>(null);
   const [tagDraft, setTagDraft] = useState<{aircraftId: string; angle: number} | null>(null);
   const suppressTagClick = useRef(false);
+  const touches = useRef(new Map<number, Point>());
   const cancelTag = () => {tagDrag.current = null; setTagDraft(null);};
   const cancelVector = useCallback(() => {clearTimeout(vectorDrag.current?.timer); vectorDrag.current = null; setVectorDraft(null);}, []);
   useEffect(() => () => clearTimeout(vectorDrag.current?.timer), []);
@@ -473,6 +494,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   const vectorAircraft = shownVector && aircraft.find(a => a.id === shownVector.aircraftId);
   const vector = vectorAircraft && shownVector && outsideVectorCircle(vectorAircraft.position, shownVector.point, camera.scale) ? vectorPreview(vectorAircraft, shownVector.point, AIRPORT, radarEnvironment, camera.scale) : null;
   const vectorScreen = vector ? project(vector.point) : null;
+  const vectorLabelPoint = vectorScreen ?? (shownVector ? project(shownVector.point) : null);
   const terrainPoint = vector ? terrainCoordinates(AIRPORT, vector.point) : null;
   const dismissAircraftMenu = () => {setTap(null); onSelect(null);};
   const selectAt = (a: Aircraft, event: {clientX: number; clientY: number; detail: number}) => {
@@ -488,7 +510,29 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     if (point) routing.start(selectedAircraft, point, end ? {type: "runway", id: end.id} : destinationAt(airport, point), "taxi");
   } : undefined) : null;
   const alertBoxes: {x: number; top: number; height: number}[] = [];
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();}}}>
+  // Aircraft, tags and gates sit beside .mapSurface, so a finger on one never reaches the camera and a
+  // second finger would only pan. Once two fingers are down, every map finger joins the camera as a pinch.
+  const scopePoint = (event: React.PointerEvent) => {const bounds = container.current!.getBoundingClientRect(); return {x: event.clientX - bounds.left, y: event.clientY - bounds.top};};
+  const offSurface = (event: React.PointerEvent) => !(event.target instanceof Element && event.target.closest(`.${styles.mapSurface}`));
+  const pinchTouch = (event: React.PointerEvent) => {
+    if (event.isPrimary) touches.current.clear();
+    if (event.pointerType !== "touch" || event.target instanceof Element && event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`)) return;
+    touches.current.set(event.pointerId, scopePoint(event));
+    if (touches.current.size < 2) return;
+    suppressClick.current = true; suppressTagClick.current = true;
+    for (const [id, point] of touches.current) if (!navigationCamera.motion.pointers.has(id)) navigationCamera.down(id, point, "touch", false);
+  };
+  const followTouch = (event: React.PointerEvent) => {
+    if (!touches.current.has(event.pointerId)) return;
+    touches.current.set(event.pointerId, scopePoint(event));
+    if (offSurface(event) && navigationCamera.motion.pointers.has(event.pointerId)) navigationCamera.move(event.pointerId, scopePoint(event));
+  };
+  const releaseTouch = (event: React.PointerEvent) => {
+    if (!touches.current.delete(event.pointerId) || !offSurface(event)) return;
+    if (event.type === "pointercancel") navigationCamera.cancel(event.pointerId); else navigationCamera.up(event.pointerId);
+  };
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();} pinchTouch(event);}}
+    onPointerMoveCapture={followTouch} onPointerUpCapture={releaseTouch} onPointerCancelCapture={releaseTouch}>
     <div className={styles.mapSurface} onPointerDown={event => {
       if (event.button !== 0 || vectorDrag.current) return;
       if (routing.draft?.route && !routing.busy && !groundDrag.current) {
@@ -559,16 +603,17 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       openAirport(choices.length ? choices : [airportCandidates[0]], point);
     }}/>
     {vectorAircraft && (vectorEnabled || mirrorVector) ? <>
-      <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#ff69bd" strokeWidth="4">
+      <svg className={styles.vectorOverlay} width={size.width} height={size.height} aria-label="Vector preview" fill="none" stroke="#EE82EE">
         <circle aria-label="Vector cancellation circle" cx={project(vectorAircraft.position).x} cy={project(vectorAircraft.position).y} r={VECTOR_CANCEL_RADIUS}/>
-        {vectorScreen ? <><line x1={project(vectorAircraft.position).x} y1={project(vectorAircraft.position).y} x2={vectorScreen.x} y2={vectorScreen.y}/><circle cx={vectorScreen.x} cy={vectorScreen.y} r="7" fill="#161219"/></> : null}
+        {vectorScreen ? <><line x1={project(vectorAircraft.position).x} y1={project(vectorAircraft.position).y} x2={vectorScreen.x} y2={vectorScreen.y}/><circle aria-label="Vector target" cx={vectorScreen.x} cy={vectorScreen.y} r={VECTOR_CANCEL_RADIUS / 2}/></> : null}
       </svg>
-      {vector && vectorScreen ? <div className={styles.vectorPreviewBox} role="status" aria-label="Vector details" style={{left: Math.max(6, Math.min(size.width - 215, vectorScreen.x + 15)), top: Math.max(6, Math.min(size.height - 90, vectorScreen.y + 15))}}>
-        {vector.target ? <span>Direct To {vector.target.name}</span> : null}
-        <span>{String(vector.heading || 360).padStart(3, "0")}°&nbsp; {String(Math.floor(vector.nm)).padStart(3, "0")}NM</span>
-        <span>{vector.minutes === null ? "—min" : `${Math.ceil(vector.minutes)}min`} - {terrainPoint && <VectorTerrain key={`${airport.icao}:${shownVector?.aircraftId}`} {...terrainPoint}/>}</span>
-        {!vector.target && vector.fix ? <span>{vector.fix}</span> : null}
-      </div> : null}
+      {vectorLabelPoint && shownVector ? <VectorPreviewBox point={vectorLabelPoint} size={size}>
+        {shownVector.initial ? <><span>Drag to Vector</span><span>{vectorAircraft.callsign.slice(0, 10)}</span></> : !vector ? <span>Cancel</span> : <>
+        <span>{String(vector.heading || 360).padStart(3, "0")}° {String(Math.floor(vector.nm)).padStart(3, "0")}NM</span>
+        <span>{vector.minutes === null ? "—mn" : `${Math.ceil(vector.minutes)}mn`} - {terrainPoint && <VectorTerrain key={`${airport.icao}:${shownVector?.aircraftId}`} {...terrainPoint}/>}</span>
+        {vector.target ? <span>Direct To {vector.target.name}</span> : vector.fix ? <span>{vector.fix}</span> : null}
+        </>}
+      </VectorPreviewBox> : null}
     </> : null}
     {aircraft.filter(a => trafficVisible(displayedAircraft(a), options.filter, frequency)).map(a => {
       const p = project(gateDraft?.aircraftId === a.id && selected === a.id ? gateDraft.point : a.position); if (p.x < -50 || p.x > size.width + 50 || p.y < -50 || p.y > size.height + 50) return null;
@@ -612,6 +657,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
             current.timer = setTimeout(() => {
               if (vectorDrag.current !== current) return;
               current.armed = true;
+              setVectorDraft({aircraftId: a.id, point: vectorPoint({clientX: current.last.x, clientY: current.last.y}), initial: true});
             }, VECTOR_HOLD_MS);
           }}
           onPointerMove={event => {
@@ -636,10 +682,11 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
               return;
             }
             const point = vectorPoint(event);
-            if (outsideVectorCircle(a.position, point, camera.scale) || suppressClick.current) {
+            if (outsideVectorCircle(a.position, point, camera.scale)) {
+              current.started = true;
               suppressClick.current = true; setPopup(null); setRevealedFixKey(null);
-              setVectorDraft({aircraftId: a.id, point});
             }
+            setVectorDraft({aircraftId: a.id, point, ...(current.started ? {} : {initial: true})});
           }}
           onPointerUp={event => {
             const drag = groundDrag.current;

@@ -1,4 +1,4 @@
-import {getAirport} from "../airports";
+import {airportTrainingError, getAirport} from "../airports";
 import {fetchWeatherReport} from "./weather-provider";
 import {applySessionWeather, requestSessionWeather} from "./session-weather";
 import {randomUUID} from "node:crypto";
@@ -72,6 +72,8 @@ export class TrainingService {
     if (!rows[0]) throw unavailable(); return storedScenarioSchema.parse(JSON.parse(rows[0].definition));
   }
   private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string) {
+    const unavailableMode = airportTrainingError(definition);
+    if (unavailableMode) throw new SessionError("invalid-scenario", unavailableMode, 400);
     rejectMovedRadar(definition);
     const attemptId = requestId ?? randomUUID(), generation = randomUUID();
     const created = createScenarioExercise(definition, "pending", generation);

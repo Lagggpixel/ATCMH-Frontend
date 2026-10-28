@@ -2,6 +2,7 @@
 import {useEffect, useRef, useState} from "react";
 import {buildGroundRoute, canRouteGround, destinationAt, groundPointKey, groundRouteKind} from "./ground-route";
 import {groundRouteItems} from "./ground-route-display";
+import {BRUSSELS_25L_C4, DUBLIN_16_N, planIntersectionTaxiRoute} from "./intersection-taxi-routing";
 import type {Aircraft, Airport, GroundRoute, GroundRouteDestination, Instruction, Point} from "./model";
 import styles from "./Simulator.module.css";
 
@@ -24,7 +25,7 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
     if (!controls || !destination || !kind) return;
     const timer = requestAnimationFrame(() => {
       const built = buildGroundRoute(airport, kind, controls, destination);
-      setDraft(current => current?.controls === controls ? {...current, ...built, invalid: !!built.error, route: built.route ? {...built.route, points: built.route.points.map(p => ({...p, ...(groundPointKey(p) in current.holds ? {hold: current.holds[groundPointKey(p)]} : {})}))} : current.route, pending: false} : current);
+      setDraft(current => current?.controls === controls ? {...current, ...built, invalid: !!built.error, route: built.route ? {...built.route, points: built.route.points.map(p => ({...p, ...(!p.hold && groundPointKey(p) in current.holds ? {hold: current.holds[groundPointKey(p)]} : {})}))} : current.route, pending: false} : current);
     });
     return () => cancelAnimationFrame(timer);
   }, [airport, controls, destination, kind]);
@@ -59,15 +60,27 @@ export function useGroundRoute(airport: Airport, aircraft: Aircraft[], selected:
 
 export default function GroundRouteEditor({airport, aircraft, routing}: {airport: Airport; aircraft: Aircraft; routing: ReturnType<typeof useGroundRoute>}) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [intersectionError, setIntersectionError] = useState<string | null>(null);
   const sendPressed = useRef(false);
   const {draft, busy} = routing;
   if (!draft || draft.aircraftId !== aircraft.id) return null;
   const route = draft.route, items = route ? groundRouteItems(airport, route) : [];
+  const intersection = [BRUSSELS_25L_C4, DUBLIN_16_N].find(choice => choice.airport === airport.icao);
   return <section className={styles.groundRouteEditor} aria-label="Current Path" onPointerDown={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
     <header>Current Path</header>
     <div className={styles.groundRouteList}>
+      {intersection && draft.kind === "taxi" && <div className={styles.groundIntersection}>
+        <button type="button" disabled={busy || draft.pending} onClick={() => {
+          const result = planIntersectionTaxiRoute(airport, aircraft.position, intersection.runway, intersection.intersection);
+          if (!result.path) {setIntersectionError(result.error); return;}
+          setIntersectionError(null);
+          routing.choose(result.path.at(-1)!, {type: "runway", id: intersection.runway});
+        }}>Select runway {intersection.runway} at {intersection.intersection} ({intersection.toraMetres.toLocaleString("en-US")} m charted)</button>
+        <p>Intersection departure: check aircraft suitability and conditions. The simulated runway may differ from the chart.</p>
+        {intersectionError && <p role="alert">{intersectionError}</p>}
+      </div>}
       <ol aria-label="Route legs" role="listbox">{items.map(item => <li key={item.key} role="option" aria-selected={selectedItem === item.key} tabIndex={-1} onFocus={() => setSelectedItem(item.key)} onClick={() => setSelectedItem(item.key)} onKeyDown={event => {if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {event.preventDefault(); setSelectedItem(item.key);}}}>
-        {item.canHold ? <div className={styles.groundRouteRow}><input className={styles.groundRouteCheckbox} type="checkbox" disabled={busy} aria-label={`Hold at ${item.name}${item.type === "hold" ? " threshold" : ""}`} checked={item.hold} onChange={event => routing.hold(item.index, event.target.checked)}/><span>{item.text}</span></div> : <span className={styles.groundRouteFixedItem}>{item.text}</span>}
+        {item.canHold ? <div className={styles.groundRouteRow}><input className={styles.groundRouteCheckbox} type="checkbox" disabled={busy || item.hold && !!route?.points[item.index].runway && item.index < route.points.length - 1} aria-label={`Hold at ${item.name}${item.type === "hold" ? " threshold" : ""}`} checked={item.hold} onChange={event => routing.hold(item.index, event.target.checked)}/><span>{item.text}</span></div> : <span className={styles.groundRouteFixedItem}>{item.text}</span>}
       </li>)}</ol>
       {draft.pending ? <p role="status">FINDING PATH...</p> : draft.error ? <p role={draft.controls.length === 2 && draft.controls[0].x === draft.controls[1].x && draft.controls[0].y === draft.controls[1].y ? "status" : "alert"}>{draft.controls[0].x === draft.controls[1].x && draft.controls[0].y === draft.controls[1].y ? "Drag the destination onto a taxiway, runway or stand." : draft.error}</p> : null}
     </div>

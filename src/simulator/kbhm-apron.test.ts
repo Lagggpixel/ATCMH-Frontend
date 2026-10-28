@@ -9,7 +9,8 @@ import {planParkingRoute, planTaxiRoute} from "./taxi-routing";
 test("KBHM mapped stands support pushback, departure routes and return to parking", () => {
   const airport = getAirport({airport: "KBHM"}), engine = engineFor({airport: "KBHM"});
   const gates = gatesFor(airport);
-  assert.equal(gates.length, 27);
+  assert.equal(gates.length, 26);
+  assert.equal(gates.filter(gate => gate.name === "C1").length, 1);
   assert.equal(gates.length, airport.features.filter(f => f.kind === "parking_position").length);
   for (const gate of gates) {
     const placement = standPlacement(gate.id, false, airport)!;

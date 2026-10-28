@@ -99,6 +99,25 @@ export function backTaxiRoute(airport: Airport, a: Aircraft, runway: string, exi
   const v = {x: (other.point.x - end.point.x) / size, y: (other.point.y - end.point.y) / size};
   const along = (a.position.x - end.point.x) * v.x + (a.position.y - end.point.y) * v.y;
   const lateral = Math.abs((a.position.x - end.point.x) * -v.y + (a.position.y - end.point.y) * v.x);
+  // Sarajevo's runway 11 departure starts at the mapped runway 29-end hold.
+  // Entry is a separate Tower back-taxi instruction, never part of taxi clearance.
+  if (airport.icao === "LQSA" && runway === "11" && !exit && lateral > .035 && along > size - .15) {
+    if (a.frequency !== "tower" || a.mode !== "parked" || a.speed >= .2) return {error: "Stop at the runway 29-end hold and contact Tower before back-taxiing."};
+    const graph = buildTaxiGraph(airport), entry = airport.features.find(f => f.id === "941742803" && f.kind === "taxiway");
+    if (!entry) return {error: "The mapped runway entry is unavailable."};
+    const holds = (graph.runwayHolds?.[pair.id] ?? []).filter(i => distance(graph.points[i], other.point) < .12 && distance(graph.points[i], a.position) < .005);
+    const centers = graph.points.flatMap((p, i) => {
+      const offset = (p.x - end.point.x) * v.x + (p.y - end.point.y) * v.y;
+      const side = Math.abs((p.x - end.point.x) * -v.y + (p.y - end.point.y) * v.x);
+      return side < .002 && offset > size - .15 && entry.points.some(q => distance(p, q) < .02) ? [i] : [];
+    });
+    const protectedGraph = {...graph, edges: graph.edges.map(edges => edges.filter(e => e.protectedBy?.length === 1 && e.protectedBy[0] === pair.id))};
+    for (const hold of holds) {
+      const route = aStar(protectedGraph, hold, centers);
+      if (route) return {path: [{...a.position}, ...route.slice(1).map(i => ({...graph.points[i]})), {...end.point}]};
+    }
+    return {error: "No mapped runway entry is available at this hold."};
+  }
   if (lateral > .06 || along < -.02 || along > size + .02) return {error: "Back taxi requires an aircraft on the selected runway."};
   const path: TaxiPoint[] = [{...a.position}, {x: end.point.x + v.x * Math.max(0, along), y: end.point.y + v.y * Math.max(0, along)}];
   if (!exit) return {path: [...path, {...end.point}]};

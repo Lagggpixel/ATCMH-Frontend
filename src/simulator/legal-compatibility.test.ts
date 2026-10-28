@@ -80,7 +80,7 @@ test("browser adapter refuses to call speech synthesis when only online voices a
 test("offered derived map data is exactly the engine database and contains no session fields", async () => {
   const response = GET(); assert.match(response.headers.get("content-disposition")!, /attachment/);
   assert.deepEqual(await response.json(), data);
-  assert.deepEqual(Object.keys(data).sort(), ["icao", "name", "origin", "elevation", "sourceDate", "osmAttribution", "runway", "features"].sort());
+  assert.deepEqual(Object.keys(data).sort(), ["icao", "name", "origin", "elevation", "sourceDate", "osmAttribution", "runway", "features", "dataVersion", "sources"].sort());
 });
 
 test("policy versions and hashes match canonical UTF-8 LF documents and the sibling backend registry", () => {
