@@ -43,7 +43,7 @@ const screenLabels = {
     roles: "Roles",
     "alt-accounts": "Alt-account evidence",
     exams: "Exam Center",
-    courses: "Course Center",
+    courses: "Ground School",
     "pilot-guide": "Pilot Guide",
 } as const;
 

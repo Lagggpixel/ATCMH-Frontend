@@ -57,6 +57,7 @@ export interface CourseCheckBlock {
 }
 
 export interface CourseCheckImage {
+    kind?: CourseMediaKind;
     mediaId: string;
     alt: string;
     caption?: string;
@@ -107,7 +108,7 @@ const ACTIVITY_DIRECTIVE = /^\{\{activity:([0-9a-f-]{36})(?:\s+(required|optiona
 const DIAGRAM_DIRECTIVE = /^\{\{diagram:([a-z0-9][a-z0-9-]{0,79})\}\}$/i;
 const TYPED_DIRECTIVE = /\{\{/;
 const DOCUMENT_FIELDS = new Set(["version", "blocks"]);
-const CHECK_IMAGE_FIELDS: Record<"mediaId" | "alt" | "caption", true> = {mediaId: true, alt: true, caption: true};
+const CHECK_IMAGE_FIELDS: Record<"mediaId" | "alt" | "caption" | "kind", true> = {mediaId: true, alt: true, caption: true, kind: true};
 const BLOCK_FIELDS: Record<CourseBlock["type"], Set<string>> = {
     check: new Set(["id", "type", "prompt", "options", "correctOption", "explanation", "incorrectExplanation", "images"]),
     text: new Set(["id", "type", "markdown"]),
@@ -173,18 +174,20 @@ function validateBlock(raw: unknown, index: number, seen: Set<string>): CourseBl
         if (typeof correctOption !== "number" || !Number.isInteger(correctOption) || correctOption < 0 || correctOption >= options.length) throw new CourseDocumentValidationError("Choose a valid knowledge check answer");
         const images = raw.images === undefined ? undefined : (() => {
             if (!Array.isArray(raw.images) || raw.images.length > 8) throw new CourseDocumentValidationError("Knowledge checks can include at most 8 images");
-            return raw.images.map((value, imageIndex) => {
+            return raw.images.map((value, imageIndex): CourseCheckImage => {
                 if (!isRecord(value)) throw new CourseDocumentValidationError("Knowledge check image " + (imageIndex + 1) + " is invalid");
                 for (const key of Object.keys(value)) if (!Object.prototype.hasOwnProperty.call(CHECK_IMAGE_FIELDS, key)) {
                     throw new CourseDocumentValidationError("Knowledge check image contains an unsupported field: " + key);
                 }
+                const kind = value.kind;
+                if (kind !== undefined && kind !== "image" && kind !== "video") throw new CourseDocumentValidationError("Knowledge check media kind is invalid");
                 const mediaId = stringField(value.mediaId, "Knowledge check image " + (imageIndex + 1) + " media ID", 36);
                 if (!UUID.test(mediaId)) throw new CourseDocumentValidationError("Knowledge check image IDs must be UUIDs");
                 const alt = stringField(value.alt, "Knowledge check image " + (imageIndex + 1) + " alt text", 500);
                 if (HTML_TAG.test(alt) || TYPED_DIRECTIVE.test(alt)) throw new CourseDocumentValidationError("Knowledge check image alt text must be plain text");
                 const caption = value.caption === undefined ? undefined : stringField(value.caption, "Knowledge check image " + (imageIndex + 1) + " caption", 1_000, false);
                 if (caption && (HTML_TAG.test(caption) || TYPED_DIRECTIVE.test(caption))) throw new CourseDocumentValidationError("Knowledge check image caption must be plain text");
-                return {mediaId: mediaId.toLowerCase(), alt: alt.trim(), ...(caption?.trim() ? {caption: caption.trim()} : {})};
+                return {mediaId: mediaId.toLowerCase(), ...(kind === undefined ? {} : {kind}), alt: alt.trim(), ...(caption?.trim() ? {caption: caption.trim()} : {})};
             });
         })();
         return {id, type, prompt, options, correctOption, explanation, ...(incorrectExplanation === undefined ? {} : {incorrectExplanation}), ...(images === undefined ? {} : {images})};
@@ -279,7 +282,7 @@ export function parseCourseDocument(value: unknown): CourseDocumentV1 | null {
 export function courseDocumentReferences(document: CourseDocumentV1): CourseDocumentReference[] {
     const references: CourseDocumentReference[] = [];
     for (const block of document.blocks) {
-        if (block.type === "check") for (const image of block.images ?? []) references.push({type: "image", id: image.mediaId, kind: "image"});
+        if (block.type === "check") for (const image of block.images ?? []) references.push({type: image.kind ?? "image", id: image.mediaId, kind: image.kind ?? "image"});
         if (block.type === "quiz") references.push({type: "quiz", id: block.quizId, required: block.required, ...(block.passPercent === undefined ? {} : {passPercent: block.passPercent})});
         if (block.type === "activity") references.push({type: "activity", id: block.activityId, required: block.required, ...(block.passPercent === undefined ? {} : {passPercent: block.passPercent})});
         if (block.type === "media") {
@@ -293,7 +296,7 @@ export function courseDocumentReferences(document: CourseDocumentV1): CourseDocu
 
 export function courseDocumentToMarkdown(document: CourseDocumentV1): string {
     return document.blocks.map(block => {
-        if (block.type === "check") return "### Knowledge check (ungraded)\n\n" + block.prompt + "\n\n" + block.options.map(option => "- " + option).join("\n") + "\n\nAnswer: " + block.options[block.correctOption] + "\n\n" + block.explanation + (block.images ?? []).map(image => "\n\n{{image:" + image.mediaId + "}}").join("");
+        if (block.type === "check") return "### Knowledge check (ungraded)\n\n" + block.prompt + "\n\n" + block.options.map(option => "- " + option).join("\n") + "\n\nAnswer: " + block.options[block.correctOption] + "\n\n" + block.explanation + (block.images ?? []).map(image => "\n\n{{" + (image.kind ?? "image") + ":" + image.mediaId + "}}").join("");
         if (block.type === "text") return block.markdown.trim();
         if (block.type === "media") return `{{${block.kind}:${block.mediaId}}}`;
         if (block.type === "quiz") return `{{quiz:${block.quizId}${block.required ? " required" : " optional"}${block.passPercent === undefined ? "" : ` pass:${block.passPercent}`}}}`;

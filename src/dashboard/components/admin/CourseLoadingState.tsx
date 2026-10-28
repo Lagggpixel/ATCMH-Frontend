@@ -6,7 +6,7 @@ type CourseLoadingKind = "center" | "preview";
 const copy = {
     center: {
         eyebrow: "Course management",
-        title: "Loading Course Center…",
+        title: "Loading Ground School…",
         description: "Getting your courses and learning tools ready.",
     },
     preview: {

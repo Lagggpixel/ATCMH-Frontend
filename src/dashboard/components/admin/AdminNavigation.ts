@@ -40,7 +40,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
             ...(simulatorEnabled && canAccessStaffSimulator(adminUser) ? [{path: "/sweatbox/staff", label: "ATCMH Sweatbox"}] : []),
             ...(examCenterEnabled ? [
                 {path: "/dashboard/exams", label: "Exam Center"},
-                {path: "/dashboard/courses", label: "Course Center"},
+                {path: "/dashboard/courses", label: "Ground School"},
             ] : []),
         ],
     }]),

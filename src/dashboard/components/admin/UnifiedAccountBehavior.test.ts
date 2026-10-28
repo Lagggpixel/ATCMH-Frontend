@@ -24,7 +24,7 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
     assert.deepEqual(groups.map(group => group.label), ["Mentorship", "Assessment", "Applications", "Administration"]);
     assert.deepEqual(groups.map(group => group.items.map(item => item.label)), [
         ["Mentees", "Assignments", "Sessions", "User Notes", "Mentor Manual"],
-        ["Mock Questions", "Exam Center", "Course Center"],
+        ["Mock Questions", "Exam Center", "Ground School"],
         ["Application Questions"],
         ["Statistics", "Accounts", "Alternative Evidence", "Audit Logs"],
     ]);
@@ -32,14 +32,14 @@ test("dashboard navigation keeps mentorship, assessment, and administration grou
     assert.deepEqual(groups[1].sections[0].items, [
         {path: "/dashboard/mock-questions", label: "Mock Questions"},
         {path: "/dashboard/exams", label: "Exam Center"},
-        {path: "/dashboard/courses", label: "Course Center"},
+        {path: "/dashboard/courses", label: "Ground School"},
     ]);
     assert.deepEqual(adminNavigationItems(user(), false).map(item => item.path), [
         "/dashboard/mentees", "/dashboard/assignments", "/dashboard/sessions", "/dashboard/usernotes", "/dashboard/manual", "/dashboard/stats",
     ]);
 });
 
-test("mentor Assessment navigation includes the Course Center", () => {
+test("mentor Assessment navigation includes the Ground School", () => {
     const assessment = adminNavigationGroups(user({role: "staff"}), true).find(group => group.label === "Assessment");
     assert.ok(assessment?.items.some(item => item.path === "/dashboard/courses"));
 });

@@ -148,7 +148,7 @@
 .questionImageList { display: grid; gap: 10px; }
 .questionImageCard { display: grid; grid-template-columns: minmax(150px, .55fr) minmax(0, 1fr); gap: 13px; align-items: start; border: 1px solid var(--border-color); border-radius: 9px; background: var(--surface-color); padding: 11px; }
 .questionImagePreview { display: grid; place-items: center; min-height: 120px; overflow: hidden; margin: 0; border: 1px solid var(--border-color); border-radius: 8px; background: #07111f; color: var(--muted-text); font-size: .8rem; text-align: center; }
-.questionImagePreview img { display: block; width: 100%; max-height: 250px; object-fit: contain; }
+.questionImagePreview img, .questionImagePreview video { display: block; width: 100%; max-height: 250px; object-fit: contain; }
 .questionImagePreview figcaption { padding: 6px 8px; color: var(--muted-text); font-size: .76rem; line-height: 1.35; }
 .questionImageDetails { display: grid; gap: 10px; min-width: 0; }
 .questionImageActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

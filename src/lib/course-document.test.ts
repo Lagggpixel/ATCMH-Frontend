@@ -105,3 +105,13 @@ test("knowledge-check images validate strictly, remain media references, and pro
         assert.throws(() => validateCourseDocument({version: 1, blocks: [{id: "practice", type: "check", prompt: "Which runway?", options: ["27", "09"], correctOption: 0, explanation: "Check the chart.", images: invalidImages}]}), CourseDocumentValidationError);
     }
 });
+
+
+test("knowledge checks preserve video attachments and their media references", () => {
+    const video = {mediaId, kind: "video", alt: "Taxi demonstration", caption: "Watch the crossing"};
+    const base = {id: "practice", type: "check", prompt: "What happens?", options: ["Stop", "Go"], correctOption: 0, explanation: "Stop."};
+    const document = validateCourseDocument({version: 1, blocks: [{...base, images: [video]}]});
+    assert.deepEqual(courseDocumentReferences(document), [{type: "video", id: mediaId, kind: "video"}]);
+    assert.ok(courseDocumentToMarkdown(document).includes("{{video:" + mediaId + "}}"));
+    assert.throws(() => validateCourseDocument({version: 1, blocks: [{...base, images: [{...video, kind: "audio"}]}]}), CourseDocumentValidationError);
+});

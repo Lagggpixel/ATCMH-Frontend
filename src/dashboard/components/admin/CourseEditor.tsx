@@ -3,7 +3,7 @@ import type {ExamQuizSummary} from "../../types/Exam.ts";
 import type {CourseActivity, ManagedCourse, ManagedCourseDraft, ManagedCourseDraftGroup, ManagedCourseDraftSection, ManagedCourseSummary} from "../../types/Course.ts";
 import {ExamsApiUtils} from "../../utils/ExamsApiUtils.ts";
 import {ApiUtils} from "../../utils/ApiUtils.ts";
-import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareCourseImageFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
+import {ACCEPTED_MEDIA, MEDIA_VALIDATION_MESSAGE, isHeicMediaFile, prepareMediaFile} from "../../utils/CourseMedia.ts";
 import {
     courseDocumentFromMarkdown,
     courseDocumentToMarkdown,
@@ -216,13 +216,13 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
     const stageQuestionImages = (block: Extract<CourseBlock, {type: "check"}>, files: File[]) => {
         const remaining = 8 - (block.images?.length ?? 0) - pendingQuestionImages.filter(image => image.blockId === block.id).length;
         if (remaining <= 0) {
-            setError("A knowledge check can include up to 8 images.");
+            setError("A knowledge check can include up to 8 attachments.");
             return;
         }
         const preparedFiles: File[] = [];
         let rejectedFile = false;
         for (const file of files) {
-            const prepared = prepareCourseImageFile(file);
+            const prepared = prepareMediaFile(file);
             if (!prepared) rejectedFile = true;
             else preparedFiles.push(prepared);
         }
@@ -237,8 +237,8 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         });
         if (additions.length > 0) setPendingQuestionImages(current => [...current, ...additions]);
         setError(rejectedFile
-            ? "Question images must be JPEG, PNG, HEIC/HEIF, GIF, or WebP files no larger than 50 MB."
-            : preparedFiles.length > remaining ? "A knowledge check can include up to 8 images; extra files were skipped." : null);
+            ? "Question attachments: " + MEDIA_VALIDATION_MESSAGE
+            : preparedFiles.length > remaining ? "A knowledge check can include up to 8 attachments; extra files were skipped." : null);
     };
 
     const addUploadedQuestionImage = (source: ManagedCourseDraft, image: PendingQuestionImage, mediaId: string): ManagedCourseDraft => {
@@ -249,7 +249,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
             version: 1,
             blocks: sectionDocument.blocks.map(block => block.id === image.blockId && block.type === "check" ? {
                 ...block,
-                images: [...(block.images ?? []), {mediaId, alt: image.alt.trim(), ...(image.caption.trim() ? {caption: image.caption.trim()} : {})}],
+                images: [...(block.images ?? []), {mediaId, ...(image.file.type.startsWith("video/") ? {kind: "video" as const} : {}), alt: image.alt.trim(), ...(image.caption.trim() ? {caption: image.caption.trim()} : {})}],
             } : block),
         });
     };
@@ -262,7 +262,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         updatePendingQuestionImage(image.id, current => ({...current, uploading: true, progress: 0, error: undefined}));
         try {
             const media = await ExamsApiUtils.uploadCourseMedia(courseId, image.file, token, percentage => updatePendingQuestionImage(image.id, current => ({...current, progress: percentage})), controller.signal);
-            if (media.kind === "video" || !media.contentType.startsWith("image/")) throw new Error("Only image media can be attached to a knowledge check.");
+            if ((media.kind ?? (media.contentType.startsWith("video/") ? "video" : "image")) !== (image.file.type.startsWith("video/") ? "video" : "image")) throw new Error("Uploaded media type does not match the selected file.");
             return media;
         } catch (reason) {
             if (!controller.signal.aborted) updatePendingQuestionImage(image.id, current => ({...current, error: reason instanceof Error ? reason.message : String(reason)}));
@@ -498,6 +498,7 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
         try {
             const descriptors = pendingDescriptors(draft);
             const questionDescriptors = [...pendingQuestionImages];
+            if (questionDescriptors.some(image => !image.alt.trim())) throw new Error("Add a description for each question attachment before saving.");
             let working: ManagedCourseDraft = {...draft, sections: draft.sections.map(section => {
                 const document = stripPendingMedia(documentFor(section));
                 return {...section, document, markdown: courseDocumentToMarkdown(document)};
@@ -507,8 +508,8 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                 throw new Error("Retry the failed media upload before saving.");
             }
             if (questionDescriptors.length && draft.id) {
-                if (questionDescriptors.some(image => image.uploading)) throw new Error("Wait for question image uploads to finish before saving.");
-                throw new Error("Upload or remove each pending question image before saving.");
+                if (questionDescriptors.some(image => image.uploading)) throw new Error("Wait for question attachment uploads to finish before saving.");
+                throw new Error("Upload or remove each pending question attachment before saving.");
             }
             let savedCourse: ManagedCourse;
             const firstSaved = await ExamsApiUtils.saveCourse(courseDraftForSave(working, persistedSectionIdsRef.current), token, revisionRef.current);
@@ -694,27 +695,27 @@ export default function CourseEditor({course, courses, quizzes, activities = [],
                                             <label>Incorrect-answer explanation (optional)<textarea maxLength={4000} rows={3} value={block.incorrectExplanation ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, incorrectExplanation: event.target.value || undefined} : current)}/></label>
                                             <section className={styles.questionImages} aria-labelledby={"check-images-" + block.id}>
                                                 <div className={styles.questionImagesHeading}>
-                                                    <div><h4 id={"check-images-" + block.id}>Question images · {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length}/8</h4><p>Add up to 8 images. Write meaningful alt text for each image; captions are optional.</p></div>
-                                                    {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length < 8 ? <label className={styles.fileButton}>Add images<input type="file" multiple accept="image/jpeg,image/png,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/gif,image/webp,.heic,.heif" onChange={event => {stageQuestionImages(block, Array.from(event.target.files ?? [])); event.currentTarget.value = "";}}/></label> : <span className={styles.fieldHint}>Image limit reached.</span>}
+                                                    <div><h4 id={"check-images-" + block.id}>Question attachments · {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length}/8</h4><p>Add up to 8 images or videos. Describe each attachment; captions are optional.</p></div>
+                                                    {(block.images?.length ?? 0) + pendingQuestionImages.filter(image => image.blockId === block.id).length < 8 ? <label className={styles.fileButton}>Add images or videos<input type="file" multiple accept={ACCEPTED_MEDIA} onChange={event => {stageQuestionImages(block, Array.from(event.target.files ?? [])); event.currentTarget.value = "";}}/></label> : <span className={styles.fieldHint}>Attachment limit reached.</span>}
                                                 </div>
                                                 <div className={styles.questionImageList}>
                                                     {(block.images ?? []).map((image, imageIndex) => <article className={styles.questionImageCard} key={image.mediaId}>
-                                                        <figure className={styles.questionImagePreview}><img src={ApiUtils.apiOrigin + "/admin/courses/" + encodeURIComponent(draft.id ?? "") + "/media/" + encodeURIComponent(image.mediaId)} alt={image.alt} loading="lazy"/>{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
+                                                        <figure className={styles.questionImagePreview}>{image.kind === "video" ? <video src={ApiUtils.apiOrigin + "/admin/courses/" + encodeURIComponent(draft.id ?? "") + "/media/" + encodeURIComponent(image.mediaId)} controls preload="metadata" aria-label={image.alt}/> : <img src={ApiUtils.apiOrigin + "/admin/courses/" + encodeURIComponent(draft.id ?? "") + "/media/" + encodeURIComponent(image.mediaId)} alt={image.alt} loading="lazy"/>}{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
                                                         <div className={styles.questionImageDetails}>
-                                                            <label>Alt text<input required maxLength={500} value={image.alt} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).map((item, index) => index === imageIndex ? {...item, alt: event.target.value} : item)} : current)}/></label>
+                                                            <label>{image.kind === "video" ? "Video description" : "Alt text"}<input required maxLength={500} value={image.alt} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).map((item, index) => index === imageIndex ? {...item, alt: event.target.value} : item)} : current)}/></label>
                                                             <label>Caption (optional)<input maxLength={1000} value={image.caption ?? ""} onChange={event => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).map((item, index) => index === imageIndex ? {...item, caption: event.target.value || undefined} : item)} : current)}/></label>
-                                                            <div className={styles.questionImageActions}><button type="button" className={styles.removeButton} onClick={() => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).filter((_, index) => index !== imageIndex)} : current)}>Remove image</button></div>
+                                                            <div className={styles.questionImageActions}><button type="button" className={styles.removeButton} onClick={() => updateBlock(sectionIndex, block.id, current => current.type === "check" ? {...current, images: (current.images ?? []).filter((_, index) => index !== imageIndex)} : current)}>Remove attachment</button></div>
                                                         </div>
                                                     </article>)}
                                                     {pendingQuestionImages.filter(image => image.blockId === block.id).map(image => <article className={styles.questionImageCard} key={image.id}>
-                                                        <figure className={styles.questionImagePreview}>{isHeicMediaFile(image.file) ? <span>HEIC/HEIF image will be converted after upload.</span> : <img src={image.previewUrl} alt={image.alt || "Question image preview"}/>}{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
+                                                        <figure className={styles.questionImagePreview}>{image.file.type.startsWith("video/") ? <video src={image.previewUrl} controls aria-label={image.alt || "Question video preview"}/> : isHeicMediaFile(image.file) ? <span>HEIC/HEIF image will be converted after upload.</span> : <img src={image.previewUrl} alt={image.alt || "Question image preview"}/>}{image.caption ? <figcaption>{image.caption}</figcaption> : null}</figure>
                                                         <div className={styles.questionImageDetails}>
-                                                            <label>Alt text<input required maxLength={500} disabled={image.uploading} value={image.alt} onChange={event => updatePendingQuestionImage(image.id, current => ({...current, alt: event.target.value}))}/></label>
+                                                            <label>{image.file.type.startsWith("video/") ? "Video description" : "Alt text"}<input required maxLength={500} disabled={image.uploading} value={image.alt} onChange={event => updatePendingQuestionImage(image.id, current => ({...current, alt: event.target.value}))}/></label>
                                                             <label>Caption (optional)<input maxLength={1000} disabled={image.uploading} value={image.caption} onChange={event => updatePendingQuestionImage(image.id, current => ({...current, caption: event.target.value}))}/></label>
-                                                            {image.uploading ? <><progress className={styles.questionImageProgress} max={100} value={image.progress} aria-label={"Uploading " + image.file.name}/><p className={styles.questionImageStatus}>Uploading image… {image.progress}%</p></> : null}
+                                                            {image.uploading ? <><progress className={styles.questionImageProgress} max={100} value={image.progress} aria-label={"Uploading " + image.file.name}/><p className={styles.questionImageStatus}>Uploading attachment… {image.progress}%</p></> : null}
                                                             {image.error ? <p className={styles.questionImageError} role="alert">{image.error}</p> : null}
                                                             <div className={styles.questionImageActions}>
-                                                                {draft.id ? <button type="button" disabled={image.uploading || !image.alt.trim()} onClick={() => void uploadQuestionImage(draft.id!, image)}>{image.error ? "Retry upload" : "Upload image"}</button> : <span className={styles.questionImageStatus}>This image uploads when you save the new course.</span>}
+                                                                {draft.id ? <button type="button" disabled={image.uploading || !image.alt.trim()} onClick={() => void uploadQuestionImage(draft.id!, image)}>{image.error ? "Retry upload" : "Upload attachment"}</button> : <span className={styles.questionImageStatus}>This attachment uploads when you save the new course.</span>}
                                                                 <button type="button" className={styles.removeButton} onClick={() => discardPendingQuestionImage(image.id)}>{image.uploading ? "Cancel and remove" : "Remove image"}</button>
                                                             </div>
                                                         </div>

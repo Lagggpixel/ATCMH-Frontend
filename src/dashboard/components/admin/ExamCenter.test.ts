@@ -68,7 +68,7 @@ test("exam navigation stays scrollable without showing a scrollbar", () => {
     assert.match(centerCss, /\.examNav::-webkit-scrollbar\s*\{[\s\S]*?display: none;/);
 });
 
-test("Course Center has its own dashboard screen instead of living inside Exam Center", () => {
+test("Ground School has its own dashboard screen instead of living inside Exam Center", () => {
     assert.doesNotMatch(centerSource, /CourseCenter/);
     assert.doesNotMatch(centerSource, /courseId/);
     assert.match(dashboardRouteSource, /case "courses": content = <CourseCenter/);
@@ -82,7 +82,7 @@ test("courses live in the flat Assessment dashboard dropdown instead of the Exam
     const adminNavigationSource = readFileSync(join(currentDir, "AdminNavigation.ts"), "utf8");
     assert.doesNotMatch(adminNavigationSource, /label: "Exams"/);
     assert.doesNotMatch(adminNavigationSource, /label: "Courses"/);
-    assert.match(adminNavigationSource, /path: "\/dashboard\/courses", label: "Course Center"/);
+    assert.match(adminNavigationSource, /path: "\/dashboard\/courses", label: "Ground School"/);
 });
 
 test("the catalog does not render import or website forms inline", () => {
