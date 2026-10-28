@@ -492,7 +492,7 @@
 
 /* Availability: one row per day with a 24-hour track and the readable times beside it. */
 .availabilityRuler,
-.profileAvailabilityList > div { display: grid; grid-template-columns: 48px minmax(0, 1fr) 200px; gap: 8px 12px; align-items: center; }
+.profileAvailabilityList > div { display: grid; grid-template-columns: 84px minmax(0, 1fr) 200px; gap: 8px 12px; align-items: center; }
 .availabilityRuler { margin-bottom: 8px; color: var(--mentees-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .availabilityRuler > span:last-child { display: flex; grid-column: 2; justify-content: space-between; }
 .profileAvailabilityList { display: grid; gap: 8px; margin: 0; }
@@ -705,7 +705,7 @@
 @media (max-width: 1000px) {
     .profileFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .availabilityRuler,
-    .profileAvailabilityList > div { grid-template-columns: 48px minmax(0, 1fr) 160px; }
+    .profileAvailabilityList > div { grid-template-columns: 84px minmax(0, 1fr) 160px; }
     .sessionListHeader,
     .sessionRow { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 120px 230px; }
 }
@@ -797,7 +797,7 @@
     .nextSessionActions > button { padding-inline: 8px; white-space: normal; }
 
     .availabilityRuler,
-    .profileAvailabilityList > div { grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; }
+    .profileAvailabilityList > div { grid-template-columns: 84px minmax(0, 1fr); gap: 2px 12px; }
     .availabilityRuler { margin-bottom: 4px; }
     .profileAvailabilityList dd > span { grid-column: 2; margin-bottom: 6px; font-size: 13px; }
 
