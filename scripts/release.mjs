@@ -162,29 +162,16 @@ export async function main(args = process.argv.slice(2)) {
       assertSource();
       // Native dependencies remain on the native OS. Docker installs its own Linux dependencies.
       symlinkSync(join(root, "node_modules"), join(snapshot, "node_modules"), process.platform === "win32" ? "junction" : "dir");
-      const fixtureLink = join(snapshot, "public/simulator/recordings-v1");
-      let fixture;
-      if (pkg.name === "atcmh-frontend" && !existsSync(fixtureLink)) {
-        fixture = resolve(process.env.RELEASE_RECORDINGS_FIXTURE ?? join(root, "../Simulator/public/simulator/recordings-v1"));
-        receipt.fixture = {path: fixture, sha256: treeHash(fixture)};
-        symlinkSync(fixture, fixtureLink, process.platform === "win32" ? "junction" : "dir");
-      }
       // Native checks overlap; Docker builds stay sequential to respect the 6 GiB WSL cap.
-      let results;
-      try {
-        results = await Promise.allSettled([
+      const results = await Promise.allSettled([
           logged(process.execPath, ["scripts/run-tests.mjs"], "tests", directory, {}, snapshot),
           logged(process.execPath, ["node_modules/eslint/bin/eslint.js", "src", "scripts"], "lint", directory, {}, snapshot),
         ]);
-      } finally {
-        if (fixture) rmSync(fixtureLink); // Remove only the junction, never its shared target.
-      }
       for (const result of results) if (result.status === "rejected") throw result.reason;
       [receipt.timings.tests, receipt.timings.lint] = results.map(result => result.value);
       assertSource();
       assertSnapshot();
       assertShared();
-      if (fixture && treeHash(fixture) !== receipt.fixture.sha256) throw new Error("Shared test recordings changed during checks");
       // Use the familiar build-only entry point; never publish during verification.
       receipt.timings.build = await logged(process.execPath, ["scripts/docker-build-only.mjs"], "build", directory, {}, snapshot);
       // Track the local immutable reference here. The verified registry

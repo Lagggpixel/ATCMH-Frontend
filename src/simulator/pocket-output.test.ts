@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {createPocketSpeechOutput, type PocketPlayback} from "./pocket-output";
+import {browserPocketSpeechOutput, createPocketSpeechOutput, type PocketPlayback} from "./pocket-output";
 
 const settings = {voice: "pocket:alba", rate: 1, volume: 1};
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 const frame = Uint8Array.of(0, 0, 0, 4, 0, 64, 0, 192);
 const done = Uint8Array.of(0, 0, 0, 0);
+
+test("automatic voice uses George for preparation and playback", async () => {
+  const requested: string[] = [];
+  const playback: PocketPlayback = {activate() {}, begin() {}, append() {}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async (_text, voice) => {requested.push(voice); return new ReadableStream({start(c) {c.enqueue(done); c.close();}});}, playback);
+  output.prepare?.("Radio ready", {...settings, voice: ""});
+  output.speak("Radio ready", {...settings, voice: ""}, () => {}, () => {}); await tick();
+  assert.deepEqual(requested, ["george", "george"]); output.dispose?.();
+});
 
 test("plays frames before stream completion and completes in order", async () => {
   let stream!: ReadableStreamDefaultController<Uint8Array>, ended = 0, failed = 0;
@@ -32,7 +41,50 @@ test("cancellation suppresses late audio and completion", async () => {
   let resolve!: (stream: ReadableStream<Uint8Array>) => void, ended = 0, played = 0;
   const playback: PocketPlayback = {activate() {}, begin() {}, append() {played++;}, finish: async () => {}, cancel() {}, dispose() {}};
   const output = createPocketSpeechOutput(() => new Promise(r => {resolve = r;}), playback);
-  output.speak("Radio ready", settings, () => ended++, () => ended++); output.cancel();
+  output.speak("Radio ready", settings, () => ended++, () => ended++); await tick(); output.cancel();
   resolve(new ReadableStream({start(c) {c.enqueue(frame); c.enqueue(done); c.close();}})); await tick();
   assert.equal(played, 0); assert.equal(ended, 0); output.dispose?.();
+});
+
+test("speculative preparation uses the background priority and stops when speech starts", async () => {
+  const requests: {signal: AbortSignal; priority: string}[] = [];
+  const playback: PocketPlayback = {activate() {}, begin() {}, append() {}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput((_text, _voice, signal, priority) => {
+    requests.push({signal, priority});
+    return new Promise(() => {});
+  }, playback);
+  output.prepare?.("Radio ready", settings);
+  assert.equal(requests[0].priority, "prepare");
+  output.speak("Radio ready", settings, () => {}, () => {}); await tick();
+  assert.equal(requests[0].signal.aborted, true);
+  assert.equal(requests[1].priority, "play");
+  output.dispose?.();
+});
+
+test("cancelling while browser activation is pending never starts a request", async () => {
+  let activate!: () => void, calls = 0;
+  const playback: PocketPlayback = {activate() {}, begin: () => new Promise<void>(resolve => {activate = resolve;}), append() {}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async () => {calls++; return new ReadableStream();}, playback);
+  output.speak("Radio ready", settings, () => {}, () => {}); output.cancel(); activate(); await tick();
+  assert.equal(calls, 0); output.dispose?.();
+});
+
+test("audio activation can be retried after a rejected browser gesture", async () => {
+  const previousWindow = globalThis.window, previousContext = globalThis.AudioContext;
+  let attempts = 0;
+  Object.defineProperty(globalThis, "window", {value: {}, configurable: true, writable: true});
+  globalThis.AudioContext = class {
+    state = "suspended";
+    resume() {attempts++; return Promise.reject(new Error("NotAllowedError"));}
+    close() {return Promise.resolve();}
+  } as unknown as typeof AudioContext;
+  try {
+    const output = browserPocketSpeechOutput("synthetic")!;
+    output.activate?.(); await tick(); output.activate?.(); await tick();
+    assert.equal(attempts, 2); output.dispose?.();
+  } finally {
+    if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
+    else globalThis.window = previousWindow;
+    globalThis.AudioContext = previousContext;
+  }
 });

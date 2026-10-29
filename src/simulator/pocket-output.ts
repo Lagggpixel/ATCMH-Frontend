@@ -6,35 +6,52 @@ const voices: RadioVoice[] = [
   {id: "pocket:george", name: "George", language: "en-GB", local: true},
   {id: "pocket:jane", name: "Jane", language: "en-GB", local: true},
 ];
-const voiceFor = (id: string) => voices.find(item => item.id === id)?.id.slice(7) ?? "alba";
+const voiceFor = (id: string) => voices.find(item => item.id === id)?.id.slice(7) ?? "george";
 
 export interface PocketPlayback {
   activate(): void;
-  begin(settings: VoiceSettings): void;
+  begin(settings: VoiceSettings): void | Promise<void>;
   append(samples: Float32Array): void;
   finish(): Promise<void>;
   cancel(): void;
   dispose(): void;
 }
-export type PocketLoader = (text: string, voice: string, signal: AbortSignal) => Promise<ReadableStream<Uint8Array>>;
+export type PocketLoader = (text: string, voice: string, signal: AbortSignal, priority: "play" | "prepare") => Promise<ReadableStream<Uint8Array>>;
 
 export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPlayback): SpeechOutput {
   let serial = 0, controller: AbortController | undefined, disposed = false;
+  let preparation: {key: string; controller: AbortController} | undefined;
   let status: (text: string) => void = () => {};
-  const cancel = () => {serial++; controller?.abort(); controller = undefined; playback.cancel(); status("");};
+  const cancelPreparation = () => {preparation?.controller.abort(); preparation = undefined;};
+  const cancel = () => {serial++; controller?.abort(); controller = undefined; cancelPreparation(); playback.cancel(); status("");};
+  const prepare = (text: string, settings: VoiceSettings) => {
+    const voice = voiceFor(settings.voice), key = JSON.stringify([voice, text]);
+    if (disposed || preparation?.key === key) return;
+    cancelPreparation();
+    const abort = new AbortController(); preparation = {key, controller: abort};
+    void (async () => {
+      const reader = (await load(text, voice, abort.signal, "prepare")).getReader(), decoder = new PocketStreamDecoder();
+      try {for (;;) {const {value, done} = await reader.read(); if (done) break; decoder.push(value);} decoder.finish();}
+      catch {await reader.cancel().catch(() => {});}
+    })().catch(() => {}).finally(() => {if (preparation?.controller === abort) preparation = undefined;});
+  };
   return {
     voices: () => voices,
     onVoicesChanged: () => () => {},
     onStatusChanged: listener => {status = listener; return () => {status = () => {};};},
     activate: () => {if (!disposed) playback.activate();},
+    prepare,
+    prepareDraft: prepare,
+    cancelDraft: cancelPreparation,
     speak(text, settings, end, error) {
       cancel(); const current = serial; const abort = new AbortController(); controller = abort;
       let received = false;
       status("Preparing radio voice…");
       void (async () => {
         if (disposed) throw new Error("Radio voice disposed");
-        playback.begin(settings);
-        const stream = await load(text, voiceFor(settings.voice), abort.signal);
+        await playback.begin(settings);
+        if (current !== serial) return;
+        const stream = await load(text, voiceFor(settings.voice), abort.signal, "play");
         const reader = stream.getReader(), decoder = new PocketStreamDecoder();
         try {
           if (current !== serial) {await reader.cancel(); return;}
@@ -66,15 +83,22 @@ export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPla
 
 function browserPocketPlayback(): PocketPlayback {
   let context: AudioContext | undefined, gain: GainNode | undefined, filter: BiquadFilterNode | undefined;
+  let resuming: Promise<void> | undefined;
   const sources = new Set<AudioBufferSourceNode>();
   let next = 0, current = 0, rate = 1;
   const cancel = () => {current++; for (const source of sources) {try {source.stop();} catch { /* Already stopped. */ }} sources.clear(); gain?.disconnect(); filter?.disconnect(); gain = undefined; filter = undefined; next = 0;};
   return {
     activate() {
       context ??= new AudioContext();
-      if (context.state !== "running") void context.resume().catch(() => {});
+      if (context.state !== "running" && !resuming) {
+        resuming = context.resume().catch(() => {}).finally(() => {resuming = undefined;});
+      }
     },
-    begin(settings) {
+    async begin(settings) {
+      if (resuming) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([resuming, new Promise<void>(resolve => {timer = setTimeout(resolve, 1000);})]).finally(() => clearTimeout(timer));
+      }
       if (!context || context.state !== "running") throw new DOMException("Audio needs a user gesture", "NotAllowedError");
       cancel(); rate = settings.rate;
       gain = context.createGain(); gain.gain.value = settings.volume;
@@ -84,7 +108,7 @@ function browserPocketPlayback(): PocketPlayback {
     append(samples) {
       if (!context || !gain) throw new Error("Radio playback unavailable");
       const buffer = context.createBuffer(1, samples.length, 24000);
-      buffer.copyToChannel(samples, 0);
+      buffer.getChannelData(0).set(samples);
       const source = context.createBufferSource(); source.buffer = buffer; source.playbackRate.value = rate;
       source.connect(filter ?? gain); sources.add(source);
       source.onended = () => {sources.delete(source); source.disconnect();};
@@ -108,9 +132,9 @@ function browserPocketPlayback(): PocketPlayback {
 
 export function browserPocketSpeechOutput(csrf: string): SpeechOutput | null {
   if (typeof window === "undefined" || typeof AudioContext === "undefined") return null;
-  return createPocketSpeechOutput(async (text, voice, signal) => {
+  return createPocketSpeechOutput(async (text, voice, signal, priority) => {
     const response = await fetch("/api/simulator/pocket-speech", {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf},
-      body: JSON.stringify({text, voice, priority: "play"}), signal, cache: "no-store"});
+      body: JSON.stringify({text, voice, priority}), signal, cache: "no-store"});
     if (!response.ok || response.headers.get("content-type") !== "application/vnd.atcmh.pcm-stream" || !response.body) throw new Error("Radio voice unavailable");
     return response.body;
   }, browserPocketPlayback());

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {initialExercise} from "./engine";
 import type {Exercise, Message} from "./model";
-import {RadioAudio, aviationSpeech, browserSpeechOutput, type SpeechOutput, type VoiceSettings} from "./radio-audio";
+import {RadioAudio, aviationSpeech, browserAudioPreference, browserSpeechOutput, type SpeechOutput, type VoiceSettings} from "./radio-audio";
 import {RADIO_INITIALISMS, radioDisplayText, radioInitialismSpeech} from "./radio-text";
 
 const message = (id: string, frequency: Message["frequency"] = "ground", sender: Message["sender"] = "controller"): Message => ({id, frequency, sender, aircraftId: "demo-ground", time: 1, text: `Easy 571, taxi to Runway 24, hold short (${id})`});
@@ -27,7 +27,7 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
 test("radio defaults on, loads device voices and is safe during server rendering", () => {
   const h = harness();
   assert.equal(h.player.getSnapshot().enabled, true);
-  assert.equal(h.player.getSnapshot().rate, 1.5);
+  assert.equal(h.player.getSnapshot().rate, 1);
   assert.equal(h.player.getSnapshot().voices[0].id, "local");
   assert.equal(h.played.length, 0); // Mounting does not produce an announcement.
   h.observe([message("fresh")]); assert.equal(h.played.length, 1);
@@ -35,16 +35,26 @@ test("radio defaults on, loads device voices and is safe during server rendering
   h.close();
 });
 
-test("returning players overwrite their previous speed without changing saved mute preferences", () => {
-  const h = harness(); h.player.setSettings({rate: .85}); h.close();
-  const saved: boolean[] = [];
-  const close = h.player.start(h.output, {read: () => false, write: value => saved.push(value)});
-  assert.equal(h.player.getSnapshot().rate, 1.5);
-  assert.equal(h.player.getSnapshot().enabled, false);
-  assert.deepEqual(saved, []);
-  h.player.setEnabled(true); assert.equal(h.played.at(-1)!.settings.rate, 1.5);
-  h.player.setSettings({rate: 1.7}); assert.equal(h.player.getSnapshot().rate, 1.7);
-  close();
+test("new voice preferences reset once, preserve mute, and remember later choices", () => {
+  const previousWindow = globalThis.window, values = new Map<string, string>();
+  const localStorage = {getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value)};
+  Object.defineProperty(globalThis, "window", {value: {localStorage}, configurable: true, writable: true});
+  try {
+    values.set("simulator:radio-audio:v1:account:staff", "false");
+    const preference = browserAudioPreference("account", "staff"), h = harness(); h.close();
+    let close = h.player.start(h.output, preference);
+    assert.equal(h.player.getSnapshot().voice, ""); assert.equal(h.player.getSnapshot().rate, 1);
+    assert.equal(h.player.getSnapshot().enabled, false);
+    h.player.setSettings({voice: "local", rate: 1.7}); close();
+    close = h.player.start(h.output, preference);
+    assert.equal(h.player.getSnapshot().voice, "local"); assert.equal(h.player.getSnapshot().rate, 1.7);
+    assert.equal(h.player.getSnapshot().enabled, false);
+    assert.equal(browserAudioPreference("another", "staff").readVoiceSettings?.(), undefined);
+    close();
+  } finally {
+    if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
+    else globalThis.window = previousWindow;
+  }
 });
 
 test("opening a session prepares its published ATIS silently and never prepares while muted or paused", () => {

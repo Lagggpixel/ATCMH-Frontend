@@ -20,15 +20,26 @@ export interface SpeechOutput {
 interface AudioState extends VoiceSettings {
   available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
 }
-export const DEFAULT_RADIO_RATE = 1.5;
+export const DEFAULT_RADIO_RATE = 1;
 const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: ""};
-export interface AudioPreference {read(): boolean | undefined; write(enabled: boolean): void}
-/** Only the on/off choice persists; online voice consent remains per tab. */
+export interface AudioPreference {
+  read(): boolean | undefined; write(enabled: boolean): void;
+  readVoiceSettings?(): Pick<VoiceSettings, "voice" | "rate"> | undefined;
+  writeVoiceSettings?(settings: Pick<VoiceSettings, "voice" | "rate">): void;
+}
+/** Online voice consent and volume remain per tab. */
 export function browserAudioPreference(accountId: string, role: "staff" | "mentee"): AudioPreference {
   const key = `simulator:radio-audio:v1:${accountId}:${role}`;
+  // A new key applies the George/1× defaults once without altering saved mute state.
+  const voiceKey = `simulator:radio-voice:v2:${accountId}:${role}`;
   return {
     read: () => {try {const value = window.localStorage.getItem(key); return value === "true" ? true : value === "false" ? false : undefined;} catch {return undefined;}},
     write: enabled => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Audio still works when browser storage is unavailable. */ }},
+    readVoiceSettings: () => {try {
+      const value = JSON.parse(window.localStorage.getItem(voiceKey) ?? "null");
+      if (value && typeof value.voice === "string" && value.voice.length <= 256 && typeof value.rate === "number" && Number.isFinite(value.rate) && value.rate >= .7 && value.rate <= 2) return {voice: value.voice, rate: value.rate};
+    } catch { /* Use defaults for unavailable or invalid storage. */ } return undefined;},
+    writeVoiceSettings: settings => {try {window.localStorage.setItem(voiceKey, JSON.stringify(settings));} catch { /* Keep settings for this tab. */ }},
   };
 }
 
@@ -81,8 +92,9 @@ export class RadioAudio {
   start(output: SpeechOutput | null, preference?: AudioPreference) {
     this.output = output;
     this.preference = preference;
-    // Speed is tab-local. Reset returning players as well as newly created ones.
-    this.update({rate: DEFAULT_RADIO_RATE, available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
+    const voiceSettings = preference?.readVoiceSettings?.() ?? {voice: "", rate: DEFAULT_RADIO_RATE};
+    preference?.writeVoiceSettings?.(voiceSettings);
+    this.update({...voiceSettings, available: Boolean(output), enabled: Boolean(output) && (preference?.read() ?? true)});
     if (this.state.enabled) output?.warm?.();
     const refresh = () => {this.update({voices: output?.voices() ?? []}); this.next();};
     const unsubscribe = output?.onVoicesChanged(refresh);
@@ -138,6 +150,7 @@ export class RadioAudio {
   setSettings(settings: Partial<VoiceSettings>) {
     if (settings.voice !== undefined || settings.allowOnline !== undefined) this.stop();
     this.update({allowOnline: settings.allowOnline ?? this.state.allowOnline, voice: settings.allowOnline === false ? "" : settings.voice ?? this.state.voice, rate: Math.min(2, Math.max(0.7, settings.rate ?? this.state.rate)), volume: Math.min(1, Math.max(0, settings.volume ?? this.state.volume))});
+    if (settings.voice !== undefined || settings.rate !== undefined || settings.allowOnline === false) this.preference?.writeVoiceSettings?.({voice: this.state.voices.some(voice => voice.id === this.state.voice && voice.local) ? this.state.voice : "", rate: this.state.rate});
     if (settings.radioFilter !== undefined) this.update({radioFilter: settings.radioFilter});
   }
   say(text: string) {
@@ -211,6 +224,6 @@ export function browserSpeechOutput(): SpeechOutput | null {
 /** Automatic selection never falls through to a browser/provider default voice. */
 export function selectSpeechVoice<T extends {voiceURI: string; localService: boolean; lang: string}>(voices: T[], settings: VoiceSettings): T | undefined {
   const explicit = voices.find(v => v.voiceURI === settings.voice);
-  if (settings.voice) return explicit && (explicit.localService || settings.allowOnline === true) ? explicit : undefined;
+  if (settings.voice && !settings.voice.startsWith("pocket:")) return explicit && (explicit.localService || settings.allowOnline === true) ? explicit : undefined;
   return voices.find(v => v.localService && /^en[-_]GB$/i.test(v.lang)) ?? voices.find(v => v.localService && /^en\b/i.test(v.lang));
 }

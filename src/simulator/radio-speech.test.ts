@@ -5,7 +5,6 @@ import {aviationSpeech, radioMessageText} from "./radio-audio";
 import {engineFor, autoReadbacks} from "./engine";
 import {catalogFor} from "./catalog";
 import {frequenciesFor, getAirport, airportList, airportCallsign} from "./airports";
-import {browserRecordingPlayback} from "./recorded-output";
 
 for (const [number, spoken] of [[4000, "four thousand"], [17500, "seventeen thousand five hundred"], [14500, "fourteen thousand five hundred"], [600, "six hundred"], [0, "zero"]] as const) {
   test(`feet altitude ${number} has cardinal speech in check-ins, instructions and readbacks`, () => {
@@ -105,12 +104,4 @@ test("manual and automatic radar check-ins remain single purpose for arrivals", 
     assert.equal(radioMessageText(message, [a.callsign]), `${frequenciesFor(getAirport(state))[station].name}, Speedbird one, with you at four thousand feet`);
     assert.equal(message.text, display, "speech normalization cannot change stored display text");
   }
-});
-
-test("a rejected audio primer can be retried on the next touch activation", async () => {
-  const previous = globalThis.Audio; let attempts = 0;
-  globalThis.Audio = class {preload = ""; src = ""; onended: (() => void) | null = null; onerror: (() => void) | null = null; play() {attempts++; return Promise.reject(new Error("NotAllowedError"));} pause() {} load() {} removeAttribute() {this.src = "";}} as unknown as typeof Audio;
-  const playback = browserRecordingPlayback();
-  try {playback.activate(); await new Promise(resolve => setImmediate(resolve)); playback.activate(); await new Promise(resolve => setImmediate(resolve)); assert.equal(attempts, 2);}
-  finally {playback.dispose(); globalThis.Audio = previous;}
 });

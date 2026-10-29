@@ -1,8 +1,7 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY --from=dependency-manifests package.json package-lock.json ./
-# Speech runs in the browser; do not download unused native CUDA libraries.
-RUN --mount=type=cache,id=atcmh-npm-linux-amd64,target=/root/.npm,sharing=locked ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci
+RUN --mount=type=cache,id=atcmh-npm-linux-amd64,target=/root/.npm,sharing=locked npm ci
 
 FROM node:24-alpine AS builder
 WORKDIR /app
