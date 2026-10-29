@@ -6,7 +6,7 @@ RUN --mount=type=cache,id=atcmh-npm-linux-amd64,target=/root/.npm,sharing=locked
 
 FROM node:24-alpine AS builder
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN --mount=type=cache,id=atcmh-next-linux-amd64,target=/app/.next/cache,sharing=locked npm run build
