@@ -85,7 +85,7 @@ test("Tower inbound call retains choices, ATIS, position and landing intention",
 });
 
 test("IFR check-in rounds feet, addresses facility and includes arrival state",()=>{
- const state=fixture(),a=state.aircraft[0];a.altitude=30049;a.arrivalProcedure="OCK1F";
+ const state=fixture(),a=state.aircraft[0];a.altitude=30049;a.arrivalProcedure="OCK1F · 22S";
  const c=catalogFor(),r=c.resolvePilotRequest({requestId:"check-in"})!;assert.match(c.pilotRequestText(a,r,"24"),/Approach, .*with you at 30,000ft, descending via OCK1F arrival$/);
 });
 

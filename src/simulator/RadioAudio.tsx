@@ -6,8 +6,7 @@ import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
 import {SpeakerSlash} from "@phosphor-icons/react/dist/csr/SpeakerSlash";
 import {RadioAudio as RadioPlayer, aviationSpeech, browserAudioPreference, browserAudioActivation, radioMessageText} from "./radio-audio";
-import {browserSentenceSpeechOutput} from "./sentence-output";
-import {browserRecordedSpeechOutput} from "./recorded-output";
+import {browserPocketSpeechOutput} from "./pocket-output";
 import type {Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
 
@@ -16,8 +15,7 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const close = () => {setOpen(false); settingsButton.current?.focus();};
-  useEffect(() => player.start(resilientSpeechOutput(browserSentenceSpeechOutput(csrf),
-    resilientSpeechOutput(browserRecordedSpeechOutput(), browserSpeechOutput(), 4000)), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
+  useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf), browserSpeechOutput()), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
   useEffect(() => browserAudioActivation(player.activate), [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);
@@ -26,9 +24,9 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
     <button ref={settingsButton} className={styles.audioSettingsToggle} aria-label="Radio voice settings" aria-expanded={open} onClick={() => setOpen(!open)}>Voice</button>
     {open ? <section className={styles.audioSettings} aria-label="Radio voice settings" onKeyDown={e => {if (e.key === "Escape") {e.stopPropagation(); close();}}}>
       <header><strong>Radio voice</strong><button aria-label="Close radio voice settings" onClick={close}>×</button></header>
-      <p>Each transmission is spoken as a complete sentence, with natural pauses and intonation. The next queued call prepares while the current one plays.</p>
+      <p>Transmissions play in order as audio becomes available.</p>
       {!audio.available ? <p>Voice playback is unavailable in this browser.</p> : <>
-        <label>Voice<select value={audio.voice} onChange={e => player.setSettings({voice: e.target.value})}><option value="">Automatic · Heart</option>{audio.voices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
+        <label>Voice<select value={audio.voice} onChange={e => player.setSettings({voice: e.target.value})}><option value="">Automatic · Alba</option>{audio.voices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
         <label><input type="checkbox" checked={Boolean(audio.radioFilter)} onChange={e => player.setSettings({radioFilter: e.target.checked})}/> Radio effect</label>
         <label>Speaking speed <output>{audio.rate.toFixed(2)}×</output><input aria-label="Speaking speed" type="range" min="0.7" max="2" step="0.05" value={audio.rate} onChange={e => player.setSettings({rate: Number(e.target.value)})}/></label>
         <label>Voice volume <output>{Math.round(audio.volume * 100)}%</output><input aria-label="Voice volume" type="range" min="0" max="1" step="0.1" value={audio.volume} onChange={e => player.setSettings({volume: Number(e.target.value)})}/></label>

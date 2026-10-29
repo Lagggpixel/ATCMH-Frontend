@@ -113,7 +113,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
           if (await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}, [...path, item].map(entry => entry.label), item.label)) setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.id ?? entry.label), item.id ?? item.label]);}
-      }}><span>{i + 1 + (path.length ? 1 : 0)}</span><div>{direct && item.label === "Send" ? null : item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{direct ? <b aria-hidden="true">›</b> : null}</button>;
+      }}><span>{i + 1 + (path.length ? 1 : 0)}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{direct ? <b aria-hidden="true">›</b> : null}</button>;
     };
   const heading = aircraftMessageHeading(aircraft, getAirport(exercise), exercise.weather);
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;

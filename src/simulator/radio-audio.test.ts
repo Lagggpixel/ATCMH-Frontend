@@ -354,3 +354,8 @@ test("split radio hears only its tuned channel and monitoring changes never repl
   h.player.observe({...exercise, messages: [wrong, right, message("new", "tower")]}, true, "all", false, "all");
   assert.equal(h.played.length, 2); assert.match(h.played[1].text, /new/); h.close();
 });
+
+ test("older descent messages omit the arrival transition in display", () => {
+  assert.equal(radioDisplayText("Pilot, descending via RUBUC3 · 22S arrival"), "Pilot, descending via RUBUC3 arrival");
+  assert.equal(radioDisplayText("RUBUC3 · 22S is the selected route"), "RUBUC3 · 22S is the selected route");
+});

@@ -150,3 +150,13 @@ test("the nominated first position publishes the shared ATIS and other positions
   assert.notEqual((await h.store.read(h.session.id)).exercise.publishedAtis, "ATIS UNAVAILABLE");
   await assert.rejects(h.dispatch(h.second, "mentee", h.tokens[1], {kind: "publish-atis"}), {code: "forbidden"});
 });
+
+test("other positions allow display edits but reject control and message actions", async () => {
+  const h = await harness(); await h.join(h.first, 0); await h.join(h.second, 1);
+  const aircraftId = (await h.store.read(h.session.id)).exercise.aircraft[0].id;
+  await h.dispatch(h.second, "mentee", h.tokens[1], {kind: "edit", aircraftId, patch: {tagAngle: 90}});
+  assert.equal((await h.store.read(h.session.id)).exercise.aircraft[0].tagAngle, 90);
+  await assert.rejects(h.dispatch(h.second, "mentee", h.tokens[1], {kind: "edit", aircraftId, patch: {frequency: "tower"}}), {code: "forbidden"});
+  await assert.rejects(h.dispatch(h.second, "mentee", h.tokens[1], {kind: "read", aircraftId, frequency: "approach"}), {code: "forbidden"});
+  await assert.rejects(h.dispatch(h.second, "mentee", h.tokens[1], {kind: "command", aircraftId, frequency: "approach", command: {type: "vector", heading: 90}, text: "Heading 90"}), {code: "forbidden"});
+});

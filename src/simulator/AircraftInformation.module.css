@@ -1,22 +1,22 @@
-/* Infinite Flight 26.4 Information panel. Sizes are 26.4 points scaled by the controller unit. */
-section.panel {--info-unit:var(--controller-unit,1px);display:block;border:0;padding:0 calc(12 * var(--info-unit)) calc(16 * var(--info-unit));background:#15181e;color:#fff;font-family:inherit;font-size:calc(16 * var(--info-unit));line-height:1.35;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#3a3f47 transparent}
+/* Infinite Flight 26.4 Information panel. Layout scales with the controller unit; text stays readable. */
+section.panel {--info-unit:var(--controller-unit,1px);display:block;border:0;padding:0 calc(12 * var(--info-unit)) calc(16 * var(--info-unit));background:#15181e;color:#fff;font-family:inherit;font-size:13px;line-height:1.35;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#3a3f47 transparent}
 .head {position:sticky;top:0;z-index:1;margin:0 calc(-12 * var(--info-unit));background:#15181e}
 .top {display:flex;align-items:flex-start;justify-content:space-between;gap:calc(12 * var(--info-unit));padding:calc(18 * var(--info-unit)) calc(18 * var(--info-unit)) calc(4 * var(--info-unit))}
 .title {display:grid;gap:calc(2 * var(--info-unit));min-width:0}
-.title strong {font-size:calc(13 * var(--info-unit));font-weight:600;letter-spacing:.02em}
-.title span {color:#9aa3ad;font-size:calc(16 * var(--info-unit));overflow-wrap:anywhere}
-.close {flex:none;min-height:calc(36 * var(--info-unit));padding:0 calc(20 * var(--info-unit));border:0;border-radius:calc(6 * var(--info-unit));background:#262b33;color:#fff;font-family:inherit;font-size:calc(13 * var(--info-unit));font-weight:600;line-height:1;letter-spacing:.03em;cursor:pointer}
-.close:hover {background:#303641}
+.title strong {font-size:12px;font-weight:600;letter-spacing:.02em}
+.title span {color:#9aa3ad;font-size:14px;overflow-wrap:anywhere}
+section.panel .close {flex:none;min-height:calc(36 * var(--info-unit));padding:0 calc(20 * var(--info-unit));border:0;border-radius:calc(6 * var(--info-unit));background:#262b33;color:#fff;font-family:inherit;font-size:12px;font-weight:600;line-height:1;letter-spacing:.03em;cursor:pointer}
+section.panel .close:hover {background:#303641}
 .close:focus-visible {outline:2px solid #ff9b1f;outline-offset:2px}
 .tabs {display:flex;padding:calc(10 * var(--info-unit)) calc(12 * var(--info-unit)) 0}
-.tabs span {padding:calc(8 * var(--info-unit)) calc(16 * var(--info-unit));border-bottom:calc(2.5 * var(--info-unit)) solid #ff9b1f;color:#ff9b1f;font-size:calc(13 * var(--info-unit));font-weight:600}
+.tabs span {padding:calc(8 * var(--info-unit)) calc(16 * var(--info-unit));border-bottom:calc(2.5 * var(--info-unit)) solid #ff9b1f;color:#ff9b1f;font-size:12px;font-weight:600}
 .section {margin-top:calc(14 * var(--info-unit))}
-.section h3 {display:flex;align-items:center;gap:calc(16 * var(--info-unit));margin:0 0 calc(8 * var(--info-unit));font-size:calc(20 * var(--info-unit));font-weight:300;letter-spacing:.02em}
+.section h3 {display:flex;align-items:center;gap:calc(16 * var(--info-unit));margin:0 0 calc(8 * var(--info-unit));font-size:16px;font-weight:300;letter-spacing:.02em}
 .section h3::after {content:"";flex:1;height:max(1px,calc(1.5 * var(--info-unit)));background:#3a3f47}
 .lines {padding-left:calc(8 * var(--info-unit))}
 .lines p,.lines ul {margin:0}
 .lines ul {padding:0;list-style:none}
 .lines li::before {content:"· "}
 .lines li {padding-left:calc(4 * var(--info-unit))}
-.mono {font-family:"Simulator Mono",ui-monospace,monospace;font-size:calc(14 * var(--info-unit));line-height:1.6;overflow-wrap:anywhere}
+.mono {font-family:"Simulator Mono",ui-monospace,monospace;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 .procedure {white-space:pre}

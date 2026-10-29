@@ -21,35 +21,35 @@
 .procShortcut span{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:28px;padding:0 5px;border-radius:4px;background:#fff;transform:translateY(-2px)}
 .category{color:#90ee90;font-size:12px}.category[data-category="MVFR"]{color:#add8e6}.category[data-category="IFR"]{color:#f00}.category[data-category="LIFR"]{color:#f0f}
 /* Theme.Dimensions.PassWidth=458, header=72, tabs band=60, corners=8. */
-.details{box-sizing:border-box;right:0;top:0;bottom:0;width:min(458px,100%);display:grid;grid-template-rows:72px 60px minmax(0,1fr);background:#15181e;border:1px solid #43464d;border-radius:8px;font-size:16px;line-height:1.3}
+.details{box-sizing:border-box;right:0;top:0;bottom:0;width:min(458px,100%);display:grid;grid-template-rows:72px 60px minmax(0,1fr);background:#15181e;border:1px solid #43464d;border-radius:8px;font-size:13px;line-height:1.3}
 .popup:focus-visible,.details:focus-visible{outline:none}
 .details header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px}
 .details header>span{display:flex;flex-direction:column;min-width:0;flex:1;gap:2px}
-.details header strong{font-weight:500;font-size:14px;line-height:18px}.details header small{font-size:17px;font-weight:400;line-height:22px}
-.details header button,.details header button:hover{width:88px;height:36px;flex:none;font-weight:700;font-size:16px;background:#2c303b;border-radius:8px;text-align:center}
+.details header strong{font-weight:500;font-size:12px;line-height:18px}.details header small{font-size:14px;font-weight:400;line-height:22px}
+.details header button,.details header button:hover{width:88px;height:36px;flex:none;font-weight:700;font-size:12px;background:#2c303b;border-radius:8px;text-align:center}
 .tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 12px;padding:7px 0}
-.details .tabs button{height:46px;border:0;border-bottom:2px solid transparent;background:transparent;font-size:15px;font-weight:700;text-align:center}
+.details .tabs button{height:46px;border:0;border-bottom:2px solid transparent;background:transparent;font-size:12px;font-weight:700;text-align:center}
 .details .tabs button:hover{background:transparent}
 .details .tabs button[aria-selected="true"]{border-bottom-color:#ffa13a;color:#ffa13a}
 .content{display:flex;flex-direction:column;overflow:auto;min-height:0;overscroll-behavior:contain;overflow-wrap:anywhere;margin:0;padding:12px;scrollbar-color:#666 #15181e;scrollbar-width:thin}
 .content>*{flex-shrink:0}
-.content h2{display:flex;align-items:center;gap:16px;font-size:20px;line-height:24px;min-height:24px;font-weight:300;color:#d3d3d3;margin:0}
+.content h2{display:flex;align-items:center;gap:16px;font-size:16px;line-height:24px;min-height:24px;font-weight:300;color:#d3d3d3;margin:0}
 .content h2::after{content:"";height:2px;background:#404040;flex:1;min-width:0}.content h2:not(:first-child){margin-top:16px}
-.details .content p{font:400 16px/1.3 "Simulator Fira",sans-serif;color:#f5f5f5;margin:4px 0}.content a{color:#a2a2a8;text-decoration:underline}
-.airportInfo{padding:4px;min-height:96px}.airportInfo>span{display:block;font-size:16px;line-height:20px}.airportInfo h3{font-size:16px;font-weight:700;line-height:20px;margin:2px 0 0}
+.details .content p{font:400 13px/1.3 "Simulator Fira",sans-serif;color:#f5f5f5;margin:4px 0}.content a{color:#a2a2a8;text-decoration:underline}
+.airportInfo{padding:4px;min-height:96px}.airportInfo>span{display:block;font-size:13px;line-height:20px}.airportInfo h3{font-size:13px;font-weight:700;line-height:20px;margin:2px 0 0}
 .details .airportInfo .airportLocation{font-weight:700;margin:0;line-height:20px}
-.details .airportInfo .airportMetadata{font-size:17px;font-weight:300;line-height:23px;color:#a2a2a8;margin-top:6px}
-.frequency{display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;padding:8px 4px;min-height:45px;align-items:center}.frequency>span{font-size:16px;line-height:20px}
+.details .airportInfo .airportMetadata{font-size:13px;font-weight:300;line-height:23px;color:#a2a2a8;margin-top:6px}
+.frequency{display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;padding:8px 4px;min-height:45px;align-items:center}.frequency>span{font-size:13px;line-height:20px}
 .sources{font-size:11px;color:#a2a2a8;margin-top:auto;padding-top:16px}.sources summary{cursor:pointer}.details .sources p{font-size:11px;color:#a2a2a8}
-.details .content .weatherText{white-space:pre-wrap;font:700 16px/1.3 "Simulator Fira",sans-serif;padding:4px;margin:0}.metarStatus{display:flex;gap:8px;align-items:center;padding:4px}.metarStatus .category{font-size:15px;font-weight:700}.metarStatus time{margin-left:auto;font-size:16px;font-weight:700;color:#a2a2a8}
+.details .content .weatherText{white-space:pre-wrap;font:700 13px/1.3 "Simulator Fira",sans-serif;padding:4px;margin:0}.metarStatus{display:flex;gap:8px;align-items:center;padding:4px}.metarStatus .category{font-size:12px;font-weight:700}.metarStatus time{margin-left:auto;font-size:13px;font-weight:700;color:#a2a2a8}
 /* Runway rows: 72 high, 12 horizontal inset, 56 identifier column, two 30-unit detail lines. */
 .details .runway{box-sizing:border-box;display:flex;align-items:center;width:100%;min-height:72px;text-align:left;margin:0;border:0;border-radius:6px;padding:6px 12px;gap:10px}
-.details .runway+.runway{margin-top:0}.runway>strong{font:700 20px "Simulator Mono",monospace;min-width:40px;width:40px;text-align:center;flex:none}.runwayDetails{flex:1;min-width:0;display:grid;grid-template-rows:minmax(30px,auto) minmax(30px,auto);font-family:"Simulator Mono",monospace}
-.runwayTop,.runwayBottom{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px}.runwayTop{flex-wrap:wrap;column-gap:8px;row-gap:0}.runwayTop b{font-size:14px}.runwayBottom>span:first-child{min-width:0;flex:1;color:#666;overflow-wrap:normal}
+.details .runway+.runway{margin-top:0}.runway>strong{font:700 16px "Simulator Mono",monospace;min-width:40px;width:40px;text-align:center;flex:none}.runwayDetails{flex:1;min-width:0;display:grid;grid-template-rows:minmax(30px,auto) minmax(30px,auto);font-family:"Simulator Mono",monospace}
+.runwayTop,.runwayBottom{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px}.runwayTop{flex-wrap:wrap;column-gap:8px;row-gap:0}.runwayTop b{font-size:12px}.runwayBottom>span:first-child{min-width:0;flex:1;color:#666;overflow-wrap:normal}
 .details .runway[aria-pressed="true"]{background:#20232b;color:#ffa13a}.details .runway[aria-pressed="true"] .runwayBottom>span:first-child{color:#ffa13a}
-.windSummary{display:flex;gap:8px;flex:none;font-family:"Simulator Fira",sans-serif;font-size:16px;font-weight:700;white-space:nowrap}.windSummary>span{display:flex;align-items:center;gap:4px}.windSummary i{font:16px "Simulator Aircraft";font-style:normal}
+.windSummary{display:flex;gap:8px;flex:none;font-family:"Simulator Fira",sans-serif;font-size:13px;font-weight:700;white-space:nowrap}.windSummary>span{display:flex;align-items:center;gap:4px}.windSummary i{font:16px "Simulator Aircraft";font-style:normal}
 .details .headwind{color:#90ee90}.details .crosswind{color:#ffa500}.details .tailwind{color:#f00}.crossComponent{color:#fff}
-.procedureActions{display:grid;gap:8px}.details .procedureActions button,.details .procedureActions button:hover{height:48px;width:100%;text-align:left;padding:0 12px;font-size:16px;font-weight:700;background:#2c303b;border-radius:8px}.details button:disabled{color:#7d8088;cursor:default;opacity:1}
+.procedureActions{display:grid;gap:8px}.details .procedureActions button,.details .procedureActions button:hover{height:48px;width:100%;text-align:left;padding:0 12px;font-size:13px;font-weight:700;background:#2c303b;border-radius:8px}.details button:disabled{color:#7d8088;cursor:default;opacity:1}
 .details .procedureActions button:disabled{opacity:1}
 .details [role="status"] button,.details .content>button:not(.runway){color:#ffa13a;text-decoration:underline;min-height:32px}
 /* ATC picker: 250 wide; 45 header, list inset 5, 35 rows, two 45 footer rows. */
@@ -67,6 +67,6 @@
 .procedures input[type="range"]::-webkit-slider-runnable-track{height:25px;background:transparent}.procedures input[type="range"]::-webkit-slider-thumb{appearance:none;width:25px;height:25px;margin:0;background:rgba(153,153,153,.5);border:0;border-radius:0}
 .procedures input[type="range"]::-moz-range-track{height:25px;background:transparent}.procedures input[type="range"]::-moz-range-thumb{width:25px;height:25px;background:rgba(153,153,153,.5);border:0;border-radius:0}
 .procedures footer button{width:90px;height:35px;margin:5px;border:1px solid #c0c0c0;text-align:center;font-size:12px}
-@media(max-width:400px){.details header{padding:0 12px}.runwayTop,.runwayBottom{gap:4px}.windSummary{gap:6px;font-size:14px}.details .runway{padding-right:6px;padding-left:6px;gap:6px}.runway>strong{width:36px;min-width:36px;font-size:18px}.runwayBottom{flex-wrap:wrap;padding-bottom:4px}.runwayBottom>span:first-child{flex-basis:100%}.runwayTop,.runwayTop b{font-size:12px}.frequency{grid-template-columns:90px minmax(0,1fr)}}
+@media(max-width:400px){.details header{padding:0 12px}.runwayTop,.runwayBottom{gap:4px}.windSummary{gap:6px;font-size:13px}.details .runway{padding-right:6px;padding-left:6px;gap:6px}.runway>strong{width:36px;min-width:36px;font-size:16px}.runwayBottom{flex-wrap:wrap;padding-bottom:4px}.runwayBottom>span:first-child{flex-basis:100%}.runwayTop,.runwayTop b{font-size:12px}.frequency{grid-template-columns:90px minmax(0,1fr)}}
 
 .popup .airportSummary:hover {background:transparent}

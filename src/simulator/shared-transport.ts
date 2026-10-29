@@ -91,7 +91,7 @@ export class SharedSession {
   clearError = () => this.update({error: null});
   dispatch = (action: Action, path?: string[]) => {
     if (this.role === "spectator" && !this.controlsEnabled) return Promise.resolve(false);
-    if (this.role === "mentee" && this.view.exercise.positions?.length && "aircraftId" in action && !ownsAircraft(this.view.exercise, this.view.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, this.view.positionIds ?? this.view.positionId)) return Promise.resolve(false);
+    if (this.role === "mentee" && this.view.exercise.positions?.length && "aircraftId" in action && action.kind !== "edit" && !ownsAircraft(this.view.exercise, this.view.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, this.view.positionIds ?? this.view.positionId)) return Promise.resolve(false);
     if (!this.send || this.view.fatal) {this.update({error: this.view.fatal ?? "Join the session before sending."}); return Promise.resolve(false);}
     // The trainer holds the controller seat; the trainee's page only watches.
     if (this.view.exercise.demonstration && this.role === "mentee" && (!this.view.exercise.demonstration.positionId || (this.view.positionIds ?? [this.view.positionId]).includes(this.view.exercise.demonstration.positionId))) return Promise.resolve(false);

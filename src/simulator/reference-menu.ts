@@ -1,3 +1,4 @@
+import {arrivalProcedureName} from "./arrival-procedure";
 import {diversionRequestDestination} from "./controller-message-context";
 import {facilityActive} from "./facility-activity";
 import {availableHandoffs, facilityName, approachOptions} from "./aviation";
@@ -75,7 +76,7 @@ export function referenceMenu(frequency: Frequency, a: Aircraft, airport: Airpor
     if (request?.request ? request.request.id === "check-in" : phrase.includes("with you at")) menu.push({label: "Radar Contact", children: [{...leaf("Send", atc("radar-contact")), sendLabel: "SEND"}, {...leaf("Send and Ask Approach Request", atc("radar-contact", {variant: "request"})), sendLabel: "NOW"}]});
     if (request?.request ? request.request.id==="star-descent" : phrase.includes("descent") || phrase.includes("descend via")) menu.push({label: "Respond to STAR Descent Request", children: [...(a.arrivalProcedure?.trim() ? [leaf("Approve", atc("star-response", {variant: "approve", name: a.arrivalProcedure}))] : []), leaf("Unable", atc("star-response", {variant: "unable"})), leaf("Say Approach Request", atc("star-response", {variant: "request"}))]});
     const starDescent = atc("star-descent", {name: a.arrivalProcedure});
-    if (a.arrivalProcedure) menu.push(leaf(`Request Descent via ${a.arrivalProcedure} STAR`, starDescent));
+    if (a.arrivalProcedure) menu.push(leaf(`Request Descent via ${arrivalProcedureName(a.arrivalProcedure)} STAR`, starDescent));
     const diversion = diversionRequestDestination(a, request, frequency);
     if (diversion) menu.push({label: "Respond to Diversion Request", children: [leaf("Expect Vectors", atc("diversion", {variant: "vectors", name: diversion.name, point: {...diversion.point}})), leaf("Proceed On Course", atc("diversion", {variant: "course", name: diversion.name, point: {...diversion.point}})), leaf("Deny", atc("diversion", {variant: "deny", name: diversion.name, point: {...diversion.point}}))]});
     return [...menu, ...common];

@@ -5,7 +5,8 @@ const spokenInitialisms = new RegExp(`\\b(?:${RADIO_INITIALISMS.map(word => word
 
 /** Older session/replay messages used speech punctuation in their displayed text. */
 export function radioDisplayText(text: string): string {
-  return text.replace(spokenInitialisms, acronym => acronym.replaceAll("-", "").toUpperCase());
+  return text.replace(spokenInitialisms, acronym => acronym.replaceAll("-", "").toUpperCase())
+    .replace(/(\bdescend(?:ing)? via\s+[^·,\n]+?)\s*·\s*[^,\n]+?(?=\s+arrival\b)/gi, "$1");
 }
 
 export function radioInitialismSpeech(text: string, separator = "-"): string {

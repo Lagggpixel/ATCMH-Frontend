@@ -1,4 +1,4 @@
-import type {Aircraft, Point, RadarEnvironment} from "./model";
+import type {Action, Aircraft, Frequency, Point, RadarEnvironment} from "./model";
 
 // Browser CSS pixels are density-independent, like the reference map's dp.
 export const VECTOR_HOLD_MS = 250;
@@ -23,4 +23,16 @@ export function vectorSnapTarget(a: Pick<Aircraft, "flightPlan">, pointer: Point
     }
   });
   return target;
+}
+
+/** Off-frequency menu actions remain local: no controller transmission or readback is created. */
+export function dispatchVectorMenuAction(action: Action, onFrequency: boolean, dispatch: (action: Action, path?: string[]) => void | Promise<boolean>, path?: string[]) {
+  if (action.kind === "command" && !onFrequency) return Promise.resolve(true);
+  return dispatch(action, path);
+}
+
+/** Build a menu-only view without changing the aircraft or its actual frequency. */
+export function vectorMenuAircraft(aircraft: Aircraft, frequency: Frequency, mode: "local" | "approach" | "center", onFrequency: boolean): Aircraft {
+  if (mode === "local" || onFrequency) return aircraft;
+  return {...aircraft, frequency, radar: {...(aircraft.radar ?? {navigation: "heading" as const, routeIndex: 0}), station: mode, returningToApproach: false, transferred: false}};
 }

@@ -59,7 +59,7 @@ test("FF and RV use structured controller choices and destination ICAOs", () => 
 });
 
 test("STAR and HOLD use the native ordering and hold exit removes the suffix", () => {
-  const a = aircraft(); a.assigned = {expected: "ils"}; a.arrivalProcedure = "BEACH4";
+  const a = aircraft(); a.assigned = {expected: "ils"}; a.arrivalProcedure = "BEACH4 · 22S";
   const hold = message({type: "atc", action: "hold", altitude: {unit: "feet", value: 5000}});
   assert.equal(controllerStripText(a, airport, environment, [hold]).additionalInfo, "BEACH4 STAR - ILS - PHOG - HOLD");
   assert.equal(controllerStripText(a, airport, environment, [hold, message({type: "atc", action: "exit-hold"})]).additionalInfo, "BEACH4 STAR - ILS - PHOG");

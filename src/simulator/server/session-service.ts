@@ -250,7 +250,7 @@ export class SessionService {
       const sharedAtis = ["atis", "publish-atis", "weather"].includes(action.kind) && !!record.exercise.positions?.[0] && acting.includes(record.exercise.positions[0].id);
       if (record.exercise.positions?.length && role === "mentee" && ["atis", "publish-atis", "weather"].includes(action.kind) && !sharedAtis) throw new SessionError("forbidden", "The first controller position publishes the shared ATIS.", 403);
       if (!sharedAtis && record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command")) {
-        if (!actingPosition || !("aircraftId" in action) || !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft belongs to another controller position.", 403);
+        if (!actingPosition || !("aircraftId" in action) || !(action.kind === "edit" && menteeActionAllowed(action, record.exercise)) && !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft belongs to another controller position.", 403);
       }
       if (action.kind === "command" && action.command.type === "frequency" && action.command.targetPositionId) {
         const target = record.positionState?.[action.command.targetPositionId]?.seat;
@@ -278,7 +278,7 @@ export class SessionService {
       if (role === "mentee" && record.exercise.pausedByStaff) throw new SessionError("paused", "Staff has paused this exercise.", 409);
       if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
       if (record.scenario && envelope.action.kind === "reset") throw new SessionError("scenario-reset", "Use Restart attempt to restore the published scenario.", 409);
-      if (record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command") && "aircraftId" in action && !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft has transferred to another controller position.", 403);
+      if (record.exercise.positions?.length && (role === "mentee" || record.exercise.demonstration && action.kind === "command") && "aircraftId" in action && !(action.kind === "edit" && menteeActionAllowed(action, record.exercise)) && !ownsAircraft(record.exercise, record.exercise.aircraft.find(a => a.id === action.aircraftId) ?? {frequency: null}, acting)) throw new SessionError("forbidden", "This aircraft has transferred to another controller position.", 403);
       const result = applyEnvelope(record.exercise, {...envelope, time: now});
       if (result.error) throw new SessionError("invalid-command", result.error, 422);
       const sent = result.state.messages.find(m => m.id === envelope.id && m.sender === "controller");

@@ -1,3 +1,4 @@
+import {arrivalProcedureName} from "./arrival-procedure";
 import {controllerAircraft} from "./controller-state";
 import {destinationCode} from "./aviation";
 import {radarStripRunway} from "./radar";
@@ -44,7 +45,7 @@ export function controllerStripText(aircraft: Aircraft, airport: Airport, enviro
   }
   // Native Local is concatenated directly; the other guidance codes use " - ".
   let additionalInfo = guidance === "LOC" ? `LOC${destination}` : guidance ? `${guidance} - ${destination}` : "";
-  if (a.arrivalProcedure) additionalInfo = `${a.arrivalProcedure} STAR - ${additionalInfo}`;
+  if (a.arrivalProcedure) additionalInfo = `${arrivalProcedureName(a.arrivalProcedure)} STAR - ${additionalInfo}`;
   if (holding) additionalInfo += additionalInfo ? " - HOLD" : "HOLD";
   return {runway, additionalInfo: additionalInfo || "----"};
 }

@@ -91,8 +91,12 @@ test("STAR descent menu follows route availability in Approach and Center", () =
     a.flightPlan = [{x: 0, y: 5, altitude: 4000}, {x: 0, y: 0}];
     delete a.arrivalProcedure;
     assert.equal(option(), undefined, "no STAR");
-    a.arrivalProcedure = "TRAIN1";
+    a.arrivalProcedure = "TRAIN1 · 22S";
     assert.equal(option()?.label, "Request Descent via TRAIN1 STAR");
+    const command = option()!.instruction!;
+    assert.match(catalog.instructionText(a, command), /descend via TRAIN1 arrival$/);
+    assert.match(e.readbackText(a.callsign, catalog.instructionText(a, command), command), /Descending via TRAIN1 arrival/);
+    assert.equal(a.arrivalProcedure, "TRAIN1 · 22S");
     a.radar!.routeIndex = 1;
     assert.ok(option(), "STAR visibility does not depend on no remaining altitude constraints");
     a.flightPlan[1].altitude = 3000;

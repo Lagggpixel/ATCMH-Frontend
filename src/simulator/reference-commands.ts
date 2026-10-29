@@ -1,3 +1,4 @@
+import {arrivalProcedureName} from "./arrival-procedure";
 import {groundRouteText} from "./ground-route";
 import {trueToMagnetic, magneticToTrue} from "./magnetic-headings";
 import {acceleration, headingForGroundTrack, trueAirspeed} from "./aircraft-performance";
@@ -54,7 +55,7 @@ export function referenceControllerText(a: Aircraft, c: ReferenceInstruction, ai
     case "radar-vectors": return c.variant === "deny" ? `unable at this time, proceed on course to ${destination}` : `expect vectors to ${destination}`;
     case "radar-contact": return `radar contact${c.variant === "request" ? ", say approach request" : ""}`;
     case "airport-in-sight": return "report airport in sight";
-    case "star-descent": return `descend via ${c.name} arrival`;
+    case "star-descent": return `descend via ${c.name ? arrivalProcedureName(c.name) : c.name} arrival`;
     case "star-response": return c.variant === "approve" ? "proceed as requested" : c.variant === "unable" ? "unable, expect vectors" : "say approach request at destination";
     case "diversion": return c.variant === "deny" ? `unable to divert to ${destination}, please request a suitable airport` : `diversion approved, ${c.variant === "course" ? "proceed on course" : "expect vectors"} to ${destination}`;
     case "expect-unable": return c.variant === "coverage" ? "requested airport is outside of coverage area. Proceed on course" : c.variant === "airspace" ? "you are outside of my airspace. Proceed on course" : "unable to provide services to this airport at the moment. Proceed on course";
@@ -106,7 +107,7 @@ export function pilotReadback(callsign: string, text: string, c?: Instruction): 
       if (c.action === "exit-hold") return reply("Exiting the hold, continuing as filed");
       if (c.action === "flight-following") return reply("Proceed on course");
       if (["radar-vectors", "diversion", "expect-unable"].includes(c.action)) return reply("Roger");
-      if (c.action === "star-descent" || c.action === "star-response") return reply(c.action === "star-response" && c.variant === "request" ? "Stand by" : c.name && c.variant !== "unable" ? `Descending via ${c.name} arrival` : "Copy, expecting vectors");
+      if (c.action === "star-descent" || c.action === "star-response") return reply(c.action === "star-response" && c.variant === "request" ? "Stand by" : c.name && c.variant !== "unable" ? `Descending via ${arrivalProcedureName(c.name)} arrival` : "Copy, expecting vectors");
       return reply(phrase);
     }
     default: return reply(phrase);

@@ -1,3 +1,4 @@
+import {arrivalProcedureName} from "./arrival-procedure";
 import {departureGeometry} from "./departure-airports";
 import {visualDescentDistance, visualDescentHeight} from "./visual-descent";
 import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
@@ -457,7 +458,7 @@ export function turnTransmission(a: Aircraft, heading: number, airport: Airport)
 }
 export function checkInTransmission(a: Aircraft, facility?: string) {
   const altitude = Math.round(a.altitude / 100) * 100;
-  return `${facility ? facility + ", " : ""}${a.callsign}, with you${altitude ? ` at ${altitude.toLocaleString("en-US")}ft` : ""}${a.arrivalProcedure ? `, descending via ${a.arrivalProcedure} arrival` : ""}`;
+  return `${facility ? facility + ", " : ""}${a.callsign}, with you${altitude ? ` at ${altitude.toLocaleString("en-US")}ft` : ""}${a.arrivalProcedure ? `, descending via ${arrivalProcedureName(a.arrivalProcedure)} arrival` : ""}`;
 }
 export function radarInstructionText(a: Aircraft, c: Instruction, environment: RadarEnvironment, airport: Airport): string | undefined {
   if (c.type === "radar-speed") return radarSpeedText(a, c);

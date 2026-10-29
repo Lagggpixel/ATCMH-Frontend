@@ -193,10 +193,10 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   useEffect(() => {
     const current = vectorDrag.current;
     const target = current && snapshot.find(a => a.id === current.aircraftId);
-    if (current && (!vectorEnabled || !target || !measureVectors && (target.frequency !== frequency || foreign(target.positionId) || target.radar?.transferred) || !airborne(target, airport) || selected !== current.selection)) {
+    if (current && (!vectorEnabled || !target || !airborne(target, airport) || selected !== current.selection)) {
       suppressClick.current = true; cancelVector();
     }
-  }, [foreign, snapshot, vectorEnabled, measureVectors, frequency, airport, selected, cancelVector]);
+  }, [snapshot, vectorEnabled, airport, selected, cancelVector]);
   // All callers mount the scope after SessionAccess resolves the browser's identity.
   const [preferences] = useState(() => readScopePreferences(preferenceKey));
   const fitted = useRef(Boolean(preferences.camera || cameraStore?.has(cameraKey)));
@@ -648,7 +648,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
               return;
             }
             if (onGateDrop && gates?.length && a.id === selected && !running && event.button === 0 && event.isPrimary) {event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); gateDrag.current = {aircraftId: a.id, pointerId: event.pointerId, start: {x: event.clientX, y: event.clientY}, moved: false}; return;}
-            if (!vectorEnabled || event.button !== 0 || !event.isPrimary || !measureVectors && (a.frequency !== frequency || foreign(a.positionId) || a.radar?.transferred) || !airborne(a, airport)) return;
+            if (!vectorEnabled || event.button !== 0 || !event.isPrimary || !airborne(a, airport)) return;
             cancelVector();
             event.currentTarget.setPointerCapture(event.pointerId);
             const start = {x: event.clientX, y: event.clientY};
@@ -698,7 +698,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
             if (current.armed && suppressClick.current) {
               suppressClick.current = true;
               const point = vectorPoint(event);
-              if (!measureVectors && onVector && a.frequency === frequency && !foreign(a.positionId) && !a.radar?.transferred && airborne(a, airport) && outsideVectorCircle(a.position, point, camera.scale)) {
+              if (!measureVectors && onVector && airborne(a, airport) && outsideVectorCircle(a.position, point, camera.scale)) {
                 const preview = vectorPreview(a, point, AIRPORT, radarEnvironment, camera.scale);
                 onVector(a.id, preview.heading, {x: event.clientX, y: event.clientY}, preview.target);
               }

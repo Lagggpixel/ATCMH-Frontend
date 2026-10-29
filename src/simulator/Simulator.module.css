@@ -818,7 +818,10 @@
 .compactMessageLog p {margin:0}
 
 .contextAnchor>.aircraftMenu {padding:calc(16 * var(--controller-unit,1px));animation:aircraftMenuEnter .04s linear both;border:0;border-radius:calc(8 * var(--controller-unit,1px));box-shadow:none}
-.simulator .aircraftMenu button {height:calc(55 * var(--controller-unit,1px));min-height:calc(55 * var(--controller-unit,1px));padding:0 calc(16 * var(--controller-unit,1px));font-size:calc(14 * var(--controller-unit,1px));overflow:hidden}
+.simulator .aircraftMenu button {height:calc(55 * var(--controller-unit,1px));min-height:calc(55 * var(--controller-unit,1px));padding:0 calc(16 * var(--controller-unit,1px));font-size:14px;overflow:hidden}
+@media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
+  .menteeSimulator .aircraftMenu button {font-size:11.2px}
+}
 .simulator .aircraftMenu button:hover:not(:disabled),.simulator .aircraftMenu button:active:not(:disabled),.simulator .aircraftMenu button:focus-visible {background:transparent;color:inherit}
 .contextAnchor[data-closing=true]>.aircraftMenu {animation:aircraftMenuLeave .04s linear both;pointer-events:none}
 @keyframes aircraftMenuLeave {from {opacity:1;transform:translateX(0)} to {opacity:0;transform:translateX(var(--popup-direction,36px))}}
@@ -1016,13 +1019,12 @@
 .menteeSimulator .stripBody>span:nth-child(4) {justify-content:center;text-align:center}
 .menteeSimulator .strip .atcButton {font:inherit!important;margin:calc(3 * var(--controller-unit));padding:0!important;min-width:0;overflow-wrap:normal}
 .menteeSimulator .atcButton i {width:calc(12 * var(--controller-unit));height:calc(12 * var(--controller-unit));bottom:calc(12 * var(--controller-unit));right:calc(12 * var(--controller-unit))}
-.menteeSimulator .compactMessageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
-.menteeSimulator .commandPanel .compactMessageLog {font-size:calc(14 * var(--controller-unit))}
-.menteeSimulator .commandPanel {--command-text-unit:var(--controller-unit);font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
-.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
+.menteeSimulator .compactMessageLog,.menteeSimulator .commandPanel .compactMessageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .commandPanel {--command-text-unit:var(--controller-font-unit,var(--controller-unit));font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
+.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
 .menteeSimulator .commandPanel .messageEntries button>span,.menteeSimulator .commandPanel .messageEntries .sendLabel {font:inherit}
-.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400;text-transform:uppercase}
-.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400}
+.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400;text-transform:uppercase}
+.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400}
 @media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
   .menteeSimulator {--controller-unit:.75px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit))}
 }
