@@ -959,7 +959,7 @@
 
 /* Match the layout's status-bar surface using only the reported top safe area. */
 .simulator {--simulator-safe-top:var(--sweatbox-safe-top,env(safe-area-inset-top,0px));box-sizing:border-box;height:100dvh;bottom:auto}
-.simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.simulator.staffSimulator {padding:var(--simulator-safe-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
 /* The controller scope runs to the bottom edge; only the top keeps its safe-area inset. */
 .menteeSimulator {padding-bottom:0}
 /* Home Screen WebKit can report a dynamic height shorter than its fixed

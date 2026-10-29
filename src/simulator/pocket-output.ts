@@ -81,21 +81,41 @@ export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPla
   };
 }
 
-function browserPocketPlayback(): PocketPlayback {
+function browserPocketPlayback(AudioContextClass: typeof AudioContext): PocketPlayback {
   let context: AudioContext | undefined, gain: GainNode | undefined, filter: BiquadFilterNode | undefined;
   let resuming: Promise<void> | undefined;
+  let session: {type: string} | undefined, previousSessionType: string | undefined;
   const sources = new Set<AudioBufferSourceNode>();
   let next = 0, current = 0, rate = 1;
   const cancel = () => {current++; for (const source of sources) {try {source.stop();} catch { /* Already stopped. */ }} sources.clear(); gain?.disconnect(); filter?.disconnect(); gain = undefined; filter = undefined; next = 0;};
   return {
     activate() {
-      context ??= new AudioContext();
-      if (context.state !== "running" && !resuming) {
-        resuming = context.resume().catch(() => {}).finally(() => {resuming = undefined;});
+      // WebKit may otherwise silence Web Audio when the iPad is in silent mode.
+      // Preserve a session already configured for a call or other playback.
+      try {
+        const candidate = (navigator as Navigator & {audioSession?: {type: string}}).audioSession;
+        if (candidate && (candidate.type === "auto" || candidate.type === "ambient")) {
+          previousSessionType ??= candidate.type; candidate.type = "playback"; session = candidate;
+        }
+      } catch { /* Audio session configuration is optional. */ }
+      context ??= new AudioContextClass();
+      if (context.state !== "running") {
+        // Some iOS browsers leave a resume promise pending after a gesture that
+        // did not unlock audio. Every later gesture must get its own attempt.
+        const attempt = context.resume().catch(() => {});
+        resuming = attempt;
+        void attempt.finally(() => {if (resuming === attempt) resuming = undefined;});
+        // Start a silent source synchronously inside the gesture as required by
+        // older WebKit implementations of Web Audio activation.
+        const unlock = context.createBufferSource();
+        unlock.buffer = context.createBuffer(1, 1, 22050);
+        unlock.connect(context.destination);
+        unlock.onended = () => unlock.disconnect();
+        unlock.start();
       }
     },
     async begin(settings) {
-      if (resuming) {
+      if (resuming && context?.state !== "running") {
         let timer: ReturnType<typeof setTimeout> | undefined;
         await Promise.race([resuming, new Promise<void>(resolve => {timer = setTimeout(resolve, 1000);})]).finally(() => clearTimeout(timer));
       }
@@ -126,16 +146,21 @@ function browserPocketPlayback(): PocketPlayback {
       if (id === current) cancel();
     },
     cancel,
-    dispose() {cancel(); if (context) void context.close().catch(() => {}); context = undefined;},
+    dispose() {
+      cancel(); if (context) void context.close().catch(() => {}); context = undefined;
+      try {if (session?.type === "playback" && previousSessionType) session.type = previousSessionType;} catch { /* Optional browser API. */ }
+    },
   };
 }
 
 export function browserPocketSpeechOutput(csrf: string): SpeechOutput | null {
-  if (typeof window === "undefined" || typeof AudioContext === "undefined") return null;
+  if (typeof window === "undefined") return null;
+  const AudioContextClass = typeof AudioContext !== "undefined" ? AudioContext : (window as Window & {webkitAudioContext?: typeof AudioContext}).webkitAudioContext;
+  if (!AudioContextClass) return null;
   return createPocketSpeechOutput(async (text, voice, signal, priority) => {
     const response = await fetch("/api/simulator/pocket-speech", {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf},
       body: JSON.stringify({text, voice, priority}), signal, cache: "no-store"});
     if (!response.ok || response.headers.get("content-type") !== "application/vnd.atcmh.pcm-stream" || !response.body) throw new Error("Radio voice unavailable");
     return response.body;
-  }, browserPocketPlayback());
+  }, browserPocketPlayback(AudioContextClass));
 }

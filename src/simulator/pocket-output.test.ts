@@ -75,6 +75,9 @@ test("audio activation can be retried after a rejected browser gesture", async (
   Object.defineProperty(globalThis, "window", {value: {}, configurable: true, writable: true});
   globalThis.AudioContext = class {
     state = "suspended";
+    destination = {};
+    createBuffer() {return {};}
+    createBufferSource() {return {connect() {}, disconnect() {}, start() {}};}
     resume() {attempts++; return Promise.reject(new Error("NotAllowedError"));}
     close() {return Promise.resolve();}
   } as unknown as typeof AudioContext;
@@ -83,6 +86,66 @@ test("audio activation can be retried after a rejected browser gesture", async (
     output.activate?.(); await tick(); output.activate?.(); await tick();
     assert.equal(attempts, 2); output.dispose?.();
   } finally {
+    if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
+    else globalThis.window = previousWindow;
+    globalThis.AudioContext = previousContext;
+  }
+});
+
+test("a pending iOS resume cannot prevent a later gesture from unlocking audio", () => {
+  const previousWindow = globalThis.window, previousContext = globalThis.AudioContext;
+  let attempts = 0, silentStarts = 0;
+  Object.defineProperty(globalThis, "window", {value: {}, configurable: true, writable: true});
+  globalThis.AudioContext = class {
+    state = "suspended"; destination = {};
+    createBuffer() {return {};}
+    createBufferSource() {return {connect() {}, disconnect() {}, start() {silentStarts++;}};}
+    resume() {attempts++; return new Promise<void>(() => {});}
+    close() {return Promise.resolve();}
+  } as unknown as typeof AudioContext;
+  try {
+    const output = browserPocketSpeechOutput("synthetic")!;
+    output.activate?.(); output.activate?.();
+    assert.equal(attempts, 2); assert.equal(silentStarts, 2); output.dispose?.();
+  } finally {
+    if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
+    else globalThis.window = previousWindow;
+    globalThis.AudioContext = previousContext;
+  }
+});
+
+test("older WebKit audio contexts are available to Pocket playback", () => {
+  const previousWindow = globalThis.window, previousContext = globalThis.AudioContext;
+  const WebkitContext = class {} as unknown as typeof AudioContext;
+  Object.defineProperty(globalThis, "window", {value: {webkitAudioContext: WebkitContext}, configurable: true, writable: true});
+  delete (globalThis as {AudioContext?: typeof AudioContext}).AudioContext;
+  try {assert.ok(browserPocketSpeechOutput("synthetic"));}
+  finally {
+    if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
+    else globalThis.window = previousWindow;
+    globalThis.AudioContext = previousContext;
+  }
+});
+
+test("iPad media playback is requested and restored without overriding an active call", () => {
+  const previousWindow = globalThis.window, previousContext = globalThis.AudioContext;
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const session = {type: "auto"};
+  Object.defineProperty(globalThis, "window", {value: {}, configurable: true, writable: true});
+  Object.defineProperty(globalThis, "navigator", {value: {audioSession: session}, configurable: true});
+  globalThis.AudioContext = class {state = "running"; close() {return Promise.resolve();}} as unknown as typeof AudioContext;
+  try {
+    const output = browserPocketSpeechOutput("synthetic")!;
+    output.activate?.(); assert.equal(session.type, "playback");
+    session.type = "play-and-record"; output.activate?.(); output.dispose?.();
+    assert.equal(session.type, "play-and-record");
+    session.type = "auto";
+    const another = browserPocketSpeechOutput("synthetic")!;
+    another.activate?.(); assert.equal(session.type, "playback"); another.dispose?.();
+    assert.equal(session.type, "auto");
+  } finally {
+    if (previousNavigator) Object.defineProperty(globalThis, "navigator", previousNavigator);
+    else delete (globalThis as {navigator?: Navigator}).navigator;
     if (previousWindow === undefined) delete (globalThis as {window?: Window}).window;
     else globalThis.window = previousWindow;
     globalThis.AudioContext = previousContext;

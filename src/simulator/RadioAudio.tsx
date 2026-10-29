@@ -1,6 +1,5 @@
 "use client";
 import {resilientSpeechOutput} from "./resilient-speech";
-import {browserSpeechOutput} from "./radio-audio";
 import {airportCallsign, getAirport, defaultRunway} from "./airports";
 import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
@@ -15,7 +14,7 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const close = () => {setOpen(false); settingsButton.current?.focus();};
-  useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf), browserSpeechOutput()), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
+  useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf), null, 15000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
   useEffect(() => browserAudioActivation(player.activate), [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);

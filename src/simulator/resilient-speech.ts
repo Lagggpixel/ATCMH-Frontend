@@ -39,7 +39,7 @@ export function resilientSpeechOutput(primary: SpeechOutput | null, fallback: Sp
         recovering = true;
         clear(); primary.cancel();
         const available = fallback?.voices().some(v => v.local && /^en\b/i.test(v.language));
-        if (!fallback || !available) {status("Radio voice unavailable. Select a local voice or retry."); finish(error); return;}
+        if (!fallback || !available) {status("Radio voice unavailable. Tap to retry."); finish(error); return;}
         failed = true; retryAt = Date.now() + 30_000; failedVoice = settings.voice;
         status("Preparing backup radio voice…");
         try {fallback.speak(text, backupSettings(settings), () => finish(end), reason => finish(() => error(reason)));}

@@ -87,3 +87,16 @@ test("an unavailable backup never imposes a cooldown on the only usable output",
   only.speak("first", settings, () => {}, () => {}); only.speak("retry", settings, () => {}, () => {});
   assert.equal(h.calls.length, 2); only.dispose?.(); h.output.dispose?.();
 });
+
+test("without a device backup, a slow Pocket voice stays selected on retry", t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const selected: string[] = [];
+  const primary: SpeechOutput = {voices: () => [], onVoicesChanged: () => () => {}, speak: (_text, value) => {selected.push(value.voice);}, cancel() {}};
+  const output = resilientSpeechOutput(primary, null, 15000)!;
+  let errors = 0;
+  output.speak("first", settings, () => {}, () => errors++);
+  t.mock.timers.tick(15000);
+  assert.equal(errors, 1);
+  output.speak("retry", settings, () => {}, () => errors++);
+  assert.deepEqual(selected, [settings.voice, settings.voice]); output.dispose?.();
+});
