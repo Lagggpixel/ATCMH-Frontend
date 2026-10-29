@@ -1,6 +1,5 @@
 "use client";
 import {useEffect, useId, useRef} from "react";
-import {createPortal} from "react-dom";
 import {X} from "@phosphor-icons/react/dist/csr/X";
 import {CHANGELOG_PATH, changelogDate, type ChangelogDay} from "./changelog";
 import styles from "./Changelog.module.css";
@@ -20,7 +19,7 @@ export default function ChangelogDialog({open, days, onClose, onPresented}: {ope
     };
   }, [open, onPresented]);
   if (!open) return null;
-  return createPortal(<dialog ref={dialog} className={styles.dialog} aria-labelledby={title} aria-describedby={description} onCancel={onClose} onClose={onClose} onKeyDown={event => {
+  return <dialog ref={dialog} className={styles.dialog} aria-labelledby={title} aria-describedby={description} onCancel={onClose} onClose={onClose} onKeyDown={event => {
     if (event.key !== "Tab") return;
     const controls = event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex="0"]');
     const first = controls[0], last = controls[controls.length - 1];
@@ -31,5 +30,5 @@ export default function ChangelogDialog({open, days, onClose, onPresented}: {ope
     <div className={styles.dialogBody}>{days.map(day => <section key={day.date} aria-label={`Updates for ${changelogDate(day.date, "date")}`}><h3><time dateTime={day.date}>{changelogDate(day.date, "date")}</time></h3><ul>{day.updates.map(update => <li key={update.title}><h4>{update.title}</h4><p>{update.description}</p></li>)}</ul></section>)}</div>
     {/* Full navigation, like the Sweatbox top bar, avoids WebKit's status-bar regression on client-side page changes. */}
     <footer className={styles.dialogFooter}><a href={CHANGELOG_PATH} onClick={onClose}>View all changelogs</a><button type="button" className={styles.primary} onClick={onClose}>Continue</button></footer>
-  </dialog>, document.body);
+  </dialog>;
 }
