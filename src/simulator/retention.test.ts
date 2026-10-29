@@ -26,7 +26,8 @@ test("expiry archives an older session before deleting its link, retaining the a
   assert.ok(archive >= 0 && close > archive && remove > close);
   assert.equal(writes[close].values[0], "expired");
   assert.equal(writes[archive].values.at(-1), 1, "pre-recording exercise is labelled partial");
-  assert.ok(writes.some(c => /a.result=JSON_OBJECT/.test(c.sql)));
+  const attempt = writes.find(c => c.sql.startsWith("UPDATE simulator_attempts SET"));
+  assert.ok(attempt); assert.deepEqual(JSON.parse(String(attempt.values[2])), {exercise: JSON.parse(row.snapshot), events: []});
   assert.ok(writes.every(c => !/result=NULL|feedback=''|DELETE FROM simulator_attempts|DELETE FROM simulator_replays/.test(c.sql)));
 });
 test("archive failure prevents deletion of the live session", async () => {

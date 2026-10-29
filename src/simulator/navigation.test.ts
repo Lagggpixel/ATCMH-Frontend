@@ -3,6 +3,7 @@ import test from "node:test";
 import {advance, AIRPORT, applyEnvelope, departureRoute, distance, initialExercise, patternTargets, predictAircraft, projectedPath, runwayGeometry, validateInstruction} from "./engine";
 import {commandTasks, instructionText} from "./catalog";
 import {DEFAULTS, type Action, type Exercise, type Runway, type Instruction} from "./model";
+import {bankTurnLead} from "./banked-turns";
 import {exerciseSchema} from "./protocol";
 
 let serial = 0;
@@ -14,7 +15,7 @@ test("left/right patterns on both runways repeat ordered legs, stay on the corre
     let state = initialExercise(); const a = state.aircraft[0], g = runwayGeometry(runway);
     Object.assign(a, {runway, hand, leg: "upwind", heading: g.heading, targetHeading: g.heading, position: {...g.departure}, flightPlan: []});
     state.running = true;
-    const transitions: string[] = []; let previous = "", finals = 0, maxSide = 0;
+    const transitions: string[] = [a.leg]; let previous: string = a.leg, finals = 0, maxSide = 0;
     for (let i = 0; i < 1600; i++) {
       state = advance(state, 1); const plane = state.aircraft[0], q = local(plane.position, runway);
       maxSide = Math.max(maxSide, Math.abs(q.lateral));
@@ -22,7 +23,8 @@ test("left/right patterns on both runways repeat ordered legs, stay on the corre
       if (plane.leg === "final" && q.along > -.15 && q.along < -.02) {finals++; assert.ok(Math.abs(q.lateral) < .02, `final ${runway}/${hand}: ${q.lateral}`);}
       assert.ok(hand === "left" ? q.lateral > -.12 : q.lateral < .12, "stays on assigned traffic side");
     }
-    assert.ok(finals > 0); assert.ok(maxSide > DEFAULTS.patternWidth - .2 && maxSide < DEFAULTS.patternWidth + .3);
+    // A lower bank limit can require a wider turn at the existing circuit speed.
+    assert.ok(finals > 0); assert.ok(maxSide > DEFAULTS.patternWidth - .2 && maxSide < Math.max(DEFAULTS.patternWidth + .3, 2 * bankTurnLead(220) * 1.2 + .3));
     assert.deepEqual(transitions.slice(0, 11), ["upwind", "crosswind", "downwind", "base", "final", "upwind", "crosswind", "downwind", "base", "final", "upwind"]);
   }
 });

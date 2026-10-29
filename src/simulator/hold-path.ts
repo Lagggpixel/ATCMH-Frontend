@@ -2,7 +2,7 @@ import {bankTurnRadius, bankTurnRate} from "./banked-turns";
 import {flightVelocity, trueAirspeed} from "./aircraft-performance";
 import {holdingLegSeconds} from "./command-navigation";
 import {holdEntryType} from "./holding";
-import type {Aircraft, ExerciseWeather, Point} from "./model";
+import {DEFAULTS, type Aircraft, type ExerciseWeather, type Point} from "./model";
 import type {AtcManeuver} from "./reference-commands";
 
 const rad = Math.PI / 180, nmMeters = 1852;
@@ -17,7 +17,7 @@ const cache = new Map<string, Path>();
 /** IF 26.4 HoldGeometry: sampled arcs and straights in local nautical miles. */
 export function buildHoldPath(center: Point, inboundDegrees: number, hand: "left" | "right", speed: number, seconds: number, arrivalDegrees?: number): Path {
   const inbound = inboundDegrees * rad, sign = hand === "right" ? 1 : -1;
-  const radius = bankTurnRadius(Math.max(60, speed), 20), length = Math.max(1, Math.max(speed, 58.315) / 3600 * seconds);
+  const radius = bankTurnRadius(Math.max(60, speed)), length = Math.max(1, Math.max(speed, 58.315) / 3600 * seconds);
   const points: PathPoint[] = []; let cursor = {...center}, heading = (arrivalDegrees ?? inboundDegrees) * rad, distance = 0;
   function turn(sweep: number, phase: Phase) {
     if (Math.abs(sweep) < .05) {heading = wrap(heading + sweep); return;}
@@ -142,7 +142,7 @@ export function trackHoldPath(a: Aircraft, dt: number, weather?: ExerciseWeather
   feedforward *= clamp(1 - Math.abs(xte) / capture, 0, 1);
   const rate = feedforward + interceptRate + clamp(wrap(intercept - trackError), -Math.PI / 2, Math.PI / 2) / 5;
   const correction = Math.max(.25, Math.cos(a.heading * rad - track));
-  const desired = clamp(Math.atan(speed * rate / (9.80665 * correction)) / rad, -25, 25);
+  const desired = clamp(Math.atan(speed * rate / (9.80665 * correction)) / rad, -DEFAULTS.bankAngle, DEFAULTS.bankAngle);
   const before = a.bankAngle ?? 0, bank = before + clamp(desired - before, -6 * dt, 6 * dt);
   a.bankAngle = bank;
   a.heading = (a.heading + bankTurnRate(trueAirspeed(a.speed, a.altitude, weather), (before + bank) / 2) * dt + 360) % 360;

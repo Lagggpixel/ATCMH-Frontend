@@ -600,7 +600,7 @@
 
 /* Airborne controller popups and previews. */
 .vectorOverlay {position:absolute;inset:0;pointer-events:none;z-index:6;stroke-width:calc(3 * var(--controller-unit,1px))}
-.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;max-width:100%;padding:calc(4 * var(--controller-unit,1px));display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:rgb(0 0 0 / 65%);color:#fff;text-align:center;text-shadow:0 1px 2px #000,0 0 1px #000;font:400 calc(12 * var(--controller-unit,1px))/1.35 "Simulator Mono",monospace;transform:translate(-50%,calc(-100% - 46 * var(--controller-unit,1px)))}
+.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;max-width:100%;padding:calc(4 * var(--controller-unit,1px));display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:rgb(0 0 0 / 65%);color:#fff;text-align:center;text-shadow:0 1px 2px #000,0 0 1px #000;font:400 14px/1.35 "Simulator Mono",monospace;transform:translate(-50%,calc(-100% - 46 * var(--controller-unit,1px)))}
 .vectorPreviewBox span {display:block;max-width:100%;overflow-wrap:anywhere}
 .radarQuick {min-width:200px;max-height:55vh;overflow:auto;padding:4px 0}
 .altitudeChoices {max-height:38vh;overflow:auto;overscroll-behavior:contain}
@@ -1016,12 +1016,13 @@
 .menteeSimulator .stripBody>span:nth-child(4) {justify-content:center;text-align:center}
 .menteeSimulator .strip .atcButton {font:inherit!important;margin:calc(3 * var(--controller-unit));padding:0!important;min-width:0;overflow-wrap:normal}
 .menteeSimulator .atcButton i {width:calc(12 * var(--controller-unit));height:calc(12 * var(--controller-unit));bottom:calc(12 * var(--controller-unit));right:calc(12 * var(--controller-unit))}
-.menteeSimulator .compactMessageLog,.menteeSimulator .commandPanel .compactMessageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
-.menteeSimulator .commandPanel {--command-text-unit:var(--controller-font-unit,var(--controller-unit));font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
-.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
+.menteeSimulator .compactMessageLog {font:400 calc(14 * var(--controller-font-unit,var(--controller-unit)))/1.25 "Simulator IF Fira",sans-serif}
+.menteeSimulator .commandPanel .compactMessageLog {font-size:calc(14 * var(--controller-unit))}
+.menteeSimulator .commandPanel {--command-text-unit:var(--controller-unit);font-family:"Simulator IF Fira",sans-serif;font-weight:400;font-style:normal}
+.menteeSimulator .commandPanel .messageEntries button {font:400 calc(12 * var(--controller-unit))/1.25 "Simulator IF Fira",sans-serif;text-transform:uppercase}
 .menteeSimulator .commandPanel .messageEntries button>span,.menteeSimulator .commandPanel .messageEntries .sendLabel {font:inherit}
-.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400;text-transform:uppercase}
-.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-font-unit,var(--controller-unit)));font-weight:400}
+.menteeSimulator .commandPanel .quickCommands button {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400;text-transform:uppercase}
+.menteeSimulator .commandHeading .commandIdentity,.menteeSimulator .commandHeading .commandFlightData {font-family:"Simulator IF Fira",sans-serif;font-size:calc(12 * var(--controller-unit));font-weight:400}
 @media (any-pointer:coarse) and (min-width:768px) and (min-height:551px) {
   .menteeSimulator {--controller-unit:.75px;grid-template-columns:60px minmax(0,1fr) calc(365 * var(--controller-unit))}
 }

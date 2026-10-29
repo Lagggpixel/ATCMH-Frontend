@@ -8,6 +8,11 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  * layout changes. Say mentor/mentee, and trim radar-only sentences. Add to the London calendar day it shipped.
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
+  {date: "2026-10-29", updates: [
+    {title: "Departures from opposite runway holds", description: "Aircraft cleared for takeoff can enter the runway when traffic is holding on the opposite side. Ground traffic still stops for aircraft on its route."},
+    {title: "More realistic aircraft turns", description: "Aircraft now turn with a maximum bank of 0.33 radians, including smooth roll-in and roll-out. Circuit and holding turns adjust to the wider turn radius."},
+    {title: "Infinite Flight style aircraft information", description: "Show Information now opens Infinite Flight’s Information panel beside the strips, with Summary, User and Flight Plan sections. The flight plan lists procedures with their fixes and altitudes, as in Infinite Flight, and a Procedures section names each SID, STAR and approach. Sweatbox pilots are simulated, so the User details are made up."},
+  ]},
   {date: "2026-10-28", updates: [
     {title: "Cleaner Add aircraft menu", description: "Ground & Tower traffic now starts from six clear choices with only the fields that choice needs, and less-used settings fold under More. The menu remembers your last settings for each airport, with Reset to start fresh."},
     {title: "Right-click to add traffic in the scenario editor", description: "Right-click the scope while editing a scenario to spawn an aircraft at that point or departing a nearby airfield, as in a live session."},

@@ -132,14 +132,18 @@ export function groundGuidance(a: Aircraft, traffic: Aircraft[], elevation = 0):
       }
     }
     let start = a.position, along = 0;
-    for (const end of path) {
+    for (const [index, end] of path.entries()) {
       const length = distance(start, end);
       if (length < 1e-8) {start = end; continue;}
       const dx = (end.x - start.x) / length, dy = (end.y - start.y) / length;
       const offset = {x: other.position.x - start.x, y: other.position.y - start.y};
       const projection = offset.x * dx + offset.y * dy;
       const lateral = Math.abs(offset.x * dy - offset.y * dx);
-      if (projection > 0 && projection <= length + GROUND.spacing && lateral < GROUND.corridor) {
+      // Intermediate segments end at a bend: extending them by the spacing
+      // distance can mistake traffic beyond the turn for traffic on the route.
+      // Still protect the corner itself and traffic just beyond the final node.
+      const withinSegment = projection <= length || index === path.length - 1 && projection <= length + GROUND.spacing || Math.hypot(projection - length, lateral) < GROUND.corridor;
+      if (projection > 0 && withinSegment && lateral < GROUND.corridor) {
         let room = Math.max(0, Math.min(along + projection, distance(a.position, other.position)) - GROUND.spacing);
         // Both aircraft consume this same gap during a simultaneous tick.
         if (!other.holding && other.targetSpeed > 0 && ["taxi", "pushback", "lineup"].includes(other.mode) && Math.cos((a.heading - other.heading) * radians) < -.7) room /= 2;

@@ -21,8 +21,8 @@ export async function maintainSimulatorRecords(connection: RetentionConnection, 
       for (const row of sessions) {
         const record = decodeSession(row as Parameters<typeof decodeSession>[0]); record.updatedAt = now;
         await recordReplay(connection, record, record, "expired");
+        await connection.execute("UPDATE simulator_attempts SET status='ended',finished_at=?,elapsed=?,result=? WHERE status='active' AND session_id=?", [now, record.exercise.elapsed, JSON.stringify({exercise: record.exercise, events: record.scenario?.events ?? []}), record.id]);
       }
-      await connection.execute(`UPDATE simulator_attempts a JOIN simulator_sessions s ON s.id=a.session_id SET a.status='ended',a.finished_at=?,a.elapsed=COALESCE(JSON_EXTRACT(s.snapshot,'$.elapsed'),0)+0,a.result=JSON_OBJECT('exercise',JSON_EXTRACT(s.snapshot,'$'),'events',COALESCE(JSON_EXTRACT(s.scenario_runtime,'$.events'),JSON_ARRAY())) WHERE a.status='active' AND a.session_id IN (${slots})`, [now, ...ids]);
       await connection.execute(`DELETE FROM simulator_sessions WHERE id IN (${slots})`, ids);
     }
     if (preferences.length) await connection.execute(`DELETE FROM simulator_staff_preferences WHERE account_id IN (${placeholders(preferences)})`, preferences.map(p => p.id));

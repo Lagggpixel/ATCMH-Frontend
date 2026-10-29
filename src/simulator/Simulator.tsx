@@ -7,8 +7,8 @@ import type {MapCamera} from "./scope-camera";
 import CrashAlert from "./CrashAlert";
 import {conflictLabels, type ConflictKind} from "./training-conflicts";
 import ConflictOverlay from "./ConflictOverlay";
+import AircraftInformation from "./AircraftInformation";
 import FullscreenButton from "./FullscreenButton";
-import {magneticHeadingLabel} from "./magnetic-headings";
 import type {Airport} from "./model";
 import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore} from "react";
 import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
@@ -368,8 +368,8 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
 }
 function UtilityPanel({airport, label, aircraft: a, dispatch, onClose}: {airport: Airport; label: ContextAction; aircraft: Aircraft; dispatch: (a: Action) => void; onClose: () => void}) {
   const edit = (patch: Partial<Aircraft>) => {dispatch({kind: "edit", aircraftId: a.id, patch}); onClose();};
-  return <section className={`${styles.utility} ${label === "information" ? styles.aircraftInformation : ""}`} role="dialog" aria-label={CONTEXT_ACTIONS[label]} aria-modal={label === "information" ? undefined : true}><header>{CONTEXT_ACTIONS[label]}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
-    {label === "information" ? <dl><dt>Callsign</dt><dd>{a.callsign}</dd><dt>Aircraft</dt><dd>{a.type}</dd><dt>Altitude</dt><dd>{Math.round(a.altitude)}ft MSL</dd><dt>Heading</dt><dd>{magneticHeadingLabel(a.heading, airport)}°M</dd><dt>Speed</dt><dd>{Math.round(a.speed)}KT</dd><dt>Frequency</dt><dd>{a.frequency ? a.frequency.toUpperCase() : "Not tuned"}</dd><dt>Destination</dt><dd>{a.destination?.name ?? airport.icao}</dd><dt>Assigned runway</dt><dd>{a.runway ?? "—"}</dd><dt>Assigned altitude</dt><dd>{a.radar?.targetAltitude ? a.radar.targetAltitude.unit === "feet" ? `${a.radar.targetAltitude.value}ft` : `FL${a.radar.targetAltitude.value}` : "—"}</dd><dt>Flight plan</dt><dd>{a.flightPlan.length ? <ol>{a.flightPlan.map((point, index) => <li key={index}>{point.name ?? `Waypoint ${index + 1}`}</li>)}</ol> : "No flight plan"}</dd></dl> : null}
+  if (label === "information") return <AircraftInformation airport={airport} aircraft={a} className={`${styles.utility} ${styles.aircraftInformation}`} onClose={onClose}/>;
+  return <section className={styles.utility} role="dialog" aria-label={CONTEXT_ACTIONS[label]} aria-modal="true"><header>{CONTEXT_ACTIONS[label]}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
     {label === "tag" ? <div className={styles.colorChoices}>{(["auto", "default"] as const).map(tag => <button key={tag} onClick={() => edit({tag})}>{tag === "auto" ? "Automatic Position" : tag === "default" ? "Default Position" : tag === "left" ? "Left" : "Right"}</button>)}</div> : null}
   </section>;
 }

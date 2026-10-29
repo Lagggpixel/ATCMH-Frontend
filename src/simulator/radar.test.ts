@@ -145,7 +145,7 @@ for (const [start, target] of [[0, 90], [90, 180], [0, 180], [350, 20], [10, 340
   const rolling = fly(state, 2, step).aircraft[0];
   near(Math.abs(rolling.bankAngle!), 12);
   assert.ok(Math.abs(((rolling.heading - magneticToTrue(start, getAirport()) + 540) % 360) - 180) < 6);
-  state = fly(state, 120, step); near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
+  state = fly(state, 240, step); near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
   near(state.aircraft[0].bankAngle!, 0);
   near(fly(state, 10, step).aircraft[0].heading, magneticToTrue(target, getAirport()));
   const line = engineFor(state).headingProjection(state.aircraft[0]); near(radarHeading(line[0], line[1]), state.aircraft[0].track!);
@@ -185,7 +185,7 @@ for (const mode of ["approach", "center"] as const) for (const heading of [0, 22
   assert.match(state.messages.at(-1)!.text, /heading .*cleared.*ILS/);
   assert.equal(state.aircraft[0].targetHeading, magneticToTrue(target, getAirport(state)));
   assert.equal(state.aircraft[0].radar!.cleared, approach.id);
-  state = fly(state, 120);
+  state = fly(state, 240);
   near(state.aircraft[0].heading, magneticToTrue(target, getAirport()));
   assert.equal(state.aircraft[0].radar!.cleared, approach.id);
 });

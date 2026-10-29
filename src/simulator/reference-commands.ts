@@ -260,7 +260,7 @@ export function moveReference(a: Aircraft, dt: number, weather?: ExerciseWeather
     }
   }
   const previous = a.heading;
-  turnAircraft(a, dt, m.kind === "hold" && m.phase !== "entry" ? 20 : DEFAULTS.bankAngle);
+  turnAircraft(a, dt);
   const turned = (m.turnSign ?? sign) * courseDifference(previous, a.heading);
   if (m.kind === "circle") m.remaining -= turned;
   else if (m.phase === "turn-outbound" || m.phase === "turn-inbound") {

@@ -23,7 +23,7 @@ export function holdingPattern(a: Aircraft): Point[] {
   const m = a.atcManeuver;
   if (!a.active || m?.kind !== "hold" || !m.center) return [];
   const speed = m.pathSpeed ?? Math.max(60, trueAirspeed(a.speed, a.altitude));
-  const radius = bankTurnRadius(speed, 20), length = Math.max(1, speed / 3600 * (m.pathSeconds ?? m.legSeconds ?? holdingLegSeconds(m.altitude)));
+  const radius = bankTurnRadius(speed), length = Math.max(1, speed / 3600 * (m.pathSeconds ?? m.legSeconds ?? holdingLegSeconds(m.altitude)));
   const radians = (m.inbound ?? m.heading) * Math.PI / 180, sign = m.hand === "right" ? 1 : -1;
   const forward = {x: Math.sin(radians), y: Math.cos(radians)};
   const side = {x: Math.cos(radians) * sign, y: -Math.sin(radians) * sign};

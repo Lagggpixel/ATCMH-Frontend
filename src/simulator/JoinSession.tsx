@@ -24,7 +24,7 @@ function Join({code}: {code: string}) {
     {checking ? <p role="status" className={styles.muted}>Checking the session…</p> : preview ? <section className={`${styles.card} ${styles.cardActive}`} aria-label="Session found">
       <div className={styles.cardText}><div className={styles.cardTitle}><h2>{preview.title}</h2>{preview.assignedToYou ? <span className={`${styles.status} ${styles.statusLive}`}>Assigned to you</span> : null}</div>
         <p>{preview.airport}{preview.trainerName ? ` · Mentor ${preview.trainerName}` : ""}</p></div>
-      <div className={styles.entryActions}><button type="button" className={styles.secondary} onClick={() => setPreview(null)}>Different code</button><Link className={styles.primary} href={sessionPath("mentee", preview.id)}>Join session</Link></div>
+      <div className={styles.entryActions}><button type="button" className={styles.secondary} onClick={() => setPreview(null)}>Different code</button><a className={styles.primary} href={sessionPath("mentee", preview.id)}>Join session</a></div>
     </section> : <section className={styles.panel}>
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
       <SessionEntryForm initial={code} onResolved={value => {setError(""); setPreview(value);}}/>

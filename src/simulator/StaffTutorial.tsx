@@ -1,7 +1,6 @@
 "use client";
 import {useCallback, useEffect, useId, useRef, useState, useSyncExternalStore} from "react";
 import {createPortal} from "react-dom";
-import {useRouter} from "next/navigation";
 import {Check} from "@phosphor-icons/react/dist/csr/Check";
 import {Minus} from "@phosphor-icons/react/dist/csr/Minus";
 import {Play} from "@phosphor-icons/react/dist/csr/Play";
@@ -46,7 +45,6 @@ const MENTOR_SCOPES: readonly TourScope[] = ["home", "radar"];
 
 /** The guide card and spotlight for whichever track is active. Renders nothing when no tour runs. */
 function CoachTour({accountId, scope, live = false}: {accountId: string; scope: TourScope; live?: boolean}) {
-  const router = useRouter();
   const [progress, update] = useTourProgress(accountId);
   const active = progress.active, track = active ? trackById(active.track) : null;
   const here = !!track && track.scope === scope;
@@ -77,8 +75,8 @@ function CoachTour({accountId, scope, live = false}: {accountId: string; scope: 
     if (!last) {update(current => goToStep(current, active.step + 1)); return;}
     const link = track.id === "start-share" ? document.querySelector<HTMLAnchorElement>('[data-simulator-tour="staff-radar-link"]') : null;
     update(current => {const next = finishTrack(current); return track.id === "start-share" && !next.active && !next.done.includes("run-radar") ? startTrack(next, "run-radar") : next;});
-    if (link) router.push(link.pathname);
-  }, [active, track, last, update, router]);
+    if (link) window.location.assign(link.href);
+  }, [active, track, last, update]);
 
   // Position the card and spotlight, and check the step's "present" and "count-up" conditions on every change.
   useEffect(() => {

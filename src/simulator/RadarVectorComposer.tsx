@@ -23,12 +23,12 @@ export default function RadarVectorComposer({initial, aircraft, exercise, freque
         const error = validateControllerMessage(exercise, aircraft, {...draft, altitude}, frequency);
         return <button key={altitudeLabel(altitude)} disabled={sending || !!error} title={error ?? undefined} onClick={() => pick({altitude})}><div>{altitudeLabel(altitude)}</div></button>;
       }) : <>
-        <button disabled={!connected || sending || !!invalid} title={invalid ?? undefined} onClick={async () => {
+        <button aria-label="Send vector" disabled={!connected || sending || !!invalid} title={invalid ?? undefined} onClick={async () => {
           if (inFlight.current) return; inFlight.current = true; setSending(true);
           try {await onSend(draft);} finally {inFlight.current = false; setSending(false);}
-        }}><div>Send</div></button>
-        {draft.heading === undefined || draft.altitude ? <button disabled={sending} onClick={() => setPicker("heading")}><div>Heading</div><b>›</b></button> : null}
-        {draft.altitude === undefined || draft.heading !== undefined ? <button disabled={sending} onClick={() => setPicker("altitude")}><div>Altitude</div><b>›</b></button> : null}
+        }}><div/><b aria-hidden="true">›</b></button>
+        {draft.heading === undefined || draft.altitude ? <button disabled={sending} onClick={() => setPicker("heading")}><div>Heading</div></button> : null}
+        {draft.altitude === undefined || draft.heading !== undefined ? <button disabled={sending} onClick={() => setPicker("altitude")}><div>Altitude</div></button> : null}
       </>}
     </div>
   </section>;

@@ -1,6 +1,5 @@
 "use client";
 import {useEffect, useRef, useState} from "react";
-import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import LearningFrame from "../learning/LearningFrame";
@@ -82,7 +81,8 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
           const status = sessionStatus(s), mentee = menteeName(s), open = openId === s.id, code = sessionCode(s.id, s.airport);
           const split = isSplit(s.positions) ? s.positions! : null;
           const state = split ? positionProgress(split) : isActive(s) ? status.label : s.assignedMenteeId ? "Not joined yet" : `Active ${lastActive(s.updatedAt, now).toLowerCase()}`;
-          const enter = <Link data-simulator-tour={s.id === tourId ? "staff-radar-link" : undefined} className={`${ui.btn} ${status.label === "Mentee waiting" ? ui.primary : ""}`} href={sessionPath("staff", s.id)}>Enter<span className={ui.srOnly}> {s.title}</span></Link>;
+          // A full navigation lets WebKit recalculate the Home Screen status bar on radar entry.
+          const enter = <a data-simulator-tour={s.id === tourId ? "staff-radar-link" : undefined} className={`${ui.btn} ${status.label === "Mentee waiting" ? ui.primary : ""}`} href={sessionPath("staff", s.id)}>Enter<span className={ui.srOnly}> {s.title}</span></a>;
           const assign = canAssign ? <button type="button" className={ui.linkButton} style={{minHeight: 0, fontSize: 13}} onClick={() => setDialog({kind: "assign", session: s})}>Assign a Mentee<span className={ui.srOnly}> to {s.title}</span></button> : undefined;
           const seats = split ? <PositionChips positions={split}/> : <SeatChip label="Mentee" person={mentee || undefined} presence={s.menteeOccupied ? "on" : isActive(s) ? "wait" : "off"} assign={assign}/>;
           return <SessionRow key={s.id} id={s.id} airport={s.airport ?? "EGPH"} title={s.title} mode={modeLabel(s)} trainerLabel="Mentor" trainer={s.staffName?.trim() || s.ownerName?.trim() || ""} trainerPresence={s.staffOccupied ? "on" : isActive(s) ? "wait" : "off"}
@@ -93,7 +93,7 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
                 <button type="button" className={ui.linkButton} onClick={() => void copy(s, "code")}>Copy code</button>
                 <button type="button" className={ui.linkButton} onClick={() => void copy(s, "link")}>Copy Mentee link</button>
                 {canAssign && !split ? <button type="button" className={ui.linkButton} onClick={() => setDialog({kind: "assign", session: s})}>{s.assignedMenteeId ? "Change Mentee" : "Assign a Mentee"}</button> : null}
-                {superAdmin ? <Link className={ui.linkButton} href={sessionPath("spectator", s.id)} style={{display: "inline-flex", alignItems: "center"}}>Spectate<span className={ui.srOnly}> {s.title}</span></Link> : null}
+                {superAdmin ? <a className={ui.linkButton} href={sessionPath("spectator", s.id)} style={{display: "inline-flex", alignItems: "center"}}>Spectate<span className={ui.srOnly}> {s.title}</span></a> : null}
                 <button type="button" className={`${ui.linkButton} ${ui.dangerLink} ${row.push}`} onClick={() => setDialog({kind: "end", session: s})}>Archive…<span className={ui.srOnly}> {s.title}</span></button>
               </div>
               {manualLink ? <label className={ui.manualLink}>Mentee link<input readOnly value={manualLink} onFocus={event => event.currentTarget.select()}/></label> : null}

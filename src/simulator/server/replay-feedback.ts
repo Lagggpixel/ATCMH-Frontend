@@ -1,5 +1,5 @@
 import type {RowDataPacket} from "mysql2/promise";
-import {withWriteTransaction, afterWriteCommit} from "../../lib/db";
+import {withWriteTransaction, afterWriteCommit} from "../../lib/simulator-db";
 import {exerciseSchema} from "../protocol";
 import type {ReplayParticipant} from "../replays";
 import {SessionError} from "../sessions";

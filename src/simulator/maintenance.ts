@@ -1,3 +1,4 @@
+import {sqliteEnabled, withWriteTransaction} from "../lib/simulator-db";
 import mysql from "mysql2/promise";
 import {databaseUrlFromEnvironment} from "../lib/db";
 import {eraseSimulatorLearner, maintainSimulatorRecords} from "./server/retention";
@@ -8,6 +9,19 @@ async function main() {
   const learner = eraseIndex >= 0 ? args[eraseIndex + 1] : undefined;
   const allowed = new Set(["--apply", "--dry-run", "--erase-learner", learner].filter(Boolean));
   if (args.some(a => !allowed.has(a)) || (eraseIndex >= 0 && (!learner || learner.startsWith("--"))) || (args.includes("--apply") && args.includes("--dry-run"))) throw new Error("Invalid arguments");
+  if (sqliteEnabled()) {
+    const apply = args.includes("--apply");
+    const rollback = new Error("dry-run");
+    let report: unknown;
+    try {
+      await withWriteTransaction(async connection => {
+        report = learner ? await eraseSimulatorLearner(connection, learner!, apply) : await maintainSimulatorRecords(connection, Date.now(), apply);
+        if (!apply) throw rollback;
+      });
+    } catch (error) {if (error !== rollback) throw error;}
+    console.log(JSON.stringify(report));
+    return;
+  }
   const connection = await mysql.createConnection(databaseUrlFromEnvironment());
   try {
     await connection.beginTransaction();

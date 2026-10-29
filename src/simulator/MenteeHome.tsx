@@ -75,7 +75,8 @@ function Assigned() {
             <h2 id="next-heading">{next.title}</h2>{next.positions && next.positions.length > 1 ? <small>You&apos;ll bandbox {next.positions.map(p => p.name).join(" + ")} on {next.positions[0].mhz}, one frequency.</small> : null}
             <small>{next.airport} · {modeLabel(next.trainingStation)}{next.trainerName ? ` · with ${next.trainerName}` : ""} · Assigned {ago(next.assignedAt, now)}</small>
           </div>
-          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter {next.positions?.map(p => p.name).join(" + ") || "session"}<span className={ui.srOnly}> {next.title}</span></Link>
+          {/* Full navigation lets WebKit recalculate the Home Screen status bar on radar entry. */}
+          <a className={`${ui.btn} ${ui.primary} ${ui.large}`} href={sessionPath("mentee", next.id)}>Enter {next.positions?.map(p => p.name).join(" + ") || "session"}<span className={ui.srOnly}> {next.title}</span></a>
         </section> : <div className={ui.emptyCard}><h2>No sessions assigned yet</h2><p>When your Mentor assigns you a session it appears here by itself. You can also join with a code.</p></div>}
       </div>
       {others.length ? <section className={ui.group} aria-labelledby="more-heading">
@@ -83,7 +84,7 @@ function Assigned() {
         <div className={ui.list}>{others.map(session => <div key={session.id} className={ui.item}><div className={ui.itemRow}>
           <div className={ui.itemMain}><strong>{session.title}</strong><small>{session.airport} · {modeLabel(session.trainingStation)}{session.trainerName ? ` · with ${session.trainerName}` : ""}</small></div>
           <span className={`${ui.state} ${status(session).tone}`}>{status(session).label}</span>
-          <Link className={ui.btn} href={sessionPath("mentee", session.id)}>Open<span className={ui.srOnly}> {session.title}</span></Link>
+          <a className={ui.btn} href={sessionPath("mentee", session.id)}>Open<span className={ui.srOnly}> {session.title}</span></a>
         </div></div>)}</div>
       </section> : null}
       <section className={ui.group} aria-labelledby="join-heading">

@@ -101,7 +101,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
       const hoverKey = `${pathLabels.join("/")}/${item.id ?? item.label}`;
       const direct = !item.children && (Boolean(item.instruction) || item.resend) && !item.composeVector;
       const blocked = item.note ?? (item.instruction ? validateControllerMessage(exercise, aircraft, item.instruction, frequency, pilotMessage?.id) : null);
-      return <button key={item.id ?? `${i}-${item.label}`} className={`${item.suggested ? styles.suggestedCommand : ""} ${hoveredOption === hoverKey ? styles.pointerHovered : ""}`} onPointerMove={() => {if (!sending.current) setHoveredOption(hoverKey);}} onPointerLeave={() => setHoveredOption(null)} disabled={pendingLabel !== null || Boolean(item.note) || (direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-busy={pendingLabel === item.label || undefined} aria-disabled={pendingLabel !== null || undefined} aria-label={direct ? `Send ${item.label}` : undefined} onClick={async () => {
+      return <button key={item.id ?? `${i}-${item.label}`} className={`${item.suggested ? styles.suggestedCommand : ""} ${hoveredOption === hoverKey ? styles.pointerHovered : ""}`} onPointerMove={() => {if (!sending.current) setHoveredOption(hoverKey);}} onPointerLeave={() => setHoveredOption(null)} disabled={pendingLabel !== null || Boolean(item.note) || (direct || item.composeVector) && (!connected || Boolean(blocked))} title={blocked ?? undefined} aria-busy={pendingLabel === item.label || undefined} aria-disabled={pendingLabel !== null || undefined} aria-label={direct ? item.label === "Send" ? "Send command" : `Send ${item.label}` : undefined} onClick={async () => {
         if (sending.current) {setSendError("A command is still waiting for acknowledgement."); return;}
         if (item.resend) {
           const previous = exercise.messages.filter(m => m.aircraftId === aircraft.id && m.sender === "controller" && m.frequency === frequency && m.instruction).at(-1);
@@ -113,7 +113,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
           if (await send({kind: "command", aircraftId: aircraft.id, command, frequency, text: instructionText(aircraft, command, [...path, item]), ...(pilotMessage && !(command.type === "atc" && ["broadcast", "guard", "bookmark", "voice"].includes(command.action)) ? {replyTo: pilotMessage.id} : {})}, [...path, item].map(entry => entry.label), item.label)) setPath([]);
         }
         else {setInput(""); setPath([...path.map(entry => entry.id ?? entry.label), item.id ?? item.label]);}
-      }}><span>{i + 1 + (path.length ? 1 : 0)}</span><div>{item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{item.children ? <b>›</b> : direct && (item.sendLabel || item.label !== "Send") ? <b className={styles.sendLabel}>{item.sendLabel ?? "Send"}</b> : null}</button>;
+      }}><span>{i + 1 + (path.length ? 1 : 0)}</span><div>{direct && item.label === "Send" ? null : item.label}{direct && blocked ? <small>{blocked}</small> : null}</div>{direct ? <b aria-hidden="true">›</b> : null}</button>;
     };
   const heading = aircraftMessageHeading(aircraft, getAirport(exercise), exercise.weather);
   const composed = entry?.instruction ? instructionText(aircraft, entry.instruction, path) : `${aircraft.callsign}, ${path.map(item => item.label.replace(/\.\.\.$/, "")).join(", ")}`;

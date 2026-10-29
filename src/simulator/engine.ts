@@ -39,7 +39,7 @@ const {pilotRequests, pilotRequestText, resolvePilotRequest} = catalogFor(AIRPOR
 const radians = Math.PI / 180;
 // Begin the base/final turn one base-speed turn radius beyond the desired join.
 // Otherwise turn anticipation establishes final almost a mile too close in.
-const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + bankTurnLead(a.speedTargets?.base ?? 180) * 1.2;
+const defaultBaseDistance = (a: Pick<Aircraft, "speedTargets">) => DEFAULTS.finalLength + 1.3 + bankTurnLead(a.speedTargets?.base ?? 180) * 1.2;
 
 const normalizeHeading = (heading: number) => (heading % 360 + 360) % 360;
 
@@ -77,7 +77,7 @@ function speedProfile(a: Aircraft): {segment: SpeedPhase; minimum: number; maxim
       : {segment: "final", minimum: 140, maximum: 180, target: finalDistance <= 4.5 + 1e-8 ? 160 : 180};
   }
   const p=performanceFor(a);
-  if(p){const target=profile.segment==="vref"?p.landing:profile.segment==="inbound"?p.inbound:profile.segment==="upwind-downwind"?p.climbSpeed:profile.segment==="base"?Math.min(p.inbound,p.landing*1.3):Math.min(p.inbound,p.landing*1.15); profile={...profile,target,minimum:p.min,maximum:p.max};}
+  if(p){const target=profile.segment==="vref"?p.landing:profile.segment==="inbound"?p.inbound:profile.segment==="upwind-downwind"?(a.mode === "pattern" && a.leg === "downwind" ? 220 : p.climbSpeed):profile.segment==="base"?Math.min(p.inbound,p.landing*1.3):Math.min(p.inbound,p.landing*1.15); profile={...profile,target,minimum:p.min,maximum:p.max};}
   const fixed = a.speedTargets?.[profile.segment];
   return fixed == null ? profile : {...profile, target: fixed, minimum: fixed, maximum: fixed};
 }
@@ -1092,8 +1092,8 @@ function approachSeconds(a: Aircraft, joiningBase = false) {
 
 const deniedJoins = new WeakMap<Aircraft,{leader:Aircraft; own:Point; ahead:Point; heading:number; leaderHeading:number; speed:number; leaderSpeed:number}>();
 function finalJoinSeparated(a: Aircraft, leader: Aircraft) {
-  // Allow for the half-second forecast steps and wind/bank changes before the join.
-  const joinMargin = .1;
+  // Allow for forecast steps and wind/bank changes; faster manual traffic needs more margin.
+  const joinMargin = a.speedMode === "manual" && a.speed > leader.speed + 10 ? .5 : .1;
   const denied=deniedJoins.get(a);
   // Reuse only a denied turn while both aircraft move less than 0.03 NM.
   // This can delay release slightly; it can never approve an unchecked turn.
@@ -1379,15 +1379,20 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
         a.position = add(g.threshold, g.vector, Math.max(0, runwayCoordinates(a.position, g).along));
       } else if (crossedThreshold && (permitted || autoGoAround)) {
         a.mode = "go-around"; a.leg = "upwind"; a.extended = false; a.targetHeading = g.heading; a.selfGoAroundPending = true;
-      } else if (crossedThreshold || (a.leg !== "final" && segment.along >= segment.length - lead - 1e-8)) {
+      } else if (crossedThreshold || (a.leg !== "final" && segment.along >= segment.length - Math.min(lead, segment.length / 2) - 1e-8)) {
         // Crossing the end plane, rather than chasing a point, prevents circling
         // an unreachable waypoint and keeps final parallel to the runway centerline.
+        // Limit anticipation on short legs so a wide turn does not skip the leg.
         a.leg = NEXT_LEG[a.leg]; start = previous[a.leg]; end = points[a.leg]; segment = coordinates(start, end);
       }
       if (a.mode === "pattern") {
         // Allow a full roll-out interval while acquiring the next straight leg.
-        const lookahead = a.leg === "final" ? Math.max(.25, lead * .8) : Math.max(.25, lead * 1.3 + a.speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate);
-        target = add(start, segment.vector, Math.max(0, segment.along) + lookahead);
+        const lookahead = a.leg === "final" ? Math.max(.25, lead * .4) : Math.max(.25, lead * 1.3 + a.speed / 3600 * DEFAULTS.bankAngle / DEFAULTS.bankRate);
+        const anticipateFinal = a.leg === "base" && segment.along >= segment.length - Math.min(lead * 1.4, segment.length * .8);
+        if (anticipateFinal) {
+          const finalAlong = Math.max(0, (a.position.x - points.base.x) * g.vector.x + (a.position.y - points.base.y) * g.vector.y);
+          target = add(points.base, g.vector, finalAlong + Math.max(.25, lead * .4));
+        } else target = add(start, segment.vector, Math.max(0, segment.along) + lookahead);
         a.targetHeading = bearing(a.position, target);
         if (a.radar?.patternJoin?.status === "joining") {
           const lateral = Math.abs((a.position.x - start.x) * -segment.vector.y + (a.position.y - start.y) * segment.vector.x);
@@ -1427,7 +1432,12 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   } else if (a.mode === "rollout") {
     a.targetHeading = g.heading;
     if (a.holding) {a.speed = 0; return;}
-    if (!a.radar?.arrival && !a.runwayExit && a.landing === "touch-and-go") {a.mode = "takeoff"; a.takeoffPattern = true; a.targetSpeed = DEFAULTS.airSpeed; if (a.optionHand) a.hand = a.optionHand; a.optionHand = undefined; a.leg = "upwind";}
+    if (!a.radar?.arrival && !a.runwayExit && a.landing === "touch-and-go") {
+      // Approach speed instructions end when the aircraft starts its next takeoff.
+      delete a.speedInstruction; a.speedMode = "auto";
+      if (a.assigned && Object.hasOwn(a.assigned, "speed")) a.assigned = {...a.assigned, speed: null};
+      a.mode = "takeoff"; a.takeoffPattern = true; a.targetSpeed = DEFAULTS.airSpeed; if (a.optionHand) a.hand = a.optionHand; a.optionHand = undefined; a.leg = "upwind";
+    }
     else {
       if (!a.runwayExit || a.conflictMotion?.slowExit && a.arrivalExit?.instruction === "automatic" && a.arrivalExit.braking === undefined) queueRunwayExit(a, "any", "automatic");
       else if (!a.arrivalExit) a.arrivalExit = {instruction: "exit-runway", speed: 15}; // Legacy assigned exits.

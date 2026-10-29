@@ -37,6 +37,26 @@ test("aircraft accelerate and decelerate gradually, while predictions use the sa
   assert.deepEqual(predictAircraft(state.aircraft, 1).map(a => a.position), advance(state, 1).aircraft.map(a => a.position));
 });
 
+test("profiled aircraft target 220 kt on downwind while respecting explicit speed settings", () => {
+  const state = initialExercise(); state.running = true; state.aircraft = [state.aircraft[0]];
+  const a = state.aircraft[0];
+  Object.assign(a, {mode: "pattern", leg: "downwind", extended: true, speed: 175, targetSpeed: 175, speedMode: "auto"});
+  for (const profile of ["C172", "C208", "TBM9", "DH8D", "A320", "B738", "B77W"] as const) {
+    a.performanceProfile = profile;
+    assert.equal(speedProfile(a).target, 220, profile);
+  }
+  a.performanceProfile = "A320";
+  let next = advance(state, 5).aircraft[0];
+  assert.equal(next.targetSpeed, 220); assert.equal(next.speed, 187.5);
+  a.speedTargets = {"upwind-downwind": 200};
+  next = advance(state, 1).aircraft[0]; assert.equal(next.targetSpeed, 200);
+  a.speedMode = "manual"; a.targetSpeed = 190;
+  next = advance(state, 1).aircraft[0]; assert.equal(next.targetSpeed, 190);
+  delete a.speedTargets; a.speedMode = "auto"; a.leg = "upwind";
+  assert.equal(speedProfile(a).target, 175, "climb speed remains unchanged");
+  onFinal(a, 5); assert.equal(speedProfile(a).target, 137 * 1.15, "final approach speed remains unchanged");
+});
+
 test("manual IAS survives leg changes and reload, and staff can explicitly resume automatic speeds", () => {
   let state = initialExercise(); state.running = true;
   const maneuver = (command: {type: "speed"; value: number} | {type: "pattern"; leg: "base"}) => {

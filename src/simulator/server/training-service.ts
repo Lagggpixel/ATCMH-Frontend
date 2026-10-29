@@ -3,7 +3,7 @@ import {fetchWeatherReport} from "./weather-provider";
 import {applySessionWeather, requestSessionWeather} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
-import {queryReadOnly, withWriteTransaction, afterWriteCommit} from "../../lib/db";
+import {queryReadOnly, withWriteTransaction, afterWriteCommit} from "../../lib/simulator-db";
 import {storedScenarioSchema, scenarioSchema, scenarioSchemaFor, normalizeScenario, createScenarioExercise, type ScenarioRecord, type ScenarioDefinition} from "../scenarios";
 import {SessionError} from "../sessions";
 import {sqlSessionStore} from "./session-store";
@@ -71,14 +71,14 @@ export class TrainingService {
     const rows = await queryReadOnly<RevisionRow[]>("SELECT definition FROM simulator_scenario_revisions WHERE scenario_id=? AND revision=?", [scenarioId, revision]);
     if (!rows[0]) throw unavailable(); return storedScenarioSchema.parse(JSON.parse(rows[0].definition));
   }
-  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string) {
+  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string, weather?: Awaited<ReturnType<typeof requestSessionWeather>>) {
     const unavailableMode = airportTrainingError(definition);
     if (unavailableMode) throw new SessionError("invalid-scenario", unavailableMode, 400);
     rejectMovedRadar(definition);
     const attemptId = requestId ?? randomUUID(), generation = randomUUID();
     const created = createScenarioExercise(definition, "pending", generation);
     Object.assign(created.runtime, {scenarioId, revision, attemptId});
-    const session = await new SessionService(sqlSessionStore, undefined, undefined, undefined, undefined, fetchWeatherReport).create(actor, definition.title, created.exercise, created.runtime);
+    const session = await new SessionService(sqlSessionStore).create(actor, definition.title, applySessionWeather(created.exercise, weather), created.runtime);
     await withWriteTransaction(async connection => {
       await connection.execute("INSERT INTO simulator_attempts (id,owner_id,scenario_id,revision,session_id,started_at,status,feedback) VALUES (?,?,?,?,?,?, 'active','')", [attemptId, actor.accountId, scenarioId, revision, session.id, Date.now()]);
     });
@@ -86,6 +86,16 @@ export class TrainingService {
   }
   async launchScenario(actor: Actor, scenarioId: string, revision: number, requestId?: string) {
     staff(actor);
+    const weatherDefinition = await this.revision(actor, scenarioId, revision);
+    if (requestId) {
+      const previous = (await queryReadOnly<(RowDataPacket & {owner_id: string; scenario_id: string; revision: number; session_id: string})[]>("SELECT owner_id,scenario_id,revision,session_id FROM simulator_attempts WHERE id=?", [requestId]))[0];
+      if (previous) {
+        if (previous.owner_id !== actor.accountId || previous.scenario_id !== scenarioId || previous.revision !== revision)
+          throw new SessionError("request-conflict", "This creation request was already used. Close the dialog and try again.", 409);
+        return {sessionId: previous.session_id};
+      }
+    }
+    const weather = await requestSessionWeather(getAirport(weatherDefinition).icao, fetchWeatherReport);
     return withWriteTransaction(async connection => {
       const [rows] = await connection.execute<ScenarioRow[]>("SELECT * FROM simulator_scenarios WHERE id=? FOR UPDATE", [scenarioId]);
       if (!rows[0]) throw unavailable();
@@ -99,7 +109,7 @@ export class TrainingService {
           return {sessionId: previous.session_id};
         }
       }
-      return this.launch(actor, definition, scenarioId, revision, requestId);
+      return this.launch(actor, definition, scenarioId, revision, requestId, weather);
     });
   }
   async finish(actor: Actor, sessionId: string, feedback: string, attemptId: string) {

@@ -1,6 +1,6 @@
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
-import {queryReadOnly} from "../../lib/db";
+import {queryReadOnly} from "../../lib/simulator-db";
 import {exerciseSchema} from "../protocol";
 import {demoReplayMarks} from "../demonstration";
 import {demoHub} from "./demo-hub";

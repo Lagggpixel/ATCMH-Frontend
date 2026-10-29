@@ -1,5 +1,5 @@
 import type {RowDataPacket} from "mysql2/promise";
-import {queryReadOnly} from "../../lib/db";
+import {queryReadOnly} from "../../lib/simulator-db";
 import {SessionError} from "../sessions";
 export const isRadarStation = (station: unknown) => typeof station === "string" && /:(approach|center)$/.test(station);
 export function rejectMovedRadar(selection: {trainingStation?: string}) {

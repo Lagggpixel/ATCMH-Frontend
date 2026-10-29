@@ -2,23 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {bankTurnRate, bankTurnRadius, turnAircraft} from "./banked-turns";
 import {advance, engineFor, restoreExercise} from "./engine";
-import {DEFAULTS, type Aircraft} from "./model";
+import {DEFAULTS, type Aircraft, type Exercise} from "./model";
 import {aircraftSchema, envelopeSchema, exerciseSchema, motionSchema} from "./protocol";
 import {ReplayTimeline, replayDelta} from "./replays";
 
 const difference = (a: number, b: number) => ((a - b + 540) % 360) - 180;
 const near = (a: number, b: number, tolerance = 1e-5) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`);
 
-test("25 degree coordinated turns change rate with speed and radius with speed squared", () => {
+test("Maximum-bank coordinated turns change rate with speed and radius with speed squared", () => {
   for (const speed of [80, 160, 250, 450]) {
-    const a = {heading: 0, targetHeading: 120, speed, bankAngle: 25};
+    const a = {heading: 0, targetHeading: 120, speed, bankAngle: DEFAULTS.bankAngle};
     turnAircraft(a, 1);
-    near(a.heading, 9.80665 * Math.tan(25 * Math.PI / 180) / (speed * 1852 / 3600) * 180 / Math.PI);
-    near(a.bankAngle, 25);
+    near(a.heading, 9.80665 * Math.tan(.33) / (speed * 1852 / 3600) * 180 / Math.PI);
+    near(a.bankAngle, DEFAULTS.bankAngle);
   }
-  near(bankTurnRate(160, 25), bankTurnRate(320, 25) * 2);
+  near(bankTurnRate(160, DEFAULTS.bankAngle), bankTurnRate(320, DEFAULTS.bankAngle) * 2);
   near(bankTurnRadius(320), bankTurnRadius(160) * 4);
-  near(bankTurnRate(160, -25), -bankTurnRate(160, 25));
+  near(bankTurnRate(160, -DEFAULTS.bankAngle), -bankTurnRate(160, DEFAULTS.bankAngle));
 });
 
 for (const speed of [80, 160, 250, 450]) for (const [start, target] of [[0, 90], [90, 0], [350, 20], [10, 340], [0, 180], [0, 1]] as const) {
@@ -29,7 +29,7 @@ for (const speed of [80, 160, 250, 450]) for (const [start, target] of [[0, 90],
     for (let t = 0; t < 250; t += .05) {
       const bank = a.bankAngle, error = Math.abs(difference(target, a.heading));
       turnAircraft(a, .05);
-      assert.ok(Math.abs(a.bankAngle) <= 25 + 1e-9);
+      assert.ok(Math.abs(a.bankAngle) <= DEFAULTS.bankAngle + 1e-9);
       assert.ok(Math.abs(a.bankAngle - bank) <= 6 * .05 + 1e-9);
       assert.ok(Math.abs(difference(target, a.heading)) <= error + 1e-6, "normal rollout does not pass the assigned heading");
       assert.ok(a.bankAngle * direction >= -1e-5);
@@ -38,16 +38,51 @@ for (const speed of [80, 160, 250, 450]) for (const [start, target] of [[0, 90],
     }
     near(difference(a.heading, target), 0);
     near(a.bankAngle, 0, 1e-3);
-    if (Math.abs(difference(target, start)) >= 90) near(maximum, 25);
+    if (Math.abs(difference(target, start)) >= 90) near(maximum, DEFAULTS.bankAngle);
   });
 }
 
+test("observed 090 to 180 turn at 220 KIAS and 7000 ft completes in about 62 seconds", () => {
+  const a = {heading: 90, targetHeading: 180, speed: 220, altitude: 7000, performanceProfile: "A320" as const, bankAngle: 0};
+  let elapsed = 0, maximum = 0;
+  while (elapsed < 100 && (Math.abs(difference(a.targetHeading, a.heading)) > .001 || Math.abs(a.bankAngle) > .001)) {
+    turnAircraft(a, .05); elapsed += .05; maximum = Math.max(maximum, a.bankAngle);
+  }
+  near(elapsed, 62, .1); near(maximum, DEFAULTS.bankAngle);
+  near(a.heading, 180, .001); near(a.bankAngle, 0, .001);
+});
+
+test("the exercise engine completes the observed turn with a modeled aircraft", () => {
+  const e = engineFor({trainingStation: "EGPH:approach"});
+  const a: Aircraft = {...e.newAircraft("timing", true), performanceProfile: "A320", mode: "heading", heading: 90, targetHeading: 180,
+    speed: 220, targetSpeed: 220, speedMode: "manual", altitude: 7000, bankAngle: 0};
+  let state: Exercise = {...e.initialExercise(), running: true, autoReadback: false, aircraft: [a]};
+  let elapsed = 0;
+  while (elapsed < 100 && (Math.abs(difference(180, state.aircraft[0].heading)) > .001 || Math.abs(state.aircraft[0].bankAngle ?? 0) > .001)) {
+    state = advance(state, .05); elapsed += .05;
+  }
+  near(elapsed, 62, .1); near(state.aircraft[0].heading, 180, .001); near(state.aircraft[0].bankAngle!, 0, .001);
+  near(state.aircraft[0].speed, 220); near(state.aircraft[0].altitude, 7000);
+});
+
+test("old snapshots above the new bank limit roll back smoothly", () => {
+  for (const sign of [-1, 1]) {
+    const a = {heading: 90, targetHeading: 90 + sign * 90, speed: 220, bankAngle: sign * 25};
+    for (let i = 0; i < 30; i++) {
+      const before = a.bankAngle; turnAircraft(a, .05);
+      assert.ok(Math.abs(a.bankAngle - before) <= .300001);
+      assert.ok(Math.abs(a.bankAngle) <= Math.max(Math.abs(before), DEFAULTS.bankAngle) + 1e-9);
+    }
+    assert.ok(Math.abs(a.bankAngle) <= DEFAULTS.bankAngle + 1e-9);
+  }
+});
+
 test("reversing a clearance rolls through wings level instead of snapping bank or heading", () => {
   const a = {heading: 0, targetHeading: 120, speed: 160, bankAngle: 0};
-  turnAircraft(a, 6); near(a.bankAngle, 25);
+  turnAircraft(a, 6); near(a.bankAngle, DEFAULTS.bankAngle);
   a.targetHeading = 300;
   const before = a.heading;
-  turnAircraft(a, .05); near(a.bankAngle, 24.7); assert.ok(a.heading > before, "momentum remains while rolling out");
+  turnAircraft(a, .05); near(a.bankAngle, DEFAULTS.bankAngle - .3); assert.ok(a.heading > before, "momentum remains while rolling out");
   let negative = false;
   for (let i = 0; i < 200; i++) {const bank = a.bankAngle; turnAircraft(a, .05); assert.ok(Math.abs(a.bankAngle - bank) <= .3 + 1e-9); negative ||= a.bankAngle < 0;}
   assert.ok(negative);
@@ -82,7 +117,7 @@ test("bank is backward compatible, bounded and not a directly editable aircraft 
   const state = {...e.initialExercise(), running: true, aircraft: [ground]};
   const next = advance(state, 1);
   assert.equal(next.aircraft[0].bankAngle, 0); assert.deepEqual(next.aircraft[0].position, ground.position);
-  assert.equal(DEFAULTS.bankAngle, 25); assert.equal(DEFAULTS.bankRate, 6);
+  near(DEFAULTS.bankAngle * Math.PI / 180, .33); assert.equal(DEFAULTS.bankRate, 6);
 });
 
 test("replay interpolation includes continuous signed bank, including legacy wings-level states", () => {

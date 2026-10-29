@@ -94,7 +94,7 @@ test("a hold flies timed straight legs and two bank-limited turns, then exits on
     const phases = new Set<string>(); let straightSeconds = 0;
     for (let i = 0; i < 500; i++) {
       next = e.advance(next, 1); const a = next.aircraft[0], m = a.atcManeuver!;
-      phases.add(m.phase!); assert.ok(Math.abs(a.bankAngle ?? 0) <= 25);
+      phases.add(m.phase!); assert.ok(Math.abs(a.bankAngle ?? 0) <= 0.33 * 180 / Math.PI + 1e-9);
       if (m.phase === "outbound") straightSeconds++;
       if (i === 150) next = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(next))));
     }

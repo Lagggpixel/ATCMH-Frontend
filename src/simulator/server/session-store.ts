@@ -1,7 +1,7 @@
 import {positionPresence} from "./position-state";
 import type {Exercise} from "../model";
 import type {RowDataPacket} from "mysql2/promise";
-import {queryReadOnly, withWriteTransaction} from "../../lib/db";
+import {queryReadOnly, withWriteTransaction} from "../../lib/simulator-db";
 import {scenarioRuntimeSchema} from "../scenarios";
 import {exerciseSchema} from "../protocol";
 import {SessionError, type AssignedSession, type SessionSummary} from "../sessions";
