@@ -328,10 +328,11 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   }
   const finalDistance = along < 0 && lateral <= .5 && Math.abs(headingDifference(final.heading, a.heading)) <= 30 ? -along : undefined;
   const arrival = clearedApproach || r.expected || r.guidance === "vectors" || r.flight !== "departure" && !r.departure && a.landing === "full-stop";
-  // Distance-based approach speeds only apply on the inbound final corridor.
-  // Radial distance also shrinks on downwind and immediately after departure.
+  // Vectoring retains inbound speed off final. A cleared visual join uses the
+  // approach profile during its turn so the aircraft can establish on final.
   const approachDistance = clearedApproach && r.captured && r.transferred && along >= 0 ? 0
-    : arrival || r.finalSpeedProfile ? finalDistance : undefined;
+    : clearedApproach?.type === "visual" && !r.captured ? distance(a.position, final.threshold)
+      : arrival || r.finalSpeedProfile ? finalDistance : undefined;
   const automaticTarget = automaticRadarTarget(a, approachDistance);
   if (a.speedMode !== "manual") a.targetSpeed = automaticTarget;
   let groundTrack: number | undefined;

@@ -15,7 +15,7 @@ function fixture(station: "approach" | "center") {
   delete a.radar!.departure; delete a.radar!.cleared; delete a.radar!.speed;
   const position = (along: number, lateral: number) => ({x: g.threshold.x + g.vector.x * along - g.vector.y * lateral, y: g.threshold.y + g.vector.y * along + g.vector.x * lateral});
   const step = (seconds = .1) => moveRadar(a, seconds, airport, env);
-  return {a, g, approach, position, step};
+  return {a, g, approach, env, position, step};
 }
 
 for (const station of ["approach", "center"] as const) {
@@ -44,6 +44,12 @@ for (const station of ["approach", "center"] as const) {
     assignRadarSpeed(f.a, {type: "radar-speed", mode: "maintain", unit: "knots", relation: "exact", value: 200});
     f.step(); assert.equal(f.a.targetSpeed, 200);
     assignRadarSpeed(f.a, {type: "radar-speed", mode: "discretion"});
+    f.step(); assert.equal(f.a.targetSpeed, 160);
+  });
+  test(`${station}: a cleared visual join selects approach speed while turning onto final`, () => {
+    const f = fixture(station), visual = f.env.approaches.find(p => p.type === "visual" && p.runway === "27R")!;
+    Object.assign(f.a, {position: f.position(-4, 2), heading: (f.g.heading + 270) % 360, targetHeading: (f.g.heading + 270) % 360});
+    Object.assign(f.a.radar!, {navigation: "approach", expected: visual.id, cleared: visual.id, captured: false});
     f.step(); assert.equal(f.a.targetSpeed, 160);
   });
   test(`${station}: a captured landing retains final speed after crossing the threshold`, () => {
