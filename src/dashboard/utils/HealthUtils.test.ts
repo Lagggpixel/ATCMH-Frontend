@@ -8,7 +8,7 @@ import type {AdminUser} from "../types/AdminUser.ts";
 
 const jobs: HealthJob[] = [
     {name: "session-post-colors", state: "HEALTHY", overdue: false},
-    {name: "controlling-feed", state: "FAILED", overdue: false, failureReference: "job-123"},
+    {name: "session-announcements", state: "FAILED", overdue: false, failureReference: "job-123"},
     {name: "reminders", state: "RUNNING", overdue: true},
     {name: "attendance", state: "DISABLED", overdue: false, disabledReason: "Disabled by configuration"},
 ];
@@ -29,7 +29,7 @@ test("attention filtering includes failed and overdue jobs, but not intentionall
     assert.deepEqual(filterHealthJobs(jobs, "", true), jobs.slice(1, 3));
     assert.deepEqual(filterHealthJobs(jobs, " JOB-123 ", true), [jobs[1]]);
     assert.deepEqual(filterHealthJobs(jobs, "CONFIGURATION", false), [jobs[3]]);
-    assert.deepEqual(filterHealthJobs(jobs, "session", true), []);
+    assert.deepEqual(filterHealthJobs(jobs, "session-post", true), []);
 });
 
 test("uptime formats days, hours and minutes", () => {

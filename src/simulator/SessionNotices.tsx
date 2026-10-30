@@ -29,7 +29,7 @@ const Check = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 const Alert = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>;
 
 /** Shown until the first frame arrives: the steps a page goes through to take its seat. */
-export function JoiningNotice({status, code, seat, exit}: {status: string; code: string; seat: string; exit: {href: string; label: string}}) {
+export function JoiningNotice({status, code, seat, exit}: {status: string; code?: string; seat: string; exit: {href: string; label: string}}) {
   const reconnecting = /reconnect/i.test(status);
   const steps: [string, Step][] = [["Signed in", "done"], [reconnecting ? "Reconnecting to the saved session" : `Taking your ${seat} seat`, "now"], ["Loading radar and traffic", "next"]];
   return <Frame tone="info" icon={<Spinner/>} title={reconnecting ? "Reconnecting" : "Joining session"} text="This usually takes a few seconds." code={code}>
@@ -39,7 +39,7 @@ export function JoiningNotice({status, code, seat, exit}: {status: string; code:
 }
 
 export interface FailureProps {
-  code: string | null; message: string; detail?: Record<string, unknown>; sessionCode: string; staff: boolean; words: NoticeWords;
+  code: string | null; message: string; detail?: Record<string, unknown>; sessionCode?: string; staff: boolean; words: NoticeWords;
   exit: {href: string; label: string}; onRetry: () => void; onTakeOver: () => void; replayHref: (id: string) => string;
 }
 const minutes = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3600)} h ${Math.round(seconds % 3600 / 60)} min` : `${Math.max(1, Math.round(seconds / 60))} min`;

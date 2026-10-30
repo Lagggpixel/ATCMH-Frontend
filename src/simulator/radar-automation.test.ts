@@ -4,7 +4,7 @@ import {randomUUID} from "node:crypto";
 import {engineFor, restoreExercise} from "./engine";
 import {getAirport} from "./airports";
 import {approachGeometry, assignRadar, moveRadar} from "./radar";
-import {assignRadarSpeed} from "./radar-speed";
+import {assignRadarSpeed, automaticRadarTarget} from "./radar-speed";
 import {GLIDESLOPE_DEVIATION_FEET, missedLocalizerReason} from "./radar-automation";
 import {updateRouteConstraints} from "./command-navigation";
 import {exerciseSchema} from "./protocol";
@@ -66,7 +66,7 @@ for (const station of ["approach", "center"] as const) {
       assert.ok(f.a.speed >= 249.8, "speed changes gradually");
     }
     const f = fixture(station, type, 8, 1, 60); f.step();
-    assert.equal(f.a.radar!.captured, false); assert.equal(f.a.targetSpeed, 180);
+    assert.equal(f.a.radar!.captured, false); assert.equal(f.a.targetSpeed, automaticRadarTarget(f.a));
     const returning = fixture(station, type);
     Object.assign(returning.a.radar!, {flight: "departure"}); returning.step();
     assert.equal(returning.a.targetSpeed, 180, "an approach clearance also slows traffic originally spawned as a departure");

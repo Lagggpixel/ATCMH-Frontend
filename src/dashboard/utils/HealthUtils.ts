@@ -37,7 +37,6 @@ export const jobDescriptions: Record<string, string> = {
     "mentee-attendance-alerts": "Checks mentee attendance deficit alerts.",
     "discord-accounts": "Reconciles linked Discord accounts.",
     "leaderboard-roles": "Updates the top attendee role.",
-    "controlling-feed": "Fetches and posts controlling feed updates.",
     "role-update-processing": "Processes queued role updates.",
     "notify-dms": "Delivers queued direct-message notifications.",
     "database-backup": "Creates the daily database backup.",

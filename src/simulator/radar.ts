@@ -79,7 +79,10 @@ export function radarStripRunway(a: Aircraft, environment: RadarEnvironment): st
   return a.assigned?.runway ?? approach?.runway ?? (r.guidance === "vectors" || r.arrival || r.patternJoin ? a.runway ?? a.lastRunway : undefined) ?? "----";
 }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-export const airborne = (a: Aircraft, airport: Airport) => a.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) && a.altitude > (a.originDeparture?.elevation ?? airport.elevation);
+// A remote departure may be below the controlled airport while climbing, or
+// below its origin while returning to a lower airport. Both can be airborne.
+const airborneElevation = (a: Pick<Aircraft, "originDeparture">, airport: Airport) => Math.min(a.originDeparture?.elevation ?? airport.elevation, airport.elevation);
+export const airborne = (a: Aircraft, airport: Airport) => a.active && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) && a.altitude > airborneElevation(a, airport);
 const towards = (value: number, target: number, maximum: number) => value + Math.sign(target - value) * Math.min(Math.abs(target - value), maximum);
 
 /** Versioned schematic training geometry, generated from the pinned runway snapshot.
@@ -135,7 +138,7 @@ export function radarTrafficStateError(a: Pick<Aircraft, "mode" | "altitude" | "
   // while new scenario seeds and manual edits still require an airborne start.
   if (allowLandingTransition && a.mode === "heading" && !a.radar.departure && a.altitude === airport.elevation
     && radarArrivalFrequency(a.frequency) && a.radar.transferred && a.radar.navigation === "approach" && a.radar.captured && a.radar.cleared) return null;
-  return (a.mode === "heading" || pattern) && !a.radar.departure && a.altitude > (a.originDeparture?.elevation ?? airport.elevation) ? null : "Radar traffic must be airborne or taking off from this airport.";
+  return (a.mode === "heading" || pattern) && !a.radar.departure && a.altitude > airborneElevation(a, airport) ? null : "Radar traffic must be airborne or taking off from this airport.";
 }
 /** Unspecified radar arrivals default to landing; explicit departures and onward destinations check in. */
 export function radarLandingIntention(a: Aircraft, airport: Airport): boolean {
@@ -325,7 +328,10 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   }
   const finalDistance = along < 0 && lateral <= .5 && Math.abs(headingDifference(final.heading, a.heading)) <= 30 ? -along : undefined;
   const arrival = clearedApproach || r.expected || r.guidance === "vectors" || r.flight !== "departure" && !r.departure && a.landing === "full-stop";
-  const approachDistance = arrival ? distance(a.position, final.threshold) : r.finalSpeedProfile ? finalDistance : undefined;
+  // Distance-based approach speeds only apply on the inbound final corridor.
+  // Radial distance also shrinks on downwind and immediately after departure.
+  const approachDistance = clearedApproach && r.captured && r.transferred && along >= 0 ? 0
+    : arrival || r.finalSpeedProfile ? finalDistance : undefined;
   const automaticTarget = automaticRadarTarget(a, approachDistance);
   if (a.speedMode !== "manual") a.targetSpeed = automaticTarget;
   let groundTrack: number | undefined;

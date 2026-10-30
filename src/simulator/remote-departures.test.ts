@@ -10,8 +10,28 @@ import {exerciseSchema} from "./protocol";
 import {ReplayTimeline, replayDelta} from "./replays";
 import {advanceScenario} from "./scenario-engine";
 import {TerrainImpacts} from "./server/terrain-impacts";
+import {airborne, radarTrafficStateError} from "./radar";
 import type {DepartureAirport} from "./departure-airports";
 const origin: DepartureAirport = {icao: "TEST", name: "Nearby", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}}]};
+test("saved returning traffic remains airborne above a lower destination airport", () => {
+  const state = engineFor({airport: "KDAL", trainingStation: "KDAL:approach"}).initialExercise();
+  state.aircraft = state.aircraft.slice(0, 1);
+  const a = state.aircraft[0], airport = getAirport(state);
+  a.originDeparture = {icao: "TEST", runway: "09", elevation: airport.elevation + 3, threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}, phase: "complete"};
+  a.mode = "heading"; a.altitude = airport.elevation + 1.99; a.frequency = "unicom";
+  const approach = state.radarEnvironment!.approaches[0].id;
+  Object.assign(a.radar!, {flight: "return", navigation: "approach", transferred: true, captured: true, expected: approach, cleared: approach});
+  delete a.radar!.departure;
+  assert.equal(radarTrafficStateError(a, airport, true), null);
+  assert.equal(airborne(a, airport), true);
+  exerciseSchema.parse(state);
+  a.altitude = airport.elevation - 1;
+  assert.ok(radarTrafficStateError(a, airport, true));
+  assert.equal(exerciseSchema.safeParse(state).success, false);
+  a.originDeparture.elevation = airport.elevation - 100; a.altitude = airport.elevation - 50;
+  assert.equal(radarTrafficStateError(a, airport, true), null, "a remote departure below the controlled airport is still airborne");
+  assert.equal(airborne(a, airport), true);
+});
 function fly(state: ReturnType<ReturnType<typeof engineFor>["initialExercise"]>, seconds: number) {
   const engine = engineFor(state); state.running = true;
   for (let n = 0; n < seconds; n++) state = engine.advance(state, 1);
