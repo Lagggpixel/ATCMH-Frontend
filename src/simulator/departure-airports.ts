@@ -63,3 +63,19 @@ export function nearestDepartureAirport(candidates: readonly {identifier: string
   return candidates.filter(item => allowed.has(item.identifier)).map(item => ({item, distance: Math.hypot(project(item.point).x - click.x, project(item.point).y - click.y)}))
     .filter(item => item.distance <= radius).sort((a, b) => a.distance - b.distance)[0]?.item.identifier;
 }
+
+/** Choose the closest airport, then the nearest runway end aligned with the aircraft. */
+export function nearestScenarioDeparture(origins: readonly DepartureAirport[], map: ScopeMapData, controlled: Airport, position: Point, heading: number) {
+  const airportPoint = (origin: DepartureAirport): Point => map.airports.find(item => item.identifier.toUpperCase() === origin.icao)?.point
+    ?? (origin.icao === controlled.icao ? {x: 0, y: 0} : origin.runways[0].threshold);
+  const origin = [...origins].sort((a, b) => Math.hypot(position.x - airportPoint(a).x, position.y - airportPoint(a).y) - Math.hypot(position.x - airportPoint(b).x, position.y - airportPoint(b).y))[0];
+  if (!origin) throw new Error("No departure airport with usable runway data is available.");
+  const ends = origin.runways.map(runway => {
+    const difference = Math.abs((departureGeometry(runway).heading - heading + 540) % 360 - 180);
+    return {runway, difference, distance: Math.hypot(position.x - runway.threshold.x, position.y - runway.threshold.y)};
+  });
+  const bestHeading = Math.min(...ends.map(end => end.difference));
+  // Parallel runway headings can differ slightly in the source geometry.
+  const runway = ends.filter(end => end.difference <= bestHeading + 10).sort((a, b) => a.distance - b.distance || a.difference - b.difference)[0].runway;
+  return {origin, runway: runway.id};
+}

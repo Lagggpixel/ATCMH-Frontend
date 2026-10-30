@@ -33,7 +33,7 @@ export function flightPlanPatch(aircraft: Aircraft, flightPlan: RoutePoint[], li
   const kept = matches.sort((a, b) => Math.abs(a - r.routeIndex) - Math.abs(b - r.routeIndex))[0];
   const routeIndex = !live ? 0 : kept ?? Math.min(r.routeIndex, flightPlan.length);
   const navigation = !flightPlan.length ? r.navigation === "route" || !live ? "heading" : r.navigation : live || aircraft.flightPlan.length ? r.navigation : "route";
-  return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : {})};
+  return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : !live && r.departure ? {followRouteAltitudes: true} : {})};
 }
 
 /** One row of the editor: a lone fix, or consecutive fixes added from one procedure. */

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {getAirport} from "./airports";
-import {departureAirports, nearestDepartureAirport} from "./departure-airports";
+import {departureAirports, nearestDepartureAirport, nearestScenarioDeparture} from "./departure-airports";
 import type {ScopeMapData} from "./scope-map-data";
 
 test("departure airport catalogue requires elevation and runway geometry and retains local runway snapshots", () => {
@@ -31,4 +31,21 @@ test("map shortcut chooses the nearest usable airport within the screen hit radi
   const project = (point: {x: number; y: number}) => ({x: point.x * 20, y: point.y * 20});
   assert.equal(nearestDepartureAirport(candidates, origins, {x: .2, y: 0}, project), "EGPH");
   assert.equal(nearestDepartureAirport(candidates, origins, {x: 4, y: 0}, project), undefined);
+});
+
+
+test("scenario conversion selects the closest airport and the closest runway aligned with heading", () => {
+  const airport = getAirport({airport: "EGPH"});
+  const map: ScopeMapData = {airport: airport.icao, airports: [
+    {id: "1", identifier: "TEST", point: {x: 10, y: 10}, isTowered: false, elevationFeet: 400},
+    {id: "2", identifier: "FAR", point: {x: 30, y: 30}, isTowered: false, elevationFeet: 400},
+  ]};
+  const origins = [{icao: "TEST", name: "Nearby", elevation: 400, runways: [
+    {id: "09L", threshold: {x: 9, y: 10}, departure: {x: 11, y: 10}},
+    {id: "09R", threshold: {x: 9, y: 11}, departure: {x: 11, y: 11.02}},
+    {id: "27R", threshold: {x: 11, y: 10}, departure: {x: 9, y: 10}},
+  ]}, {icao: "FAR", name: "Far", elevation: 400, runways: [{id: "09", threshold: {x: 30, y: 30}, departure: {x: 31, y: 30}}]}];
+  assert.deepEqual(nearestScenarioDeparture(origins, map, airport, {x: 10, y: 11.2}, 90), {origin: origins[0], runway: "09R"});
+  assert.equal(nearestScenarioDeparture(origins, map, airport, {x: 10, y: 11.2}, 270).runway, "27R");
+  assert.equal(nearestScenarioDeparture(origins, map, airport, {x: 29, y: 30}, 90).origin.icao, "FAR");
 });

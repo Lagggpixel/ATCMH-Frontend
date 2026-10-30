@@ -1,5 +1,6 @@
 import {arrivalProcedureName} from "./arrival-procedure";
-import {departureGeometry} from "./departure-airports";
+import {applyDepartureOrigin, departureGeometry, nearestScenarioDeparture, type DepartureAirport} from "./departure-airports";
+import type {ScopeMapData} from "./scope-map-data";
 import {visualDescentDistance, visualDescentHeight} from "./visual-descent";
 import {runwayGoAroundDue, runwayOccupied} from "./runway-safety";
 import {radarArrivalFrequency} from "./model";
@@ -113,7 +114,7 @@ export function radarAircraft(a: Aircraft, station: "approach" | "center", airpo
 export function radarTakeoffAircraft(a: Aircraft, airport: Airport, runway = defaultRunway(airport)): Aircraft {
   const g = approachGeometry(airport, runway), station = a.radar?.station ?? "approach";
   const result: Aircraft = {...a, runway, mode: "takeoff", position: {...g.threshold}, heading: g.heading, targetHeading: g.heading,
-    altitude: airport.elevation, speed: 0, targetSpeed: 220, speedMode: "auto", flightPlan: [], trail: [],
+    altitude: airport.elevation, speed: 0, targetSpeed: 220, speedMode: "auto", flightPlan: structuredClone(a.flightPlan), trail: [],
     frequency: station, clearedToLand: false, clearedForOption: false, leavingCircuit: true,
     radar: {station, navigation: "heading", routeIndex: 0, flight: a.radar?.flight ?? "departure",
       requestedApproach: a.radar?.requestedApproach, departureDirection: a.radar?.departureDirection ?? "north",
@@ -121,6 +122,14 @@ export function radarTakeoffAircraft(a: Aircraft, airport: Airport, runway = def
   delete result.originDeparture;
   result.targetSpeed = automaticRadarTarget(result);
   return result;
+}
+/** Convert an existing scenario aircraft using its position, heading and filed route. */
+export function scenarioTakeoffAircraft(a: Aircraft, airport: Airport, origins: readonly DepartureAirport[], map: ScopeMapData): Aircraft {
+  const selected = nearestScenarioDeparture(origins, map, airport, a.position, a.heading);
+  const result = radarTakeoffAircraft(a, airport, selected.origin.icao === airport.icao ? selected.runway : defaultRunway(airport));
+  result.radar!.navigation = a.flightPlan.length ? "route" : "heading";
+  result.followRouteAltitudes = a.flightPlan.length ? true : undefined;
+  return applyDepartureOrigin(result, airport, selected.origin, selected.runway);
 }
 export function radarTrafficStateError(a: Pick<Aircraft, "mode" | "altitude" | "runway" | "radar" | "frequency" | "originDeparture">, airport: Airport, allowLandingTransition = false): string | null {
   if (!a.radar) return "Radar traffic requires radar navigation.";
