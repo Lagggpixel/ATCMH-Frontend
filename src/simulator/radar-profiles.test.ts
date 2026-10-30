@@ -1,4 +1,4 @@
-import {performanceFor, advancePerformance, trueAirspeed, AIRCRAFT_PERFORMANCE, climbRate, flightVelocity} from "./aircraft-performance";
+import {performanceFor, profileForType, advancePerformance, trueAirspeed, AIRCRAFT_PERFORMANCE, climbRate, flightVelocity} from "./aircraft-performance";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor, restoreExercise} from "./engine";
@@ -130,10 +130,21 @@ test("Mach instructions and the displayed Mach share altitude, temperature and p
 
 const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
 
-test("seven stored performance profiles cover piston, turboprop and jet schedules",()=>{
- assert.equal(AIRCRAFT_PERFORMANCE.length,7);assert.deepEqual([...new Set(AIRCRAFT_PERFORMANCE.map(p=>p.propulsion))],["piston","turboprop","jet"]);
+test("stored performance profiles cover piston, turboprop and jet schedules",()=>{
+ assert.deepEqual([...new Set(AIRCRAFT_PERFORMANCE.map(p=>p.propulsion))],["piston","turboprop","jet"]);
  const a=fixtureForInfiniteFlightParity().aircraft[0];a.performanceProfile="C172";a.altitude=1000;assert.equal(climbRate(a),730);a.performanceProfile="A320";assert.equal(climbRate(a),2500);a.altitude=41000;assert.equal(climbRate(a),0);
  a.altitude=15000;a.heading=90;a.speed=200;const calm=flightVelocity(a),wind=flightVelocity(a,{windDirection:90,windSpeed:20,visibilityKm:10,qnh:1013.25,reference:"test"});assert.ok(calm.x>200);assert.ok(Math.abs(calm.x-wind.x-20)<.001);
  const local=createLocalAircraft({},"c172",{placement:"custom",callsign:"Test 123",type:"C172",runway:"24",distance:5,leg:"final",hand:"left",height:1500,speed:100,heading:90,landing:"full-stop",flight:"departure",frequency:"tower"});assert.equal(local.performanceProfile,"C172");
  const spawn=createSpawnAircraft(fixtureForInfiniteFlightParity(),"tbm",{airborne:true,type:"TBM9",callsign:"Test 930",landing:"full-stop",altitude:5000,speed:180});assert.equal(spawn.performanceProfile,"TBM9");
+});
+
+test("all aircraft types used by shared templates resolve to a stored performance profile", () => {
+ const types = ["A35K", "B738", "B77W", "A388", "A320", "A333", "B789", "A321", "B748", "A339", "A220", "A359", "B752", "B739", "B78X", "E190", "B744", "CRJ9", "A346", "B772", "B763", "C208", "TBM9", "E170", "C56X", "A319", "B737", "E175", "B788", "A21N", "A20N", "A330"];
+ for (const type of types) {
+  const profile = profileForType(type); assert.ok(profile, type);
+  const aircraft = {...engineFor().newAircraft("profile-test", true), type, performanceProfile: profile};
+  assert.equal(exerciseSchema.parse({...engineFor().initialExercise(), aircraft: [aircraft]}).aircraft[0].performanceProfile, profile);
+ }
+ assert.equal(profileForType("A220"), "A223"); assert.equal(profileForType("A330"), "A333");
+ assert.equal(profileForType("unknown-type"), undefined);
 });

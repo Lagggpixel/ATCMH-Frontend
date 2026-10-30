@@ -20,6 +20,15 @@ test("scenario snapshots exclude runtime history and resolve fresh aircraft IDs 
   const next = createScenarioExercise(fixture(), "session", randomUUID());
   assert.notEqual(saved.exercise.aircraft[0].id, next.exercise.aircraft[0].id); assert.equal(next.exercise.messages.length, 0);
 });
+test("legacy scenario aircraft default to normal fuel without overwriting authored fuel", () => {
+  const definition = fixture();
+  delete definition.aircraft[0].seed.fuel;
+  definition.aircraft[1].seed.fuel = {state: "emergency", enduranceMinutes: 7};
+  definition.aircraft[1].initial = true;
+  const {exercise} = createScenarioExercise(definition, "session", randomUUID());
+  assert.deepEqual(exercise.aircraft[0].fuel, {state: "normal", enduranceMinutes: 120});
+  assert.deepEqual(exercise.aircraft[1].fuel, {state: "emergency", enduranceMinutes: 7});
+});
 test("timed spawn runs at its boundary; requests are unread messages and do not move parked traffic", () => {
   const {runtime, exercise: initial} = createScenarioExercise(fixture(), "session", randomUUID());
   const start = {...initial, running: true}, position = {...start.aircraft[0].position};

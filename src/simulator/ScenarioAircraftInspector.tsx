@@ -4,13 +4,15 @@ import {useScopeMapData} from "./use-scope-map-data";
 import type {ScopeMapData} from "./scope-map-data";
 import AircraftTypeSelect from "./AircraftTypeSelect";
 import {profileForType} from "./aircraft-performance";
-import PerformanceControls from "./PerformanceControls";
+import {FuelControls, PerformanceSummary} from "./PerformanceControls";
 import {magneticHeadingLabel, magneticToTrue} from "./magnetic-headings";
-import {useId, useMemo, useState, type Dispatch, type SetStateAction} from "react";
+import {useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction} from "react";
 import {Info} from "@phosphor-icons/react/dist/csr/Info";
 import {Trash} from "@phosphor-icons/react/dist/csr/Trash";
 import {ArrowClockwise} from "@phosphor-icons/react/dist/csr/ArrowClockwise";
 import {CaretRight} from "@phosphor-icons/react/dist/csr/CaretRight";
+import {Crosshair} from "@phosphor-icons/react/dist/csr/Crosshair";
+import {AirplaneLanding} from "@phosphor-icons/react/dist/csr/AirplaneLanding";
 import {defaultRunway, getAirport, trainingMode} from "./airports";
 import {engineFor} from "./engine";
 import {gatesFor, isGroundSpawn, normalizeScenarioAircraft, type ScenarioDefinition} from "./scenarios";
@@ -22,6 +24,9 @@ import {SpeedTargetsEditor} from "./SpeedControls";
 import ScenarioFlightPlan from "./ScenarioFlightPlan";
 import type {Aircraft, Frequency, Leg} from "./model";
 import styles from "./ScenarioAircraftInspector.module.css";
+
+/** An input with its unit shown inside the box. */
+const Unit = ({unit, children}: {unit: string; children: ReactNode}) => <span className={styles.unit}>{children}<span aria-hidden="true">{unit}</span></span>;
 
 const tabs = ["Setup", "Intentions", "Routes"] as const;
 type Tab = typeof tabs[number];
@@ -60,14 +65,16 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
         }}>{name}</button>)}
     </div>
     <fieldset disabled={readOnly} className={styles.body}>
-      {tab==="Setup"?<PerformanceControls aircraft={a} onEdit={patch}/>:null}
       <section className={styles.panel} role="tabpanel" id={`${id}-Setup-panel`} aria-labelledby={`${id}-Setup-tab`} hidden={tab !== "Setup"}>
         <div className={styles.section}>
+          <h3>Aircraft</h3>
           <label>Callsign<input value={a.callsign} maxLength={80} onChange={e => patch({callsign: e.target.value})}/></label>
-          <div className={styles.pair}><label>Type<AircraftTypeSelect value={a.type} onChange={type => patch({type, performanceProfile: profileForType(type)})}/></label>
-            <label>Frequency<select value={a.frequency ?? "none"} onChange={e => patch({frequency: e.target.value === "none" ? null : e.target.value as Frequency})}><option value="ground">Ground</option><option value="tower">Tower</option>{radarMode !== "local" ? <><option value="approach">Approach</option><option value="center">Center</option></> : null}<option value="none">None</option></select></label></div>
-          <label>Appears<select value={spec.initial ? "initial" : "scheduled"} onChange={e => schedule(e.target.value === "initial")}><option value="initial">At Start</option><option value="scheduled">From a timeline event</option></select></label>
+          <label>Type<AircraftTypeSelect value={a.type} onChange={type => patch({type, performanceProfile: profileForType(type)})}/></label>
+          <PerformanceSummary aircraft={a}/>
+          <div className={styles.pair}><label>Frequency<select value={a.frequency ?? "none"} onChange={e => patch({frequency: e.target.value === "none" ? null : e.target.value as Frequency})}><option value="ground">Ground</option><option value="tower">Tower</option>{radarMode !== "local" ? <><option value="approach">Approach</option><option value="center">Center</option></> : null}<option value="none">None</option></select></label>
+            <label>Appears<select value={spec.initial ? "initial" : "scheduled"} onChange={e => schedule(e.target.value === "initial")}><option value="initial">At start</option><option value="scheduled">From timeline</option></select></label></div>
         </div>
+        <div className={styles.section}><h3>Fuel</h3><FuelControls aircraft={a} onEdit={patch}/></div>
         <div className={styles.section}>
           <h3>{a.radar?.departure || a.originDeparture ? "Runway departure" : ground ? spec.gateId ? "Gate placement" : "Surface placement" : "Spawn position"}</h3>
           {a.radar ? <><label>Spawn location<select value={a.radar.departure ? "takeoff" : "airborne"} onChange={e => {
@@ -77,17 +84,19 @@ export default function ScenarioAircraftInspector({readOnly = false, definition,
           {(a.radar?.departure || a.originDeparture && !a.radar) ? <><label>Departure airport<select value={a.originDeparture?.icao ?? airport.icao} onChange={e => {const selected = origins.find(item => item.icao === e.target.value); if (!selected) return; try {const base = a.radar ? radarTakeoffAircraft(a, airport, selected.icao === airport.icao ? selected.runways[0].id : defaultRunway(airport)) : structuredClone(a); patch(applyDepartureOrigin(base, airport, selected, selected.runways[0].id));} catch (reason) {onError((reason as Error).message);}}}>{!origin && a.originDeparture ? <option value={a.originDeparture.icao}>{a.originDeparture.icao} · Saved</option> : null}{origins.map(item => <option key={item.icao} value={item.icao}>{item.icao} · {item.name}</option>)}</select></label><label>Departure runway<select value={a.originDeparture?.runway ?? a.runway ?? defaultRunway(airport)} onChange={e => {if (!origin) return; try {const base = a.radar ? radarTakeoffAircraft(a, airport, origin.icao === airport.icao ? e.target.value : defaultRunway(airport)) : structuredClone(a); patch(applyDepartureOrigin(base, airport, origin, e.target.value));} catch (reason) {onError((reason as Error).message);}}}>{!origin && a.originDeparture ? <option value={a.originDeparture.runway}>{a.originDeparture.runway}</option> : null}{(origin?.runways ?? []).map(end => <option key={end.id} value={end.id}>Runway {end.id}</option>)}</select></label></> : null}
           {a.radar?.departure || a.originDeparture ? <p className={styles.hint}>{a.radar ? "Automatic takeoff, then radar check-in at 1,000 ft above the departure airport." : `Automatic takeoff, then climb to 1,500 ft above ${airport.icao} and fly to its overhead.`}</p> : ground && spec.gateId ? <><label><span className={styles.srOnly}>Gate</span><select value={spec.gateId ?? ""} onChange={e => {const gateId = e.target.value; onChange(d => ({...d, aircraft: d.aircraft.map(p => p.key === a.id ? placeAircraftAtGate(p, gateId, airport) : p)}));}}>{gatesFor(airport).map(g => <option key={g.id} value={g.id}>Gate {g.name || g.id}</option>)}</select></label>
             <p className={styles.hint}><Info size={19} aria-hidden="true"/>Drag onto a blue gate dot</p></> : <>
-            <div className={styles.pair}><label>East (NM)<input type="number" step=".01" value={a.position.x} onChange={e => patch({position: {...a.position, x: Number(e.target.value)}})}/></label><label>North (NM)<input type="number" step=".01" value={a.position.y} onChange={e => patch({position: {...a.position, y: Number(e.target.value)}})}/></label></div>
-            <button type="button" aria-pressed={editMode === "position"} onClick={() => toggleMode("position")}>Place on scope</button>
-            {!ground ? <button type="button" onClick={() => {const g = engineFor(definition).runwayGeometry(a.runway ?? defaultRunway(airport)); patch({position: {x: g.threshold.x - g.vector.x * 5, y: g.threshold.y - g.vector.y * 5}, heading: g.heading, targetHeading: g.heading, speed: 160, targetSpeed: 160, altitude: airport.elevation + 1500, mode: "heading"});}}>Place on runway approach</button> : null}
+            <div className={styles.pair}><label>East<Unit unit="NM"><input type="number" step=".01" aria-label="East (NM)" value={a.position.x} onChange={e => patch({position: {...a.position, x: Number(e.target.value)}})}/></Unit></label><label>North<Unit unit="NM"><input type="number" step=".01" aria-label="North (NM)" value={a.position.y} onChange={e => patch({position: {...a.position, y: Number(e.target.value)}})}/></Unit></label></div>
+            <div className={ground ? styles.actions : `${styles.actions} ${styles.actionPair}`}><button type="button" aria-pressed={editMode === "position"} onClick={() => toggleMode("position")}><Crosshair size={17} aria-hidden="true"/>Place on scope</button>
+            {!ground ? <button type="button" title="Place on runway approach" onClick={() => {const g = engineFor(definition).runwayGeometry(a.runway ?? defaultRunway(airport)); patch({position: {x: g.threshold.x - g.vector.x * 5, y: g.threshold.y - g.vector.y * 5}, heading: g.heading, targetHeading: g.heading, speed: 160, targetSpeed: 160, altitude: airport.elevation + 1500, mode: "heading"});}}><AirplaneLanding size={17} aria-hidden="true"/>On approach</button> : null}</div>
           </>}
-          <div className={styles.pair}><label>Heading °M<input type="number" min={0} max={360} step={1} disabled={!!a.radar?.departure || !!a.originDeparture} value={magneticHeadingLabel(a.heading, airport)} onChange={e => patch({heading: magneticToTrue(Number(e.target.value), airport), targetHeading: magneticToTrue(Number(e.target.value), airport)})}/></label>
-            <div className={styles.alignedAction}><span>Reverse</span><button type="button" aria-label="Reverse heading" disabled={!!a.radar?.departure || !!a.originDeparture} onClick={() => patch({heading: (a.heading + 180) % 360, targetHeading: (a.heading + 180) % 360})}><ArrowClockwise size={17} aria-hidden="true"/>180°</button></div></div>
+          <div className={styles.headingRow}><label>Heading<Unit unit="°M"><input type="number" min={0} max={360} step={1} aria-label="Heading °M" disabled={!!a.radar?.departure || !!a.originDeparture} value={magneticHeadingLabel(a.heading, airport)} onChange={e => patch({heading: magneticToTrue(Number(e.target.value), airport), targetHeading: magneticToTrue(Number(e.target.value), airport)})}/></Unit></label>
+            <button type="button" aria-label="Reverse heading" disabled={!!a.radar?.departure || !!a.originDeparture} onClick={() => patch({heading: (a.heading + 180) % 360, targetHeading: (a.heading + 180) % 360})}><ArrowClockwise size={17} aria-hidden="true"/>Reverse</button></div>
+          {a.radar?.departure || a.originDeparture ? <p className={styles.help}>Heading follows the departure runway.</p> : null}
         </div>
-        <details className={styles.advanced}><summary>Advanced initial state<CaretRight size={16} aria-hidden="true"/></summary><div className={styles.section}>
-          <label>Initial behaviour<select disabled={radarMode !== "local" || !!a.originDeparture} value={a.mode} onChange={e => {const mode = e.target.value as Aircraft["mode"]; onChange(d => ({...d, aircraft: d.aircraft.map(p => p.key === a.id ? normalizeScenarioAircraft({...p, seed: {...p.seed, mode, speed: mode === "parked" ? 0 : 160, targetSpeed: mode === "parked" ? 0 : 160, altitude: mode === "parked" ? airport.elevation : airport.elevation + 1500}}, airport) : p)}));}}><option value="parked">At a gate</option><option value="heading">Fly heading</option><option value="pattern">Fly pattern</option>{!["parked", "heading", "pattern"].includes(a.mode) ? <option value={a.mode}>{a.mode}</option> : null}</select></label>
-          <label>Initial IAS (kt)<input disabled={ground || !!a.radar?.departure || !!a.originDeparture} type="number" min={0} max={600} value={a.speed} onChange={e => patch({speed: Number(e.target.value), targetSpeed: Number(e.target.value), ...(a.radar ? {radar: {...a.radar, inboundSpeed: Number(e.target.value)}} : {})})}/></label>
-          <div className={styles.pair}><label>Altitude ft<input disabled={ground || !!a.radar?.departure || !!a.originDeparture} type="number" min={altitudeReference === "agl" ? 1 : airport.elevation + 1} max={altitudeReference === "agl" ? 60000 - airport.elevation : 60000} value={Math.round(a.altitude - (altitudeReference === "agl" ? airport.elevation : 0))} onChange={e => patch({altitude: Math.max(airport.elevation + 1, Number(e.target.value) + (altitudeReference === "agl" ? airport.elevation : 0))})}/></label><label>Reference<select value={altitudeReference} onChange={e => setAltitudeReference(e.target.value as "agl" | "msl")}><option value="agl">AGL</option><option value="msl">MSL</option></select></label></div>
+        <details className={styles.advanced}><summary><span>Initial state</span><small>{a.radar?.departure || a.originDeparture ? "Set by the departure" : ground ? "On the ground" : `${a.speed} kt · ${Math.round(a.altitude - (altitudeReference === "agl" ? airport.elevation : 0)).toLocaleString()} ft ${altitudeReference.toUpperCase()}`}</small><CaretRight size={16} aria-hidden="true"/></summary><div className={styles.section}>
+          <label>Behaviour<select disabled={radarMode !== "local" || !!a.originDeparture} value={a.mode} onChange={e => {const mode = e.target.value as Aircraft["mode"]; onChange(d => ({...d, aircraft: d.aircraft.map(p => p.key === a.id ? normalizeScenarioAircraft({...p, seed: {...p.seed, mode, speed: mode === "parked" ? 0 : 160, targetSpeed: mode === "parked" ? 0 : 160, altitude: mode === "parked" ? airport.elevation : airport.elevation + 1500}}, airport) : p)}));}}><option value="parked">At a gate</option><option value="heading">Fly heading</option><option value="pattern">Fly pattern</option>{!["parked", "heading", "pattern"].includes(a.mode) ? <option value={a.mode}>{a.mode}</option> : null}</select></label>
+          <label>Speed (IAS)<Unit unit="kt"><input aria-label="Initial IAS (kt)" disabled={ground || !!a.radar?.departure || !!a.originDeparture} type="number" min={0} max={600} value={a.speed} onChange={e => patch({speed: Number(e.target.value), targetSpeed: Number(e.target.value), ...(a.radar ? {radar: {...a.radar, inboundSpeed: Number(e.target.value)}} : {})})}/></Unit></label>
+          <div className={styles.headingRow}><label>Altitude<Unit unit="ft"><input aria-label="Altitude ft" disabled={ground || !!a.radar?.departure || !!a.originDeparture} type="number" min={altitudeReference === "agl" ? 1 : airport.elevation + 1} max={altitudeReference === "agl" ? 60000 - airport.elevation : 60000} value={Math.round(a.altitude - (altitudeReference === "agl" ? airport.elevation : 0))} onChange={e => patch({altitude: Math.max(airport.elevation + 1, Number(e.target.value) + (altitudeReference === "agl" ? airport.elevation : 0))})}/></Unit></label>
+            <fieldset className={styles.toggle}><legend className={styles.srOnly}>Altitude reference</legend>{(["agl", "msl"] as const).map(value => <label key={value}><input type="radio" name={`${id}-altitude-reference`} checked={altitudeReference === value} onChange={() => setAltitudeReference(value)}/>{value.toUpperCase()}</label>)}</fieldset></div>
         </div></details>
       </section>
       <section className={styles.panel} role="tabpanel" id={`${id}-Intentions-panel`} aria-labelledby={`${id}-Intentions-tab`} hidden={tab !== "Intentions"}>

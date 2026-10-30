@@ -8,6 +8,15 @@ export interface AircraftPerformance {
   source: string; assumptions: string;
 }
 const euro = (id: string) => `https://contentzone.eurocontrol.int/aircraftperformance/details.aspx?ICAO=${id}&ICAOFilter=${id}`;
+const fleet = (slug: string) => `https://infiniteflight.com/fleet/${slug}`;
+/** Simplified training schedules, with cruise Mach and ceiling from the linked source where available. */
+function jetProfile(id: AircraftPerformance["id"], name: string, source: string, ceiling: number, mach: number, cruiseMach: number, rotation: number, landing: number, kind: "narrow" | "wide" | "regional" | "business" = "narrow"): AircraftPerformance {
+  const wide = kind === "wide", regional = kind === "regional", business = kind === "business";
+  return {id, name, propulsion: "jet", min: wide ? Math.max(150, landing - 5) : landing - 5, max: wide ? 360 : regional ? 320 : 350, mach, ceiling, rotation, landing: wide ? Math.max(150, landing) : landing,
+    inbound: 250, climbSpeed: wide ? 200 : regional ? 170 : 180, cruise: wide ? 480 : business ? 510 : 450, cruiseMach,
+    climb: wide ? [2500, 2000, 1500, 1000] : regional ? [2500, 1800, 1300, 800] : [2500, 2000, 1400, 1000], descent: 1500, acceleration: wide ? 2 : 2.5, source,
+    assumptions: `${id === "C56X" ? "Mach and ceiling use Citation X+ figures as an approximation for the earlier Citation X. " : id === "E170" ? "Maximum cruise Mach and ceiling follow the linked manufacturer data; cruise Mach is a training estimate. " : "Cruise Mach, maximum Mach and ceiling follow the linked Infinite Flight fleet page. "}IAS limits, rotation, final, rates and acceleration are simplified training estimates, not aircraft-specific operating limits or calculated V-speeds.`};
+}
 /** Indicative reference profiles at typical weight. Rotation, acceleration and
  * unsourced descent schedules are explicit training assumptions, not V-speeds
  * computed for a particular aircraft mass/configuration. Legacy snapshots keep
@@ -20,9 +29,39 @@ export const AIRCRAFT_PERFORMANCE: readonly AircraftPerformance[] = [
   {id:"A320",name:"Airbus A320-200",propulsion:"jet",min:130,max:350,mach:.82,ceiling:41000,rotation:140,landing:137,inbound:250,climbSpeed:175,cruise:450,cruiseMach:.78,climb:[2500,2000,1400,1000],descent:1500,acceleration:2.5,source:euro("A320"),assumptions:"Rotation 5 kt below published V2; generic acceleration; IF fleet supplies FL410 ceiling/MMO .82."},
   {id:"B738",name:"Boeing 737-800",propulsion:"jet",min:135,max:340,mach:.82,ceiling:41000,rotation:140,landing:147,inbound:250,climbSpeed:165,cruise:460,cruiseMach:.79,climb:[3000,2000,2000,1500],descent:1500,acceleration:2.4,source:"https://indigo-sustainableaviation.eu/wp-content/uploads/2025/02/INDIGO_Preliminary-D4.1.pdf",assumptions:"Indicative EUROCONTROL profile reproduced in INDIGO D4.1; rotation 5 kt below V2 and acceleration are simulator assumptions."},
   {id:"B77W",name:"Boeing 777-300ER",propulsion:"jet",min:145,max:330,mach:.89,ceiling:43000,rotation:163,landing:149,inbound:240,climbSpeed:200,cruise:490,cruiseMach:.84,climb:[3000,2500,2000,1500],descent:1500,acceleration:2,source:euro("B77W"),assumptions:"Rotation 5 kt below published V2; acceleration and operating limits are simulator assumptions."},
+  jetProfile("A223", "Airbus A220-300", fleet("a220-300"), 41000, .82, .78, 135, 130),
+  jetProfile("A319", "Airbus A319-100", fleet("a319-100"), 41000, .82, .78, 140, 135),
+  jetProfile("A321", "Airbus A321-200", fleet("a321-200"), 41000, .82, .78, 145, 140),
+  jetProfile("A20N", "Airbus A320neo", fleet("a320neo"), 39800, .82, .78, 140, 137),
+  jetProfile("A21N", "Airbus A321neo", fleet("a321neo"), 39800, .82, .78, 145, 140),
+  jetProfile("A333", "Airbus A330-300", fleet("a330-300"), 42000, .86, .82, 150, 145, "wide"),
+  jetProfile("A339", "Airbus A330-900neo", fleet("a330-900neo"), 41500, .86, .82, 150, 145, "wide"),
+  jetProfile("A346", "Airbus A340-600", fleet("a340-600"), 41000, .86, .82, 155, 145, "wide"),
+  jetProfile("A359", "Airbus A350-900", fleet("a350-900"), 43100, .89, .85, 150, 145, "wide"),
+  jetProfile("A35K", "Airbus A350-1000", fleet("a350-1000"), 43100, .89, .85, 155, 150, "wide"),
+  jetProfile("A388", "Airbus A380-800", fleet("a380-800"), 43000, .89, .85, 155, 145, "wide"),
+  jetProfile("B737", "Boeing 737-700", fleet("737-700"), 41000, .82, .78, 140, 140),
+  jetProfile("B739", "Boeing 737-900", fleet("737-900"), 41000, .82, .78, 145, 145),
+  jetProfile("B744", "Boeing 747-400", fleet("747-400"), 45100, .92, .85, 160, 150, "wide"),
+  jetProfile("B748", "Boeing 747-8", fleet("747-8"), 43100, .92, .86, 160, 150, "wide"),
+  jetProfile("B752", "Boeing 757-200", fleet("757-200"), 42000, .86, .80, 145, 140),
+  jetProfile("B763", "Boeing 767-300", fleet("767-300"), 43100, .86, .80, 150, 145, "wide"),
+  jetProfile("B772", "Boeing 777-200ER", fleet("777-200er"), 43100, .87, .84, 155, 145, "wide"),
+  jetProfile("B788", "Boeing 787-8", fleet("787-8"), 43000, .90, .85, 150, 145, "wide"),
+  jetProfile("B789", "Boeing 787-9", fleet("787-9"), 43000, .90, .85, 155, 145, "wide"),
+  jetProfile("B78X", "Boeing 787-10", fleet("787-10"), 43000, .90, .85, 155, 150, "wide"),
+  jetProfile("CRJ9", "Bombardier CRJ-900", fleet("crj-900"), 41000, .85, .78, 135, 135, "regional"),
+  jetProfile("E170", "Embraer E170", "https://www.embraercommercialaviation.com/wp-content/uploads/2017/06/Embraer_spec_E170_web-EN.pdf", 41000, .82, .78, 130, 130, "regional"),
+  jetProfile("E175", "Embraer E175", fleet("e175"), 41000, .82, .78, 135, 130, "regional"),
+  jetProfile("E190", "Embraer E190", fleet("e190"), 41000, .82, .78, 135, 135, "regional"),
+  jetProfile("C56X", "Cessna Citation X", "https://media.txtav.com/194686-cessna-citation-x-sets-coast-to-coast-speed-record/", 51000, .935, .90, 130, 125, "business"),
 ];
 export const performanceFor = (a: Pick<Aircraft,"performanceProfile">) => AIRCRAFT_PERFORMANCE.find(p=>p.id===a.performanceProfile);
-export const profileForType = (type: string) => AIRCRAFT_PERFORMANCE.find(p=>p.id===type.toUpperCase().replace(/[^A-Z0-9]/g,""))?.id;
+export const profileForType = (type: string) => {
+  const id=type.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const resolved=({A220:"A223",BCS3:"A223",A330:"A333",E75L:"E175",E75S:"E175"} as Record<string,string>)[id] ?? id;
+  return AIRCRAFT_PERFORMANCE.find(p=>p.id===resolved)?.id;
+};
 export function climbRate(a: Aircraft) {const p=performanceFor(a);return p ? p.climb[a.altitude<5000?0:a.altitude<15000?1:a.altitude<24000?2:3]*Math.max(0,Math.min(1,(p.ceiling-a.altitude)/2000)) : 2000;}
 export const descentRate = (a: Aircraft) => performanceFor(a)?.descent ?? 1500;
 export const acceleration = (a: Aircraft) => performanceFor(a)?.acceleration ?? 3;

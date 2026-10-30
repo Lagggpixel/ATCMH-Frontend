@@ -3,6 +3,11 @@ export const MAX_AIRCRAFT = 100;
 export const MAX_TAXI_POINTS = 600;
 export const ILS_CAPTURE_DISTANCE_NM = 25;
 export type Frequency = "ground" | "tower" | "atis" | "approach" | "center" | "departure" | "unicom";
+export const PERFORMANCE_PROFILE_IDS = ["C172", "C208", "TBM9", "DH8D", "A320", "B738", "B77W", "A223", "A319", "A321", "A20N", "A21N", "A333", "A339", "A346", "A359", "A35K", "A388", "B737", "B739", "B744", "B748", "B752", "B763", "B772", "B788", "B789", "B78X", "CRJ9", "E170", "E175", "E190", "C56X"] as const;
+export type FuelState = "unknown" | "normal" | "minimum" | "emergency";
+export const fuelForState = (state: FuelState, previous?: Aircraft["fuel"]): NonNullable<Aircraft["fuel"]> => ({
+  ...previous, state, enduranceMinutes: state === "normal" ? 120 : state === "minimum" ? 30 : state === "emergency" ? 15 : previous?.enduranceMinutes ?? 120,
+});
 export type Altitude = {unit: "feet" | "flight-level"; value: number};
 export type ApproachType = "ils" | "gps" | "visual";
 export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | "approach" | "discretion" | "slowest" | "best-forward" | "follow" | "present"; unit?: "knots" | "mach"; value?: number; relation?: "exact" | "minimum" | "maximum"; until?: number}
@@ -61,8 +66,8 @@ export interface Airport {
 export interface Aircraft {
   originDeparture?: {icao: string; runway: string; elevation: number; threshold: Point; departure: Point; phase: "roll" | "climb" | "overhead" | "directed" | "complete"; callPending?: boolean};
   positionId?: string;
-  performanceProfile?: "C172" | "C208" | "TBM9" | "DH8D" | "A320" | "B738" | "B77W"; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
-  fuel?: {state: "unknown" | "normal" | "minimum" | "emergency"; enduranceMinutes: number; declared?: "minimum" | "emergency"};
+  performanceProfile?: typeof PERFORMANCE_PROFILE_IDS[number]; groundSpeed?: number; track?: number; verticalSpeed?: number; facilityId?: string; flightSeconds?: number;
+  fuel?: {state: FuelState; enduranceMinutes: number; declared?: "minimum" | "emergency"};
   assigned?: import("./controller-state").ControllerAssignments;
   groundReady?: boolean;
   enginesRunning?: boolean; // Optional simulated engine state; legacy scenarios use ground readiness.

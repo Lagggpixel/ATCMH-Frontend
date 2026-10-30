@@ -28,7 +28,7 @@ import {gpsApproachJoin} from "./gps-approach";
 
 import {controlledFrequencies, defaultAirport, getAirport, airportRunways, runwayEnds, defaultRunway, airportSelection, airportCallsign, frequenciesFor, simulatedMetar, runwayReferenceError, trainingMode, type AirportSelection} from "./airports";
 import {catalogFor, positionReportText} from "./catalog";
-import {MAX_AIRCRAFT, radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type ExerciseWeather, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
+import {MAX_AIRCRAFT, radarArrivalFrequency, commandHasReadback, DEFAULTS, radarControlFrequency, intentionsOf, fuelForState, EXERCISE_WEATHER as DEFAULT_WEATHER, emptyAtis, pendingCommands, pendingPilotMessage, unreadMessages, type Aircraft, type Airport, type Atis, type Envelope, type Exercise, type ExerciseWeather, type Frequency, type Instruction, type Message, type Leg, type Point, type Runway, type SpeedPhase} from "./model";
 
 
 export function createAirportEngine(AIRPORT: Airport, selection: AirportSelection = {}) {
@@ -154,7 +154,7 @@ function newAircraft(id: string, airborne: boolean): Aircraft {
     heading: geometry.heading, targetHeading: geometry.heading, speed: airborne ? DEFAULTS.airSpeed : 0, targetSpeed: airborne ? DEFAULTS.airSpeed : 0,
     altitude: AIRPORT.elevation + (airborne ? DEFAULTS.patternHeight : 0), frequency: airborne ? "tower" : "ground", runway: DEFAULT_RUNWAY, lastRunway: null,
     hand: "left", leg: "final", mode: airborne ? "pattern" : "parked", extended: false, landing: "touch-and-go", clearedToLand: false,
-    taxiPath: [], taxiIndex: 0, holding: false, releasedHold: null, flightPlan: [], trail: [], pending: 0, active: true, color: null, tag: "auto", reminderAt: null};
+    taxiPath: [], taxiIndex: 0, holding: false, releasedHold: null, flightPlan: [], trail: [], pending: 0, active: true, color: null, tag: "auto", reminderAt: null, fuel: fuelForState("normal")};
   const mode = trainingMode({...airportSelection(AIRPORT), ...selection});
   return mode === "local" ? aircraft : airborne ? radarAircraft(aircraft, mode, AIRPORT) : radarTakeoffAircraft(radarAircraft(aircraft, mode, AIRPORT), AIRPORT);
 }
