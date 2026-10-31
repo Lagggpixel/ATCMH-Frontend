@@ -743,7 +743,7 @@
 .menteeSimulator .frequencyValue {font-size:9px;overflow-wrap:anywhere}
 .menteeSimulator .sidebar .exit {padding:10px 2px;font-size:11px;text-align:center}
 .menteeSimulator .rightPanel {grid-template-rows:minmax(0,1fr) minmax(0,calc(166 * var(--controller-unit)));min-width:0;padding:0 10px 0}
-.messageBackdrop {position:absolute;inset:0;z-index:31;width:100%;height:100%;padding:0!important;background:transparent!important;cursor:default!important}
+.messageBackdrop {position:absolute;inset:0;z-index:31;width:100%;height:100%;padding:0!important;background:transparent!important;cursor:default!important;-webkit-tap-highlight-color:transparent}
 .commandConnector {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
 .menteeSimulator .commandPanel {position:absolute;grid-area:auto;right:calc(env(safe-area-inset-right) + 5 * var(--controller-unit));bottom:calc(env(safe-area-inset-bottom) + 5 * var(--controller-unit));top:auto;width:calc(562 * var(--controller-unit));height:min(calc(1000 * var(--controller-unit)),calc(100% - var(--simulator-safe-top) - env(safe-area-inset-bottom) - 10 * var(--controller-unit)));max-width:none;max-height:none;padding:0;border:0;outline:1px solid var(--trainer-border);border-radius:5px;box-shadow:0 6px 24px #0008;z-index:32}
 .contextAnchor {width:320px;z-index:30}

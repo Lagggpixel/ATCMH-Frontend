@@ -44,6 +44,27 @@ export function gpsApproachJoin(a: Aircraft, p: RadarApproach, g: Final, vectorH
   const pastFinalFix = along(a.position, g) >= along(faf, g) - 1e-8 && lateral(a.position, g) <= p.captureWidth && difference(a.heading, g.heading) <= 45;
   if (r.routeIndex > fafIndex || pastFinalFix) return {error: "GPS approach must be cleared before the final approach fix."};
   const lead = Math.max(.75, bankTurnLead(a.speed));
+  // Preserve an already accepted heading-to-route intercept. The radar engine
+  // completes that intercept before GPS starts following the filed legs.
+  const filed = vectorHeading === undefined && r.navigation === "route" ? r.filedJoin : undefined;
+  if (filed && filed.index >= 1 && filed.index <= fafIndex) {
+    const from = a.flightPlan[filed.index - 1], to = a.flightPlan[filed.index];
+    if (from && to && !to.hold) {
+      const length = distance(from, to), courseHeading = course(from, to), angle = courseHeading * Math.PI / 180;
+      const unit = {x: Math.sin(angle), y: Math.cos(angle)};
+      const progress = (filed.point.x - from.x) * unit.x + (filed.point.y - from.y) * unit.y;
+      if (length > .001 && progress >= 0 && progress < length - (filed.index === fafIndex ? lead : .15))
+        return {join: {fafIndex, joined: false, index: filed.index, point: {...filed.point}}};
+    }
+    return {error: "Unable to complete the flight-plan intercept before the final approach fix."};
+  }
+  // A route already being flown to an earlier fix remains valid even when the
+  // aircraft is outside the lateral tolerance used for a new vector rejoin.
+  const active = a.flightPlan[r.routeIndex], previous = a.flightPlan[r.routeIndex - 1];
+  if (vectorHeading === undefined && r.navigation === "route" && active && !active.hold && r.routeIndex < fafIndex
+    && distance(a.position, active) > lead && difference(a.heading, course(a.position, active)) <= 30
+    && (!previous || difference(course(a.position, active), course(previous, active)) <= 45))
+    return {join: {fafIndex, joined: true, index: r.routeIndex, point: {...active}}};
   for (let index = r.routeIndex; index <= fafIndex; index++) {
     const to = a.flightPlan[index], next = a.flightPlan[index + 1] ?? g.threshold;
     const heading = index ? course(a.flightPlan[index - 1], to) : course(to, next);

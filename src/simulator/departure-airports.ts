@@ -20,7 +20,7 @@ export function departureAirports(airport: Airport, map?: ScopeMapData): Departu
   for (const end of map.approaches ?? []) {const code = end.airportIcao.toUpperCase(), list = byAirport.get(code) ?? []; list.push(end); byAirport.set(code, list);}
   const nearby = map.airports.flatMap(item => {
     const icao = item.identifier.toUpperCase();
-    if (!/^[A-Z0-9]{4}$/.test(icao) || icao === airport.icao || item.elevationFeet == null || !Number.isFinite(item.elevationFeet) || item.elevationFeet < 0 || item.elevationFeet > 20000) return [];
+    if (!/^[A-Z0-9]{3,4}$/.test(icao) || icao === airport.icao || item.elevationFeet == null || !Number.isFinite(item.elevationFeet) || item.elevationFeet < 0 || item.elevationFeet > 20000) return [];
     const runways = (byAirport.get(icao) ?? []).flatMap(end => {
       if (end.airportIcao.toUpperCase() !== icao || !/^(?:0[1-9]|[12][0-9]|3[0-6])[LRC]?$/.test(end.runway)) return [];
       const coords = [end.threshold.x, end.threshold.y, end.departure.x, end.departure.y];

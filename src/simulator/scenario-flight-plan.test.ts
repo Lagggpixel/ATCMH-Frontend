@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
-import {appendedFixes, appendFlightPlan, flightPlanItems, flightPlanPatch, legAltitudeLabel, moveFlightPlanItem, moveFlightPlanRange, navigationSearch, tagProcedure} from "./scenario-flight-plan";
+import {appendedFixes, appendFlightPlan, flightPlanItems, flightPlanPatch, legAltitudeLabel, moveFlightPlanItem, moveFlightPlanRange, navigationSearch, parseTypedRoute, tagProcedure} from "./scenario-flight-plan";
 import type {NavigationCatalog} from "./navigation-data";
 import {engineFor} from "./engine";
 import {scenarioTakeoffAircraft} from "./radar";
@@ -58,12 +58,58 @@ test("unified search finds procedures by transition, keeps duplicate names disti
   assert.deepEqual(navigationSearch(undefined, "SAB", "All"), []);
 });
 
+test("airport identifiers and names resolve to map coordinates in search and typed routes", () => {
+  const catalog: NavigationCatalog = {airport: "EGPH", revision: "test", fixes: [{id: "1", name: "TLA", point: {x: 3, y: 4}}], procedures: []};
+  const airports = [{id: "egph", identifier: "EGPH", name: "Edinburgh", point: {x: 0, y: 0}, isTowered: true}, {id: "egpk", identifier: "EGPK", name: "Prestwick", point: {x: -38, y: -44}, isTowered: true}];
+  assert.deepEqual(navigationSearch(catalog, "prestwick", "Airport", airports).map(item => [item.name, item.type, item.point]), [["EGPK", "Airport", {x: -38, y: -44, name: "EGPK"}]]);
+  assert.equal(navigationSearch(catalog, "EGPK", "Waypoint", airports)[0].name, "EGPK");
+  assert.deepEqual(parseTypedRoute(catalog, "EGPH DCT TLA DCT EGPK", {x: 0, y: 0}, airports).entries.map(entry => entry.name), ["EGPH", "TLA", "EGPK"]);
+  assert.equal(parseTypedRoute(catalog, "TLA EGXX", {x: 0, y: 0}, airports).error?.includes("EGXX"), true);
+});
+
+test("a plan built and reordered during automatic takeoff starts from its first fix after climb", () => {
+  const selection = {airport: "EGPH", trainingStation: "EGPH:approach"}, airport = getAirport(selection), engine = engineFor(selection);
+  const airborne = engine.newAircraft("live-plan", true); airborne.flightPlan = []; airborne.position = {x: 8, y: 0}; airborne.heading = 90;
+  const origin: DepartureAirport = {icao: "TEST", name: "Nearby", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}}]};
+  const takeoff = scenarioTakeoffAircraft(airborne, airport, [origin], {airport: airport.icao, airports: [{id: "1", identifier: "TEST", point: {x: 8, y: 0}, isTowered: false, elevationFeet: 250}]});
+  let state = engine.initialExercise(); state.aircraft = [takeoff]; state.running = true;
+  const edit = (plan: typeof takeoff.flightPlan) => {
+    const result = engine.applyEnvelope(state, {id: randomUUID(), time: 1, action: {kind: "edit", aircraftId: takeoff.id, patch: flightPlanPatch(state.aircraft[0], plan, true)}});
+    assert.equal(result.error, undefined); state = result.state;
+  };
+  const first = {name: "FIRST", x: 20, y: 30, altitude: 5000}, second = {name: "SECOND", x: 30, y: 40};
+  edit([second]); assert.equal(state.aircraft[0].radar!.navigation, "route");
+  edit([second, first]); edit([first, second]);
+  assert.equal(state.aircraft[0].radar!.routeIndex, 0); assert.ok(state.aircraft[0].radar!.departure);
+  for (let i = 0; i < 300; i++) state = engine.advance(state, 1);
+  const flown = state.aircraft[0]; assert.equal(flown.radar!.navigation, "route"); assert.equal(flown.radar!.routeIndex, 0);
+  assert.equal(flown.radar!.targetAltitude?.value, 5000); assert.ok(flown.targetHeading < 90 && flown.targetHeading > 0);
+  assert.ok(exerciseSchema.safeParse(state).success);
+});
+
+test("an airborne flight-plan edit retains its current heading and a flown route target", () => {
+  const a = engineFor({trainingStation: "EGPH:approach"}).initialExercise().aircraft[0];
+  a.flightPlan = []; a.radar!.navigation = "heading";
+  const added = flightPlanPatch(a, [{name: "NEW", x: 10, y: 10}], true);
+  assert.equal(added.radar!.navigation, "heading");
+  a.flightPlan = [{name: "FIRST", x: 1, y: 1}, {name: "NEXT", x: 2, y: 2}]; a.radar!.navigation = "route"; a.radar!.routeIndex = 1;
+  const reordered = flightPlanPatch(a, [a.flightPlan[1], a.flightPlan[0]], true);
+  assert.equal(reordered.radar!.navigation, "route"); assert.equal(reordered.radar!.routeIndex, 0);
+});
+
 test("search narrows the complete catalogue before limiting visible matches", () => {
   const catalog: NavigationCatalog = {airport: "EGPH", revision: "test", fixes: Array.from({length: 1001}, (_, i) => ({id: String(i), name: `FIX${i}`, point: {x: i, y: 1}})), procedures: []};
   assert.equal(navigationSearch(catalog, "", "All").length, 10);
   assert.equal(navigationSearch(catalog, "", "Waypoint").length, 40);
   assert.equal(navigationSearch(catalog, "FIX1000", "All")[0].name, "FIX1000");
   assert.equal(catalog.fixes.length, 1001);
+});
+
+test("all available arrivals appear in the catalogue and can be searched", () => {
+  const catalog: NavigationCatalog = {airport: "EGPH", revision: "test", fixes: [], procedures: Array.from({length: 55}, (_, i) => ({id: String(i), name: `STAR${i}`, type: "STAR" as const, routes: [{id: `route${i}`, name: "Common route", pointCount: 2}]}))};
+  assert.equal(navigationSearch(catalog, "", "All").length, 55);
+  assert.equal(navigationSearch(catalog, "", "STAR").length, 55);
+  assert.equal(navigationSearch(catalog, "STAR54", "STAR")[0].name, "STAR54");
 });
 
 function profile() {

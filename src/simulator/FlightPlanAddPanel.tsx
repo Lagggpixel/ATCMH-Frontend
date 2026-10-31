@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useId, useRef, useState} from "react";
+import {useEffect, useId, useMemo, useRef, useState} from "react";
 import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import {X} from "@phosphor-icons/react/dist/csr/X";
 import {MapPin} from "@phosphor-icons/react/dist/csr/MapPin";
@@ -7,18 +7,20 @@ import {AirplaneTakeoff} from "@phosphor-icons/react/dist/csr/AirplaneTakeoff";
 import {AirplaneLanding} from "@phosphor-icons/react/dist/csr/AirplaneLanding";
 import {Path} from "@phosphor-icons/react/dist/csr/Path";
 import {useNavigationCatalog} from "./use-navigation-catalog";
+import {useScopeMapData} from "./use-scope-map-data";
+import type {ScopeMapData} from "./scope-map-data";
 import {appendedFixes, appendFlightPlan, flightPlanPatch, loadNavigationRoute, navigationSearch, parseTypedRoute, tagProcedure, typedRoutePoints, type NavigationFilter} from "./scenario-flight-plan";
 import {setFlightPlanPreview} from "./flight-plan-preview";
 import type {NavigationRoute} from "./navigation-data";
 import type {Aircraft, Airport, RoutePoint} from "./model";
 import styles from "./ScenarioFlightPlan.module.css";
 
-const ICONS = {Waypoint: MapPin, SID: AirplaneTakeoff, STAR: AirplaneLanding, Approach: Path} as const;
-const TYPE_LABELS = {Waypoint: "Waypoint", SID: "Departure", STAR: "Arrival", Approach: "Approach"} as const;
-const filters: {type: NavigationFilter; label: string}[] = [{type: "All", label: "All"}, {type: "Waypoint", label: "Fixes"}, {type: "SID", label: "SID"}, {type: "STAR", label: "STAR"}, {type: "Approach", label: "Approach"}];
+const ICONS = {Waypoint: MapPin, Airport: AirplaneLanding, SID: AirplaneTakeoff, STAR: AirplaneLanding, Approach: Path} as const;
+const TYPE_LABELS = {Waypoint: "Waypoint", Airport: "Airport", SID: "Departure", STAR: "Arrival", Approach: "Approach"} as const;
+const filters: {type: NavigationFilter; label: string}[] = [{type: "All", label: "All"}, {type: "Waypoint", label: "Fixes"}, {type: "Airport", label: "Airports"}, {type: "SID", label: "SID"}, {type: "STAR", label: "STAR"}, {type: "Approach", label: "Approach"}];
 const CHIP_CLASSES = {direct: styles.chipDirect, fix: "", procedure: styles.chipProcedure, error: styles.chipError, unchecked: styles.chipUnchecked};
 const compact = (value: string) => value.replace(/\s+/g, "").toUpperCase();
-type Loaded = {key: string; points?: RoutePoint[]; route?: NavigationRoute; source?: Aircraft["navigationSource"]; star?: string; error?: string};
+type Loaded = {key: string; points?: RoutePoint[]; route?: NavigationRoute; source?: Aircraft["navigationSource"]; star?: string; simplified?: boolean; error?: string};
 
 /**
  * One field searches navigation data or takes a typed route ("TLA DCT GOW"). Whatever would be added is drawn
@@ -28,17 +30,25 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
   const id = useId(), input = useRef<HTMLInputElement>(null);
   const {catalog, error: catalogError, retry} = useNavigationCatalog(airport.icao);
   const [query, setQuery] = useState(""), [open, setOpen] = useState(false), [filter, setFilter] = useState<NavigationFilter>("All");
+  const map = useScopeMapData<ScopeMapData>(airport.icao, "map", open);
+  const airports = useMemo(() => {
+    const local = {id: airport.icao, identifier: airport.icao, name: airport.name, point: {x: 0, y: 0}, isTowered: true};
+    const items = map.data?.airport === airport.icao ? map.data.airports : [];
+    const unique = new Map(items.filter(item => /^[A-Z0-9]{3,4}$/i.test(item.identifier) && Number.isFinite(item.point.x) && Number.isFinite(item.point.y)).map(item => [item.identifier.toUpperCase(), {...item, identifier: item.identifier.toUpperCase()}]));
+    if (!unique.has(airport.icao)) unique.set(airport.icao, local);
+    return [...unique.values()];
+  }, [airport.icao, airport.name, map.data]);
   const [selected, setSelected] = useState<string>(), [hovered, setHovered] = useState<string>(), [transitions, setTransitions] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState<Loaded>(), [attempt, setAttempt] = useState(0), [error, setError] = useState("");
   const tokens = query.trim().split(/[\s,]+/).filter(Boolean), typing = tokens.length > 1;
 
   // A typed route: every word must resolve before it can be added.
-  const parsed = typing && catalog ? parseTypedRoute(catalog, query, a.flightPlan.at(-1) ?? a.position) : undefined;
+  const parsed = typing && catalog ? parseTypedRoute(catalog, query, a.flightPlan.at(-1) ?? a.position, airports) : undefined;
   const typedKey = parsed && !parsed.error ? JSON.stringify([catalog?.revision, parsed.entries.map(entry => "point" in entry ? [entry.point.x, entry.point.y] : entry.route.id), attempt]) : undefined;
 
   // Search: one word, optionally PROCEDURE.TRANSITION.
   const [term = "", transitionHint] = (tokens[0] ?? "").split(".");
-  const results = typing ? [] : navigationSearch(catalog, term, filter);
+  const results = typing ? [] : navigationSearch(catalog, term, filter, airports);
   // The chosen result stays open; hovering another only previews it on the scope, so the list never jumps under the pointer.
   const chosenId = selected ?? (query.trim() ? results[0]?.id : undefined);
   const current = results.find(item => item.id === (hovered ?? chosenId));
@@ -53,7 +63,7 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
     let active = true;
     const load = typing ? (async () => {
       const resolved = await typedRoutePoints(catalog, parsed!.entries);
-      return {points: resolved.points, source: resolved.source, star: resolved.star};
+      return {points: resolved.points, source: resolved.source, star: resolved.star, simplified: resolved.simplified};
     })() : loadNavigationRoute(catalog, procedure!.id, route!.id).then(navigation => ({route: navigation, points: tagProcedure(navigation.points, navigation, route!.name)}));
     load.then(value => {if (active) setLoaded({key, ...value});}, reason => {if (active) setLoaded({key, error: reason instanceof Error ? reason.message : "Unable to load this route."});});
     return () => {active = false;};
@@ -105,8 +115,8 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
   return <div className={styles.addPanel} onKeyDown={event => {if (event.key === "Escape" && open) {event.stopPropagation(); close();}}}>
     <div className={styles.search}>
       <MagnifyingGlass size={18} aria-hidden="true"/>
-      <input ref={input} value={query} aria-label="Add a fix, procedure or typed route" role="combobox" aria-autocomplete="list" aria-expanded={open && !typing && !!results.length} aria-controls={`${id}-results`} aria-activedescendant={current && open ? `${id}-${current.id}` : undefined}
-        placeholder={catalog ? "Add a fix, procedure or route…" : catalogError ? "Navigation data unavailable" : "Loading navigation data…"} disabled={!catalog}
+      <input ref={input} value={query} aria-label="Add a fix, airport, procedure or typed route" role="combobox" aria-autocomplete="list" aria-expanded={open && !typing && !!results.length} aria-controls={`${id}-results`} aria-activedescendant={current && open ? `${id}-${current.id}` : undefined}
+        placeholder={catalog ? "Add a fix, airport, procedure or route…" : catalogError ? "Navigation data unavailable" : "Loading navigation data…"} disabled={!catalog}
         onFocus={() => setOpen(true)} onChange={event => {setQuery(event.target.value); setOpen(true); setSelected(undefined); setHovered(undefined); setError("");}}
         onKeyDown={event => {
           if (!typing && (event.key === "ArrowDown" || event.key === "ArrowUp")) {event.preventDefault(); navigate(event.key === "ArrowDown" ? 1 : -1);}
@@ -115,6 +125,7 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
       {open ? <button type="button" className={styles.iconButton} aria-label="Close flight plan search" onClick={close}><X size={16} aria-hidden="true"/></button> : null}
     </div>
     {catalogError ? <div className={styles.message} role="alert"><p>{catalogError}</p><button type="button" onClick={retry}>Retry navigation data</button></div> : null}
+    {open && map.error ? <div className={styles.message} role="alert"><p>Nearby airports are unavailable.</p><button type="button" onClick={map.retry}>Retry airports</button></div> : null}
     {open && catalog ? <div className={styles.addBody}>
       {typing ? <div className={styles.typedRoute}>
         <ol className={styles.chips} aria-label="Typed route">{chips.map((chip, index) => <li key={index} className={CHIP_CLASSES[chip.state]}>{chip.token.toUpperCase()}</li>)}</ol>
@@ -137,6 +148,7 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
           })}
         </div>
       </>}
+      {(typing ? ready?.simplified : route?.simplified) ? <p className={styles.help}>Simplified route: Infinite Flight skips some source legs and connects the remaining fixes directly.</p> : null}
       <div className={styles.addFooter}>
         <span>{!last ? "Starts the flight plan" : `Adds after ${last.name ?? "the last fix"} (fix ${a.flightPlan.length})`}{current?.type === "Approach" && !typing ? ". Approach clearance stays with the controller." : ""}</span>
         <button type="button" className={styles.primary} disabled={!canAdd} onClick={add}>{addLabel}</button>

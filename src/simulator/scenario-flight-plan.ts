@@ -1,15 +1,19 @@
 import type {Aircraft, Point, RouteProcedure, RoutePoint} from "./model";
 import type {NavigationCatalog, NavigationRoute} from "./navigation-data";
+import type {ScopeMapData} from "./scope-map-data";
 
-export type NavigationFilter = "All" | "Waypoint" | "SID" | "STAR" | "Approach";
-export function navigationSearch(catalog: NavigationCatalog | undefined, query: string, filter: NavigationFilter) {
+type AirportFix = ScopeMapData["airports"][number];
+export type NavigationFilter = "All" | "Waypoint" | "Airport" | "SID" | "STAR" | "Approach";
+export function navigationSearch(catalog: NavigationCatalog | undefined, query: string, filter: NavigationFilter, airports: readonly AirportFix[] = []) {
   const search = query.trim().toUpperCase();
   const fixes = filter === "All" || filter === "Waypoint" ? (catalog?.fixes ?? []).filter(fix => fix.name.toUpperCase().includes(search)) : [];
+  const airportMatches = filter === "All" || filter === "Waypoint" || filter === "Airport" ? airports.filter(item => item.identifier.toUpperCase().includes(search) || item.name?.toUpperCase().includes(search)) : [];
   const procedures = (catalog?.procedures ?? []).filter(procedure => (filter === "All" || filter === procedure.type)
     && (procedure.name.toUpperCase().includes(search) || procedure.routes.some(route => route.name.toUpperCase().includes(search))));
   const items: {id: string; name: string; type: Exclude<NavigationFilter, "All">; point?: RoutePoint; procedure?: NavigationCatalog["procedures"][number]}[] = [];
+  for (const airport of airportMatches.slice(0, filter === "All" ? 10 : 40)) items.push({id: `airport-${airport.id}`, name: airport.identifier, type: "Airport", point: {...airport.point, name: airport.identifier}});
   for (const fix of fixes.slice(0, filter === "All" ? 10 : 40)) items.push({id: `fix-${fix.id}`, name: fix.name, type: "Waypoint", point: fix.point});
-  for (const type of ["SID", "STAR", "Approach"] as const) for (const procedure of procedures.filter(item => item.type === type).slice(0, filter === "All" ? 10 : 40)) items.push({id: `procedure-${procedure.id}`, name: procedure.name, type, procedure});
+  for (const type of ["SID", "STAR", "Approach"] as const) for (const procedure of procedures.filter(item => item.type === type)) items.push({id: `procedure-${procedure.id}`, name: procedure.name, type, procedure});
   return items;
 }
 
@@ -31,9 +35,10 @@ export function flightPlanPatch(aircraft: Aircraft, flightPlan: RoutePoint[], li
   const target = live ? aircraft.flightPlan[r.routeIndex] : undefined;
   const matches = target ? flightPlan.flatMap((p, i) => p.name === target.name && Math.hypot(p.x - target.x, p.y - target.y) < 1e-6 ? [i] : []) : [];
   const kept = matches.sort((a, b) => Math.abs(a - r.routeIndex) - Math.abs(b - r.routeIndex))[0];
-  const routeIndex = !live ? 0 : kept ?? Math.min(r.routeIndex, flightPlan.length);
-  const navigation = !flightPlan.length ? r.navigation === "route" || !live ? "heading" : r.navigation : live || aircraft.flightPlan.length ? r.navigation : "route";
-  return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : !live && r.departure ? {followRouteAltitudes: true} : {})};
+  const preparingDeparture = live && !!r.departure && (aircraft.flightPlan.length === 0 || r.navigation === "route" && r.routeIndex === 0);
+  const routeIndex = !live || preparingDeparture ? 0 : kept ?? Math.min(r.routeIndex, flightPlan.length);
+  const navigation = !flightPlan.length ? r.navigation === "route" || !live ? "heading" : r.navigation : preparingDeparture && !aircraft.flightPlan.length ? "route" : live || aircraft.flightPlan.length ? r.navigation : "route";
+  return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : r.departure && (!live || !aircraft.flightPlan.length) ? {followRouteAltitudes: true} : {})};
 }
 
 /** One row of the editor: a lone fix, or consecutive fixes added from one procedure. */
@@ -49,8 +54,8 @@ export function flightPlanItems(points: RoutePoint[]): FlightPlanItem[] {
 }
 
 /** Tags a procedure's fixes so the editor shows and moves them together; a new key keeps repeated copies apart. */
-export function tagProcedure(points: RoutePoint[], route: Pick<NavigationRoute, "type" | "name">, transition?: string, key = Math.random().toString(36).slice(2, 12)): RoutePoint[] {
-  const procedure: RouteProcedure = {key, type: route.type, name: route.name, ...(transition && transition.toUpperCase() !== route.name.toUpperCase() ? {transition} : {})};
+export function tagProcedure(points: RoutePoint[], route: Pick<NavigationRoute, "type" | "name" | "simplified">, transition?: string, key = Math.random().toString(36).slice(2, 12)): RoutePoint[] {
+  const procedure: RouteProcedure = {key, type: route.type, name: route.name, ...(route.simplified ? {simplified: true} : {}), ...(transition && transition.toUpperCase() !== route.name.toUpperCase() ? {transition} : {})};
   return points.map(point => ({...point, procedure}));
 }
 
@@ -84,7 +89,7 @@ export type TypedRouteEntry = {name: string; point: RoutePoint} | {name: string;
 const compact = (value: string) => value.replace(/\s+/g, "").toUpperCase();
 
 /** Resolve typed routes like "TLA DCT GOW" or "TLA1A.TLA". Repeated fix names use the one nearest the previous point. */
-export function parseTypedRoute(catalog: NavigationCatalog, text: string, from: Point): {entries: TypedRouteEntry[]; error?: string} {
+export function parseTypedRoute(catalog: NavigationCatalog, text: string, from: Point, airports: readonly AirportFix[] = []): {entries: TypedRouteEntry[]; error?: string} {
   const tokens = text.toUpperCase().split(/[\s,]+/).filter(token => token && token !== "DCT");
   const entries: TypedRouteEntry[] = [];
   let last = from;
@@ -100,6 +105,8 @@ export function parseTypedRoute(catalog: NavigationCatalog, text: string, from: 
       continue;
     }
     if (transition) return {entries, error: `No procedure named ${name} at ${catalog.airport}.`};
+    const airport = airports.find(item => item.identifier.toUpperCase() === name);
+    if (airport) {const point = {...airport.point, name: airport.identifier}; entries.push({name: airport.identifier, point}); last = point; continue;}
     const fixes = catalog.fixes.filter(f => f.name.toUpperCase() === name);
     if (!fixes.length) return {entries, error: `No waypoint or procedure named ${name} at ${catalog.airport}.`};
     const fix = fixes.reduce((best, f) => Math.hypot(f.point.x - last.x, f.point.y - last.y) < Math.hypot(best.point.x - last.x, best.point.y - last.y) ? f : best);
@@ -133,15 +140,16 @@ export function loadNavigationRoute(catalog: NavigationCatalog, procedureId: str
 
 /** Resolves typed entries to tagged fixes, plus the navigation source and STAR the aircraft should record. */
 export async function typedRoutePoints(catalog: NavigationCatalog, entries: TypedRouteEntry[]) {
-  let points: RoutePoint[] = [], source: Aircraft["navigationSource"] = {revision: catalog.revision}, star: string | undefined;
+  let points: RoutePoint[] = [], source: Aircraft["navigationSource"] = {revision: catalog.revision}, star: string | undefined, simplified = false;
   for (const entry of entries) {
     if ("point" in entry) {points = appendFlightPlan(points, [entry.point]); continue;}
     const route = await loadNavigationRoute(catalog, entry.procedure.id, entry.route.id);
     points = appendFlightPlan(points, tagProcedure(route.points, route, entry.route.name));
     source = {revision: route.revision, procedureId: route.procedureId, routeId: route.routeId};
     if (route.type === "STAR") star = route.name;
+    if (route.simplified) simplified = true;
   }
-  return {points, source, star};
+  return {points, source, star, simplified};
 }
 
 export function legAltitudeLabel(points: RoutePoint[], index: number, initialAltitude: number) {

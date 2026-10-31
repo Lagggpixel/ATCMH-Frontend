@@ -9,7 +9,7 @@ import {climbRate, descentRate, acceleration, headingForGroundTrack, performance
 import {controllerAircraft} from "./controller-state";
 import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
 import {MAX_ILS_INTERCEPT, GLIDESLOPE_DEVIATION_FEET, missedLocalizerReason} from "./radar-automation";
-import {updateRouteConstraints} from "./command-navigation";
+import {courseDifference, courseTo, startFiledRoute, updateRouteConstraints} from "./command-navigation";
 import {turnAircraft, bankTurnLead} from "./banked-turns";
 import {runwayEnds, airportRunways, defaultRunway} from "./airports";
 import {ILS_CAPTURE_DISTANCE_NM, type Aircraft, type Airport, type Altitude, type Instruction, type Point, type RadarEnvironment, type ExerciseWeather} from "./model";
@@ -62,6 +62,7 @@ export function radarGuidanceLabel(a: Aircraft, environment: RadarEnvironment): 
   if (r.departure?.touchAndGo) return r.departure.phase === "roll" ? "Takeoff roll" : "Runway-heading climbout";
   if (r.patternJoin?.status === "unable") return `Unable to join pattern: ${r.patternJoin.reason}`;
   if (r.patternJoin) return `${r.patternJoin.status === "joining" ? "Joining" : "Local pattern"} · ${a.hand} ${a.leg}`;
+  if (r.filedJoin) return "Joining flight plan";
   if (r.navigation === "missed") return "Missed approach";
   const approach = environment.approaches.find(p => p.id === r.cleared);
   if (r.navigation === "approach" && approach) {
@@ -185,7 +186,7 @@ export function radarInstructionError(a: Aircraft, c: Instruction, airport: Airp
   if (c.type === "route" && c.point && distance(c.point, a.flightPlan[c.index]) > .000001) return "The selected flight-plan waypoint has changed. Select it again.";
   return null;
 }
-export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, environment: RadarEnvironment) {
+export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, environment: RadarEnvironment, weather?: ExerciseWeather) {
   const r = a.radar!;
   const gps = c.type === "vector" && c.approachId ? environment.approaches.find(p => p.id === c.approachId && p.type === "gps") : undefined;
   const gpsJoin = gps && c.type === "vector" ? gpsApproachJoin(a, gps, approachGeometry(airport, gps.runway,gps), c.heading === undefined ? undefined : magneticToTrue(c.heading, airport)).join : undefined;
@@ -194,6 +195,11 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
   if (c.type === "vector" && c.heading === undefined && !c.approachId) {
     if (c.altitude) {delete r.climbUntilAssigned; r.targetAltitude = {...c.altitude}; delete r.altitudeFromRoute; r.altitudeAssignedFrom = a.altitude; delete a.starDescent; delete a.followRouteAltitudes;}
     return;
+  }
+  const preserveFiledJoin = !!gpsJoin && c.type === "vector" && c.heading === undefined && r.navigation === "route" && !!r.filedJoin;
+  if (!preserveFiledJoin && !(c.type === "expect-approach" && c.navigation === "filed")) {
+    if (r.filedJoin && c.type === "expect-approach") {r.navigation = "heading"; a.targetHeading = a.heading;}
+    delete r.filedJoin;
   }
   delete r.gpsApproach;
   if (c.type === "expect-approach" || c.type === "route" || c.type === "missed-approach" || c.type === "vector" && (c.heading !== undefined || c.approachId)) {delete r.localizerIntercept; delete r.missedReason;}
@@ -204,7 +210,7 @@ export function assignRadar(a: Aircraft, c: Instruction, airport: Airport, envir
   if (c.type === "vector" || c.type === "missed-approach" || c.type === "route" && c.altitude) delete a.starDescent;
   if (c.type === "vector" || c.type === "missed-approach" || c.type === "route" && c.altitude) delete a.followRouteAltitudes;
   if (c.type === "expect-approach") {
-    if (c.navigation === "filed" && a.flightPlan[r.routeIndex]) r.navigation = "route";
+    if (c.navigation === "filed") startFiledRoute(a, weather);
     r.expected = c.approachId ?? undefined; r.guidance = c.vectors ? "vectors" : undefined;
     if (c.vectors) a.runway = c.runway ?? a.runway ?? defaultRunway(airport);
     r.cleared = undefined; r.captured = false; r.localizer = false; r.glideslope = false; r.clearanceAltitudeChecked = false; if (r.navigation === "approach") r.navigation = "heading";
@@ -313,6 +319,18 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
     a.position = {x: a.position.x + g.vector.x * stride, y: a.position.y + g.vector.y * stride};
     if (a.altitude >= (a.originDeparture?.elevation ?? airport.elevation) + 1000) {
       if (a.originDeparture) a.originDeparture.phase = "complete";
+      // Imported plans can begin with the departure airport (or START), which
+      // marks the beginning of the first leg rather than an airborne fix.
+      // Only sequence it when it actually lies near this departure runway.
+      const first = a.flightPlan[0], originName = a.originDeparture?.icao ?? airport.icao;
+      if (r.navigation === "route" && r.routeIndex === 0 && a.flightPlan.length > 1 && first && !first.procedure
+        && (first.name?.toUpperCase() === originName || first.name?.toUpperCase() === "START")) {
+        const localRunway = airportRunways(airport).find(pair => pair.ends.some(end => end.id === r.departure!.runway));
+        const runway = a.originDeparture ?? {threshold: g.threshold, departure: localRunway!.ends.find(end => end.id !== r.departure!.runway)!.point};
+        const dx = runway.departure.x - runway.threshold.x, dy = runway.departure.y - runway.threshold.y;
+        const fraction = Math.max(0, Math.min(1, ((first.x - runway.threshold.x) * dx + (first.y - runway.threshold.y) * dy) / (dx * dx + dy * dy)));
+        if (Math.hypot(first.x - runway.threshold.x - fraction * dx, first.y - runway.threshold.y - fraction * dy) <= 1) r.routeIndex = 1;
+      }
       const touchAndGo = r.departure.touchAndGo;
       delete r.departure; a.mode = "heading"; r.report = touchAndGo ? "touch-and-go" : "intentions";
       if (touchAndGo) {a.frequency = "approach"; r.returningToApproach = true; r.transferred = false;}
@@ -320,14 +338,14 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
     }
     return;
   }
-  updateRouteConstraints(a);
+  if (!r.filedJoin) updateRouteConstraints(a);
   const clearedApproach = r.navigation === "approach" ? environment.approaches.find(p => p.id === r.cleared) : undefined;
   const finalApproach=clearedApproach ?? environment.approaches.find(p=>p.id===r.expected);
   const final = approachGeometry(airport, finalApproach?.runway ?? a.runway ?? defaultRunway(airport),finalApproach);
   const dx = a.position.x - final.threshold.x, dy = a.position.y - final.threshold.y;
   const along = dx * final.vector.x + dy * final.vector.y, lateral = Math.abs(dx * -final.vector.y + dy * final.vector.x);
   const expectedGps = !r.cleared && environment.approaches.find(p => p.id === r.expected && p.type === "gps");
-  if (automatic && expectedGps && r.navigation === "route") {
+  if (automatic && expectedGps && r.navigation === "route" && !r.filedJoin) {
     const fafIndex = gpsFinalApproachFix(a, expectedGps, final), faf = fafIndex === undefined ? undefined : a.flightPlan[fafIndex];
     if (fafIndex !== undefined && faf && r.routeIndex >= fafIndex && along >= (faf.x - final.threshold.x) * final.vector.x + (faf.y - final.threshold.y) * final.vector.y
       && lateral <= expectedGps.captureWidth && Math.abs(headingDifference(final.heading, a.heading)) <= 45) {
@@ -346,7 +364,26 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
   if (a.speedMode !== "manual") a.targetSpeed = automaticTarget;
   let groundTrack: number | undefined;
   let altitude = r.targetAltitude ? altitudeFeet(r.targetAltitude) : r.climbUntilAssigned ? (performanceFor(a)?.ceiling ?? 60000) : a.altitude;
-  if (r.navigation === "route") {
+  if (r.filedJoin && (r.navigation === "route" || r.navigation === "approach" && r.gpsApproach)) {
+    const join = r.filedJoin, from = a.flightPlan[join.index - 1], to = a.flightPlan[join.index];
+    if (!from || !to) {delete r.filedJoin; r.navigation = "heading";}
+    else {
+      const course = courseTo(from, to), angle = Math.abs(courseDifference(a.track ?? a.heading, course));
+      const lead = bankTurnLead(a.groundSpeed ?? a.speed);
+      const turnDistance = Math.max(.15, lead * Math.tan(Math.min(45, angle) * Math.PI / 360) + (a.groundSpeed ?? a.speed) / 3600 * 4);
+      const remaining = (join.point.x - a.position.x) * Math.sin((a.track ?? a.heading) * Math.PI / 180) + (join.point.y - a.position.y) * Math.cos((a.track ?? a.heading) * Math.PI / 180);
+      if (!join.turning && remaining <= turnDistance) join.turning = true;
+      if (!join.turning) a.targetHeading = join.heading;
+      else {
+        const length = distance(from, to), unit = {x: (to.x - from.x) / length, y: (to.y - from.y) / length};
+        const progress = (a.position.x - from.x) * unit.x + (a.position.y - from.y) * unit.y;
+        const cross = (a.position.x - from.x) * -unit.y + (a.position.y - from.y) * unit.x;
+        const target = Math.min(length, Math.max(0, progress) + Math.max(1, lead * 2));
+        groundTrack = courseTo(a.position, {x: from.x + unit.x * target, y: from.y + unit.y * target});
+        if (Math.abs(cross) <= .15 && angle <= 12) delete r.filedJoin;
+      }
+    }
+  } else if (r.navigation === "route") {
     let point = a.flightPlan[r.routeIndex];
     const turnRadius = bankTurnLead(a.speed);
     const terminalHold = point?.hold && r.routeIndex === a.flightPlan.length - 1;
@@ -387,13 +424,13 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       const gpsRouting = approach.type === "gps" && r.gpsApproach;
       if (gpsRouting && !r.captured) {
         const faf = a.flightPlan[gpsRouting.fafIndex];
-        if (flyGpsRoute(a, approach, g)) r.captured = true;
+        if (!r.filedJoin && flyGpsRoute(a, approach, g)) r.captured = true;
         else if (!faf || r.routeIndex >= gpsRouting.fafIndex && along >= (faf.x - g.threshold.x) * g.vector.x + (faf.y - g.threshold.y) * g.vector.y + .25) {
           automaticMissed(a, airport, environment, "Unable to rejoin the flight plan before the final approach fix.");
           moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
         }
       }
-      if (gpsRouting && !r.captured) groundTrack = a.targetHeading;
+      if (gpsRouting && !r.captured && !r.filedJoin) groundTrack = a.targetHeading;
       const checkAltitude = !r.clearanceAltitudeChecked && (gpsRouting ? r.captured : approach.type !== "ils" || onLocalizer);
       const clearanceHeight = approach.type === "visual" ? destinationElevation + visualDescentHeight(Math.hypot(dx, dy)) : approach.type === "ils" ? glideHeight : destinationElevation + 50 + Math.hypot(dx, dy) * 6076.12 * Math.tan(approach.glideAngle * Math.PI / 180);
       if (gpsRouting && !r.captured) altitude = Math.min(altitude, clearanceHeight);

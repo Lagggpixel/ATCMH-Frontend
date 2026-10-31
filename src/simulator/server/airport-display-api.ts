@@ -67,7 +67,7 @@ export async function fetchAirportProcedures(code: string, origin: string): Prom
   const airport = getAirport({airport: origin}), source = await fetchNavigationData(code);
   return {airport: code, origin, revision: source.revision, procedures: source.procedures.map((procedure, index) => ({
     id: procedure.id, airport: code, name: procedure.identifier, type: procedure.type, index,
-    routes: procedure.routes.map(route => ({id: route.id, name: route.transition ?? "Common route", points: route.points.map(point => {
+    routes: procedure.routes.map(route => ({id: route.id, name: route.transition ?? "Common route", ...(route.simplified ? {simplified: true} : {}), points: route.points.map(point => {
       const projected = localPoint(airport, point.lat, point.lon);
       if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y) || Math.abs(projected.x) > 2000 || Math.abs(projected.y) > 2000)
         throw new SessionError("invalid-navigation", "This procedure is outside the supported display area.", 422);

@@ -34,6 +34,23 @@ test("map shortcut chooses the nearest usable airport within the screen hit radi
 });
 
 
+test("three-character departure identifiers are offered only with usable runway data", () => {
+  const airport = getAirport({airport: "EGPH"});
+  const map: ScopeMapData = {airport: airport.icao, airports: [
+    {id: "1", identifier: "ABC", name: "Three character", point: {x: 4, y: 5}, isTowered: false, elevationFeet: 400},
+    {id: "2", identifier: "AB", name: "Too short", point: {x: 4, y: 6}, isTowered: false, elevationFeet: 400},
+    {id: "3", identifier: "XYZ", name: "No runway", point: {x: 4, y: 7}, isTowered: false, elevationFeet: 400},
+  ], approaches: [
+    {airportIcao: "ABC", runway: "09", threshold: {x: 4, y: 5}, departure: {x: 5, y: 5}, ils: false},
+    {airportIcao: "AB", runway: "09", threshold: {x: 4, y: 6}, departure: {x: 5, y: 6}, ils: false},
+  ]};
+  const origins = departureAirports(airport, map);
+  assert.deepEqual(origins.map(item => item.icao), ["EGPH", "ABC"]);
+  assert.deepEqual(origins[1].runways.map(end => end.id), ["09"]);
+  assert.equal(nearestDepartureAirport(map.airports, origins, {x: 4, y: 5}, point => point), "ABC");
+});
+
+
 test("scenario conversion selects the closest airport and the closest runway aligned with heading", () => {
   const airport = getAirport({airport: "EGPH"});
   const map: ScopeMapData = {airport: airport.icao, airports: [

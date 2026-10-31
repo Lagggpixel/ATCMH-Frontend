@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {initialExercise} from "./engine";
+import {advance, applyEnvelope, autoReadbacks, initialExercise} from "./engine";
 import type {Exercise, Message} from "./model";
 import {RadioAudio, aviationSpeech, browserAudioPreference, browserSpeechOutput, type SpeechOutput, type VoiceSettings} from "./radio-audio";
 import {RADIO_INITIALISMS, radioDisplayText, radioInitialismSpeech} from "./radio-text";
 
 const message = (id: string, frequency: Message["frequency"] = "ground", sender: Message["sender"] = "controller"): Message => ({id, frequency, sender, aircraftId: "demo-ground", time: 1, text: `Easy 571, taxi to Runway 24, hold short (${id})`});
+// Most queue tests exercise order independently of the real gap; the timing test below uses the default timer.
+const immediatePlayer = () => new RadioAudio(callback => {callback(); return undefined as unknown as ReturnType<typeof setTimeout>;});
 function harness(scope: "all" | "ground" | "tower" = "all") {
   const played: {text: string; settings: VoiceSettings; end: () => void; error: (reason?: unknown) => void}[] = [];
   let cancelled = 0, voiceListener = () => {};
@@ -15,7 +17,7 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
     speak: (text, settings, end, error) => {played.push({text, settings: {...settings}, end, error});},
     cancel: () => {cancelled++;},
   };
-  const player = new RadioAudio();
+  const player = immediatePlayer();
   const close = player.start(output);
   let exercise = initialExercise();
   player.observe(exercise, true, scope);
@@ -97,6 +99,50 @@ test("new controller and pilot transmissions play in order once across repeated 
   h.played[1].end(); h.observe(messages); assert.equal(h.played.length, 2);
   h.close();
 });
+test("queued transmissions wait 500 ms after the preceding audio, including when they arrive during the gap", t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const played: {end: () => void}[] = [];
+  const output: SpeechOutput = {voices: () => [{id: "v", name: "Voice", language: "en-GB", local: true}], onVoicesChanged: () => () => {},
+    speak: (_text, _settings, end) => {played.push({end});}, cancel() {}};
+  const player = new RadioAudio(), close = player.start(output);
+  const state = initialExercise(); player.observe(state, true, "all");
+  player.observe({...state, messages: [message("one")]}, true, "all");
+  assert.equal(played.length, 1); played[0].end();
+  t.mock.timers.tick(200);
+  player.observe({...state, messages: [message("one"), message("two")]}, true, "all");
+  t.mock.timers.tick(299); assert.equal(played.length, 1);
+  t.mock.timers.tick(1); assert.equal(played.length, 2);
+  close(); t.mock.timers.reset();
+});
+
+test("automatic readback is prepared from the pending command and only the actual reply is played", () => {
+  const h = harness(), prepared: string[] = [];
+  h.output.prepareReadback = text => prepared.push(text);
+  let state = {...initialExercise(), running: true, autoReadback: true};
+  h.player.observe(state, true, "all");
+  const sent = applyEnvelope(state, {id: "command", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Easy 571, hold position", command: {type: "stop"}}});
+  assert.equal(sent.error, undefined); state = sent.state;
+  h.player.observe(state, true, "all"); h.player.observe(state, true, "all");
+  assert.equal(prepared.length, 1); assert.equal(h.played.length, 1);
+  state = autoReadbacks(advance(state, 1.5), 2000, () => "reply");
+  const reply = state.messages.at(-1)!;
+  assert.equal(prepared[0], aviationSpeech(reply.text, state.aircraft.map(a => a.callsign)));
+  h.player.observe(state, true, "all"); h.played[0].end();
+  assert.equal(h.played[1].text, prepared[0]); h.close();
+});
+test("a speculative readback cannot play when the authoritative reply is unable", () => {
+  const h = harness(), prepared: string[] = [];
+  h.output.prepareReadback = text => prepared.push(text);
+  let state = {...initialExercise(), running: true, autoReadback: true};
+  h.player.observe(state, true, "all");
+  const sent = applyEnvelope(state, {id: "clearance", time: 1, action: {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "Speedbird 124, cleared for takeoff runway 24", command: {type: "takeoff", runway: "24"}}});
+  assert.equal(sent.error, undefined); state = sent.state; h.player.observe(state, true, "all");
+  assert.equal(prepared.length, 1); assert.doesNotMatch(prepared[0], /^Unable/);
+  state = autoReadbacks(advance(state, 1.5), 2000, () => "unable");
+  assert.match(state.messages.at(-1)!.text, /^Unable/);
+  h.player.observe(state, true, "all"); h.played[0].end();
+  assert.match(h.played[1].text, /^Unable/); assert.notEqual(h.played[1].text, prepared[0]); h.close();
+});
 test("muted history stays silent but an unseen readback arriving during reconnect is retained", () => {
   const h = harness(); h.player.setEnabled(false); h.observe([message("old")]); h.enable();
   h.observe([message("old")]); assert.equal(h.played.length, 0);
@@ -157,7 +203,7 @@ test("disconnect and exercise reset cancel queued speech", () => {
   h.observe([message("one"), message("two")], false); assert.equal(h.cancelled(), 1);
   h.played[0].end(); assert.equal(h.played.length, 1);
   h.observe([], true); h.observe([message("fresh")]); assert.equal(h.played.length, 2);
-  h.observe([]); assert.equal(h.cancelled(), 2); h.close();
+  h.observe([]); assert.equal(h.cancelled(), 3); h.close();
 });
 test("Delta 64's takeoff readback is played once after a brief connection interruption", () => {
   const h = harness(); h.enable();
@@ -337,7 +383,7 @@ test("the browser receives explicit spoken callsigns for transmissions and manua
     addEventListener: () => {}, removeEventListener: () => {}, cancel: () => {}, speak: (utterance: {text: string}) => spoken.push(utterance),
   }}});
   try {
-    const player = new RadioAudio(), close = player.start(browserSpeechOutput());
+    const player = immediatePlayer(), close = player.start(browserSpeechOutput());
     try {
       const state = initialExercise(); state.aircraft[0].callsign = "N714KG"; state.aircraft[1].callsign = "Speedbird 104";
       player.observe(state, true, "all");

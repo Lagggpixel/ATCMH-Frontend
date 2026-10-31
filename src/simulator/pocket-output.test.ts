@@ -13,7 +13,7 @@ test("automatic voice uses George for preparation and playback", async () => {
   const output = createPocketSpeechOutput(async (_text, voice) => {requested.push(voice); return new ReadableStream({start(c) {c.enqueue(done); c.close();}});}, playback);
   output.prepare?.("Radio ready", {...settings, voice: ""});
   output.speak("Radio ready", {...settings, voice: ""}, () => {}, () => {}); await tick();
-  assert.deepEqual(requested, ["george", "george"]); output.dispose?.();
+  assert.deepEqual(requested, ["george"]); output.dispose?.();
 });
 
 test("plays frames before stream completion and completes in order", async () => {
@@ -46,7 +46,7 @@ test("cancellation suppresses late audio and completion", async () => {
   assert.equal(played, 0); assert.equal(ended, 0); output.dispose?.();
 });
 
-test("speculative preparation uses the background priority and stops when speech starts", async () => {
+test("playback reuses an in-progress preparation instead of restarting it", async () => {
   const requests: {signal: AbortSignal; priority: string}[] = [];
   const playback: PocketPlayback = {activate() {}, begin() {}, append() {}, finish: async () => {}, cancel() {}, dispose() {}};
   const output = createPocketSpeechOutput((_text, _voice, signal, priority) => {
@@ -56,17 +56,61 @@ test("speculative preparation uses the background priority and stops when speech
   output.prepare?.("Radio ready", settings);
   assert.equal(requests[0].priority, "prepare");
   output.speak("Radio ready", settings, () => {}, () => {}); await tick();
-  assert.equal(requests[0].signal.aborted, true);
-  assert.equal(requests[1].priority, "play");
+  assert.equal(requests[0].signal.aborted, false);
+  assert.equal(requests.length, 1);
   output.dispose?.();
 });
 
-test("cancelling while browser activation is pending never starts a request", async () => {
-  let activate!: () => void, calls = 0;
+test("queued messages generate concurrently and a completed later message waits for its turn", async () => {
+  const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>(), requested: string[] = [], played: number[] = [];
+  const playback: PocketPlayback = {activate() {}, begin() {}, append(samples) {played.push(samples[0]);}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async text => {
+    requested.push(text); return new ReadableStream({start(controller) {streams.set(text, controller);}});
+  }, playback);
+  output.prepare?.("first", settings); output.prepare?.("second", settings); output.prepare?.("third", settings);
+  await tick(); assert.deepEqual(requested, ["first", "second", "third"]);
+  streams.get("second")!.enqueue(frame); streams.get("second")!.enqueue(done); streams.get("second")!.close();
+  let firstEnded = 0, secondEnded = 0;
+  output.speak("first", settings, () => firstEnded++, () => assert.fail("first failed"));
+  await tick(); assert.deepEqual(played, []);
+  streams.get("first")!.enqueue(frame); streams.get("first")!.enqueue(done); streams.get("first")!.close();
+  await tick(); assert.equal(firstEnded, 1); assert.deepEqual(played, [.5]);
+  output.speak("second", settings, () => secondEnded++, () => assert.fail("second failed"));
+  await tick(); assert.equal(secondEnded, 1); assert.deepEqual(played, [.5, .5]);
+  assert.deepEqual(requested, ["first", "second", "third"]); output.dispose?.();
+});
+
+test("a prepared readback is reused only for the same voice and exact text", async () => {
+  const requested: string[] = [];
+  const playback: PocketPlayback = {activate() {}, begin() {}, append() {}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async (text, voice) => {
+    requested.push(`${voice}:${text}`); return new ReadableStream({start(c) {c.enqueue(frame); c.enqueue(done); c.close();}});
+  }, playback);
+  output.prepareReadback?.("Roger", settings); await tick();
+  output.speak("Unable", {...settings, voice: "pocket:george"}, () => {}, () => assert.fail("failed")); await tick();
+  assert.deepEqual(requested, ["alba:Roger", "george:Unable"]); output.dispose?.();
+});
+
+test("failed background generation waits until playback to retry", async () => {
+  let attempts = 0, ended = 0;
+  const playback: PocketPlayback = {activate() {}, begin() {}, append() {}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async () => {
+    if (++attempts === 1) throw new Error("busy");
+    return new ReadableStream({start(c) {c.enqueue(frame); c.enqueue(done); c.close();}});
+  }, playback);
+  output.prepare?.("queued", settings); await tick();
+  output.prepare?.("queued", settings); output.prepare?.("queued", settings); await tick();
+  assert.equal(attempts, 1);
+  output.speak("queued", settings, () => ended++, () => assert.fail("failed")); await tick();
+  assert.equal(attempts, 2); assert.equal(ended, 1); output.dispose?.();
+});
+
+test("cancelling while browser activation is pending aborts the head request", async () => {
+  let activate!: () => void, signal!: AbortSignal;
   const playback: PocketPlayback = {activate() {}, begin: () => new Promise<void>(resolve => {activate = resolve;}), append() {}, finish: async () => {}, cancel() {}, dispose() {}};
-  const output = createPocketSpeechOutput(async () => {calls++; return new ReadableStream();}, playback);
+  const output = createPocketSpeechOutput(async (_text, _voice, requestSignal) => {signal = requestSignal; return new ReadableStream();}, playback);
   output.speak("Radio ready", settings, () => {}, () => {}); output.cancel(); activate(); await tick();
-  assert.equal(calls, 0); output.dispose?.();
+  assert.equal(signal.aborted, true); output.dispose?.();
 });
 
 test("audio activation can be retried after a rejected browser gesture", async () => {

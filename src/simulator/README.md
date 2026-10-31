@@ -10,6 +10,8 @@ Winds Aloft loads a display-only Open-Meteo forecast at nine points around the t
 
 Open airport information → Procedures to select display overlays. Clear All Procedures removes those local overlays without modifying saved aircraft flight plans or issuing instructions. Learners may fetch overlay geometry; the existing staff-only route-import authorization and 200-point aircraft-route limit remain in force.
 
+STARs follow Infinite Flight flight-plan loading: unresolved source legs are omitted and the remaining fixes are connected directly. These routes are labelled Simplified in the picker, saved flight plan and procedure overlay; they do not reconstruct missing courses or the published procedure. SID and approach imports still require their retained legs to resolve.
+
 ## Magnetic headings and missed approaches
 
 A heading-only radio vector requires an accepted altitude assignment. Otherwise Automatic replies Unable and retains the existing lateral guidance, including a flight plan; manual radio acceptance is also blocked, and the trainer can send Unable. Current altitude, pending controller-strip assignments and planned route/STAR altitude targets do not qualify. Include an altitude with the heading or assign one first. Route-derived targets retain their provenance through snapshots and profile edits; explicit altitude instructions replace them. Staff movement overrides remain available.
@@ -161,7 +163,7 @@ Delayed updates recover all elapsed movement while a participant's 15-second con
 
 ## Radio audio
 
-Radio speech defaults to George at 1×. Existing voice and speed choices reset once, and later choices are remembered for the account and role in this browser. The selected Pocket voice stays in use when generation is slow; after 15 seconds without playback, the player reports the issue and allows retry. Queued calls prepare ahead. Autoplay denial retries on an ordinary interaction without a generation-failure cooldown.
+Radio speech defaults to George at 1×. Existing voice and speed choices reset once, and later choices are remembered for the account and role in this browser. The selected Pocket voice stays in use when generation is slow; after 15 seconds without playback, the player reports the issue and allows retry. Queued calls generate concurrently and play in order, with at least a half-second gap between transmissions. Likely automatic readbacks prepare in the selected voice, but only the actual authoritative reply plays. On seat join, up to four scripted transmissions warm George's voice. Autoplay denial retries on an ordinary interaction without a generation-failure cooldown.
 
 Both views include Audio on/off and Voice controls. Playback defaults on; the explicit on/off choice is remembered in browser local storage per account and role. Online voice permission remains per tab. A playback failure does not overwrite the saved choice. Device voices may load after startup; new transmissions wait for them automatically. If the browser blocks autoplay, the next click or key press in the simulator retries the queued transmission without muting audio or requiring an off/on toggle. Both roles hear new Ground and Tower transmissions regardless of the selected frequency. Published ATIS changes automatically queue the full published text. Switching frequencies, new messages and manual replays preserve the current transmission and queue. Repeated snapshots, initial history and reconnection history do not replay old messages or ATIS. Muting, reset, disconnect and leaving the page stop pending speech. A staff Pause suspends speech and retains new pilot requests for playback on resume.
 
@@ -173,7 +175,7 @@ Callsign speech reads airline numbers digit by digit (Speedbird 104 becomes "Spe
 
 The player streams Pocket Alba, George and Jane through the authenticated `/api/simulator/pocket-speech` route. Audio plays as framed PCM arrives; a stream interrupted after playback begins is reported instead of replaying the message. Voice speed is applied during Web Audio playback and changes pitch; the optional radio effect is a bandpass filter.
 
-The web server requires server-only `SPEECH_SERVICE_URL` and `SPEECH_SERVICE_TOKEN` settings for the compatible private Pocket service. Both hosts need private connectivity and the same token. Without a configured service, the player falls back to a local browser voice where available. Neither setting belongs in browser-visible environment variables. Deployment must preserve the existing stacks and requires verified service configuration; the previous live release has not yet been changed.
+The web server requires server-only `SPEECH_SERVICE_URL` and `SPEECH_SERVICE_TOKEN` settings for the compatible private Pocket service. Both hosts need private connectivity and the same token. Without the service, radio text remains available and voice playback reports an error. Neither setting belongs in browser-visible environment variables. Deployment must preserve the existing stacks and requires verified service configuration.
 
 ## Exercise controls
 

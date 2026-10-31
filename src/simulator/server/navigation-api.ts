@@ -11,7 +11,7 @@ const upstreamSchema = z.object({version: z.literal(1), icao: z.string().length(
   waypoints: z.array(coordinate.extend({id: z.string().min(1).max(100)})).max(5000),
   procedures: z.array(z.object({id: z.string().min(1).max(100), identifier: z.string().min(1).max(100), type: z.enum(["SID", "STAR", "Approach"]), approachType: z.string().max(100).optional(),
     // Common/transition segments can contain one named fix; empty geometry remains invalid.
-    routes: z.array(z.object({id: z.string().min(1).max(200), transition: z.string().max(100).nullable(), points: z.array(coordinate).min(1).max(2000)})).max(200)})).max(3000)});
+    routes: z.array(z.object({id: z.string().min(1).max(200), transition: z.string().max(100).nullable(), simplified: z.boolean().optional(), points: z.array(coordinate).min(1).max(2000)})).max(200)})).max(3000)});
 export type NavigationSource = z.infer<typeof upstreamSchema>;
 const cache = new Map<string, {until: number; data: Promise<NavigationSource>}>();
 export async function fetchNavigationData(airport: string): Promise<NavigationSource> {
@@ -22,6 +22,7 @@ export async function fetchNavigationData(airport: string): Promise<NavigationSo
     try {
       const url = new URL(`/navigation/airports/${airport}/training-data`, base); url.searchParams.set("radiusNm", "100");
       url.searchParams.set("includeApproaches", "1");
+      url.searchParams.set("includeSimplifiedStars", "1");
       const response = await fetch(url, {headers: {"x-api-key": key}, signal: AbortSignal.timeout(15000), cache: "no-store", redirect: "error"});
       if (!response.ok || Number(response.headers.get("content-length") ?? 0) > 5_000_000) throw new Error("Upstream response unavailable");
       const body = await response.text(); if (body.length > 5_000_000) throw new Error("Upstream response too large");
@@ -50,10 +51,10 @@ export function createNavigationApi(load = fetchNavigationData, authorize = auth
         const procedure = source.procedures.find(p => p.routes.some(r => r.id === routeId)), route = procedure?.routes.find(r => r.id === routeId);
         if (!procedure || !route) throw new SessionError("not-found", "This procedure route is unavailable.", 404);
         if (!overlay && route.points.length > 200) throw new SessionError("route-too-large", "This complete route exceeds the 200-waypoint exercise limit.", 422);
-        value = {airport: code, revision: source.revision, procedureId: procedure.id, routeId, name: procedure.type === "Approach" && procedure.approachType ? `${procedure.approachType} ${procedure.identifier}` : procedure.identifier, type: procedure.type, points: route.points.map(p => project(p))};
+        value = {airport: code, revision: source.revision, procedureId: procedure.id, routeId, name: procedure.type === "Approach" && procedure.approachType ? `${procedure.approachType} ${procedure.identifier}` : procedure.identifier, type: procedure.type, ...(route.simplified ? {simplified: true} : {}), points: route.points.map(p => project(p))};
       } else value = {airport: code, revision: source.revision,
         fixes: source.waypoints.map(p => ({id: p.id, name: p.identifier, point: project(p, p.id)})),
-        procedures: source.procedures.map(p => ({id: p.id, name: p.type === "Approach" && p.approachType ? `${p.approachType} ${p.identifier}` : p.identifier, type: p.type, routes: p.routes.map(r => ({id: r.id, name: r.transition ?? "Common route", pointCount: r.points.length}))}))};
+        procedures: source.procedures.map(p => ({id: p.id, name: p.type === "Approach" && p.approachType ? `${p.approachType} ${p.identifier}` : p.identifier, type: p.type, routes: p.routes.map(r => ({id: r.id, name: r.transition ?? "Common route", pointCount: r.points.length, ...(r.simplified ? {simplified: true} : {})}))}))};
       return Response.json(value, {headers: {"cache-control": "private, no-store"}});
     } catch (error) {return sessionFailure(error);}
   };

@@ -16,7 +16,7 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
     sources[code] = {version: 1, icao: code, revision: `${code}-revision`, waypoints: [{...fix, id: "fix-1"}], procedures: [
       {id: "procedure-1", identifier: "TEST1", type: "SID", routes: [
         {id: "single", transition: null, points: [fix]},
-        {id: "complete", transition: "TEST", points: [fix, {...fix, identifier: "NEXT", lat: fix.lat + 1 / 60}]},
+        {id: "complete", transition: "TEST", simplified: true, points: [fix, {...fix, identifier: "NEXT", lat: fix.lat + 1 / 60}]},
       ]},
     ]};
   }
@@ -26,6 +26,7 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
     const url = new URL(String(input));
     assert.equal(url.searchParams.get("radiusNm"), "100");
     assert.equal(url.searchParams.get("includeApproaches"), "1");
+    assert.equal(url.searchParams.get("includeSimplifiedStars"), "1");
     return Response.json(sources[url.pathname.split("/")[3]]);
   };
   const api = createNavigationApi(fetchNavigationData, async () => ({accountId: "mentor", staff: true}));
@@ -55,6 +56,8 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
       assert.deepEqual(route.points, [{x: 0, y: 0, name: "TEST", waypointType: "VOR", vorType: "TACAN", slavedVariation: -11.5}]);
       assert.deepEqual(appendFlightPlan([], route.points), route.points);
       const complete = await (await api(request(code, "complete"))).json();
+      assert.equal(catalogue.procedures[0].routes[1].simplified, true);
+      assert.equal(complete.simplified, true);
       assert.deepEqual(complete.points.map((point: {name: string}) => point.name), ["TEST", "NEXT"]);
       assert.deepEqual(appendFlightPlan(route.points, complete.points), complete.points);
     }

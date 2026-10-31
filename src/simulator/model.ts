@@ -17,6 +17,7 @@ export interface RadarEnvironment {controllerPositions?: import("./positions").P
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeFromRoute?: boolean; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
   approachIntercept?: {seconds: number; entered: boolean};
   gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
+  filedJoin?: {index: number; point: Point; heading: number; turning: boolean};
   climbUntilAssigned?: boolean; // Continue departure climb until an altitude is assigned.
   inboundSpeed?: number; // Initial/profile speed, separate from a persistent ATC instruction.
   finalSpeedProfile?: boolean; // A distance-limited speed has released on aligned final.
@@ -34,7 +35,7 @@ export type Point = {x: number; y: number}; // Nautical miles east/north of the 
 export interface PublishedHold {inbound: number; hand: "left" | "right"; maxSpeed?: number; legSeconds?: number}
 export type RoutePoint = Point & {altitude?: number; speed?: number; fixId?: string; name?: string; waypointType?: string; vorType?: string; slavedVariation?: number; hold?: PublishedHold; finalApproachFix?: boolean; procedure?: RouteProcedure};
 /** Marks fixes added together from one published procedure; `key` tells two copies of the same procedure apart. */
-export type RouteProcedure = {key: string; type: "SID" | "STAR" | "Approach"; name: string; transition?: string};
+export type RouteProcedure = {key: string; type: "SID" | "STAR" | "Approach"; name: string; transition?: string; simplified?: boolean};
 export type TrailPoint = Point & {time?: number}; // Exercise seconds; absent only in legacy snapshots.
 export type Runway = string; // Validated against the exercise's pinned airport at API boundaries.
 export type Leg = "upwind" | "crosswind" | "downwind" | "base" | "final";

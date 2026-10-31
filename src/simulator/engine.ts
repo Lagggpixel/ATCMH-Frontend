@@ -8,7 +8,7 @@ import {recordControllerAssignment} from "./controller-state";
 import {startConflict, prepareConflicts, conflictCommand, aircraftCollisionGroups, removeConflictAircraft} from "./training-conflicts";
 import {groundReady} from "./ground-ready";
 import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
-import {moveOwnRoute} from "./command-navigation";
+import {filedRouteJoin, moveOwnRoute} from "./command-navigation";
 import {crossingHold, runwayContinuation} from "./command-ground";
 import {advanceAirportSighting, airportSightingReady} from "./airport-sighting";
 import {controllerInstruction, diversionRequestDestination} from "./controller-message-context";
@@ -105,36 +105,22 @@ function patternTargets(aircraft: Pick<Aircraft, "runway" | "hand" | "patternFin
   return {upwind, crosswind: add(upwind, side, DEFAULTS.patternWidth), downwind: add(final, side, DEFAULTS.patternWidth), base: final, final: threshold};
 }
 
-/** Tower handoff of vectored traffic joins a reachable leg without relocating it. */
+/** A vectored arrival joins the assigned downwind before flying the local circuit. */
 function joinRadarPattern(a: Aircraft) {
   const r = a.radar;
   if (!r || r.guidance !== "vectors" || !radarArrivalFrequency(a.frequency) || !r.transferred) return;
-  const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), points = patternTargets(a);
-  const previous: Record<Leg, Point> = {upwind: g.threshold, crosswind: points.upwind, downwind: points.crosswind, base: points.downwind, final: points.base};
-  const legs: Leg[] = ["upwind", "crosswind", "downwind", "base", "final"];
-  const radius = Math.max(.25, bankTurnLead(a.speed));
+  const g = runwayGeometry(a.runway ?? DEFAULT_RUNWAY), q = runwayCoordinates(a.position, g);
   const height = AIRPORT.elevation + DEFAULTS.patternHeight;
-  const candidates = legs.flatMap((leg, index) => {
-    const start = previous[leg], end = points[leg], length = distance(start, end);
-    const vector = {x: (end.x - start.x) / length, y: (end.y - start.y) / length};
-    const along = (a.position.x - start.x) * vector.x + (a.position.y - start.y) * vector.y;
-    if (along > length - radius * .5) return [];
-    const entry = add(start, vector, Math.max(0, along)), travel = distance(a.position, entry);
-    const turn = Math.abs(((bearing(start, end) - a.heading + 540) % 360) - 180);
-    if (leg === "final" && (turn > 30 || travel > 1 || distance(a.position, g.threshold) < Math.max(2, radius * 2) || a.altitude > height + 300)) return [];
-    const remaining = distance(entry, end) + legs.slice(index + 1).reduce((sum, next) => sum + distance(previous[next], points[next]), 0);
-    const secondsAvailable = (travel + remaining) / Math.max(a.speed, 180) * 3600;
-    const secondsToHeight = Math.abs(a.altitude - height) / ((a.altitude > height ? descentRate(a) : climbRate(a)) / 60);
-    if (secondsToHeight > secondsAvailable) return [];
-    return [{leg, score: travel + radius * turn / 90}];
-  }).sort((a, b) => a.score - b.score);
+  const secondsToHeight = Math.abs(a.altitude - height) / ((a.altitude > height ? descentRate(a) : climbRate(a)) / 60);
+  const descentDistance = secondsToHeight * Math.max(a.speed, 220) / 3600;
+  const finalDistance = Math.max(defaultBaseDistance(a), -q.along + descentDistance + 2 * turnLead(a));
   const reason = !a.active || a.altitude <= AIRPORT.elevation ? "Aircraft is not airborne."
     : distance(a.position, g.threshold) > radarEnvironment.range ? "Aircraft is outside the training sector."
-    : !candidates.length ? "Current altitude and heading leave no reachable pattern entry; more vectors or descent are required." : undefined;
+    : finalDistance > radarEnvironment.range ? "Current altitude and heading leave no reachable pattern entry; more vectors or descent are required." : undefined;
   if (reason) {r.patternJoin = {status: "unable", reason}; return;}
   r.patternJoin = {status: "joining"}; r.captured = false; r.localizer = false; r.glideslope = false;
   r.targetAltitude = undefined; delete r.altitudeFromRoute; r.altitudeAssignedFrom = undefined; r.speed = undefined;
-  a.mode = "pattern"; a.leg = candidates[0].leg; a.leavingCircuit = false; a.extended = false; a.speedMode = "auto";
+  a.mode = "pattern"; a.leg = "downwind"; a.patternFinalDistance = finalDistance; a.leavingCircuit = false; a.extended = false; a.speedMode = "auto";
   delete a.transitionAltitude; clearLanding(a);
   automaticSpeed(a);
 }
@@ -299,10 +285,11 @@ function validateInstruction(a: Aircraft, command: Instruction, frequency?: stri
 
 function validateAssignment(a: Aircraft, command: Instruction, frequency?: string, traffic: Aircraft[] = []): string | null {
   if (frequency !== undefined) {const error = headingOnlyUnable(a, command); if (error) return error;}
-  if (command.type === "atc") return referenceInstructionError(a, command, AIRPORT, traffic, true);
+  if (command.type === "atc") return referenceInstructionError(a, command, AIRPORT, traffic, true, EXERCISE_WEATHER);
   if (command.type === "radio") return "Radio messages do not assign aircraft movement.";
   if (a.radar && !["vector", "expect-approach", "missed-approach", "route", "heading", "speed", "radar-speed", "frequency"].includes(command.type)) return "This instruction is unavailable in radar training.";
   const invalid = validateInstruction(a, command, frequency, traffic); if (invalid) return invalid;
+  if (command.type === "expect-approach" && command.navigation === "filed" && a.radar) return filedRouteJoin(a, EXERCISE_WEATHER).error ?? null;
   if (command.type === "vector" && command.approachId) {
     const approach = radarEnvironment.approaches.find(p => p.id === command.approachId);
     if (approach?.type === "gps") return gpsApproachJoin(a, approach, runwayGeometry(approach.runway), command.heading === undefined ? undefined : magneticToTrue(command.heading, AIRPORT)).error ?? null;
@@ -516,9 +503,9 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
   if (leavesHold) {delete a.atcManeuver; delete a.routeNavigation;}
   if (a.atcManeuver?.kind === "hold" && c.type === "vector" && c.altitude) a.atcManeuver.altitude = c.altitude.unit === "feet" ? c.altitude.value : c.altitude.value * 100;
   if (c.type === "radar-speed") {assignRadarSpeed(a, c, EXERCISE_WEATHER); return;}
-  if (["vector", "expect-approach", "missed-approach", "route"].includes(c.type)) {assignRadar(a, c, AIRPORT, radarEnvironment); return;}
+  if (["vector", "expect-approach", "missed-approach", "route"].includes(c.type)) {assignRadar(a, c, AIRPORT, radarEnvironment, EXERCISE_WEATHER); return;}
   if (a.radar && c.type === "heading") {assignRadar(a, {type: "vector", heading: c.value}, AIRPORT, radarEnvironment); return;}
-  if (c.type === "atc") {if (c.action === "back-taxi") delete a.takeoffOutcome; assignReference(a, c, AIRPORT, traffic); return;}
+  if (c.type === "atc") {if (c.action === "back-taxi") delete a.takeoffOutcome; assignReference(a, c, AIRPORT, traffic, EXERCISE_WEATHER); return;}
   if (c.type === "radio") return;
   if (c.type === "takeoff" && a.mode === "takeoff") {a.expedited = !!c.immediate; a.targetSpeed = Math.max(a.targetSpeed, DEFAULTS.airSpeed); return;}
   if (["pushback", "taxi", "lineup", "takeoff", "exit-runway"].includes(c.type)) delete a.takeoffOutcome;
@@ -822,6 +809,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
       if (action.patch.clearedToLand === false || action.patch.runway && action.patch.runway !== aircraft!.runway) clearLanding(aircraft!); if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) delete aircraft!.contactTowerAtHold; if (action.patch.runway && action.patch.runway !== aircraft!.runway || action.patch.hand && action.patch.hand !== aircraft!.hand) aircraft!.patternFinalDistance = undefined; if (["frequency", "runway", "position", "taxiPath", "taxiIndex"].some(key => key in action.patch)) {delete aircraft!.groundYield; delete aircraft!.giveWay; delete aircraft!.automaticRequest; delete aircraft!.parkingAfterContact;}
       if(action.patch.frequency!==undefined)delete aircraft!.facilityId;
       Object.assign(aircraft!, action.patch);
+      if (aircraft!.radar?.filedJoin && (action.patch.flightPlan || action.patch.position || action.patch.heading !== undefined)) {delete aircraft!.radar.filedJoin; aircraft!.radar.navigation = "heading";}
       if (aircraft!.radar?.gpsApproach && action.patch.flightPlan) {
         delete aircraft!.radar.gpsApproach; delete aircraft!.radar.cleared;
         aircraft!.radar.captured = false; aircraft!.radar.navigation = aircraft!.flightPlan[aircraft!.radar.routeIndex] ? "route" : "heading";
@@ -1186,7 +1174,7 @@ function stepTraffic(aircraft: Aircraft[], dt: number, autoGoAround = false) {
   const ground = aircraft.map(a => {return groundGuidance(a, aircraft, AIRPORT.elevation);});
   aircraft.forEach((a, index) => {const previous={...a.position,altitude:a.altitude}; move(a, dt, guidance[index], ground[index], autoGoAround, aircraft); if (a.altitude > (a.originDeparture?.elevation ?? AIRPORT.elevation) + 1) advancePerformance(a, previous, dt, EXERCISE_WEATHER); else {a.groundSpeed = a.speed; a.track = a.heading; a.verticalSpeed = 0;} if(a.altitude>(a.originDeparture?.elevation ?? AIRPORT.elevation)+1){a.flightSeconds=(a.flightSeconds??0)+dt; if(a.fuel) a.fuel={...a.fuel,enduranceMinutes:Math.max(0,a.fuel.enduranceMinutes-dt/60)};}});
 }
-const motionCopy = (a: Aircraft): Aircraft => ({...a, ...(a.originDeparture ? {originDeparture: {...a.originDeparture, threshold: {...a.originDeparture.threshold}, departure: {...a.originDeparture.departure}}} : {}), ...(a.airportSighting ? {airportSighting: {...a.airportSighting}} : {}), position: {...a.position}, ...(a.routeNavigation ? {routeNavigation: {...a.routeNavigation}} : {}), ...(a.atcManeuver ? {atcManeuver: {...a.atcManeuver, ...(a.atcManeuver.center ? {center: {...a.atcManeuver.center}} : {})}} : {}), ...(a.radar ? {radar: {...a.radar, ...(a.radar.gpsApproach ? {gpsApproach: {...a.radar.gpsApproach}} : {}), ...(a.radar.approachIntercept ? {approachIntercept: {...a.radar.approachIntercept}} : {}), ...(a.radar.departure ? {departure: {...a.radar.departure}} : {}), ...(a.radar.arrival ? {arrival: {...a.radar.arrival}} : {}), ...(a.radar.patternJoin ? {patternJoin: {...a.radar.patternJoin}} : {})}} : {}), ...(a.pushback ? {pushback: {...a.pushback}} : {})});
+const motionCopy = (a: Aircraft): Aircraft => ({...a, ...(a.originDeparture ? {originDeparture: {...a.originDeparture, threshold: {...a.originDeparture.threshold}, departure: {...a.originDeparture.departure}}} : {}), ...(a.airportSighting ? {airportSighting: {...a.airportSighting}} : {}), position: {...a.position}, ...(a.routeNavigation ? {routeNavigation: {...a.routeNavigation}} : {}), ...(a.atcManeuver ? {atcManeuver: {...a.atcManeuver, ...(a.atcManeuver.center ? {center: {...a.atcManeuver.center}} : {})}} : {}), ...(a.radar ? {radar: {...a.radar, ...(a.radar.gpsApproach ? {gpsApproach: {...a.radar.gpsApproach}} : {}), ...(a.radar.filedJoin ? {filedJoin: {...a.radar.filedJoin, point: {...a.radar.filedJoin.point}}} : {}), ...(a.radar.approachIntercept ? {approachIntercept: {...a.radar.approachIntercept}} : {}), ...(a.radar.departure ? {departure: {...a.radar.departure}} : {}), ...(a.radar.arrival ? {arrival: {...a.radar.arrival}} : {}), ...(a.radar.patternJoin ? {patternJoin: {...a.radar.patternJoin}} : {})}} : {}), ...(a.pushback ? {pushback: {...a.pushback}} : {})});
 
 function advance(state: Exercise, seconds: number): Exercise {
   if (!state.running || !Number.isFinite(seconds) || seconds <= 0) return state;
@@ -1272,6 +1260,9 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   if (moveReference(a, dt, EXERCISE_WEATHER)) return;
   if (["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode) || a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1) a.bankAngle = 0;
   if (!a.active) return;
+  // Older snapshots may have selected crosswind, base or final for a handoff.
+  // Re-plan an incomplete join from its current position without relocating it.
+  if (a.mode === "pattern" && a.radar?.patternJoin?.status === "joining" && a.leg !== "downwind") joinRadarPattern(a);
   // Resume old full-stop snapshots using the same mapped exits as new arrivals.
   if (a.radar?.arrival?.phase === "stopped") {
     automaticSpeed(a);
@@ -1354,7 +1345,9 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
     if (a.leg === "downwind") {
       // Move the base turn with the extension instead of steering back toward the
       // original corner. Keep this geometry through base/final and across reloads.
-      a.patternFinalDistance = Math.max(defaultBaseDistance(a), a.patternFinalDistance ?? 0, -runwayCoordinates(a.position, g).along + turnLead(a));
+      const joining = a.radar?.patternJoin;
+      const needsDownwind = joining && (joining.status === "joining" || Math.abs(a.altitude - (AIRPORT.elevation + DEFAULTS.patternHeight)) > 1);
+      a.patternFinalDistance = Math.max(defaultBaseDistance(a), a.patternFinalDistance ?? 0, -runwayCoordinates(a.position, g).along + turnLead(a) * (needsDownwind ? 2 : 1));
     }
     if (a.patternEntry || a.extended || a.leg === "upwind" && a.conflictMotion?.upwind || a.leg === "downwind" && (guidance.extendDownwind || !!a.conflictMotion?.extendDownwind) && -runwayCoordinates(a.position, g).along >= defaultBaseDistance(a) - turnLead(a)) a.targetHeading = normalizeHeading(g.heading + (a.leg === "downwind" ? 180 : 0));
     else {
@@ -1394,7 +1387,15 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
           target = add(points.base, g.vector, finalAlong + Math.max(.25, lead * .4));
         } else target = add(start, segment.vector, Math.max(0, segment.along) + lookahead);
         a.targetHeading = bearing(a.position, target);
-        if (a.radar?.patternJoin?.status === "joining") {
+        if (a.radar?.patternJoin?.status === "joining" && a.leg === "downwind") {
+          const offset = (a.hand === "left" ? DEFAULTS.patternWidth : -DEFAULTS.patternWidth) - runwayCoordinates(a.position, g).lateral;
+          const downwindHeading = normalizeHeading(g.heading + 180);
+          const heading = Math.abs(((downwindHeading - a.heading + 540) % 360) - 180);
+          // Intercept the extended downwind at a bounded angle, then roll out
+          // early enough to avoid chasing the line far beyond the base turn.
+          a.targetHeading = normalizeHeading(downwindHeading + (Math.abs(offset) > lead * .7 ? Math.sign(offset) * 45 : 0));
+          if (Math.abs(offset) <= Math.max(.3, lead * .7) && heading <= 20) a.radar.patternJoin.status = "established";
+        } else if (a.radar?.patternJoin?.status === "joining") {
           const lateral = Math.abs((a.position.x - start.x) * -segment.vector.y + (a.position.y - start.y) * segment.vector.x);
           const heading = Math.abs(((bearing(start, end) - a.heading + 540) % 360) - 180);
           if (lateral <= .25 && heading <= 20 && segment.along >= 0 && segment.along <= segment.length) a.radar.patternJoin.status = "established";

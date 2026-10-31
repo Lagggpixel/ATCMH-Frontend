@@ -16,7 +16,7 @@ export interface AirportWeather {
 }
 export interface AirportProcedure {
   id: string; airport: string; name: string; type: "SID" | "STAR" | "Approach"; index?: number;
-  routes: {id: string; name: string; points: RoutePoint[]}[];
+  routes: {id: string; name: string; points: RoutePoint[]; simplified?: boolean}[];
 }
 export interface AirportProcedures {airport: string; origin: string; revision: string; procedures: AirportProcedure[]}
 export type AirportDisplayData = AirportInformation | AirportWeather | AirportProcedures;

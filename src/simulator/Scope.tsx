@@ -33,7 +33,7 @@ import {aircraftAppearance} from "./aircraft-flashing";
 import {runwayWindColor} from "./atis-options";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
-import {hitFixSymbol, layoutFixLabels, projectFixSymbols} from "./scope-fix-labels";
+import {hitFixSymbol, layoutFixLabels, projectFixSymbols, selectScopeFixes} from "./scope-fix-labels";
 import {drawCompassRoses, projectCompassRoses} from "./navigation-roses";
 import {drawNavigationSymbol} from "./navigation-symbols";
 import type {ScopeContext} from "./MentorContextMenu";
@@ -264,7 +264,8 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   const flightPlanPreview = useFlightPlanPreview();
   const flightPlanAircraft = shownVector ? snapshot.find(a => a.id === shownVector.aircraftId) : selectedAircraft;
   const navigationFixes = useMemo(() => scopeNavigationFixes(catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids), [catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids]);
-  const fixSymbols = useMemo(() => projectFixSymbols(navigationFixes, flightPlanAircraft?.flightPlan, camera, size), [navigationFixes, flightPlanAircraft?.flightPlan, camera, size]);
+  const visibleFixes = useMemo(() => selectScopeFixes(navigationFixes, flightPlanAircraft?.flightPlan, camera.scale), [navigationFixes, flightPlanAircraft?.flightPlan, camera.scale]);
+  const fixSymbols = useMemo(() => projectFixSymbols(visibleFixes, flightPlanAircraft?.flightPlan, camera, size), [visibleFixes, flightPlanAircraft?.flightPlan, camera, size]);
   const compassRoses = useMemo(() => projectCompassRoses(navigationFixes, camera, size), [navigationFixes, camera, size]);
   const revealedFix = fixSymbols.find(fix => fix.key === revealedFixKey);
   const [popup, setPopup] = useState<"options" | "hide" | null>(null);
@@ -381,7 +382,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       ctx.font = '12px "Simulator Fira", sans-serif';
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#fff"; ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
-      for (const label of layoutFixLabels(fixSymbols, size, name => ctx.measureText(name).width, "all")) ctx.fillText(label.symbol.id, label.x, label.y);
+      for (const label of layoutFixLabels(fixSymbols, size, name => ctx.measureText(name).width, "auto")) ctx.fillText(label.symbol.id, label.x, label.y);
       ctx.restore();
     }
     for (const feature of AIRPORT.features) {

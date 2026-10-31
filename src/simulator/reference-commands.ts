@@ -9,7 +9,7 @@ import {DEFAULTS} from "./model";
 import {airportCallsign, getAirport, defaultRunway, frequenciesFor} from "./airports";
 import {altitudeFeet, altitudeLabel, validAltitude} from "./radar";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
-import {assignDestination, courseDifference, courseTo, holdingLegSeconds, moveAltitude, resumeRoute} from "./command-navigation";
+import {assignDestination, courseDifference, courseTo, filedRouteJoin, holdingLegSeconds, moveAltitude, resumeRoute, startFiledRoute} from "./command-navigation";
 import {turnAircraft} from "./banked-turns";
 
 export const REFERENCE_ACTIONS = ["progressive", "cancel-takeoff", "back-taxi", "circle", "hold", "exit-hold", "navigation", "flight-following", "radar-vectors", "radar-contact", "airport-in-sight", "star-descent", "star-response", "diversion", "expect-unable", "deny-entry", "emergency", "broadcast", "guard", "bookmark", "report", "voice"] as const;
@@ -114,7 +114,7 @@ export function pilotReadback(callsign: string, text: string, c?: Instruction): 
   }
 }
 
-export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = [], assignment = false): string | null {
+export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = [], assignment = false, weather?: ExerciseWeather): string | null {
   const ground = a.altitude <= airport.elevation + 1;
   if ((c.action === "circle" || c.action === "hold") && !c.hand) return "Choose left or right turns.";
   if (c.runway && !(airport.runways ?? [airport.runway]).some(pair => pair.ends.some(end => end.id === c.runway))) return "Runway is not in this airport snapshot.";
@@ -137,10 +137,11 @@ export function referenceInstructionError(a: Aircraft, c: ReferenceInstruction, 
   if (c.action === "diversion" && c.variant !== "deny" && !(c.name && c.point) && !a.diversionDestination) return "Choose a diversion destination in aircraft navigation setup.";
   if (c.action === "voice" && (c.text?.length ?? 0) > 256) return "Voice messages have a 256-character limit.";
   if (c.action === "voice" && !c.text?.trim()) return "Record or enter a message before sending.";
+  if (assignment && c.action === "navigation" && c.variant !== "own" && a.radar) return filedRouteJoin(a, weather).error ?? null;
   return null;
 }
 
-export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = []) {
+export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: Airport, traffic: Aircraft[] = [], weather?: ExerciseWeather) {
   if (c.action === "cancel-takeoff") {a.mode = "taxi"; a.holding = true; a.targetSpeed = 0; a.lineupWait = true; delete a.expedited;}
   if (c.action === "back-taxi") {
     const runway = c.runway ?? a.runway ?? defaultRunway(airport), route = backTaxiRoute(airport, a, runway, !!c.contactGround);
@@ -157,13 +158,14 @@ export function assignReference(a: Aircraft, c: ReferenceInstruction, airport: A
     if (c.action === "hold") {a.targetSpeed = Math.min(a.speed, altitudeFeet(c.altitude!) <= 6000 ? 200 : altitudeFeet(c.altitude!) <= 14000 ? 230 : 265); if (!a.radar) a.speedMode = "manual";}
     a.atcManeuver = {kind: c.action, hand: c.hand ?? "right", remaining: 360, heading: a.heading, previousMode: a.radar ? "heading" : a.mode, previousLeg: a.leg, altitude: c.altitude ? altitudeFeet(c.altitude) : a.altitude,
       ...(c.action === "hold" ? {geometric: true, center: {...point}, inbound: c.inbound===undefined ? c.index === undefined ? a.heading : courseTo(a.position, point) : magneticToTrue(c.inbound,airport), ...(c.name?{fixName:c.name}:{}), ...(c.index !== undefined && a.flightPlan[c.index] && Math.hypot(a.flightPlan[c.index].x - point.x, a.flightPlan[c.index].y - point.y) < .000001 ? {holdIndex: c.index, followHoldRoute: a.radar?.navigation === "route" && a.radar.routeIndex <= c.index} : {}), phase: c.index === undefined ? "turn-outbound" : "entry", timer: 0, turnRemaining: 180} : {})};
-    if (a.radar) {a.mode = "heading"; if ("departure" in a.radar) delete a.radar.departure; if ("patternJoin" in a.radar) delete a.radar.patternJoin; a.radar.navigation = "heading"; a.radar.cleared = undefined; a.radar.captured = false; a.radar.localizer = false; if ("glideslope" in a.radar) a.radar.glideslope = false;}
+    if (a.radar) {a.mode = "heading"; if ("departure" in a.radar) delete a.radar.departure; if ("patternJoin" in a.radar) delete a.radar.patternJoin; delete a.radar.filedJoin; a.radar.navigation = "heading"; a.radar.cleared = undefined; a.radar.captured = false; a.radar.localizer = false; if ("glideslope" in a.radar) a.radar.glideslope = false;}
   }
   if (c.action === "exit-hold") {
     if (a.atcManeuver?.kind === "hold" && a.atcManeuver.phase !== "entry") a.atcManeuver.exitArmed = true;
     else resumeRoute(a);
   }
-  if (c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
+  if (c.action === "navigation" && c.variant !== "own") startFiledRoute(a, weather);
+  else if (c.action === "navigation" || c.action === "flight-following" || c.action === "expect-unable" || c.action === "radar-vectors" && c.variant === "deny") resumeRoute(a);
   if (["flight-following", "expect-unable"].includes(c.action) && !a.flightPlan.length) assignDestination(a, a.destination ?? {name: airportCallsign(airport), point: {x: 0, y: 0}}, false);
   if (c.action === "diversion" && c.variant !== "deny") {
     const target = c.name && c.point ? {name: c.name, point: c.point} : a.diversionDestination;

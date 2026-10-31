@@ -19,59 +19,102 @@ export interface PocketPlayback {
 export type PocketLoader = (text: string, voice: string, signal: AbortSignal, priority: "play" | "prepare") => Promise<ReadableStream<Uint8Array>>;
 
 export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPlayback): SpeechOutput {
-  let serial = 0, controller: AbortController | undefined, disposed = false;
-  let preparation: {key: string; controller: AbortController} | undefined;
+  interface Job {
+    key: string; text: string; voice: string; controller: AbortController;
+    priority: "play" | "prepare"; kind: "queue" | "draft" | "readback";
+    chunks: Float32Array[]; started: boolean; done: boolean; error?: unknown;
+    listeners: Set<() => void>;
+  }
+  let serial = 0, disposed = false, active = 0;
+  const jobs = new Map<string, Job>();
+  const MAX_CONCURRENT = 3, MAX_SPECULATIVE = 8;
   let status: (text: string) => void = () => {};
-  const cancelPreparation = () => {preparation?.controller.abort(); preparation = undefined;};
-  const cancel = () => {serial++; controller?.abort(); controller = undefined; cancelPreparation(); playback.cancel(); status("");};
-  const prepare = (text: string, settings: VoiceSettings) => {
-    const voice = voiceFor(settings.voice), key = JSON.stringify([voice, text]);
-    if (disposed || preparation?.key === key) return;
-    cancelPreparation();
-    const abort = new AbortController(); preparation = {key, controller: abort};
-    void (async () => {
-      const reader = (await load(text, voice, abort.signal, "prepare")).getReader(), decoder = new PocketStreamDecoder();
-      try {for (;;) {const {value, done} = await reader.read(); if (done) break; decoder.push(value);} decoder.finish();}
-      catch {await reader.cancel().catch(() => {});}
-    })().catch(() => {}).finally(() => {if (preparation?.controller === abort) preparation = undefined;});
+  const wake = (job: Job) => {for (const listener of job.listeners) listener(); job.listeners.clear();};
+  const remove = (job: Job) => {job.controller.abort(); if (jobs.get(job.key) === job) jobs.delete(job.key); wake(job);};
+  const trimSpeculative = () => {
+    const speculative = [...jobs.values()].filter(item => item.kind !== "queue");
+    while (speculative.length > MAX_SPECULATIVE) remove(speculative.shift()!);
   };
+  const pump = () => {
+    while (!disposed && active < MAX_CONCURRENT) {
+      const pending = [...jobs.values()].filter(job => !job.started && !job.controller.signal.aborted);
+      const job = pending.find(item => item.priority === "play") ?? pending.find(item => item.kind === "queue") ?? pending[0];
+      if (!job) return;
+      // Bound completed audio waiting behind a long transmission. The current
+      // head can always start, and the limit is rechecked after each job.
+      const buffered = [...jobs.values()].reduce((sum, item) => sum + item.chunks.reduce((bytes, chunk) => bytes + chunk.byteLength, 0), 0);
+      if (buffered >= 16 * 1024 * 1024 && job.priority !== "play") return;
+      job.started = true; active++;
+      void (async () => {
+        const reader = (await load(job.text, job.voice, job.controller.signal, job.priority)).getReader(), decoder = new PocketStreamDecoder();
+        const abortReader = () => {void reader.cancel().catch(() => {});};
+        job.controller.signal.addEventListener("abort", abortReader, {once: true});
+        try {
+          if (job.controller.signal.aborted) {await reader.cancel(); return;}
+          for (;;) {
+            const {value, done} = await reader.read();
+            if (done) break;
+            if (job.controller.signal.aborted) {await reader.cancel(); return;}
+            job.chunks.push(...decoder.push(value)); wake(job);
+          }
+          decoder.finish();
+        } catch (reason) {await reader.cancel().catch(() => {}); throw reason;}
+        finally {job.controller.signal.removeEventListener("abort", abortReader);}
+      })().catch(reason => {job.error = reason;}).finally(() => {job.done = true; active--; wake(job); pump();});
+    }
+  };
+  const ensure = (text: string, settings: VoiceSettings, kind: Job["kind"], priority: Job["priority"] = "prepare") => {
+    const voice = voiceFor(settings.voice), key = JSON.stringify([voice, text]);
+    let job = jobs.get(key);
+    // A failed speculative request must not retry on every incoming snapshot.
+    // Retry once it reaches the head of the audible queue instead.
+    if (job?.controller.signal.aborted || (job?.error && priority === "play")) {remove(job); job = undefined;}
+    if (!job) {
+      job = {key, text, voice, kind, priority, controller: new AbortController(), chunks: [], started: false, done: false, listeners: new Set()};
+      jobs.set(key, job);
+    } else {
+      if (kind === "queue" || (kind === "readback" && job.kind === "draft")) job.kind = kind;
+      if (priority === "play") job.priority = priority;
+    }
+    trimSpeculative();
+    pump(); return job;
+  };
+  const cancel = () => {serial++; for (const job of jobs.values()) remove(job); playback.cancel(); status("");};
   return {
     voices: () => voices,
     onVoicesChanged: () => () => {},
     onStatusChanged: listener => {status = listener; return () => {status = () => {};};},
     activate: () => {if (!disposed) playback.activate();},
-    prepare,
-    prepareDraft: prepare,
-    cancelDraft: cancelPreparation,
+    prepare: (text, settings) => {if (!disposed) ensure(text, settings, "queue");},
+    prepareDraft: (text, settings) => {if (!disposed) ensure(text, settings, "draft");},
+    prepareReadback: (text, settings) => {if (!disposed) ensure(text, settings, "readback");},
+    cancelDraft: () => {for (const job of jobs.values()) if (job.kind === "draft") remove(job);},
     speak(text, settings, end, error) {
-      cancel(); const current = serial; const abort = new AbortController(); controller = abort;
+      const current = ++serial;
       let received = false;
       status("Preparing radio voice…");
       void (async () => {
         if (disposed) throw new Error("Radio voice disposed");
+        // Claim the head before later queue entries can occupy generation slots.
+        const job = ensure(text, settings, "queue", "play");
         await playback.begin(settings);
         if (current !== serial) return;
-        const stream = await load(text, voiceFor(settings.voice), abort.signal, "play");
-        const reader = stream.getReader(), decoder = new PocketStreamDecoder();
-        try {
-          if (current !== serial) {await reader.cancel(); return;}
-          for (;;) {
-            const {value, done} = await reader.read();
-            if (done) break;
-            if (current !== serial) {await reader.cancel(); return;}
-            for (const samples of decoder.push(value)) {
-              playback.append(samples);
-              if (!received) {received = true; status("Radio voice");}
-            }
+        let index = 0;
+        while (current === serial) {
+          while (index < job.chunks.length) {
+            playback.append(job.chunks[index++]);
+            if (!received) {received = true; status("Radio voice");}
           }
-          decoder.finish();
-        } catch (reason) {await reader.cancel().catch(() => {}); throw reason;}
+          if (job.done || job.controller.signal.aborted) break;
+          await new Promise<void>(resolve => job.listeners.add(resolve));
+        }
         if (current !== serial) return;
+        if (job.error || job.controller.signal.aborted) throw job.error ?? new Error("Radio generation cancelled");
         await playback.finish();
-        if (current === serial) {controller = undefined; status(""); end();}
+        if (current === serial) {job.kind = "readback"; trimSpeculative(); pump(); status(""); end();}
       })().catch(reason => {
         if (current !== serial) return;
-        controller = undefined; playback.cancel();
+        playback.cancel();
         if (received) {status("Radio voice interrupted; see the message log."); end();}
         else error(reason);
       });

@@ -101,3 +101,17 @@ test("navaid type and TACAN subtype survive catalogue projection, route import a
   exercise.radarEnvironment!.fixes = [{id: "VOR", point: {x: 0, y: 0}, waypointType: "VOR", slavedVariation: 0}];
   assert.equal(exerciseSchema.parse(exercise).radarEnvironment!.fixes[0].slavedVariation, 0);
 });
+
+
+test("simplified STAR status reaches catalogue, route and saved procedure metadata", async () => {
+  const simplified = structuredClone(source); simplified.procedures[0].routes[0].simplified = true;
+  const api = createNavigationApi(async () => simplified, staff);
+  const catalogue = await (await api(req())).json();
+  assert.equal(catalogue.procedures[0].routes[0].simplified, true);
+  const route = await (await api(req("airport=EGPH&route=route-1&revision=revision-a"))).json();
+  assert.equal(route.simplified, true);
+  const {tagProcedure} = await import("./scenario-flight-plan");
+  const exercise = engineFor({trainingStation: "EGPH:approach"}).initialExercise();
+  exercise.aircraft[0].flightPlan = tagProcedure(route.points, route, "TEST", "star");
+  assert.equal(exerciseSchema.parse(JSON.parse(JSON.stringify(exercise))).aircraft[0].flightPlan[0].procedure?.simplified, true);
+});
