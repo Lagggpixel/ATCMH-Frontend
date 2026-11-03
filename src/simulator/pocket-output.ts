@@ -196,14 +196,17 @@ function browserPocketPlayback(AudioContextClass: typeof AudioContext): PocketPl
   };
 }
 
-export function browserPocketSpeechOutput(csrf: string): SpeechOutput | null {
+export function browserPocketSpeechOutput(csrf: string, reference?: (text: string) => {sessionId: string; messageId: string} | undefined): SpeechOutput | null {
   if (typeof window === "undefined") return null;
   const AudioContextClass = typeof AudioContext !== "undefined" ? AudioContext : (window as Window & {webkitAudioContext?: typeof AudioContext}).webkitAudioContext;
   if (!AudioContextClass) return null;
-  return createPocketSpeechOutput(async (text, voice, signal, priority) => {
+  const output = createPocketSpeechOutput(async (text, voice, signal, priority) => {
     const response = await fetch("/api/simulator/pocket-speech", {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf},
-      body: JSON.stringify({text, voice, priority}), signal, cache: "no-store"});
+      body: JSON.stringify({text, voice, priority, reference: reference?.(text)}), signal, cache: "no-store"});
     if (!response.ok || response.headers.get("content-type") !== "application/vnd.atcmh.pcm-stream" || !response.body) throw new Error("Radio voice unavailable");
     return response.body;
   }, browserPocketPlayback(AudioContextClass));
+  // Authoritative messages are prepared once by the session server. Per-tab
+  // speculative drafts/readbacks would recreate the viewer CPU multiplier.
+  return {...output, prepareDraft: undefined, prepareReadback: undefined};
 }
