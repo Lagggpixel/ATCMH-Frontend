@@ -608,8 +608,6 @@
 .radarQuick button:has(.colorSwatch) {display:flex;align-items:center;gap:10px}
 .colorSwatch {width:14px;height:14px;border:1px solid var(--dashboard-link);border-radius:50%;flex:none}
 .aircraft {touch-action:none}
-.bustingRing {position:absolute;left:-24px;top:-24px;width:48px;height:48px;border:3px solid var(--dashboard-link);border-radius:50%;pointer-events:none;z-index:3}
-.bustingTag {position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);display:grid;gap:2px;color:var(--dashboard-ink);background:var(--dashboard-surface);font-size:12px;white-space:nowrap;padding:2px 4px}
 .terrainUnavailable {position:absolute;bottom:28px;left:12px;color:var(--dashboard-ink);background:var(--dashboard-surface);padding:3px 6px;font-size:11px;pointer-events:none}
 
 .gateAircraft {cursor:grab!important;touch-action:none}
@@ -855,7 +853,7 @@
 .conflictTag {display:block!important;color:#ff4545!important;font-size:11px;font-weight:800;white-space:nowrap}
 .conflictTarget {outline:2px solid #ff4545;border-radius:50%}
 /* The training conflict overlay takes the scope's top left, so map layer errors move to the top right. */
-.scope:has([data-conflict-overlay]) .mapLayerStatus {left:auto;right:8px;max-width:calc(100% - 340px)}
+.scope:has([data-conflict-overlay],[data-separation-panel]) .mapLayerStatus {left:auto;right:8px;max-width:calc(100% - 340px)}
 .crashAlert {position:absolute;z-index:100;top:22%;left:50%;transform:translateX(-50%);width:min(780px,90%);box-sizing:border-box;display:grid;justify-items:center;gap:16px;padding:28px;background:#960b10f5;color:white;border:6px solid #ff4b4b;box-shadow:0 0 0 12px #ff292940,0 0 80px #f004;text-align:center;animation:crashImpact .65s ease-out both;pointer-events:auto}
 .crashAlert strong {font-size:clamp(34px,6vw,84px);line-height:1.05;font-weight:900;text-transform:uppercase}.crashAlert span{font-size:20px}.crashAlert button{padding:10px 24px;background:#fff;color:#700;border:0;font-weight:bold}
 @keyframes crashImpact {0%{transform:translateX(-50%) scale(1.15);background:#ff3434}35%{transform:translateX(-50%) scale(.98)}100%{transform:translateX(-50%) scale(1)}}
@@ -1096,3 +1094,6 @@
 .bandboxBanner {display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:5px 12px;border:1px solid var(--dashboard-border);border-radius:6px;font-size:13px;white-space:nowrap;color:var(--dashboard-ink)}
 .bandboxBanner>span {width:8px;height:8px;border-radius:50%;background:var(--dashboard-success-text,#3fb36f)}
 @media (max-width:900px) {.bandboxBanner {white-space:normal}}
+
+/* Keep incident controls accessible when the conflict panel is open. */
+.scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}

@@ -1,0 +1,39 @@
+/* Staff separation and terrain alerts: lines above callsign tags and a panel over the top left of the scope. */
+.tagLines.tagLines {position:absolute;left:0;bottom:100%;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding-bottom:2px;pointer-events:none}
+.tagLines.tagLines[data-side=left] {left:auto;right:0;align-items:flex-end}
+.line.line {display:flex;align-items:center;gap:.4em;padding:0 3px 0 0;border-radius:2px;color:#ff4d42;font-weight:700;white-space:nowrap}
+.line.line[data-kind=terr] {color:#ffa500}
+.lineBadge.lineBadge {display:inline-block;padding:0 3px;border-radius:2px;background:#ff4d42;color:#000;font-size:.85em;line-height:1.3;text-shadow:none}
+.line.line[data-kind=terr] .lineBadge {background:#ffa500}
+.line.line[data-filled=true] {background:#ff4d42;color:#000;text-shadow:none}
+.line.line[data-filled=true] .lineBadge {background:transparent}
+
+.panel,.chip {position:absolute;left:12px;top:12px;z-index:25;color:#edf2f5;font-size:13px}
+.panel {width:min(300px,calc(100% - 80px));display:flex;flex-direction:column;background:#10151be6;border:1px solid #34414b;border-radius:6px;max-height:min(55%, 420px);overflow-y:auto}
+.header {display:flex;align-items:center;gap:8px;padding:3px 3px 3px 10px;border-bottom:1px solid #34414b}
+.dot {flex:none;width:8px;height:8px;border-radius:50%;background:#ff4d42}
+.dot[data-live=false] {background:#6b7883}
+.heading {flex:1;margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#aab7c1}
+.count {font-size:11px;color:#aab7c1}
+.icon {flex:none;width:28px;height:28px;display:grid;place-items:center;padding:0;background:transparent;color:#aab7c1;border:1px solid transparent;border-radius:4px;cursor:pointer}
+.icon:hover {background:#253039;color:#edf2f5;border-color:#34414b}
+.icon svg,.chip svg {width:12px;height:12px}
+.row {display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:42px;padding:6px 10px;background:transparent;border:0;border-top:1px solid #253039;border-radius:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.header+.row {border-top:0}
+.row:hover,.row:focus-visible,.row[data-active=true] {background:#2a1715}
+.row[data-kind=terr]:hover,.row[data-kind=terr]:focus-visible,.row[data-kind=terr][data-active=true] {background:#2a1f0c}
+.row:focus-visible {outline:2px solid #80dce8;outline-offset:-2px}
+.badge {font:700 10px/14px "Simulator Mono",monospace;text-align:center;border-radius:2px;color:#000;background:#ff4d42}
+.row[data-kind=terr] .badge {background:#ffa500}
+.names {display:flex;flex-direction:column;min-width:0}
+.names strong {font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.values {font:400 11px/14px "Simulator Mono",monospace;color:#ffbcb6}
+.row[data-kind=terr] .values {color:#ffd38a}
+.time,.closest {font:400 11px/14px "Simulator Mono",monospace;color:#aab7c1;text-align:right;white-space:nowrap}
+.closest {display:flex;flex-direction:column;align-items:flex-end}
+.row[data-cleared=true] {opacity:.72}
+.row[data-cleared=true] .badge {background:transparent;color:#aab7c1;box-shadow:inset 0 0 0 1px #45515b}
+.row[data-cleared=true] :is(.names,.values) {color:#aab7c1}
+.chip {display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;background:#10151be6;border:1px solid #ff4d42;border-radius:15px;font:inherit;font-size:13px;cursor:pointer}
+.chip[data-live=false] {border-color:#34414b}
+.chip:hover {background:#1a232a}

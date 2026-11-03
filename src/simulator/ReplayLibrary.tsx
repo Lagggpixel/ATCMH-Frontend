@@ -135,7 +135,7 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
   return <div className={styles.body}>
     <section className={styles.stage} aria-label="Session replay">
       <div className={styles.scope}>
-        {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
+        {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope staffAlertsEnabled={mentor} messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
           conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
           radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : undefined}/></div>
           : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
