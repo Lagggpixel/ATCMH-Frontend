@@ -72,7 +72,7 @@ test("a second circuit descends before a late option clearance and completes ano
   assert.equal(state.aircraft[0].clearedForOption, false);
 });
 
-test("an uncleared final descends but goes around once at the runway without touching down", () => {
+test("an uncleared final descends but goes around at decision height without touching down", () => {
   const h = kdal(), g = h.geometry;
   let state = h.state;
   Object.assign(state.aircraft[0], {position: {x: g.threshold.x - g.vector.x * 3, y: g.threshold.y - g.vector.y * 3},
@@ -84,7 +84,7 @@ test("an uncleared final descends but goes around once at the runway without tou
     descended ||= a.altitude < h.airport.elevation + 900;
     assert.ok(!["rollout", "takeoff"].includes(a.mode), "no touchdown without clearance");
     if (a.mode === "go-around") {
-      assert.ok(h.along(state) >= -.002, "do not go around early solely for missing clearance");
+      assert.ok(h.along(state) < 0, "go around before reaching the runway");
       wentAround = true;
       break;
     }

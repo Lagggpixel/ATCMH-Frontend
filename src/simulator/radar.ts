@@ -262,8 +262,8 @@ export function touchdownRadar(a: Aircraft, airport: Airport, runway: Aircraft["
   } else {delete r.departure; delete r.targetAltitude; delete r.altitudeFromRoute; r.arrival = {runway: runway!, phase: "rollout"}; a.targetSpeed = 0;}
 }
 function automaticMissed(a: Aircraft, airport: Airport, environment: RadarEnvironment, reason: string) {
-  const altitude = ALTITUDES.find(value => altitudeFeet(value) >= Math.max(a.altitude, 5000, airport.elevation + 2000)) ?? ALTITUDES[ALTITUDES.length - 1];
   const approach = environment.approaches.find(p => p.id === (a.radar!.cleared ?? a.radar!.expected));
+  const altitude = ALTITUDES.find(value => altitudeFeet(value) >= Math.max(a.altitude, (approach?.elevation ?? airport.elevation) + 2000)) ?? ALTITUDES[ALTITUDES.length - 1];
   const heading = trueToMagnetic(approach?.missedHeading ?? approachGeometry(airport, a.runway ?? defaultRunway(airport)).heading, airport);
   assignRadar(a, {type: "missed-approach", altitude, heading}, airport, environment);
   a.radar!.report = "missed"; a.radar!.missedReason = reason;
@@ -277,8 +277,8 @@ export function visualApproachTrackMiles(a: Aircraft, command: Extract<Instructi
   const direct = distance(a.position, geometry.threshold);
   const predicted = structuredClone(a);
   assignRadar(predicted, command, airport, environment);
-  // Predict the same final without a Tower landing or occupancy decision.
-  predicted.frequency = "approach"; predicted.radar!.transferred = false;
+  // Predict the complete final assuming the later Tower handoff, with no runway traffic.
+  predicted.frequency = "tower"; predicted.radar!.transferred = true;
   let travelled = 0;
   for (let seconds = 0; seconds < 600; seconds += .5) {
     const before = {...predicted.position};
@@ -500,8 +500,8 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
         groundTrack = a.targetHeading = radarHeading(a.position, {x: g.threshold.x + g.vector.x * trackAlong, y: g.threshold.y + g.vector.y * trackAlong});
         if (r.captured && (approach.type!=="ils" || approach.glideslope!==false)) altitude = Math.min(a.altitude, along < 0 ? glideHeight : approach.type === "visual" ? destinationElevation : destinationElevation + Math.max(0, 50 - along * 500));
         const towerLanding = r.transferred && radarArrivalFrequency(a.frequency) && r.captured;
-        if (towerLanding && along >= -.65 && along < .1 && runwayGoAroundDue(a.altitude, destinationElevation, along) && runwayOccupied(airport, approach.runway, traffic, a.id)) {
-          automaticMissed(a, airport, environment, "Landing runway is occupied.");
+        if (r.captured && along >= -.65 && along < .1 && runwayGoAroundDue(a.altitude, destinationElevation, along) && (!towerLanding || runwayOccupied(airport, approach.runway, traffic, a.id))) {
+          automaticMissed(a, airport, environment, towerLanding ? "Landing runway is occupied." : "Reached decision height without a Tower handoff.");
           moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
         }
         if (towerLanding && along >= .1 && Math.abs(lateral) < .012 && a.altitude <= airport.elevation + 5) {
@@ -514,10 +514,6 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
     }
   }
   a.altitude = towards(a.altitude, altitude, (altitude < a.altitude ? descentRate(a) : climbRate(a)) / 60 * dt);
-  // Transferred arrivals complete final; Approach resumes control during missed-approach climbout.
-  if (r.navigation === "missed" && radarArrivalFrequency(a.frequency) && a.altitude >= Math.min(airport.elevation + 1000, altitude)) {
-    a.frequency = "approach"; r.returningToApproach = true; r.transferred = false; r.report = "missed";
-  }
   updateRadarSpeed(a, traffic, finalDistance, automaticTarget, weather);
   a.speed = towards(a.speed, a.targetSpeed, acceleration(a) * dt);
   if (groundTrack !== undefined) a.targetHeading = headingForGroundTrack(groundTrack, a, weather);

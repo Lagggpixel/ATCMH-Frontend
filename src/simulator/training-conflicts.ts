@@ -8,7 +8,7 @@ export interface TrainingConflict {
   id: string; kind: ConflictKind; first: string; second: string; runway: string; otherRunway: string;
   phase: "setup" | "upwind" | "requested" | "active" | "complete" | "cancelled";
   started: number; circuit: number; setupDeadline?: number; linedUp?: boolean; takeoffCleared?: boolean; cancelledTakeoff?: boolean;
-  goAround?: boolean; selfGoAround?: boolean; rollAt?: number; outcome?: string;
+  goAround?: boolean; selfGoAround?: boolean; exitInstructed?: boolean; rollAt?: number; outcome?: string;
 }
 export interface ConflictMotion {upwind?: boolean; extendDownwind?: boolean; slowExit?: boolean; holdRunway?: boolean; holdDeparture?: boolean; speedLimit?: number; speedTarget?: number}
 type Geometry = {threshold: Point; departure: Point; heading: number; vector: Point; clearance?: number};
@@ -91,7 +91,13 @@ export function conflictCommand(state: Exercise, aircraftId: string, command: In
         finish(c, c.goAround ? "Go around and takeoff cancellation received" : "Takeoff cancellation received");
       }
     }
-    if (aircraftId === a.id && command.type === "go-around") c.goAround = true;
+    if (c.kind === "cancel-takeoff" && aircraftId === a.id && command.type === "go-around") c.goAround = true;
+    if (c.kind === "ga" && aircraftId === b.id && command.type === "go-around" && applied) {
+      c.goAround = true;
+      delete a.conflictMotion;
+      finish(c, "Following aircraft instructed to go around");
+    }
+    if (c.kind === "ga" && aircraftId === a.id && applied && (command.type === "exit-runway" || command.type === "taxi" && command.destination === "parking")) c.exitInstructed = true;
   }
 }
 
@@ -146,7 +152,7 @@ export function prepareConflicts(state: Exercise, airport: Airport, engine: Conf
       if (c.phase === "active" && (offRunway || b.mode === "go-around" || b.leg === "upwind")) {
         delete a.conflictMotion;
         const wentAround = b.mode === "go-around" || c.selfGoAround;
-        finish(c, wentAround ? "Following aircraft went around" : "Go-around conflict did not materialise: runway cleared or following arrival left final", !wentAround);
+        finish(c, wentAround ? "Following aircraft self-initiated go-around" : c.exitInstructed && offRunway ? "Runway cleared following Tower instruction" : "Go-around conflict did not materialise: runway cleared or following arrival left final", !wentAround && !(c.exitInstructed && offRunway));
       }
       else if (c.phase === "active" && state.elapsed > (c.rollAt ?? state.elapsed) + 600) {delete a.conflictMotion; finish(c, "Following arrival did not reach the runway", true);}
     } else {

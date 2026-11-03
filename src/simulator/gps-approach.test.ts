@@ -35,7 +35,8 @@ for (const station of ["approach", "center"] as const) {
     Object.assign(f.a, {position: f.point(12, 1.3), heading: (f.g.heading + angle) % 360, targetHeading: (f.g.heading + angle) % 360});
     f.a.radar!.navigation = "heading";
     f.clear({heading: trueToMagnetic(f.g.heading + angle, f.airport), altitude: {unit: "feet", value: 2000}});
-    f.fly(240);
+    for (let t = 0; t < 240 && !f.a.radar!.captured; t += 0.1) f.fly(0.1);
+    f.fly(20);
     assert.equal(f.a.radar!.navigation, "approach", f.a.radar!.missedReason);
     assert.equal(f.a.radar!.captured, true);
   });

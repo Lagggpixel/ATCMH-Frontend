@@ -148,15 +148,18 @@ for (const type of ["ils", "gps", "visual"] as const) test(`${type}: reaching th
   f.a.altitude = f.airport.elevation + 50; f.step(false);
   assert.equal(f.a.radar!.navigation, "missed");
   const result = f.engine.autoReadbacks(f.state, 1000, randomUUID);
-  assert.match(result.messages.at(-1)!.unableReason!, /Reached the runway/);
+  assert.match(result.messages.at(-1)!.unableReason!, /Reached decision height/);
 });
 test("a Tower missed approach retains its explanation through reporting and frequency changes", () => {
   const f = fixture("approach", "ils", .5); f.a.frequency = "tower"; f.a.radar!.transferred = true;
   f.a.altitude = f.glide + 300; f.step();
   let state = f.state;
   for (let i = 0; i < 100; i++) state = f.engine.autoReadbacks(f.engine.advance(state, .5), i * 500, randomUUID);
+  assert.equal(state.aircraft[0].frequency, "tower", "the pilot remains with Tower until instructed");
+  state = f.engine.applyEnvelope(state, {id: "return-to-approach", time: 51000, action: {kind: "maneuver", aircraftId: f.a.id, command: {type: "frequency", frequency: "approach"}}}).state;
+  state = f.engine.autoReadbacks(state, 51000, randomUUID);
   const reports = state.messages.filter(m => m.text.includes("executing missed approach"));
-  assert.equal(reports.length, 1); assert.match(reports[0].unableReason!, /Above glideslope/);
+  assert.equal(reports.length, 2); assert.deepEqual(reports.map(m => m.frequency), ["tower", "approach"]); assert.match(reports[0].unableReason!, /Above glideslope/);
   assert.equal(state.aircraft[0].radar!.missedReason, undefined);
 });
 test("learner joins and frames omit both pending and logged MA reasons; trainer reconnect retains them", async () => {

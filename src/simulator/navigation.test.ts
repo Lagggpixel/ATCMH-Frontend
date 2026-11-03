@@ -17,6 +17,8 @@ test("left/right patterns on both runways repeat ordered legs, stay on the corre
     state.running = true;
     const transitions: string[] = [a.leg]; let previous: string = a.leg, finals = 0, maxSide = 0;
     for (let i = 0; i < 1600; i++) {
+      // This navigation test models an option clearance on each circuit.
+      if (state.aircraft[0].leg === "final") {state.aircraft[0].clearedToLand = true; state.aircraft[0].clearedForOption = true;}
       state = advance(state, 1); const plane = state.aircraft[0], q = local(plane.position, runway);
       maxSide = Math.max(maxSide, Math.abs(q.lateral));
       if (plane.leg !== previous) {transitions.push(plane.leg); previous = plane.leg;}

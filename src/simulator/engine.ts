@@ -299,6 +299,7 @@ function validateAssignment(a: Aircraft, command: Instruction, frequency?: strin
   if (command.type === "taxi" && command.contactTowerWhenReady && (!command.runway || command.destination === "parking")) return "Contact Tower when ready requires taxi to a runway.";
   if (["give-way", "pushback", "taxi", "stop", "hold-short", "cross", "takeoff", "lineup", "exit-runway"].includes(command.type) && !ground && !(command.type === "takeoff" && a.mode === "takeoff" && a.altitude <= AIRPORT.elevation + 1)) return "This instruction requires ground traffic.";
   if (["land", "cancel-landing", "go-around", "pattern", "extend", "heading", "transition", "departure"].includes(command.type) && (ground || a.mode === "takeoff" && a.altitude <= (a.originDeparture?.elevation ?? AIRPORT.elevation) + 1)) return "This instruction requires airborne traffic.";
+  if (command.type === "go-around" && a.mode !== "go-around" && !(a.mode === "pattern" && ["base", "final"].includes(a.leg)) && !(a.radar && a.radar.navigation === "approach")) return "Go around requires an arrival on base or final.";
   if ((command.type === "taxi" || command.type === "pushback") && command.route) {
     if (groundRouteJoin(a, command.route) === undefined) return "Aircraft has moved away from this route. Recalculate it.";
     if (command.type === "pushback" && (a.speed > .2 || a.enginesRunning === true)) return "Routed pushback requires stopped traffic with engines off.";
@@ -598,8 +599,10 @@ function instruct(a: Aircraft, c: Instruction, traffic: Aircraft[] = []) {
       if(c.facilityId)a.facilityId=c.facilityId;else delete a.facilityId;
       if (c.whenReady) a.contactTowerAtHold = true;
       else {
+        const returningFromTower = a.radar?.navigation === "missed" && radarArrivalFrequency(a.frequency) && c.frequency === "approach";
         a.frequency = c.frequency;
         updateRadarFrequency(a);
+        if (returningFromTower && a.radar) {a.radar.returningToApproach = true; a.radar.transferred = false; a.radar.report = "missed";}
         if(c.targetPositionId) {a.positionId=c.targetPositionId; if(a.radar){a.radar.transferred=false;a.radar.report="check-in";}}
         else {delete a.positionId; if(c.facilityId && a.radar) a.radar.transferred=true;}
         if (c.frequency === "ground" && a.parkingAfterContact) {a.arrivalRequest = "taxi-parking"; delete a.parkingAfterContact;}
@@ -746,7 +749,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
     }
   }
   if (action.kind === "conflict") {const error = startConflict(next, AIRPORT, conflictEngine, envelope.id, action.conflict, action.aircraftId, action.otherId); if (error) return {state, error};}
-  if (action.kind === "cancel-conflict") {const c = next.conflicts?.find(c => c.id === action.conflictId); if (!c) return {state, error: "Conflict no longer exists."}; c.phase = "cancelled"; c.outcome = "Cancelled by staff"; for (const a of next.aircraft.filter(a => [c.first, c.second].includes(a.id))) {delete a.conflictMotion; delete a.conflictRequest; if (c.kind === "uwc") {a.extended = false; if (a.leg === "upwind") instruct(a, {type: "pattern", leg: "crosswind"});}}}
+  if (action.kind === "cancel-conflict") {const c = next.conflicts?.find(c => c.id === action.conflictId); if (!c) return {state, error: "Conflict no longer exists."}; c.phase = "cancelled"; c.outcome = "Cancelled by staff"; for (const a of next.aircraft.filter(a => [c.first, c.second].includes(a.id))) {delete a.conflictMotion; delete a.conflictRequest; if (c.kind === "ga" && a.id === c.first && a.mode === "rollout" && a.arrivalExit?.instruction === "automatic") {delete a.runwayExit; delete a.arrivalExit;} if (c.kind === "uwc") {a.extended = false; if (a.leg === "upwind") instruct(a, {type: "pattern", leg: "crosswind"});}}}
   switch (action.kind) {
     case "reset": {const reset = initialExercise(state.id); reset.trainingStation = state.trainingStation; if (state.positions) {reset.positions = structuredClone(state.positions); for (const a of reset.aircraft) if (a.frequency === "approach") a.positionId = state.positions[0].id;} reset.autoReadback = state.autoReadback ?? false; reset.revision = state.revision + 1; reset.processed = [...state.processed.slice(-511), envelope.id]; return {state: reset};}
     case "facilities": next.radarEnvironment={...radarEnvironment,facilityActivity:{...action.activity}};break;
@@ -844,7 +847,7 @@ function applyEnvelope(state: Exercise, envelope: Envelope, options: {legacyPatt
         if (request.id === "taxi-runway") aircraft!.intentions = {...intentionsOf(aircraft!), taxi: "runway"};
         if (["go-around","unicom-go-around"].includes(request.id) && !aircraft!.radar) instruct(aircraft!, {type: "go-around"});
         if (["missed-approach", "unicom-go-around"].includes(request.id) && aircraft!.radar) {
-          const altitude = {unit: "feet" as const, value: Math.max(5000, Math.ceil((Math.max(aircraft!.altitude, AIRPORT.elevation) + 1000) / 500) * 500)};
+          const altitude = {unit: "feet" as const, value: Math.ceil(Math.max(aircraft!.altitude, AIRPORT.elevation + 2000) / 500) * 500};
           if (altitude.value <= 17500) instruct(aircraft!, {type: "missed-approach", altitude});
           else instruct(aircraft!, {type: "missed-approach", altitude: {unit: "flight-level", value: Math.min(600, Math.ceil(altitude.value / 1000) * 10)}});
         }
@@ -972,7 +975,7 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
     next = structuredClone(next); delete next.aircraft.find(other => other.id === a.id)!.reportAirportInSight;
     next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: "", request: {id: "airport-in-sight", runway: a.runway ?? DEFAULT_RUNWAY}}}).state;
   }
-  for (const a of state.aircraft.filter(a => a.radar?.report && (state.autoReadback || a.radar.report === "touch-and-go" || a.radar.report === "missed") && !(a.radar.navigation === "missed" && radarArrivalFrequency(a.frequency)) && !a.radar.departure && a.active && a.frequency && a.frequency !== "atis")) {
+  for (const a of state.aircraft.filter(a => a.radar?.report && (state.autoReadback || a.radar.report === "touch-and-go" || a.radar.report === "missed") && !a.radar.departure && a.active && a.frequency && a.frequency !== "atis")) {
     next = structuredClone(next);
     delete next.aircraft.find(other => other.id === a.id)!.radar!.report;
     delete next.aircraft.find(other => other.id === a.id)!.radar!.missedReason;
@@ -986,13 +989,13 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
     next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text, request}}).state;
     if (a.radar!.report === "missed" && a.radar!.missedReason) next.messages.at(-1)!.unableReason = a.radar!.missedReason;
   }
-  for (const a of next.aircraft.filter(a => a.conflictRequest || a.selfGoAroundPending && (state.autoReadback || state.conflicts?.some(c => c.kind === "cancel-takeoff" && c.first === a.id)))) {
+  for (const a of next.aircraft.filter(a => a.conflictRequest || a.selfGoAroundPending)) {
     next = structuredClone(next);
     const plane = next.aircraft.find(p => p.id === a.id)!;
     const request = plane.conflictRequest; delete plane.conflictRequest;
     const goAround = plane.selfGoAroundPending; delete plane.selfGoAroundPending;
     if (request) next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: "", request}}).state;
-    if (goAround && a.frequency === "tower") next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: `${a.callsign}, going around`}}).state;
+    if (goAround && a.frequency && a.frequency !== "atis") next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: `${a.callsign}, going around`}}).state;
   }
   if (!state.autoReadback) return next;
   for (const a of state.aircraft.filter(a => a.arrivalRequest)) {
@@ -1016,11 +1019,6 @@ function autoReadbacks(state: Exercise, now: number, createId: () => string): Ex
     const instruction = pendingCommands(next, a.id).at(-1)?.instruction;
     const alreadyCleared = request === "taxi" && instruction?.type === "taxi" || request === "departure" && (instruction?.type === "takeoff" || instruction?.type === "lineup");
     if (valid && pending?.request?.id !== id && !alreadyCleared) next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: "", request: {id, runway: a.departureRunway ?? a.runway ?? DEFAULT_RUNWAY, remainingInPattern: intentionsOf(a).flight === "pattern"}}}).state;
-  }
-  for (const a of next.aircraft.filter(a => a.selfGoAroundPending)) {
-    next = structuredClone(next);
-    delete next.aircraft.find(other => other.id === a.id)!.selfGoAroundPending;
-    if (a.frequency === "ground" || a.frequency === "tower") next = applyEnvelope(next, {id: createId(), time: now, action: {kind: "pilot", aircraftId: a.id, text: `${a.callsign}, going around`}}).state;
   }
   for (const a of state.aircraft) {
     const command = pendingCommands(next, a.id).at(-1);
@@ -1350,9 +1348,9 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
   } else if (a.mode === "pattern") {
     if (a.patternEntry && !guidance.holdEntry) {a.leg = a.patternEntry; delete a.patternEntry;}
     const finalAlong = runwayCoordinates(a.position, g).along;
-    if (a.leg === "final" && finalAlong >= -.65 && finalAlong < .1 && a.clearedToLand
+    if (a.leg === "final" && finalAlong >= -.65 && finalAlong < .1
       && runwayGoAroundDue(a.altitude, AIRPORT.elevation, finalAlong)
-      && runwayOccupied(AIRPORT, a.runway ?? DEFAULT_RUNWAY, traffic, a.id)) {
+      && (!a.clearedToLand || runwayOccupied(AIRPORT, a.runway ?? DEFAULT_RUNWAY, traffic, a.id))) {
       instruct(a, {type: "go-around"}); a.selfGoAroundPending = true;
       move(a, dt, guidance, ground, false, traffic); return;
     }
@@ -1385,7 +1383,7 @@ function move(a: Aircraft, dt: number, guidance: SequenceGuidance, ground: Groun
         a.taxiPath = []; a.taxiIndex = 0; a.releasedHold = null; a.flightPlan = [];
         a.mode = "rollout"; a.bankAngle = 0; a.altitude = AIRPORT.elevation; a.targetSpeed = a.landing === "touch-and-go" ? DEFAULTS.airSpeed : 0; a.targetHeading = g.heading; a.heading = g.heading;
         a.position = add(g.threshold, g.vector, Math.max(0, runwayCoordinates(a.position, g).along));
-      } else if (crossedThreshold && (permitted || autoGoAround)) {
+      } else if (crossedThreshold) {
         a.mode = "go-around"; a.leg = "upwind"; a.extended = false; a.targetHeading = g.heading; a.selfGoAroundPending = true;
       } else if (crossedThreshold || (a.leg !== "final" && segment.along >= segment.length - Math.min(lead, segment.length / 2) - 1e-8)) {
         // Crossing the end plane, rather than chasing a point, prevents circling

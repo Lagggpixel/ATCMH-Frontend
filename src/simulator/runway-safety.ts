@@ -5,9 +5,9 @@ import {buildTaxiGraph} from "./taxi-routing";
 /** Mapped exits end exactly on this boundary; allow projection round-off. */
 export const runwayLateralClear = (lateral: number, clearance: number) => Math.abs(lateral) >= clearance - 1e-7;
 
-/** Final automatic go-arounds wait for 50 ft AAL or the landing threshold. */
+/** Simulator decision height: 200 ft above airport elevation, or the threshold. */
 export function runwayGoAroundDue(altitude: number, elevation: number, along: number) {
-  return altitude <= elevation + 50 || along >= 0;
+  return altitude <= elevation + 200 || along >= 0;
 }
 
 /** Occupancy lasts until the aircraft clears the protected runway area,

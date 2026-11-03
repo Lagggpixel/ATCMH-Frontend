@@ -93,7 +93,8 @@ test("every completed circuit, touch-and-go and go-around requires a fresh seque
     assert.equal(next.aircraft[0].sequence, undefined); assert.equal(next.aircraft[0].circuit, 1);
     assert.equal(state.aircraft[0].circuit, undefined, "advance is immutable");
   }
-  const state = act(send(traffic(), sequence()), {kind: "maneuver", aircraftId: "follower", command: {type: "go-around"}});
+  const queued = send(traffic(), sequence()); queued.aircraft.find(a => a.id === "follower")!.leg = "final";
+  const state = act(queued, {kind: "maneuver", aircraftId: "follower", command: {type: "go-around"}});
   assert.equal(state.aircraft[0].sequence, undefined);
 });
 

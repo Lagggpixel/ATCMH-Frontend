@@ -9,6 +9,7 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
   {date: "2026-11-03", updates: [
+    {title: "Go-around safety", description: "Aircraft go around at decision height when they are not cleared to land or the runway is occupied. Go-around conflict exercises now record controller instructions and runway clearance more accurately."},
     {title: "Radio audio recovery", description: "Busy or unavailable radio voices now fall back to a local English device voice, including in mentee tabs. Background preparation is reduced so live transmissions get priority."},
   ]},
   {date: "2026-10-30", updates: [

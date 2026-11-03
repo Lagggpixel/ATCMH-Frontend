@@ -152,7 +152,7 @@ test("staff Go Around starts a manoeuvre; each mentee response reads back and ex
     const command = messageMenu("tower", state.aircraft[0], [], state.messages[0]).find(e => e.label === "Respond to Go Around")!.children!.find(e => e.label === label)!.children!.find(e => e.label === "Runway 24")!.instruction!;
     state = tick(send(state, command));
     const phrase = label === "Fly Runway Heading" ? "fly runway heading" : label === "Make Right Traffic" ? "make right traffic" : "make left traffic";
-    assert.equal(state.messages[1].text, `Easy 201, roger, ${phrase} runway 24`);
+    assert.equal(state.messages[1].text, `Easy 201, roger, ${phrase} runway 24${label === "Fly Runway Heading" ? ", climb and maintain 1635 feet" : ""}`);
     assert.equal(state.messages[2].text, "Roger, Easy 201");
     assert.equal(state.aircraft[0].circuit, 1, "the controller response does not start another circuit");
     for (let i = 0; i < 120; i++) state = advance(state, 5);
@@ -161,7 +161,7 @@ test("staff Go Around starts a manoeuvre; each mentee response reads back and ex
   }
 });
 
-test("no landing clearance triggers one self go-around only with automation enabled; prediction emits no messages", () => {
+test("no landing clearance triggers one self go-around regardless of auto-readback; prediction emits no messages", () => {
   const original = threshold(true), predicted = predictAircraft(original.aircraft, .1, true);
   let state = advance(original, .1);
   assert.equal(state.messages.length, 0); assert.equal(state.aircraft[0].mode, "go-around");
@@ -170,7 +170,7 @@ test("no landing clearance triggers one self go-around only with automation enab
   assert.equal(state.messages[0].text, "Speedbird 124, going around"); assert.equal(state.messages[0].read, false); assert.equal(state.aircraft[0].pending, 1);
   assert.equal(tick(state).messages.length, 1);
   const manual = tick(threshold(false), .1);
-  assert.equal(manual.aircraft[0].mode, "pattern"); assert.equal(manual.aircraft[0].leg, "upwind"); assert.equal(manual.messages.length, 0);
+  assert.equal(manual.aircraft[0].mode, "go-around"); assert.equal(manual.aircraft[0].leg, "upwind"); assert.equal(manual.messages.length, 1);
 });
 
 test("landing without option forces full stop even after a staff touch-and-go override", () => {

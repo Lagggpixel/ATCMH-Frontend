@@ -5,7 +5,7 @@ import {approachOptions, destinationCode} from "./aviation";
 import {altitudeFeet, altitudeLabel} from "./radar";
 import {referenceControllerText} from "./reference-commands";
 import {referenceMenu, referenceSpeedMenu} from "./reference-menu";
-import {EXERCISE_WEATHER as DEFAULT_WEATHER, type ExerciseWeather, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message, patternLegLabel} from "./model";
+import {DEFAULTS, EXERCISE_WEATHER as DEFAULT_WEATHER, type ExerciseWeather, type Airport, type Aircraft, type Frequency, type Instruction, type Runway, type Direction, type Exercise, type Message, patternLegLabel} from "./model";
 import {defaultAirport, defaultRunway, runwayEnds, airportCallsign, frequenciesFor} from "./airports";
 import type {RadarEnvironment} from "./model";
 import {checkInTransmission, radarEnvironmentFor, radarInstructionText, radarRequestedApproach, roundedHeadingInstruction} from "./radar";
@@ -55,7 +55,7 @@ function instructionText(a: Aircraft, instruction: Instruction, path: MenuEntry[
     case "takeoff": text = `${wind}, runway ${runway}, cleared for ${instruction.immediate ? "immediate " : ""}takeoff${instruction.hand ? `, make ${instruction.hand} traffic` : instruction.straightOut ? `${instruction.unablePattern ? ", unable pattern work" : ""}, fly runway heading until at or above ${instruction.straightOut} feet` : ""}`; break;
     case "land": text = `${wind}, ${instruction.number ? `number ${instruction.number}, ` : ""}runway ${runway}, cleared ${instruction.option ? "for the option" : "to land"}${instruction.option && instruction.hand ? `, after the option, make ${instruction.hand} traffic` : ""}`; break;
     case "sequence": text = instruction.departure ? `you're number ${instruction.number} for departure` : `${instruction.cancelLanding ? "cancel landing clearance, " : ""}number ${instruction.number}, traffic to follow is on ${instruction.traffic?.toLowerCase() ?? "final"}`; break;
-    case "go-around": text = `${instruction.response ? "roger" : "go around"}, ${instruction.runwayHeading ? "fly runway heading" : `make ${instruction.hand ?? a.hand} traffic`} runway ${runway}`; break;
+    case "go-around": text = `${instruction.response ? "roger" : "go around"}, ${instruction.runwayHeading ? `fly runway heading runway ${runway}, climb and maintain ${airport.elevation + DEFAULTS.patternHeight} feet` : `make ${instruction.hand ?? a.hand} traffic runway ${runway}`}`; break;
     case "cancel-landing": text = "cancel landing clearance"; break;
     case "pattern": text = path.find(entry => /^(Enter|Turn)/.test(entry.label))?.label.toLowerCase() ?? `enter ${instruction.leg === "final" ? "straight in" : `${instruction.hand ?? a.hand} ${instruction.leg}`}`; if (!path.length || path.some(entry => entry.label.startsWith("Runway"))) text += ` runway ${runway}`; if (instruction.sequence) text += `, number ${instruction.sequence.number}, traffic to follow is on ${instruction.sequence.traffic?.toLowerCase() ?? "final"}`; break;
     case "extend": text = instruction.leg === "downwind" ? "extend downwind, I'll call your base" : "extend upwind, I'll call your crosswind"; break;
