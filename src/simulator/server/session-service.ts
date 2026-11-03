@@ -16,6 +16,7 @@ import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 import {demoPresenter} from "../demonstration";
+import {prepareSessionSpeech, sessionSpeechTexts} from "./speech-preparation";
 
 /** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee; superAdmin may spectate. */
 export interface Actor {accountId: string; staff: boolean; displayName?: string; discordId?: string; simulatorAccess?: boolean; canAssign?: boolean; superAdmin?: boolean}
@@ -78,7 +79,7 @@ export function endDemonstration(record: SessionRecord) {
   record.exercise = exercise; record.contentRevision++;
 }
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader, private prepareSpeech = prepareSessionSpeech) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
     if (role === "spectator") {assertSuperAdmin(actor); return;}
@@ -161,9 +162,10 @@ export class SessionService {
     return summary(record, now);
   }
   /** `requested` lists the positions a mentor wants to work (comma separated); `takeover` moves this account's own seat from another page. */
-  join(actor: Actor, id: string, role: SessionMode, token: string, requested?: string, takeover = false) {
+  async join(actor: Actor, id: string, role: SessionMode, token: string, requested?: string, takeover = false) {
     if (role === "spectator") return this.frame(actor, id, role, token);
-    return this.store.transaction(id, record => {
+    let speech: string[] = [];
+    const view = await this.store.transaction(id, record => {
       if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
       const now = this.now();
       const held = role === "mentee" ? this.chooseHeld(record, actor, token, now, requested) : [];
@@ -184,8 +186,11 @@ export class SessionService {
         for (const positionId of held) record.positionState[positionId] = {...record.positionState[positionId], seat: {...joined}};
       } else record[role] = joined;
       record.updatedAt = now;
+      speech = sessionSpeechTexts(record);
       return this.view(record, role, now, held);
     });
+    this.prepareSpeech(actor.accountId, speech, process.env.FRONTEND_PUBLIC_ORIGIN ?? "atcmh");
+    return view;
   }
   /**
    * The positions a mentee seat takes: every position assigned to this mentee, so an assignment to several is a bandbox.

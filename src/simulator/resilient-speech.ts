@@ -30,6 +30,7 @@ export function resilientSpeechOutput(primary: SpeechOutput | null, fallback: Sp
       fallback?.prepare?.(text, backupSettings(settings));
     },
     prepareDraft: (text, settings) => {if (!failed) primary.prepareDraft?.(text, settings);},
+    prepareReadback: (text, settings) => {if (!failed) primary.prepareReadback?.(text, settings);},
     cancelDraft: () => primary.cancelDraft?.(),
     speak(text, settings, end, error) {
       clear(); recovering = false; const current = ++serial;

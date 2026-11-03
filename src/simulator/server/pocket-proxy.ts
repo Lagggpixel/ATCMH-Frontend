@@ -6,12 +6,14 @@ const input = z.object({
   text: z.string().trim().min(1).max(6000),
   voice: z.enum(["alba", "george", "jane"]),
   priority: z.enum(["play", "prepare"]).default("play"),
+  reference: z.object({sessionId: z.string().uuid(), messageId: z.string().min(1).max(256)}).strict().optional(),
 }).strict();
 const noStore = {"cache-control": "private, no-store", "x-content-type-options": "nosniff"};
 const unavailable = () => new SessionError("speech-unavailable", "Radio voice is temporarily unavailable. Your text messages are unaffected.", 503);
 
 /** Proxy a framed PCM stream without exposing the private token or retaining speech text. */
-export function createPocketProxy(authorize: (request: Request) => Promise<{accountId: string}>, failure: (error: unknown) => Response, namespace: () => string, requestSpeech: typeof fetch = fetch) {
+export function createPocketProxy<Actor extends {accountId: string}>(authorize: (request: Request) => Promise<Actor>, failure: (error: unknown) => Response, namespace: () => string, requestSpeech: typeof fetch = fetch,
+  resolve?: (actor: Actor, reference: {sessionId: string; messageId: string}, request: Request) => Promise<string>) {
   return async (request: Request) => {
     try {
       const actor = await authorize(request);
@@ -33,7 +35,13 @@ export function createPocketProxy(authorize: (request: Request) => Promise<{acco
         } catch (error) {await reader.cancel(); throw error;}
         const value = input.parse(JSON.parse(text));
         const accountId = createHmac("sha256", token).update(JSON.stringify([namespace(), actor.accountId])).digest("hex");
-        body = JSON.stringify({...value, accountId});
+        const {reference, ...speech} = value;
+        if (reference) {
+          if (!resolve) throw new SessionError("invalid-request", "Message audio is unavailable.", 400);
+          speech.text = await resolve(actor, reference, request);
+        }
+        const scopeId = reference ? createHmac("sha256", token).update(JSON.stringify([namespace(), "session", reference.sessionId])).digest("hex") : undefined;
+        body = JSON.stringify({...speech, accountId, ...(scopeId ? {scopeId} : {})});
       }
       const controller = new AbortController();
       const upstream = await requestSpeech(target, {method: request.method, headers: {authorization: `Bearer ${token}`, ...(body ? {"content-type": "application/json"} : {})}, body,

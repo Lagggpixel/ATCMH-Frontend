@@ -1,4 +1,5 @@
-import {type Exercise, type Frequency, type Message} from "./model";
+import {pendingCommands, type Exercise, type Frequency, type Message} from "./model";
+import {pilotReadback} from "./reference-commands";
 import {aviationSpeech} from "./radio-speech";
 export {aviationSpeech} from "./radio-speech";
 
@@ -10,6 +11,7 @@ export interface SpeechOutput {
   speak(text: string, settings: VoiceSettings, end: () => void, error: (reason?: unknown) => void): void;
   prepare?(text: string, settings: VoiceSettings): void;
   prepareDraft?(text: string, settings: VoiceSettings): void;
+  prepareReadback?(text: string, settings: VoiceSettings): void;
   cancelDraft?(): void;
   cancel(): void;
   activate?(): void;
@@ -74,6 +76,10 @@ export class RadioAudio {
   private waitingForRetry = false;
   private draftGeneration = 0;
   private draftTimer?: ReturnType<typeof setTimeout>;
+  private gapTimer?: ReturnType<typeof setTimeout>;
+  private readbackCandidates = new Set<string>();
+  private prepared = false;
+  constructor(private readonly scheduleGap: (callback: () => void) => ReturnType<typeof setTimeout> = callback => setTimeout(callback, 500)) {}
   /** Warm only the reviewed draft; this never sends an ATC command or starts playback. */
   prepareDraft = (text: string) => {
     this.cancelDraft();
@@ -110,11 +116,13 @@ export class RadioAudio {
     else if (!connected && previous.connected) {
       const interrupted = this.state.speaking;
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
+      this.prepared = false; this.readbackCandidates.clear();
       if (interrupted) this.queue.unshift(interrupted);
     }
     if (paused && !this.paused && this.state.speaking) {
       const interrupted = this.state.speaking;
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
+      this.prepared = false; this.readbackCandidates.clear();
       this.queue.unshift(interrupted);
     }
     if (paused) this.cancelDraft();
@@ -125,10 +133,21 @@ export class RadioAudio {
     if (this.state.enabled && connected) {
       // The published broadcast is already known when a session opens. Prepare it
       // silently so Read published ATIS does not need a cold synthesis request.
-      if (baseline && !paused && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.output?.prepare?.(aviationSpeech(exercise.publishedAtis), this.state);
+      if (baseline && !paused && exercise.publishedAtis !== "ATIS UNAVAILABLE") {this.prepared = true; this.output?.prepare?.(aviationSpeech(exercise.publishedAtis), this.state);}
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
+      if (!paused && exercise.running && exercise.autoReadback) {
+        const candidates = new Set<string>();
+        for (const aircraft of exercise.aircraft) {
+          const command = pendingCommands(exercise, aircraft.id).at(-1);
+          if (!command?.instruction || command.autoReadbackAt === undefined || (exercise.positions?.length && scope !== "all" && command.frequency !== scope)) continue;
+          const text = aviationSpeech(pilotReadback(aircraft.callsign, command.text, command.instruction), this.callsigns);
+          candidates.add(text);
+          if (!this.readbackCandidates.has(text)) {this.prepared = true; this.output?.prepareReadback?.(text, this.state);}
+        }
+        this.readbackCandidates = candidates;
+      } else this.readbackCandidates.clear();
     }
   }
   setEnabled(enabled: boolean) {
@@ -159,14 +178,20 @@ export class RadioAudio {
   }
   stop() {
     this.cancelDraft();
+    const active = Boolean(this.state.speaking || this.queue.length || this.prepared || this.gapTimer);
+    clearTimeout(this.gapTimer); this.gapTimer = undefined; this.readbackCandidates.clear();
+    this.prepared = false;
     this.generation++; this.queue = []; this.waitingForRetry = false;
-    if (this.state.speaking) this.output?.cancel();
+    if (active) this.output?.cancel();
     if (this.state.speaking) this.update({speaking: ""});
   }
   private next() {
     if (!this.output || !this.state.enabled || this.previous?.connected === false || this.paused || this.waitingForRetry || !this.queue.length) return;
-    // Load one transmission ahead while the current one plays, without reordering radio calls.
-    if (this.state.speaking) {this.output.prepare?.(this.queue[0], this.state); return;}
+    // Generate all queued transmissions independently while preserving playback order.
+    if (this.state.speaking || this.gapTimer) {
+      for (const text of this.queue) {this.prepared = true; this.output.prepare?.(text, this.state);}
+      return;
+    }
     // Device voices often arrive asynchronously, after the first radio frame.
     if (!this.state.voices.length) return;
     const text = this.queue.shift()!;
@@ -175,6 +200,7 @@ export class RadioAudio {
     const error = (reason?: unknown) => {
       if (generation !== this.generation) return;
       this.generation++; this.output?.cancel();
+      this.prepared = false; this.readbackCandidates.clear();
       const blocked = reason instanceof Error && reason.name === "NotAllowedError";
       if (!blocked) {this.failureCount = this.failedText === text ? this.failureCount + 1 : 1; this.failedText = text;}
       if (!blocked && this.failureCount >= 2) {
@@ -187,9 +213,10 @@ export class RadioAudio {
     const {voice, rate, volume, allowOnline, radioFilter} = this.state;
     try {this.output.speak(text, {voice, rate, volume, allowOnline, ...(radioFilter === undefined ? {} : {radioFilter})}, () => {
       if (generation !== this.generation) return;
-      this.failedText = ""; this.failureCount = 0; this.update({speaking: ""}); this.next();
+      this.failedText = ""; this.failureCount = 0; this.update({speaking: ""});
+      this.gapTimer = this.scheduleGap(() => {this.gapTimer = undefined; this.next();});
     }, error);
-      if (this.queue.length) this.output.prepare?.(this.queue[0], this.state);
+      for (const queued of this.queue) {this.prepared = true; this.output.prepare?.(queued, this.state);}
     } catch {error();}
   }
 }

@@ -13,8 +13,15 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const audio = useSyncExternalStore(player.subscribe, player.getSnapshot, player.getServerSnapshot);
   const [open, setOpen] = useState(false);
   const settingsButton = useRef<HTMLButtonElement>(null);
+  const currentExercise = useRef(exercise);
+  useEffect(() => {currentExercise.current = exercise;}, [exercise]);
   const close = () => {setOpen(false); settingsButton.current?.focus();};
-  useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf), null, 15000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
+  useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf, text => {
+    const current = currentExercise.current;
+    const message = current.messages.find(m => radioMessageText(m, current.aircraft.map(a => a.callsign)) === text);
+    const messageId = message?.id ?? (aviationSpeech(current.publishedAtis) === text ? "published-atis" : undefined);
+    return messageId ? {sessionId: current.id, messageId} : undefined;
+  }), null, 15000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
   useEffect(() => browserAudioActivation(player.activate), [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);
