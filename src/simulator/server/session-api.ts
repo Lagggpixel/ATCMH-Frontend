@@ -166,8 +166,8 @@ async function stream(request: Request, id: string) {
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", positionId: frame.positionId, positionIds: frame.positionIds, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
           } else if (revision !== frame.exercise.revision) {
-            const {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus} = frame.exercise;
-            send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus}, session: frame.session});
+            const {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus, interceptFeedback} = frame.exercise;
+            send({type: "motion", state: {id, revision, elapsed, aircraft, running, conflicts, collisions, terrainStatus, interceptFeedback}, session: frame.session});
           } else send({type: "presence", session: frame.session});
           revision = frame.exercise.revision;
           for (const deadline = Date.now() + SESSION_FRAME_MS; !cancelled && !request.signal.aborted;) {

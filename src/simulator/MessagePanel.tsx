@@ -13,6 +13,12 @@ import {aircraftMessageHeading} from "./aircraft-message-heading";
 import {IF_COLORS, pilotMessageColor} from "./if-colors";
 import styles from "./Simulator.module.css";
 
+export function InterceptFeedback({notes, aircraftId}: {notes?: Exercise["interceptFeedback"]; aircraftId?: string}) {
+  const visible = notes?.filter(note => !aircraftId || note.aircraftId === aircraftId) ?? [];
+  return visible.length ? <section aria-label="Approach training feedback"><h3>Approach feedback</h3>{visible.map(note =>
+    <p key={note.id}>{note.callsign}: {note.approach.toUpperCase()} intercept {note.angle}° (guidance: 30° or less).</p>)}</section> : null;
+}
+
 export const MessageLog = memo(function MessageLog({airport = defaultAirport, messages: allMessages, frequency, aircraftId, title = "Message log", showUnableReasons = false, compact = false}: {airport?: Airport; messages: Exercise["messages"]; frequency: Frequency | "all"; aircraftId?: string; title?: string; showUnableReasons?: boolean; compact?: boolean}) {
   const FREQUENCIES = frequenciesFor(airport);
   const log = useRef<HTMLDivElement>(null);

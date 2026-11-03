@@ -20,7 +20,7 @@ import {GROUND, groundGuidance, groundConflict, resolveGroundPriorities, moveGro
 import {currentAtisOptions, atisFrequencies, atisSelectionText} from "./atis-options";
 import {applyTaxiPathEdit} from "./taxi-path-editing";
 import {callsignConflict, reserveCallsigns} from "./callsigns";
-import {assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
+import {approachGeometry, assignRadar, touchdownRadar, checkInTransmission, moveRadar, radarAircraft, radarTakeoffAircraft, radarTrafficStateError, radarIntentionText, radarRequestedApproach, radarEnvironmentFor, radarInstructionError, radarInstructionText, roundedHeadingInstruction} from "./radar";
 import {runwayGoAroundDue, runwayLateralClear, runwayOccupied} from "./runway-safety";
 import {automaticRadarUnable, headingOnlyUnable} from "./radar-safety";
 import {assignRadarSpeed, updateRadarSpeed, radarPerformance} from "./radar-speed";
@@ -1194,8 +1194,23 @@ function advance(state: Exercise, seconds: number): Exercise {
     }
     prepareConflicts(next, AIRPORT, conflictEngine);
     const phases = next.aircraft.map(a => a.mode);
+    const intercepts = next.aircraft.map(a => {
+      const r = a.radar, p = radarEnvironment.approaches.find(item => item.id === r?.cleared);
+      if (!r || r.navigation !== "approach" || !p) return undefined;
+      const join = r.gpsApproach, from = join && a.flightPlan[join.index - 1], to = join && a.flightPlan[join.index];
+      const course = from && to ? bearing(from, to) : approachGeometry(AIRPORT, p.runway, p).heading;
+      return {type: p.type, angle: Math.abs(((a.track ?? a.heading) - course + 540) % 360 - 180),
+        localizer: !!r.localizer, captured: !!r.captured, joined: !!join?.joined, routeGps: !!join};
+    });
     stepTraffic(next.aircraft, dt, !!state.autoReadback);
     for (const [index, a] of next.aircraft.entries()) {
+      const before = intercepts[index], r = a.radar;
+      const established = before && r && (before.type === "ils" ? !before.localizer && !!r.localizer
+        : before.routeGps ? !before.joined && !!r.gpsApproach?.joined : !before.captured && !!r.captured);
+      if (before && established && before.angle > 30 + 1e-8) next.interceptFeedback = [...(next.interceptFeedback ?? []), {
+        id: `intercept:${next.revision}:${a.id}:${(next.elapsed + dt).toFixed(3)}`, elapsed: next.elapsed + dt,
+        aircraftId: a.id, callsign: a.callsign, approach: before.type, angle: Math.round(before.angle * 10) / 10,
+      }].slice(-300);
       advanceAirportSighting(a, AIRPORT, dt, next.elapsed, !!state.autoReadback);
       if (state.autoReadback && phases[index] === "pushback" && a.mode === "parked") a.automaticRequest = "taxi";
       if (a.giveWay) {

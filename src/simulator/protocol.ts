@@ -40,7 +40,7 @@ export const radarStateSchema = z.object({station: z.enum(["approach", "center"]
   routeSpeed: bounded(1, 600).optional(),
   gpsApproach: z.object({fafIndex: bounded(0, 199).int(), joined: z.boolean(), point, index: bounded(0, 199).int(), vectorHeading: bounded(0, 360).optional()}).optional(),
   filedJoin: z.object({index: bounded(1, 199).int(), point, heading: bounded(0, 360), turning: z.boolean()}).optional(),
-  climbUntilAssigned: z.boolean().optional(), approachIntercept: z.object({seconds: bounded(0, 1e12), entered: z.boolean()}).optional(), returningToApproach: z.boolean().optional(), flight: z.enum(["departure", "return"]).optional(), requestedApproach: id.optional(), departureDirection: z.enum(["north", "east", "south", "west"]).optional(), departure: z.object({runway, phase: z.enum(["roll", "climb"]), touchAndGo: z.boolean().optional()}).optional(), arrival: z.object({runway, phase: z.enum(["rollout", "stopped", "vacating", "vacated"])}).optional(),
+  climbUntilAssigned: z.boolean().optional(), approachIntercept: z.object({seconds: bounded(0, 1e12), entered: z.boolean(), limitSeconds: bounded(0, 1e12).optional()}).optional(), returningToApproach: z.boolean().optional(), flight: z.enum(["departure", "return"]).optional(), requestedApproach: id.optional(), departureDirection: z.enum(["north", "east", "south", "west"]).optional(), departure: z.object({runway, phase: z.enum(["roll", "climb"]), touchAndGo: z.boolean().optional()}).optional(), arrival: z.object({runway, phase: z.enum(["rollout", "stopped", "vacating", "vacated"])}).optional(),
   patternJoin: z.object({status: z.enum(["joining", "established", "unable"]), reason: z.string().max(300).optional(), notified: z.boolean().optional()}).optional()});
 const phaseSpeed = bounded(1, 600).int().nullable().optional();
 
@@ -127,6 +127,7 @@ const action = z.discriminatedUnion("kind", [
 export const envelopeSchema = z.object({id, time: bounded(0, 1e15), action});
 
 const exerciseObject = z.object({weather: weatherSchema.optional(),
+  interceptFeedback: z.array(z.object({id, elapsed: bounded(0, 1e12), aircraftId: id, callsign: z.string().min(1).max(80), approach: z.enum(["ils", "gps", "visual"]), angle: bounded(0, 180)})).max(300).optional(),
   conflicts: z.array(z.object({id, kind: z.enum(["uwc", "ga", "cancel-takeoff"]), first: id, second: id, runway, otherRunway: runway, phase: z.enum(["setup", "upwind", "requested", "active", "complete", "cancelled"]), started: bounded(0, 1e12), setupDeadline: bounded(0, 1e12).optional(), circuit: bounded(0, 1e12).int(), linedUp: z.boolean().optional(), takeoffCleared: z.boolean().optional(), cancelledTakeoff: z.boolean().optional(), goAround: z.boolean().optional(), selfGoAround: z.boolean().optional(), rollAt: bounded(0, 1e12).optional(), outcome: z.string().max(300).optional()})).max(100).optional(),
 positionFeedback: z.record(z.string().max(6000)).optional(), positions: controllerPositionsSchema.optional(), schema: z.union([z.literal(1), z.literal(2)]), airport: z.enum(AIRPORT_IDS).optional(), airportDataVersion: z.string().max(100).optional(), trainingStation: z.string().max(100).optional(), id, revision: bounded(0, 1e12).int(), elapsed: bounded(0, 1e12), running: z.boolean(), pausedByStaff: z.boolean().optional(),
   autoReadback: z.boolean().optional(), pauseVisibility: z.enum(["hidden", "visible"]).optional(),
@@ -167,7 +168,7 @@ export const exerciseSchema = exerciseObject.superRefine((value, ctx) => {
     }
   } catch (reason) {ctx.addIssue({code: z.ZodIssueCode.custom, message: (reason as Error).message});}
 });
-export const motionSchema = exerciseObject.pick({id: true, revision: true, elapsed: true, aircraft: true, running: true, conflicts: true, collisions: true, terrainStatus: true});
+export const motionSchema = exerciseObject.pick({id: true, revision: true, elapsed: true, aircraft: true, running: true, conflicts: true, collisions: true, terrainStatus: true, interceptFeedback: true});
 
 export function menteeActionAllowed(value: z.infer<typeof action>, exercise?: Exercise) {
   if (value.kind === "command" && exercise && value.command.type === "atc" && value.command.action === "guard") {

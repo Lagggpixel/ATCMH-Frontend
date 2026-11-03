@@ -15,7 +15,7 @@ export interface RadarSpeedInstruction {type: "radar-speed"; mode: "maintain" | 
 export interface RadarApproach {glideslope?:boolean;airportIcao?: string; airportName?: string; elevation?: number; threshold?: Point; departure?: Point; id: string; type: ApproachType; runway: string; finalDistance: number; captureWidth: number; glideAngle: number; missedHeading: number}
 export interface RadarEnvironment {controllerPositions?: import("./positions").PositionPresence[]; facilityDefaultActive?: boolean; facilityActivity?: Record<string,boolean>; facilities?: import("./aviation").RadioFacility[]; airportName?: string; version: 1; name: string; range: number; boundary: Point[]; fixes: {id: string; point: Point; waypointType?:string; vorType?:string; slavedVariation?:number}[]; approaches: RadarApproach[]}
 export interface RadarState {station: "approach" | "center"; navigation: "heading" | "route" | "approach" | "missed"; routeIndex: number; expected?: string; cleared?: string; captured?: boolean; localizer?: boolean; glideslope?: boolean; clearanceAltitudeChecked?: boolean; missedReason?: string; missedApproach?: boolean; localizerIntercept?: {along: number; lateral: number; angle: number}; targetAltitude?: Altitude; altitudeFromRoute?: boolean; altitudeAssignedFrom?: number; speed?: RadarSpeedInstruction; guidance?: "vectors"; transferred?: boolean; report?: "check-in" | "missed" | "intentions" | "approach-request" | "touch-and-go";
-  approachIntercept?: {seconds: number; entered: boolean};
+  approachIntercept?: {seconds: number; entered: boolean; limitSeconds?: number};
   gpsApproach?: {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
   filedJoin?: {index: number; point: Point; heading: number; turning: boolean};
   climbUntilAssigned?: boolean; // Continue departure climb until an altitude is assigned.
@@ -151,6 +151,7 @@ export interface Atis {
   expectations: string[]; remarks: string[]; notams: string[]; procedures: string[];
 }
 export interface Exercise {
+  interceptFeedback?: {id: string; elapsed: number; aircraftId: string; callsign: string; approach: ApproachType; angle: number}[];
   positions?: import("./positions").ControllerPosition[];
   positionFeedback?: Record<string, string>;
   positionPresence?: import("./positions").PositionPresence[];

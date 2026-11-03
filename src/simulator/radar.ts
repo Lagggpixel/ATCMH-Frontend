@@ -17,7 +17,7 @@ import {automaticRadarTarget, radarPerformance, radarSpeedText, updateRadarSpeed
 import {enterPublishedHold} from "./holding";
 import {routeWaypointName} from "./direct-to";
 import {vectorSnapTarget} from "./vector-drag";
-import {flyGpsRoute, gpsApproachJoin, gpsFinalApproachFix} from "./gps-approach";
+import {flyGpsRoute, gpsApproachJoin, gpsFinalApproachFix, gpsJoinOvershot} from "./gps-approach";
 
 export const ALTITUDES: readonly Altitude[] = [
   ...Array.from({length: 18}, (_, i): Altitude => ({unit: "feet", value: 1000 + i * 500})),
@@ -414,6 +414,17 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       if (approach.type === "ils" && r.captured && r.glideslope === undefined) {r.localizer = true; r.glideslope = approach.glideslope!==false;}
       if (approach.type === "ils" && onLocalizer) r.localizer = true;
       if (approach.type === "ils") {
+        if (!r.localizer && !r.captured) {
+          r.approachIntercept ??= {seconds: 0, entered: false};
+          const previous = r.localizerIntercept;
+          const progressing = previous && (Math.abs(lateral) < Math.abs(previous.lateral) - 1e-6
+            || Math.abs(lateral) <= approach.captureWidth && along > previous.along + 1e-6 && along < -.1);
+          r.approachIntercept.seconds = progressing ? 0 : r.approachIntercept.seconds + dt;
+          if (automatic && r.approachIntercept.seconds > 300) {
+            automaticMissed(a, airport, environment, "Unable to establish on the localizer before the approach limit.");
+            moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
+          }
+        }
         const reason = missedLocalizerReason(a, along, lateral, Math.abs(headingDifference(g.heading, a.heading)), captureDistance);
         if (automatic && reason) {automaticMissed(a, airport, environment, reason); moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;}
         if (automatic && approach.glideslope!==false && (r.localizer || r.captured) && r.clearanceAltitudeChecked && a.altitude > glideHeight + GLIDESLOPE_DEVIATION_FEET) {
@@ -423,6 +434,19 @@ export function moveRadar(a: Aircraft, dt: number, airport: Airport, environment
       }
       const gpsRouting = approach.type === "gps" && r.gpsApproach;
       if (gpsRouting && !r.captured) {
+        if (automatic && !r.filedJoin && gpsJoinOvershot(a)) {
+          automaticMissed(a, airport, environment, "Unable to rejoin the flight plan before the final approach fix.");
+          moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
+        }
+        if (!gpsRouting.joined) {
+          r.approachIntercept ??= {seconds: 0, entered: false};
+          r.approachIntercept.limitSeconds ??= Math.max(300, distance(a.position, gpsRouting.point) / Math.max(60, a.groundSpeed ?? a.speed) * 3600 * 1.5 + 60);
+          r.approachIntercept.seconds += dt;
+          if (automatic && r.approachIntercept.seconds > r.approachIntercept.limitSeconds) {
+            automaticMissed(a, airport, environment, "Unable to rejoin the flight plan before the approach limit.");
+            moveRadar(a, dt, airport, environment, traffic, automatic, weather); return;
+          }
+        }
         const faf = a.flightPlan[gpsRouting.fafIndex];
         if (!r.filedJoin && flyGpsRoute(a, approach, g)) r.captured = true;
         else if (!faf || r.routeIndex >= gpsRouting.fafIndex && along >= (faf.x - g.threshold.x) * g.vector.x + (faf.y - g.threshold.y) * g.vector.y + .25) {

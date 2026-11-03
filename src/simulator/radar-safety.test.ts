@@ -142,6 +142,55 @@ test("current separation uses strict 3nm / 1000ft limits and includes cleared ap
   b.active = false; a.radar!.cleared = undefined; assert.equal(alerts().size, 0);
 });
 
+test("radar session separation includes local traffic, excludes Tower-only pairs, and uses Center range", () => {
+  const state = fixture("center"), airport = getAirport(state), env = state.radarEnvironment!;
+  env.range = 200;
+  const a = state.aircraft[0], b = structuredClone(a);
+  Object.assign(a, {position: {x: 70, y: 0}, altitude: 5000, frequency: "center"});
+  Object.assign(b, {id: "b", position: {x: 71, y: 0}, altitude: 5000, frequency: "tower"});
+  delete b.radar;
+  assert.equal(radarSeparationAlerts([a, b], env, "all", airport, "center").size, 2);
+  a.frequency = "tower";
+  assert.equal(radarSeparationAlerts([a, b], env, "all", airport, "center").size, 0);
+  a.frequency = "center"; b.altitude = 6000;
+  assert.equal(radarSeparationAlerts([a, b], env, "all", airport, "center").size, 0);
+});
+
+test("documented independent ILS finals require both aircraft to stay established and aligned", () => {
+  const state = engineFor({airport: "EBBR", trainingStation: "EBBR:approach"}).initialExercise();
+  const airport = getAirport(state), env = state.radarEnvironment!, base = env.approaches[0];
+  env.approaches = ["25L", "25R"].map(runway => ({...base, id: runway, runway, type: "ils" as const}));
+  const a = state.aircraft[0], b = {...structuredClone(a), id: "b"};
+  for (const [aircraft, approach] of [[a, env.approaches[0]], [b, env.approaches[1]]] as const) {
+    const g = approachGeometry(airport, approach.runway, approach);
+    aircraft.position = {x: g.threshold.x - 5 * g.vector.x, y: g.threshold.y - 5 * g.vector.y};
+    aircraft.track = g.heading; aircraft.altitude = 3000;
+    Object.assign(aircraft.radar!, {navigation: "approach", cleared: approach.id, localizer: true});
+  }
+  const alerts = () => radarSeparationAlerts([a, b], env, "all", airport, "approach").size;
+  assert.equal(alerts(), 0);
+  b.track = (b.track! + 11) % 360; assert.equal(alerts(), 2);
+  b.track = (b.track! - 11 + 360) % 360; b.radar!.localizer = false; assert.equal(alerts(), 2);
+  b.radar!.localizer = true; env.approaches[1].type = "gps"; assert.equal(alerts(), 2);
+});
+
+for (const runways of [["16R", "17L"], ["16R", "18"], ["17L", "18"], ["34L", "35R"], ["34L", "36"], ["35R", "36"]]) test(`Istanbul independent ILS configuration includes ${runways.join("/")}`, () => {
+  const state = engineFor({airport: "LTFM", trainingStation: "LTFM:approach"}).initialExercise();
+  const airport = getAirport(state), env = state.radarEnvironment!, base = env.approaches[0];
+  env.approaches = runways.map(runway => ({...base, id: runway, runway, type: "ils" as const}));
+  const a = state.aircraft[0], b = {...structuredClone(a), id: "b"};
+  for (const [aircraft, approach] of [[a, env.approaches[0]], [b, env.approaches[1]]] as const) {
+    const g = approachGeometry(airport, approach.runway, approach);
+    aircraft.position = {x: g.threshold.x - 5 * g.vector.x, y: g.threshold.y - 5 * g.vector.y};
+    aircraft.track = g.heading; aircraft.altitude = 3000;
+    Object.assign(aircraft.radar!, {navigation: "approach", cleared: approach.id, localizer: true});
+  }
+  assert.ok(Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) < 3);
+  assert.equal(radarSeparationAlerts([a, b], env, "all", airport, "approach").size, 0);
+  b.track = (b.track! + 11) % 360;
+  assert.equal(radarSeparationAlerts([a, b], env, "all", airport, "approach").size, 2);
+});
+
 test("established mixed approaches use 2.5nm final spacing with conservative geometry", () => {
   const state = fixture(), airport = getAirport(state), env = state.radarEnvironment!;
   const base = env.approaches[0], g = approachGeometry(airport, base.runway);
@@ -158,7 +207,7 @@ test("established mixed approaches use 2.5nm final spacing with conservative geo
   for (const first of ["ils", "gps", "visual"] as const) for (const second of ["ils", "gps", "visual"] as const) {
     setApproach(a, first); setApproach(b, second); place(a, 4); place(b, 6.501);
     assert.equal(alerts(), 0, `${first}/${second} above 2.5nm`);
-    place(b, 6.49); b.altitude += 1500; assert.equal(alerts(), 2, `${first}/${second} below 2.5nm even with altitude separation`);
+    place(b, 6.49); b.altitude += 1500; assert.equal(alerts(), 0, `${first}/${second} with altitude separation`);
     b.altitude = a.altitude; place(b, 6.75); assert.equal(alerts(), 0);
   }
   setApproach(a, "visual"); setApproach(b, "gps"); place(a, 4); place(b, 6.75);
@@ -199,12 +248,13 @@ for (const type of ["gps", "ils"] as const) test(`${type}: excessive height abov
 });
 
 for (const mode of ["approach", "center"] as const) for (const excess of [1, 250, 500]) test(`${mode}: visual approach recovers from ${excess}ft above glide path`, () => {
-  const state = clear(fixture(mode), "visual"), a = state.aircraft[0], environment = state.radarEnvironment!, airport = getAirport(state);
-  const p = environment.approaches.find(p => p.id === a.radar!.cleared)!, g = approachGeometry(airport, p.runway);
-  a.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8};
-  a.heading = a.targetHeading = g.heading; a.speed = a.targetSpeed = 180;
+  const initial = fixture(mode), airport = getAirport(initial), p = initial.radarEnvironment!.approaches.find(p => p.type === "visual")!;
+  const g = approachGeometry(airport, p.runway), original = initial.aircraft[0];
+  original.position = {x: g.threshold.x - g.vector.x * 8, y: g.threshold.y - g.vector.y * 8};
+  original.heading = original.targetHeading = g.heading; original.speed = original.targetSpeed = 180;
   const glide = airport.elevation + 50 + 8 * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180);
-  const initialAltitude = a.altitude = glide + excess;
+  const initialAltitude = original.altitude = glide + excess;
+  const state = clear(initial, "visual"), a = state.aircraft[0], environment = state.radarEnvironment!;
   for (let t = 0; t < 60; t += .05) moveRadar(a, .05, airport, environment, [], true);
   assert.equal(a.radar!.navigation, "approach"); assert.equal(a.radar!.cleared, p.id);
   assert.equal(a.radar!.clearanceAltitudeChecked, true); assert.equal(a.radar!.captured, true);

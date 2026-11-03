@@ -109,6 +109,7 @@ export class SessionService {
     }
     if (role === "mentee") delete exercise.callsignReservations;
     if (role === "mentee") delete exercise.conflicts;
+    if (role === "mentee") delete exercise.interceptFeedback;
     const visible = {...exercise, positionPresence: positionPresence(record, now)};
     if (role === "mentee" && positionId) {
       visible.messages = exercise.messages.filter(m => m.positionId && positionIds.includes(m.positionId) || m.frequency === "atis");
@@ -128,6 +129,7 @@ export class SessionService {
     if (occupied && gap > 0 && gap <= SESSION_LEASE_MS / 1000) {
       this.sightings.apply(record.exercise);
       const collision = record.exercise.collisions?.at(-1)?.id;
+      const interceptFeedback = record.exercise.interceptFeedback?.at(-1)?.id;
       // Match ordinary stream cadence so engine caps cannot discard time and
       // scenario events/readbacks take effect before later movement is simulated.
       for (let at = record.tickAt; at < now;) {
@@ -141,6 +143,7 @@ export class SessionService {
         at = stepAt;
       }
       if (record.exercise.collisions?.at(-1)?.id !== collision) record.contentRevision++;
+      if (record.exercise.interceptFeedback?.at(-1)?.id !== interceptFeedback) record.contentRevision++;
     }
     record.tickAt = now;
     // A mentor or spectator who closes the page or loses the connection hands control back on their own.

@@ -29,8 +29,9 @@ export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; 
 export function participantReplay(detail: ReplayDetail, accountId: string): ReplayDetail {
   const positions = new Set(detail.replay.participants.filter(p => p.role === "mentee" && p.accountId === accountId).flatMap(p => p.positionId ? [p.positionId] : []));
   const feedback = (value: Record<string, string>) => Object.fromEntries(Object.entries(value).filter(([id]) => positions.has(id)));
-  return {...detail, ...(detail.positionFeedback ? {positionFeedback: feedback(detail.positionFeedback)} : {}), initial: detail.initial ? {...detail.initial, ...(detail.initial.positionFeedback ? {positionFeedback: feedback(detail.initial.positionFeedback)} : {})} : null,
-    frames: detail.frames.map(frame => frame.delta.state.positionFeedback ? {...frame, delta: {...frame.delta, state: {...frame.delta.state, positionFeedback: feedback(frame.delta.state.positionFeedback)}}} : frame)};
+  const visible = (state: Partial<Exercise>) => {const copy = {...state}; delete copy.interceptFeedback; if (copy.positionFeedback) copy.positionFeedback = feedback(copy.positionFeedback); return copy;};
+  return {...detail, ...(detail.positionFeedback ? {positionFeedback: feedback(detail.positionFeedback)} : {}), initial: detail.initial ? visible(detail.initial) as Exercise : null,
+    frames: detail.frames.map(frame => ({...frame, delta: {...frame.delta, state: visible(frame.delta.state)}}))};
 }
 
 /** Drop transport deduplication IDs and redundant trails, never radio messages or aircraft state. */

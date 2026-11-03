@@ -44,7 +44,8 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
   const events = incidentEvents(snapshots, ({state}) => {
     const current = new Map<string, Omit<ReplayEvent, "id" | "at" | "end">>();
     const aircraft = new Map(state.aircraft.map(a => [a.id, a]));
-    for (const [id, alerts] of (trainingMode(state) === "local" ? new Map<string, import("./radar-safety").SeparationAlert[]>() : radarSeparationAlerts(state.aircraft, state.radarEnvironment, "all", getAirport(state)))) for (const alert of alerts) {
+    const mode = trainingMode(state);
+    for (const [id, alerts] of (mode === "local" ? new Map<string, import("./radar-safety").SeparationAlert[]>() : radarSeparationAlerts(state.aircraft, state.radarEnvironment, "all", getAirport(state), mode))) for (const alert of alerts) {
       const ids = [id, alert.otherId].sort(), key = JSON.stringify(ids);
       if (!current.has(key)) current.set(key, {kind: "separation", label: ids.map(value => aircraft.get(value)!.callsign).join(" / "), detail: separationLabel(alert), aircraftIds: ids});
     }

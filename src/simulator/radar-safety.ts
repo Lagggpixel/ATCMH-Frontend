@@ -52,20 +52,37 @@ function establishedFinal(a: Aircraft, environment?: RadarEnvironment, airport?:
     const course = (Math.atan2(vx, vy) * 180 / Math.PI + 360) % 360;
     if (a.track === undefined || !Number.isFinite(a.track) || Math.abs(((a.track - course + 540) % 360) - 180) > 15) return undefined;
   }
-  return {airport: (p.airportIcao ?? airport.icao).toUpperCase(), runway: p.runway.toUpperCase()};
+  return {airport: (p.airportIcao ?? airport.icao).toUpperCase(), runway: p.runway.toUpperCase(), type: p.type, offset, course: (Math.atan2(vx, vy) * 180 / Math.PI + 360) % 360};
+}
+// Training approximation of documented independent ILS operations. Revalidate
+// the procedures and their conditions before adding a runway or approach type.
+const independentIls: Record<string, readonly (readonly string[])[]> = {
+  EBBR: [["25L", "25R"]],
+  LTFM: [["16R", "17L", "18"], ["34L", "35R", "36"]],
+};
+function independentFinals(a: Aircraft, b: Aircraft, first: ReturnType<typeof establishedFinal>, second: ReturnType<typeof establishedFinal>) {
+  if (!first || !second || first.airport !== second.airport || first.runway === second.runway || first.type !== "ils" || second.type !== "ils") return false;
+  if (!independentIls[first.airport]?.some(runways => runways.includes(first.runway) && runways.includes(second.runway))) return false;
+  return [[a, first], [b, second]].every(([aircraft, final]) => {
+    const plane = aircraft as Aircraft, approach = final as NonNullable<typeof first>;
+    return approach.offset <= .1 && plane.track !== undefined && Number.isFinite(plane.track)
+      && Math.abs(((plane.track - approach.course + 540) % 360) - 180) <= 10;
+  });
 }
 /** Current spacing alerts, including reduced same-runway final spacing. */
-export function radarSeparationAlerts(aircraft: Aircraft[], environment?: RadarEnvironment, frequency: Frequency | "all" = "all", airport?: Airport) {
+export function radarSeparationAlerts(aircraft: Aircraft[], environment?: RadarEnvironment, frequency: Frequency | "all" = "all", airport?: Airport, sessionMode?: "approach" | "center") {
   const alerts = new Map<string, SeparationAlert[]>();
-  const range = frequency === "ground" ? 10000 / 1852 : frequency === "tower" || frequency === "atis" ? 50000 / 1852 : frequency === "center" ? environment?.range ?? 200 : 125000 / 1852;
-  const airborne = aircraft.filter(a => a.active && !!a.radar && a.altitude > (a.originDeparture?.elevation ?? airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
+  const range = frequency === "ground" ? 10000 / 1852 : frequency === "tower" || frequency === "atis" ? 50000 / 1852 : frequency === "center" || frequency === "all" && sessionMode === "center" ? environment?.range ?? 200 : 125000 / 1852;
+  const airborne = aircraft.filter(a => a.active && (!!a.radar || !!sessionMode) && a.altitude > (a.originDeparture?.elevation ?? airport?.elevation ?? 0) + 1 && a.radar?.departure?.phase !== "roll"
     && !["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode)
     && (frequency === "all" || a.frequency === frequency) && Math.hypot(a.position.x, a.position.y) <= range);
   for (let i = 0; i < airborne.length; i++) for (let j = i + 1; j < airborne.length; j++) {
     const a = airborne[i], b = airborne[j], lateral = Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y), vertical = Math.abs(a.altitude - b.altitude);
+    if (sessionMode && ![a, b].some(item => !!item.radar && (item.frequency === "approach" || item.frequency === "center"))) continue;
     const finalA = establishedFinal(a, environment, airport), finalB = establishedFinal(b, environment, airport);
     const sameFinal = finalA && finalB && finalA.airport === finalB.airport && finalA.runway === finalB.runway;
-    if (sameFinal ? lateral >= 2.5 : lateral >= 3 || vertical >= 1000) continue;
+    if (independentFinals(a, b, finalA, finalB)) continue;
+    if (lateral >= (sameFinal ? 2.5 : 3) || vertical >= 1000) continue;
     for (const [one, other] of [[a, b], [b, a]]) alerts.set(one.id, [...(alerts.get(one.id) ?? []), {otherId: other.id, lateral, vertical, seconds: 0, level: "alert"}]);
   }
   return alerts;

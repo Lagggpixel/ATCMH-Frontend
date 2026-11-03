@@ -25,7 +25,7 @@ import type {Message} from "./model";
 import {DemoSentCard} from "./DemoMirror";
 import {replayDemoAt} from "./demonstration";
 import Scope from "./Scope";
-import {MessageLog} from "./MessagePanel";
+import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import ReplayIndex from "./ReplayIndex";
 import TrainerNotice from "./TrainerNotice";
 import liveTheme from "./LiveTheme.module.css";
@@ -176,7 +176,7 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
         {tab === "moments" ? moments === null ? <p className={styles.muted} role="status">Finding key moments…</p> : list.map(m => <button key={m.id} type="button" className={styles.moment} aria-current={active?.id === m.id || undefined} disabled={!playable} onClick={() => {seek(m.at); if (m.aircraftIds[0]) setSelected(m.aircraftIds[0]);}}>
           <span className={styles.momentTime}>{timeLabel(m.at)}</span><span className={`${styles.k} ${markClass[m.kind]}`}/><span><strong>{m.label}</strong><small>{m.detail}{m.end !== undefined && m.end > m.at ? ` · lasted ${Math.max(1, Math.round(m.end - m.at))} s` : ""}</small></span>
         </button>)
-          : tab === "radio" ? exercise ? <div className={styles.fullLog}><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/></div> : <p className={styles.muted}>No radio messages were recorded.</p>
+          : tab === "radio" ? exercise ? <div className={styles.fullLog}><MessageLog airport={getAirport(exercise)} messages={exercise.messages} frequency="all" title="Recorded radio messages"/>{mentor ? <InterceptFeedback notes={exercise.interceptFeedback}/> : null}</div> : <p className={styles.muted}>No radio messages were recorded.</p>
           : <p className={styles.atis}>{exercise?.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "No ATIS broadcast at this point."}</p>}
       </div>
       {tab !== "radio" ? <section aria-labelledby="radio-heading" className={styles.radio}>

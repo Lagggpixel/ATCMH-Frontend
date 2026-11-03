@@ -34,6 +34,20 @@ export function gpsFinalApproachFix(a: Aircraft, p: RadarApproach, g: Final): nu
 
 export type GpsJoin = {fafIndex: number; joined: boolean; point: Point; index: number; vectorHeading?: number};
 
+/** A vector has passed the proposed join and is travelling away from the leg. */
+export function gpsJoinOvershot(a: Aircraft): boolean {
+  const join = a.radar?.gpsApproach;
+  if (!join || join.joined || join.vectorHeading === undefined) return false;
+  const to = a.flightPlan[join.index], from = a.flightPlan[join.index - 1];
+  if (!from || !to) return false;
+  const heading = course(from, to), radians = heading * Math.PI / 180;
+  const x = a.position.x - join.point.x, y = a.position.y - join.point.y;
+  const progress = x * Math.sin(radians) + y * Math.cos(radians);
+  const cross = -x * Math.cos(radians) + y * Math.sin(radians);
+  const track = a.track ?? a.heading;
+  return progress > 1 && Math.abs(cross) > .5 && cross * Math.sin((track - heading) * Math.PI / 180) < -1e-6;
+}
+
 /** A gentle, forward rejoin with bank-turn room remaining before the FAF.
  * A drag/vector clearance must actually intercept the unflown route; a standalone
  * or altitude clearance may make a small automatic turn back onto it. */
@@ -81,7 +95,7 @@ export function gpsApproachJoin(a: Aircraft, p: RadarApproach, g: Final, vectorH
     let target = Math.max(0, progress + Math.max(lead * 2, Math.abs(cross) * 1.5));
     if (vectorHeading !== undefined) {
       const angle = (vectorHeading - heading) * Math.PI / 180;
-      if (difference(vectorHeading, heading) > 45 || Math.abs(Math.sin(angle)) < .001) continue;
+      if (difference(vectorHeading, heading) > 45 + 1e-8 || Math.abs(Math.sin(angle)) < .001) continue;
       const travel = cross / Math.sin(angle);
       if (travel <= lead || travel > 15) continue;
       target = progress + travel * Math.cos(angle);
@@ -89,7 +103,7 @@ export function gpsApproachJoin(a: Aircraft, p: RadarApproach, g: Final, vectorH
     if (target < 0 || target > length - (index === fafIndex ? lead : .15)) continue;
     const point = {x: from.x + unit.x * target, y: from.y + unit.y * target};
     const bearing = course(a.position, point);
-    if (difference(bearing, heading) > 45 || difference(a.heading, bearing) > 60 || distance(a.position, point) < lead) continue;
+    if (difference(bearing, heading) > 45 + 1e-8 || difference(vectorHeading ?? a.heading, bearing) > 60 || distance(a.position, point) < lead) continue;
     return {join: {fafIndex, joined: false, index, point, vectorHeading}};
   }
   return {error: "Unable to rejoin the flight plan gently before the final approach fix. Continue as filed or vector onto an earlier leg."};
@@ -105,7 +119,10 @@ export function flyGpsRoute(a: Aircraft, p: RadarApproach, g: Final): boolean {
     if (!to) return false;
     const heading = course(from, to), radians = heading * Math.PI / 180;
     const cross = (a.position.x - join.point.x) * -Math.cos(radians) + (a.position.y - join.point.y) * Math.sin(radians);
-    if (Math.abs(cross) <= .15 && difference(a.heading, heading) <= 35) join.joined = true;
+    const track = a.track ?? a.heading, angle = difference(track, heading);
+    const toward = cross * Math.sin((track - heading) * Math.PI / 180) > 0;
+    const turnLead = bankTurnLead(a.groundSpeed ?? a.speed) * Math.sin(Math.min(45, angle) * Math.PI / 180);
+    if (Math.abs(cross) <= .15 && angle <= 35 || toward && angle <= 45 + 1e-8 && Math.abs(cross) <= Math.max(.15, turnLead)) join.joined = true;
     else a.targetHeading = join.vectorHeading ?? course(a.position, join.point);
     if (!join.joined) return false;
   }

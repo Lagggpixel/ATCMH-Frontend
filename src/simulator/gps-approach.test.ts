@@ -30,6 +30,15 @@ function fixture(station: "approach" | "center" = "approach") {
 }
 
 for (const station of ["approach", "center"] as const) {
+  for (const angle of [40, 45]) test(`${station}: GPS joins a ${angle} degree vector without flying through final`, () => {
+    const f = fixture();
+    Object.assign(f.a, {position: f.point(12, 1.3), heading: (f.g.heading + angle) % 360, targetHeading: (f.g.heading + angle) % 360});
+    f.a.radar!.navigation = "heading";
+    f.clear({heading: trueToMagnetic(f.g.heading + angle, f.airport), altitude: {unit: "feet", value: 2000}});
+    f.fly(240);
+    assert.equal(f.a.radar!.navigation, "approach", f.a.radar!.missedReason);
+    assert.equal(f.a.radar!.captured, true);
+  });
   for (const variant of ["filed", "on-route", "altitude", "drag-vector"] as const) test(`${station}: GPS ${variant} follows the plan and establishes at the FAF`, () => {
     const f = fixture(station);
     if (variant === "altitude" || variant === "drag-vector") {
@@ -77,6 +86,61 @@ test("GPS joins a dogleg flight plan without skipping its intermediate waypoints
   assert.equal(f.a.radar!.captured, false); assert.ok(f.a.radar!.routeIndex <= 2);
   f.fly(260);
   assert.equal(f.a.radar!.captured, true, JSON.stringify({radar: f.a.radar, altitude:f.a.altitude, position:f.a.position})); assert.equal(f.a.radar!.navigation, "approach");
+});
+
+test("a GPS rejoin that cannot progress times out and survives session serialization", () => {
+  const f = fixture(); f.a.position = f.point(12, 1.3); f.a.radar!.navigation = "heading";
+  f.a.heading = f.a.targetHeading = (f.g.heading + 40) % 360;
+  f.clear({heading: trueToMagnetic(f.a.heading, f.airport)});
+  f.a.radar!.approachIntercept = {seconds: 299, entered: false};
+  const restored = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(f.state))));
+  const a = restored.aircraft[0];
+  moveRadar(a, 2, f.airport, f.env, [], true);
+  assert.equal(a.radar!.navigation, "missed");
+  assert.match(a.radar!.missedReason!, /Unable to rejoin/);
+});
+
+test("a long slow GPS rejoin retains enough time to reach its join point", () => {
+  const f = fixture(); f.a.position = f.point(12, 1.3); f.a.radar!.navigation = "heading";
+  f.a.heading = f.a.targetHeading = (f.g.heading + 40) % 360;
+  f.clear({heading: trueToMagnetic(f.a.heading, f.airport)});
+  f.a.radar!.gpsApproach!.point = f.point(2, 1.3);
+  f.a.speed = f.a.groundSpeed = 90;
+  f.a.radar!.approachIntercept = {seconds: 299, entered: false};
+  moveRadar(f.a, 2, f.airport, f.env, [], true);
+  assert.equal(f.a.radar!.navigation, "approach");
+  assert.ok(f.a.radar!.approachIntercept!.limitSeconds! > 300);
+  assert.ok(exerciseSchema.safeParse(f.state).success);
+});
+
+test("a GPS vector that has passed its join and is moving away goes missed", () => {
+  const f = fixture(); f.a.position = f.point(12, 1.3); f.a.radar!.navigation = "heading";
+  f.a.heading = f.a.targetHeading = (f.g.heading + 40) % 360;
+  f.clear({heading: trueToMagnetic(f.a.heading, f.airport)});
+  f.a.position = f.point(8, 2); f.a.track = f.a.heading = (f.g.heading - 40 + 360) % 360;
+  f.fly(.1);
+  assert.equal(f.a.radar!.navigation, "missed");
+  assert.match(f.a.radar!.missedReason!, /Unable to rejoin/);
+});
+
+test("a combined GPS clearance validates its assigned heading instead of the old heading", () => {
+  const f = fixture(); f.a.position = f.point(12, 1.3); f.a.radar!.navigation = "heading";
+  f.a.heading = (f.g.heading + 180) % 360;
+  assert.equal(f.engine.validateAssignment(f.a, f.command({heading: trueToMagnetic(f.g.heading + 40, f.airport)})), null);
+});
+
+test("a steep GPS join creates one staff feedback item preserved in the exercise", () => {
+  const f = fixture(); f.a.position = f.point(12, 1.3); f.a.radar!.navigation = "heading";
+  f.a.heading = f.a.targetHeading = (f.g.heading + 40) % 360;
+  f.clear({heading: trueToMagnetic(f.a.heading, f.airport)});
+  let state = f.state;
+  for (let i = 0; i < 100 && !state.interceptFeedback?.length; i++) state = f.engine.advance(state, 1);
+  assert.equal(state.interceptFeedback?.length, 1);
+  assert.equal(state.interceptFeedback![0].approach, "gps");
+  assert.ok(state.interceptFeedback![0].angle > 30);
+  assert.deepEqual(exerciseSchema.parse(JSON.parse(JSON.stringify(state))).interceptFeedback, state.interceptFeedback);
+  for (let i = 0; i < 120; i++) state = f.engine.advance(state, 1);
+  assert.equal(state.interceptFeedback?.length, 1);
 });
 
 test("the recorded Southwest 9529 clearance follows its active leg to CI24", () => {

@@ -512,3 +512,12 @@ Before a future authorized deployment, apply the additive controller-positions m
 In radar and Ground & Tower scenarios or live sessions, Add aircraft can select a departure airport and runway. Right-clicking near a usable airport offers **Spawn aircraft at [ICAO]**, with that airport preselected. Nearby airport choices depend on map data containing an elevation and runway endpoints; the controlled airport remains available if the map service is unavailable. The chosen geometry and elevation are stored with the aircraft for scenarios, sessions and replays.
 
 Radar departures maintain runway heading and continue climbing until assigned an altitude or reaching the aircraft's performance ceiling. In Ground & Tower, the automatic departure climbs to 1,500 ft above the controlled airport and then turns toward its overhead. A heading instruction replaces the overhead turn while the climb continues. A departure airport at or above the overhead altitude, or an aircraft unable to reach it, cannot be selected for this automatic takeoff. Other ground and circuit clearances retain their normal behavior.
+
+
+### Radar separation and approach feedback
+
+In Approach and Center exercises, staff separation checks include airborne local traffic when at least one aircraft is under Approach or Center control. Tower-only pairs are excluded. Center sessions use the configured sector range. Same-runway established finals use 2.5 NM horizontal separation, with 1,000 ft vertical separation accepted. Other qualifying pairs use 3 NM or 1,000 ft. Ground and Tower exercises continue to omit these incidents. Replay incidents are calculated using the current rules.
+
+As a simplified simulator training rule, independent parallel ILS finals are automatically enabled for Brussels 25L/25R and the Istanbul arrival sets 16R/17L/18 and 34L/35R/36. Both aircraft must be established, within 0.1 NM of their respective centerlines, and tracking within 10 degrees of final. Deviations restore ordinary separation checks. This is not a complete simulation of the published procedures, monitoring, weather, equipment or breakout requirements. Other airport pairs and visual/GPS combinations do not receive this exemption.
+
+Staff approach feedback records intercepts above 30 degrees at establishment; 45 degrees remains the capture limit. GPS route joins anticipate the turn, and stalled GPS rejoins and ILS localizer intercepts can initiate an explained automatic missed approach.

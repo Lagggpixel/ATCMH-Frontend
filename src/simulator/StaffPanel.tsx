@@ -31,7 +31,7 @@ import ScenarioFlightPlan from "./ScenarioFlightPlan";
 import {arrivalWorkflow} from "./arrival-workflow";
 import {MAX_AIRCRAFT,  intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
 import {sessionCode, sessionPath} from "./sessions";
-import {MessageLog} from "./MessagePanel";
+import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import IntentionsControls from "./IntentionsControls";
 import AutomaticHelp from "./AutomaticHelp";
 import LandingOutcomeControl from "./LandingOutcomeControl";
@@ -180,7 +180,7 @@ export default function StaffPanel(props: Props) {
         {tasks.map(taskButton)}{tab === "Radio" ? taskButton(sessionTask) : null}
       </nav> : null}
       <div key={a?.id ?? "log"} className={`${styles.controlContent} ${workspace.content}`} id={`${id}-content`} role={a ? "tabpanel" : undefined} aria-labelledby={a ? `${id}-${tab}` : undefined} data-log={!a || section === "global-log" || undefined}>
-        {!a || section === "global-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/> : section === "aircraft-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
+        {!a || section === "global-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/><InterceptFeedback notes={props.exercise.interceptFeedback}/></> : section === "aircraft-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/><InterceptFeedback notes={props.exercise.interceptFeedback} aircraftId={a.id}/></> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
       </div>
     </> : null}
   </section>;
