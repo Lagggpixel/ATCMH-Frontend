@@ -8,6 +8,9 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  * layout changes. Say mentor/mentee, and trim radar-only sentences. Add to the London calendar day it shipped.
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
+  {date: "2026-11-03", updates: [
+    {title: "Radio audio recovery", description: "Busy or unavailable radio voices now fall back to a local English device voice, including in mentee tabs. Background preparation is reduced so live transmissions get priority."},
+  ]},
   {date: "2026-10-30", updates: [
     {title: "Aircraft setup and fuel", description: "The scenario aircraft setup now shows performance and fuel more clearly. New aircraft start with 120 minutes of normal fuel; choosing Minimum or Emergency fuel sets 30 or 15 minutes, and endurance can still be edited."},
     {title: "More aircraft performance profiles", description: "More aircraft types now have their own simplified training profiles, including types used by the shared templates."},
