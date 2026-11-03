@@ -56,6 +56,25 @@ test("pause/cancel invalidates late completion and prevents fallback audio", t =
 test("generation errors recover immediately while repeated fallback errors remain visible", () => {
   const h = harness(); h.speak(); h.calls[0].error(); assert.equal(h.local.length, 1); h.local[0].error(); assert.equal(h.errors(), 1); h.output.dispose?.();
 });
+
+test("busy responses bypass the startup deadline and cancel the Pocket request", () => {
+  const h = harness(); h.speak(); h.calls[0].error(new Error("HTTP 429"));
+  assert.equal(h.local.length, 1); assert.equal(h.cancelled(), 1);
+  assert.equal(h.local[0].settings.allowOnline, false); h.output.dispose?.();
+});
+
+test("the three-second policy falls back without advertising disabled speculation", t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const h = harness();
+  const primary: SpeechOutput = {voices: () => [], onVoicesChanged: () => () => {}, speak() {}, cancel() {}};
+  const local: SpeechOutput = {...primary, voices: () => [{id: "local", name: "English", language: "en-GB", local: true}], speak() {h.speak();}};
+  const output = resilientSpeechOutput(primary, local, 3000)!;
+  assert.equal(output.prepareReadback, undefined); assert.equal(output.prepareDraft, undefined);
+  output.speak("test", settings, () => {}, () => {});
+  t.mock.timers.tick(2999); assert.equal(h.calls.length, 0);
+  t.mock.timers.tick(1); assert.equal(h.calls.length, 1);
+  output.dispose?.(); h.output.dispose?.();
+});
 test("a browser without the primary adapter retains its available local output", () => {
   assert.equal(resilientSpeechOutput(null, null), null);
 });

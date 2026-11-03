@@ -29,8 +29,8 @@ export function resilientSpeechOutput(primary: SpeechOutput | null, fallback: Sp
       // Warm the backup during the preceding call, rather than after a timeout.
       fallback?.prepare?.(text, backupSettings(settings));
     },
-    prepareDraft: (text, settings) => {if (!failed) primary.prepareDraft?.(text, settings);},
-    prepareReadback: (text, settings) => {if (!failed) primary.prepareReadback?.(text, settings);},
+    prepareDraft: primary.prepareDraft ? (text, settings) => {if (!failed) primary.prepareDraft?.(text, settings);} : undefined,
+    prepareReadback: primary.prepareReadback ? (text, settings) => {if (!failed) primary.prepareReadback?.(text, settings);} : undefined,
     cancelDraft: () => primary.cancelDraft?.(),
     speak(text, settings, end, error) {
       clear(); recovering = false; const current = ++serial;

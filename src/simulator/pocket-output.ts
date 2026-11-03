@@ -18,12 +18,13 @@ export interface PocketPlayback {
 }
 export type PocketLoader = (text: string, voice: string, signal: AbortSignal, priority: "play" | "prepare") => Promise<ReadableStream<Uint8Array>>;
 
-export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPlayback): SpeechOutput {
+export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPlayback, promote?: (text: string, voice: string, signal: AbortSignal) => Promise<void>): SpeechOutput {
   interface Job {
     key: string; text: string; voice: string; controller: AbortController;
     priority: "play" | "prepare"; kind: "queue" | "draft" | "readback";
     chunks: Float32Array[]; started: boolean; done: boolean; error?: unknown;
     listeners: Set<() => void>;
+    promotion?: Promise<void>;
   }
   let serial = 0, disposed = false, active = 0;
   const jobs = new Map<string, Job>();
@@ -38,7 +39,8 @@ export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPla
   const pump = () => {
     while (!disposed && active < MAX_CONCURRENT) {
       const pending = [...jobs.values()].filter(job => !job.started && !job.controller.signal.aborted);
-      const job = pending.find(item => item.priority === "play") ?? pending.find(item => item.kind === "queue") ?? pending[0];
+      const preparing = [...jobs.values()].some(item => item.started && !item.done && item.priority === "prepare");
+      const job = pending.find(item => item.priority === "play") ?? (!preparing ? pending.find(item => item.kind === "queue") ?? pending[0] : undefined);
       if (!job) return;
       // Bound completed audio waiting behind a long transmission. The current
       // head can always start, and the limit is rechecked after each job.
@@ -74,9 +76,18 @@ export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPla
       jobs.set(key, job);
     } else {
       if (kind === "queue" || (kind === "readback" && job.kind === "draft")) job.kind = kind;
-      if (priority === "play") job.priority = priority;
+      if (priority === "play" && job.priority !== "play") {
+        job.priority = priority;
+        // Tell the shared server producer it now has a foreground listener.
+        // Keep the preparation attached until promotion headers arrive.
+        if (job.started && !job.done && promote) {
+          const promoted = job;
+          job.promotion = promote(text, voice, job.controller.signal).catch(reason => {promoted.error = reason;});
+        }
+      }
     }
     trimSpeculative();
+    // Promoting an existing preparation frees the one speculative slot.
     pump(); return job;
   };
   const cancel = () => {serial++; for (const job of jobs.values()) remove(job); playback.cancel(); status("");};
@@ -98,6 +109,8 @@ export function createPocketSpeechOutput(load: PocketLoader, playback: PocketPla
         // Claim the head before later queue entries can occupy generation slots.
         const job = ensure(text, settings, "queue", "play");
         await playback.begin(settings);
+        await job.promotion;
+        if (job.error) throw job.error;
         if (current !== serial) return;
         let index = 0;
         while (current === serial) {
@@ -200,12 +213,16 @@ export function browserPocketSpeechOutput(csrf: string, reference?: (text: strin
   if (typeof window === "undefined") return null;
   const AudioContextClass = typeof AudioContext !== "undefined" ? AudioContext : (window as Window & {webkitAudioContext?: typeof AudioContext}).webkitAudioContext;
   if (!AudioContextClass) return null;
-  const output = createPocketSpeechOutput(async (text, voice, signal, priority) => {
+  const load: PocketLoader = async (text, voice, signal, priority) => {
     const response = await fetch("/api/simulator/pocket-speech", {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf},
       body: JSON.stringify({text, voice, priority, reference: reference?.(text)}), signal, cache: "no-store"});
     if (!response.ok || response.headers.get("content-type") !== "application/vnd.atcmh.pcm-stream" || !response.body) throw new Error("Radio voice unavailable");
     return response.body;
-  }, browserPocketPlayback(AudioContextClass));
+  };
+  const output = createPocketSpeechOutput(load, browserPocketPlayback(AudioContextClass), async (text, voice, signal) => {
+    const promoted = await load(text, voice, signal, "play");
+    await promoted.cancel();
+  });
   // Authoritative messages are prepared once by the session server. Per-tab
   // speculative drafts/readbacks would recreate the viewer CPU multiplier.
   return {...output, prepareDraft: undefined, prepareReadback: undefined};
