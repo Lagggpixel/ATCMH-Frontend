@@ -6,6 +6,8 @@ Use Node 24. In a fresh checkout, install the locked dependencies with `npm ci`.
 
 ATCMH uses the engine source maintained in [standalone Sweatbox PR #1](https://github.com/Lagggpixel/ATC-Simulator/pull/1). Fetch that branch into a checkout beside ATCMH named `Simulator`, or set `SWEATBOX_ENGINE_CHECKOUT` to its absolute path. ATCMH reads the committed revision and verifies the file hashes in `scripts/sweatbox-engine-lock.json`. The files generated in `src/simulator` are ignored by Git. The ATCMH wording adapter and airport data live in this checkout.
 
+Merge the standalone changes first so the pinned revision is available from its main branch. If standalone is squash-merged, update the ATCMH pin to the resulting commit and verify its hashes before merging ATCMH.
+
 `npm run dev`, `npm run build`, `npm run sweatbox:runtime` and `npm test` prepare the engine automatically. Run `npm run sweatbox:engine` before invoking Next.js or individual tests directly from a fresh checkout.
 
 ## Run the smoke test
