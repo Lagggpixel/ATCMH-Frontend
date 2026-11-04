@@ -29,7 +29,7 @@ The command prints the absolute path for the runtime and refuses to replace an e
 
 1. Open `/sweatbox` on the configured local web origin and sign in as a mentor.
 2. Save and publish a Ground & Tower scenario. Launch it, open the mentor view, and press Play. Open the assigned mentee view using another signed-in browser profile if available.
-3. Issue a command and check that updates continue across a refresh. End the session and open its replay. If the runtime stops, Sweatbox requests report it as unavailable until it restarts.
+3. Issue a command and check that updates continue across a refresh. End the session and open its replay as the mentee. Check that the recording and its airport overlays load after the live assignment ends. If the runtime stops, Sweatbox requests report it as unavailable until it restarts.
 
 The runtime entry point suppresses Discord notification delivery and speculative Pocket speech calls. If testing audio, configure the web app with a test speech service or use browser fallback. Leave retention jobs off for the disposable database. Without `SWEATBOX_RUNTIME_URL`, the web app uses its existing in-process handlers.
 

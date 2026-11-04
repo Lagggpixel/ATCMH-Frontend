@@ -8,6 +8,8 @@ import type {Actor} from "./session-service";
 export interface MenteeAdmission {
   /** Admit a signed-in user without Sweatbox access when this resolves true for their Discord account. */
   hasAssignment?: (discordId: string) => Promise<boolean>;
+  /** Admit a recorded participant for read-only airport references after archiving. */
+  hasReplay?: (accountId: string) => Promise<boolean>;
   /** Admit any signed-in user; the caller limits what they can see (their own assignments, a code they hold). */
   anySignedIn?: boolean;
 }
@@ -48,8 +50,10 @@ export async function authorizeSessionRequest(request: Request, staff: boolean, 
   if (staff || !session.discordId) throw denied;
   if (admission.anySignedIn) return {...actor, simulatorAccess: false};
   let assigned = false;
-  try {assigned = !!admission.hasAssignment && await admission.hasAssignment(session.discordId);}
-  catch {throw new SessionError("unavailable", "Sweatbox access verification is temporarily unavailable. Try again.", 503);}
+  try {
+    assigned = !!(await admission.hasAssignment?.(session.discordId));
+    if (!assigned && request.method === "GET") assigned = !!(await admission.hasReplay?.(session.accountId));
+  } catch {throw new SessionError("unavailable", "Sweatbox access verification is temporarily unavailable. Try again.", 503);}
   if (!assigned) throw denied;
   return {...actor, simulatorAccess: false};
 }

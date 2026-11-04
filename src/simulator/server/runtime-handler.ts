@@ -2,6 +2,7 @@ import {z} from "zod/v3";
 import {messageSpeech} from "./message-speech";
 import {requireLocalSession} from "./radar-moved";
 import {createReplayApi} from "./replay-api";
+import {hasReplayAtAirport} from "./replay-store";
 import {authorizeDelegation, requireGateway} from "./runtime-identity";
 import {createSessionApi, sessionFailure} from "./session-api";
 import {sqlSessionStore} from "./session-store";
@@ -22,6 +23,11 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
       if (method === "GET" && pathname === "/internal/assignment") {
         const discordId = z.string().min(1).max(64).parse(searchParams.get("discordId"));
         return Response.json(await sqlSessionStore.hasAssignment(discordId));
+      }
+      if (method === "GET" && pathname === "/internal/replay-airport") {
+        const accountId = z.string().min(1).max(256).parse(searchParams.get("accountId"));
+        const airport = z.string().regex(/^[A-Z0-9]{4}$/).parse(searchParams.get("airport"));
+        return Response.json(await hasReplayAtAirport(accountId, airport));
       }
       if (method === "GET" && pathname === "/internal/message") {
         const actor = await authorizeDelegation(request, false, sqlSessionStore);

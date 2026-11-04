@@ -14,6 +14,7 @@ import {withSweatboxRuntime} from './server/runtime-gateway';
 import {createRuntimeHandler} from './server/runtime-handler';
 import {createRuntimeServer} from './server/runtime-http';
 import {authorizeDelegation, delegationHeaders} from './server/runtime-identity';
+import {hasReplayReference} from './server/airport-reference-auth';
 
 test('SQLite session updates serialize, rollback with replay changes, and survive reopening', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'sqlite-session-'));
@@ -101,6 +102,7 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
     assert.equal((await call(sessionPath + '/join', 'POST', learnerSeat, 'learner')).status, 403);
     await json(await call(sessionPath + '/assign', 'POST', {mentee: {discordId: learner.discordId}}));
     assert.equal(await assignedMentee.hasAssignment(learner.discordId), true);
+    assert.equal(await hasReplayReference(learner.accountId, 'EGPH'), false);
     await json(await call(sessionPath + '/join', 'POST', learnerSeat, 'learner'));
     await json(await call(sessionPath + '/join', 'POST', mentorSeat));
     assert.equal((await call(sessionPath + '/join', 'POST', {...mentorSeat, token: randomUUID()})).status, 409);
@@ -128,6 +130,10 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
     const detail = await json(await call(`replays/${replays[0].id}?scope=self`, 'GET', undefined, 'learner'));
     assert.equal(detail.initial.id, sessionId);
     assert.ok(detail.frames.length > 0);
+    assert.equal(await assignedMentee.hasAssignment(learner.discordId), false);
+    assert.equal(await hasReplayReference(learner.accountId, 'EGPH'), true);
+    assert.equal(await hasReplayReference(learner.accountId, 'KJFK'), false);
+    assert.equal(await hasReplayReference(mentor.accountId, 'EGPH'), false);
     assert.equal((await call(sessionPath + '/join', 'POST', mentorSeat)).status, 410);
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     assert.equal((await call('sessions')).status, 503);

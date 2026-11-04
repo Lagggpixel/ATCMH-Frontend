@@ -134,6 +134,18 @@ export async function readReplay(id: string, after: number, menteeId?: string): 
     throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);
   return detail;
 }
+
+export async function hasReplayAtAirport(accountId: string, airport: string): Promise<boolean> {
+  const recorded = await queryReadOnly<RowDataPacket[]>(
+    "SELECT 1 FROM simulator_replays WHERE ended_at IS NOT NULL AND JSON_CONTAINS(participants, ?) = 1 AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')),'EGPH')=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')),'') NOT LIKE '%:approach' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.trainingStation')),'') NOT LIKE '%:center' LIMIT 1",
+    [JSON.stringify({role: "mentee", accountId}), airport]);
+  if (recorded.length) return true;
+  const legacy = await queryReadOnly<RowDataPacket[]>(
+    "SELECT 1 FROM simulator_attempts WHERE learner_id=? AND status<>'active' AND result IS NOT NULL AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.exercise.airport')),'EGPH')=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.exercise.trainingStation')),'') NOT LIKE '%:approach' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.exercise.trainingStation')),'') NOT LIKE '%:center' LIMIT 1",
+    [accountId, airport]);
+  return legacy.length > 0;
+}
+
 async function readAnyReplay(id: string, after: number): Promise<ReplayDetail> {
   const rows = await queryReadOnly<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL", [id]);
   if (!rows[0]) {
