@@ -125,6 +125,9 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
     await json(await call(sessionPath, 'DELETE'));
     const {replays} = await json(await call('replays'));
     assert.equal(replays[0].title, 'Runtime rehearsal');
+    const detail = await json(await call(`replays/${replays[0].id}?scope=self`, 'GET', undefined, 'learner'));
+    assert.equal(detail.initial.id, sessionId);
+    assert.ok(detail.frames.length > 0);
     assert.equal((await call(sessionPath + '/join', 'POST', mentorSeat)).status, 410);
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     assert.equal((await call('sessions')).status, 503);
