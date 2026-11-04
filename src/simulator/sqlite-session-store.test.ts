@@ -5,6 +5,8 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
+import {setTimeout as delay} from 'node:timers/promises';
 import {assignedMentee, sqlSessionStore} from './server/session-store';
 import {initialExercise} from './engine';
 import {closeSimulatorStorage, queryReadOnly} from '../lib/simulator-db';
@@ -46,7 +48,7 @@ test('SQLite session updates serialize, rollback with replay changes, and surviv
   }
 });
 
-test('local gateway authenticates and drives a SQLite session over HTTP through archive', {timeout: 20_000}, async () => {
+test('local gateway authenticates and drives a SQLite session over HTTP through archive', {timeout: 30_000}, async () => {
   const directory = mkdtempSync(join(tmpdir(), 'sweatbox-runtime-'));
   const path = join(directory, 'simulator.sqlite');
   createLocalSweatboxDb(path);
@@ -79,7 +81,7 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
     });
     const call = (route: string, method = 'GET', body?: unknown, cookie = 'mentor', headers = {}) => api(new Request(`http://atcmh.test/api/simulator/${route}`, {
       method, headers: {cookie, 'x-csrf-token': 'browser-only', ...headers}, body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(15_000),
     }));
     const json = async (response: Response) => {
       const value = await response.json();
@@ -89,7 +91,14 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
     assert.equal((await fetch(origin + '/api/simulator/sessions', {headers: forged})).status, 401);
     assert.equal((await call('sessions', 'GET', undefined, '', forged)).status, 401);
     assert.equal((await call('sessions', 'GET', undefined, 'learner', forged)).status, 403);
-    const {scenario} = await json(await call('training/scenarios', 'POST', {draft: {...blankScenario(), title: 'Runtime rehearsal'}}));
+    // Hold a competing writer beyond the gateway's read deadline, within SQLite's busy timeout.
+    await queryReadOnly("SELECT id FROM simulator_scenarios LIMIT 0");
+    const writer = new DatabaseSync(path);
+    writer.exec('BEGIN IMMEDIATE');
+    const releaseWriter = delay(9_000).then(() => {try {writer.exec('COMMIT');} finally {writer.close();}});
+    const saved = await call('training/scenarios', 'POST', {draft: {...blankScenario(), title: 'Runtime rehearsal'}}).finally(() => releaseWriter);
+    const {scenario} = await json(saved);
+    assert.equal((await queryReadOnly('SELECT id FROM simulator_scenarios')).length, 1);
     const scenarioPath = `training/scenarios/${scenario.id}`;
     const published = await json(await call(scenarioPath, 'POST', {action: 'publish', version: scenario.version}));
     const launch = {action: 'launch', revision: published.scenario.publishedRevision, requestId: randomUUID()};

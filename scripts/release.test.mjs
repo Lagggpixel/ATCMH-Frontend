@@ -76,6 +76,8 @@ test("engine preparation verifies the pinned Git source for native and Docker bu
   assert.throws(() => assertCanonicalEngine(frontend, peer), /differs from the ATCMH pin/);
   const native = prepareSharedEngine(frontend, {checkout: peer});
   assert.equal(readFileSync(join(native, "engine.ts"), "utf8"), engine);
+  mkdirSync(join(stage, ".."), {recursive: true});
+  writeFileSync(join(stage, "..", "engine.ts.00000000-0000-4000-8000-000000000000.tmp"), "interrupted write");
   assert.equal(prepareSharedEngine(frontend, {docker: true}), stage);
   assert.deepEqual(readdirSync(stage), ["engine.ts"]);
   assert.equal(readFileSync(join(stage, "engine.ts"), "utf8"), engine);

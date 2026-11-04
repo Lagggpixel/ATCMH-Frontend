@@ -1,7 +1,7 @@
 import {spawnSync} from "node:child_process";
 import {createHash, randomUUID} from "node:crypto";
-import {existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync} from "node:fs";
-import {join, resolve} from "node:path";
+import {existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync} from "node:fs";
+import {dirname, join, resolve} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
@@ -67,7 +67,7 @@ export function assertCanonicalEngine(root, checkout) {
 export function prepareSharedEngine(root = project, {checkout = sharedEngineCheckout(root), docker = false, dryRun = false} = {}) {
   const {revision, files} = readLock(root);
   const native = join(root, "src", "simulator");
-  const stage = join(root, "build", "sweatbox-engine", revision);
+  const stage = join(root, "build", "sweatbox-engine", revision, "context");
   const destination = docker ? stage : native;
   if (dryRun) return destination;
   if (docker && existsSync(stage) && readdirSync(stage, {withFileTypes: true}).some(entry => !entry.isFile() || !Object.hasOwn(files, entry.name))) {
@@ -76,11 +76,14 @@ export function prepareSharedEngine(root = project, {checkout = sharedEngineChec
   if (readVerified(destination, files)) return destination;
   const sources = readVerified(docker ? native : stage, files) ?? readGitBlobs(checkout, revision, files);
   mkdirSync(destination, {recursive: true});
+  // Keep incomplete writes outside the Docker context so another build can retry.
+  const temporaryDirectory = docker ? dirname(stage) : native;
   for (const [file, text] of sources) {
-    const target = join(destination, file);
-    const temporary = target + "." + randomUUID() + ".tmp";
-    writeFileSync(temporary, text, {flag: "wx"});
-    renameSync(temporary, target);
+    const temporary = join(temporaryDirectory, file + "." + randomUUID() + ".tmp");
+    try {
+      writeFileSync(temporary, text, {flag: "wx"});
+      renameSync(temporary, join(destination, file));
+    } finally {rmSync(temporary, {force: true});}
   }
   return destination;
 }

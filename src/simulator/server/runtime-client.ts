@@ -14,12 +14,14 @@ export function runtimeConfig() {
 }
 
 export async function send(config: NonNullable<ReturnType<typeof runtimeConfig>>, path: string, options: RequestInit) {
-  const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), 8000);
+  const method = options.method ?? "GET";
+  // Wait for the runtime's result on writes. A gateway timeout cannot cancel an SQLite commit.
+  const timeout = method === "GET" || method === "HEAD" ? new AbortController() : undefined;
+  const timer = timeout && setTimeout(() => timeout.abort(), 8000);
   try {
     const headers = new Headers(options.headers);
     headers.set("authorization", `Bearer ${config.key}`);
-    const signal = options.signal ? AbortSignal.any([options.signal, timeout.signal]) : timeout.signal;
+    const signal = options.signal && timeout ? AbortSignal.any([options.signal, timeout.signal]) : options.signal ?? timeout?.signal;
     return await fetch(config.origin + path, {...options, headers, signal, redirect: "error", cache: "no-store"});
   } catch {throw unavailable();}
   finally {clearTimeout(timer);}
