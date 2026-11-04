@@ -4,6 +4,7 @@
   "version": "26.11.3",
   "scripts": {
     "dev": "next dev",
+    "sweatbox:runtime": "node --import tsx scripts/sweatbox-runtime.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
