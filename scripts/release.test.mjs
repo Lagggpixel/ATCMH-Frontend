@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import {spawnSync} from "node:child_process";
-import {mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import test from "node:test";
 import {fileURLToPath} from "node:url";
 import {dependencyManifests} from "./docker-dependencies.mjs";
 import {runDockerBuild} from "./docker-build.mjs";
+import {assertCanonicalEngine, prepareSharedEngine} from "./prepare-sweatbox-engine.mjs";
 import {command, requireChecked, requireQA, requirePublishedImage, releaseTarget, sourceHash} from "./release.mjs";
 
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -48,6 +49,41 @@ test("lockfile version mismatch blocks dependency preparation", t => {
   pkg.version = "26.10.71";
   writeFileSync(join(root, "package.json"), JSON.stringify(pkg));
   assert.throws(() => dependencyManifests(root), /versions must match/);
+});
+
+test("engine preparation verifies the pinned Git source for native and Docker builds", t => {
+  const root = temporary(t);
+  const peer = join(root, "standalone"), frontend = join(root, "frontend");
+  const canonical = join(peer, "src", "simulator");
+  mkdirSync(canonical, {recursive: true});
+  mkdirSync(join(peer, "scripts"), {recursive: true});
+  mkdirSync(join(frontend, "scripts"), {recursive: true});
+  const engine = "export const engine = 'pinned';\n";
+  const lock = join(frontend, "scripts", "sweatbox-engine-lock.json");
+  const source = join(canonical, "engine.ts");
+  writeFileSync(source, engine);
+  writeFileSync(join(peer, "scripts", "shared-engine-files.json"), '["engine.ts"]');
+  command("git", ["init", "--quiet"], peer);
+  command("git", ["add", "."], peer);
+  command("git", ["-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+    "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Canonical engine fixture"], peer);
+  const revision = command("git", ["rev-parse", "HEAD"], peer);
+  writeFileSync(lock, JSON.stringify({revision, files: {"engine.ts": sha(engine)}}));
+  const stage = prepareSharedEngine(frontend, {checkout: peer, docker: true, dryRun: true});
+  assert.equal(existsSync(stage), false);
+  assertCanonicalEngine(frontend, peer);
+  writeFileSync(source, "dirty working tree");
+  assert.throws(() => assertCanonicalEngine(frontend, peer), /differs from the ATCMH pin/);
+  const native = prepareSharedEngine(frontend, {checkout: peer});
+  assert.equal(readFileSync(join(native, "engine.ts"), "utf8"), engine);
+  assert.equal(prepareSharedEngine(frontend, {docker: true}), stage);
+  assert.deepEqual(readdirSync(stage), ["engine.ts"]);
+  assert.equal(readFileSync(join(stage, "engine.ts"), "utf8"), engine);
+  writeFileSync(join(native, "engine.ts"), "stale generated source");
+  prepareSharedEngine(frontend);
+  assert.equal(readFileSync(join(native, "engine.ts"), "utf8"), engine);
+  writeFileSync(lock, JSON.stringify({revision, files: {"engine.ts": sha("wrong")}}));
+  assert.throws(() => prepareSharedEngine(frontend, {checkout: peer}), /checksum mismatch/);
 });
 
 test("source evidence detects edits, deletions and new files while ignoring generated output", t => {
@@ -121,6 +157,7 @@ for (const [platform, arch] of [["win32", "x64"], ["darwin", "x64"], ["darwin", 
         assert.equal(build.options.shell, undefined);
         assert.equal(build.args[build.args.indexOf("--platform") + 1], "linux/amd64");
         assert.match(build.args[build.args.indexOf("--build-context") + 1], /^dependency-manifests=/);
+        assert.ok(build.args.some(argument => argument.startsWith("sweatbox-engine=")));
         assert.equal(build.args.includes("--push"), publish);
         assert.equal(build.args.includes("--load"), !publish);
       }

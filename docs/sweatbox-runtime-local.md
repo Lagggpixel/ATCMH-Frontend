@@ -4,9 +4,14 @@ This first migration slice moves ATCMH's session, scenario and replay APIs into 
 
 Use Node 24. In a fresh checkout, install the locked dependencies with `npm ci`.
 
+ATCMH uses the engine source maintained in [standalone Sweatbox PR #1](https://github.com/Lagggpixel/ATC-Simulator/pull/1). Fetch that branch into a checkout beside ATCMH named `Simulator`, or set `SWEATBOX_ENGINE_CHECKOUT` to its absolute path. ATCMH reads the committed revision and verifies the file hashes in `scripts/sweatbox-engine-lock.json`. The files generated in `src/simulator` are ignored by Git. The ATCMH wording adapter and airport data live in this checkout.
+
+`npm run dev`, `npm run build`, `npm run sweatbox:runtime` and `npm test` prepare the engine automatically. Run `npm run sweatbox:engine` before invoking Next.js or individual tests directly from a fresh checkout.
+
 ## Run the smoke test
 
 ```text
+npm run sweatbox:engine
 node --import tsx --test src/simulator/sqlite-session-store.test.ts
 ```
 
@@ -33,4 +38,4 @@ The command prints the absolute path for the runtime and refuses to replace an e
 
 The runtime entry point suppresses Discord notification delivery and speculative Pocket speech calls. If testing audio, configure the web app with a test speech service or use browser fallback. Leave retention jobs off for the disposable database. Without `SWEATBOX_RUNTIME_URL`, the web app uses its existing in-process handlers.
 
-Remaining migration work includes moving notification delivery back to the web app, moving maintenance ownership, adding the standalone site policy and store, and rehearsing the Portainer handoff and rollback. This entry point only listens on the local machine.
+The standalone PR also provides a combined local runtime for testing both sites. Remaining work includes notification delivery, maintenance ownership and rehearsing the production handoff and rollback. This entry point only listens on the local machine.

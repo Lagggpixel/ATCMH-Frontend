@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {prepareDependencyManifests} from "./docker-dependencies.mjs";
+import {prepareSharedEngine} from "./prepare-sweatbox-engine.mjs";
 import {join} from "node:path";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -22,6 +23,7 @@ export function runDockerBuild({ publish = false, options = process.argv.slice(2
     "-f", ".dockerfile",
     "--platform", target,
     "--build-context", `dependency-manifests=${prepareDependencyManifests(root, options.includes("--dry-run"))}`,
+    "--build-context", `sweatbox-engine=${prepareSharedEngine(root, {docker: true, dryRun: options.includes("--dry-run")})}`,
     "--metadata-file", join(root, "build", "docker-build-metadata.json"),
     "-t", `${image}:${version}`,
     "-t", `${image}:latest`,

@@ -131,8 +131,11 @@ deployment sequence before consumers are started. No migrations run implicitly.
 Existing `npm run docker:push`, `docker:build:windows` and `docker:build:mac` remain.
 `npm run docker:build` is build-only; `npm run docker:push` still builds/pushes only
 and never deploys. Each supports `-- --dry-run`. Use these helpers instead of
-invoking the Dockerfile directly: they provide a named `dependency-manifests`
-build context containing normalized package/lock manifests.
+invoking the Dockerfile directly. They provide two named build contexts:
+`dependency-manifests` for normalized package/lock manifests and
+`sweatbox-engine` for the verified, pinned engine source. Fetch the pinned
+revision in the sibling `Simulator` checkout or set `SWEATBOX_ENGINE_CHECKOUT`
+to its absolute path. The host prepares the source before Docker runs.
 
 Only application root version metadata is normalized to `0.0.0` for dependency
 installation. Dependency versions, integrities, scripts and overrides remain

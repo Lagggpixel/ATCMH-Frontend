@@ -3,6 +3,7 @@ import {createHash} from "node:crypto";
 import {copyFileSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync} from "node:fs";
 import {dirname, join, resolve} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
+import {prepareSharedEngine, sharedEngineCheckout} from "./prepare-sweatbox-engine.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -136,10 +137,11 @@ export async function main(args = process.argv.slice(2)) {
     const image = `${target.image}:${pkg.version}`;
     const save = receipt => writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
     const assertSource = () => {if (sourceHash() !== source) throw new Error("Source changed during release checks; rerun release:check");};
-    const sharedScript = pkg.name === "sweatbox" ? join(root, "scripts/sync-simulator.mjs") : join(root, "../Simulator/scripts/sync-simulator.mjs");
+    const engineCheckout = sharedEngineCheckout(root);
+    const sharedScript = join(engineCheckout, "scripts/sync-simulator.mjs");
     const assertShared = () => {
       if (!existsSync(sharedScript)) throw new Error("Place both web checkouts beside each other for the required shared-file check");
-      command(process.execPath, [sharedScript, "--check"]);
+      command(process.execPath, [sharedScript, "--check", "--atcmh", root]);
     };
     const imageId = () => command("docker", ["image", "inspect", image, "--format", "{{.Id}}"]);
     if (phase === "check") {
@@ -156,6 +158,9 @@ export async function main(args = process.argv.slice(2)) {
         copyFileSync(join(root, path), join(snapshot, path));
         hashes[path] = sha(readFileSync(join(snapshot, path)));
       }
+      const engineDirectory = prepareSharedEngine(snapshot, {checkout: engineCheckout});
+      const engineFiles = read(join(snapshot, "scripts/sweatbox-engine-lock.json")).files;
+      for (const file of Object.keys(engineFiles)) hashes[`src/simulator/${file}`] = sha(readFileSync(join(engineDirectory, file)));
       const assertSnapshot = () => {
         for (const [path, expected] of Object.entries(hashes)) if (sha(readFileSync(join(snapshot, path))) !== expected) throw new Error(`Frozen release source changed: ${path}`);
       };
