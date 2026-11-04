@@ -2,7 +2,7 @@
 
 This first migration slice moves ATCMH's session, scenario and replay APIs into a separate Node process. The Next.js app still verifies the browser login and CSRF token and serves the existing routes. When configured, it sends short-lived actor details to the runtime over IPv4 loopback. Live streams reconnect periodically so the web app can recheck browser access. Airport data and Pocket speech still use the web app's routes and ask the runtime for assignment or radio-message authorization.
 
-Use Node 24 and install the locked dependencies with `npm ci` from this checkout.
+Use Node 24. In a fresh checkout, install the locked dependencies with `npm ci`.
 
 ## Run the smoke test
 
@@ -25,7 +25,7 @@ The command prints the absolute path for the runtime and refuses to replace an e
 | Process | Environment | Command |
 | --- | --- | --- |
 | Runtime | `SWEATBOX_RUNTIME_KEY`, `SIMULATOR_SQLITE_PATH` set to the absolute path of the disposable database. `SWEATBOX_RUNTIME_PORT` defaults to `4317`. | `npm run sweatbox:runtime` |
-| ATCMH web | Usual development sign-in settings, `SIMULATOR_ENABLED=true`, `SWEATBOX_RUNTIME_KEY`, and `SWEATBOX_RUNTIME_URL=http://127.0.0.1:4317`. Leave `SIMULATOR_SQLITE_PATH` unset in this process. | `npm run dev` |
+| ATCMH web | Usual development sign-in settings, `SIMULATOR_ENABLED=true`, `SWEATBOX_RUNTIME_KEY`, and `SWEATBOX_RUNTIME_URL=http://127.0.0.1:4317`. Leave `SIMULATOR_SQLITE_PATH` unset in this process. | `npm run dev -- --webpack` |
 
 1. Open `/sweatbox` on the configured local web origin and sign in as a mentor.
 2. Save and publish a Ground & Tower scenario. Launch it, open the mentor view, and press Play. Open the assigned mentee view using another signed-in browser profile if available.
