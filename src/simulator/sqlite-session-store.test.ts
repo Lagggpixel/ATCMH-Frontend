@@ -151,6 +151,8 @@ test('local gateway authenticates and drives a SQLite session over HTTP through 
 
 test('delegated identity expires so live streams must recheck browser access on reconnect', async () => {
   const request = new Request('http://127.0.0.1', {headers: delegationHeaders({accountId: 'mentor', staff: false}, 1000)});
+  assert.equal((await authorizeDelegation(request, true, {}, 990)).staff, true);
+  await assert.rejects(authorizeDelegation(request, true, {}, -1001), {status: 503});
   assert.equal((await authorizeDelegation(request, true, {}, 60_999)).staff, true);
   await assert.rejects(authorizeDelegation(request, true, {}, 61_000), {status: 503});
 });

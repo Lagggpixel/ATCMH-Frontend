@@ -14,6 +14,7 @@ const identity = z.object({
   expiresAt: z.number().int(),
 }).strict();
 const lifetime = 60_000;
+const clockTolerance = 2_000;
 
 export function delegationHeaders(actor: Actor, now = Date.now()) {
   const {accountId, displayName, discordId, simulatorAccess, canAssign, superAdmin} = actor;
@@ -34,7 +35,7 @@ export async function authorizeDelegation(request: Request, staff: boolean, admi
   catch {throw new SessionError("unauthorized", "Sweatbox identity is missing.", 401);}
   const parsed = identity.safeParse(value);
   if (!parsed.success) throw new SessionError("unauthorized", "Sweatbox identity is invalid.", 401);
-  if (parsed.data.expiresAt <= now || parsed.data.expiresAt > now + lifetime)
+  if (parsed.data.expiresAt <= now || parsed.data.expiresAt > now + lifetime + clockTolerance)
     throw new SessionError("unavailable", "Refreshing Sweatbox connection.", 503);
   const {actor} = parsed.data;
   if (actor.simulatorAccess !== false) return {...actor, staff};
