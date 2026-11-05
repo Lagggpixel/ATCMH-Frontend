@@ -2,8 +2,13 @@ import {readNotificationPreferences} from "./notification-preferences";
 type Fetch = (input: URL, init: RequestInit) => Promise<Response>;
 export interface AssignmentNotice {discordId: string; title: string; airport: string; trainer: string}
 export interface FeedbackNotice {accountId?: string; discordId?: string; title: string; airport: string; trainer: string; replayId?: string}
+let runtimeDelivery: ((kind: "assignment" | "feedback", notice: AssignmentNotice | FeedbackNotice) => Promise<boolean>) | undefined;
+export function configureRuntimeNotifications(deliver: typeof runtimeDelivery) {
+  runtimeDelivery = deliver;
+}
 /** Resolve the active Discord identity on the central account before checking its preference. */
 async function notify(kind: "assignment" | "feedback", notice: AssignmentNotice | FeedbackNotice, env: Record<string, string | undefined>, fetchImpl: Fetch): Promise<boolean> {
+  if (runtimeDelivery) return runtimeDelivery(kind, notice);
   const api = env.DASHBOARD_API_URL?.trim(), key = env.EXAMS_AUTH_KEY?.trim(), origin = env.FRONTEND_PUBLIC_ORIGIN?.trim();
   if (!api || !key || !origin) return false;
   try {

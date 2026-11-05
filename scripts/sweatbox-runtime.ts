@@ -15,9 +15,12 @@ async function main() {
   await queryReadOnly("SELECT id FROM simulator_sessions LIMIT 0");
   const server = createRuntimeServer(createRuntimeHandler(key));
   server.listen(port, "127.0.0.1", () => console.log(`Sweatbox runtime listening on http://127.0.0.1:${port}`));
+  let stopping = false;
   for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => {
-    server.close(async () => {await closeSimulatorStorage();});
-    server.closeAllConnections();
+    if (stopping) return;
+    stopping = true;
+    void server.drain().then(closeSimulatorStorage)
+      .catch(() => {console.error("Sweatbox runtime shutdown failed."); process.exitCode = 1;});
   });
 }
 

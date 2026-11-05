@@ -40,4 +40,4 @@ The command prints the absolute path for the runtime and refuses to replace an e
 
 The runtime entry point suppresses Discord notification delivery and speculative Pocket speech calls. If testing audio, configure the web app with a test speech service or use browser fallback. Leave retention jobs off for the disposable database. Without `SWEATBOX_RUNTIME_URL`, the web app uses its existing in-process handlers.
 
-The standalone PR also provides a combined local runtime for testing both sites. Remaining work includes notification delivery, maintenance ownership and rehearsing the production handoff and rollback. This entry point only listens on the local machine.
+The standalone repository also provides the combined local runtime and its notification, maintenance and rollback rehearsal guide. The combined entry point can relay notices back to the two web apps using independent keys. The ATCMH-only entry point above still listens on the local machine and suppresses delivery.

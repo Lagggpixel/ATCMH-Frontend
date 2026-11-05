@@ -10,6 +10,7 @@ import {sqlSessionStore} from "./session-store";
 import type {SessionWeatherLoader} from "./session-weather";
 import {createTrainingApi} from "./training-api";
 import {TrainingService} from "./training-service";
+import {queryReadOnly} from "../../lib/simulator-db";
 
 export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader) {
   const sessions = createSessionApi(sqlSessionStore, authorizeDelegation, requireLocalSession, weather);
@@ -22,6 +23,10 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
       requireGateway(request, key);
       const {pathname, searchParams} = new URL(request.url);
       const method = request.method;
+      if (method === "GET" && pathname === "/internal/storage-ready") {
+        await queryReadOnly("SELECT assigned_mentee_id FROM simulator_sessions LIMIT 0");
+        return Response.json(true);
+      }
       if (method === "GET" && pathname === "/internal/assignment") {
         const discordId = z.string().min(1).max(64).parse(searchParams.get("discordId"));
         return Response.json(await sqlSessionStore.hasAssignment(discordId));

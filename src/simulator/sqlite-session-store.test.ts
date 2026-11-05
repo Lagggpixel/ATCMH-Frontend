@@ -17,6 +17,56 @@ import {createRuntimeHandler} from './server/runtime-handler';
 import {createRuntimeServer} from './server/runtime-http';
 import {authorizeDelegation, delegationHeaders} from './server/runtime-identity';
 import {hasReplayReference} from './server/airport-reference-auth';
+import {POST as receiveNotification} from '../app/api/internal/sweatbox/notification/route';
+
+test('ATCMH callback accepts only its service key and a valid notice', async () => {
+  const key = randomUUID() + randomUUID();
+  const prior = process.env.SWEATBOX_NOTIFICATION_KEY, exams = process.env.EXAMS_AUTH_KEY;
+  process.env.SWEATBOX_NOTIFICATION_KEY = key;
+  delete process.env.EXAMS_AUTH_KEY;
+  const notice = {discordId: '123456789012345678', title: 'Rehearsal', airport: 'EGPH', trainer: 'Local mentor'};
+  const send = (token: string, body: unknown) => receiveNotification(new Request('http://localhost/api/internal/sweatbox/notification', {
+    method: 'POST', headers: {authorization: `Bearer ${token}`}, body: JSON.stringify(body),
+  }));
+  try {
+    assert.equal((await send('untrusted', {kind: 'assignment', notice})).status, 401);
+    assert.equal((await send(key, {kind: 'assignment', notice: {...notice, email: 'outside@example.invalid'}})).status, 400);
+    assert.equal((await send(key, {kind: 'assignment', notice})).status, 204);
+  } finally {
+    if (prior === undefined) delete process.env.SWEATBOX_NOTIFICATION_KEY; else process.env.SWEATBOX_NOTIFICATION_KEY = prior;
+    if (exams === undefined) delete process.env.EXAMS_AUTH_KEY; else process.env.EXAMS_AUTH_KEY = exams;
+  }
+});
+
+test('runtime drain disconnects streams and waits for accepted writes', {timeout: 10_000}, async () => {
+  const writing = Promise.withResolvers<void>(), finish = Promise.withResolvers<void>();
+  const server = createRuntimeServer(async request => {
+    if (request.method === 'POST') {
+      writing.resolve();
+      await finish.promise;
+      return Response.json({saved: true});
+    }
+    return new Response(new ReadableStream({start(controller) {controller.enqueue(new TextEncoder().encode('data: ready\n\n'));}}),
+      {headers: {'content-type': 'text/event-stream'}});
+  });
+  try {
+    await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    const origin = 'http://127.0.0.1:' + address.port;
+    const stream = (await fetch(origin)).body!.getReader();
+    assert.equal((await stream.read()).done, false);
+    const save = fetch(origin, {method: 'POST'});
+    await writing.promise;
+    let drained = false;
+    const drain = server.drain().then(() => {drained = true;});
+    await assert.rejects(stream.read());
+    assert.equal(drained, false);
+    finish.resolve();
+    assert.deepEqual(await (await save).json(), {saved: true});
+    await drain;
+  } finally {finish.resolve(); server.closeAllConnections(); server.close();}
+});
 
 test('SQLite session updates serialize, rollback with replay changes, and survive reopening', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'sqlite-session-'));
