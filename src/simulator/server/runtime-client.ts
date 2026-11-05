@@ -7,8 +7,9 @@ export function runtimeConfig() {
   const address = process.env.SWEATBOX_RUNTIME_URL;
   if (!address) return;
   const key = process.env.SWEATBOX_RUNTIME_KEY;
-  // This first runtime is for native local testing and binds only to IPv4 loopback.
-  if (!/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}\/?$/.test(address) || !key || key.length < 32) throw unavailable();
+  const loopback = /^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}\/?$/.test(address);
+  const privateService = process.env.SWEATBOX_PRIVATE_NETWORK === "1" && /^http:\/\/sweatbox-runtime:4317\/?$/.test(address);
+  if ((!loopback && !privateService) || !key || key.length < 32) throw unavailable();
   try {return {origin: new URL(address).origin, key};}
   catch {throw unavailable();}
 }
