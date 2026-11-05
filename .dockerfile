@@ -8,6 +8,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=sweatbox-engine . ./src/simulator/
 RUN --mount=type=cache,id=atcmh-next-linux-amd64,target=/app/.next/cache,sharing=locked npm run build
 RUN node src/simulator/build-maintenance.mjs
 
