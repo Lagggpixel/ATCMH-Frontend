@@ -1,7 +1,7 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "26.11.3",
+  "version": "26.11.4",
   "scripts": {
     "sweatbox:engine": "node scripts/prepare-sweatbox-engine.mjs",
     "predev": "npm run sweatbox:engine",
