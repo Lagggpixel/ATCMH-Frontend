@@ -101,3 +101,9 @@ export class ReplayTimeline {
     })};
   }
 }
+/** The latest recorded state at or before `elapsed` exercise seconds, following any earlier rewinds. Null if the recording starts later. */
+export function recordedStateAt(initial: Exercise, deltas: ReplayDelta[], elapsed: number): Exercise | null {
+  let state = initial, best: Exercise | null = initial.elapsed <= elapsed + 1e-6 ? initial : null;
+  for (const delta of deltas) {state = applyReplayDelta(state, delta); if (state.elapsed <= elapsed + 1e-6) best = state;}
+  return best;
+}

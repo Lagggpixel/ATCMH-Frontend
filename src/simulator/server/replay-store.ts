@@ -4,8 +4,9 @@ import {queryReadOnly} from "../../lib/simulator-db";
 import {exerciseSchema} from "../protocol";
 import {demoReplayMarks} from "../demonstration";
 import {demoHub} from "./demo-hub";
-import {replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
+import {recordedStateAt, replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
 import {SessionError} from "../sessions";
+import type {Exercise} from "../model";
 import type {SessionRecord} from "./session-service";
 import {rejectMovedRadar} from "./radar-moved";
 
@@ -44,7 +45,9 @@ export async function recordReplay(connection: ReplayConnection, record: Session
   const [rows] = await connection.execute("SELECT * FROM simulator_replays WHERE session_id=? ORDER BY (status='recording') DESC,started_at DESC,id DESC LIMIT 1 FOR UPDATE", [record.id]);
   let row: ReplayRow | undefined = (rows as ReplayRow[])[0];
   const changedAttempt = before?.scenario?.attemptId !== record.scenario?.attemptId;
-  const reset = !!before && (changedAttempt || record.exercise.elapsed < before.exercise.elapsed);
+  // A mentor rewind keeps recording into the same replay, which shows the jump back.
+  const rewound = !!record.exercise.rewind && record.exercise.rewind.id !== before?.exercise.rewind?.id;
+  const reset = !!before && (changedAttempt || record.exercise.elapsed < before.exercise.elapsed && !rewound);
   if (reset) {
     if (!row || row.status === "recording") await recordReplay(connection, before!, before!, changedAttempt ? "restarted" : "reset");
     row = undefined;
@@ -72,6 +75,15 @@ export async function recordReplay(connection: ReplayConnection, record: Session
   const people = JSON.stringify(participants(record, JSON.parse(row.participants)));
   if (people !== row.participants) await connection.execute("UPDATE simulator_replays SET participants=? WHERE id=?", [people, row.id]);
   if (ended) await connection.execute("UPDATE simulator_replays SET status=?,ended_at=?,feedback=? WHERE id=?", [ended, now, record.scenario?.feedback || feedback || null, row.id]);
+}
+
+/** The live session's current recording, read back at an exercise time for a mentor rewind. */
+export async function recordedSessionState(sessionId: string, elapsed: number): Promise<Exercise | null> {
+  const rows = await queryReadOnly<ReplayRow[]>("SELECT id,initial_state FROM simulator_replays WHERE session_id=? AND status='recording' ORDER BY started_at DESC,id DESC LIMIT 1", [sessionId]);
+  if (!rows[0]) return null;
+  const frames = await queryReadOnly<(RowDataPacket & {delta: string})[]>("SELECT delta FROM simulator_replay_frames WHERE replay_id=? ORDER BY sequence_no", [rows[0].id]);
+  const state = recordedStateAt(exerciseSchema.parse(JSON.parse(rows[0].initial_state)), frames.map(f => JSON.parse(f.delta)), elapsed);
+  return state ? exerciseSchema.parse(state) : null;
 }
 
 interface LegacyRow extends RowDataPacket {id: string; session_id: string; title: string; owner_id: string; learner_id: string | null; started_at: number; finished_at: number; elapsed: number; status: string; result: string | null; feedback: string}

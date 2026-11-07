@@ -7,7 +7,7 @@ import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
 import {notifyAssignment, notifyFeedback, type AssignmentNotice} from "./assignment-notifications";
 import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type Actor, type SessionStore} from "./session-service";
-import {endedReplay} from "./replay-store";
+import {endedReplay, recordedSessionState} from "./replay-store";
 import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
 import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstration";
@@ -34,7 +34,7 @@ async function body(request: Request) {
 }
 export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport,
   notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub) {
-const service = new SessionService(store, undefined, undefined, undefined, undefined, weather);
+const service = new SessionService(store, undefined, undefined, undefined, undefined, weather, recordedSessionState);
 const mentee = {hasAssignment: (discordId: string) => store.hasAssignment(discordId)};
 const lookups = new Map<string, number[]>();
 function limitLookups(accountId: string) {
