@@ -82,6 +82,10 @@ export class DemoHub {
     channel.listeners.add(listener);
     return () => {channel.listeners.delete(listener);};
   }
+  /** How many streams are reading this channel. The trainee's page uses it to pick its send rate. */
+  watchers(id: string) {return this.channels.get(id)?.listeners.size ?? 0;}
+  /** Every channel whose key starts with `prefix`, for draining all of a session's positions at once. */
+  keys(prefix: string) {return [...this.channels.keys()].filter(key => key.startsWith(prefix));}
   drainTrace(id: string) {
     const channel = this.channels.get(id);
     if (!channel?.trace.length) return [];
@@ -89,5 +93,7 @@ export class DemoHub {
     return trace;
   }
 }
-const shared = globalThis as typeof globalThis & {sweatboxDemoHub?: DemoHub};
+const shared = globalThis as typeof globalThis & {sweatboxDemoHub?: DemoHub; sweatboxShadowHub?: DemoHub};
 export const demoHub = shared.sweatboxDemoHub ??= new DemoHub();
+/** The reverse mirror: each trainee's controller state for staff overlays, keyed `sessionId:positionId`. */
+export const shadowHub = shared.sweatboxShadowHub ??= new DemoHub();

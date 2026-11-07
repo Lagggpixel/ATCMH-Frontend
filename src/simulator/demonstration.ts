@@ -14,6 +14,10 @@ export const DEMO_PLAYBACK_DELAY_MS = 120;
 export const DEMO_SENT_VISIBLE_MS = 7000;
 /** How many of the presenter's quick commands the watching screens show. */
 export const DEMO_QUICK_COMMANDS = 24;
+/** A trainee page nobody is watching sends its controller state at most this often, for replays. */
+export const SHADOW_QUIET_MS = 1000;
+/** The trainee's controller state posted to staff overlays, keyed by session and position. */
+export const shadowKey = (sessionId: string, positionId: string | undefined) => `${sessionId}:${positionId ?? "main"}`;
 
 /** Whether this page holds the controller seat: the trainer's control page, or the spectator who took over. */
 export function demoPresenter(demonstration: Exercise["demonstration"], role: "staff" | "mentee" | "spectator", accountId: string) {
@@ -234,15 +238,22 @@ export class DemoRecorder {
   private timer: ReturnType<typeof setInterval> | null = null;
   private busy = false;
   private camera: () => DemoState["camera"] = () => null;
+  private quiet = false;
+  private quietSentAt = -Infinity;
   constructor(private post: (batch: DemoBatch) => Promise<unknown>, private elapsed: () => number, private now = () => performance.now()) {}
   start() {if (!this.timer) this.timer = setInterval(() => void this.flush(), DEMO_BATCH_MS);}
   stop() {if (this.timer) clearInterval(this.timer); this.timer = null; this.pointer = []; this.events = []; this.sentState = null;}
+  /** Quiet mode is for a trainee nobody is watching: no pointer samples, clicks and sent commands
+   * still go out for replays, and a changed state at most once a second. */
+  setQuiet(quiet: boolean) {this.quiet = quiet; if (quiet) this.pointer = [];}
+  get isQuiet() {return this.quiet;}
   /** Replaces the exercise clock, for callers that can only read it after rendering. */
   setClock(elapsed: () => number) {this.elapsed = elapsed;}
   setState(state: Omit<DemoState, "camera">) {this.state = {...state, camera: null};}
   /** The scope view is read when each batch goes out rather than on every pan frame. */
   setCamera(camera: () => DemoState["camera"]) {this.camera = camera;}
   move(at: DemoAnchor, down?: boolean) {
+    if (this.quiet) return;
     const last = this.pointer.at(-1), t = this.now();
     if (last && t - last.t < 12) this.pointer[this.pointer.length - 1] = {t, at, ...(down ? {down} : {})};
     else this.pointer.push({t, at, ...(down ? {down} : {})});
@@ -254,11 +265,14 @@ export class DemoRecorder {
   }
   async flush() {
     if (this.busy) return;
-    const current = this.state ? {...this.state, camera: this.camera()} : null;
+    const now = this.now();
+    const due = !this.quiet || now - this.quietSentAt >= SHADOW_QUIET_MS;
+    const current = this.state && due ? {...this.state, camera: this.camera()} : null;
     const state = current && !sameDemoState(current, this.sentState) ? current : undefined;
     if (!state && !this.pointer.length && !this.events.length) return;
     const batch: DemoBatch = {seq: ++this.seq, sentAt: this.now(), elapsed: this.elapsed(), ...(state ? {state} : {}), pointer: this.pointer, events: this.events};
     this.pointer = []; this.events = []; this.busy = true;
+    if (state && this.quiet) this.quietSentAt = now;
     try {await this.post(batch); if (state) this.sentState = state;}
     catch {/* The next batch carries the latest state again. */}
     finally {this.busy = false;}

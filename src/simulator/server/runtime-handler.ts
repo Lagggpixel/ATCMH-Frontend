@@ -14,7 +14,7 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
   const sessions = createSessionApi(sqlSessionStore, authorizeDelegation, requireLocalSession, weather);
   const training = createTrainingApi(new TrainingService(weather), authorizeDelegation);
   const replays = createReplayApi(authorizeDelegation);
-  const operations = new Set(["join", "leave", "commands", "events", "assign", "demo", "positions", "position-assignment"]);
+  const operations = new Set(["join", "leave", "commands", "events", "assign", "demo", "shadow", "positions", "position-assignment"]);
   return async (request: Request): Promise<Response> => {
     try {
       requireGateway(request, key);
@@ -43,7 +43,7 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
           if (id && !operation && method === "DELETE") return sessions.sessionOperation(request, id, "end");
           if (id && operation && (method === "GET" && operation === "stream" || method === "POST" && operations.has(operation))) {
             // Demonstration still requires an active seat vouched for by its stream.
-            if (operation === "demo") await authorizeDelegation(request, false, sqlSessionStore);
+            if (operation === "demo" || operation === "shadow") await authorizeDelegation(request, false, sqlSessionStore);
             return sessions.sessionOperation(request, id, operation);
           }
         }

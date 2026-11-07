@@ -10,8 +10,8 @@ import {SessionService, type Actor, type SessionStore} from "./session-service";
 import {endedReplay, recordedSessionState} from "./replay-store";
 import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
-import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstration";
-import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
+import {demoBatchSchema, demoControllerSchema, demoPresenter, shadowKey} from "../demonstration";
+import {demoHub as sharedDemoHub, shadowHub as sharedShadowHub, type DemoHub} from "./demo-hub";
 import {BODY_BINARY_TYPE, decodeBody, STREAM_BINARY_TYPE, STREAM_FORMAT, STREAM_HEADER, StreamEncoder} from "../stream-codec";
 
 const idSchema = z.string().uuid();
@@ -20,6 +20,7 @@ const seatSchema = z.object({role: z.enum(["staff", "mentee", "spectator"]), tok
 const assignSchema = z.object({mentee: z.object({discordId: z.string().regex(/^\d{15,20}$/), name: z.string().trim().min(1).max(128).optional()}).strict().nullable()}).strict();
 const endSchema = z.object({feedback: z.string().trim().max(6000).optional()}).strict();
 const LOOKUPS_PER_MINUTE = 20;
+const shadowPositionSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,32}$/).optional();
 const noStore = {"cache-control": "no-store"};
 export function sessionFailure(error: unknown) {
   if (error instanceof SessionError) return Response.json({code: error.code, error: error.message, ...(error.detail ? {detail: error.detail} : {})}, {status: error.status, headers: noStore});
@@ -41,7 +42,7 @@ export async function readBody(request: Request, limit: number, message: string)
 }
 const body = (request: Request) => readBody(request, 2_000_000, "This exercise is too large to save.");
 export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport,
-  notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub) {
+  notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub, shadow: DemoHub = sharedShadowHub) {
 const service = new SessionService(store, undefined, undefined, undefined, undefined, weather, recordedSessionState);
 const mentee = {hasAssignment: (discordId: string) => store.hasAssignment(discordId)};
 const lookups = new Map<string, number[]>();
@@ -108,6 +109,7 @@ async function sessionOperation(request: Request, id: string, operation: string)
       return Response.json({session: result.session}, {headers: noStore});
     }
     if (operation === "demo") return await demonstration(request, id);
+    if (operation === "shadow") return await menteeShadow(request, id);
     const raw = await body(request), seat = seatSchema.parse(raw);
     const actor = await authorize(request, seat.role === "spectator" || seat.role === "staff" && operation !== "leave", mentee);
     await requireLocal(id);
@@ -140,6 +142,15 @@ async function demonstration(request: Request, id: string) {
   else throw new SessionError("demo-closed", "The demonstration is not running.", 409);
   return Response.json({ok: true}, {headers: noStore});
 }
+/** The mentee's own controller state, for staff overlays and replays. Only a seated mentee token its
+ * stream vouched for in the last few seconds may post, and only for the position that stream holds. */
+async function menteeShadow(request: Request, id: string) {
+  const raw = await readBody(request, 64_000, "Controller update is too large."), seat = seatSchema.parse(raw);
+  const key = shadowKey(id, seat.positionId?.split(",")[0]);
+  if (seat.role !== "mentee" || !shadow.allowed(key, "trainee", seat.token)) throw new SessionError("shadow-closed", "Reconnect to the session first.", 409);
+  shadow.publish(key, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
+  return Response.json({watched: shadow.watchers(key) > 0}, {headers: noStore});
+}
 /** How long an open stream keeps its last confirmed access while the sign-in service is unreachable. */
 const STREAM_ACCESS_GRACE_MS = 5 * 60_000;
 async function stream(request: Request, id: string) {
@@ -152,12 +163,16 @@ async function stream(request: Request, id: string) {
   const compact = request.headers.get(STREAM_HEADER) === STREAM_FORMAT ? new StreamEncoder() : null;
   let cancelled = false, wake: (() => void) | undefined;
   const unsubscribe = hub.subscribe(id, () => wake?.());
+  // Staff and spectator pages may ask for one mentee position's controller state, for overlays.
+  const watched = seat.role === "mentee" ? null : shadowPositionSchema.safeParse(new URL(request.url).searchParams.get("shadow") ?? undefined).data ?? null;
+  const watchedKey = watched ? shadowKey(id, watched) : null;
+  const unwatch = watchedKey ? shadow.subscribe(watchedKey, () => wake?.()) : () => {};
   const response = new ReadableStream<Uint8Array>({
     async start(controller) {
       let contentRevision = -1, revision = -1, authorizedAt = Date.now(), recheckAt = authorizedAt + 60_000;
       const send = (value: {type: string; [key: string]: unknown}) => {if (!cancelled) controller.enqueue(compact ? compact.packet(value) : encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
       // Demonstration mirrors go out as soon as they arrive, between the regular state frames.
-      let demoSeq = 0, presenter = false;
+      let demoSeq = 0, presenter = false, shadowSeq = 0;
       const flushDemo = () => {
         if (!presenter) {
           const update = hub.read(id, demoSeq);
@@ -167,11 +182,16 @@ async function stream(request: Request, id: string) {
           if (seed) send({type: "demo-seed", controller: seed.controller});
           demoSeq = Math.max(demoSeq, hub.read(id, 0)?.seq ?? demoSeq);
         }
+        if (watchedKey) {
+          const update = shadow.read(watchedKey, shadowSeq);
+          if (update) {send({type: "shadow", positionId: watched, ...update}); shadowSeq = update.seq;}
+        }
       };
       try {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
           presenter = demoPresenter(frame.exercise.demonstration, seat.role, actor.accountId);
+          if (seat.role === "mentee") shadow.trust(shadowKey(id, frame.positionId), "trainee", seat.token, true);
           hub.trust(id, presenter ? "presenter" : seat.role === "mentee" && (!frame.exercise.demonstration?.positionId || frame.exercise.demonstration.positionId === frame.positionId) ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", positionId: frame.positionId, positionIds: frame.positionIds, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;
@@ -201,7 +221,7 @@ async function stream(request: Request, id: string) {
       } catch (error) {
         const failure = error instanceof SessionError ? error : new SessionError("unavailable", "Connection interrupted. Reconnecting…", 503);
         send({type: "failure", code: failure.code, error: failure.message, status: failure.status});
-      } finally {unsubscribe(); if (!cancelled) controller.close();}
+      } finally {unsubscribe(); unwatch(); if (!cancelled) controller.close();}
     },
     cancel() {cancelled = true; wake?.();},
   });
