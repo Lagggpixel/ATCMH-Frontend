@@ -884,6 +884,7 @@
 .commandSendError button {margin-left:8px}
 .connectionBanner button {margin-left:12px;padding:5px 10px}
 
+.seatPresenceNotice {position:fixed;left:50%;top:95px;transform:translateX(-50%);z-index:86;max-width:80vw;padding:8px 14px;background:#45391d;color:#ffe1a1;border:1px solid #a98c48;border-radius:4px;font-size:13px}
 .terrainImpactStatus {position:fixed;left:50%;top:55px;transform:translateX(-50%);z-index:85;max-width:80vw;padding:8px 14px;background:#45391d;color:#ffe1a1;border:1px solid #a98c48;border-radius:4px;font-size:13px}
 .commandHeading .commandSendError {position:relative;z-index:3;margin:0;max-height:120px;overflow:auto;font-size:12px}
 
