@@ -25,7 +25,7 @@ function MapLabel({point, bounds, children}: {point: Point; bounds?: {width: num
   return <span ref={ref} className={styles.groundRouteMapLabel} style={{left: point.x, top: point.y}}>{children}</span>;
 }
 
-export default function GroundRouteOverlay({airport, route, aircraftType, project, scale, bounds, onMove}: {airport: Airport; route: GroundRoute; aircraftType?: string; project: (p: Point) => Point; scale: number; bounds?: {width: number; height: number}; onMove: (index: number, p: Point) => void}) {
+export default function GroundRouteOverlay({airport, route, aircraftType, project, scale, bounds, onMove, color = "#ff00ff", label = "Draft ground route"}: {airport: Airport; route: GroundRoute; aircraftType?: string; project: (p: Point) => Point; scale: number; bounds?: {width: number; height: number}; onMove: (index: number, p: Point) => void; color?: string; label?: string}) {
   const points = route.points.map(p => {const screen = project(p); return `${screen.x},${screen.y}`;}).join(" ");
   const items = groundRouteItems(airport, route);
   const headingAt = (index: number, push: boolean) => {
@@ -33,9 +33,9 @@ export default function GroundRouteOverlay({airport, route, aircraftType, projec
     return (Math.atan2(point.x - previous.x, point.y - previous.y) * 180 / Math.PI + (push ? 180 : 0) + 360) % 360;
   };
   return <>
-    <svg className={styles.groundDraftOverlay} role="group" aria-label="Draft ground route">
+    <svg className={styles.groundDraftOverlay} role="group" aria-label={label}>
       <polyline points={points} fill="none" stroke="#000" strokeWidth="4" strokeLinejoin="round"/>
-      <polyline points={points} fill="none" stroke="#ff00ff" strokeWidth="2" strokeLinejoin="round"/>
+      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
       {items.map(item => <circle key={item.key} cx={project(item.point).x} cy={project(item.point).y} r="3" fill="none" stroke="#90ee90" strokeWidth="3"/>)}
       {route.controls.map((point, index) => {
         const screen = project(point);
