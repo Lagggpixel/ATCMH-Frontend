@@ -120,3 +120,33 @@ test("a scenario transmission that ran after the rewind point is sent again when
   rewound = run(rewound, 25);
   assert.equal(calls(rewound), 1, "the rearmed event's transmission is applied, not skipped as already processed");
 });
+
+test("automatic readbacks keep their real-time delay at 2× and 4×, including a speed change while one is pending", async () => {
+  for (const scale of [2, 4] as const) {
+    let time = 2_000_000;
+    const store = new MemoryStore(), staff = {accountId: "1", staff: true};
+    const service = new SessionService(store, () => time);
+    const session = await service.create(staff, "Speed"), control = randomUUID();
+    await service.join(staff, session.id, "staff", control);
+    const send = (action: Action) => service.dispatch(staff, session.id, "staff", control, {id: randomUUID(), time, action});
+    const frame = async (ms: number) => {time += ms; await service.frame(staff, session.id, "staff", control); return store.records.get(session.id)!.exercise;};
+    const readbacks = (state: Exercise) => state.messages.filter(m => m.sender === "pilot" && m.commandId !== undefined).length;
+    await send({kind: "auto-readback", enabled: true}); await send({kind: "play"}); await send({kind: "time-scale", scale});
+    const aircraftId = store.records.get(session.id)!.exercise.aircraft[0].id;
+    await send({kind: "command", aircraftId, frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
+    let state = await frame(400);
+    assert.equal(readbacks(state), 0, `no reply after 400 ms at ${scale}×`);
+    state = await frame(900);
+    assert.equal(readbacks(state), 0, `no reply after 1.3 real seconds at ${scale}×`);
+    state = await frame(400);
+    assert.equal(readbacks(state), 1, `the reply arrives after 1.5 real seconds at ${scale}×`);
+    // Speeding up while a readback is pending keeps its remaining real-time wait.
+    await send({kind: "time-scale", scale: 1});
+    await send({kind: "command", aircraftId, frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
+    await frame(500); await send({kind: "time-scale", scale});
+    state = await frame(800);
+    assert.equal(readbacks(state), 1, `still waiting after a change to ${scale}× with 0.2 s of real time to go`);
+    state = await frame(400);
+    assert.equal(readbacks(state), 2);
+  }
+});
