@@ -16,6 +16,13 @@ browser/testing dependencies.
 
 ## Local verification and release gates
 
+Set `RELEASE_STATIC_ARCHIVE` to a verified local directory containing preceding
+releases' `.next/static` files before release checks. The image copies this archive
+before its current files. Reject filename/hash collisions while assembling it.
+Image QA must verify every archived hash before publication. Release receipts bind
+the archive path and content hash through check, QA, publication and deployment.
+Ordinary development builds use an empty local context when this variable is unset.
+
 ```text
 npm run release:check -- --dry-run
 npm run release:check

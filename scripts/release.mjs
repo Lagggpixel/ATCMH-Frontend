@@ -134,9 +134,13 @@ export async function main(args = process.argv.slice(2)) {
   mkdirSync(lockPath); // Exclusive per-checkout workflow; inspect stale locks after an interruption.
   try {
     const source = sourceHash();
+    const staticArchive = process.env.RELEASE_STATIC_ARCHIVE ? {path: resolve(process.env.RELEASE_STATIC_ARCHIVE), sha256: treeHash(resolve(process.env.RELEASE_STATIC_ARCHIVE))} : undefined;
     const image = `${target.image}:${pkg.version}`;
     const save = receipt => writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
-    const assertSource = () => {if (sourceHash() !== source) throw new Error("Source changed during release checks; rerun release:check");};
+    const assertSource = () => {
+      if (sourceHash() !== source) throw new Error("Source changed during release checks; rerun release:check");
+      if (staticArchive && treeHash(staticArchive.path) !== staticArchive.sha256) throw new Error("Static archive changed during release");
+    };
     const engineCheckout = sharedEngineCheckout(root);
     const sharedScript = join(engineCheckout, "scripts/sync-simulator.mjs");
     const assertShared = () => {
@@ -146,6 +150,7 @@ export async function main(args = process.argv.slice(2)) {
     const imageId = () => command("docker", ["image", "inspect", image, "--format", "{{.Id}}"]);
     if (phase === "check") {
       const receipt = {schema: 1, source, version: pkg.version, target, checked: false, timings: {}};
+      if (staticArchive) receipt.staticArchive = staticArchive;
       save(receipt); // Invalidate old publication/QA evidence before any checks run.
       assertShared();
       const snapshot = join(directory, "sources", `${source}-${Date.now()}`);
@@ -195,6 +200,7 @@ export async function main(args = process.argv.slice(2)) {
       return;
     }
     const receipt = read(receiptPath);
+    if (JSON.stringify(receipt.staticArchive ?? null) !== JSON.stringify(staticArchive ?? null)) throw new Error("Static archive changed; rerun release:check");
     if (receipt.version !== pkg.version || JSON.stringify(receipt.target) !== JSON.stringify(target)) throw new Error("Release target/version changed");
     requireChecked(receipt, source, imageId());
     assertShared();
