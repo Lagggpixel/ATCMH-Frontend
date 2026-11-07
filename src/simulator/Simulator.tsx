@@ -2,6 +2,7 @@
 import PositionControls from "./PositionControls";
 import {bandboxMembers, bandboxName, ownsAircraft} from "./positions";
 import {JoiningNotice, SessionFailureNotice} from "./SessionNotices";
+import {seatPresenceNotice} from "./seat-presence";
 import type {PlanGroundTaxi} from "./GroundRouteEditor";
 import type {MapCamera} from "./scope-camera";
 import CrashAlert from "./CrashAlert";
@@ -140,6 +141,11 @@ function SimulatorSession({role: connectionRole, sessionId, csrf, accountId}: {r
   const [sent, setSent] = useLatestSent();
   const [handedBack, setHandedBack] = useState(false);
   const paused = role === "mentee" && Boolean(exercise.pausedByStaff);
+  // Remember that the other seat was here, so a later drop-out can be reported to whoever stays.
+  const [seenSeats, setSeenSeats] = useState({trainee: false, trainer: false});
+  if (view.session?.menteeOccupied && !seenSeats.trainee) setSeenSeats(current => ({...current, trainee: true}));
+  if (view.session?.staffOccupied && !seenSeats.trainer) setSeenSeats(current => ({...current, trainer: true}));
+  const presenceNotice = view.connected ? seatPresenceNotice(layout, view.session, exercise, seenSeats) : null;
   const hiddenByPause = paused && (exercise.pauseVisibility !== "visible" || Boolean(view.session?.scenario?.finished));
   const pauseTitle = useRef<HTMLHeadingElement>(null);
   const cameraKey = `${AIRPORT.icao}:${mode}:${layout === "staff" ? "all" : frequency}`;
@@ -360,6 +366,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     {utility && selected && !paused ? <UtilityPanel airport={AIRPORT} label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
     {paused && !hiddenByPause ? <div className={styles.visiblePause} role="status">Exercise paused · Viewing only</div> : null}
     {!view.connected || view.status.startsWith("Connection interrupted") ? <div className={styles.connectionBanner} role="status" aria-live="polite">{view.status}<span>{view.queuedCommands > 0 ? `${view.queuedCommands} command${view.queuedCommands === 1 ? "" : "s"} waiting for acknowledgement` : "Your scenario is saved. Waiting for the connection to return."}</span>{view.queuedCommands > 0 ? <button onClick={transport.cancelQueued}>Cancel unsent commands</button> : null}</div> : null}
+    {presenceNotice ? <div className={styles.seatPresenceNotice} role="status" aria-live="polite">{presenceNotice}</div> : null}
     {layout === "staff" && mode !== "local" && exercise.terrainStatus === "unavailable" ? <div className={styles.terrainImpactStatus} role="status">Terrain impact checks are delayed or unavailable. Unsampled terrain is not assumed clear.</div> : null}
     {finishing && view.scenario ? <FinishAttemptDialog sessionId={sessionId} csrf={csrf} scenario={view.scenario} elapsed={exercise.elapsed} canControl={view.owner && view.connected} onClose={() => setFinishing(false)}/> : null}
     {trainingError ? <div className={styles.error} role="alert">{trainingError}<button aria-label="Dismiss scenario error" onClick={() => setTrainingError("")}>×</button></div> : null}

@@ -185,14 +185,15 @@ test("head-on traffic without an alternate remains safely separated and Give way
   assert.ok(distance(state.aircraft[0].position, state.aircraft[1].position) >= GROUND.spacing - 1e-7);
 });
 
-test("scenario overhead conditions respect Automatic and fire once without duplicate intention requests", () => {
+test("scenario overhead conditions fire with Automatic off and only once when it is turned on", () => {
   const a = {...newAircraft("a", true), mode: "heading" as const, position: {x: 0, y: .2}, intentions: {flight: "pattern" as const, taxi: "runway" as const, afterTransition: "touch-and-go" as const}};
   const definition = scenarioFromExercise(stateOf([a]), "Overhead");
   definition.events = [{id: "overhead", title: "Overhead touch and go", trigger: {type: "condition", condition: {type: "overhead", aircraftKey: "aircraft-1", radius: 1}, delay: 0}, actions: [{type: "request", aircraftKey: "aircraft-1", requestId: "inbound-option", runway: "24"}]}];
   const {exercise, runtime} = createScenarioExercise(scenarioSchema.parse(definition), "test", randomUUID());
   let state = assign({...exercise, running: true, autoReadback: false}, {type: "transition", altitude: 1500});
   state = advanceScenario(state, runtime, .1, 1000).exercise;
-  assert.equal(state.messages.length, 0); assert.equal(runtime.events.overhead.status, "scheduled");
+  // An authored event is the trainer's own script, so it runs whether or not Automatic is on.
+  assert.equal(state.messages.length, 1); assert.equal(runtime.events.overhead.status, "completed");
   state.autoReadback = true;
   state = autoReadbacks(advanceScenario(state, runtime, .1, 1000).exercise, 1000, randomUUID);
   state = autoReadbacks(advanceScenario(state, runtime, .1, 1000).exercise, 1000, randomUUID);
