@@ -60,7 +60,8 @@ test("the recording reads back the latest state at a time, following an earlier 
 });
 
 test("rewinding a scenario lets events that ran after that moment run again", () => {
-  const runtime = {events: {early: {status: "completed", completedAt: 5}, late: {status: "completed", completedAt: 40}, delayed: {status: "waiting", conditionAt: 35}, held: {status: "waiting", conditionAt: 10}}} as unknown as ScenarioRuntime;
-  rewindScenario(runtime, 30);
+  const runtime = {generation: "0", events: {early: {status: "completed", completedAt: 5}, late: {status: "completed", completedAt: 40}, delayed: {status: "waiting", conditionAt: 35}, held: {status: "waiting", conditionAt: 10}}} as unknown as ScenarioRuntime;
+  const processed = rewindScenario(runtime, 30, ["0:early:0", "0:late:0", "0:late:1", "client-command", "0:delayed:0"]);
+  assert.deepEqual(processed, ["0:early:0", "client-command", "0:delayed:0"], "only the rearmed events' actions may run again");
   assert.deepEqual(runtime.events, {early: {status: "completed", completedAt: 5}, late: {status: "scheduled"}, delayed: {status: "waiting"}, held: {status: "waiting", conditionAt: 10}});
 });

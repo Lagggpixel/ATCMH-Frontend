@@ -79,6 +79,22 @@ export function endDemonstration(record: SessionRecord) {
   delete exercise.demonstration;
   record.exercise = exercise; record.contentRevision++;
 }
+
+/** The recorded `past` state, paused, with the session's current settings. Pending readbacks are re-armed for the
+ * pilots that are automatic now, and scenario events that ran later are rearmed with their actions. */
+export function rewoundExercise(current: Exercise, past: Exercise, envelopeId: string, scenario?: ScenarioRuntime): Exercise {
+  const settings = new Map(current.aircraft.map(a => [a.id, a.automatic]));
+  let next: Exercise = {...structuredClone(past), revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, timeScale: current.timeScale,
+    positions: current.positions, demonstration: current.demonstration, positionPresence: current.positionPresence, positionFeedback: current.positionFeedback, bookmarks: current.bookmarks,
+    processed: scenario ? rewindScenario(scenario, past.elapsed, current.processed) : current.processed, rewind: {id: envelopeId, from: current.elapsed, to: past.elapsed}};
+  for (const key of ["timeScale", "demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback"] as const) if (next[key] === undefined) delete next[key];
+  for (const a of next.aircraft) {const automatic = settings.get(a.id); if (automatic === undefined) delete a.automatic; else a.automatic = automatic;}
+  // The session switch clears and re-arms every pilot's latest pending instruction from this moment.
+  next = applyEnvelope(next, {id: `${envelopeId}:readbacks`, time: 0, action: {kind: "auto-readback", enabled: !!current.autoReadback}}).state;
+  if (current.autoReadback === undefined) delete next.autoReadback;
+  return {...next, revision: current.revision + 1, processed: [...next.processed.filter(entry => entry !== `${envelopeId}:readbacks`).slice(-511), envelopeId]};
+}
+
 export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader, private history?: RecordedHistory) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
@@ -309,22 +325,21 @@ export class SessionService {
   /** Restores the session's own recording from `seconds` of exercise time ago, paused so the mentor can brief before resuming. */
   private async rewind(actor: Actor, id: string, role: SessionMode, token: string, envelopeId: string, seconds: number) {
     if (role === "mentee") throw new SessionError("forbidden", "Only the mentor can rewind the session.", 403);
-    const target = await this.store.transaction(id, record => {this.staff(actor); const now = this.now(); this.seat(record, actor, role, token, now); this.tick(record, now); return Math.max(0, record.exercise.elapsed - seconds);});
-    const past = this.history ? await this.history(id, target) : null;
+    // A retried envelope whose first attempt committed returns that result instead of rewinding again.
+    const first = await this.store.transaction(id, record => {
+      this.staff(actor); const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.exercise.processed.includes(envelopeId)) return {done: record.exercise.revision};
+      this.tick(record, now); return {target: Math.max(0, record.exercise.elapsed - seconds)};
+    });
+    if ("done" in first) return {revision: first.done};
+    const past = this.history ? await this.history(id, first.target) : null;
     if (!past) throw new SessionError("rewind-unavailable", "The recording does not reach that far back yet.", 409);
     return this.store.transaction(id, record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.exercise.processed.includes(envelopeId)) return {revision: record.exercise.revision};
       if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
       this.tick(record, now);
-      const current = record.exercise;
-      // Session settings stay as they are now; the traffic, radio log and clock go back.
-      record.exercise = {...past, revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, timeScale: current.timeScale,
-        positions: current.positions, demonstration: current.demonstration, positionPresence: current.positionPresence, positionFeedback: current.positionFeedback, bookmarks: current.bookmarks,
-        processed: current.processed, rewind: {id: envelopeId, from: current.elapsed, to: past.elapsed}};
-      if (!record.exercise.timeScale) delete record.exercise.timeScale;
-      for (const key of ["demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback"] as const) if (record.exercise[key] === undefined) delete record.exercise[key];
-      for (const m of record.exercise.messages) delete m.autoReadbackAt;
-      if (record.scenario) rewindScenario(record.scenario, past.elapsed);
+      record.exercise = rewoundExercise(record.exercise, past, envelopeId, record.scenario);
       record.contentRevision++; record.updatedAt = now;
       return {revision: record.exercise.revision};
     });

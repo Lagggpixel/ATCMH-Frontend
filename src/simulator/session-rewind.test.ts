@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {MemoryStore} from "./session-test-store";
-import {SessionService} from "./server/session-service";
+import {rewoundExercise, SessionService} from "./server/session-service";
+import {applyEnvelope, initialExercise, newAircraft} from "./engine";
+import {advanceScenario} from "./scenario-engine";
+import {blankScenario, createScenarioExercise, seedFromAircraft} from "./scenarios";
 import {recordedStateAt, replayDelta, replayState, type ReplayDelta} from "./replays";
 import type {Action, Exercise} from "./model";
 
@@ -37,8 +40,13 @@ test("mentors rewind the live session from its recording; it pauses there and ke
   const unrecorded = new SessionService(store, () => time);
   await assert.rejects(unrecorded.dispatch(staff, session.id, "staff", control, {id: randomUUID(), time, action: {kind: "rewind", seconds: 10}}), {code: "rewind-unavailable"});
 
-  await send({kind: "rewind", seconds: 30});
+  const rewindEnvelope = {id: randomUUID(), time, action: {kind: "rewind", seconds: 30} as const};
+  await service.dispatch(staff, session.id, "staff", control, rewindEnvelope);
   const rewound = store.records.get(session.id)!.exercise;
+  // A retry of the same envelope, as after a dropped response, returns the first result without moving again.
+  await service.dispatch(staff, session.id, "staff", control, rewindEnvelope);
+  assert.equal(store.records.get(session.id)!.exercise.elapsed, rewound.elapsed, "the retry does not rewind twice");
+  assert.equal(store.records.get(session.id)!.exercise.revision, rewound.revision);
   assert.ok(rewound.elapsed <= at40.elapsed - 29 && rewound.elapsed >= at40.elapsed - 32, `rewound to ${rewound.elapsed}`);
   assert.equal(rewound.running, false); assert.equal(rewound.pausedByStaff, true); assert.equal(rewound.pauseVisibility, "visible");
   assert.equal(rewound.timeScale, 2, "the speed setting is kept");
@@ -75,4 +83,40 @@ test("a rewind keeps recording into the same replay, while a reset starts a new 
   await recordReplay(connection, record({...back, elapsed: 10}, 3), record(back, 2));
   assert.equal(replays.length, 2, "going back without a new rewind is a reset");
   assert.equal(replays[0].status, "reset");
+});
+
+test("rewinding re-arms the pending readbacks of automatic pilots and keeps each pilot's current setting", () => {
+  const send = (state: Exercise, action: Action) => {const result = applyEnvelope(state, {id: randomUUID(), time: 0, action}); assert.equal(result.error, undefined); return result.state;};
+  let past = send({...initialExercise("rewind-readback"), running: true}, {kind: "auto-readback", enabled: true});
+  past = send(past, {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
+  const pending = past.messages.at(-1)!;
+  // Recorded frames drop the timer; the live session has since flown the aircraft by hand.
+  delete pending.autoReadbackAt;
+  let current = send({...past, elapsed: past.elapsed + 60}, {kind: "aircraft-automatic", aircraftId: demoOther(past), enabled: false});
+  current = {...current, revision: 50};
+  const next = rewoundExercise(current, past, "rewind-1");
+  assert.ok(next.messages.find(m => m.id === pending.id)!.autoReadbackAt !== undefined, "the outstanding instruction reads back after resuming");
+  assert.equal(next.aircraft.find(a => a.id === demoOther(past))!.automatic, false, "the current per-aircraft setting is kept");
+  assert.equal(next.revision, 51);
+  assert.equal(next.processed.at(-1), "rewind-1");
+  assert.ok(!next.processed.includes("rewind-1:readbacks"));
+});
+const demoOther = (state: Exercise) => state.aircraft.find(a => a.id !== "demo-air")!.id;
+
+test("a scenario transmission that ran after the rewind point is sent again when the session reaches it", () => {
+  const air = newAircraft("air", true); Object.assign(air, {mode: "heading", heading: 90, targetHeading: 90, altitude: 1500, targetAltitude: 1500, frequency: "tower"});
+  const definition = {...blankScenario(), title: "Rewind", aircraft: [{key: "air", initial: true, seed: seedFromAircraft(air)}], events: [{id: "call", title: "Call", trigger: {type: "time" as const, at: 20}, actions: [{type: "transmission" as const, aircraftKey: "air", text: "Request higher"}]}]};
+  const {runtime, exercise} = createScenarioExercise(definition, "session", randomUUID());
+  let clock = 0;
+  const run = (from: Exercise, until: number) => {let s = {...from, running: true}; while (s.elapsed < until) s = advanceScenario(s, runtime, 1, clock += 1000).exercise; return s;};
+  let state = run(exercise, 10);
+  const past = structuredClone(state);
+  state = run(state, 25);
+  const calls = (s: Exercise) => s.messages.filter(m => m.text.includes("Request higher")).length;
+  assert.equal(calls(state), 1); assert.equal(runtime.events.call.status, "completed");
+  let rewound = rewoundExercise(state, past, "rewind-call", runtime);
+  assert.equal(runtime.events.call.status, "scheduled");
+  assert.equal(calls(rewound), 0);
+  rewound = run(rewound, 25);
+  assert.equal(calls(rewound), 1, "the rearmed event's transmission is applied, not skipped as already processed");
 });
