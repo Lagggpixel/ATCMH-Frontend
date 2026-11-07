@@ -64,7 +64,7 @@ test("failed batch rolls back spawn and messages; manual retry succeeds once", (
   assert.equal(retried.aircraft.length, 2); assert.equal(retried.messages.length, 2);
   assert.equal(executeScenarioEvent(retried, runtime, "arrival", 3000), retried);
 });
-test("conditions latch and delay on exercise time; dependent events and manual release stay ordered", () => {
+test("conditions delay on exercise time and must still hold; dependent events and manual release stay ordered", () => {
   const definition = fixture(); definition.events = definition.events.slice(0, 1); definition.aircraft = definition.aircraft.slice(0, 1);
   definition.events.push({id: "tuned", title: "Tuned Tower", trigger: {type: "condition", condition: {type: "frequency", aircraftKey: "ground", frequency: "tower"}, delay: 1}, actions: [{type: "transmission", aircraftKey: "ground", text: "ready for departure"}]},
     {id: "after", title: "After tuned", trigger: {type: "condition", condition: {type: "event", eventId: "tuned"}, delay: 0}, actions: [{type: "note", text: "Assess the handoff"}]},
@@ -73,9 +73,12 @@ test("conditions latch and delay on exercise time; dependent events and manual r
   let next = advanceScenario(exercise, runtime, 1, 1000).exercise;
   next.aircraft[0].frequency = "tower"; next = advanceScenario(next, runtime, .4, 1100).exercise;
   next.aircraft[0].frequency = "ground"; next = advanceScenario(next, runtime, .6, 1200).exercise;
+  // Leaving Tower before the delay ends cancels the pending trigger instead of firing it anyway.
+  assert.equal(runtime.events.tuned.status, "scheduled");
+  next.aircraft[0].frequency = "tower"; next = advanceScenario(next, runtime, 1, 1300).exercise;
   assert.equal(runtime.events.tuned.status, "completed"); assert.equal(runtime.events.after.status, "completed");
   assert.equal(runtime.events.manual.status, "waiting");
-  executeScenarioEvent(next, runtime, "manual", 1300); assert.equal(runtime.events.manual.status, "completed");
+  executeScenarioEvent(next, runtime, "manual", 1400); assert.equal(runtime.events.manual.status, "completed");
 });
 test("scenario validation rejects duplicate spawns, missing references and cyclic dependencies", () => {
   const duplicate = fixture(); duplicate.aircraft[1].initial = true;

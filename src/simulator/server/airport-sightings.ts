@@ -1,4 +1,5 @@
 import type {Aircraft, Airport, Exercise} from "../model";
+import {pilotAutomatic} from "../model";
 import {getAirport} from "../airports";
 import {rawTerrainElevation, terrainCoordinates} from "../terrain";
 import {SIGHTING_SAMPLE_SECONDS, sightingGeometry, sightingSampleCurrent, sightingTarget, sightingTargetKey, terrainSightLine} from "../airport-sighting";
@@ -26,10 +27,10 @@ export class AirportSightings implements SightingProvider {
     }
   }
   request(exercise: Exercise) {
-    if (!exercise.running || !exercise.autoReadback) return;
+    if (!exercise.running) return;
     const airport = getAirport(exercise);
     for (const a of exercise.aircraft) {
-      if (!a.active || !a.reportAirportInSight || !sightingGeometry(a, airport)) continue;
+      if (!pilotAutomatic(exercise, a) || !a.active || !a.reportAirportInSight || !sightingGeometry(a, airport)) continue;
       const key = this.key(exercise, a), saved = this.samples.get(key);
       const fresh = saved && this.now() - saved.time < 2000 && sightingSampleCurrent({...a, airportSighting: {target: saved.target, seconds: 0, terrain: saved.sample}}, airport, exercise.elapsed);
       if (fresh || this.pending.has(key) || this.pending.size >= 100) continue;

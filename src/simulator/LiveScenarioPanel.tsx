@@ -5,7 +5,7 @@ import {ListBullets} from "@phosphor-icons/react/dist/csr/ListBullets";
 import {Warning} from "@phosphor-icons/react/dist/csr/Warning";
 import {X} from "@phosphor-icons/react/dist/csr/X";
 import {trainingRequest} from "./TrainingLibrary";
-import {timeLabel, type ScenarioEvent, type ScenarioStaffView} from "./scenarios";
+import {eventsWaitingOn, timeLabel, type ScenarioEvent, type ScenarioStaffView} from "./scenarios";
 import styles from "./Training.module.css";
 
 type LiveEvent = ScenarioStaffView["events"][number];
@@ -28,6 +28,11 @@ export default function LiveScenarioPanel({scenario, elapsed, running, connected
   const nextAt = next?.trigger.type === "time" ? next.trigger.at : undefined;
   const later = active.filter(e => e !== next && !needsTrainer(e));
   const disabled = !connected || !canControl;
+  // Show what each held event is holding up, so a trainer can see why later events have not started.
+  const heldUp = new Map(attention.map(e => [e.id, eventsWaitingOn(e.id, events).filter(id => active.some(a => a.id === id))]));
+  const stuckBehind = new Map<string, LiveEvent>();
+  for (const e of attention) for (const id of heldUp.get(e.id)!) if (!stuckBehind.has(id)) stuckBehind.set(id, e);
+  const titleOf = (id: string) => events.find(e => e.id === id)?.title ?? "another event";
   return <div className={styles.liveAnchor}>
     <button data-simulator-tour="timeline" className={styles.liveToggle} disabled={!connected} aria-expanded={open} onClick={() => setOpen(!open)}><ListBullets aria-hidden="true"/>Scenario{scenario.finished ? <span className={styles.liveMuted}>· finished</span> : nextAt !== undefined ? <span className={styles.liveMuted}>· next <time>{timeLabel(Math.max(0, nextAt - elapsed))}</time></span> : !active.length ? <span className={styles.liveMuted}>· all events done</span> : null}{attention.length ? <span className={styles.liveBadge} aria-label={`${attention.length} need you`}>{attention.length}</span> : null}</button>
     {open ? <section className={styles.livePanel} aria-label="Scenario">
@@ -36,7 +41,7 @@ export default function LiveScenarioPanel({scenario, elapsed, running, connected
       <div className={styles.liveBody}>
         {scenario.instructorNotes ? <details className={styles.liveNotes}><summary>Mentor notes</summary><p>{scenario.instructorNotes}</p></details> : null}
         {attention.length ? <section className={styles.liveSection}><h3>Needs you · {attention.length}</h3>{attention.map(e => <article key={e.id} className={`${styles.liveCard} ${e.status === "blocked" ? styles.liveBlocked : ""}`}>
-          <div>{e.status === "blocked" ? <Warning weight="fill" aria-hidden="true"/> : null}<span><strong>{e.title}</strong><small>{e.status === "blocked" ? e.error ?? "Blocked" : "Mentor release · run it when you are ready"}</small></span></div>
+          <div>{e.status === "blocked" ? <Warning weight="fill" aria-hidden="true"/> : null}<span><strong>{e.title}</strong><small>{e.status === "blocked" ? e.error ?? "Blocked" : "Mentor release · run it when you are ready"}</small>{heldUp.get(e.id)!.length ? <small className={styles.liveHeldUp}>Holding up {heldUp.get(e.id)!.map(titleOf).join(", ")}</small> : null}</span></div>
           <div className={styles.liveActions}><button disabled={disabled} onClick={() => onEvent(e.id, "skip")}>Skip</button><button className={styles.livePrimary} disabled={disabled || !running} title={running ? undefined : "Start the session first"} onClick={() => onEvent(e.id, e.status === "blocked" ? "retry" : "run")}>{e.status === "blocked" ? "Retry" : "Run"}</button></div>
         </article>)}</section> : null}
         {next && nextAt !== undefined ? <section className={styles.liveSection}><h3>Up next</h3><article className={styles.liveNext}>
@@ -46,8 +51,8 @@ export default function LiveScenarioPanel({scenario, elapsed, running, connected
         </article></section> : null}
         {later.length ? <section className={styles.liveSection}><h3>Later</h3>{later.map(e => <div key={e.id} className={styles.liveRow}>
           <time>{triggerLabel(e)}</time>
-          <span><strong>{e.title}</strong>{e.trigger.type === "condition" ? <small>{conditionLabel(e, events)}</small> : null}</span>
-          {e.status === "waiting" ? <span className={styles.liveTag}>waiting</span> : <button disabled={disabled} onClick={() => onEvent(e.id, "skip")} aria-label={`Skip ${e.title}`}>Skip</button>}
+          <span><strong>{e.title}</strong>{stuckBehind.has(e.id) ? <small className={styles.liveHeldUp}>Stuck until “{stuckBehind.get(e.id)!.title}” runs or is skipped</small> : e.trigger.type === "condition" ? <small>{conditionLabel(e, events)}</small> : null}</span>
+          {stuckBehind.has(e.id) ? <span className={styles.liveTag}>stuck</span> : e.status === "waiting" ? <span className={styles.liveTag}>waiting</span> : <button disabled={disabled} onClick={() => onEvent(e.id, "skip")} aria-label={`Skip ${e.title}`}>Skip</button>}
         </div>)}</section> : null}
         {!active.length && !scenario.finished ? <p className={styles.liveMuted}>Every event has run. Finish the attempt from the Session menu.</p> : null}
         {done.length ? <details className={styles.liveDone}><summary>Done · {done.length}</summary>{done.map(e => <div key={e.id} className={styles.liveRow}>
