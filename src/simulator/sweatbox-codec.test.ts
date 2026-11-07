@@ -8,7 +8,7 @@ import {POINT_MERGE_PRESETS} from "./point-merge-presets";
 import {pointMergeScenario} from "./point-merge-scenarios";
 import {createScenarioExercise, materializeAircraft} from "./scenarios";
 import {engineFor, initialExercise} from "./engine";
-import {applyReplayDelta, replayDelta, replayState, type ReplayFrame} from "./replays";
+import {applyReplayDelta, replayDelta, replayState, type ReplayDelta, type ReplayFrame} from "./replays";
 import {exerciseSchema} from "./protocol";
 import type {Exercise} from "./model";
 
@@ -99,4 +99,16 @@ test("exact frames reproduce every value, and exact values survive quantisation"
   assert.ok(decoded.heading! < 360 && Math.abs(decoded.heading! - 359.97) < .06, "headings never round up to 360");
   assert.ok(decoded.targetHeading! > 0, "headings never round down to 0");
   assert.equal(decoded.speed, 0);
+});
+
+test("delta fields added by later features round-trip in replay and live frames", () => {
+  const before = initialExercise("x");
+  const delta = {state: {elapsed: 4}, aircraft: [], traineeControls: [{at: 3.5, by: "mentor", enabled: true}]} as unknown as ReplayDelta;
+  for (const exact of [false, true]) {
+    const bytes = encodeReplayFrame(before, {sequence: 1, at: 4, delta, interpolate: true}, {exact});
+    const decoded = decodeReplayFrame(new ByteReader(bytes), before);
+    assert.deepEqual((decoded.delta as unknown as {traineeControls: unknown}).traineeControls, [{at: 3.5, by: "mentor", enabled: true}]);
+    assert.ok(framesMatch(delta, decoded.delta));
+  }
+  assert.ok(!framesMatch(delta, {state: {elapsed: 4}, aircraft: []} as ReplayDelta), "a lost extension is a mismatch, so backfill refuses it");
 });

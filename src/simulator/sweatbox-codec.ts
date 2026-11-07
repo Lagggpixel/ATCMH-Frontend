@@ -287,14 +287,20 @@ function readAircraftChange(decoder: ValueDecoder, before: Aircraft | undefined,
   return {value: value as Partial<Aircraft>, unset: unset as (keyof Aircraft)[]};
 }
 
-const enum FrameFlag {Interpolate = 1, Demo = 2, Unset = 4, Anchors = 8}
+// Bit 16 marks exact (live stream) frames. Bit 32 carries delta fields this version has no slot for,
+// so features can add replay records (as an extra ReplayDelta key) without a format change.
+const enum FrameFlag {Interpolate = 1, Demo = 2, Unset = 4, Anchors = 8, Exact = 16, Extensions = 32}
+const CORE_DELTA_KEYS = new Set(["state", "unset", "aircraft", "demo"]);
+const extensionsOf = (delta: ReplayDelta) => Object.entries(delta).filter(([key, value]) => !CORE_DELTA_KEYS.has(key) && value !== undefined);
 const enum AircraftKind {Change, New, Remove}
 /** One replay frame against the state it applies to. Frames are independent: each has its own string table. */
 export function encodeReplayFrame(before: Exercise, frame: ReplayFrame, options: FrameOptions = {}, identities?: Set<string>) {
   const codec = new ValueCodec(), w = codec.w, delta = frame.delta;
   const anchors = [...BASE_ANCHORS, ...(options.anchors ?? []).filter(value => Number.isFinite(value) && !BASE_ANCHORS.includes(value))];
   const extra = anchors.slice(BASE_ANCHORS.length);
-  w.u8((frame.interpolate ? FrameFlag.Interpolate : 0) | (delta.demo?.length ? FrameFlag.Demo : 0) | (delta.unset?.length ? FrameFlag.Unset : 0) | (extra.length ? FrameFlag.Anchors : 0) | (options.exact ? 16 : 0));
+  const extensions = extensionsOf(delta);
+  w.u8((frame.interpolate ? FrameFlag.Interpolate : 0) | (delta.demo?.length ? FrameFlag.Demo : 0) | (delta.unset?.length ? FrameFlag.Unset : 0) | (extra.length ? FrameFlag.Anchors : 0)
+    | (options.exact ? FrameFlag.Exact : 0) | (extensions.length ? FrameFlag.Extensions : 0));
   w.varuint(frame.sequence);
   codec.number(frame.at);
   if (extra.length) {w.varuint(extra.length); for (const value of extra) w.f64(value);}
@@ -313,6 +319,7 @@ export function encodeReplayFrame(before: Exercise, frame: ReplayFrame, options:
     else {w.u8(AircraftKind.Change); writeAircraftChange(codec, aircraft.get(change.id), change.value ?? {}, change.unset ?? [], options, anchors);}
   }
   if (delta.demo?.length) codec.value(delta.demo);
+  if (extensions.length) codec.value(Object.fromEntries(extensions));
   for (const id of codec.identities) identities?.add(id);
   return w.finish();
 }
@@ -338,6 +345,12 @@ export function decodeReplayFrame(r: ByteReader, before: Exercise): ReplayFrame 
     } else throw new RangeError("Unknown aircraft change");
   }
   if (flags & FrameFlag.Demo) delta.demo = decoder.value() as ReplayDelta["demo"];
+  if (flags & FrameFlag.Extensions) {
+    const extensions = decoder.value();
+    if (!extensions || typeof extensions !== "object" || Array.isArray(extensions)) throw new RangeError("Invalid frame extensions");
+    for (const [key, value] of Object.entries(extensions)) if (!CORE_DELTA_KEYS.has(key) && key !== "__proto__") (delta as unknown as Record<string, unknown>)[key] = value;
+  }
+  if (flags & ~63) throw new RangeError("Unknown frame flags");
   return {sequence, at, delta, interpolate: !!(flags & FrameFlag.Interpolate)};
 }
 
@@ -373,7 +386,7 @@ export function concatBytes(parts: readonly Uint8Array[]) {
 /** Hot fields reproduce within half a quantisation step; everything else must match exactly. */
 export function framesMatch(original: ReplayDelta, decoded: ReplayDelta) {
   if (JSON.stringify(original.state) !== JSON.stringify(decoded.state) || JSON.stringify(original.unset ?? []) !== JSON.stringify(decoded.unset ?? [])
-    || JSON.stringify(original.demo ?? []) !== JSON.stringify(decoded.demo ?? []) || original.aircraft.length !== decoded.aircraft.length) return false;
+    || JSON.stringify(original.demo ?? []) !== JSON.stringify(decoded.demo ?? []) || JSON.stringify(extensionsOf(original)) !== JSON.stringify(extensionsOf(decoded)) || original.aircraft.length !== decoded.aircraft.length) return false;
   return original.aircraft.every((change, index) => {
     const other = decoded.aircraft[index];
     if (other.id !== change.id || !!other.remove !== !!change.remove || JSON.stringify(change.unset ?? []) !== JSON.stringify(other.unset ?? [])) return false;
