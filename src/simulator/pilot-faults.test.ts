@@ -67,3 +67,16 @@ test("trainers can declare a medical emergency or engine failure, and an engine 
   // Ground traffic cannot declare an airborne emergency.
   assert.ok(!catalogFor(getAirport(state)).pilotRequests(state.aircraft[1]).some(r => r.id === "engine-failure"));
 });
+
+test("a radio failure that starts while a readback is queued cancels that readback", () => {
+  let state = clearToLand(automatic());
+  assert.ok(state.messages.at(-1)!.autoReadbackAt !== undefined);
+  state = send(state, {kind: "edit", aircraftId: "demo-air", patch: {pilotFault: {radioFailure: true}}});
+  state = autoReadbacks(advance(state, 2), 2000, randomUUID);
+  assert.equal(replies(state).length, 0);
+  assert.equal(state.aircraft[0].clearedToLand, false);
+  // Restoring the radio does not replay the instruction the pilot never heard.
+  state = send(state, {kind: "edit", aircraftId: "demo-air", patch: {pilotFault: {}}});
+  state = autoReadbacks(advance(state, 2), 4000, randomUUID);
+  assert.equal(replies(state).length, 0);
+});
