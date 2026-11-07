@@ -11,13 +11,15 @@ import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise}
 import {menteeActionAllowed} from "../protocol";
 import type {Envelope, Exercise} from "../model";
 import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type AssignedSession, type SessionMode, type SessionPreview, type SessionSummary} from "../sessions";
-import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
+import {advanceScenario, executeScenarioEvent, rewindScenario} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 import {demoPresenter} from "../demonstration";
 
 /** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee; superAdmin may spectate. */
+/** Reads a session's own recording back at a given exercise time. */
+export type RecordedHistory = (sessionId: string, elapsed: number) => Promise<Exercise | null>;
 export interface Actor {accountId: string; staff: boolean; displayName?: string; discordId?: string; simulatorAccess?: boolean; canAssign?: boolean; superAdmin?: boolean}
 export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string; discordId?: string}
 export interface SessionAssignment {discordId: string; name?: string; assignedAt: number; assignedBy: string; assignedByName?: string}
@@ -78,7 +80,7 @@ export function endDemonstration(record: SessionRecord) {
   record.exercise = exercise; record.contentRevision++;
 }
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader, private history?: RecordedHistory) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
     if (role === "spectator") {assertSuperAdmin(actor); return;}
@@ -133,7 +135,7 @@ export class SessionService {
       // Match ordinary stream cadence so engine caps cannot discard time and
       // scenario events/readbacks take effect before later movement is simulated.
       for (let at = record.tickAt; at < now;) {
-        const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000;
+        const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000 * (record.exercise.timeScale ?? 1);
         if (record.scenario) {
           const result = advanceScenario(record.exercise, record.scenario, seconds, stepAt);
           record.exercise = result.exercise; if (result.changed) record.contentRevision++;
@@ -240,6 +242,7 @@ export class SessionService {
   }
   async dispatch(actor: Actor, id: string, role: SessionMode, token: string, envelope: Envelope) {
     let report: Awaited<ReturnType<typeof requestSessionWeather>>;
+    if (envelope.action.kind === "rewind") return this.rewind(actor, id, role, token, envelope.id, envelope.action.seconds);
     if (envelope.action.kind === "reset" && this.weather) {
       const airport = await this.store.transaction(id, record => {this.staff(actor); this.seat(record, actor, role, token, this.now()); return getAirport(record.exercise).icao;});
       report = await requestSessionWeather(airport, this.weather);
@@ -300,6 +303,29 @@ export class SessionService {
         const result = advanceScenario(record.exercise, record.scenario, 0, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
       }
+      return {revision: record.exercise.revision};
+    });
+  }
+  /** Restores the session's own recording from `seconds` of exercise time ago, paused so the mentor can brief before resuming. */
+  private async rewind(actor: Actor, id: string, role: SessionMode, token: string, envelopeId: string, seconds: number) {
+    if (role === "mentee") throw new SessionError("forbidden", "Only the mentor can rewind the session.", 403);
+    const target = await this.store.transaction(id, record => {this.staff(actor); const now = this.now(); this.seat(record, actor, role, token, now); this.tick(record, now); return Math.max(0, record.exercise.elapsed - seconds);});
+    const past = this.history ? await this.history(id, target) : null;
+    if (!past) throw new SessionError("rewind-unavailable", "The recording does not reach that far back yet.", 409);
+    return this.store.transaction(id, record => {
+      const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
+      this.tick(record, now);
+      const current = record.exercise;
+      // Session settings stay as they are now; the traffic, radio log and clock go back.
+      record.exercise = {...past, revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, timeScale: current.timeScale,
+        positions: current.positions, demonstration: current.demonstration, positionPresence: current.positionPresence, positionFeedback: current.positionFeedback, bookmarks: current.bookmarks,
+        processed: current.processed, rewind: {id: envelopeId, from: current.elapsed, to: past.elapsed}};
+      if (!record.exercise.timeScale) delete record.exercise.timeScale;
+      for (const key of ["demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback"] as const) if (record.exercise[key] === undefined) delete record.exercise[key];
+      for (const m of record.exercise.messages) delete m.autoReadbackAt;
+      if (record.scenario) rewindScenario(record.scenario, past.elapsed);
+      record.contentRevision++; record.updatedAt = now;
       return {revision: record.exercise.revision};
     });
   }
