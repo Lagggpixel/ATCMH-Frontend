@@ -134,6 +134,8 @@ async function demonstration(request: Request, id: string) {
   else throw new SessionError("demo-closed", "The demonstration is not running.", 409);
   return Response.json({ok: true}, {headers: noStore});
 }
+/** How long an open stream keeps its last confirmed access while the sign-in service is unreachable. */
+const STREAM_ACCESS_GRACE_MS = 5 * 60_000;
 async function stream(request: Request, id: string) {
   const seat = seatSchema.parse({role: request.headers.get("x-simulator-role"), token: request.headers.get("x-simulator-seat")});
   let actor = await authorize(request, seat.role !== "mentee", mentee);
@@ -144,7 +146,7 @@ async function stream(request: Request, id: string) {
   const unsubscribe = hub.subscribe(id, () => wake?.());
   const response = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let contentRevision = -1, revision = -1, authorizedAt = Date.now();
+      let contentRevision = -1, revision = -1, authorizedAt = Date.now(), recheckAt = authorizedAt + 60_000;
       const send = (value: unknown) => {if (!cancelled) controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
       // Demonstration mirrors go out as soon as they arrive, between the regular state frames.
       let demoSeq = 0, presenter = false;
@@ -177,7 +179,15 @@ async function stream(request: Request, id: string) {
             await new Promise<void>(resolve => {const timer = setTimeout(resolve, remaining); wake = () => {clearTimeout(timer); resolve();};});
           }
           if (cancelled || request.signal.aborted) break;
-          if (Date.now() - authorizedAt >= 60_000) {actor = await authorize(request, seat.role !== "mentee", mentee); authorizedAt = Date.now();}
+          if (Date.now() >= recheckAt) {
+            try {actor = await authorize(request, seat.role !== "mentee", mentee); authorizedAt = Date.now(); recheckAt = authorizedAt + 60_000;}
+            catch (error) {
+              // A short sign-in outage keeps the open stream on its last confirmed access, retried every
+              // ten seconds, instead of ending the session for everyone. A clear denial still ends it.
+              if (!(error instanceof SessionError) || error.status < 500 || Date.now() - authorizedAt >= STREAM_ACCESS_GRACE_MS) throw error;
+              recheckAt = Date.now() + 10_000;
+            }
+          }
           frame = await service.frame(actor, id, seat.role, seat.token);
         }
       } catch (error) {

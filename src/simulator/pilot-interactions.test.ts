@@ -9,6 +9,7 @@ import {createScenarioExercise, scenarioFromExercise} from "./scenarios";
 import {executeScenarioEvent} from "./scenario-engine";
 import {MemoryStore} from "./session-test-store";
 import {SessionService} from "./server/session-service";
+import {SESSION_FRAME_MS} from "./sessions";
 
 function act(state: Exercise, action: Action) {
   const envelope = envelopeSchema.parse({id: randomUUID(), time: 1000, action});
@@ -219,7 +220,7 @@ test("shared session publishes the automatic self-go-around as content to both s
   const session = await service.create(staff, "Clearance"), control = randomUUID(), student = randomUUID();
   await service.join(staff, session.id, "staff", control); await service.join(mentee, session.id, "mentee", student);
   const record = store.records.get(session.id)!; record.exercise = {...threshold(true), id: session.id};
-  const before = record.contentRevision; now += 100;
+  const before = record.contentRevision; now += SESSION_FRAME_MS;
   const frame = await service.frame(mentee, session.id, "mentee", student);
   assert.ok(frame.contentRevision > before); assert.equal(frame.exercise.messages[0].text, "Speedbird 124, going around");
   assert.deepEqual((await service.frame(staff, session.id, "staff", control)).exercise, frame.exercise);

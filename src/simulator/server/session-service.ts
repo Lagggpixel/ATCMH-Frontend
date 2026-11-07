@@ -81,7 +81,23 @@ export class SessionService {
   constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
-    if (role === "spectator") {assertSuperAdmin(actor); return;}
+    for (const seat of this.checkSeat(record, actor, role, token, now)) seat.expiresAt = now + SESSION_LEASE_MS;
+  }
+  /**
+   * A frame only needs the locked write path to advance exercise time or renew this page's seat.
+   * Otherwise another viewer ticked within the last frame interval and a plain read is current enough,
+   * so the number of session writes no longer grows with the number of open pages.
+   */
+  private frameNeedsWrite(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
+    if (now - record.tickAt >= SESSION_FRAME_MS || now < record.tickAt) return true;
+    if (record.exercise.demonstration && !demonstrationLive(record, now)) return true;
+    // Errors are raised again, with their normal handling, by the write path.
+    try {return this.checkSeat(record, actor, role, token, now).some(seat => seat.expiresAt - now < SESSION_LEASE_MS / 2);}
+    catch {return true;}
+  }
+  /** Validates this page's seat and returns the seats to renew, without changing the record. */
+  private checkSeat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number): Seat[] {
+    if (role === "spectator") {assertSuperAdmin(actor); return [];}
     if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
     // A bandboxing seat holds several positions with one token; all of them are renewed together.
     const held = role === "mentee" ? positionsForToken(record, token) : [], positionId = held[0];
@@ -90,8 +106,7 @@ export class SessionService {
       throw new SessionError("seat-lost", "This page no longer holds its seat. Return to the session and join again.", 409);
     if (held.some(id => record.positionState?.[id].assignment && !assignmentMatches(record.positionState[id].assignment, actor))) throw new SessionError("not-assigned", "This controller position is assigned to another trainee.", 403);
     if (role === "mentee" && record.exercise.positions?.length && !positionId) throw new SessionError("seat-lost", "Choose a controller position and rejoin.", 409);
-    for (const id of held) record.positionState![id].seat!.expiresAt = now + SESSION_LEASE_MS;
-    seat.expiresAt = now + SESSION_LEASE_MS;
+    return [...held.map(id => record.positionState![id].seat!), ...(held.includes(positionId) ? [] : [seat])];
   }
   private view(record: SessionRecord, role: SessionMode, now: number, positionIds: string[] = []) {
     const positionId = positionIds[0];
@@ -227,6 +242,13 @@ export class SessionService {
           if (held && demoPresenter(held, role, actor.accountId)) current.exercise.demonstration = {...held, until: now + SESSION_LEASE_MS};
         });
       return this.view(record, role, now, positionsForToken(record, token));
+    }
+    const current = await this.store.read(id), readAt = this.now();
+    if (!this.frameNeedsWrite(current, actor, role, token, readAt)) {
+      const view = this.view(current, role, readAt, positionsForToken(current, token));
+      this.sightings.request(view.exercise);
+      this.terrain.request(view.exercise);
+      return view;
     }
     const view = await this.store.transaction(id, record => {
       const now = this.now();
