@@ -135,7 +135,7 @@ export class RadioAudio {
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
-      if (this.output?.prepareReadback && !paused && exercise.running && exercise.autoReadback) {
+      if (this.output?.prepareReadback && !paused && exercise.running && (exercise.autoReadback || exercise.aircraft.some(a => a.automatic))) {
         const source = JSON.stringify([scope, Boolean(exercise.positions?.length),
           exercise.aircraft.map(a => [a.id, a.callsign, a.frequency]),
           exercise.messages.map(m => [m.id, m.commandId, m.retractedBy, m.acknowledged, m.autoReadbackAt, m.instruction, m.text, m.frequency])]);

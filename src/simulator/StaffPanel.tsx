@@ -245,6 +245,9 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       {!canMessage ? <p className={styles.controlHint}>Select a controller frequency to send messages.</p> : null}
     </section> : null}
     {section === "reply" ? <section className={workspace.reply} aria-label="Reply to controller">
+      <label className={workspace.formRow}>This pilot<select aria-label="Pilot actions for this aircraft" disabled={!owner} value={a.automatic === undefined ? "session" : a.automatic ? "on" : "off"} onChange={event => dispatch({kind: "aircraft-automatic", aircraftId: a.id, enabled: event.target.value === "session" ? null : event.target.value === "on"})}>
+        <option value="session">Follows the session ({exercise.autoReadback ? "automatic" : "by hand"})</option><option value="on">Always automatic</option><option value="off">By hand</option>
+      </select></label>
       <div className={workspace.replyMessage}><span className={workspace.eyebrow}>Last controller command{waiting.length > 1 ? ` · ${waiting.length} awaiting response` : ""}</span><output className={lastCommand || radio ? undefined : workspace.muted}>{lastCommand?.text ?? (radio ? latestController?.text : undefined) ?? "No command awaiting response"}</output></div>
       <div className={workspace.replyActions}>
         <button className={styles.primaryButton} disabled={!lastCommand || !canMessage || !!assignmentError} title={lastCommand ? assignmentError ?? "Acknowledge and follow this instruction" : undefined} onClick={() => reply(false, true)}>{switching ? lastCommand.instruction!.type === "frequency" && lastCommand.instruction!.whenReady ? "Readback & queue switch" : "Readback & switch" : "Readback & follow"}</button>
