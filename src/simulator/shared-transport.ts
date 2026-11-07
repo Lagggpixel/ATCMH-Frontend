@@ -8,6 +8,7 @@ import {recordControllerAssignment} from "./controller-state";
 import type {Action, Envelope, Exercise} from "./model";
 import type {SessionMode, SessionSummary} from "./sessions";
 import type {DemoBatch, DemoController, DemoState} from "./demonstration";
+import {BODY_BINARY_TYPE, encodeBody, STREAM_BINARY_TYPE, STREAM_FORMAT, STREAM_HEADER, StreamDecoder, type StreamMessage} from "./stream-codec";
 
 /** A demonstration update from the trainer: the latest UI state and every batch since the last one. */
 export interface DemoFrame {seq: number; state?: DemoState; batches: DemoBatch[]}
@@ -103,9 +104,11 @@ export class SharedSession {
     let stopped = false, claimed = false, timer: ReturnType<typeof setTimeout> | undefined;
     const token = crypto.randomUUID(), controller = new AbortController();
     const base = `/api/simulator/sessions/${this.id}`;
-    const headers = {"content-type": "application/json", "x-csrf-token": this.csrf};
+    // Once the server has answered with a binary stream it also reads compact binary request bodies.
+    let compact = false;
     const post = (operation: string, extra: object = {}, keepalive = false) => fetch(`${base}/${operation}`, {
-      method: "POST", headers, credentials: "same-origin", keepalive, body: JSON.stringify({role: this.role, token, ...extra}),
+      method: "POST", headers: {"content-type": compact ? BODY_BINARY_TYPE : "application/json", "x-csrf-token": this.csrf}, credentials: "same-origin", keepalive,
+      body: compact ? encodeBody({role: this.role, token, ...extra}) as Uint8Array<ArrayBuffer> : JSON.stringify({role: this.role, token, ...extra}),
       ...(!keepalive ? {signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)])} : {}),
     }).then(sessionJson);
     // Spectators hold no seat; they only post leave to hand back a demonstration they may be giving.
@@ -176,8 +179,9 @@ export class SharedSession {
       if (!this.view.connected || !this.canControl()) return;
       commands = commands.then(async () => {if (!this.canControl()) return; try {await post("events", {eventId, decision});} catch (reason) {if (!stopped) this.update({error: (reason as Error).message});}});
     };
-    const frame = (data: string) => {
-      const value = JSON.parse(data);
+    const frame = (message: StreamMessage) => {
+      // Fields are validated by schema below, as they were when this was parsed JSON.
+      const value: ReturnType<typeof JSON.parse> = message;
       if (value.type === "failure") throw Object.assign(new Error(value.error), {code: value.code, status: value.status});
       if (value.type === "snapshot") {
         const exercise = exerciseSchema.parse(value.exercise);
@@ -197,16 +201,20 @@ export class SharedSession {
       try {
         const joined = await post("join", this.joinBody()); this.positionId ??= joined.positionId; this.update({positionId: joined.positionId, positionIds: joined.positionIds}); claimed = this.role !== "spectator";
         if (stopped) {release(); return;}
-        const response = await fetch(`${base}/stream`, {headers: {"x-simulator-role": this.role, "x-simulator-seat": token}, cache: "no-store", signal: controller.signal});
+        const response = await fetch(`${base}/stream`, {headers: {"x-simulator-role": this.role, "x-simulator-seat": token, [STREAM_HEADER]: STREAM_FORMAT}, cache: "no-store", signal: controller.signal});
         if (!response.ok) await sessionJson(response);
         if (!response.body) throw new Error("This browser cannot receive the session stream.");
-        const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = "";
+        // Servers without the compact stream answer with the JSON event stream.
+        const binary = !!response.headers.get("content-type")?.startsWith(STREAM_BINARY_TYPE);
+        compact = binary;
+        const reader = response.body.getReader(), decoder = new TextDecoder(), packets = new StreamDecoder(); let buffer = "";
         try {while (!stopped) {
           const {done, value} = await reader.read();
           if (done) throw new Error("Session connection interrupted.");
+          if (binary) {for (const message of packets.push(value)) frame(message); continue;}
           buffer += decoder.decode(value, {stream: true});
           let index: number;
-          while ((index = buffer.indexOf("\n\n")) !== -1) {const packet = buffer.slice(0, index); buffer = buffer.slice(index + 2); if (packet.startsWith("data: ")) frame(packet.slice(6));}
+          while ((index = buffer.indexOf("\n\n")) !== -1) {const packet = buffer.slice(0, index); buffer = buffer.slice(index + 2); if (packet.startsWith("data: ")) frame(JSON.parse(packet.slice(6)));}
         }} finally {await reader.cancel().catch(() => {});}
       } catch (reason) {
         if (stopped) return;

@@ -9,9 +9,10 @@ import {SessionError} from "../sessions";
 import type {Exercise} from "../model";
 import type {SessionRecord} from "./session-service";
 import {rejectMovedRadar} from "./radar-moved";
+import {appendCompactFrame, readCompactFrames, type ChunkRow} from "./replay-chunks";
 
 // Small connection surface also permits the operator's retention transaction to archive first.
-export interface ReplayConnection {execute(sql: string, values: (string | number | null)[]): Promise<[unknown, unknown]>}
+export interface ReplayConnection {execute(sql: string, values: (string | number | null | Uint8Array)[]): Promise<[unknown, unknown]>}
 interface ReplayRow extends RowDataPacket {
   airport?: string | null; airport_data_version?: string | null; training_station?: string | null;
   id: string; session_id: string; attempt_id: string | null; owner_id: string; owner_name: string | null; title: string;
@@ -69,7 +70,9 @@ export async function recordReplay(connection: ReplayConnection, record: Session
     // The trainer's pointer and commands since the last frame ride along with it.
     const demo = demoReplayMarks(demoHub.drainTrace(record.id), duration, state.elapsed);
     const delta = {...replayDelta(previous, state), ...(demo.length ? {demo} : {})};
-    await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(delta), changed ? 0 : 1]);
+    // Recordings begun before compact storage finish in the JSON format they started in.
+    if (!await appendCompactFrame(connection, row.id, Number(row.sequence_no), previous, {sequence, at: duration, delta, interpolate: !changed}, !!ended, now))
+      await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(delta), changed ? 0 : 1]);
     await connection.execute("UPDATE simulator_replays SET last_state=?,sequence_no=?,duration=?,content_revision=? WHERE id=?", [JSON.stringify(state), sequence, duration, record.contentRevision, row.id]);
   }
   const people = JSON.stringify(participants(record, JSON.parse(row.participants)));
@@ -81,8 +84,8 @@ export async function recordReplay(connection: ReplayConnection, record: Session
 export async function recordedSessionState(sessionId: string, elapsed: number): Promise<Exercise | null> {
   const rows = await queryReadOnly<ReplayRow[]>("SELECT id,initial_state FROM simulator_replays WHERE session_id=? AND status='recording' ORDER BY started_at DESC,id DESC LIMIT 1", [sessionId]);
   if (!rows[0]) return null;
-  const frames = await queryReadOnly<(RowDataPacket & {delta: string})[]>("SELECT delta FROM simulator_replay_frames WHERE replay_id=? ORDER BY sequence_no", [rows[0].id]);
-  const state = recordedStateAt(exerciseSchema.parse(JSON.parse(rows[0].initial_state)), frames.map(f => JSON.parse(f.delta)), elapsed);
+  const initial = exerciseSchema.parse(JSON.parse(rows[0].initial_state));
+  const state = recordedStateAt(initial, (await replayFrames(rows[0].id, initial)).map(f => f.delta), elapsed);
   return state ? exerciseSchema.parse(state) : null;
 }
 
@@ -140,8 +143,16 @@ export async function endedReplay(sessionId: string): Promise<ReplaySummary | nu
   const rows = await queryReadOnly<ReplayRow[]>("SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback FROM simulator_replays WHERE session_id=? AND ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT 1", [sessionId]);
   return rows[0] ? summary(rows[0]) : null;
 }
-export async function readReplay(id: string, after: number, menteeId?: string): Promise<ReplayDetail> {
-  const detail = await readAnyReplay(id, after);
+/** Every frame of a replay, from compact chunks or the older JSON rows. */
+export async function replayFrames(id: string, initial: Exercise, after = 0, limit?: number): Promise<ReplayFrame[]> {
+  const compact = await readCompactFrames((sql, values) => queryReadOnly<ChunkRow[]>(sql, values), id, initial);
+  if (compact) return compact.filter(f => f.sequence > after).slice(0, limit);
+  const frames = await queryReadOnly<(RowDataPacket & {sequence_no: number; at_seconds: number; delta: string; interpolate: number})[]>(`SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no${limit ? ` LIMIT ${limit}` : ""}`, [id, after]);
+  return frames.map(f => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate}));
+}
+/** `all` returns every frame at once, for the binary replay download. */
+export async function readReplay(id: string, after: number, menteeId?: string, all = false): Promise<ReplayDetail> {
+  const detail = await readAnyReplay(id, after, all);
   if (menteeId && !detail.replay.participants.some(p => p.role === "mentee" && p.accountId === menteeId))
     throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);
   return detail;
@@ -158,7 +169,7 @@ export async function hasReplayAtAirport(accountId: string, airport: string): Pr
   return legacy.length > 0;
 }
 
-async function readAnyReplay(id: string, after: number): Promise<ReplayDetail> {
+async function readAnyReplay(id: string, after: number, all: boolean): Promise<ReplayDetail> {
   const rows = await queryReadOnly<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL", [id]);
   if (!rows[0]) {
     const old = await queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.id=? AND a.status<>'active'`, [id]);
@@ -173,8 +184,7 @@ async function readAnyReplay(id: string, after: number): Promise<ReplayDetail> {
   const amendments = await queryReadOnly<(RowDataPacket & {position_id: string; feedback: string})[]>("SELECT position_id,feedback FROM simulator_replay_position_feedback WHERE replay_id=?", [id]);
   const positionFeedback = {...finalState.positionFeedback, ...Object.fromEntries(amendments.map(item => [item.position_id, item.feedback]))};
   row.airport = initial.airport; row.airport_data_version = initial.airportDataVersion; row.training_station = initial.trainingStation;
-  const frames = await queryReadOnly<(RowDataPacket & {sequence_no: number; at_seconds: number; delta: string; interpolate: number})[]>("SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no LIMIT 500", [id, after]);
-  const result: ReplayFrame[] = frames.map(f => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate}));
+  const result = await replayFrames(id, initial, after, all ? undefined : 500);
   const last = result.at(-1)?.sequence ?? after;
-  return {replay: summary(row), initial: exerciseSchema.parse(JSON.parse(row.initial_state)), frames: result, positionFeedback, feedbackPositions: finalState.positions, next: last < Number(row.sequence_no) ? last : null};
+  return {replay: summary(row), initial, frames: result, positionFeedback, feedbackPositions: finalState.positions, next: last < Number(row.sequence_no) ? last : null};
 }

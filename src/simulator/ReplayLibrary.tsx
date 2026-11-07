@@ -15,6 +15,7 @@ import SessionAccess from "./SessionAccess";
 import LearningFrame from "../learning/LearningFrame";
 import {sessionJson} from "./shared-transport";
 import {canPlayReplay, ReplayTimeline, type ReplayDetail, type ReplayFrame} from "./replays";
+import {readReplayDownload, REPLAY_BINARY_TYPE} from "./replay-binary";
 import {timeLabel} from "./scenarios";
 import {frequenciesFor, getAirport, trainingMode} from "./airports";
 import {conflictLabels} from "./training-conflicts";
@@ -49,6 +50,14 @@ function ReplayViewer({id, accountId, mentor, csrf}: {id: string; accountId: str
     const controller = new AbortController();
     const load = async () => {
       try {
+        // One compact download; servers without it answer with the JSON pages below.
+        const download = await fetch(`/api/simulator/replays/${id}?format=binary${mentor ? "" : "&scope=self"}`, {signal: controller.signal, cache: "no-store"});
+        if (download.ok && download.headers.get("content-type")?.startsWith(REPLAY_BINARY_TYPE)) {
+          const detail = await readReplayDownload(download);
+          if (!controller.signal.aborted) setDetail(detail);
+          return;
+        }
+        if (!download.ok) await sessionJson(download);
         let after = 0, first: ReplayDetail | null = null; const frames: ReplayFrame[] = [];
         do {
           const page = await fetch(`/api/simulator/replays/${id}?after=${after}${mentor ? "" : "&scope=self"}`, {signal: controller.signal, cache: "no-store"}).then(sessionJson) as ReplayDetail;

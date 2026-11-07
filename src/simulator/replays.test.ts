@@ -101,7 +101,7 @@ test("replay reader paginates recorded frames and exposes surviving legacy snaps
   const old = {id: oldId, session_id: oldId, title: "Old", owner_id: "staff", learner_id: "learner", started_at: 1, finished_at: 3, elapsed: 45, status: "finished", feedback: "Review", result: JSON.stringify({exercise})};
   const absent = {...old, id: missingId, finished_at: 4, result: null};
   const pool = {async execute(sql: string, values: unknown[] = []) {
-    if (sql.includes("FROM simulator_replay_position_feedback")) return [[], []];
+    if (sql.includes("FROM simulator_replay_position_feedback") || sql.includes("FROM simulator_replay_chunks")) return [[], []];
     if (sql.includes("FROM simulator_replay_frames")) return [Array.from({length: 501}, (_, i) => ({sequence_no: i + 1, at_seconds: i + 1, delta: JSON.stringify({state: {elapsed: i + 1}, aircraft: []}), interpolate: 1})).filter(f => f.sequence_no > Number(values[1])).slice(0, 500), []];
     if (sql.includes("FROM simulator_replays WHERE id=?")) return [values[0] === id ? [header] : [], []];
     if (sql.includes("FROM simulator_attempts a")) return [sql.includes("a.id=?") ? [old, absent].filter(a => a.id === values[0]) : [old, absent], []];

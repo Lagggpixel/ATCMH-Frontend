@@ -12,6 +12,7 @@ import {sqlSessionStore} from "./session-store";
 import {requireLocalSession} from "./radar-moved";
 import {demoBatchSchema, demoControllerSchema, demoPresenter} from "../demonstration";
 import {demoHub as sharedDemoHub, type DemoHub} from "./demo-hub";
+import {BODY_BINARY_TYPE, decodeBody, STREAM_BINARY_TYPE, STREAM_FORMAT, STREAM_HEADER, StreamEncoder} from "../stream-codec";
 
 const idSchema = z.string().uuid();
 // positionId may list several positions, comma separated, when a mentor bandboxes them.
@@ -27,11 +28,18 @@ export function sessionFailure(error: unknown) {
   console.error("Simulator session request failed", error instanceof Error ? error.name : "Unknown error");
   return Response.json({code: "unavailable", error: "Sessions are temporarily unavailable. Your saved scenarios have not been removed."}, {status: 503, headers: noStore});
 }
-async function body(request: Request) {
+/** JSON, or the compact binary body pages send once their stream is binary. */
+export async function readBody(request: Request, limit: number, message: string) {
+  if (request.headers.get("content-type")?.startsWith(BODY_BINARY_TYPE)) {
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    if (bytes.length > limit) throw new SessionError("too-large", message, 413);
+    try {return decodeBody(bytes);} catch {throw new SessionError("invalid-request", "The request body could not be read.", 400);}
+  }
   const text = await request.text();
-  if (text.length > 2_000_000) throw new SessionError("too-large", "This exercise is too large to save.", 413);
+  if (text.length > limit) throw new SessionError("too-large", message, 413);
   return JSON.parse(text) as unknown;
 }
+const body = (request: Request) => readBody(request, 2_000_000, "This exercise is too large to save.");
 export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport,
   notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub) {
 const service = new SessionService(store, undefined, undefined, undefined, undefined, weather, recordedSessionState);
@@ -125,9 +133,7 @@ async function ended(error: unknown, id: string, actor: Actor): Promise<never> {
 }
 /** The mirror channel trusts only seat tokens its own authorised streams vouched for in the last few seconds. */
 async function demonstration(request: Request, id: string) {
-  const text = await request.text();
-  if (text.length > 64_000) throw new SessionError("too-large", "Demonstration update is too large.", 413);
-  const raw = JSON.parse(text) as unknown, seat = seatSchema.parse(raw);
+  const raw = await readBody(request, 64_000, "Demonstration update is too large."), seat = seatSchema.parse(raw);
   // Streams vouch for each token as the presenter, the mentee, or a watcher; only the first two may post.
   if (hub.allowed(id, "presenter", seat.token)) hub.publish(id, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
   else if (seat.role === "mentee" && hub.allowed(id, "mentee", seat.token)) hub.seed(id, demoControllerSchema.parse(z.object({controller: z.unknown()}).parse(raw).controller));
@@ -142,12 +148,14 @@ async function stream(request: Request, id: string) {
   await requireLocal(id);
   const initial = await service.frame(actor, id, seat.role, seat.token).catch(error => ended(error, id, actor));
   const encoder = new TextEncoder();
+  // Pages that ask for it get compact binary packets carrying only what changed since the last one.
+  const compact = request.headers.get(STREAM_HEADER) === STREAM_FORMAT ? new StreamEncoder() : null;
   let cancelled = false, wake: (() => void) | undefined;
   const unsubscribe = hub.subscribe(id, () => wake?.());
   const response = new ReadableStream<Uint8Array>({
     async start(controller) {
       let contentRevision = -1, revision = -1, authorizedAt = Date.now(), recheckAt = authorizedAt + 60_000;
-      const send = (value: unknown) => {if (!cancelled) controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
+      const send = (value: {type: string; [key: string]: unknown}) => {if (!cancelled) controller.enqueue(compact ? compact.packet(value) : encoder.encode(`data: ${JSON.stringify(value)}\n\n`));};
       // Demonstration mirrors go out as soon as they arrive, between the regular state frames.
       let demoSeq = 0, presenter = false;
       const flushDemo = () => {
@@ -197,7 +205,7 @@ async function stream(request: Request, id: string) {
     },
     cancel() {cancelled = true; wake?.();},
   });
-  return new Response(response, {headers: {...noStore, "content-type": "text/event-stream", "x-accel-buffering": "no", "connection": "keep-alive"}});
+  return new Response(response, {headers: {...noStore, "content-type": compact ? STREAM_BINARY_TYPE : "text/event-stream", "x-accel-buffering": "no", "connection": "keep-alive"}});
 }
 
 return {sessionCollection, sessionOperation};

@@ -7,6 +7,7 @@ import {sessionFailure} from "./session-api";
 import {authorizeSessionRequest} from "./session-auth";
 import type {Actor} from "./session-service";
 import {sqlSessionStore} from "./session-store";
+import {BODY_BINARY_TYPE, STREAM_HEADER} from "../stream-codec";
 
 export function withSweatboxRuntime<Args extends unknown[]>(
   local: (request: Request, ...args: Args) => Promise<Response>, authorize = authorizeSessionRequest,
@@ -17,12 +18,14 @@ export function withSweatboxRuntime<Args extends unknown[]>(
       if (!config) return await local(request, ...args);
       const actor = await authorize(request, false, {anySignedIn: true});
       const headers = new Headers(delegationHeaders(actor));
-      for (const name of ["x-simulator-role", "x-simulator-seat", "content-type"]) {
+      for (const name of ["x-simulator-role", "x-simulator-seat", "content-type", STREAM_HEADER]) {
         const value = request.headers.get(name);
         if (value !== null) headers.set(name, value);
       }
       const url = new URL(request.url);
-      const body = request.body ? await request.text() : undefined;
+      // Compact binary bodies pass through unchanged.
+      const binary = request.headers.get("content-type")?.startsWith(BODY_BINARY_TYPE);
+      const body = request.body ? binary ? new Uint8Array(await request.arrayBuffer()) : await request.text() : undefined;
       if (body && body.length > 2_000_000) throw new SessionError("too-large", "This exercise is too large to save.", 413);
       const response = await send(config, url.pathname + url.search, {method: request.method, headers, body, signal: request.signal});
       return new Response(response.body, {status: response.status, headers: {
