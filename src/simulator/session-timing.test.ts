@@ -36,7 +36,10 @@ async function setup(exercise = flight("approach"), runtime?: ScenarioRuntime) {
 async function fly(h: Awaited<ReturnType<typeof setup>>, durationMs: number, cadence: number[]) {
   let elapsed = 0, index = 0;
   while (elapsed < durationMs) {
-    const dt = Math.min(cadence[index++ % cadence.length], durationMs - elapsed);
+    // A frame closer than SESSION_FRAME_MS to the last tick is a read; its time is simulated on the next frame.
+    // Keep the final step at least one frame long so the whole duration is ticked before the last read.
+    const remaining = durationMs - elapsed, step = Math.min(cadence[index++ % cadence.length], remaining);
+    const dt = remaining - step > 0 && remaining - step < SESSION_FRAME_MS ? remaining - SESSION_FRAME_MS : step;
     elapsed += dt; h.delay(dt); await h.frame();
   }
   return (await h.frame()).exercise;
@@ -129,3 +132,23 @@ test("a delayed command first advances movement, then applies the command", asyn
   assert.equal(frame.exercise.running, false);
 });
 
+
+test("frames within one frame interval of the last tick read without writing, and the time is simulated later", async () => {
+  const h = await setup();
+  h.delay(SESSION_FRAME_MS); await h.frame();
+  const record = h.store.records.get(h.session.id)!;
+  let writes = 0; const transaction = h.store.transaction.bind(h.store);
+  h.store.transaction = (id, run, intervention) => {writes++; return transaction(id, run, intervention);};
+  const before = record.exercise.elapsed;
+  for (let index = 0; index < 3; index++) {h.delay(50); await h.frame();}
+  assert.equal(writes, 0); assert.equal(h.store.records.get(h.session.id)!.exercise.elapsed, before);
+  h.delay(50); await h.frame();
+  assert.equal(writes, 1); near(h.store.records.get(h.session.id)!.exercise.elapsed, before + SESSION_FRAME_MS / 1000);
+});
+test("a frame renews its seat through the write path when the lease is half used", async () => {
+  const h = await setup();
+  h.delay(SESSION_FRAME_MS); await h.frame();
+  const record = h.store.records.get(h.session.id)!;
+  record.staff!.expiresAt = record.tickAt + SESSION_LEASE_MS / 2 - 1; h.delay(10); await h.frame();
+  assert.ok(h.store.records.get(h.session.id)!.staff!.expiresAt > record.tickAt + SESSION_LEASE_MS / 2);
+});

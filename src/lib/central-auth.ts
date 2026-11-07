@@ -175,6 +175,30 @@ export async function introspectCentralSession(
   } catch { return undefined; }
 }
 
+/** Thrown when the sign-in service cannot answer, so callers can say "try again" instead of "signed out". */
+export class CentralAuthUnavailable extends Error {}
+
+/**
+ * Like introspectCentralSession, but a network failure or server error throws CentralAuthUnavailable
+ * instead of reading as "not signed in". Only a clear answer from the service ends a session.
+ */
+export async function introspectCentralSessionOrThrow(
+  token: string | undefined,
+  env: CentralAuthEnvironment = process.env as CentralAuthEnvironment,
+  fetchImpl: Fetch = fetch,
+): Promise<CentralSession | undefined> {
+  if (!token || token.length < 32) return undefined;
+  let response: Response;
+  try { response = await internalPost("/internal/auth/sessions/introspect", { token }, env, fetchImpl); }
+  catch (error) { throw new CentralAuthUnavailable("Sign-in service unavailable", { cause: error }); }
+  if (response.status >= 500 || response.status === 408 || response.status === 429) throw new CentralAuthUnavailable(`Sign-in service answered ${response.status}`);
+  if (!response.ok) return undefined;
+  let body: unknown;
+  try { body = await response.json(); }
+  catch (error) { throw new CentralAuthUnavailable("Sign-in service sent an unreadable answer", { cause: error }); }
+  return validSession(body);
+}
+
 export function csrfTokenFor(token: string, env: CentralAuthEnvironment = process.env as CentralAuthEnvironment): string {
   const { csrfSecret } = config(env);
   return createHmac("sha256", csrfSecret).update(`exams-csrf:${token}`).digest("base64url");
