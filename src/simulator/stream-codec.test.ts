@@ -128,3 +128,15 @@ test("the browser switches to compact command bodies only after the server sends
     assert.deepEqual((command.body as {envelope: {action: unknown}}).envelope.action, {kind: "pause"});
   } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
 });
+
+test("demonstration frames keep their own state on the compact stream", () => {
+  const {state} = session();
+  const encoder = new StreamEncoder(), decoder = new StreamDecoder();
+  decoder.push(encoder.packet({type: "snapshot", exercise: state}));
+  const demo = {type: "demo", seq: 7, state: {pointer: {x: 1.25, y: -3}, menu: "altitude", following: true}, batches: [{at: 1, events: [{kind: "pointer"}]}]};
+  const [received] = decoder.push(encoder.packet(demo));
+  assert.deepEqual(received, demo);
+  const motion = {type: "motion", state: {id: state.id, revision: state.revision, elapsed: state.elapsed + 1}};
+  const [moved] = decoder.push(encoder.packet(motion));
+  assert.equal((moved.state as {elapsed: number}).elapsed, state.elapsed + 1, "the demo frame did not disturb the motion base");
+});

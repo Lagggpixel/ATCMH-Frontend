@@ -17,7 +17,11 @@ export class StreamEncoder {
   private sent: Exercise | null = null;
   /** A length-prefixed packet. A snapshot's exercise or a motion state is sent as a difference. */
   packet(message: StreamMessage) {
-    const {exercise, state, ...meta} = message;
+    // Only snapshots and motion frames are diffed; other types, such as demonstrations with their own `state`, pass as values.
+    const meta: Record<string, unknown> = {...message};
+    const exercise = message.type === "snapshot" ? message.exercise : undefined, state = message.type === "motion" ? message.state : undefined;
+    if (exercise) delete meta.exercise;
+    if (state) delete meta.state;
     const codec = new ValueCodec();
     codec.value(meta);
     let frame: Uint8Array | undefined;
@@ -64,7 +68,7 @@ export class StreamDecoder {
       const before = this.base ?? EMPTY, frame = decodeReplayFrame(r, before);
       this.base = applyDelta(before, frame.delta);
       if (meta.type === "snapshot") meta.exercise = this.base;
-      else meta.state = Object.fromEntries(MOTION_KEYS.filter(key => this.base![key] !== undefined).map(key => [key, this.base![key]]));
+      else if (meta.type === "motion") meta.state = Object.fromEntries(MOTION_KEYS.filter(key => this.base![key] !== undefined).map(key => [key, this.base![key]]));
     }
     if (!r.done) throw new Error("Invalid session stream packet.");
     return meta;
