@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {Play} from "@phosphor-icons/react/dist/csr/Play";
@@ -25,6 +25,9 @@ import {modeLabel} from "./session-status";
 import type {Message} from "./model";
 import {DemoSentCard} from "./DemoMirror";
 import {replayDemoAt} from "./demonstration";
+import {traineeReplayEvents} from "./replay-events";
+import {readTraineeControls, replayTraineeAt, replayTraineePositions, traineeShortcut, writeTraineeControls, type TraineeControlsSetting} from "./trainee-overlay";
+import {TraineeControlsSwitch, TraineeMessages} from "./TraineeOverlay";
 import Scope from "./Scope";
 import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import ReplayIndex from "./ReplayIndex";
@@ -93,7 +96,7 @@ function FeedbackEditor({detail, csrf, onSaved}: {detail: ReplayDetail; csrf: st
   </form> : <button type="button" className={styles.btn} onClick={() => {setPosition(""); setDraft(detail.replay.feedback ?? ""); setEditing(true);}}>Edit feedback</button>}</section>;
 }
 
-const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration};
+const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration, trainee: styles.kTrainee};
 type PanelTab = "moments" | "radio" | "atis";
 
 function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId: string; mentor: boolean}) {
@@ -129,7 +132,33 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
   const exercise = timeline?.at(time);
   const demoMarks = useMemo(() => frames.flatMap(frame => frame.delta.demo ?? []), [frames]);
   const demo = replayDemoAt(demoMarks, time);
-  const list = moments ?? [];
+  // The mentee's recorded controls: each mentor account keeps its own switch, shared with the live radar.
+  const traineeMarks = useMemo(() => frames.flatMap(frame => frame.delta.shadow ?? []), [frames]);
+  const traineePositions = useMemo(() => replayTraineePositions(traineeMarks), [traineeMarks]);
+  const [traineeControls, setTraineeControls] = useState(() => readTraineeControls(typeof window === "undefined" ? undefined : window.localStorage, accountId));
+  const changeTraineeControls = useCallback((change: Partial<TraineeControlsSetting>) => setTraineeControls(current => {
+    const next = {...current, ...change};
+    writeTraineeControls(typeof window === "undefined" ? undefined : window.localStorage, accountId, next);
+    return next;
+  }), [accountId]);
+  const [traineePick, setTraineePick] = useState<string>();
+  const traineePosition = traineePositions.includes(traineePick ?? "") ? traineePick! : traineePositions[0];
+  const traineeName = replay.participants.find(p => p.role === "mentee" && (p.positionId ?? "main") === traineePosition)?.name || undefined;
+  const traineeLabel = (id: string) => initial?.positions?.find(p => p.id === id)?.name ?? (id === "main" ? "Mentee" : id);
+  const showTrainee = traineeControls.show && !!traineePosition;
+  useEffect(() => {
+    if (!traineePositions.length) return;
+    const key = (event: KeyboardEvent) => {if (traineeShortcut(event)) {event.preventDefault(); changeTraineeControls({show: !traineeControls.show});}};
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [traineePositions.length, traineeControls.show, changeTraineeControls]);
+  const trainee = showTrainee ? replayTraineeAt(traineeMarks, traineePosition, time) : null;
+  const list = useMemo(() => {
+    const base = moments ?? [];
+    if (!base.length || !showTrainee) return base;
+    const commands = traineeReplayEvents(traineeMarks, traineePosition, replay.duration).map(event => ({...event, label: "Mentee command", detail: `${event.label} · ${event.detail}`}));
+    return [base[0], ...[...base.slice(1, -1), ...commands].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)), base[base.length - 1]];
+  }, [moments, showTrainee, traineeMarks, traineePosition, replay.duration]);
   const active = currentMoment(list, time), previous = adjacentMoment(list, time, -1), next = adjacentMoment(list, time, 1);
   const incident = list.find(m => (m.kind === "separation" || m.kind === "terrain" || m.kind === "collision") && m.at <= time && time <= Math.max(m.end ?? m.at, m.at + 5));
   const radar = exercise ? trainingMode(exercise) : "local";
@@ -146,10 +175,11 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
       <div className={styles.scope}>
         {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope staffAlertsEnabled={mentor} messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
           conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
-          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : undefined}/></div>
+          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} trainee={trainee ? {name: traineeName, state: trainee.state, followZoom: traineeControls.followZoom, messages: <TraineeMessages name={traineeName} state={trainee.state} exercise={exercise}/>} : undefined} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : trainee?.sent ? <DemoSentCard sent={trainee.sent} by={traineeName ?? "Mentee"}/> : undefined}/></div>
           : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
         {incident ? <div className={styles.incident} role="status"><span className={`${styles.k} ${markClass[incident.kind]}`}/><span><strong>{incident.label}</strong> · {incident.detail} · {timeLabel(incident.at)}{incident.end !== undefined && incident.end > incident.at ? ` to ${timeLabel(incident.end)}` : ""}</span></div> : null}
       </div>
+      {playable ? <div className={styles.menteeControls}><TraineeControlsSwitch show={traineeControls.show && traineePositions.length > 0} followZoom={traineeControls.followZoom} onShow={show => changeTraineeControls({show})} onFollowZoom={followZoom => changeTraineeControls({followZoom})} positions={traineePositions.map(id => ({id, name: traineeLabel(id)}))} position={traineePosition} onPosition={setTraineePick} disabled={!traineePositions.length}/>{traineePositions.length ? null : <small>Mentee controls weren&apos;t recorded in this replay.</small>}</div> : null}
       {replay.kind === "snapshot" ? <p className={styles.note}>Only the final state is available for this older session.</p> : null}
       {replay.kind === "recording" && replay.duration <= 0 ? <p className={styles.note}>This session ended before any exercise time elapsed. You can review its saved state, but there is no playback.</p> : null}
       {replay.partial && replay.kind === "recording" ? <p className={styles.note}>Recording starts at exercise time {timeLabel(initial?.elapsed ?? 0)}.</p> : null}

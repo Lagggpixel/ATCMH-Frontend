@@ -1,7 +1,11 @@
-import type {DemoGroundDraft, DemoState} from "./demonstration";
+import {DEMO_SENT_VISIBLE_MS, type DemoBatch, type DemoGroundDraft, type DemoState} from "./demonstration";
+import type {ReplayTraineeMark} from "./replays";
 import {buildGroundRoute, groundPointKey} from "./ground-route";
 import type {Airport, GroundRoute} from "./model";
 import type {DemoFrame} from "./shared-transport";
+
+/** The part of a trainee's controller state a staff radar or replay draws. */
+export type TraineeView = Pick<DemoState, "frequency" | "selectedId" | "messageId" | "menuPath" | "vectorDraft" | "ground" | "camera">;
 
 /** The trainee's colour on a staff radar: their selection ring, drags and open messages. */
 export const TRAINEE_BLUE = "#499cff";
@@ -35,7 +39,7 @@ export function latestShadowState(current: DemoState | null, frame: DemoFrame): 
 }
 
 /** The aircraft the trainee is working: the one whose messages are open, otherwise the one selected. */
-export const traineeFocus = (state: DemoState | null) => state ? state.messageId ?? state.selectedId : null;
+export const traineeFocus = (state: TraineeView | null) => state ? state.messageId ?? state.selectedId : null;
 
 /** The trainee's taxi or pushback drag, rebuilt from its control points like the trainee's own preview. */
 export function traineeGroundRoute(airport: Airport, ground: DemoGroundDraft | null): GroundRoute | undefined {
@@ -50,4 +54,44 @@ export function traineeShortcut(event: {key: string; ctrlKey: boolean; metaKey: 
   const target = event.target as {tagName?: string; isContentEditable?: boolean; closest?: (selector: string) => unknown} | null;
   if (!target?.closest?.("[data-simulator-tour=radar]")) return false;
   return !target.isContentEditable && !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName ?? "");
+}
+
+/** Only what an overlay draws: quick commands, scroll positions and dismissed strips stay out of replays. */
+export const traineeView = (state: TraineeView): TraineeView => ({frequency: state.frequency, selectedId: state.selectedId, messageId: state.messageId, menuPath: state.menuPath, vectorDraft: state.vectorDraft, ground: state.ground, camera: state.camera});
+
+/** Turns one position's shadow trace into replay marks on the replay clock: each change of state, at
+ * most ten a second, and every sent command. `frameAt`/`frameElapsed` place exercise time on the replay clock. */
+export function traineeReplayMarks(entries: readonly {elapsed: number; batch: Omit<DemoBatch, "seq">}[], positionId: string, frameAt: number, frameElapsed: number): ReplayTraineeMark[] {
+  const states: ReplayTraineeMark[] = [], sent: ReplayTraineeMark[] = [];
+  let last = "";
+  for (const {batch} of entries) {
+    const at = (t: number) => Math.max(0, frameAt - (frameElapsed - (batch.elapsed - (batch.sentAt - t) / 1000)));
+    if (batch.state) {
+      const view = traineeView(batch.state), key = JSON.stringify(view), time = at(batch.sentAt);
+      if (key !== last) {
+        const previous = states.at(-1);
+        // A drag in progress keeps only its newest point within each tenth of a second.
+        if (previous && time - previous.at < .1) states[states.length - 1] = {at: time, positionId, state: view};
+        else states.push({at: time, positionId, state: view});
+        last = key;
+      }
+    }
+    for (const event of batch.events) if (event.kind === "sent") sent.push({at: at(event.t), positionId, sent: {callsign: event.callsign, text: event.text, path: event.path}});
+  }
+  return [...states, ...sent].sort((a, b) => a.at - b.at);
+}
+
+/** The positions a replay recorded trainee controls for, in first-seen order. */
+export const replayTraineePositions = (marks: readonly ReplayTraineeMark[]) => [...new Set(marks.map(mark => mark.positionId))];
+
+/** One position's controls at a replay time: the latest state, and the latest sent command for 7 s. */
+export function replayTraineeAt(marks: readonly ReplayTraineeMark[], positionId: string, time: number) {
+  let state: TraineeView | null = null, sent: (NonNullable<ReplayTraineeMark["sent"]> & {at: number}) | null = null;
+  for (const mark of marks) {
+    if (mark.at > time) break;
+    if (mark.positionId !== positionId) continue;
+    if (mark.state) state = mark.state;
+    if (mark.sent) sent = {...mark.sent, at: mark.at};
+  }
+  return {state, sent: sent && time - sent.at <= DEMO_SENT_VISIBLE_MS / 1000 ? sent : null};
 }
