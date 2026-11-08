@@ -1,6 +1,7 @@
 "use client";
 import {useEffect, useRef, useState, type SyntheticEvent} from "react";
 import Link from "next/link";
+import {Headset} from "@phosphor-icons/react/dist/csr/Headset";
 import type {Exercise} from "./model";
 import type {SessionSummary} from "./sessions";
 import {sessionPath} from "./sessions";
@@ -13,7 +14,7 @@ import styles from "./Positions.module.css";
 
 export default function PositionControls({exercise, session, csrf, enabled, onDemonstrate, monitor, onMonitor, open, onClose}: {
   exercise: Exercise; session: SessionSummary; csrf: string; enabled: boolean; onDemonstrate: (positionId: string) => void;
-  /** The position whose radio is being monitored, or "" for all. */
+  /** The position whose radio the trainer hears, or "" for all. Kept in sync with the Hear menu. */
   monitor?: string; onMonitor?: (positionId: string) => void;
   /** Opened from a menu instead of its own summary. */ open?: boolean; onClose?: () => void;
 }) {
@@ -56,7 +57,7 @@ export default function PositionControls({exercise, session, csrf, enabled, onDe
             {person ? <span className={styles.person}><span className={styles.dot} data-on={p.occupied || undefined} aria-hidden="true"/>{person}<span className={styles.srOnly}> · {positionState(p)}</span></span> : <span className={`${styles.person} ${styles.muted}`}>Open position</span>}</div>
           <p className={styles.positionMeta}>{owned} aircraft{bandbox ? ` · one frequency, ${p.mhz}` : ""}{demonstrating ? " · Demonstrating now" : p.occupied ? "" : person ? " · Not joined yet" : " · No mentee assigned"}</p>
           <div className={styles.positionActions}>
-            {onMonitor ? <button type="button" aria-pressed={monitor === p.id} onClick={() => onMonitor(p.id)}>{monitor === p.id ? "Monitoring" : "Monitor"}</button> : null}
+            {onMonitor ? <button type="button" aria-pressed={monitor === p.id} title="Radio you hear" onClick={() => onMonitor(p.id)}><Headset aria-hidden="true"/>{monitor === p.id ? "Hearing" : "Hear"}</button> : null}
             {p.occupied ? <button type="button" disabled={!enabled || !!exercise.demonstration} onClick={() => onDemonstrate(p.id)}>{demonstrating ? "Demonstrating" : bandbox ? group.length === 2 ? "Demonstrate both" : "Demonstrate all" : "Demonstrate"}</button> : null}
             <button type="button" aria-expanded={open === "trainee"} disabled={!enabled} onClick={() => toggle(p.id, "trainee")}>{p.assignedId ? "Change mentee" : "Assign mentee"}</button>
             <button type="button" aria-expanded={open === "feedback"} onClick={() => toggle(p.id, "feedback")}>Feedback</button>

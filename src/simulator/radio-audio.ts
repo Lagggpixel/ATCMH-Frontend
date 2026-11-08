@@ -21,9 +21,11 @@ export interface SpeechOutput {
 }
 interface AudioState extends VoiceSettings {
   available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
+  /** The browser blocked playback; the next interaction retries the queued transmission. */
+  waiting: boolean;
 }
 export const DEFAULT_RADIO_RATE = 1;
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: ""};
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: "", waiting: false};
 export interface AudioPreference {
   read(): boolean | undefined; write(enabled: boolean): void;
   readVoiceSettings?(): Pick<VoiceSettings, "voice" | "rate"> | undefined;
@@ -167,6 +169,7 @@ export class RadioAudio {
     if (!this.state.enabled) return;
     this.output?.activate?.();
     this.waitingForRetry = false;
+    if (this.state.waiting) this.update({waiting: false});
     this.next();
   };
   setSettings(settings: Partial<VoiceSettings>) {
@@ -185,6 +188,7 @@ export class RadioAudio {
     clearTimeout(this.gapTimer); this.gapTimer = undefined; this.readbackCandidates.clear(); this.readbackSource = "";
     this.prepared = false;
     this.generation++; this.queue = []; this.waitingForRetry = false;
+    if (this.state.waiting) this.update({waiting: false});
     if (active) this.output?.cancel();
     if (this.state.speaking) this.update({speaking: ""});
   }
@@ -199,7 +203,7 @@ export class RadioAudio {
     if (!this.state.voices.length) return;
     const text = this.queue.shift()!;
     const generation = this.generation;
-    this.update({speaking: text, error: ""});
+    this.update({speaking: text, error: "", waiting: false});
     const error = (reason?: unknown) => {
       if (generation !== this.generation) return;
       this.generation++; this.output?.cancel();
@@ -211,7 +215,7 @@ export class RadioAudio {
         this.waitingForRetry = false; queueMicrotask(() => this.next()); return;
       }
       this.queue.unshift(text); this.waitingForRetry = true;
-      this.update({speaking: "", error: "Voice playback is waiting. Click or press a key in Sweatbox to retry. If needed, select an available voice in Voice settings."});
+      this.update({speaking: "", waiting: true, error: "Voice playback is waiting. Click or press a key in Sweatbox to retry. If needed, select an available voice in Voice settings."});
     };
     const {voice, rate, volume, allowOnline, radioFilter} = this.state;
     try {this.output.speak(text, {voice, rate, volume, allowOnline, ...(radioFilter === undefined ? {} : {radioFilter})}, () => {
