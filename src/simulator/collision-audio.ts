@@ -38,3 +38,15 @@ export function browserCollisionSound(): CollisionSound {
     source.onended = () => {source.disconnect(); filter.disconnect(); gain.disconnect();};
   }, close() {void context?.close().catch(() => {}); context = undefined;}};
 }
+
+const crashSoundListeners = new Set<() => void>();
+/** Whether the crash alert plays a sound, per account and role in this browser. The visual alert always shows. */
+export function crashSoundPreference(accountId: string, role: "staff" | "mentee") {
+  const key = `simulator:crash-sound:v1:${accountId}:${role}`;
+  return {
+    get: () => {try {return window.localStorage.getItem(key) !== "false";} catch {return true;}},
+    set: (enabled: boolean) => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Keep the default when storage is unavailable. */ } crashSoundListeners.forEach(listener => listener());},
+    subscribe: (listener: () => void) => {crashSoundListeners.add(listener); return () => {crashSoundListeners.delete(listener);};},
+    getServerSnapshot: () => true,
+  };
+}

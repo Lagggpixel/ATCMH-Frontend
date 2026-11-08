@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {CollisionAudio} from "./collision-audio";
+import {CollisionAudio, crashSoundPreference} from "./collision-audio";
 import {initialExercise, engineFor} from "./engine";
 import type {Exercise} from "./model";
 
@@ -39,4 +39,18 @@ test("radar terrain impact audio also supports single-aircraft events", () => {
   const impact: Exercise = {...state, elapsed: 1, collisions: [{kind: "terrain", id: "terrain", elapsed: 1, aircraft: [{id: "a", callsign: "Test"}], position: {x: 0, y: 0}}]};
   player.observe(impact, true, true, false, .6); player.observe(impact, true, true, false, .6);
   assert.deepEqual(played, [.6]);
+});
+
+test("the crash sound switch is remembered per account and role, defaulting on", () => {
+  const values = new Map<string, string>();
+  const previous = (globalThis as {window?: unknown}).window;
+  (globalThis as {window?: unknown}).window = {localStorage: {getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => {values.set(k, v);}}};
+  try {
+    const staff = crashSoundPreference("account", "staff"), mentee = crashSoundPreference("account", "mentee");
+    let changes = 0; const stop = staff.subscribe(() => changes++);
+    assert.equal(staff.get(), true);
+    staff.set(false);
+    assert.equal(staff.get(), false); assert.equal(mentee.get(), true); assert.equal(changes, 1);
+    stop(); staff.set(true); assert.equal(changes, 1); assert.equal(staff.get(), true);
+  } finally {(globalThis as {window?: unknown}).window = previous;}
 });

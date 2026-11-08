@@ -279,6 +279,17 @@ test("repeated autoplay denials during one tap never discard the queued transmis
   h.close();
 });
 
+test("a blocked browser marks audio as waiting until the next interaction or mute", () => {
+  const h = harness(); h.observe([message("blocked")]);
+  assert.equal(h.player.getSnapshot().waiting, false);
+  h.played[0].error(new DOMException("Interaction required", "NotAllowedError"));
+  assert.equal(h.player.getSnapshot().waiting, true);
+  h.player.activate(); assert.equal(h.player.getSnapshot().waiting, false);
+  h.played.at(-1)!.error(new DOMException("Interaction required", "NotAllowedError"));
+  h.player.setEnabled(false); assert.equal(h.player.getSnapshot().waiting, false);
+  h.close();
+});
+
 test("autoplay failures preserve enabled audio and retry the queued message on the next interaction", () => {
   const h = harness(); h.enable(); h.observe([message("one"), message("two")]); h.played[0].error();
   assert.equal(h.player.getSnapshot().enabled, true); assert.match(h.player.getSnapshot().error, /Click or press a key/);
