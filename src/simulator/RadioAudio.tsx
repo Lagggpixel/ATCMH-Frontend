@@ -48,14 +48,17 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const heard = positions?.options.find(p => p.id === positions.value);
   const target = positions ? heard?.name ?? "All" : undefined;
   // The browser blocked playback: one tap on the button resumes the queued transmission.
+  // If that tap does not unblock it, the next tap also opens the menu so Sound and Voice stay reachable.
   const blocked = audio.enabled && audio.waiting && !open;
+  const retried = useRef(false);
+  useEffect(() => {if (!audio.waiting) retried.current = false;}, [audio.waiting]);
   const label = !audio.available ? "No audio" : blocked ? "Tap to start audio" : !audio.enabled ? target ? `Muted · ${target}` : "Muted" : target ?? "Audio";
   const icon = !audio.available || !audio.enabled ? <SpeakerSlash aria-hidden="true"/> : blocked ? <Play aria-hidden="true"/> : positions ? <Headset aria-hidden="true"/> : <SpeakerHigh aria-hidden="true"/>;
   const atis = exercise.publishedAtis !== "ATIS UNAVAILABLE" ? exercise.publishedAtis : "";
   return <div ref={root} className={styles.radioAudio} onKeyDown={e => {if (e.key === "Escape" && open) {e.stopPropagation(); close();}}}>
     <button ref={toggle} className={styles.audioToggle} data-state={!audio.available ? "unavailable" : blocked ? "blocked" : audio.enabled ? "on" : "muted"} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-menu`}
       aria-label={`Radio audio: ${!audio.available ? "unavailable" : blocked ? "waiting for a tap to start" : audio.enabled ? "on" : "muted"}${target ? `, hearing ${heard ? `${heard.name} ${heard.mhz}` : "all positions"}` : ""}`}
-      title={blocked ? audio.error : "Radio audio"} onClick={() => {if (blocked) {player.activate(); return;} if (open) close(); else setOpen(true);}}>
+      title={blocked ? audio.error : "Radio audio"} onClick={() => {if (blocked) {player.activate(); if (retried.current) setOpen(true); retried.current = true; return;} if (open) close(); else setOpen(true);}}>
       {icon}{positions && audio.enabled && audio.available && !blocked ? <span className={styles.audioHear}>Hear</span> : null}<span>{label}</span>{blocked ? null : <CaretDown aria-hidden="true" className={styles.audioCaret}/>}
     </button>
     {open ? <section id={`${id}-menu`} className={styles.audioSettings} role="dialog" aria-label={page === "voice" ? "Voice settings" : "Radio audio"}>

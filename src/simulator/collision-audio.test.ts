@@ -54,3 +54,19 @@ test("the crash sound switch is remembered per account and role, defaulting on",
     stop(); staff.set(true); assert.equal(changes, 1); assert.equal(staff.get(), true);
   } finally {(globalThis as {window?: unknown}).window = previous;}
 });
+
+test("the crash sound switch still works for this tab when browser storage is blocked", () => {
+  const previous = (globalThis as {window?: unknown}).window;
+  const blocked = () => {throw new Error("blocked");};
+  (globalThis as {window?: unknown}).window = {get localStorage() {return blocked();}};
+  try {
+    const staff = crashSoundPreference("blocked-storage", "staff");
+    let changes = 0; const stop = staff.subscribe(() => changes++);
+    assert.equal(staff.get(), true);
+    staff.set(false);
+    assert.equal(staff.get(), false); assert.equal(changes, 1);
+    assert.equal(crashSoundPreference("blocked-storage", "staff").get(), false);
+    assert.equal(crashSoundPreference("blocked-storage", "mentee").get(), true);
+    stop();
+  } finally {(globalThis as {window?: unknown}).window = previous;}
+});

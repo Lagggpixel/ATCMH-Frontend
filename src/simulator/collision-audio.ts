@@ -39,13 +39,23 @@ export function browserCollisionSound(): CollisionSound {
   }, close() {void context?.close().catch(() => {}); context = undefined;}};
 }
 
+const crashSoundMemory = new Map<string, boolean>();
 const crashSoundListeners = new Set<() => void>();
 /** Whether the crash alert plays a sound, per account and role in this browser. The visual alert always shows. */
 export function crashSoundPreference(accountId: string, role: "staff" | "mentee") {
   const key = `simulator:crash-sound:v1:${accountId}:${role}`;
   return {
-    get: () => {try {return window.localStorage.getItem(key) !== "false";} catch {return true;}},
-    set: (enabled: boolean) => {try {window.localStorage.setItem(key, String(enabled));} catch { /* Keep the default when storage is unavailable. */ } crashSoundListeners.forEach(listener => listener());},
+    // The in-memory choice wins, so the switch still works in this tab when storage is blocked or full.
+    get: () => {
+      const remembered = crashSoundMemory.get(key);
+      if (remembered !== undefined) return remembered;
+      try {return window.localStorage.getItem(key) !== "false";} catch {return true;}
+    },
+    set: (enabled: boolean) => {
+      crashSoundMemory.set(key, enabled);
+      try {window.localStorage.setItem(key, String(enabled));} catch { /* Kept for this tab only when storage is unavailable. */ }
+      crashSoundListeners.forEach(listener => listener());
+    },
     subscribe: (listener: () => void) => {crashSoundListeners.add(listener); return () => {crashSoundListeners.delete(listener);};},
     getServerSnapshot: () => true,
   };
