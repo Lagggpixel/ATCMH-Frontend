@@ -1084,10 +1084,10 @@
 .demoSwitch:disabled {opacity:.55;cursor:not-allowed}
 .demoBusy {display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
 .demoBusy button {height:26px;padding:0 10px;border:1px solid var(--dashboard-border);border-radius:4px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:12px;cursor:pointer}
-.demoSwitch>span {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
-.demoSwitch>span::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
-.demoSwitch[aria-checked=true]>span {border-color:var(--dashboard-link)}
-.demoSwitch[aria-checked=true]>span::after {transform:translateX(12px);background:var(--dashboard-link)}
+.demoSwitch>span[aria-hidden] {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
+.demoSwitch>span[aria-hidden]::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
+.demoSwitch[aria-checked=true]>span[aria-hidden] {border-color:var(--dashboard-link)}
+.demoSwitch[aria-checked=true]>span[aria-hidden]::after {transform:translateX(12px);background:var(--dashboard-link)}
 .demoHandedBack {border-color:#91e98d;background:#1d3320;color:#c9f5c6}
 
 /* Bandbox: one Approach button and a banner for a controller holding several positions. */

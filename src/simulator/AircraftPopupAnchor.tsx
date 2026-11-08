@@ -10,13 +10,21 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
   readOnly?: boolean; className?: string;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
-  const initial = useRef({scope, point, screenPoint});
+  const initial = useRef({scope, point, screenPoint, readOnly});
+  // A read-only copy follows its aircraft as the radar pans and zooms; an interactive menu stays at the tap.
+  const followed = useRef(point);
+  const placeLatest = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     const element = anchor.current, scopeElement = initial.current.scope.current;
-    const bounds = scopeElement?.getBoundingClientRect();
-    if (!element || !bounds) return;
-    const origin = initial.current.screenPoint ?? {x: bounds.left + initial.current.point.x, y: bounds.top + initial.current.point.y};
+    const tapBounds = scopeElement?.getBoundingClientRect();
+    if (!element || !tapBounds) return;
+    const tapOrigin = initial.current.screenPoint ?? {x: tapBounds.left + initial.current.point.x, y: tapBounds.top + initial.current.point.y};
     const place = () => {
+      let origin = tapOrigin;
+      if (initial.current.readOnly) {
+        const bounds = scopeElement?.getBoundingClientRect() ?? tapBounds;
+        origin = {x: bounds.left + followed.current.x, y: bounds.top + followed.current.y};
+      }
       const root = scopeElement?.closest("main") ?? scopeElement!;
       const safe = root.getBoundingClientRect(), css = getComputedStyle(root);
       const left = Math.max(0, safe.left) + parseFloat(css.paddingLeft) + 5;
@@ -33,13 +41,20 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
       element.style.setProperty("--popup-direction", `${(origin.x < (safe.left + safe.right) / 2 ? 36 : -36) * unit}px`);
       element.style.visibility = "visible";
     };
+    placeLatest.current = place;
     place();
     // Submenus replace the list at the original tap, refitting their new height.
     const resize = new ResizeObserver(place);
     resize.observe(element);
     window.addEventListener("resize", place);
-    return () => {resize.disconnect(); window.removeEventListener("resize", place);};
+    return () => {placeLatest.current = null; resize.disconnect(); window.removeEventListener("resize", place);};
   }, []);
+  const {x, y} = point;
+  useLayoutEffect(() => {
+    if (!readOnly) return;
+    followed.current = {x, y};
+    placeLatest.current?.();
+  }, [readOnly, x, y]);
   useEffect(() => {
     // An outgoing quick menu must not dismiss the message panel that replaced it.
     if (closing || readOnly) return;
