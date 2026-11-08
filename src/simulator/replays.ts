@@ -15,12 +15,16 @@ export const recordingLabel = (replay: ReplaySummary) => replay.kind === "record
 
 /** The trainer's pointer, clicks and sent commands during a demonstration, in replay seconds. */
 export interface ReplayDemoMark {at: number; point?: Point; down?: true; click?: true; sent?: {callsign: string; text: string; path: string[]}}
+/** A trainee's controller state (selection, open messages, drags, zoom) or a sent command, in replay seconds. */
+export interface ReplayTraineeMark {at: number; positionId: string; /** The trainee account that produced it. */ accountId?: string; state?: import("./trainee-overlay").TraineeView; sent?: {callsign: string; text: string; path: string[]}}
 export interface ReplayDelta {
   state: Partial<Omit<Exercise, "aircraft">>;
   /** Optional exercise fields that ended, such as a demonstration. */
   unset?: (keyof Exercise)[];
   aircraft: {id: string; value?: Partial<Aircraft>; unset?: (keyof Aircraft)[]; remove?: true}[];
   demo?: ReplayDemoMark[];
+  /** Each trainee position's own controller state and sent commands, for the replay's trainee overlay. */
+  shadow?: ReplayTraineeMark[];
 }
 export interface ReplayFrame {sequence: number; at: number; delta: ReplayDelta; interpolate: boolean}
 export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; frames: ReplayFrame[]; next: number | null; positionFeedback?: Record<string, string>; feedbackPositions?: Exercise["positions"]}
@@ -31,7 +35,12 @@ export function participantReplay(detail: ReplayDetail, accountId: string): Repl
   const feedback = (value: Record<string, string>) => Object.fromEntries(Object.entries(value).filter(([id]) => positions.has(id)));
   const visible = (state: Partial<Exercise>) => {const copy = {...state}; delete copy.interceptFeedback; if (copy.positionFeedback) copy.positionFeedback = feedback(copy.positionFeedback); return copy;};
   return {...detail, ...(detail.positionFeedback ? {positionFeedback: feedback(detail.positionFeedback)} : {}), initial: detail.initial ? visible(detail.initial) as Exercise : null,
-    frames: detail.frames.map(frame => ({...frame, delta: {...frame.delta, state: visible(frame.delta.state)}}))};
+    frames: detail.frames.map(frame => {
+      // A trainee replays only the controls they produced; a later or earlier occupant of the same seat stays private.
+      const shadow = frame.delta.shadow?.filter(mark => mark.accountId === accountId);
+      const delta = {...frame.delta, state: visible(frame.delta.state)}; delete delta.shadow;
+      return {...frame, delta: shadow?.length ? {...delta, shadow} : delta};
+    })};
 }
 
 /** Drop transport deduplication IDs and redundant trails, never radio messages or aircraft state. */

@@ -148,7 +148,7 @@ async function menteeShadow(request: Request, id: string) {
   const raw = await readBody(request, 64_000, "Controller update is too large."), seat = seatSchema.parse(raw);
   const key = shadowKey(id, seat.positionId?.split(",")[0]);
   if (seat.role !== "mentee" || !shadow.allowed(key, "trainee", seat.token)) throw new SessionError("shadow-closed", "Reconnect to the session first.", 409);
-  shadow.publish(key, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch));
+  shadow.publish(key, demoBatchSchema.parse(z.object({batch: z.unknown()}).parse(raw).batch), shadow.seatAccount(key, seat.token));
   return Response.json({watched: shadow.watchers(key) > 0}, {headers: noStore});
 }
 /** How long an open stream keeps its last confirmed access while the sign-in service is unreachable. */
@@ -191,7 +191,7 @@ async function stream(request: Request, id: string) {
         let frame = initial;
         while (!cancelled && !request.signal.aborted) {
           presenter = demoPresenter(frame.exercise.demonstration, seat.role, actor.accountId);
-          if (seat.role === "mentee") shadow.trust(shadowKey(id, frame.positionId), "trainee", seat.token, true);
+          if (seat.role === "mentee") shadow.trust(shadowKey(id, frame.positionId), "trainee", seat.token, true, actor.accountId);
           hub.trust(id, presenter ? "presenter" : seat.role === "mentee" && (!frame.exercise.demonstration?.positionId || frame.exercise.demonstration.positionId === frame.positionId) ? "mentee" : "watcher", seat.token, seat.role === "spectator" ? undefined : !!frame.exercise.demonstration);
           if (frame.contentRevision !== contentRevision) {
             send({type: "snapshot", positionId: frame.positionId, positionIds: frame.positionIds, exercise: frame.exercise, session: frame.session, scenario: frame.scenario}); contentRevision = frame.contentRevision;

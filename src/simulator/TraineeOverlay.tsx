@@ -2,15 +2,14 @@
 import type {ReactNode} from "react";
 import GroundRouteOverlay from "./GroundRouteOverlay";
 import {messageMenu} from "./MessagePanel";
-import type {DemoState} from "./demonstration";
 import type {Aircraft, Airport, Exercise, Point, RadarEnvironment} from "./model";
 import {vectorPreview} from "./radar";
-import {TRAINEE_BLUE, traineeFocus, traineeGroundRoute} from "./trainee-overlay";
+import {TRAINEE_BLUE, traineeFocus, traineeGroundRoute, type TraineeView} from "./trainee-overlay";
 import {outsideVectorCircle, VECTOR_CANCEL_RADIUS} from "./vector-drag";
 import styles from "./Simulator.module.css";
 
 /** What a staff radar draws for the trainee: everything is read-only and drawn over the staff's own view. */
-export interface TraineeScopeView {name?: string; state: DemoState | null; followZoom: boolean; messages?: ReactNode}
+export interface TraineeScopeView {name?: string; state: TraineeView | null; followZoom: boolean; messages?: ReactNode}
 
 /** The toolbar switches. Positions appear only when the session is split. */
 export function TraineeControlsSwitch({show, followZoom, onShow, onFollowZoom, positions, position, onPosition, disabled}: {show: boolean; followZoom: boolean; onShow: (show: boolean) => void; onFollowZoom: (follow: boolean) => void; positions?: readonly {id: string; name: string}[]; position?: string; onPosition?: (id: string) => void; disabled?: boolean}) {
@@ -22,7 +21,7 @@ export function TraineeControlsSwitch({show, followZoom, onShow, onFollowZoom, p
 }
 
 /** The trainee's selection ring and drags, in the staff radar's own projection. */
-export function TraineeScopeLayer({state, name, aircraft, airport, environment, project, scale, size}: {state: DemoState; name?: string; aircraft: readonly Aircraft[]; airport: Airport; environment?: RadarEnvironment; project: (p: Point) => Point; scale: number; size: {width: number; height: number}}) {
+export function TraineeScopeLayer({state, name, aircraft, airport, environment, project, scale, size}: {state: TraineeView; name?: string; aircraft: readonly Aircraft[]; airport: Airport; environment?: RadarEnvironment; project: (p: Point) => Point; scale: number; size: {width: number; height: number}}) {
   const focus = traineeFocus(state), focused = focus ? aircraft.find(a => a.id === focus) : undefined;
   const ring = focused ? project(focused.position) : null;
   const dragged = state.vectorDraft ? aircraft.find(a => a.id === state.vectorDraft!.aircraftId) : undefined;
@@ -43,7 +42,7 @@ export function TraineeScopeLayer({state, name, aircraft, airport, environment, 
 }
 
 /** The trainee's open message list, read-only, for the staff radar's bottom-right corner. */
-export function TraineeMessages({name, state, exercise}: {name?: string; state: DemoState | null; exercise: Exercise}) {
+export function TraineeMessages({name, state, exercise}: {name?: string; state: TraineeView | null; exercise: Exercise}) {
   const aircraft = state?.messageId ? exercise.aircraft.find(a => a.id === state.messageId) : undefined;
   if (!state || !aircraft) return null;
   const frequency = aircraft.frequency ?? state.frequency;

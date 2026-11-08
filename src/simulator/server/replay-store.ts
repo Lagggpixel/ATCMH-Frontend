@@ -3,7 +3,8 @@ import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly} from "../../lib/simulator-db";
 import {exerciseSchema} from "../protocol";
 import {demoReplayMarks} from "../demonstration";
-import {demoHub} from "./demo-hub";
+import {demoHub, shadowHub} from "./demo-hub";
+import {traineeReplayMarks} from "../trainee-overlay";
 import {recordedStateAt, replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
 import {SessionError} from "../sessions";
 import type {Exercise} from "../model";
@@ -69,7 +70,10 @@ export async function recordReplay(connection: ReplayConnection, record: Session
     duration += elapsed; sequence++;
     // The trainer's pointer and commands since the last frame ride along with it.
     const demo = demoReplayMarks(demoHub.drainTrace(record.id), duration, state.elapsed);
-    const delta = {...replayDelta(previous, state), ...(demo.length ? {demo} : {})};
+    // So do each mentee position's own controls, for the replay's mentee overlay.
+    const prefix = `${record.id}:`;
+    const shadow = shadowHub.keys(prefix).flatMap(key => traineeReplayMarks(shadowHub.drainTrace(key), key.slice(prefix.length), duration, state.elapsed)).sort((a, b) => a.at - b.at);
+    const delta = {...replayDelta(previous, state), ...(demo.length ? {demo} : {}), ...(shadow.length ? {shadow} : {})};
     // Recordings begun before compact storage finish in the JSON format they started in.
     if (!await appendCompactFrame(connection, row.id, Number(row.sequence_no), previous, {sequence, at: duration, delta, interpolate: !changed}, !!ended, now))
       await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(delta), changed ? 0 : 1]);

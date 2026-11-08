@@ -3,7 +3,7 @@ import {trainingMode} from "./airports";
 import {replayEvents, replaySnapshots} from "./replay-events";
 import type {ReplayFrame} from "./replays";
 
-export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration";
+export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration" | "trainee";
 export interface ReplayMoment {id: string; kind: MomentKind; at: number; end?: number; label: string; detail: string; aircraftIds: string[]}
 
 /**

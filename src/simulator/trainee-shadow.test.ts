@@ -45,6 +45,15 @@ test("the shadow hub keeps positions apart and counts the streams reading each o
   stop(); assert.equal(hub.watchers(approach), 0);
 });
 
+test("the shadow trace remembers which account's stream vouched for each update", () => {
+  const hub = new DemoHub(() => 0), key = shadowKey("s1", "north");
+  hub.trust(key, "trainee", "alice-seat", true, "alice");
+  hub.publish(key, {seq: 1, sentAt: 0, elapsed: 0, pointer: [], events: []}, hub.seatAccount(key, "alice-seat"));
+  hub.trust(key, "trainee", "bob-seat", true, "bob");
+  hub.publish(key, {seq: 2, sentAt: 0, elapsed: 1, pointer: [], events: []}, hub.seatAccount(key, "bob-seat"));
+  assert.deepEqual(hub.drainTrace(key).map(entry => entry.accountId), ["alice", "bob"]);
+});
+
 test("trainee and demonstration frames keep their controller state on the compact stream", async () => {
   const {StreamDecoder, StreamEncoder} = await import("./stream-codec");
   const encoder = new StreamEncoder(), decoder = new StreamDecoder();

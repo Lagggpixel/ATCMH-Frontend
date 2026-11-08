@@ -49,6 +49,7 @@ test("mentee controller state reaches only the staff stream that asked for it, a
     assert.equal(binary.status, 200); assert.equal((await binary.json()).watched, true);
     const oversized = await api.sessionOperation(request("POST", {role: "mentee", token: trainee, batch, pad: "x".repeat(70_000)}, {cookie: "103"}), session.id, "shadow");
     assert.equal(oversized.status, 413);
+    assert.deepEqual(shadow.drainTrace(`${session.id}:main`).map(entry => entry.accountId), ["103", "103"], "replays record which mentee produced each update");
   } finally {await traineeReader.cancel(); await staffReader.cancel();}
   await new Promise(resolve => setTimeout(resolve, 20));
   const unwatched = await api.sessionOperation(request("POST", {role: "mentee", token: trainee, batch}, {cookie: "103"}), session.id, "shadow");
