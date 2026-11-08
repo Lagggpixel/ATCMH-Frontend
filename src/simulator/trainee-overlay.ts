@@ -5,23 +5,25 @@ import type {Airport, GroundRoute} from "./model";
 import type {DemoFrame} from "./shared-transport";
 
 /** The part of a trainee's controller state a staff radar or replay draws. */
-export type TraineeView = Pick<DemoState, "frequency" | "selectedId" | "messageId" | "menuPath" | "vectorDraft" | "ground" | "camera">;
+export type TraineeView = Pick<DemoState, "frequency" | "selectedId" | "messageId" | "menuPath" | "vectorDraft" | "ground" | "camera"> & Partial<Pick<DemoState, "quickHidden" | "vectorHeading" | "vectorTarget" | "quickPicker">>;
 
 /** The trainee's colour on a staff radar: their selection ring, drags and open messages. */
 export const TRAINEE_BLUE = "#499cff";
 
 /** Each staff page keeps its own choice, per account: a trainer and an Owner spectator never share it. */
-export interface TraineeControlsSetting {show: boolean; followZoom: boolean}
-export const TRAINEE_CONTROLS_DEFAULT: TraineeControlsSetting = {show: true, followZoom: false};
+export interface TraineeControlsSetting {show: boolean; follow: boolean}
+export const TRAINEE_CONTROLS_DEFAULT: TraineeControlsSetting = {show: true, follow: false};
 export const traineeControlsKey = (accountId?: string) => `sweatbox:trainee-controls:${accountId ?? "anonymous"}`;
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 export function readTraineeControls(storage: Store | undefined, accountId?: string): TraineeControlsSetting {
   try {
-    const saved = JSON.parse(storage?.getItem(traineeControlsKey(accountId)) ?? "null") as Partial<TraineeControlsSetting> | null;
+    const saved = JSON.parse(storage?.getItem(traineeControlsKey(accountId)) ?? "null") as (Partial<TraineeControlsSetting> & {followZoom?: unknown}) | null;
+    // Earlier pages saved "follow zoom"; following now takes the trainee's whole view.
+    const follow = typeof saved?.follow === "boolean" ? saved.follow : saved?.followZoom;
     return {
       show: typeof saved?.show === "boolean" ? saved.show : TRAINEE_CONTROLS_DEFAULT.show,
-      followZoom: typeof saved?.followZoom === "boolean" ? saved.followZoom : TRAINEE_CONTROLS_DEFAULT.followZoom,
+      follow: typeof follow === "boolean" ? follow : TRAINEE_CONTROLS_DEFAULT.follow,
     };
   } catch {return {...TRAINEE_CONTROLS_DEFAULT};}
 }
@@ -57,7 +59,12 @@ export function traineeShortcut(event: {key: string; ctrlKey: boolean; metaKey: 
 }
 
 /** Only what an overlay draws: quick commands, scroll positions and dismissed strips stay out of replays. */
-export const traineeView = (state: TraineeView): TraineeView => ({frequency: state.frequency, selectedId: state.selectedId, messageId: state.messageId, menuPath: state.menuPath, vectorDraft: state.vectorDraft, ground: state.ground, camera: state.camera});
+export const traineeView = (state: TraineeView): TraineeView => ({frequency: state.frequency, selectedId: state.selectedId, messageId: state.messageId, menuPath: state.menuPath, vectorDraft: state.vectorDraft, ground: state.ground, camera: state.camera,
+  ...(state.quickHidden ? {quickHidden: true} : {}), ...(state.vectorHeading !== undefined ? {vectorHeading: state.vectorHeading} : {}),
+  ...(state.vectorTarget ? {vectorTarget: state.vectorTarget} : {}), ...(state.quickPicker ? {quickPicker: state.quickPicker} : {})});
+
+/** The aircraft whose popup menu the trainee has open: selected, not dismissed, and not replaced by the message list. */
+export const traineeMenuAircraft = (state: TraineeView | null) => state && state.selectedId && !state.messageId && !state.quickHidden && !state.vectorDraft ? state.selectedId : null;
 
 /** Turns one position's shadow trace into replay marks on the replay clock: each change of state, at
  * most one per fixed tenth of a second, and every sent command. Each mark keeps the account that produced

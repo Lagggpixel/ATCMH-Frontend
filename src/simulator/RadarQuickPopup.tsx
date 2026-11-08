@@ -1,5 +1,6 @@
 "use client";
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
+import type {QuickPicker} from "./demonstration";
 import {controllerAircraft} from "./controller-state";
 import {environmentWithDestinations} from "./aviation";
 import {catalogFor, CONTEXT_ACTIONS, contextMenu, type ContextAction} from "./catalog";
@@ -11,11 +12,19 @@ import type {Action, Aircraft, Altitude, Exercise, Frequency, Instruction} from 
 import type {VectorTarget} from "./vector-drag";
 import styles from "./Simulator.module.css";
 
-export default function RadarQuickPopup({aircraft, exercise, frequency, heading, target, connected, dispatch, onMessages, onAction, onSent}: {
+export default function RadarQuickPopup({aircraft, exercise, frequency, heading, target, connected, dispatch, onMessages, onAction, onSent, initialPicker, onPicker}: {
   aircraft: Aircraft; exercise: Exercise; frequency: Frequency; heading?: number; target?: VectorTarget; connected: boolean;
   dispatch: (action: Action) => void | Promise<boolean>; onMessages: () => void; onAction: (action: ContextAction) => void; onSent: () => void;
+  /** A staff radar opens the trainee's copy on the same list. */ initialPicker?: QuickPicker;
+  /** Reports the open list so a staff radar can show the same one. */ onPicker?: (picker: QuickPicker | null) => void;
 }) {
-  const [picker, setPicker] = useState<"altitude" | "approach" | "missed" | "reminder" | "color" | "direct-altitude" | null>(null);
+  const [picker, setPicker] = useState<QuickPicker | null>(initialPicker ?? null);
+  const reportPicker = useRef(onPicker);
+  useEffect(() => {reportPicker.current = onPicker;});
+  useEffect(() => {
+    reportPicker.current?.(picker);
+    return () => reportPicker.current?.(null);
+  }, [picker]);
   const [approachId, setApproachId] = useState<string>();
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);

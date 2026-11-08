@@ -33,9 +33,13 @@ export interface DemoController {
 }
 /** One of the presenter's own quick commands, as the watching screens show it. */
 export type DemoQuickCommand = Omit<QuickCommand, "count" | "manual">;
+export const QUICK_PICKERS = ["altitude", "approach", "missed", "reminder", "color", "direct-altitude"] as const;
+export type QuickPicker = typeof QUICK_PICKERS[number];
 export interface DemoState extends DemoController {
   quickHidden: boolean; utility: string | null;
   vectorHeading?: number; vectorTarget?: VectorTarget; vectorAnchor?: Point;
+  /** The quick menu's open submenu, so a staff radar can show the same list. */
+  quickPicker?: QuickPicker;
   vectorDraft: {aircraftId: string; point: Point; initial?: boolean} | null;
   ground: DemoGroundDraft | null;
   camera: (MapCamera & {width: number; height: number}) | null;
@@ -72,6 +76,7 @@ export const demoStateSchema = z.object({...controller,
   quickHidden: z.boolean(), utility: z.string().max(40).nullable(),
   vectorHeading: finite(0, 360).optional(), vectorAnchor: point.optional(),
   vectorTarget: z.object({index: finite(0, 500).int(), name: label, point}).strict().optional(),
+  quickPicker: z.enum(QUICK_PICKERS).optional(),
   vectorDraft: z.object({aircraftId: id, point, initial: z.boolean().optional()}).strict().nullable(),
   ground: z.object({aircraftId: id, kind: z.enum(["taxi", "pushback"]), controls: z.array(point).min(2).max(24),
     destination: z.object({type: z.enum(["point", "runway", "parking"]), id: id.optional()}).strict(),

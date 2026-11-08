@@ -19,9 +19,10 @@ test("shadow traces become replay marks on the replay clock, keeping only what t
     batch(11, {selectedId: "a1", quickHidden: false}),
     batch(12, {selectedId: "a1", messageId: "a1"}, [{kind: "sent", t: 12_000, callsign: "EZY24", text: "Descend 5000", path: ["Altitude"]}]),
   ], "north", 30, 12);
-  assert.deepEqual(marks.map(mark => mark.at), [28, 30, 30], "exercise second 12 is replay second 30");
-  assert.equal(marks.filter(mark => mark.state).length, 2, "a change only to quick commands is not a new mark");
-  assert.ok(!("quickHidden" in marks[0].state!), "quick commands stay out of replays");
+  assert.deepEqual(marks.map(mark => mark.at), [28, 29, 30, 30], "exercise second 12 is replay second 30");
+  assert.equal(marks.filter(mark => mark.state).length, 3, "closing and reopening the menu are marks, so the replay shows it");
+  assert.equal(marks[0].state!.quickHidden, true, "the replay knows the trainee's menu was closed");
+  assert.ok(!("quick" in marks[0].state!), "the quick command list stays out of replays");
   assert.deepEqual(marks.at(-1)!.sent, {callsign: "EZY24", text: "Descend 5000", path: ["Altitude"]});
   assert.ok(marks.every(mark => mark.positionId === "north"));
 });

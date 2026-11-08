@@ -4,8 +4,10 @@ import {createPortal} from "react-dom";
 import type {Point} from "./model";
 import styles from "./Simulator.module.css";
 
-export default function AircraftPopupAnchor({scope, point, screenPoint, children, onDismiss, closing = false}: {
+export default function AircraftPopupAnchor({scope, point, screenPoint, children, onDismiss, closing = false, readOnly = false, className}: {
   scope: RefObject<HTMLDivElement | null>; point: Point; screenPoint?: Point; children: ReactNode; onDismiss?: () => void; closing?: boolean;
+  /** Someone else's menu shown for reference: it never takes clicks, keys or dismissals. */
+  readOnly?: boolean; className?: string;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
   const initial = useRef({scope, point, screenPoint});
@@ -40,14 +42,14 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
   }, []);
   useEffect(() => {
     // An outgoing quick menu must not dismiss the message panel that replaced it.
-    if (closing) return;
+    if (closing || readOnly) return;
     const dismiss = (event: PointerEvent) => {if (event.target instanceof Node && !anchor.current?.contains(event.target)) onDismiss?.();};
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") onDismiss?.();};
     document.addEventListener("pointerdown", dismiss, true);
     document.addEventListener("keydown", escape);
     return () => {document.removeEventListener("pointerdown", dismiss, true); document.removeEventListener("keydown", escape);};
-  }, [onDismiss, closing]);
-  const popup = <div ref={anchor} className={styles.contextAnchor} data-demo-region="scope-menu" data-closing={closing} inert={closing} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
+  }, [onDismiss, closing, readOnly]);
+  const popup = <div ref={anchor} className={`${styles.contextAnchor} ${className ?? ""}`} data-demo-region={readOnly ? undefined : "scope-menu"} data-closing={closing} inert={closing || readOnly} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
   const host = scope.current?.closest("main");
   return host ? createPortal(popup, host) : popup;
 }
