@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -18,7 +19,7 @@ const act = (state: Exercise, action: Action) => {
   assert.equal(result.error, undefined); return result.state;
 };
 function fixture(icao = "CYUL", station: "approach" | "center" = "approach") {
-  const engine = engineFor({airport: icao, trainingStation: `${icao}:${station}`}), state = engine.initialExercise();
+  const engine = engineFor({airport: icao, trainingStation: `${icao}:${station}`}), state = withFixedReadbackDelay(engine.initialExercise());
   state.aircraft = [state.aircraft[0]]; state.running = state.autoReadback = true;
   delete state.aircraft[0].radar!.report;
   return {engine, state, airport: getAirport(state), env: state.radarEnvironment!, a: state.aircraft[0]};

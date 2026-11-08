@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AIRPORT, advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise, validateAssignment, engineFor} from "./engine";
@@ -16,7 +17,7 @@ const square: Airport = {...AIRPORT, features: [
 ]};
 
 function departure() {
-  const state = initialExercise(), a = state.aircraft[1]; state.running = true; state.autoReadback = true; a.holding = true;
+  const state = withFixedReadbackDelay(initialExercise()), a = state.aircraft[1]; state.running = true; state.autoReadback = true; a.holding = true;
   const {route, error} = buildGroundRoute(AIRPORT, "taxi", [a.position, AIRPORT.runway.ends.find(end => end.id === "24")!.point], {type: "runway", id: "24"});
   assert.equal(error, undefined); return {state, a, route: route!};
 }
@@ -203,7 +204,7 @@ const point = (runway: string, along: number, lateral = 0) => {
   return {x: g.threshold.x + along * g.vector.x - lateral * g.vector.y, y: g.threshold.y + along * g.vector.y + lateral * g.vector.x};
 };
 
-const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...withFixedReadbackDelay(engine.initialExercise()), aircraft, running: true});
 
 const assign = (state: Exercise, instruction: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: instruction});
 

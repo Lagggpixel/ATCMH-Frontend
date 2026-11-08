@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import {magneticToTrue, trueToMagnetic} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -16,7 +17,7 @@ import type {Action, Exercise, Instruction} from "./model";
 
 function exercise(mode: "approach" | "center" = "approach"): Exercise {
   const engine = engineFor({trainingStation: `EGPH:${mode}`});
-  const state = engine.initialExercise(); state.aircraft = [engine.newAircraft("a", true)];
+  const state = withFixedReadbackDelay(engine.initialExercise()); state.aircraft = [engine.newAircraft("a", true)];
   state.aircraft[0].callsign = "Speedbird 1"; delete state.aircraft[0].radar!.report;
   state.running = true; state.autoReadback = false; return state;
 }
@@ -41,7 +42,7 @@ test("label angle persists through session JSON/replay and allows presentation e
   state = send(state, {kind: "edit", aircraftId: "a", patch: {tag: "left"}}); assert.equal(state.aircraft[0].tagAngle, undefined);
 });
 test("Ground & Tower uses the same asymmetric climb/descent rates", () => {
-  const engine = engineFor({trainingStation: "EGPH:local"}); const state = engine.initialExercise(); state.running = true;
+  const engine = engineFor({trainingStation: "EGPH:local"}); const state = withFixedReadbackDelay(engine.initialExercise()); state.running = true;
   state.aircraft = [engine.newAircraft("a", true)]; const a = state.aircraft[0], target = getAirport(state).elevation + 1500;
   Object.assign(a, {mode: "heading", leavingCircuit: true, takeoffPattern: false, altitude: target - 1000});
   near(fly(state, 15).aircraft[0].altitude, target - 500);
@@ -116,7 +117,7 @@ test("all heading instructions round consistently in transmissions, readbacks an
   const sent = state.messages.find(m => m.id === id)!; assert.match(engineFor(state).readbackText(state.aircraft[0].callsign, sent.text, sent.instruction), /heading 220/);
   state = assign(state, {type: "vector", heading: 356}); assert.equal(state.aircraft[0].targetHeading, magneticToTrue(0, getAirport()));
   const engine = engineFor({trainingStation: "EGPH:local"});
-  const local = engine.initialExercise(); local.aircraft = [engine.newAircraft("a", true)];
+  const local = withFixedReadbackDelay(engine.initialExercise()); local.aircraft = [engine.newAircraft("a", true)];
   assert.equal(assign(local, {type: "heading", value: 224}).aircraft[0].targetHeading, magneticToTrue(220, getAirport()));
 });
 
@@ -261,7 +262,7 @@ test("transfer leaves controlled traffic and manual retune can bring it back", (
   state = send(state, {kind: "edit", aircraftId: "a", patch: {frequency: "approach"}}); assert.equal(state.aircraft[0].radar!.transferred, false);
 });
 test("new commands remain restricted in Ground & Tower", () => {
-  const local = engineFor().initialExercise(); const action: Action = {kind: "command", aircraftId: local.aircraft[0].id, frequency: "tower", text: "", command: {type: "vector", heading: 90}};
+  const local = withFixedReadbackDelay(engineFor().initialExercise()); const action: Action = {kind: "command", aircraftId: local.aircraft[0].id, frequency: "tower", text: "", command: {type: "vector", heading: 90}};
   assert.equal(menteeActionAllowed(action, local), false); assert.ok(applyEnvelope(local, {id: randomUUID(), time: 0, action}).error);
   assert.deepEqual(controlledFrequencies(local), ["ground", "tower", "atis"]);
 });

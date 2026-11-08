@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -18,7 +19,7 @@ const act = (state: Exercise, action: Action) => {
   return result.state;
 };
 function refusedSpeed() {
-  let state = engineFor({trainingStation: "EGPH:approach"}).initialExercise();
+  let state = withFixedReadbackDelay(engineFor({trainingStation: "EGPH:approach"}).initialExercise());
   state.aircraft = [state.aircraft[0]];
   state.running = true; state.autoReadback = true;
   delete state.aircraft[0].radar!.report;
@@ -39,7 +40,7 @@ test("automatic Unable retains its exact reason through snapshot restoration wit
 
 test("manual Unable explains an invalid assignment or records the mentor's choice for a valid one", () => {
   for (const instruction of [{type: "takeoff", runway: "24"}, {type: "extend", leg: "downwind"}] satisfies Extract<Action, {kind: "command"}>["command"][]) {
-    let state = initialExercise(); state.autoReadback = false;
+    let state = withFixedReadbackDelay(initialExercise()); state.autoReadback = false;
     state = act(state, {kind: "command", aircraftId: "demo-air", frequency: "tower", command: instruction, text: ""});
     const before = structuredClone(state.aircraft);
     state = act(state, {kind: "pilot", aircraftId: "demo-air", replyTo: state.messages[0].id, text: "Unable, Speedbird 124"});

@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -15,11 +16,11 @@ const send = (state: Exercise, command: Instruction, aircraftId = "demo-ground",
   return act(state, {kind: "command", aircraftId, command, frequency: a.frequency!, text: instructionText(a, command), ...(replyTo ? {replyTo} : {})});
 };
 const tick = (state: Exercise) => autoReadbacks(advance(state, 2), 2000, randomUUID);
-const active = () => ({...initialExercise(), running: true, autoReadback: true});
+const active = () => ({...withFixedReadbackDelay(initialExercise()), running: true, autoReadback: true});
 const all = (entries: MenuEntry[]): MenuEntry[] => entries.flatMap(entry => [entry, ...all(entry.children ?? [])]);
 
 test("removed commands are absent and all hold-short submenus offer both bare runway numbers", () => {
-  const state = initialExercise();
+  const state = withFixedReadbackDelay(initialExercise());
   for (const [frequency, aircraft] of [["ground", state.aircraft[1]], ["tower", state.aircraft[1]], ["tower", state.aircraft[0]]] as const) {
     const entries = all(messageMenu(frequency, aircraft));
     for (const label of ["Unable", "Unable, Divert", "Wilco", "Tow Approved"]) assert.ok(!entries.some(e => e.label === label), label);
@@ -71,8 +72,9 @@ test("Disregard targets only the immediate previous transmission to that aircraf
   assert.equal(state.messages[0].retractedBy, undefined);
   assert.equal(state.messages[1].retractedBy, state.messages[3].id);
   assert.equal(state.messages[2].retractedBy, undefined);
-  assert.equal(tick(state).aircraft[1].holding, true, "the earlier movement instruction was not the withdrawn message");
-  assert.equal(applyEnvelope(initialExercise(), {id: "empty", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", command: {type: "radio", message: "disregard"}, text: "Disregard"}}).error, undefined);
+  assert.equal(state.messages[0].supersededBy, state.messages[1].id);
+  assert.equal(tick(state).aircraft[1].holding, false, "the newer transmission already superseded the unread movement instruction");
+  assert.equal(applyEnvelope(withFixedReadbackDelay(initialExercise()), {id: "empty", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", command: {type: "radio", message: "disregard"}, text: "Disregard"}}).error, undefined);
 });
 
 test("controller Unable requires a pilot request and permits replying to an older runway-change request", () => {

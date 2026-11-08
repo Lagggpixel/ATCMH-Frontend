@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {getAirport} from "./airports";
@@ -20,7 +21,7 @@ const initial = (profile?: Aircraft["performanceProfile"]): Exercise => {
   const a = {...engine.newAircraft("delta", false), performanceProfile: profile, callsign: "Delta 64", runway, frequency: "tower" as const,
     position: {...c5}, heading: (geometry.heading + 270) % 360, targetHeading: (geometry.heading + 270) % 360,
     speed: 0, targetSpeed: 0, mode: "parked" as const, taxiPath: [{...c5, runway}], taxiIndex: 1};
-  return {...engine.initialExercise(), running: true, autoReadback: true, aircraft: [a]};
+  return {...withFixedReadbackDelay(engine.initialExercise()), running: true, autoReadback: true, aircraft: [a]};
 };
 let serial = 0;
 function clear(state: Exercise, command: Instruction) {

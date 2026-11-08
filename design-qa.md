@@ -1,3 +1,72 @@
+# Readback timing design QA
+
+final result: passed
+
+## Visual truth and scope
+
+Selected Product Design image: `C:/Users/Reid/.codex/generated_images/01a1bd08-c688-77e1-8485-43d212331599/exec-2c3191d7-bcff-4885-9239-0666a9452dec.png`.
+
+The user's subsequent amendments take precedence: remove the four explanatory sentences and Apply timing; save changes automatically; place Reset to the right of Readback delay. Keep one dual-handle 0–10 second track with 0.1-second adjustments and default 2.0–2.5 seconds. Placement remains directly below Automatic pilot actions in Session.
+
+The implementation preserves the current app's menu, toolbar, fonts and existing menu options. The generated image used older toolbar chrome. Synthetic traffic and unloaded external coastline data in the isolated preview differ from the mock; this review judges the timing group and its placement, not those unrelated regions.
+
+## Rendered evidence
+
+All artifacts below are in `C:/Users/Reid/.codex/visualizations/2026/11/08/01a1bd08-c688-77e1-8485-43d212331599/`:
+
+- Full-view comparison, both artifacts in one input: `readback-comparison-full.png`.
+- Focused comparison, selected image, earlier implementation and final implementation together: `readback-comparison-menu.png`.
+- Standalone desktop implementation: `readback-desktop-final.jpg`.
+- Standalone tablet implementation: `readback-tablet-final.jpg`.
+- ATCMH desktop and tablet: `readback-atcmh-desktop.jpg`, `readback-atcmh-tablet.jpg`.
+- Final close-up with Session button context: `readback-menu-final.jpg`.
+
+Browser: Codex in-app Chromium, using actual StaffToolbar, ReadbackTiming, TrafficRoster and Scope components in isolated local harnesses. No live session or production data was edited. State: paused, Session open, default 2.0–2.5 second range, trainer controls enabled.
+
+Desktop viewport: 1440 × 1024 CSS px, screenshot 1440 × 1024 px, density 1. Tablet: 1024 × 768 CSS px, screenshot 1024 × 768 px, density 1. Source image: 1487 × 1058 px; no native CSS viewport is encoded. The full comparison normalizes the source to 1440 × 1024 and presents it beside the unchanged desktop screenshot. The focused comparison uses original pixels: source menu crop 342 × 566, earlier implementation 350 × 583, final implementation 350 × 561, each on a padded common canvas.
+
+## Findings and iteration history
+
+- Earlier implementation stacked the numeric readouts below their labels, adding visual height relative to the selected image. Changed to inline Minimum/Maximum readouts and recaptured at the same desktop viewport and Session-open state. The focused comparison shows the earlier and corrected versions together. Resolved.
+- Coincident handles needed a reliable pointer gesture to separate either limit. Movement away from a shared value now selects the outward lower or upper handle. Verified dragging left and right from a shared 2.5-second value. Resolved.
+- No actionable P0/P1/P2 findings remain in the timing group or its placement. Reset is aligned beside the heading, and there is no explanatory copy or Apply button.
+
+## Required fidelity surfaces
+
+| Surface | Assessment |
+| --- | --- |
+| Fonts and typography | Uses the existing Simulator Fira family and fallback. Heading 13px/600, compact labels 11px and values 13px/500; existing menu sizing is intentionally retained. Inline values remain legible without wrapping at both tested viewports. |
+| Spacing and layout | One compact bordered group below Automatic pilot actions. Reset shares the heading row. Both selectors share a 44px-high pointer surface; the menu stays within the tablet viewport and scrolls when necessary. |
+| Colors and tokens | Existing dark menu `#141c22`, slate dividers and muted labels; orange `#ffb18a` for the selected interval and handles. Visible keyboard focus and disabled states were checked. |
+| Images and assets | No new raster assets, logos or decorative artwork are needed. Uses existing app fonts/icons and a functional CSS slider track. No image assets from the target were replaced by approximated illustrations. |
+| Copy and content | Retains Readback delay, Minimum, Maximum, Reset and the scale labels. All four requested explanatory sentences and Apply timing are absent from the timing group. Save failures show contextual error and Retry only. |
+
+## Interactions verified
+
+- Separate pointer dragging of both handles; close defaults; coincident-handle separation in either direction.
+- Arrow keys in 0.1-second increments; Home/End endpoints; clamping so minimum cannot exceed maximum.
+- Automatic save on pointer release and keyboard adjustment, without a confirmation button.
+- Reset restores 2.0–2.5 seconds and saves automatically.
+- Failed saves retain the draft, show an error, and Retry saves it successfully.
+- With one-second simulated responses, three rapid keyboard changes were dispatched in order and saved as 2.3–2.5 seconds; Reset saved 2.0–2.5 seconds again.
+- Read-only viewers have disabled selectors and Reset; their saved range stays unchanged.
+- Desktop/tablet placement and saving in both standalone and ATCMH hosts.
+- Browser console checked: no warnings or errors in either preview.
+
+## Implementation checklist
+
+- [x] Apply the user's selected placement and latest copy/button amendments.
+- [x] Implement and inspect the actual rendered components in both hosts.
+- [x] Compare source and rendered evidence together, including focused details.
+- [x] Resolve the readout layout and coincident-selector issues and verify the revised rendering.
+- [x] Check responsive layout, keyboard access, disabled state and save recovery.
+
+Residual test gaps: native iPad/Safari and actual audio playback were not tested. The preview uses synthetic state; authoritative scheduling, permissions, persistence and command cancellation are covered by engine/service tests separately.
+
+---
+
+## Earlier design checks (retained)
+
 # ATCMH Sweatbox library layout
 
 Deployment follow-up (23 October 2026): frontend **26.10.23**, source commit `7fed31c991adde069f0a41c6d0acff03a38209dd`, is now published and deployed to ATCMH. All 48 affected tests and 22 published-UI browser checks passed, alongside lint, the local Linux production build/TypeScript, live image/configuration/health checks and authentication gates. Browser checks used synthetic identities/data with production writes blocked. The design report below records the earlier local QA phase. Release evidence: `C:/Users/Reid/.codex/visualizations/2026/10/23/01a169a1-53e5-7583-b115-b8aaeb88b7ba/release-26.10.23`.

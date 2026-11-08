@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -12,7 +13,7 @@ const send = (state: Exercise, action: Action) => {
   assert.equal(result.error, undefined);
   return result.state;
 };
-const automatic = () => send({...initialExercise("faults"), running: true}, {kind: "auto-readback", enabled: true});
+const automatic = () => send({...withFixedReadbackDelay(initialExercise("faults")), running: true}, {kind: "auto-readback", enabled: true});
 const clearToLand = (state: Exercise) => send(state, {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
 const replies = (state: Exercise) => state.messages.filter(m => m.sender === "pilot" && m.commandId !== undefined);
 

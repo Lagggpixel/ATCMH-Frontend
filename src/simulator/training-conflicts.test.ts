@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor} from "./engine";
@@ -10,7 +11,7 @@ import type {Aircraft, Instruction} from "./model";
 
 function fixture(kind: ConflictKind = "uwc") {
   const selection = {airport: "KJFK"}, engine = engineFor(selection), airport = getAirport(selection);
-  const state = engine.initialExercise(); state.running = true; state.autoReadback = true;
+  const state = withFixedReadbackDelay(engine.initialExercise()); state.running = true; state.autoReadback = true;
   const plane = (id: string, runway: string, nm: number) => {
     const a = engine.newAircraft(id, true), g = engine.runwayGeometry(runway);
     Object.assign(a, {callsign: `Test ${id}`, runway, mode: "pattern", leg: "final", landing: "touch-and-go", clearedToLand: true, clearedForOption: true, frequency: "tower", speed: 135, targetSpeed: 135, heading: g.heading, targetHeading: g.heading, altitude: airport.elevation + nm * 318, position: {x: g.threshold.x - g.vector.x * nm, y: g.threshold.y - g.vector.y * nm}});
@@ -262,7 +263,7 @@ test("authoritative UWC holds both upwinds without mutating the input snapshot",
   assert.deepEqual(h.state, before); assert.ok(next.aircraft.every(a => a.leg === "upwind"));
 });
 test("authoritative Radar contact crash removes aircraft once and survives recovery schemas", () => {
-  const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
+  const engine = engineFor({trainingStation: "EGPH:approach"}), state = withFixedReadbackDelay(engine.initialExercise());
   state.running = true; const a = state.aircraft[0];
   state.aircraft = [a, {...structuredClone(a), id: "other", callsign: "Test other"}];
   const next = engine.advance(state, .1); assert.equal(next.aircraft.length, 0); assert.equal(next.collisions?.length, 1);

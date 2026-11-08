@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -10,7 +11,7 @@ import {planParkingRoute, planTaxiRoute} from "./taxi-routing";
 import {standPlacement, createScenarioExercise, scenarioFromExercise, scenarioSchema} from "./scenarios";
 import {advanceScenario, executeScenarioEvent} from "./scenario-engine";
 
-const stateOf = (aircraft: Aircraft[], automatic = true): Exercise => ({...initialExercise(), aircraft, running: true, autoReadback: automatic});
+const stateOf = (aircraft: Aircraft[], automatic = true): Exercise => ({...withFixedReadbackDelay(initialExercise()), aircraft, running: true, autoReadback: automatic});
 const taxi = (id: string, x: number, y: number, heading: number, path: Aircraft["taxiPath"]): Aircraft => ({...newAircraft(id, false), position: {x, y}, heading, targetHeading: heading, taxiPath: path, taxiIndex: 0, mode: "taxi", speed: 10, targetSpeed: 15});
 function act(state: Exercise, action: Action) {const result = applyEnvelope(state, envelopeSchema.parse({id: randomUUID(), time: 1000, action})); assert.equal(result.error, undefined); return result.state;}
 const assign = (state: Exercise, command: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command});

@@ -166,7 +166,7 @@
 .sessionMenu>summary::-webkit-details-marker {display:none}
 .sessionMenu>summary svg {width:14px;height:14px;transition:transform .2s}
 .sessionMenu[open]>summary svg {transform:rotate(180deg)}
-.sessionMenuContent {position:absolute;right:0;top:calc(100% + 8px);width:300px;max-height:75dvh;overflow:auto;padding:6px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008;z-index:40;display:grid;gap:2px;transform-origin:top right}
+.sessionMenuContent {position:absolute;right:0;top:calc(100% + 8px);width:min(350px,calc(100vw - 24px));max-height:75dvh;overflow:auto;padding:6px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008;z-index:40;display:grid;gap:2px;transform-origin:top right}
 .menuRow.menuRow {display:flex;align-items:center;gap:6px;padding:0 4px}
 .menuRow button[role=switch] {display:flex;justify-content:space-between;align-items:center;gap:12px;flex:1;margin:0;border:0!important;padding:8px 6px;font-size:calc(13 * var(--controller-font-unit,1px));background:transparent!important}
 .menuRow button[role=switch]>span:last-child {background:#45515b;transition:background-color .2s}

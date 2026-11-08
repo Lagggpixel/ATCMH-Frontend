@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -15,9 +16,9 @@ const send = (state: Exercise, action: Action) => {
 const tick = (state: Exercise, seconds: number) => autoReadbacks(advance(state, seconds), 1_002_000, randomUUID);
 const command = (state: Exercise, aircraftId = "demo-ground", instruction: Extract<Action, {kind: "command"}>["command"] = {type: "stop"}) => send(state, {kind: "command", aircraftId, command: instruction, frequency: aircraftId === "demo-air" ? "tower" : "ground", text: `${state.aircraft.find(a => a.id === aircraftId)!.callsign}, hold position`});
 const placeAtStand = (state: Exercise) => {Object.assign(state.aircraft[1], standPlacement(AIRPORT.features.find(f => f.kind === "parking_position")!.id)); return state;};
-const enabled = () => send(send(placeAtStand(initialExercise()), {kind: "auto-readback", enabled: true}), {kind: "play"});
+const enabled = () => send(send(placeAtStand(withFixedReadbackDelay(initialExercise())), {kind: "auto-readback", enabled: true}), {kind: "play"});
 
-test("global automation waits 1.5 seconds and assigns each aircraft once without counting readbacks as requests", () => {
+test("global automation honors a configured 1.5-second wait and assigns each aircraft once without counting readbacks as requests", () => {
   let state = command(command(enabled()), "demo-air", {type: "extend", leg: "downwind"});
   const original = state;
   state = tick(state, 1.4); assert.equal(state.messages.length, 2); assert.equal(state.aircraft[1].holding, false);
@@ -50,7 +51,7 @@ test("off cancels timers, on schedules pending traffic, pauses freeze and snapsh
   assert.equal(state.autoReadback, true);
   state = send(state, {kind: "play"}); state = tick(state, .5); assert.equal(state.messages.length, 2);
   assert.equal(send(state, {kind: "reset"}).autoReadback, true);
-  const legacy = initialExercise(); delete legacy.autoReadback; assert.equal(exerciseSchema.safeParse(legacy).success, true);
+  const legacy = withFixedReadbackDelay(initialExercise()); delete legacy.autoReadback; assert.equal(exerciseSchema.safeParse(legacy).success, true);
 });
 
 test("assignments revalidate: invalid instructions return Unable, retunes never execute stale commands", () => {
@@ -80,7 +81,7 @@ test("shared sessions authorize staff toggle, persist across server reconnect an
   const toggle = envelope({kind: "auto-readback", enabled: true});
   assert.equal(envelopeSchema.safeParse(toggle).success, true); assert.equal(menteeActionAllowed(toggle.action), false);
   await assert.rejects(service.dispatch(mentee, session.id, "mentee", student, toggle), {code: "forbidden"});
-  for (const e of [toggle, envelope({kind: "play"})]) await service.dispatch(staff, session.id, "staff", control, e);
+  for (const e of [toggle, envelope({kind: "readback-delay", delay: {min: 1.5, max: 1.5}}), envelope({kind: "play"})]) await service.dispatch(staff, session.id, "staff", control, e);
   await service.dispatch(mentee, session.id, "mentee", student, envelope({kind: "command", aircraftId: "demo-ground", command: {type: "pushback", tail: "north"}, frequency: "ground", text: "Easy 571, pushback approved, tail to the north"}));
   const before = await service.frame(staff, session.id, "staff", control);
   time += 1000; await service.frame(mentee, session.id, "mentee", student);

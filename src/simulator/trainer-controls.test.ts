@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -16,7 +17,7 @@ const clearToLand = (state: Exercise) => send(state, {kind: "command", aircraftI
 const readbacks = (state: Exercise) => autoReadbacks(advance(state, 2), 2000, randomUUID).messages.filter(m => m.sender === "pilot" && m.commandId !== undefined);
 
 test("one aircraft can be flown by hand while the rest of the session stays automatic", () => {
-  let state = send({...initialExercise("by-hand"), running: true}, {kind: "auto-readback", enabled: true});
+  let state = send({...withFixedReadbackDelay(initialExercise("by-hand")), running: true}, {kind: "auto-readback", enabled: true});
   state = send(state, {kind: "aircraft-automatic", aircraftId: "demo-air", enabled: false});
   assert.equal(pilotAutomatic(state, state.aircraft[0]), false);
   assert.equal(pilotAutomatic(state, state.aircraft[1]), true);
@@ -26,7 +27,7 @@ test("one aircraft can be flown by hand while the rest of the session stays auto
 });
 
 test("one aircraft can read back automatically while the session is by hand, and can return to following the session", () => {
-  let state = send({...initialExercise("automatic"), running: true}, {kind: "auto-readback", enabled: false});
+  let state = send({...withFixedReadbackDelay(initialExercise("automatic")), running: true}, {kind: "auto-readback", enabled: false});
   state = clearToLand(state);
   assert.equal(state.messages.at(-1)!.autoReadbackAt, undefined);
   // Switching the aircraft to automatic arms its outstanding instruction, as the session switch does.

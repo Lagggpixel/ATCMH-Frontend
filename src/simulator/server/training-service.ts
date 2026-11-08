@@ -160,6 +160,7 @@ export class TrainingService {
         if (created.exercise.positions) record.positionState = Object.fromEntries(created.exercise.positions.map(p => [p.id, record.positionState?.[p.id] ?? {}]));
         else delete record.positionState;
         created.exercise.autoReadback = record.exercise.autoReadback ?? false;
+        if (record.exercise.readbackDelay) created.exercise.readbackDelay = {...record.exercise.readbackDelay};
         record.scenario = {...created.runtime, scenarioId: old.scenarioId, revision: old.revision, attemptId: randomUUID()};
         created.exercise.revision = record.exercise.revision + 1;
         record.exercise = applySessionWeather(created.exercise, report); record.tickAt = Date.now(); record.contentRevision++;

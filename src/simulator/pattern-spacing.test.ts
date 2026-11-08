@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import {getAirport} from "./airports";
 import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
@@ -7,11 +8,14 @@ import {DEFAULTS, type Action, type Aircraft, type Exercise, type Runway} from "
 import {exerciseSchema} from "./protocol";
 
 let serial = 0;
-function act(state: Exercise, action: Action) {const result = applyEnvelope(state, {id: `spacing-${++serial}`, time: serial, action}); assert.equal(result.error, undefined); return result.state;}
+function act(state: Exercise, action: Action): Exercise {
+  const result = applyEnvelope(state, {id: `spacing-${++serial}`, time: serial, action}); assert.equal(result.error, undefined);
+  return action.kind === "command" && action.command.type === "sequence" ? act(result.state, {kind: "pilot", aircraftId: action.aircraftId, replyTo: result.state.messages.at(-1)!.id, assign: true, text: "Readback"}) : result.state;
+}
 function point(runway: Runway, along: number, lateral: number) {const g = runwayGeometry(runway); return {x: g.threshold.x + g.vector.x * along - g.vector.y * lateral, y: g.threshold.y + g.vector.y * along + g.vector.x * lateral};}
 function along(a: Aircraft) {const g = runwayGeometry(a.runway!); return (a.position.x - g.threshold.x) * g.vector.x + (a.position.y - g.threshold.y) * g.vector.y;}
 function scenario(runway: Runway = "24", hand: Aircraft["hand"] = "left", leaderHand = hand, followerSpeed = 160, leaderSpeed = 160) {
-  const state = initialExercise(); state.running = true;
+  const state = withFixedReadbackDelay(initialExercise()); state.running = true;
   const follower = newAircraft("follower", true), leader = newAircraft("leader", true), g = runwayGeometry(runway);
   for (const [a, patternHand, speed, position] of [[follower, hand, followerSpeed, -1.7], [leader, leaderHand, leaderSpeed, -2.9]] as const) {
     Object.assign(a, {runway, hand: patternHand, leg: "downwind", speedMode: "manual", heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360, speed, targetSpeed: speed, position: point(runway, position, patternHand === "left" ? 3 : -3)});

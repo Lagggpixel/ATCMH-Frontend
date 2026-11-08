@@ -7,7 +7,7 @@ export default function AutomaticHelp() {
   return <><button className={styles.automaticHelpButton} aria-label="About Automatic mode" onClick={() => dialog.current?.showModal()}>?</button>
     <dialog ref={dialog} className={styles.automaticHelp} aria-labelledby="automatic-help-title" onKeyDown={e => {if (e.key === "Escape") e.stopPropagation();}}><h2 id="automatic-help-title">Automatic</h2>
       <p>On by default for new sessions. Pausing freezes automatic actions.</p>
-      <ul><li>Reads back and follows valid instructions after 1.5 exercise seconds.</li>
+      <ul><li>Reads back after a random delay within your Session menu limits, then follows valid instructions immediately.</li>
         <li>Requests taxi after pushback and departure at the holding point.</li>
         <li>Handles frequency changes and parking requests after runway exit.</li>
         <li>Goes around without landing or option clearance. Each circuit needs clearance.</li>
