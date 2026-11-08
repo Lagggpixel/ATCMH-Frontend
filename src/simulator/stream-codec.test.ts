@@ -140,3 +140,47 @@ test("demonstration frames keep their own state on the compact stream", () => {
   const [moved] = decoder.push(encoder.packet(motion));
   assert.equal((moved.state as {elapsed: number}).elapsed, state.elapsed + 1, "the demo frame did not disturb the motion base");
 });
+
+test("after a compact stream drops, the browser rejoins in JSON and reconnects to a JSON-only server", async () => {
+  const {randomUUID} = await import("node:crypto");
+  const {SharedSession} = await import("./shared-transport");
+  const {initialExercise} = await import("./engine");
+  const {BODY_BINARY_TYPE, STREAM_BINARY_TYPE} = await import("./stream-codec");
+  const originalFetch = globalThis.fetch, originalWindow = globalThis.window;
+  globalThis.window = new EventTarget() as unknown as Window & typeof globalThis;
+  const id = randomUUID(), joins: (string | null)[] = [];
+  let streams = 0;
+  globalThis.fetch = async (input, init) => {
+    const path = String(input), type = new Headers(init?.headers).get("content-type");
+    if (!path.endsWith("/stream")) {
+      if (path.endsWith("/join")) joins.push(type);
+      // The second server is the older JSON-only one: it rejects binary bodies.
+      if (streams >= 1 && type === BODY_BINARY_TYPE) return Response.json({error: "The request body must contain valid JSON.", code: "invalid-request"}, {status: 400});
+      return Response.json({revision: 1, positionId: "approach"});
+    }
+    const exercise = initialExercise(id);
+    if (++streams === 1) {
+      // The compact server sends one snapshot, then the connection drops.
+      const packet = new StreamEncoder().packet({type: "snapshot", exercise, session: {id}});
+      return new Response(new ReadableStream<Uint8Array>({start(controller) {controller.enqueue(packet); setTimeout(() => controller.close(), 20);}}), {headers: {"content-type": STREAM_BINARY_TYPE}});
+    }
+    const text = new TextEncoder().encode(`data: ${JSON.stringify({type: "snapshot", exercise, session: {id}})}\n\n`);
+    return new Response(new ReadableStream<Uint8Array>({start(controller) {
+      controller.enqueue(text);
+      init?.signal?.addEventListener("abort", () => controller.close(), {once: true});
+    }}), {headers: {"content-type": "text/event-stream"}});
+  };
+  const client = new SharedSession("staff", id, "csrf"), stop = client.start();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error(`did not reconnect: ${JSON.stringify(client.getSnapshot().fatal)}`)), 8000);
+      const unsubscribe = client.subscribe(() => {
+        if (streams >= 2 && client.getSnapshot().connected) {clearTimeout(timeout); unsubscribe(); resolve();}
+        else if (client.getSnapshot().fatal) {clearTimeout(timeout); unsubscribe(); reject(new Error(client.getSnapshot().fatal!));}
+      });
+    });
+    assert.deepEqual(joins, ["application/json", "application/json"], "every connection joins in JSON");
+    assert.equal(client.getSnapshot().exercise.id, id);
+    assert.equal(await client.dispatch({kind: "pause"}), true, "commands to the JSON-only server go as JSON");
+  } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
+});

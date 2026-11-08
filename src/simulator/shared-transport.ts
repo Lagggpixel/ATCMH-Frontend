@@ -198,6 +198,8 @@ export class SharedSession {
     };
     const connect = async () => {
       if (stopped) return;
+      // A replacement server may be an older JSON-only one, so each connection joins in JSON and renegotiates.
+      compact = false;
       try {
         const joined = await post("join", this.joinBody()); this.positionId ??= joined.positionId; this.update({positionId: joined.positionId, positionIds: joined.positionIds}); claimed = this.role !== "spectator";
         if (stopped) {release(); return;}
@@ -215,7 +217,7 @@ export class SharedSession {
           buffer += decoder.decode(value, {stream: true});
           let index: number;
           while ((index = buffer.indexOf("\n\n")) !== -1) {const packet = buffer.slice(0, index); buffer = buffer.slice(index + 2); if (packet.startsWith("data: ")) frame(JSON.parse(packet.slice(6)));}
-        }} finally {await reader.cancel().catch(() => {});}
+        }} finally {compact = false; await reader.cancel().catch(() => {});}
       } catch (reason) {
         if (stopped) return;
         const failure = reason as Error & {code?: string; status?: number};
