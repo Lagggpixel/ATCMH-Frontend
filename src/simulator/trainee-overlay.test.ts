@@ -18,16 +18,18 @@ const state = (extra: Partial<DemoState> = {}): DemoState => ({
   quickHidden: false, utility: null, vectorDraft: null, ground: null, camera: null, ...extra,
 });
 
-test("each account keeps its own trainee controls setting: shown by default, zoom not followed", () => {
+test("each account keeps its own trainee controls setting: shown by default, not followed", () => {
   const saved = new Map<string, string>();
   const storage = {getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => {saved.set(key, value);}};
-  assert.deepEqual(readTraineeControls(storage, "trainer"), {show: true, followZoom: false});
-  writeTraineeControls(storage, "owner", {show: false, followZoom: true});
-  assert.deepEqual(readTraineeControls(storage, "owner"), {show: false, followZoom: true});
-  assert.deepEqual(readTraineeControls(storage, "trainer"), {show: true, followZoom: false}, "the Owner's choice does not change the trainer's");
+  assert.deepEqual(readTraineeControls(storage, "trainer"), {show: true, follow: false});
+  writeTraineeControls(storage, "owner", {show: false, follow: true});
+  assert.deepEqual(readTraineeControls(storage, "owner"), {show: false, follow: true});
+  assert.deepEqual(readTraineeControls(storage, "trainer"), {show: true, follow: false}, "the Owner's choice does not change the trainer's");
   saved.set(traineeControlsKey("broken"), "{not json");
-  assert.deepEqual(readTraineeControls(storage, "broken"), {show: true, followZoom: false});
-  assert.deepEqual(readTraineeControls({getItem: () => {throw new Error("blocked");}, setItem: () => {}}, "x"), {show: true, followZoom: false});
+  assert.deepEqual(readTraineeControls(storage, "broken"), {show: true, follow: false});
+  assert.deepEqual(readTraineeControls({getItem: () => {throw new Error("blocked");}, setItem: () => {}}, "x"), {show: true, follow: false});
+  saved.set(traineeControlsKey("legacy"), JSON.stringify({show: true, followZoom: true}));
+  assert.deepEqual(readTraineeControls(storage, "legacy"), {show: true, follow: true}, "the older zoom-only setting carries over as Follow");
 });
 
 test("the newest shadow state wins and open messages take focus over selection", () => {
@@ -66,14 +68,32 @@ test("the staff radar draws the trainee's ring, vector and open messages in blue
   assert.doesNotMatch(messages, /<button/, "the staff copy cannot send");
 });
 
-test("the switch is on by default and offers zoom following and a position picker only when useful", () => {
-  const props = {show: true, followZoom: false, onShow: () => {}, onFollowZoom: () => {}};
+test("the trainee control is one pill: controls and Follow, with a picker only when there are several trainees", () => {
+  const props = {name: "Sam", show: true, follow: false, onShow: () => {}, onFollow: () => {}};
   const single = renderToStaticMarkup(React.createElement(TraineeControlsSwitch, props));
-  assert.match(single, /aria-checked="true"/); assert.match(single, /Follow (trainee|mentee)&#x27;s zoom/); assert.doesNotMatch(single, /<select/);
-  const split = renderToStaticMarkup(React.createElement(TraineeControlsSwitch, {...props, positions: [{id: "n", name: "North"}, {id: "s", name: "South"}], position: "s"}));
-  assert.match(split, /<select/);
+  assert.match(single, /Sam&#x27;s controls|Sam’s controls/);
+  assert.match(single, /role="switch"[^>]*aria-checked="true"/);
+  assert.match(single, />Follow</);
+  assert.doesNotMatch(single, /role="menu"/);
+  const several = renderToStaticMarkup(React.createElement(TraineeControlsSwitch, {...props, positions: [{id: "n", name: "North", trainee: "Sam"}, {id: "s", name: "South", trainee: "Kim"}], position: "s"}));
+  assert.match(several, /aria-haspopup="menu"/);
+  assert.match(several, /Kim · South/);
+  assert.doesNotMatch(several, /role="menu"/, "the picker opens only when asked");
   const off = renderToStaticMarkup(React.createElement(TraineeControlsSwitch, {...props, show: false}));
-  assert.doesNotMatch(off, /Follow/);
+  assert.match(off, /(Trainee|Mentee) controls/);
+  assert.match(off, /<button[^>]*disabled=""[^>]*>.*Follow/, "Follow needs the controls shown first");
+});
+
+test("the trainer sees the trainee's menu only while no messages, drag or hidden menu replace it", async () => {
+  const {traineeMenuAircraft, traineeView} = await import("./trainee-overlay");
+  assert.equal(traineeMenuAircraft(state({selectedId: "a1"})), "a1");
+  assert.equal(traineeMenuAircraft(state({selectedId: "a1", messageId: "a1"})), null);
+  assert.equal(traineeMenuAircraft(state({selectedId: "a1", quickHidden: true})), null);
+  assert.equal(traineeMenuAircraft(state({selectedId: "a1", vectorDraft: {aircraftId: "a1", point: {x: 0, y: 0}}})), null);
+  assert.equal(traineeMenuAircraft(null), null);
+  const view = traineeView(state({selectedId: "a1", quickPicker: "altitude"}));
+  assert.equal(view?.quickPicker, "altitude");
+  assert.ok(!("vectorHeading" in (view ?? {})), "unset fields are left out");
 });
 
 test("after a seat handover, the replay labels each control with the trainee who produced it", async () => {

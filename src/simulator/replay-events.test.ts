@@ -4,7 +4,7 @@ import {engineFor} from "./engine";
 import {getAirport} from "./airports";
 import {approachGeometry} from "./radar";
 import {replayDelta} from "./replays";
-import {groupReplayEvents, replayEvents, replaySnapshots, replayTerrainEvents, type ReplayEvent, type ReplaySnapshot} from "./replay-events";
+import {groupReplayEvents, replayEvents, replaySnapshots, replayTerrainEvents, rewindEvents, type ReplayEvent, type ReplaySnapshot} from "./replay-events";
 
 function fixture() {
   const state = engineFor({trainingStation: "EGPH:approach"}).initialExercise();
@@ -132,4 +132,19 @@ test("a terrain-service outage stops the scan promptly and reports unchecked sam
   let requests = 0;
   const result = await replayTerrainEvents(snapshots, new AbortController().signal, () => {}, async () => {requests++; throw new Error("offline");});
   assert.ok(requests <= 7); assert.equal(result.total, 100); assert.equal(result.failed, 100); assert.deepEqual(result.events, []);
+});
+
+test("a trainer rewind shows once in the replay, with the stretch it undid", () => {
+  const at = (time: number, elapsed: number, rewind?: {id: string; from: number; to: number}): ReplaySnapshot => {
+    const state = fixture(); state.elapsed = elapsed; if (rewind) state.rewind = rewind; return {at: time, state};
+  };
+  const jump = {id: "r1", from: 872, to: 752};
+  const snapshots = [at(0, 0), at(700, 700), at(760, 760), at(872, 872), at(873, 752, jump), at(900, 779, jump)];
+  const events = rewindEvents(snapshots);
+  assert.equal(events.length, 1, "the same rewind on later frames is not repeated");
+  assert.equal(events[0].label, "14:32 ↺ 12:32");
+  assert.match(events[0].detail ?? "", /rewound 2 min/);
+  assert.deepEqual(events[0].rewind, {from: 872, to: 752, start: 760});
+  assert.equal(rewindEvents([at(0, 10, jump), at(5, 15, jump)]).length, 0, "a rewind already there when the recording starts is not news");
+  assert.ok(replayEvents(snapshots, 900).some(event => event.kind === "rewind"));
 });
