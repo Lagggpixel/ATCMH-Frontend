@@ -4,17 +4,27 @@ import {createPortal} from "react-dom";
 import type {Point} from "./model";
 import styles from "./Simulator.module.css";
 
-export default function AircraftPopupAnchor({scope, point, screenPoint, children, onDismiss, closing = false}: {
+export default function AircraftPopupAnchor({scope, point, screenPoint, children, onDismiss, closing = false, readOnly = false, className}: {
   scope: RefObject<HTMLDivElement | null>; point: Point; screenPoint?: Point; children: ReactNode; onDismiss?: () => void; closing?: boolean;
+  /** Someone else's menu shown for reference: it never takes clicks, keys or dismissals. */
+  readOnly?: boolean; className?: string;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
-  const initial = useRef({scope, point, screenPoint});
+  const initial = useRef({scope, point, screenPoint, readOnly});
+  // A read-only copy follows its aircraft as the radar pans and zooms; an interactive menu stays at the tap.
+  const followed = useRef(point);
+  const placeLatest = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     const element = anchor.current, scopeElement = initial.current.scope.current;
-    const bounds = scopeElement?.getBoundingClientRect();
-    if (!element || !bounds) return;
-    const origin = initial.current.screenPoint ?? {x: bounds.left + initial.current.point.x, y: bounds.top + initial.current.point.y};
+    const tapBounds = scopeElement?.getBoundingClientRect();
+    if (!element || !tapBounds) return;
+    const tapOrigin = initial.current.screenPoint ?? {x: tapBounds.left + initial.current.point.x, y: tapBounds.top + initial.current.point.y};
     const place = () => {
+      let origin = tapOrigin;
+      if (initial.current.readOnly) {
+        const bounds = scopeElement?.getBoundingClientRect() ?? tapBounds;
+        origin = {x: bounds.left + followed.current.x, y: bounds.top + followed.current.y};
+      }
       const root = scopeElement?.closest("main") ?? scopeElement!;
       const safe = root.getBoundingClientRect(), css = getComputedStyle(root);
       const left = Math.max(0, safe.left) + parseFloat(css.paddingLeft) + 5;
@@ -31,23 +41,30 @@ export default function AircraftPopupAnchor({scope, point, screenPoint, children
       element.style.setProperty("--popup-direction", `${(origin.x < (safe.left + safe.right) / 2 ? 36 : -36) * unit}px`);
       element.style.visibility = "visible";
     };
+    placeLatest.current = place;
     place();
     // Submenus replace the list at the original tap, refitting their new height.
     const resize = new ResizeObserver(place);
     resize.observe(element);
     window.addEventListener("resize", place);
-    return () => {resize.disconnect(); window.removeEventListener("resize", place);};
+    return () => {placeLatest.current = null; resize.disconnect(); window.removeEventListener("resize", place);};
   }, []);
+  const {x, y} = point;
+  useLayoutEffect(() => {
+    if (!readOnly) return;
+    followed.current = {x, y};
+    placeLatest.current?.();
+  }, [readOnly, x, y]);
   useEffect(() => {
     // An outgoing quick menu must not dismiss the message panel that replaced it.
-    if (closing) return;
+    if (closing || readOnly) return;
     const dismiss = (event: PointerEvent) => {if (event.target instanceof Node && !anchor.current?.contains(event.target)) onDismiss?.();};
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") onDismiss?.();};
     document.addEventListener("pointerdown", dismiss, true);
     document.addEventListener("keydown", escape);
     return () => {document.removeEventListener("pointerdown", dismiss, true); document.removeEventListener("keydown", escape);};
-  }, [onDismiss, closing]);
-  const popup = <div ref={anchor} className={styles.contextAnchor} data-demo-region="scope-menu" data-closing={closing} inert={closing} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
+  }, [onDismiss, closing, readOnly]);
+  const popup = <div ref={anchor} className={`${styles.contextAnchor} ${className ?? ""}`} data-demo-region={readOnly ? undefined : "scope-menu"} data-closing={closing} inert={closing || readOnly} style={{position: "fixed", left: 0, top: 0, visibility: "hidden"}}>{children}</div>;
   const host = scope.current?.closest("main");
   return host ? createPortal(popup, host) : popup;
 }

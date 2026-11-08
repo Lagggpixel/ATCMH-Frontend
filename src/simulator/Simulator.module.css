@@ -1111,10 +1111,10 @@
 .demoSwitch:disabled {opacity:.55;cursor:not-allowed}
 .demoBusy {display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
 .demoBusy button {height:26px;padding:0 10px;border:1px solid var(--dashboard-border);border-radius:4px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:12px;cursor:pointer}
-.demoSwitch>span {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
-.demoSwitch>span::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
-.demoSwitch[aria-checked=true]>span {border-color:var(--dashboard-link)}
-.demoSwitch[aria-checked=true]>span::after {transform:translateX(12px);background:var(--dashboard-link)}
+.demoSwitch>span[aria-hidden] {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
+.demoSwitch>span[aria-hidden]::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
+.demoSwitch[aria-checked=true]>span[aria-hidden] {border-color:var(--dashboard-link)}
+.demoSwitch[aria-checked=true]>span[aria-hidden]::after {transform:translateX(12px);background:var(--dashboard-link)}
 .demoHandedBack {border-color:#91e98d;background:#1d3320;color:#c9f5c6}
 
 /* Bandbox: one Approach button and a banner for a controller holding several positions. */
@@ -1126,13 +1126,9 @@
 /* Keep incident controls accessible when the conflict panel is open. */
 .scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}
 /* Trainee controls: the trainee's own selection, drags and open messages on a staff radar. Read-only. */
-.traineeControls {display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
-.traineeControls label {display:inline-flex;align-items:center;gap:6px;font-size:13px}
-.traineeControls select {max-width:160px}
 .traineeRing {position:absolute;width:46px;height:46px;border:2px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:0 0 0 1px #06121f}
 .traineeRing span {position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font-size:11px;font-weight:600;white-space:nowrap}
 .traineeVector {z-index:5}
-.traineeVectorLabel {position:absolute;transform:translate(10px,-50%);padding:2px 6px;border:1px solid #499cff;background:#06121fcc;color:#cfe4ff;font-size:12px;white-space:nowrap;pointer-events:none;z-index:6}
 .traineeMessagesSlot {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 15px);bottom:26px;max-width:min(300px,40%);max-height:55%;display:flex;pointer-events:none;z-index:5}
 .traineeMessages {display:flex;flex-direction:column;min-width:200px;overflow:hidden;border:2px solid #499cff;border-radius:6px;background:#0b1622ee;color:#e8edf2;font-size:13px}
 .traineeMessages header {display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:#499cff;color:#06121f}
@@ -1140,3 +1136,90 @@
 .traineeMenuPath {margin:0;padding:6px 10px 0;color:#9bcaff;font-size:12px}
 .traineeMessages ul {margin:0;padding:6px 0;list-style:none;overflow:hidden}
 .traineeMessages li {padding:3px 10px}
+
+/* Trainee controls pill: one fixed-width control, so toggling never moves the bar. */
+.traineeControls {position:relative;display:inline-flex;align-items:stretch;height:32px;flex-shrink:0;border:1px solid var(--dashboard-border,#3a4854);border-radius:16px;overflow:visible;font-size:13px;white-space:nowrap}
+.traineeControls[data-on] {border-color:#499cff}
+.staffToolbar .traineeControls>button {display:inline-flex;align-items:center;gap:6px;height:100%;margin:0;padding:0 12px;border:0;border-radius:0;background:transparent;color:var(--dashboard-muted,#9fb0bc);cursor:pointer}
+.staffToolbar .traineeControls>button svg {width:16px;height:16px}
+.staffToolbar .traineeControls>.traineeShow {width:170px;justify-content:flex-start;border-radius:16px 0 0 16px}
+.staffToolbar .traineeControls>.traineeShow>span {overflow:hidden;text-overflow:ellipsis}
+.staffToolbar .traineeControls>.traineeFollow {border-left:1px solid var(--dashboard-border,#3a4854);border-radius:0 16px 16px 0}
+.staffToolbar .traineeControls[data-on]>.traineeShow,.staffToolbar .traineeControls>.traineeFollow[aria-checked=true] {background:#499cff22;color:#cfe4ff}
+.staffToolbar .traineeControls[data-on]>.traineeFollow {border-left-color:#499cff}
+.staffToolbar .traineeControls>button:disabled {opacity:.5;cursor:not-allowed}
+.staffToolbar .traineeControls>button:focus-visible {outline:2px solid #499cff;outline-offset:-2px}
+.traineePicker {position:absolute;right:0;top:calc(100% + 8px);z-index:45;min-width:240px;padding:6px;display:grid;gap:2px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008}
+.traineePicker>p {margin:4px 8px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9bcaff}
+.staffToolbar .traineePicker button {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:34px;padding:6px 10px;border:0;border-radius:4px;background:transparent;color:#edf2f5;text-align:left}
+.staffToolbar .traineePicker button:hover:not(:disabled) {background:#ffffff0b}
+.staffToolbar .traineePicker button[aria-checked=true] {background:#499cff22;color:#cfe4ff}
+.staffToolbar .traineePicker button small {color:#9fb0bc}
+.staffToolbar .traineePicker .traineePickerHide {margin-top:4px;border-top:1px solid #27333c;border-radius:0;color:#9fb0bc}
+@media(max-width:1000px) {.staffToolbar .traineeControls>.traineeShow {width:auto;max-width:120px}}
+
+/* Following the trainee: a blue frame tells the trainer their own zoom and pan are paused. */
+.traineeFollowFrame {position:absolute;inset:0;border:3px solid #499cff;pointer-events:none;z-index:24}
+.traineeFollowChip {position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:26;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);padding:5px 6px 5px 12px;border-radius:16px;background:#499cff;color:#06121f;font-size:12px;font-weight:600;white-space:nowrap}
+.traineeFollowChip>span {overflow:hidden;text-overflow:ellipsis}
+.traineeFollowChip button {flex-shrink:0;padding:3px 10px;border:0;border-radius:12px;background:#06121f;color:#cfe4ff;font-size:12px;cursor:pointer}
+
+/* The trainee's own aircraft menu and vector box, copied read-only with a blue outline. */
+.traineeMenu {outline:2px solid #499cff;outline-offset:2px;border-radius:2px;pointer-events:none;z-index:8}
+.traineeMenuTag {position:absolute;left:0;bottom:calc(100% + 6px);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font:600 11px/1.5 system-ui,sans-serif;white-space:nowrap}
+.traineeVectorBox {outline:2px solid #499cff;outline-offset:0;z-index:6}
+
+/* Trainer notices: top right, newest first. Seat notices stay until closed; rewinds fade. */
+.radarNotices {position:absolute;top:12px;right:12px;z-index:27;display:flex;flex-direction:column;gap:8px;width:min(340px,calc(100% - 24px));pointer-events:none}
+.radarNotices>* {pointer-events:auto}
+.seatNotice,.rewindToast {position:relative;display:flex;align-items:flex-start;gap:10px;padding:10px 8px 10px 12px;border:1px solid #2f5a42;border-left:3px solid #59d38c;border-radius:6px;background:#0f1a15f2;color:#e8eef2;font-size:13px;line-height:1.4;box-shadow:0 8px 24px #0007}
+.seatNotice[data-kind=left] {border-color:#5d3f2f;border-left-color:#ffb18a;background:#1c1410f2}
+.seatNotice p {flex:1;margin:0}
+.seatNoticeDot {flex-shrink:0;width:8px;height:8px;margin-top:6px;border-radius:50%;background:#59d38c}
+.seatNotice[data-kind=left] .seatNoticeDot {background:#ffb18a}
+.seatNotice button,.rewindToast button {flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:4px;background:transparent;color:#9fb0bc;cursor:pointer}
+.seatNotice button:hover,.rewindToast button:hover {background:#ffffff12;color:#fff}
+.seatNotice button svg,.rewindToast button svg {width:14px;height:14px}
+.rewindToast {overflow:hidden;border-color:#5d3f2f;border-left-color:#ffb18a;background:#1c1410f2}
+.rewindToast>div {flex:1;display:grid;gap:2px}
+.rewindToast strong {color:#ffb18a}
+.rewindToast>div span {color:#c8d2d9;font-size:12px;font-family:"Simulator Mono",monospace}
+.rewindToastBar {position:absolute;left:0;bottom:0;height:2px;width:100%;background:#ffb18a;transform-origin:left;animation:rewindToastShrink linear forwards}
+@keyframes rewindToastShrink {from {transform:scaleX(1)} to {transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce) {.rewindToastBar {animation:none;display:none}}
+
+/* Top bar: icons always, words only when there is room. */
+.toolbarSpacer {flex:1 1 0;min-width:0}
+.staffSubtitle {margin-left:8px;color:var(--staff-muted,#9fb0bc);font-size:12px;font-weight:400}
+.toolbarPanel {position:absolute;right:16px;top:100%;width:0;height:0;display:flex;justify-content:flex-end}
+.toolbarPanel>* {position:absolute;right:0;top:-8px}
+.menuAlert {display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ffb18a;color:#22140d;font-size:11px;font-weight:700}
+.speedSelect.speedSelect {width:auto;height:32px;padding:0 6px}
+.rewindControl {position:relative;display:flex}
+.staffToolbar .rewindControl>button {height:32px;padding:0 10px;background:transparent;border:1px solid var(--dashboard-border,#3a4854);border-radius:4px;color:var(--dashboard-ink,#edf2f5)}
+.staffToolbar .rewindControl>button[aria-expanded=true] {border-color:#ffb18a;color:#ffb18a}
+.staffToolbar .rewindControl>button svg {width:15px;height:15px}
+.rewindPanel {position:absolute;left:0;top:calc(100% + 8px);z-index:45;width:280px;padding:14px;display:grid;gap:10px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008;color:#edf2f5;font-size:13px;cursor:default}
+.rewindPanel h2 {margin:0;font-size:14px;font-weight:600}
+.rewindPanel p {margin:0;color:#9fb0bc;font-size:12px}
+.rewindChoices {display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #3a4854;border-radius:4px;overflow:hidden}
+.staffToolbar .rewindChoices button {justify-content:center;height:32px;padding:0;border:0;border-left:1px solid #3a4854;border-radius:0;background:transparent;color:#edf2f5;font-size:12px}
+.staffToolbar .rewindChoices button:first-child {border-left:0}
+.staffToolbar .rewindChoices button[aria-checked=true] {background:#ffb18a;color:#22140d;font-weight:600}
+.staffToolbar .rewindChoices button:disabled {opacity:.4;cursor:not-allowed}
+.rewindPanel .rewindLanding {color:#edf2f5;font-size:13px}
+.rewindLanding strong {font-family:"Simulator Mono",monospace;color:#ffb18a}
+.rewindActions {display:flex;justify-content:flex-end;gap:8px}
+.staffToolbar .rewindActions button {height:32px;padding:0 12px;border:1px solid #3a4854;border-radius:4px;background:transparent;color:#edf2f5}
+.staffToolbar .rewindActions .rewindConfirm {border-color:#ffb18a;background:#ffb18a;color:#22140d;font-weight:600}
+.staffToolbar .rewindActions .rewindConfirm:disabled {opacity:.5;cursor:not-allowed}
+.pauseVisibility {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px;font-size:13px;color:#edf2f5}
+.pauseVisibility select {max-width:160px;height:30px;padding:0 6px;background:#0d1216;color:#edf2f5;border:1px solid #3a4854;border-radius:4px}
+.hearSelect {position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--dashboard-border,#3a4854);border-radius:4px;color:var(--dashboard-muted,#9fb0bc);font-size:12px;white-space:nowrap}
+.hearSelect svg {width:16px;height:16px}
+.hearSelect select {max-width:150px;height:28px;padding:0 4px;border:0;background:transparent;color:var(--dashboard-ink,#edf2f5);font-size:12px}
+@media(max-width:1000px) {
+  .toolbarText {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+  .staffSubtitle {display:none}
+  .hearSelect select {max-width:90px}
+}

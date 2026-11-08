@@ -3,11 +3,11 @@ import {trainingMode} from "./airports";
 import {replayEvents, replaySnapshots} from "./replay-events";
 import type {ReplayFrame} from "./replays";
 
-export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration" | "trainee";
-export interface ReplayMoment {id: string; kind: MomentKind; at: number; end?: number; label: string; detail: string; aircraftIds: string[]}
+export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration" | "trainee" | "rewind";
+export interface ReplayMoment {id: string; kind: MomentKind; at: number; end?: number; label: string; detail: string; aircraftIds: string[]; /** A mentor rewind: the stretch of the recording it undid, from `start` to `at`. */ rewind?: {from: number; to: number; start: number}}
 
 /**
- * Key moments for the replay viewer: bookmarks, collisions and, in radar modes, separation incidents.
+ * Key moments for the replay viewer: bookmarks, collisions, mentor rewinds and, in radar modes, separation incidents.
  * Times are seconds from the start of the recording, matching the playback timeline.
  */
 export function replayMoments(initial: Exercise, frames: ReplayFrame[], final: Exercise, duration: number): ReplayMoment[] {
@@ -19,9 +19,10 @@ export function replayMoments(initial: Exercise, frames: ReplayFrame[], final: E
       moments.push({id: `bookmark:${mark.id}`, kind: "bookmark", at: mark.elapsed - start, label: mark.label, detail: callsign(mark.aircraftId) ?? "Mentor bookmark", aircraftIds: [mark.aircraftId]});
     for (const event of replayEvents(replaySnapshots(initial, frames), duration)) if (event.kind === "demonstration")
       moments.push({...event, label: "Mentor demonstration", detail: event.label});
+      else if (event.kind === "rewind") moments.push({...event, kind: "rewind", label: "Mentor rewind", detail: `${event.label} · ${event.detail}`});
   } else {
     for (const event of replayEvents(replaySnapshots(initial, frames), duration))
-      moments.push({...event, kind: event.kind, label: event.kind === "separation" ? "Separation incident" : event.kind === "demonstration" ? "Mentor demonstration" : event.label, detail: event.kind === "separation" ? `${event.label} · ${event.detail}` : event.kind === "demonstration" ? event.label : event.detail});
+      moments.push({...event, kind: event.kind, label: event.kind === "separation" ? "Separation incident" : event.kind === "demonstration" ? "Mentor demonstration" : event.kind === "rewind" ? "Mentor rewind" : event.label, detail: event.kind === "separation" || event.kind === "rewind" ? `${event.label} · ${event.detail}` : event.kind === "demonstration" ? event.label : event.detail});
   }
   for (const collision of final.collisions ?? []) if (within(collision.elapsed - start))
     moments.push({id: `collision:${collision.id}`, kind: collision.kind === "terrain" ? "terrain" : "collision", at: collision.elapsed - start,

@@ -4,13 +4,35 @@ import {radarApproachExempt, radarSeparationAlerts, separationLabel, terrainClea
 import {applyReplayDelta, type ReplayFrame} from "./replays";
 import {rawTerrainElevation, terrainCoordinates} from "./terrain";
 
-export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration" | "trainee";
+export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration" | "trainee" | "rewind";
 export interface ReplayEvent {
   id: string; kind: ReplayEventKind; at: number; end?: number;
   label: string; detail: string; aircraftIds: string[];
+  /** A rewind: the exercise clock it jumped from and to, and where on the replay the stretch it undid began. */
+  rewind?: {from: number; to: number; start: number};
 }
 export interface ReplaySnapshot {at: number; state: Exercise}
-export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration", trainee: "Mentee command"};
+export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration", trainee: "Mentee command", rewind: "Mentor rewind"};
+
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+const length = (seconds: number) => {const whole = Math.max(0, Math.round(seconds)), minutes = Math.floor(whole / 60), rest = whole % 60; return minutes ? `${minutes} min${rest ? ` ${rest} s` : ""}` : `${rest} s`;};
+
+/** Each trainer rewind, at the moment it happened, with the stretch of recording it went back over. */
+export function rewindEvents(snapshots: ReplaySnapshot[]): ReplayEvent[] {
+  const events: ReplayEvent[] = [];
+  let last = snapshots[0]?.state.rewind?.id;
+  snapshots.forEach(({at, state}, index) => {
+    const rewind = state.rewind;
+    if (!rewind || rewind.id === last) return;
+    last = rewind.id;
+    // The undone stretch starts where the recording last stood at the exercise time the trainer went back to.
+    let start = at;
+    for (let i = index - 1; i >= 0 && snapshots[i].state.elapsed > rewind.to - 1e-6; i--) start = snapshots[i].at;
+    events.push({id: `rewind:${rewind.id}`, kind: "rewind", at, label: `${clock(rewind.from)} ↺ ${clock(rewind.to)}`,
+      detail: `Mentor rewound ${length(rewind.from - rewind.to)}, to ${clock(rewind.to)}`, aircraftIds: [], rewind: {from: rewind.from, to: rewind.to, start}});
+  });
+  return events;
+}
 
 /** Same-time commands form one visible state, just as they do when seeking. */
 export function replaySnapshots(initial: Exercise, frames: ReplayFrame[]): ReplaySnapshot[] {
@@ -62,7 +84,7 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
     bookmarks.set(mark.id, {id: `bookmark:${mark.id}`, kind: "bookmark", at, label: mark.label,
       detail: state.aircraft.find(a => a.id === mark.aircraftId)?.callsign ?? "Instructor bookmark", aircraftIds: [mark.aircraftId]});
   }
-  return [...events, ...demonstrations, ...bookmarks.values()].filter(e => e.at <= duration).sort(compareReplayEvents);
+  return [...events, ...demonstrations, ...bookmarks.values(), ...rewindEvents(snapshots)].filter(e => e.at <= duration).sort(compareReplayEvents);
 }
 /** The trainee's sent commands as timeline events, from one position's recorded controls. */
 export function traineeReplayEvents(marks: readonly {at: number; positionId: string; sent?: {callsign: string; text: string}}[], positionId: string, duration: number): ReplayEvent[] {

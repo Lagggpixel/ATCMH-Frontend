@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useRef, useState, type SyntheticEvent} from "react";
 import Link from "next/link";
 import {Headset} from "@phosphor-icons/react/dist/csr/Headset";
 import type {Exercise} from "./model";
@@ -12,10 +12,11 @@ import MenteePicker, {type Mentee} from "./MenteePicker";
 import {sessionJson} from "./shared-transport";
 import styles from "./Positions.module.css";
 
-export default function PositionControls({exercise, session, csrf, enabled, onDemonstrate, monitor, onMonitor}: {
+export default function PositionControls({exercise, session, csrf, enabled, onDemonstrate, monitor, onMonitor, open, onClose}: {
   exercise: Exercise; session: SessionSummary; csrf: string; enabled: boolean; onDemonstrate: (positionId: string) => void;
   /** The position whose radio the trainer hears, or "" for all. Kept in sync with the Hear menu. */
   monitor?: string; onMonitor?: (positionId: string) => void;
+  /** Opened from a menu instead of its own summary. */ open?: boolean; onClose?: () => void;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function PositionControls({exercise, session, csrf, enabled, onDe
   const free = positions.filter(p => !p.occupied && !p.assignedId);
   /** Assign (or clear) the same mentee on each position; one person on several positions is a bandbox. */
   const assign = async (ids: string[], person: Mentee | null) => {for (const positionId of ids) if (!await post("position-assignment", {positionId, mentee: person ? {discordId: person.discordId, name: person.name} : null})) return;};
-  return <details ref={menu} className={styles.controls} onKeyDown={event => {if (event.key === "Escape" && menu.current) {event.stopPropagation(); menu.current.open = false; menu.current.querySelector("summary")?.focus();}}}>
+  return <details ref={menu} className={styles.controls} {...(open !== undefined ? {open, "data-menu-opened": true, onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => {if (!event.currentTarget.open) onClose?.();}} : {})} onKeyDown={event => {if (event.key === "Escape" && menu.current) {event.stopPropagation(); menu.current.open = false; menu.current.querySelector("summary")?.focus();}}}>
     <summary><PositionBar count={Math.max(1, positions.length)}/>{positions.length > 1 ? `Positions ${connected}/${positions.length}` : "Positions · 1"}</summary>
     <div className={`${styles.panel} ${styles.setup}`}>
       <div className={styles.panelHead}><strong>Positions</strong>{positions.length ? <span>{connected} of {positions.length} connected</span> : null}</div>
