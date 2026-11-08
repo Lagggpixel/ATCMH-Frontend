@@ -94,3 +94,31 @@ test("older JSON recordings keep their format, then convert, verify and lose the
   db.close();
 });
 
+test("a failed chunk write leaves no partial compact copy, and a retry converts the replay", async () => {
+  resetCompactReplayDetection();
+  const {db, connection} = database(false);
+  const states = await recordSession(connection, CHUNK_FRAMES + 1);
+  db.exec(SQLITE_CHUNKS_TABLE); resetCompactReplayDetection();
+  let inserts = 0;
+  const failing = {execute: async (sql: string, values: (string | number | null | Uint8Array)[]) => {
+    if (/INSERT INTO simulator_replay_chunks/i.test(sql) && ++inserts === 2) throw new Error("disk full");
+    return connection.execute(sql, values);
+  }};
+  // The maintenance runner wraps each task in one transaction and rolls it back when the task throws.
+  db.exec("BEGIN");
+  await assert.rejects(compactStoredReplays(failing, Date.now(), true), /Writing compact replay/);
+  db.exec("ROLLBACK");
+  assert.equal(inserts, 2, "the first chunk was written before the failure");
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM simulator_replay_chunks").get() as {n: number}).n, 0, "no partial copy survives");
+  db.exec("BEGIN");
+  const retry = await compactStoredReplays(connection, Date.now(), true);
+  db.exec("COMMIT");
+  assert.equal(retry.replays, 1); assert.equal(retry.failed.length, 0);
+  const replay = db.prepare("SELECT * FROM simulator_replays").get() as {initial_state: string};
+  const chunks = db.prepare("SELECT * FROM simulator_replay_chunks ORDER BY chunk_no").all() as ChunkRow[];
+  assert.equal(chunks.length, 2);
+  const frames = decodeChunks(chunks, JSON.parse(replay.initial_state))!;
+  assert.equal(frames.length, CHUNK_FRAMES + 1);
+  follows(JSON.parse(replay.initial_state), frames, states);
+  db.close();
+});

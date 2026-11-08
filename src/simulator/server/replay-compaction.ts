@@ -22,16 +22,23 @@ export async function compactStoredReplays(connection: ChunkConnection, now: num
   const candidates = await rows<{id: string; initial_state: string}>(connection, `SELECT r.id,r.initial_state FROM simulator_replays r WHERE r.ended_at IS NOT NULL AND EXISTS (SELECT 1 FROM simulator_replay_frames f WHERE f.replay_id=r.id) AND NOT EXISTS (SELECT 1 FROM simulator_replay_chunks c WHERE c.replay_id=r.id) ORDER BY r.ended_at,r.id LIMIT ${Math.max(1, Math.min(500, Math.floor(limit)))}`, []);
   const report = {apply, replays: 0, frames: 0, jsonBytes: 0, compactBytes: 0, failed: [] as string[]};
   for (const candidate of candidates) {
+    let converted: {frames: ReplayFrame[]; chunks: ReturnType<typeof buildCompactChunks>};
     try {
       const initial = JSON.parse(candidate.initial_state) as Exercise, frames = await jsonFrames(connection, candidate.id);
       const chunks = buildCompactChunks(initial, frames);
       // Never store a conversion that does not reproduce every frame.
       if (!chunksReproduce(initial, frames, chunks)) {report.failed.push(candidate.id); continue;}
-      if (apply) await writeCompactChunks(connection, candidate.id, chunks, now);
-      report.replays++; report.frames += frames.length;
-      report.jsonBytes += frames.reduce((sum, frame) => sum + Buffer.byteLength(JSON.stringify(frame.delta)), 0);
-      report.compactBytes += chunks.reduce((sum, chunk) => sum + chunk.data.length, 0);
-    } catch {report.failed.push(candidate.id);}
+      converted = {frames, chunks};
+    } catch {report.failed.push(candidate.id); continue;}
+    // A failed write is not caught: it aborts the run, so the enclosing transaction rolls back every chunk
+    // already written and no replay is left with a partial compact copy. A retry converts it again.
+    if (apply) {
+      try {await writeCompactChunks(connection, candidate.id, converted.chunks, now);}
+      catch (error) {throw new Error(`Writing compact replay ${candidate.id} failed; nothing from this run was kept`, {cause: error});}
+    }
+    report.replays++; report.frames += converted.frames.length;
+    report.jsonBytes += converted.frames.reduce((sum, frame) => sum + Buffer.byteLength(JSON.stringify(frame.delta)), 0);
+    report.compactBytes += converted.chunks.reduce((sum, chunk) => sum + chunk.data.length, 0);
   }
   return {...report, remaining: candidates.length >= limit};
 }
