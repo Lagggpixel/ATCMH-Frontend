@@ -69,8 +69,27 @@ export const MessageLog = memo(function MessageLog({airport = defaultAirport, me
   const messages = allMessages.filter(m => !aircraftId || m.aircraftId === aircraftId);
   return <div ref={log} className={`${styles.messageLog} ${compact ? styles.compactMessageLog : ""}`} role="log" aria-label={title} tabIndex={0}>{!compact ? <h2 className={styles.messageLogTitle}>{title}</h2> : null}{messages.length ? messages.map(m => <div key={m.id} data-frequency={m.frequency} style={{color: frequency !== "all" && m.frequency !== frequency ? IF_COLORS.offFrequency : m.sender === "controller" ? IF_COLORS.cleared : pilotMessageColor(m.aircraftId)}} className={frequency !== "all" && m.frequency !== frequency ? styles.offFrequencyMessage : m.sender === "controller" ? styles.controllerMessage : styles.pilotMessage}><span className={compact ? styles.visuallyHidden : styles.messageMeta}><time dateTime={new Date(m.time).toISOString()}>{new Date(m.time).toISOString().slice(11, 19)}Z</time><span>{m.sender === "controller" ? "Controller" : "Pilot"} · {airport.icao} {FREQUENCIES[m.frequency].label} · {FREQUENCIES[m.frequency].value}</span></span><p>{radioDisplayText(m.text)}{showUnableReasons && m.sender === "pilot" && m.unableReason ? <span className={styles.unableReason}> [{m.unableReason}]</span> : null}{m.retractedBy ? <small className={styles.withdrawnMessage}>Withdrawn</small> : null}{m.demonstrated ? <small className={styles.withdrawnMessage}>Sent by mentor</small> : null}</p></div>) : !compact ? <p className={styles.emptyMessages}>No messages yet</p> : null}</div>;
 });
+/** The menu a controller sees for an aircraft at a path of labels: shared by the panel and the staff view of a trainee's open messages. */
+export function messageMenu(exercise: Exercise, aircraft: Aircraft, frequency: Frequency, pathLabels: readonly string[], connected: boolean, holdTarget?: import("./vector-drag").VectorTarget) {
+  const {requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather);
+  const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
+  const menuAircraft = holdTarget && aircraft.radar ? {...aircraft, radar: {...aircraft.radar, routeIndex: holdTarget.index}} : aircraft;
+  const root = requestMessageMenu(frequency, menuAircraft, pilotMessage, exercise.aircraft, exercise.messages).filter(item => {
+    const command = item.instruction ?? item.children?.[0]?.instruction;
+    return command?.type !== "radio" || command.message !== "unable" || connected && !validateControllerMessage(exercise, aircraft, command, frequency, pilotMessage?.id);
+  });
+  const path: MenuEntry[] = [];
+  for (const label of pathLabels) {
+    const entry = (path.at(-1)?.children ?? root).find(item => item.id === label || item.label === label);
+    if (!entry) break;
+    path.push(entry);
+  }
+  const entry = path.at(-1);
+  return {pilotMessage, path, entry, entries: entry?.children ?? (entry ? [] : root)};
+}
+
 export default function MessagePanel({aircraft, exercise, frequency, connected, dispatch, onClose, quickCommands = [], initialPath = [], onPathChange, holdTarget, prepareSpeech}: {aircraft: Aircraft; exercise: Exercise; frequency: Frequency; connected: boolean; dispatch: (a: Action, path?: string[]) => void | Promise<boolean>; onClose: () => void; quickCommands?: readonly QuickCommand[]; initialPath?: string[]; onPathChange?: (path: string[]) => void; holdTarget?: import("./vector-drag").VectorTarget; prepareSpeech?: (text: string) => () => void}) {
-  const {instructionText, requestMessageMenu} = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather);
+  const {instructionText} = catalogFor(getAirport(exercise), exercise.radarEnvironment, exercise.weather);
   const [pathLabels, updatePath] = useState<string[]>(initialPath);
   const [hoveredOption, setHoveredOption] = useState<string | null>(null);
   const setPath = (path: string[]) => {setHoveredOption(null); updatePath(path); onPathChange?.(path);};
@@ -87,20 +106,7 @@ export default function MessagePanel({aircraft, exercise, frequency, connected, 
   };
   const [input, setInput] = useState("");
   const [vector, setVector] = useState<Extract<Instruction, {type: "vector"}> | null>(null);
-  const pilotMessage = pendingPilotMessage(exercise, aircraft.id, frequency);
-  const menuAircraft = holdTarget && aircraft.radar ? {...aircraft, radar: {...aircraft.radar, routeIndex: holdTarget.index}} : aircraft;
-  const root = requestMessageMenu(frequency, menuAircraft, pilotMessage, exercise.aircraft, exercise.messages).filter(item => {
-    const command = item.instruction ?? item.children?.[0]?.instruction;
-    return command?.type !== "radio" || command.message !== "unable" || connected && !validateControllerMessage(exercise, aircraft, command, frequency, pilotMessage?.id);
-  });
-  const path: MenuEntry[] = [];
-  for (const label of pathLabels) {
-    const entry = (path.at(-1)?.children ?? root).find(item => item.id === label || item.label === label);
-    if (!entry) break;
-    path.push(entry);
-  }
-  const entry = path.at(-1);
-  const entries = entry?.children ?? (entry ? [] : root);
+  const {pilotMessage, path, entry, entries} = messageMenu(exercise, aircraft, frequency, pathLabels, connected, holdTarget);
   const invalid = entry?.instruction ? validateControllerMessage(exercise, aircraft, entry.instruction, frequency, pilotMessage?.id) : null;
   const reason = entry?.note ?? invalid;
   const renderEntry = (item: MenuEntry, i: number) => {

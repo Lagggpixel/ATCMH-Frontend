@@ -1098,3 +1098,18 @@
 
 /* Keep incident controls accessible when the conflict panel is open. */
 .scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}
+/* Trainee controls: the trainee's own selection, drags and open messages on a staff radar. Read-only. */
+.traineeControls {display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.traineeControls label {display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.traineeControls select {max-width:160px}
+.traineeRing {position:absolute;width:46px;height:46px;border:2px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:0 0 0 1px #06121f}
+.traineeRing span {position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font-size:11px;font-weight:600;white-space:nowrap}
+.traineeVector {z-index:5}
+.traineeVectorLabel {position:absolute;transform:translate(10px,-50%);padding:2px 6px;border:1px solid #499cff;background:#06121fcc;color:#cfe4ff;font-size:12px;white-space:nowrap;pointer-events:none;z-index:6}
+.traineeMessagesSlot {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 15px);bottom:26px;max-width:min(300px,40%);max-height:55%;display:flex;pointer-events:none;z-index:5}
+.traineeMessages {display:flex;flex-direction:column;min-width:200px;overflow:hidden;border:2px solid #499cff;border-radius:6px;background:#0b1622ee;color:#e8edf2;font-size:13px}
+.traineeMessages header {display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:#499cff;color:#06121f}
+.traineeMessages header small {font-weight:600}
+.traineeMenuPath {margin:0;padding:6px 10px 0;color:#9bcaff;font-size:12px}
+.traineeMessages ul {margin:0;padding:6px 0;list-style:none;overflow:hidden}
+.traineeMessages li {padding:3px 10px}

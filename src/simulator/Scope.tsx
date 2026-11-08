@@ -5,6 +5,7 @@ import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
 import {buildGroundRoute, canRouteGround, destinationAt, groundPointKey, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import {followedCamera, type DemoGroundDraft, type DemoState} from "./demonstration";
+import {TraineeScopeLayer, type TraineeScopeView} from "./TraineeOverlay";
 import {planParkingRoute} from "./taxi-routing";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
@@ -91,6 +92,8 @@ interface Props {staffAlertsEnabled?: boolean; controllerPositionId?: string; /*
   onDemoScope?: (scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => void;
   /** Trainee watching: the trainer's drafts and view, shown instead of this page's own. */
   mirrorVector?: DemoState["vectorDraft"]; mirrorGround?: DemoGroundDraft | null; followCamera?: DemoState["camera"];
+  /** Staff only: the trainee's selection, drags and open messages, drawn over this view. */
+  trainee?: TraineeScopeView;
   /** A replayed trainer pointer, drawn at its map position. */
   demoPointer?: {point: Point; down?: boolean; click?: boolean} | null}
 const FLIGHT_PLAN_PREVIEW = "#ffb18a";
@@ -98,7 +101,7 @@ export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
 }
-function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer}: Props & {preferenceKey?: string}) {
+function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer, trainee}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
   // Aircraft of positions this controller does not hold stay on the scope but off its frequency.
   const heldKey = controllerPositionIds?.join(",") ?? controllerPositionId ?? "";
@@ -294,6 +297,13 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     const frame = requestAnimationFrame(() => setCamera(followedCamera(followCamera, size)));
     return () => cancelAnimationFrame(frame);
   }, [followCamera, size]);
+  // Following the trainee's zoom copies only the scale: the staff page keeps its own pan.
+  const traineeScale = trainee?.followZoom && trainee.state?.camera && size.width && size.height ? followedCamera(trainee.state.camera, size).scale : null;
+  useEffect(() => {
+    if (!traineeScale) return;
+    const frame = requestAnimationFrame(() => setCamera(current => Math.abs(current.scale - traineeScale) < 1e-9 ? current : {...current, scale: traineeScale}));
+    return () => cancelAnimationFrame(frame);
+  }, [traineeScale]);
   const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useLayoutEffect(() => {
     const node = container.current;
@@ -747,6 +757,8 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       <svg width="22" height="28" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7.5 17 L11 25 L14.5 23.5 L11 15.8 L18.5 15.5 Z"/></svg>
       <span>Mentor</span>
     </div> : null}
+    {trainee?.state ? <TraineeScopeLayer state={trainee.state} name={trainee.name} aircraft={aircraft} airport={airport} environment={radarEnvironment} project={project} scale={camera.scale} size={size}/> : null}
+    {trainee?.messages ? <div className={styles.traineeMessagesSlot}>{trainee.messages}</div> : null}
     {overlay}
     {staffAlerts ? <SeparationPanel accountId={accountId} incidents={currentIncidents(separation, terrainAlerts, callsignOf)} elapsed={elapsed} selected={selected} onSelect={id => onSelect(id)} onHover={setHoveredIncident}/> : null}
     {terrainOn ? <TerrainReadout extremes={terrainView} error={terrainGrid.error} onRetry={terrainGrid.retry} scope={container} grid={terrainGrid.data} camera={camera} size={size}
