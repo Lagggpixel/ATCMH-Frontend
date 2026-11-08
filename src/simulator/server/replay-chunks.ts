@@ -40,8 +40,9 @@ const seal = (data: Uint8Array) => new Uint8Array(deflateRawSync(data, {level: 9
 export async function appendCompactFrame(connection: ChunkConnection, replayId: string, previousSequence: number, before: Exercise, frame: ReplayFrame, close: boolean, now: number) {
   if (!await compactReplaysAvailable(connection)) return false;
   const [rows] = await connection.execute("SELECT chunk_no,first_sequence,last_sequence,frame_count,sealed,identities,data FROM simulator_replay_chunks WHERE replay_id=? ORDER BY chunk_no DESC LIMIT 1", [replayId]);
-  const last = (rows as ChunkRow[])[0];
+  let last = (rows as ChunkRow[])[0];
   if (!last && previousSequence > 0) return false;
+  if (last && Number(last.last_sequence) !== previousSequence) last = await reconcileJsonTail(connection, replayId, Number(last.last_sequence), previousSequence, now);
   const identities = new Set<string>();
   const bytes = encodeReplayFrame(before, frame, {anchors: replayAnchors(before)}, identities);
   if (last && !Number(last.sealed) && Number(last.frame_count) < CHUNK_FRAMES) {
@@ -55,6 +56,30 @@ export async function appendCompactFrame(connection: ChunkConnection, replayId: 
   }
   return true;
 }
+type JsonFrameRow = {sequence_no: number; at_seconds: number; delta: string; interpolate: number};
+const jsonFrame = (f: JsonFrameRow): ReplayFrame => ({sequence: Number(f.sequence_no), at: Number(f.at_seconds), delta: JSON.parse(f.delta), interpolate: !!f.interpolate});
+const JSON_TAIL = "SELECT sequence_no,at_seconds,delta,interpolate FROM simulator_replay_frames WHERE replay_id=? AND sequence_no>? ORDER BY sequence_no";
+/** Frames numbered without a gap from 1. */
+const continuous = (frames: readonly ReplayFrame[]) => frames.every((frame, i) => frame.sequence === i + 1);
+
+/** An older JSON-only image may have continued a compact recording during a rollback, writing JSON frames after the chunks.
+ * Folds those frames into the compact copy, inside the recording transaction, before compact appends resume.
+ * The JSON rows stay until the soak removes them. Throws rather than append across a gap it cannot fill. */
+async function reconcileJsonTail(connection: ChunkConnection, replayId: string, compactSequence: number, previousSequence: number, now: number) {
+  const [replays] = await connection.execute("SELECT initial_state FROM simulator_replays WHERE id=?", [replayId]);
+  const [chunkRows] = await connection.execute("SELECT chunk_no,sealed,data FROM simulator_replay_chunks WHERE replay_id=? ORDER BY chunk_no", [replayId]);
+  const [tailRows] = await connection.execute(JSON_TAIL, [replayId, compactSequence]);
+  const initial = JSON.parse((replays as {initial_state: string}[])[0].initial_state) as Exercise;
+  const frames = [...decodeChunks(chunkRows as ChunkRow[], initial) ?? [], ...(tailRows as JsonFrameRow[]).map(jsonFrame)];
+  if (!continuous(frames) || frames.at(-1)?.sequence !== previousSequence) throw new Error(`Replay ${replayId} has a gap between its compact and JSON frames`);
+  const chunks = buildCompactChunks(initial, frames);
+  if (!chunksReproduce(initial, frames, chunks)) throw new Error(`Replay ${replayId} could not fold its JSON frames into compact storage`);
+  // The rewritten chunks count as new, so the soak restarts before any JSON copy is removed.
+  await writeCompactChunks(connection, replayId, chunks, now);
+  const final = chunks.at(-1)!;
+  return {chunk_no: final.chunkNo, first_sequence: final.firstSequence, last_sequence: final.lastSequence, frame_count: final.frameCount, sealed: 1, identities: JSON.stringify(final.identities), data: final.data} as ChunkRow;
+}
+
 /** Seals a recording's open chunk without adding a frame, such as when a recording is closed early. */
 export async function sealCompactFrames(connection: ChunkConnection, replayId: string) {
   const [rows] = await connection.execute("SELECT chunk_no,data FROM simulator_replay_chunks WHERE replay_id=? AND sealed=0", [replayId]);
@@ -73,9 +98,14 @@ export function decodeChunks(rows: readonly ChunkRow[], initial: Exercise) {
   }
   return frames;
 }
-export async function readCompactFrames(query: (sql: string, values: string[]) => Promise<ChunkRow[]>, replayId: string, initial: Exercise) {
-  const rows = await query("SELECT chunk_no,sealed,data FROM simulator_replay_chunks WHERE replay_id=? ORDER BY chunk_no", [replayId]).catch(() => [] as ChunkRow[]);
-  return decodeChunks(rows, initial);
+/** Every frame of a replay: its compact chunks, followed by any JSON frames written after them, such as by an older image
+ * during a rollback. Returns null when the replay has no compact frames. */
+export async function readCompactFrames(query: (sql: string, values: (string | number)[]) => Promise<unknown[]>, replayId: string, initial: Exercise) {
+  const rows = await query("SELECT chunk_no,sealed,data FROM simulator_replay_chunks WHERE replay_id=? ORDER BY chunk_no", [replayId]).catch(() => [] as ChunkRow[]) as ChunkRow[];
+  const frames = decodeChunks(rows, initial);
+  if (!frames) return null;
+  const tail = await query(JSON_TAIL, [replayId, frames.at(-1)?.sequence ?? 0]) as JsonFrameRow[];
+  return [...frames, ...tail.map(jsonFrame)];
 }
 
 export interface CompactChunk {chunkNo: number; firstSequence: number; lastSequence: number; frameCount: number; identities: string[]; data: Uint8Array}

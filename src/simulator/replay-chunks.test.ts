@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
 import {recordReplay} from "./server/replay-store";
-import {CHUNK_FRAMES, decodeChunks, resetCompactReplayDetection, SQLITE_CHUNKS_TABLE, type ChunkRow} from "./server/replay-chunks";
+import {CHUNK_FRAMES, decodeChunks, readCompactFrames, resetCompactReplayDetection, SQLITE_CHUNKS_TABLE, type ChunkRow} from "./server/replay-chunks";
 import {compactStoredReplays, deleteCompactedJsonFrames} from "./server/replay-compaction";
 import {engineFor, initialExercise} from "./engine";
 import {applyReplayDelta, replayState, type ReplayDelta} from "./replays";
@@ -120,5 +120,76 @@ test("a failed chunk write leaves no partial compact copy, and a retry converts 
   const frames = decodeChunks(chunks, JSON.parse(replay.initial_state))!;
   assert.equal(frames.length, CHUNK_FRAMES + 1);
   follows(JSON.parse(replay.initial_state), frames, states);
+  db.close();
+});
+
+test("a recording an older JSON-only image continued during a rollback keeps every frame after re-upgrade", async () => {
+  resetCompactReplayDetection();
+  const {db, connection} = database(true);
+  // The older image has no compact storage: its writer only ever inserts JSON frames.
+  const legacy = {execute: async (sql: string, values: (string | number | null | Uint8Array)[]) => {
+    if (/simulator_replay_chunks/i.test(sql)) throw new Error("no such table: simulator_replay_chunks");
+    return connection.execute(sql, values);
+  }};
+  let state: Exercise = {...initialExercise("rec"), running: true};
+  const engine = engineFor(state), states = [replayState(state)];
+  let previous = record(state, 1);
+  await recordReplay(connection, previous);
+  const step = async (writer: typeof connection, i: number, last: boolean) => {
+    state = {...engine.advance(state, 1), elapsed: i};
+    const next = record(state, previous.contentRevision);
+    await recordReplay(writer, next, previous, last ? "finished" : undefined);
+    states.push(replayState(state)); previous = next;
+  };
+  for (let i = 1; i <= 5; i++) await step(connection, i, false);
+  resetCompactReplayDetection();
+  for (let i = 6; i <= 8; i++) await step(legacy, i, false);
+  resetCompactReplayDetection();
+  for (let i = 9; i <= CHUNK_FRAMES + 20; i++) await step(connection, i, i === CHUNK_FRAMES + 20);
+  const query = async (sql: string, values: (string | number)[]) => db.prepare(sql).all(...values);
+  const replay = db.prepare("SELECT * FROM simulator_replays").get() as {id: string; initial_state: string; sequence_no: number};
+  const frames = (await readCompactFrames(query, replay.id, JSON.parse(replay.initial_state)))!;
+  assert.deepEqual(frames.map(f => f.sequence), Array.from({length: CHUNK_FRAMES + 20}, (_, i) => i + 1), "no frame is skipped");
+  assert.equal(replay.sequence_no, CHUNK_FRAMES + 20);
+  follows(JSON.parse(replay.initial_state), frames, states);
+  // The JSON frames from the rollback stay until the soak, then go once the compact copy is checked.
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM simulator_replay_frames").get() as {n: number}).n, 3);
+  assert.equal((await compactStoredReplays(connection, Date.now(), true)).replays, 0, "already reconciled");
+  const removed = await deleteCompactedJsonFrames(connection, Date.now() + 15 * 86_400_000, true);
+  assert.equal(removed.replays, 1); assert.equal(removed.failed.length, 0);
+  follows(JSON.parse(replay.initial_state), (await readCompactFrames(query, replay.id, JSON.parse(replay.initial_state)))!, states);
+  db.close();
+});
+
+test("a recording an older image finished during a rollback reads its JSON tail, and maintenance folds it in", async () => {
+  resetCompactReplayDetection();
+  const {db, connection} = database(true);
+  const legacy = {execute: async (sql: string, values: (string | number | null | Uint8Array)[]) => {
+    if (/simulator_replay_chunks/i.test(sql)) throw new Error("no such table: simulator_replay_chunks");
+    return connection.execute(sql, values);
+  }};
+  let state: Exercise = {...initialExercise("rec"), running: true};
+  const engine = engineFor(state), states = [replayState(state)];
+  let previous = record(state, 1);
+  await recordReplay(connection, previous);
+  for (let i = 1; i <= 10; i++) {
+    if (i === 6) resetCompactReplayDetection();
+    state = {...engine.advance(state, 1), elapsed: i};
+    const next = record(state, 1);
+    await recordReplay(i > 5 ? legacy : connection, next, previous, i === 10 ? "finished" : undefined);
+    states.push(replayState(state)); previous = next;
+  }
+  resetCompactReplayDetection();
+  const query = async (sql: string, values: (string | number)[]) => db.prepare(sql).all(...values);
+  const replay = db.prepare("SELECT * FROM simulator_replays").get() as {id: string; initial_state: string};
+  const initial = JSON.parse(replay.initial_state) as Exercise;
+  const read = (await readCompactFrames(query, replay.id, initial))!;
+  assert.deepEqual(read.map(f => f.sequence), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  follows(initial, read, states);
+  const converted = await compactStoredReplays(connection, Date.now(), true);
+  assert.equal(converted.replays, 1); assert.equal(converted.failed.length, 0);
+  const chunks = db.prepare("SELECT * FROM simulator_replay_chunks ORDER BY chunk_no").all() as ChunkRow[];
+  assert.deepEqual(decodeChunks(chunks, initial)!.map(f => f.sequence), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "the compact copy now holds every frame");
+  assert.equal((await compactStoredReplays(connection, Date.now(), true)).replays, 0, "resumable");
   db.close();
 });
