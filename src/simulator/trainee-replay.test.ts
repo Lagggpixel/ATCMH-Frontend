@@ -33,6 +33,14 @@ test("a drag keeps at most ten marks a second", () => {
   assert.equal(marks.at(-1)!.state!.vectorDraft!.point.x, 29, "the newest drag point is kept");
 });
 
+test("a continuous drag keeps its intermediate points, not just the last one", () => {
+  // 13 distinct drag states 80 ms apart, from 0 to 0.96 s.
+  const entries = Array.from({length: 13}, (_, i) => ({elapsed: i * .08, batch: {sentAt: i * 80, elapsed: i * .08, pointer: [], events: [], state: state({vectorDraft: {aircraftId: "a1", point: {x: i, y: 0}}})}}));
+  const marks = traineeReplayMarks(entries, "main", .96, .96);
+  assert.deepEqual(marks.map(mark => mark.state!.vectorDraft!.point.x), [1, 2, 3, 4, 6, 7, 8, 9, 11, 12], "one point per fixed tenth of a second");
+  assert.equal(marks.at(-1)!.state!.vectorDraft!.point.x, 12, "the newest drag point is kept");
+});
+
 test("the replay shows one position's latest controls and its sent command for a few seconds", () => {
   const marks = [
     {at: 5, positionId: "north", state: state({selectedId: "a1"})},
@@ -50,15 +58,31 @@ test("the replay shows one position's latest controls and its sent command for a
   assert.equal(traineeReplayEvents(marks, "north", 7).length, 0, "events past the recording are dropped");
 });
 
-test("a trainee replays only their own position's controls", () => {
+test("a trainee replays only the controls they produced, across seat handovers", () => {
   const detail = {
-    replay: {participants: [{role: "mentee", accountId: "t1", positionId: "north", name: "Alex"}, {role: "mentee", accountId: "t2", positionId: "south", name: "Sam"}]},
+    replay: {participants: [
+      {role: "mentee", accountId: "alice", positionId: "north"}, {role: "mentee", accountId: "bob", positionId: "north"},
+      {role: "mentee", accountId: "cara", positionId: "main"}, {role: "mentee", accountId: "dan", positionId: "main"},
+    ]},
     initial: null,
-    frames: [{at: 1, delta: {state: {}, shadow: [{at: 1, positionId: "north", state: state()}, {at: 1, positionId: "south", state: state()}, {at: 1, positionId: "main", state: state()}]}}],
+    frames: [{at: 1, delta: {state: {}, shadow: [
+      {at: 1, positionId: "north", accountId: "alice", state: state()}, {at: 2, positionId: "north", accountId: "bob", state: state()},
+      {at: 1, positionId: "main", accountId: "cara", state: state()}, {at: 2, positionId: "main", accountId: "dan", state: state()},
+      {at: 3, positionId: "north", state: state()},
+    ]}}],
   } as unknown as ReplayDetail;
-  assert.deepEqual(participantReplay(detail, "t1").frames[0].delta.shadow?.map(mark => mark.positionId), ["north", "main"]);
-  assert.deepEqual(participantReplay(detail, "t2").frames[0].delta.shadow?.map(mark => mark.positionId), ["south", "main"]);
-  assert.equal(participantReplay(detail, "someone").frames[0].delta.shadow, undefined, "a non-participant sees none");
+  const seen = (account: string) => participantReplay(detail, account).frames[0].delta.shadow?.map(mark => `${mark.positionId}:${mark.accountId}`);
+  assert.deepEqual(seen("alice"), ["north:alice"], "Bob's later time on the same split seat stays private");
+  assert.deepEqual(seen("bob"), ["north:bob"]);
+  assert.deepEqual(seen("cara"), ["main:cara"], "the main seat is split by occupant too");
+  assert.deepEqual(seen("dan"), ["main:dan"]);
+  assert.equal(seen("someone"), undefined, "a non-participant sees none, and unattributed marks are never shown");
+});
+
+test("shadow traces keep the producing account through a seat handover", () => {
+  const entries = [{...batch(1, {selectedId: "a1"}), accountId: "alice"}, {...batch(2, {selectedId: "a1"}), accountId: "bob"}];
+  const marks = traineeReplayMarks(entries, "north", 2, 2);
+  assert.deepEqual(marks.map(mark => mark.accountId), ["alice", "bob"], "the same view from a new occupant is a new mark");
 });
 
 test("trainee marks survive the compact replay format", async () => {

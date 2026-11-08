@@ -60,23 +60,26 @@ export function traineeShortcut(event: {key: string; ctrlKey: boolean; metaKey: 
 export const traineeView = (state: TraineeView): TraineeView => ({frequency: state.frequency, selectedId: state.selectedId, messageId: state.messageId, menuPath: state.menuPath, vectorDraft: state.vectorDraft, ground: state.ground, camera: state.camera});
 
 /** Turns one position's shadow trace into replay marks on the replay clock: each change of state, at
- * most ten a second, and every sent command. `frameAt`/`frameElapsed` place exercise time on the replay clock. */
-export function traineeReplayMarks(entries: readonly {elapsed: number; batch: Omit<DemoBatch, "seq">}[], positionId: string, frameAt: number, frameElapsed: number): ReplayTraineeMark[] {
+ * most one per fixed tenth of a second, and every sent command. Each mark keeps the account that produced
+ * it, so a seat handover never mixes two trainees. `frameAt`/`frameElapsed` place exercise time on the replay clock. */
+export function traineeReplayMarks(entries: readonly {elapsed: number; batch: Omit<DemoBatch, "seq">; accountId?: string}[], positionId: string, frameAt: number, frameElapsed: number): ReplayTraineeMark[] {
   const states: ReplayTraineeMark[] = [], sent: ReplayTraineeMark[] = [];
+  const bucket = (time: number) => Math.floor(time * 10 + 1e-9);
   let last = "";
-  for (const {batch} of entries) {
+  for (const {batch, accountId} of entries) {
     const at = (t: number) => Math.max(0, frameAt - (frameElapsed - (batch.elapsed - (batch.sentAt - t) / 1000)));
+    const by = accountId ? {accountId} : {};
     if (batch.state) {
-      const view = traineeView(batch.state), key = JSON.stringify(view), time = at(batch.sentAt);
+      const view = traineeView(batch.state), key = JSON.stringify([accountId, view]), time = at(batch.sentAt);
       if (key !== last) {
-        const previous = states.at(-1);
-        // A drag in progress keeps only its newest point within each tenth of a second.
-        if (previous && time - previous.at < .1) states[states.length - 1] = {at: time, positionId, state: view};
-        else states.push({at: time, positionId, state: view});
+        const previous = states.at(-1), mark = {at: time, positionId, ...by, state: view};
+        // A drag in progress keeps only its newest point within each fixed tenth of a second.
+        if (previous && previous.accountId === accountId && bucket(previous.at) === bucket(time)) states[states.length - 1] = mark;
+        else states.push(mark);
         last = key;
       }
     }
-    for (const event of batch.events) if (event.kind === "sent") sent.push({at: at(event.t), positionId, sent: {callsign: event.callsign, text: event.text, path: event.path}});
+    for (const event of batch.events) if (event.kind === "sent") sent.push({at: at(event.t), positionId, ...by, sent: {callsign: event.callsign, text: event.text, path: event.path}});
   }
   return [...states, ...sent].sort((a, b) => a.at - b.at);
 }
