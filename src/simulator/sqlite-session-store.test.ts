@@ -35,8 +35,10 @@ test('SQLite session updates serialize, rollback with replay changes, and surviv
     await assert.rejects(sqlSessionStore.transaction(id, record => {record.updatedAt = 999; record.exercise.elapsed = 50; throw new Error('abort transaction');}), /abort transaction/);
     assert.equal((await sqlSessionStore.read(id)).updatedAt, 112);
     await sqlSessionStore.transaction(id, record => {record.exercise.elapsed = 2; record.updatedAt = 200;});
-    const frames = await queryReadOnly('SELECT sequence_no FROM simulator_replay_frames');
-    assert.equal(frames.length, 1);
+    // The local schema has compact replay storage, so the one frame is in a chunk.
+    assert.equal((await queryReadOnly('SELECT sequence_no FROM simulator_replay_frames')).length, 0);
+    const chunks = await queryReadOnly('SELECT frame_count FROM simulator_replay_chunks');
+    assert.deepEqual(chunks.map(c => Number(c.frame_count)), [1]);
     await closeSimulatorStorage();
     const reloaded = await sqlSessionStore.read(id);
     assert.equal(reloaded.exercise.elapsed, 2);

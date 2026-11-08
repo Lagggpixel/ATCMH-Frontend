@@ -5,9 +5,11 @@ import {createRequire} from 'node:module';
 import {resolve, isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-export const tables = ['simulator_sessions', 'simulator_staff_preferences', 'simulator_scenarios', 'simulator_scenario_revisions', 'simulator_assignments', 'simulator_attempts', 'simulator_replays', 'simulator_replay_frames', 'simulator_replay_position_feedback', 'simulator_owner_interventions'];
+export const tables = ['simulator_sessions', 'simulator_staff_preferences', 'simulator_scenarios', 'simulator_scenario_revisions', 'simulator_assignments', 'simulator_attempts', 'simulator_replays', 'simulator_replay_frames', 'simulator_replay_chunks', 'simulator_replay_position_feedback', 'simulator_owner_interventions'];
 const identifier = value => {if (!/^[a-zA-Z0-9_]+$/.test(value)) throw new Error('Invalid schema identifier'); return `"${value}"`;};
-const digest = rows => createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+// Binary columns compare by content: MariaDB returns Buffers and SQLite returns Uint8Arrays.
+const binary = (key, value) => value instanceof Uint8Array ? Buffer.from(value).toString('base64') : value?.type === 'Buffer' && Array.isArray(value.data) ? Buffer.from(value.data).toString('base64') : value;
+const digest = rows => createHash('sha256').update(JSON.stringify(rows, binary)).digest('hex');
 export async function importSimulator(source, destination) {
   if (!isAbsolute(destination) || existsSync(destination) || existsSync(destination + '.importing')) throw new Error('Import requires a new absolute destination');
   closeSync(openSync(destination + '.importing', 'wx', 0o600));
@@ -20,7 +22,7 @@ export async function importSimulator(source, destination) {
     database.exec('BEGIN');
     for (const table of tables) {
       const [columns] = await source.execute('SELECT COLUMN_NAME,DATA_TYPE,IS_NULLABLE,COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [table]);
-      if (!columns.length) {if (table === 'simulator_replay_position_feedback' || table === 'simulator_owner_interventions') continue; throw new Error(`Missing source table ${table}`);}
+      if (!columns.length) {if (['simulator_replay_position_feedback', 'simulator_owner_interventions', 'simulator_replay_chunks'].includes(table)) continue; throw new Error(`Missing source table ${table}`);}
       const [indexes] = await source.execute('SELECT INDEX_NAME,NON_UNIQUE,COLUMN_NAME,SEQ_IN_INDEX FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', [table]);
       const primary = indexes.filter(index => index.INDEX_NAME === 'PRIMARY').map(index => index.COLUMN_NAME);
       if (!primary.length) throw new Error(`Import requires a primary key for ${table}`);

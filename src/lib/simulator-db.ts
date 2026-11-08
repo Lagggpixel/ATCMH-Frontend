@@ -56,6 +56,11 @@ export async function queryReadOnly<T extends RowDataPacket[]>(sql: string, valu
   const run = async () => await request({sql, values: [...values]}) as T;
   return context.getStore() ? run() : exclusive(run);
 }
+/** Maintenance only: VACUUM cannot run inside a transaction. */
+export async function vacuumSimulatorStorage() {
+  if (!sqliteEnabled()) throw new Error('SQLite simulator storage is not configured');
+  await exclusive(() => request({operation: 'VACUUM'}));
+}
 export async function withWriteTransaction<T>(run: (connection: Connection) => Promise<T>): Promise<T> {
   if (!sqliteEnabled()) return mysql.withWriteTransaction(run);
   const active = context.getStore();

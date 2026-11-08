@@ -4,6 +4,9 @@ import {authorizeSessionRequest} from "./session-auth";
 import {sessionFailure} from "./session-api";
 import {updateReplayFeedback, updatePositionFeedback} from "./replay-feedback";
 import {listReplays, readReplay} from "./replay-store";
+import {deflateRawSync} from "node:zlib";
+import {encodeReplayBody, REPLAY_BINARY_TYPE, wrapReplay} from "../replay-binary";
+import {replayAnchors} from "./replay-chunks";
 
 const pageNumber = z.coerce.number().int().min(0).max(1_000_000);
 export function createReplayApi(authorize = authorizeSessionRequest, list = listReplays, read = readReplay) {
@@ -24,8 +27,15 @@ export function createReplayApi(authorize = authorizeSessionRequest, list = list
         recordedOn: params.get("date") ? Date.parse(z.string().date().parse(params.get("date"))) : undefined,
         airport: z.string().regex(/^(?:[A-Z0-9]{4})?$/).parse(params.get("airport") ?? ""),
       };
-      const data = id ? await read(z.string().uuid().parse(id), pageNumber.parse(params.get("after") ?? 0), scope === "self" ? actor.accountId : undefined) : await list(pageNumber.parse(params.get("offset") ?? 0), filters);
-      return Response.json(id && scope === "self" ? participantReplay(data as ReplayDetail, actor.accountId) : data, {headers: {"cache-control": "no-store"}});
+      const binary = !!id && params.get("format") === "binary";
+      const data = id ? await read(z.string().uuid().parse(id), binary ? 0 : pageNumber.parse(params.get("after") ?? 0), scope === "self" ? actor.accountId : undefined, binary) : await list(pageNumber.parse(params.get("offset") ?? 0), filters);
+      const visible = id && scope === "self" ? participantReplay(data as ReplayDetail, actor.accountId) : data;
+      if (binary) {
+        // One compact download replaces many pages of JSON frames.
+        const detail = visible as ReplayDetail, body = encodeReplayBody(detail, detail.initial ? replayAnchors(detail.initial) : []);
+        return new Response(wrapReplay(new Uint8Array(deflateRawSync(body, {level: 6}))), {headers: {"cache-control": "no-store", "content-type": REPLAY_BINARY_TYPE}});
+      }
+      return Response.json(visible, {headers: {"cache-control": "no-store"}});
     } catch (error) {return sessionFailure(error);}
   };
 }

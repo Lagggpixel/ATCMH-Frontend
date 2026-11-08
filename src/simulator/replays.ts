@@ -42,16 +42,17 @@ export function replayState(exercise: Exercise): Exercise {
 export function replayDelta(before: Exercise, after: Exercise): ReplayDelta {
   const state: ReplayDelta["state"] = {};
   for (const key of Object.keys(after) as (keyof Exercise)[]) {
-    if (key !== "aircraft" && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+    if (key !== "aircraft" && before[key] !== after[key] && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
       Object.assign(state, {[key]: after[key]});
   }
   const previous = new Map(before.aircraft.map(a => [a.id, a]));
   const aircraft: ReplayDelta["aircraft"] = after.aircraft.flatMap(a => {
     const old = previous.get(a.id); previous.delete(a.id);
     if (!old) return [{id: a.id, value: a}];
+    if (old === a) return [];
     const value: Partial<Aircraft> = {};
     for (const key of Object.keys(a) as (keyof Aircraft)[]) {
-      if (JSON.stringify(old[key]) !== JSON.stringify(a[key])) Object.assign(value, {[key]: a[key]});
+      if (old[key] !== a[key] && JSON.stringify(old[key]) !== JSON.stringify(a[key])) Object.assign(value, {[key]: a[key]});
     }
     // An optional field disappearing must also be removed when applying the delta.
     const unset = (Object.keys(old) as (keyof Aircraft)[]).filter(key => !(key in a));
