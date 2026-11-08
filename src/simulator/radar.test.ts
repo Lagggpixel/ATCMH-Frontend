@@ -301,7 +301,7 @@ test("resume route retains progress after a vector, while direct-to chooses an e
 test("transferred radar traffic keeps radar pilot requests and cannot switch into circuit movement", () => {
   let state = assign(exercise(), {type: "frequency", frequency: "tower"});
   const requests = catalogFor(getAirport(state), state.radarEnvironment).pilotRequests(state.aircraft[0]);
-  assert.deepEqual(requests.map(r => r.id), ["altitude-change","excellent-service","back-with-you","roger","wilco","standby","unable","correction","check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "airport-in-sight"]);
+  assert.deepEqual(requests.map(r => r.id), ["altitude-change","excellent-service","back-with-you","roger","wilco","standby","unable","correction","check-in", "request-approach", "missed-approach", "frequency-change", "flight-following", "radar-vectors", "star-descent", "diversion", "medical-emergency", "engine-failure", "airport-in-sight"]);
   const result = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: "a", command: {type: "pattern", leg: "downwind"}}});
   assert.match(result.error!, /unavailable/); assert.equal(result.state, state);
   state = send(state, {kind: "pilot", aircraftId: "a", text: "", request: {id: "missed-approach", runway: defaultRunway(getAirport(state))}});

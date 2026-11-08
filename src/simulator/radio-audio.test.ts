@@ -59,19 +59,19 @@ test("new voice preferences reset once, preserve mute, and remember later choice
   }
 });
 
-test("opening a session prepares its published ATIS silently and never prepares while muted or paused", () => {
+test("opening a session never prepares ATIS; published broadcasts are generated on demand", () => {
   const h = harness(), prepared: string[] = [];
   h.output.prepare = text => prepared.push(text);
   const player = new RadioAudio(), close = player.start(h.output);
   const exercise = {...initialExercise(), publishedAtis: "Edinburgh information Alpha. Wind 240 at 5."};
   player.observe(exercise, true, "tower");
-  assert.equal(prepared.length, 1); assert.match(prepared[0], /Wind two four zero at five/);
+  assert.equal(prepared.length, 0);
   assert.equal(h.played.length, 0);
-  player.observe(exercise, true, "tower"); assert.equal(prepared.length, 1, "repeated frames do not repeat preparation");
+  player.observe(exercise, true, "tower"); assert.equal(prepared.length, 0, "repeated frames do not prepare ATIS");
   close(); h.close();
   for (const muted of [true, false]) {
     const another = new RadioAudio(), cleanup = another.start(h.output, {read: () => !muted, write() {}});
-    another.observe(exercise, true, "tower", !muted); assert.equal(prepared.length, 1); cleanup();
+    another.observe(exercise, true, "tower", !muted); assert.equal(prepared.length, 0); cleanup();
   }
 });
 
@@ -81,13 +81,22 @@ test("reviewed drafts debounce without transmitting, and cancel on replacement, 
   h.output.prepareDraft = text => {drafts.push(text);};
   const cleanup = h.player.prepareDraft("old draft");
   t.mock.timers.tick(400); cleanup();
-  h.player.prepareDraft("Fly heading 90"); t.mock.timers.tick(499); assert.equal(drafts.length, 0);
+  h.player.prepareDraft("Fly heading 90"); t.mock.timers.tick(999); assert.equal(drafts.length, 0);
   t.mock.timers.tick(1); assert.deepEqual(drafts, ["Fly heading zero nine zero"]); assert.equal(h.played.length, 0);
-  h.player.prepareDraft("muted draft"); h.player.setEnabled(false); t.mock.timers.tick(500); assert.equal(drafts.length, 1);
+  h.player.prepareDraft("muted draft"); h.player.setEnabled(false); t.mock.timers.tick(1000); assert.equal(drafts.length, 1);
   h.enable(); h.player.prepareDraft("paused draft"); h.player.observe(initialExercise(), true, "all", true);
-  t.mock.timers.tick(500); assert.equal(drafts.length, 1); assert.equal(h.played.length, 0);
+  t.mock.timers.tick(1000); assert.equal(drafts.length, 1); assert.equal(h.played.length, 0);
   h.close(); t.mock.timers.reset();
 });
+test("oversized drafts and outputs without speculative support do not schedule preparation", t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const h = harness(); let prepared = 0;
+  h.output.prepareDraft = () => prepared++;
+  h.player.prepareDraft("x".repeat(201)); t.mock.timers.tick(2000); assert.equal(prepared, 0);
+  delete h.output.prepareDraft;
+  h.player.prepareDraft("short"); t.mock.timers.tick(2000); assert.equal(prepared, 0); h.close();
+});
+
 test("new controller and pilot transmissions play in order once across repeated snapshots", () => {
   const h = harness(); h.enable();
   const messages = [message("command"), message("readback", "ground", "pilot")];

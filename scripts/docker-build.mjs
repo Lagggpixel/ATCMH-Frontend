@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {prepareDependencyManifests} from "./docker-dependencies.mjs";
-import {join} from "node:path";
+import {prepareSharedEngine} from "./prepare-sweatbox-engine.mjs";
+import {join, resolve} from "node:path";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -17,11 +18,18 @@ export function runDockerBuild({ publish = false, options = process.argv.slice(2
   console.log(`Detected ${host} (${process.arch}); building ATCMH frontend ${version} for ${target}.`);
   console.log("Docker automatically selects native execution or CPU emulation for the Linux server target.");
 
+  const archive = resolve(process.env.RELEASE_STATIC_ARCHIVE ?? join(root, "build", "static-archive"));
+  if (!options.includes("--dry-run")) {
+    if (process.env.RELEASE_STATIC_ARCHIVE && !existsSync(archive)) throw new Error("Configured static archive is missing");
+    mkdirSync(archive, {recursive: true});
+  }
   const args = [
     "buildx", "build",
     "-f", ".dockerfile",
     "--platform", target,
     "--build-context", `dependency-manifests=${prepareDependencyManifests(root, options.includes("--dry-run"))}`,
+    "--build-context", `previous-static-assets=${archive}`,
+    "--build-context", `sweatbox-engine=${prepareSharedEngine(root, {docker: true, dryRun: options.includes("--dry-run")})}`,
     "--metadata-file", join(root, "build", "docker-build-metadata.json"),
     "-t", `${image}:${version}`,
     "-t", `${image}:latest`,

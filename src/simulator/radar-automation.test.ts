@@ -30,6 +30,33 @@ function fixture(station: "approach" | "center" = "approach", type: ApproachType
 }
 
 for (const station of ["approach", "center"] as const) {
+  test(`${station}: ILS intercept feedback is recorded only above 30 degrees`, () => {
+    for (const angle of [30, 40]) {
+      const f = fixture(station, "ils", 8, .1, angle);
+      const state = f.engine.advance(f.state, 1);
+      assert.equal(state.interceptFeedback?.length ?? 0, angle > 30 ? 1 : 0);
+      if (angle > 30) assert.equal(state.interceptFeedback![0].approach, "ils");
+    }
+  });
+  test(`${station}: a steep visual intercept is recorded for staff`, () => {
+    const f = fixture(station, "visual", 8, .1, 40);
+    const state = f.engine.advance(f.state, 1);
+    assert.equal(state.interceptFeedback?.[0].approach, "visual");
+    assert.ok(state.interceptFeedback![0].angle > 30);
+  });
+  test(`${station}: ILS that never reaches the localizer times out`, () => {
+    const f = fixture(station, "ils", 20, 3, 0);
+    f.a.radar!.approachIntercept = {seconds: 299, entered: false};
+    f.step(true, 2);
+    assert.equal(f.a.radar!.navigation, "missed");
+    assert.match(f.a.radar!.missedReason!, /Unable to establish on the localizer/);
+  });
+  test(`${station}: a long aligned ILS approach is not timed out while progressing`, () => {
+    const f = fixture(station, "ils", 50, 0, 0);
+    f.a.speed = f.a.targetSpeed = 180; f.a.speedMode = "manual";
+    for (let i = 0; i < 310; i++) f.step(true, 1);
+    assert.equal(f.a.radar!.navigation, "approach", f.a.radar!.missedReason);
+  });
   test(`${station}: late glideslope deviation causes one explained MA, preserved in snapshots/replays`, () => {
     const f = fixture(station); f.step();
     assert.equal(f.a.radar!.localizer, true); assert.equal(f.a.radar!.clearanceAltitudeChecked, true);
@@ -121,15 +148,18 @@ for (const type of ["ils", "gps", "visual"] as const) test(`${type}: reaching th
   f.a.altitude = f.airport.elevation + 50; f.step(false);
   assert.equal(f.a.radar!.navigation, "missed");
   const result = f.engine.autoReadbacks(f.state, 1000, randomUUID);
-  assert.match(result.messages.at(-1)!.unableReason!, /Reached the runway/);
+  assert.match(result.messages.at(-1)!.unableReason!, /Reached decision height/);
 });
 test("a Tower missed approach retains its explanation through reporting and frequency changes", () => {
   const f = fixture("approach", "ils", .5); f.a.frequency = "tower"; f.a.radar!.transferred = true;
   f.a.altitude = f.glide + 300; f.step();
   let state = f.state;
   for (let i = 0; i < 100; i++) state = f.engine.autoReadbacks(f.engine.advance(state, .5), i * 500, randomUUID);
+  assert.equal(state.aircraft[0].frequency, "tower", "the pilot remains with Tower until instructed");
+  state = f.engine.applyEnvelope(state, {id: "return-to-approach", time: 51000, action: {kind: "maneuver", aircraftId: f.a.id, command: {type: "frequency", frequency: "approach"}}}).state;
+  state = f.engine.autoReadbacks(state, 51000, randomUUID);
   const reports = state.messages.filter(m => m.text.includes("executing missed approach"));
-  assert.equal(reports.length, 1); assert.match(reports[0].unableReason!, /Above glideslope/);
+  assert.equal(reports.length, 2); assert.deepEqual(reports.map(m => m.frequency), ["tower", "approach"]); assert.match(reports[0].unableReason!, /Above glideslope/);
   assert.equal(state.aircraft[0].radar!.missedReason, undefined);
 });
 test("learner joins and frames omit both pending and logged MA reasons; trainer reconnect retains them", async () => {
@@ -137,6 +167,7 @@ test("learner joins and frames omit both pending and logged MA reasons; trainer 
     const f = fixture(); f.a.altitude = f.glide + 200; f.step();
     const state = logged ? f.engine.autoReadbacks(f.state, 1000, randomUUID) : f.state;
     state.callsignReservations = [{id: "future", callsign: "Future 9"}];
+    state.interceptFeedback = [{id: "steep", aircraftId: f.a.id, callsign: f.a.callsign, elapsed: 0, approach: "ils", angle: 40}];
     const service = new SessionService(new MemoryStore(), () => 1000), staff = {accountId: "mentor", staff: true};
     const session = await service.create(staff, "Missed reasons", state), token = randomUUID();
     const learner = {accountId: "learner", staff: false, learnerSession: session.id};
@@ -144,9 +175,11 @@ test("learner joins and frames omit both pending and logged MA reasons; trainer 
       assert.doesNotMatch(JSON.stringify(view), /Above glideslope/);
       assert.equal(view.exercise.aircraft[0].radar!.missedReason, undefined);
       assert.equal(view.exercise.callsignReservations, undefined);
+      assert.equal(view.exercise.interceptFeedback, undefined);
     }
     const mentor = await service.join(staff, session.id, "staff", randomUUID());
     assert.match(JSON.stringify(mentor), /Above glideslope/);
     assert.equal(mentor.exercise.callsignReservations?.[0].callsign, "Future 9");
+    assert.equal(mentor.exercise.interceptFeedback?.[0].angle, 40);
   }
 });

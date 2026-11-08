@@ -8,6 +8,14 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  * layout changes. Say mentor/mentee, and trim radar-only sentences. Add to the London calendar day it shipped.
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
+  {date: "2026-11-03", updates: [
+    {title: "Go-around safety", description: "Aircraft go around at decision height when they are not cleared to land or the runway is occupied. Go-around conflict exercises now record controller instructions and runway clearance more accurately."},
+    {title: "Radio audio recovery", description: "Busy or unavailable radio voices now fall back to a local English device voice, including in mentee tabs. Background preparation is reduced so live transmissions get priority."},
+  ]},
+  {date: "2026-10-30", updates: [
+    {title: "Aircraft setup and fuel", description: "The scenario aircraft setup now shows performance and fuel more clearly. New aircraft start with 120 minutes of normal fuel; choosing Minimum or Emergency fuel sets 30 or 15 minutes, and endurance can still be edited."},
+    {title: "More aircraft performance profiles", description: "More aircraft types now have their own simplified training profiles, including types used by the shared templates."},
+  ]},
   {date: "2026-10-29", updates: [
     {title: "Departures from opposite runway holds", description: "Aircraft cleared for takeoff can enter the runway when traffic is holding on the opposite side. Ground traffic still stops for aircraft on its route."},
     {title: "More realistic aircraft turns", description: "Aircraft now turn with a maximum bank of 0.33 radians, including smooth roll-in and roll-out. Circuit and holding turns adjust to the wider turn radius."},

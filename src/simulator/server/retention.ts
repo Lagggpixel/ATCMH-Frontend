@@ -3,7 +3,7 @@ import {recordReplay} from "./replay-store";
 /** Maintenance only: never called by an HTTP request or on application startup. */
 export const RETENTION_DAYS = {inactiveSession: 90, unusedPreference: 365} as const;
 const DAY = 86_400_000;
-export interface RetentionConnection {execute(sql: string, values: (string | number | null)[]): Promise<[unknown, unknown]>}
+export interface RetentionConnection {execute(sql: string, values: (string | number | null | Uint8Array)[]): Promise<[unknown, unknown]>}
 interface Candidate {id: string}
 async function candidates(connection: RetentionConnection, sql: string, values: (string | number)[]) {
   const [rows] = await connection.execute(sql, values);

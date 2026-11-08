@@ -110,9 +110,12 @@ test("replay deltas retain layout, position ownership, attribution and position 
 
 test("personal feedback is filtered from both initial replay state and later deltas", () => {
   const initial = splitExercise(); initial.positionFeedback = {"approach-1": "Alpha feedback", "approach-2": "Bravo feedback"};
+  initial.interceptFeedback = [{id: "steep", aircraftId: initial.aircraft[0].id, callsign: "TEST1", elapsed: 1, approach: "ils", angle: 40}];
   const filtered = participantReplay({replay: {participants: [{role: "mentee", accountId: "alpha", positionId: "approach-1"}]} as never, initial,
-    frames: [{sequence: 1, at: 1, interpolate: false, delta: {state: {positionFeedback: initial.positionFeedback}, aircraft: []}}], next: null}, "alpha");
+    frames: [{sequence: 1, at: 1, interpolate: false, delta: {state: {positionFeedback: initial.positionFeedback, interceptFeedback: initial.interceptFeedback}, aircraft: []}}], next: null}, "alpha");
   assert.deepEqual(filtered.initial!.positionFeedback, {"approach-1": "Alpha feedback"});
   assert.deepEqual(filtered.frames[0].delta.state.positionFeedback, {"approach-1": "Alpha feedback"});
+  assert.equal(filtered.initial!.interceptFeedback, undefined);
+  assert.equal(filtered.frames[0].delta.state.interceptFeedback, undefined);
   assert.equal(initial.positionFeedback["approach-2"], "Bravo feedback", "stored replay is unchanged");
 });

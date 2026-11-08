@@ -10,6 +10,8 @@ Winds Aloft loads a display-only Open-Meteo forecast at nine points around the t
 
 Open airport information → Procedures to select display overlays. Clear All Procedures removes those local overlays without modifying saved aircraft flight plans or issuing instructions. Learners may fetch overlay geometry; the existing staff-only route-import authorization and 200-point aircraft-route limit remain in force.
 
+STARs follow Infinite Flight flight-plan loading: unresolved source legs are omitted and the remaining fixes are connected directly. These routes are labelled Simplified in the picker, saved flight plan and procedure overlay; they do not reconstruct missing courses or the published procedure. SID and approach imports still require their retained legs to resolve.
+
 ## Magnetic headings and missed approaches
 
 A heading-only radio vector requires an accepted altitude assignment. Otherwise Automatic replies Unable and retains the existing lateral guidance, including a flight plan; manual radio acceptance is also blocked, and the trainer can send Unable. Current altitude, pending controller-strip assignments and planned route/STAR altitude targets do not qualify. Include an altitude with the heading or assign one first. Route-derived targets retain their provenance through snapshots and profile edits; explicit altitude instructions replace them. Staff movement overrides remain available.
@@ -161,7 +163,7 @@ Delayed updates recover all elapsed movement while a participant's 15-second con
 
 ## Radio audio
 
-Radio speech defaults to George at 1×. Existing voice and speed choices reset once, and later choices are remembered for the account and role in this browser. The selected Pocket voice stays in use when generation is slow; after 15 seconds without playback, the player reports the issue and allows retry. Queued calls prepare ahead. Autoplay denial retries on an ordinary interaction without a generation-failure cooldown.
+Radio speech defaults to George at 1×, with subsequent choices remembered for the account and role in this browser. All tabs, including mentees, use a local English device voice immediately on service failure/429 or after three seconds without Pocket playback. Online device voices are excluded. Autoplay denial waits for an ordinary interaction; an interrupted Pocket transmission is not replayed from the beginning. Calls retain their order and half-second gap. At most one background preparation runs per tab. Browser draft/readback speculation, ATIS preparation on join and server join warming are disabled. Shared speech CPU controls and benchmarks are maintained in `../Simulator/docs/shared-speech.md`.
 
 Both views include Audio on/off and Voice controls. Playback defaults on; the explicit on/off choice is remembered in browser local storage per account and role. Online voice permission remains per tab. A playback failure does not overwrite the saved choice. Device voices may load after startup; new transmissions wait for them automatically. If the browser blocks autoplay, the next click or key press in the simulator retries the queued transmission without muting audio or requiring an off/on toggle. Both roles hear new Ground and Tower transmissions regardless of the selected frequency. Published ATIS changes automatically queue the full published text. Switching frequencies, new messages and manual replays preserve the current transmission and queue. Repeated snapshots, initial history and reconnection history do not replay old messages or ATIS. Muting, reset, disconnect and leaving the page stop pending speech. A staff Pause suspends speech and retains new pilot requests for playback on resume.
 
@@ -173,7 +175,7 @@ Callsign speech reads airline numbers digit by digit (Speedbird 104 becomes "Spe
 
 The player streams Pocket Alba, George and Jane through the authenticated `/api/simulator/pocket-speech` route. Audio plays as framed PCM arrives; a stream interrupted after playback begins is reported instead of replaying the message. Voice speed is applied during Web Audio playback and changes pitch; the optional radio effect is a bandpass filter.
 
-The web server requires server-only `SPEECH_SERVICE_URL` and `SPEECH_SERVICE_TOKEN` settings for the compatible private Pocket service. Both hosts need private connectivity and the same token. Without a configured service, the player falls back to a local browser voice where available. Neither setting belongs in browser-visible environment variables. Deployment must preserve the existing stacks and requires verified service configuration; the previous live release has not yet been changed.
+The web server requires server-only `SPEECH_SERVICE_URL` and `SPEECH_SERVICE_TOKEN` settings for the compatible private Pocket service. Both hosts need private connectivity and the same token. Without the service, radio text remains available and voice playback reports an error. Neither setting belongs in browser-visible environment variables. Deployment must preserve the existing stacks and requires verified service configuration.
 
 ## Exercise controls
 
@@ -510,3 +512,14 @@ Before a future authorized deployment, apply the additive controller-positions m
 In radar and Ground & Tower scenarios or live sessions, Add aircraft can select a departure airport and runway. Right-clicking near a usable airport offers **Spawn aircraft at [ICAO]**, with that airport preselected. Nearby airport choices depend on map data containing an elevation and runway endpoints; the controlled airport remains available if the map service is unavailable. The chosen geometry and elevation are stored with the aircraft for scenarios, sessions and replays.
 
 Radar departures maintain runway heading and continue climbing until assigned an altitude or reaching the aircraft's performance ceiling. In Ground & Tower, the automatic departure climbs to 1,500 ft above the controlled airport and then turns toward its overhead. A heading instruction replaces the overhead turn while the climb continues. A departure airport at or above the overhead altitude, or an aircraft unable to reach it, cannot be selected for this automatic takeoff. Other ground and circuit clearances retain their normal behavior.
+
+
+### Radar separation and approach feedback
+
+In Approach and Center exercises, staff separation checks include airborne local traffic when at least one aircraft is under Approach or Center control. Tower-only pairs are excluded. Center sessions use the configured sector range. Same-runway established finals use 2.5 NM horizontal separation, with 1,000 ft vertical separation accepted. Other qualifying pairs use 3 NM or 1,000 ft. Ground and Tower exercises continue to omit these incidents. Replay incidents are calculated using the current rules.
+
+As a simplified simulator training rule, independent parallel ILS finals are automatically enabled for Brussels 25L/25R and the Istanbul arrival sets 16R/17L/18 and 34L/35R/36. Both aircraft must be established, within 0.1 NM of their respective centerlines, and tracking within 10 degrees of final. Deviations restore ordinary separation checks. This is not a complete simulation of the published procedures, monitoring, weather, equipment or breakout requirements. Other airport pairs and visual/GPS combinations do not receive this exemption.
+
+Staff approach feedback records intercepts above 30 degrees at establishment; 45 degrees remains the capture limit. GPS route joins anticipate the turn, and stalled GPS rejoins and ILS localizer intercepts can initiate an explained automatic missed approach.
+
+Automatic final-approach safety uses a simulator decision height of 200 feet above destination elevation (or the threshold if already passed). The check continues below that height for newly occupied runways; it is independent of automatic readback. A local runway-heading go-around climbs to circuit altitude (airport elevation plus the standard pattern height) and holds runway heading until another instruction. Automatic radar missed approaches use the approach missed heading and the next supported altitude at or above both current altitude and 2,000 feet above destination elevation. These are simulator training defaults, not published procedures.

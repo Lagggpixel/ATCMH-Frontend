@@ -2,10 +2,12 @@ import {readdirSync} from "node:fs";
 import {resolve, join, dirname} from "node:path";
 import {fileURLToPath} from "node:url";
 import {spawnSync} from "node:child_process";
+import {prepareSharedEngine} from "./prepare-sweatbox-engine.mjs";
 
 // Release snapshots and generated output are not additional source test suites.
 const generated = new Set(["node_modules", ".git", "build", "dist", "out", "coverage"]);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+prepareSharedEngine(root);
 const files = [];
 function visit(directory) {
   for (const entry of readdirSync(join(root, directory), {withFileTypes: true})) {

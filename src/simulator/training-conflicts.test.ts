@@ -121,8 +121,8 @@ test("self go-around is announced once, and a missed cancellation does not force
   assert.match(h.state.conflicts![0].outcome!, /cancellation missed/); assert.deepEqual(aircraftCollisionGroups(h.state.aircraft, h.airport.elevation), []);
 });
 
-test("cancel takeoff and GA use the same 50-foot or threshold self-go-around point", () => {
-  for (const [nm, height, expected] of [[.6, 191, false], [.1, 51, false], [.1, 50, true], [.1, 49, true], [0, 100, true], [-.01, 100, true]] as const) {
+test("cancel takeoff and GA use the same 200-foot or threshold self-go-around point", () => {
+  for (const [nm, height, expected] of [[.6, 201, false], [.1, 201, false], [.1, 200, true], [.1, 199, true], [0, 100, true], [-.01, 100, true]] as const) {
     for (const kind of ["ga", "cancel-takeoff"] as const) {
       const h = fixture(kind); h.start(); const arrival = kind === "ga" ? h.b : h.a, g = h.support.geometry("22L");
       if (kind === "ga") {h.a.mode = "rollout"; h.a.position = {...g.threshold}; h.a.altitude = h.airport.elevation;}
@@ -350,4 +350,39 @@ test("valid cross-kind exercises can overlap and display combined labels", () =>
   assert.equal(startConflict(h.state, h.airport, h.support, "ga-pair", "ga", "third", "a"), undefined);
   assert.equal(conflictLabels(h.state.conflicts, "a"), "UWC (C) + GA");
   assert.equal(conflictLabels(h.state.conflicts, "b"), "UWC");
+});
+
+
+test("GA records the follower's applied instruction even when it changes runway", () => {
+  const h = fixture("ga"); h.start();
+  conflictCommand(h.state, "b", {type: "go-around", runway: "22R"}, h.support, false);
+  assert.equal(h.state.conflicts![0].phase, "setup");
+  h.b.runway = "22R"; h.b.mode = "go-around";
+  conflictCommand(h.state, "b", {type: "go-around", runway: "22R"}, h.support, true);
+  prepareConflicts(h.state, h.airport, h.support);
+  assert.equal(h.state.conflicts![0].phase, "complete");
+  assert.match(h.state.conflicts![0].outcome!, /instructed/);
+  assert.equal(exerciseSchema.parse(h.state).conflicts![0].goAround, true);
+});
+
+test("Tower exit instruction resolves GA when the leader clears", () => {
+  const h = fixture("ga"); h.start();
+  h.a.mode = "rollout"; h.a.altitude = h.airport.elevation;
+  const g = h.support.geometry("22L"); h.a.position = {...g.threshold};
+  prepareConflicts(h.state, h.airport, h.support);
+  conflictCommand(h.state, "a", {type: "exit-runway", side: "left"}, h.support, true);
+  h.a.position = {x: g.threshold.x + g.vector.y, y: g.threshold.y - g.vector.x};
+  prepareConflicts(h.state, h.airport, h.support);
+  assert.equal(h.state.conflicts![0].phase, "complete");
+  assert.match(h.state.conflicts![0].outcome!, /Tower instruction/);
+  assert.equal(exerciseSchema.parse(h.state).conflicts![0].exitInstructed, true);
+});
+
+
+test("go-around assignment rejects downwind but accepts final", () => {
+  const h = fixture("ga");
+  h.b.leg = "downwind";
+  assert.match(h.engine.validateAssignment(h.b, {type: "go-around"})!, /base or final/);
+  h.b.leg = "final";
+  assert.equal(h.engine.validateAssignment(h.b, {type: "go-around"}), null);
 });

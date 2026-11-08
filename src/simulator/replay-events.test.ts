@@ -25,6 +25,17 @@ test("separation indexes one pair per continuous incident, then a fresh event af
   assert.equal(initial.aircraft[1].position.x, 1);
 });
 
+test("replayed Center incidents include local traffic beyond the Approach display range", () => {
+  const state = engineFor({trainingStation: "EGPH:center"}).initialExercise();
+  const a = state.aircraft[0], b = {...structuredClone(a), id: "local", callsign: "LOCAL"};
+  Object.assign(a, {active: true, position: {x: 70, y: 0}, altitude: 5000, frequency: "center"});
+  Object.assign(b, {active: true, position: {x: 71, y: 0}, altitude: 5000, frequency: "tower"});
+  delete b.radar; state.aircraft = [a, b]; state.radarEnvironment!.range = 200;
+  assert.equal(replayEvents([{at: 0, state}], 1).filter(event => event.kind === "separation").length, 1);
+  a.frequency = "tower";
+  assert.equal(replayEvents([{at: 0, state}], 1).filter(event => event.kind === "separation").length, 0);
+});
+
 test("same-time command ordering does not create a transient phantom incident", () => {
   const initial = fixture(); initial.aircraft[1].position.x = 5;
   const conflict = structuredClone(initial); conflict.aircraft[1].position.x = 2;

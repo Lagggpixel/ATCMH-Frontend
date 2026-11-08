@@ -78,16 +78,17 @@ export class RadioAudio {
   private draftTimer?: ReturnType<typeof setTimeout>;
   private gapTimer?: ReturnType<typeof setTimeout>;
   private readbackCandidates = new Set<string>();
+  private readbackSource = "";
   private prepared = false;
   constructor(private readonly scheduleGap: (callback: () => void) => ReturnType<typeof setTimeout> = callback => setTimeout(callback, 500)) {}
   /** Warm only the reviewed draft; this never sends an ATC command or starts playback. */
   prepareDraft = (text: string) => {
     this.cancelDraft();
     const generation = this.draftGeneration;
-    if (text.trim() && this.state.enabled && !this.paused) this.draftTimer = setTimeout(() => {
+    if (this.output?.prepareDraft && text.trim() && text.length <= 200 && this.state.enabled && !this.paused) this.draftTimer = setTimeout(() => {
       if (generation === this.draftGeneration && this.state.enabled && !this.paused)
         this.output?.prepareDraft?.(aviationSpeech(text, this.callsigns), this.state);
-    }, 500);
+    }, 1000);
     return () => {if (generation === this.draftGeneration) this.cancelDraft();};
   };
   private cancelDraft() {this.draftGeneration++; clearTimeout(this.draftTimer); this.draftTimer = undefined; this.output?.cancelDraft?.();}
@@ -116,13 +117,13 @@ export class RadioAudio {
     else if (!connected && previous.connected) {
       const interrupted = this.state.speaking;
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
-      this.prepared = false; this.readbackCandidates.clear();
+      this.prepared = false; this.readbackCandidates.clear(); this.readbackSource = "";
       if (interrupted) this.queue.unshift(interrupted);
     }
     if (paused && !this.paused && this.state.speaking) {
       const interrupted = this.state.speaking;
       this.generation++; this.output?.cancel(); this.update({speaking: ""});
-      this.prepared = false; this.readbackCandidates.clear();
+      this.prepared = false; this.readbackCandidates.clear(); this.readbackSource = "";
       this.queue.unshift(interrupted);
     }
     if (paused) this.cancelDraft();
@@ -131,23 +132,25 @@ export class RadioAudio {
     if (baseline || connected) this.seen = new Set(exercise.messages.map(m => m.id));
     this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis, channel};
     if (this.state.enabled && connected) {
-      // The published broadcast is already known when a session opens. Prepare it
-      // silently so Read published ATIS does not need a cold synthesis request.
-      if (baseline && !paused && exercise.publishedAtis !== "ATIS UNAVAILABLE") {this.prepared = true; this.output?.prepare?.(aviationSpeech(exercise.publishedAtis), this.state);}
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
-      if (!paused && exercise.running && exercise.autoReadback) {
+      if (this.output?.prepareReadback && !paused && exercise.running && (exercise.autoReadback || exercise.aircraft.some(a => a.automatic))) {
+        const source = JSON.stringify([scope, Boolean(exercise.positions?.length),
+          exercise.aircraft.map(a => [a.id, a.callsign, a.frequency]),
+          exercise.messages.map(m => [m.id, m.commandId, m.retractedBy, m.acknowledged, m.autoReadbackAt, m.instruction, m.text, m.frequency])]);
+        if (source === this.readbackSource) return;
+        this.readbackSource = source;
         const candidates = new Set<string>();
         for (const aircraft of exercise.aircraft) {
           const command = pendingCommands(exercise, aircraft.id).at(-1);
-          if (!command?.instruction || command.autoReadbackAt === undefined || (exercise.positions?.length && scope !== "all" && command.frequency !== scope)) continue;
+          if (!command?.instruction || command.autoReadbackAt === undefined || (scope !== "all" && command.frequency !== scope)) continue;
           const text = aviationSpeech(pilotReadback(aircraft.callsign, command.text, command.instruction), this.callsigns);
           candidates.add(text);
           if (!this.readbackCandidates.has(text)) {this.prepared = true; this.output?.prepareReadback?.(text, this.state);}
         }
         this.readbackCandidates = candidates;
-      } else this.readbackCandidates.clear();
+      } else {this.readbackCandidates.clear(); this.readbackSource = "";}
     }
   }
   setEnabled(enabled: boolean) {
@@ -179,7 +182,7 @@ export class RadioAudio {
   stop() {
     this.cancelDraft();
     const active = Boolean(this.state.speaking || this.queue.length || this.prepared || this.gapTimer);
-    clearTimeout(this.gapTimer); this.gapTimer = undefined; this.readbackCandidates.clear();
+    clearTimeout(this.gapTimer); this.gapTimer = undefined; this.readbackCandidates.clear(); this.readbackSource = "";
     this.prepared = false;
     this.generation++; this.queue = []; this.waitingForRetry = false;
     if (active) this.output?.cancel();
@@ -200,7 +203,7 @@ export class RadioAudio {
     const error = (reason?: unknown) => {
       if (generation !== this.generation) return;
       this.generation++; this.output?.cancel();
-      this.prepared = false; this.readbackCandidates.clear();
+      this.prepared = false; this.readbackCandidates.clear(); this.readbackSource = "";
       const blocked = reason instanceof Error && reason.name === "NotAllowedError";
       if (!blocked) {this.failureCount = this.failedText === text ? this.failureCount + 1 : 1; this.failedText = text;}
       if (!blocked && this.failureCount >= 2) {

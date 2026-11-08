@@ -1,3 +1,4 @@
+import {remoteAssignment} from "./runtime-client";
 import {positionPresence} from "./position-state";
 import type {Exercise} from "../model";
 import type {RowDataPacket} from "mysql2/promise";
@@ -121,4 +122,4 @@ export const sqlSessionStore: SessionStore = {
 };
 
 /** Lets mentees admitted only by an assignment load the shared airport, scope and navigation data. */
-export const assignedMentee = {hasAssignment: (discordId: string) => sqlSessionStore.hasAssignment(discordId)};
+export const assignedMentee = {hasAssignment: async (discordId: string) => (await remoteAssignment(discordId)) ?? sqlSessionStore.hasAssignment(discordId)};

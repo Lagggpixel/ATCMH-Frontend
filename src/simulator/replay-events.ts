@@ -4,13 +4,13 @@ import {radarApproachExempt, radarSeparationAlerts, separationLabel, terrainClea
 import {applyReplayDelta, type ReplayFrame} from "./replays";
 import {rawTerrainElevation, terrainCoordinates} from "./terrain";
 
-export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration";
+export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration" | "trainee";
 export interface ReplayEvent {
   id: string; kind: ReplayEventKind; at: number; end?: number;
   label: string; detail: string; aircraftIds: string[];
 }
 export interface ReplaySnapshot {at: number; state: Exercise}
-export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration"};
+export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration", trainee: "Mentee command"};
 
 /** Same-time commands form one visible state, just as they do when seeking. */
 export function replaySnapshots(initial: Exercise, frames: ReplayFrame[]): ReplaySnapshot[] {
@@ -44,7 +44,8 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
   const events = incidentEvents(snapshots, ({state}) => {
     const current = new Map<string, Omit<ReplayEvent, "id" | "at" | "end">>();
     const aircraft = new Map(state.aircraft.map(a => [a.id, a]));
-    for (const [id, alerts] of (trainingMode(state) === "local" ? new Map<string, import("./radar-safety").SeparationAlert[]>() : radarSeparationAlerts(state.aircraft, state.radarEnvironment, "all", getAirport(state)))) for (const alert of alerts) {
+    const mode = trainingMode(state);
+    for (const [id, alerts] of (mode === "local" ? new Map<string, import("./radar-safety").SeparationAlert[]>() : radarSeparationAlerts(state.aircraft, state.radarEnvironment, "all", getAirport(state), mode))) for (const alert of alerts) {
       const ids = [id, alert.otherId].sort(), key = JSON.stringify(ids);
       if (!current.has(key)) current.set(key, {kind: "separation", label: ids.map(value => aircraft.get(value)!.callsign).join(" / "), detail: separationLabel(alert), aircraftIds: ids});
     }
@@ -62,6 +63,11 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
       detail: state.aircraft.find(a => a.id === mark.aircraftId)?.callsign ?? "Instructor bookmark", aircraftIds: [mark.aircraftId]});
   }
   return [...events, ...demonstrations, ...bookmarks.values()].filter(e => e.at <= duration).sort(compareReplayEvents);
+}
+/** The trainee's sent commands as timeline events, from one position's recorded controls. */
+export function traineeReplayEvents(marks: readonly {at: number; positionId: string; sent?: {callsign: string; text: string}}[], positionId: string, duration: number): ReplayEvent[] {
+  return marks.filter(mark => mark.positionId === positionId && mark.sent && mark.at <= duration)
+    .map((mark, i) => ({id: `trainee:${positionId}:${mark.at}:${i}`, kind: "trainee" as const, at: mark.at, label: mark.sent!.callsign, detail: mark.sent!.text, aircraftIds: []}));
 }
 export const compareReplayEvents = (a: ReplayEvent, b: ReplayEvent) => a.at - b.at || a.id.localeCompare(b.id);
 

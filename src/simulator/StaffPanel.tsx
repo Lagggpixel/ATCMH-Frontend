@@ -31,7 +31,7 @@ import ScenarioFlightPlan from "./ScenarioFlightPlan";
 import {arrivalWorkflow} from "./arrival-workflow";
 import {MAX_AIRCRAFT,  intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
 import {sessionCode, sessionPath} from "./sessions";
-import {MessageLog} from "./MessagePanel";
+import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import IntentionsControls from "./IntentionsControls";
 import AutomaticHelp from "./AutomaticHelp";
 import LandingOutcomeControl from "./LandingOutcomeControl";
@@ -180,7 +180,7 @@ export default function StaffPanel(props: Props) {
         {tasks.map(taskButton)}{tab === "Radio" ? taskButton(sessionTask) : null}
       </nav> : null}
       <div key={a?.id ?? "log"} className={`${styles.controlContent} ${workspace.content}`} id={`${id}-content`} role={a ? "tabpanel" : undefined} aria-labelledby={a ? `${id}-${tab}` : undefined} data-log={!a || section === "global-log" || undefined}>
-        {!a || section === "global-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/> : section === "aircraft-log" ? <MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
+        {!a || section === "global-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/><InterceptFeedback notes={props.exercise.interceptFeedback}/></> : section === "aircraft-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/><InterceptFeedback notes={props.exercise.interceptFeedback} aircraftId={a.id}/></> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
       </div>
     </> : null}
   </section>;
@@ -245,6 +245,15 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       {!canMessage ? <p className={styles.controlHint}>Select a controller frequency to send messages.</p> : null}
     </section> : null}
     {section === "reply" ? <section className={workspace.reply} aria-label="Reply to controller">
+      <label className={workspace.formRow}>This pilot<select aria-label="Pilot actions for this aircraft" disabled={!owner} value={a.automatic === undefined ? "session" : a.automatic ? "on" : "off"} onChange={event => dispatch({kind: "aircraft-automatic", aircraftId: a.id, enabled: event.target.value === "session" ? null : event.target.value === "on"})}>
+        <option value="session">Follows the session ({exercise.autoReadback ? "automatic" : "by hand"})</option><option value="on">Always automatic</option><option value="off">By hand</option>
+      </select></label>
+      <div className={workspace.formRow}>
+        <label className={styles.checkLabel} title="The next automatic readback gets one value wrong, and the pilot waits for a correction"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.wrongReadback} onChange={event => edit({pilotFault: {...a.pilotFault, wrongReadback: event.target.checked}})}/>Wrong next readback</label>
+        <label className={styles.checkLabel} title="No readbacks or calls; instructions are not followed until the radio is restored"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.radioFailure} onChange={event => edit({pilotFault: {...a.pilotFault, radioFailure: event.target.checked}})}/>Radio failure</label>
+        <label className={styles.checkLabel} title="Hold this aircraft still while the rest of the session keeps running"><input type="checkbox" disabled={!owner} checked={!!a.frozen} onChange={event => edit({frozen: event.target.checked})}/>Freeze in place</label>
+      </div>
+      {a.emergency ? <p className={styles.controlHint} role="status">{a.emergency === "engine" ? "Engine failure declared · climb rate halved" : "Medical emergency declared"}</p> : null}
       <div className={workspace.replyMessage}><span className={workspace.eyebrow}>Last controller command{waiting.length > 1 ? ` · ${waiting.length} awaiting response` : ""}</span><output className={lastCommand || radio ? undefined : workspace.muted}>{lastCommand?.text ?? (radio ? latestController?.text : undefined) ?? "No command awaiting response"}</output></div>
       <div className={workspace.replyActions}>
         <button className={styles.primaryButton} disabled={!lastCommand || !canMessage || !!assignmentError} title={lastCommand ? assignmentError ?? "Acknowledge and follow this instruction" : undefined} onClick={() => reply(false, true)}>{switching ? lastCommand.instruction!.type === "frequency" && lastCommand.instruction!.whenReady ? "Readback & queue switch" : "Readback & switch" : "Readback & follow"}</button>

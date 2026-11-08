@@ -91,7 +91,7 @@ test("controlled-airport geometry retains separate transitions and complete rout
   const origin = getAirport().origin;
   globalThis.fetch = async () => Response.json({version: 1, icao: "EGPH", revision: "fixture", waypoints: [], procedures: [{id: "sid", identifier: "TEST1", type: "SID", routes: [
     {id: "a", transition: "06", points: Array.from({length: 201}, (_, i) => ({identifier: `A${i}`, lat: origin.lat + 1 / 60, lon: origin.lon}))},
-    {id: "b", transition: "24", points: [{identifier: "B", lat: origin.lat + 2 / 60, lon: origin.lon + 1 / 60}]},
+    {id: "b", transition: "24", simplified: true, points: [{identifier: "B", lat: origin.lat + 2 / 60, lon: origin.lon + 1 / 60}]},
   ]}]});
   try {
     const value = await fetchAirportProcedures("EGPH", "EGPH");
@@ -99,6 +99,7 @@ test("controlled-airport geometry retains separate transitions and complete rout
     assert.equal(value.procedures[0].routes[0].points.length, 201);
     assert.ok(Math.abs(value.procedures[0].routes[0].points[0].y - 1) < 1e-8);
     assert.equal(value.procedures[0].routes[1].points[0].name, "B");
+    assert.equal(value.procedures[0].routes[1].simplified, true);
     assert.doesNotMatch(JSON.stringify(value), /synthetic|cleared|expected|flightPlan/);
   } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
 });

@@ -5,6 +5,7 @@ import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
 import {buildGroundRoute, canRouteGround, destinationAt, groundPointKey, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import {followedCamera, type DemoGroundDraft, type DemoState} from "./demonstration";
+import {TraineeScopeLayer, type TraineeScopeView} from "./TraineeOverlay";
 import {planParkingRoute} from "./taxi-routing";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
@@ -22,7 +23,9 @@ import {airborne, vectorPreview} from "./radar";
 import {outsideVectorCircle, VECTOR_CANCEL_RADIUS, VECTOR_HOLD_MS, type VectorTarget} from "./vector-drag";
 import {terrainCoordinates} from "./terrain";
 import VectorTerrain from "./VectorTerrain";
-import {radarSeparationAlerts, separationLabel, terrainClearance} from "./radar-safety";
+import {radarSeparationAlerts, terrainClearance} from "./radar-safety";
+import SeparationPanel, {SeparationTagLines} from "./SeparationAlerts";
+import {currentIncidents} from "./separation-incidents";
 import {useAircraftTerrain} from "./use-aircraft-terrain";
 import {assignedTaxiPath, remainingTaxiPath, taxiPathEditable} from "./taxi-path-editing";
 import styles from "./Simulator.module.css";
@@ -33,7 +36,7 @@ import {aircraftAppearance} from "./aircraft-flashing";
 import {runwayWindColor} from "./atis-options";
 import {gateAtPoint, type GateTarget} from "./gate-placement";
 import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
-import {hitFixSymbol, layoutFixLabels, projectFixSymbols} from "./scope-fix-labels";
+import {hitFixSymbol, layoutFixLabels, projectFixSymbols, selectScopeFixes} from "./scope-fix-labels";
 import {drawCompassRoses, projectCompassRoses} from "./navigation-roses";
 import {drawNavigationSymbol} from "./navigation-symbols";
 import type {ScopeContext} from "./MentorContextMenu";
@@ -84,11 +87,13 @@ function VectorPreviewBox({point, size, children}: {point: Point; size: {width: 
 
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
-interface Props {controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
+interface Props {staffAlertsEnabled?: boolean; controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; /** Session simulation speed; predicted motion runs at the same rate. */ timeScale?: number; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
   /** Trainer demonstrating: reports drafts so the trainee can watch them. */
   onDemoScope?: (scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => void;
   /** Trainee watching: the trainer's drafts and view, shown instead of this page's own. */
   mirrorVector?: DemoState["vectorDraft"]; mirrorGround?: DemoGroundDraft | null; followCamera?: DemoState["camera"];
+  /** Staff only: the trainee's selection, drags and open messages, drawn over this view. */
+  trainee?: TraineeScopeView;
   /** A replayed trainer pointer, drawn at its map position. */
   demoPointer?: {point: Point; down?: boolean; click?: boolean} | null}
 const FLIGHT_PLAN_PREVIEW = "#ffb18a";
@@ -96,7 +101,7 @@ export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
 }
-function ScopeView({controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer}: Props & {preferenceKey?: string}) {
+function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer, trainee}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
   // Aircraft of positions this controller does not hold stay on the scope but off its frequency.
   const heldKey = controllerPositionIds?.join(",") ?? controllerPositionId ?? "";
@@ -127,10 +132,11 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       ? {center: {x: (bounds.left + bounds.right) / 2, y: (bounds.bottom + bounds.top) / 2}, scale: Math.min(width * .9 / (bounds.right - bounds.left), height * .84 / (bounds.top - bounds.bottom))}
       : {center: {x: 0, y: 0}, scale: width / 1.8};
   }, [airport, radarMode, radarEnvironment?.range]);
-  const aircraft = useRadarAircraft(snapshot, running, autoReadback, airport, radarEnvironment, weather);
-  const staffAlerts = frequency === "all" && !!radarMode;
-  const separation = staffAlerts ? radarSeparationAlerts(snapshot, radarEnvironment, frequency, AIRPORT) : new Map<string, import("./radar-safety").SeparationAlert[]>();
+  const aircraft = useRadarAircraft(snapshot, running, autoReadback, airport, radarEnvironment, weather, timeScale);
+  const staffAlerts = staffAlertsEnabled && frequency === "all" && !!radarMode;
+  const separation = staffAlerts ? radarSeparationAlerts(snapshot, radarEnvironment, frequency, AIRPORT, radarMode) : new Map<string, import("./radar-safety").SeparationAlert[]>();
   const terrainSamples = useAircraftTerrain(snapshot, airport, staffAlerts);
+  const [hoveredIncident, setHoveredIncident] = useState<readonly string[] | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const trafficCanvas = useRef<HTMLCanvasElement>(null);
@@ -264,7 +270,8 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
   const flightPlanPreview = useFlightPlanPreview();
   const flightPlanAircraft = shownVector ? snapshot.find(a => a.id === shownVector.aircraftId) : selectedAircraft;
   const navigationFixes = useMemo(() => scopeNavigationFixes(catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids), [catalogueFixes, flightPlanAircraft?.flightPlan, options.waypoints, options.navaids]);
-  const fixSymbols = useMemo(() => projectFixSymbols(navigationFixes, flightPlanAircraft?.flightPlan, camera, size), [navigationFixes, flightPlanAircraft?.flightPlan, camera, size]);
+  const visibleFixes = useMemo(() => selectScopeFixes(navigationFixes, flightPlanAircraft?.flightPlan, camera.scale), [navigationFixes, flightPlanAircraft?.flightPlan, camera.scale]);
+  const fixSymbols = useMemo(() => projectFixSymbols(visibleFixes, flightPlanAircraft?.flightPlan, camera, size), [visibleFixes, flightPlanAircraft?.flightPlan, camera, size]);
   const compassRoses = useMemo(() => projectCompassRoses(navigationFixes, camera, size), [navigationFixes, camera, size]);
   const revealedFix = fixSymbols.find(fix => fix.key === revealedFixKey);
   const [popup, setPopup] = useState<"options" | "hide" | null>(null);
@@ -290,6 +297,13 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     const frame = requestAnimationFrame(() => setCamera(followedCamera(followCamera, size)));
     return () => cancelAnimationFrame(frame);
   }, [followCamera, size]);
+  // Following the trainee's zoom copies only the scale: the staff page keeps its own pan.
+  const traineeScale = trainee?.followZoom && trainee.state?.camera && size.width && size.height ? followedCamera(trainee.state.camera, size).scale : null;
+  useEffect(() => {
+    if (!traineeScale) return;
+    const frame = requestAnimationFrame(() => setCamera(current => Math.abs(current.scale - traineeScale) < 1e-9 ? current : {...current, scale: traineeScale}));
+    return () => cancelAnimationFrame(frame);
+  }, [traineeScale]);
   const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useLayoutEffect(() => {
     const node = container.current;
@@ -381,7 +395,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       ctx.font = '12px "Simulator Fira", sans-serif';
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#fff"; ctx.shadowColor = "#000"; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
-      for (const label of layoutFixLabels(fixSymbols, size, name => ctx.measureText(name).width, "all")) ctx.fillText(label.symbol.id, label.x, label.y);
+      for (const label of layoutFixLabels(fixSymbols, size, name => ctx.measureText(name).width, "auto")) ctx.fillText(label.symbol.id, label.x, label.y);
       ctx.restore();
     }
     for (const feature of AIRPORT.features) {
@@ -509,7 +523,9 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     const point = end?.point ?? planParkingRoute(airport, selectedAircraft.position, selectedAircraft.intentions?.parkingStand).path?.at(-1);
     if (point) routing.start(selectedAircraft, point, end ? {type: "runway", id: end.id} : destinationAt(airport, point), "taxi");
   } : undefined) : null;
-  const alertBoxes: {x: number; top: number; height: number}[] = [];
+  const callsignOf = (id: string) => snapshot.find(item => item.id === id)?.callsign ?? id;
+  const terrainAlerts = new Map(staffAlerts ? snapshot.flatMap(a => {const agl = terrainClearance(a, terrainSamples.elevations.get(a.id), radarEnvironment); return agl === undefined ? [] : [[a.id, agl] as const];}) : []);
+  const pairFilled = (id: string, other: string) => selected === id || selected === other || (!!hoveredIncident?.includes(id) && hoveredIncident.includes(other));
   // Aircraft, tags and gates sit beside .mapSurface, so a finger on one never reaches the camera and a
   // second finger would only pan. Once two fingers are down, every map finger joins the camera as a pinch.
   const scopePoint = (event: React.PointerEvent) => {const bounds = container.current!.getBoundingClientRect(); return {x: event.clientX - bounds.left, y: event.clientY - bounds.top};};
@@ -618,15 +634,8 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
     {aircraft.filter(a => trafficVisible(displayedAircraft(a), options.filter, frequency)).map(a => {
       const p = project(gateDraft?.aircraftId === a.id && selected === a.id ? gateDraft.point : a.position); if (p.x < -50 || p.x > size.width + 50 || p.y < -50 || p.y > size.height + 50) return null;
       const conflicts = separation.get(a.id) ?? [];
-      const agl = staffAlerts ? terrainClearance(a, terrainSamples.elevations.get(a.id), radarEnvironment) : undefined;
-      const busting = conflicts.length > 0 || agl !== undefined;
-      let alertOffset = 65;
-      const alertHeight = (conflicts.length + (agl === undefined ? 0 : 1)) * 18 + 4;
-      if (busting) {
-        while (alertBoxes.some(box => Math.abs(box.x - p.x) < 100 && p.y - 24 - alertOffset - alertHeight < box.top + box.height && p.y - 24 - alertOffset > box.top)) alertOffset += alertHeight + 4;
-        alertBoxes.push({x: p.x, top: p.y - 24 - alertOffset - alertHeight, height: alertHeight});
-      }
-      const appearance = aircraftAppearance(displayedAircraft(a), frequency, {selected: a.id === selected, open: a.id === openStripId, hasStripControl: !missingStripControls?.includes(a.id), pending: pendingAircraft?.includes(a.id), reminder: a.reminderAt !== null && a.reminderAt <= elapsed, dragging: tagDraft?.aircraftId === a.id, alert: conflicts.length ? conflicts.some(c => c.level !== "warning") ? "alert" : "warning" : undefined});
+      const agl = terrainAlerts.get(a.id);
+      const appearance = aircraftAppearance(displayedAircraft(a), frequency, {selected: a.id === selected, open: a.id === openStripId, hasStripControl: !missingStripControls?.includes(a.id), pending: pendingAircraft?.includes(a.id), reminder: a.reminderAt !== null && a.reminderAt <= elapsed, dragging: tagDraft?.aircraftId === a.id});
       const color = appearance.iconColor, tagColor = appearance.textColor;
       const labelStyle={color:tagColor,backgroundColor:"transparent","--label-steady":tagColor} as React.CSSProperties;
       const station = labelFrequency ?? (frequency === "all" ? radarMode ?? (a.frequency === "ground" ? "ground" : "tower") : frequency);
@@ -636,7 +645,6 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       const tagOffset = tagAngle === undefined ? {x: a.tag === "left" ? -28 : 28, y: -25} : {x: Math.cos(tagAngle * Math.PI / 180) * Math.hypot(28, 25), y: Math.sin(tagAngle * Math.PI / 180) * Math.hypot(28, 25)};
       return <div key={a.id} className={styles.aircraftPosition} style={{left: 0, top: 0, transform: `translate(${p.x}px, ${p.y}px)`, color, "--aircraft-steady": color} as React.CSSProperties}>
         {giveWayTargets?.includes(a.id) ? <span className={styles.giveWayTarget} role="img" aria-label={`Likely give-way traffic: ${a.callsign}`}/> : null}
-        {busting ? <div className={styles.bustingRing} role="status" aria-label={`Busting ${a.callsign}`}><div className={styles.bustingTag} style={{bottom: `calc(100% + ${alertOffset}px)`}}>{conflicts.map(alert => <span key={alert.otherId}>{separationLabel(alert)}</span>)}{agl !== undefined ? <span>{Math.floor(agl)}ft AGL</span> : null}</div></div> : null}
         <button data-scope-aircraft={a.id} aria-label={`Select ${a.callsign}`} title={gates?.length && selected === a.id ? "Drag to a blue gate dot" : undefined} className={`${styles.aircraft} ${appearance.iconFlash ? iconFlashClasses[appearance.iconFlash] : ""} ${openStripId === a.id ? styles.extendedAircraftIndicator : selected === a.id ? styles.selectedAircraft : ""} ${conflictTargets?.includes(a.id) ? styles.conflictTarget : ""} ${gates?.length && selected === a.id ? styles.gateAircraft : ""}`} onContextMenu={event => {if (onScopeContextMenu) {event.preventDefault(); event.stopPropagation(); onScopeContextMenu({point: vectorPoint(event), screen: {x: event.clientX, y: event.clientY}, aircraftId: a.id});} else if (onVector) event.preventDefault();}}
           onPointerDown={event => {
             suppressClick.current = false;
@@ -715,7 +723,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
             onPointerMove={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId || !onTagAngle) return; if (!current.moved && distance(current.start, {x: event.clientX, y: event.clientY}) < (event.pointerType === "touch" ? 12 : 8)) return; if (event.pointerType === "touch" && performance.now() - current.at < 180) {suppressTagClick.current = true; cancelTag(); return;} current.moved = true; const bounds = container.current!.getBoundingClientRect(); const angle = (Math.atan2(event.clientY - bounds.top - p.y, event.clientX - bounds.left - p.x) * 180 / Math.PI + 360) % 360; current.angle = angle; setTagDraft({aircraftId: a.id, angle});}}
             onPointerUp={event => {const current = tagDrag.current; if (!current || current.pointerId !== event.pointerId) return; if (current.moved) {suppressTagClick.current = true; if (current.angle !== undefined) onTagAngle?.(a.id, current.angle);} cancelTag();}}
             onPointerCancel={() => {suppressTagClick.current = true; cancelTag();}} onLostPointerCapture={cancelTag}
-            onContextMenu={event => {event.preventDefault(); event.stopPropagation();}} onClick={event => {event.stopPropagation(); suppressTagClick.current = false;}}>{conflictTags?.[a.id] ? <span className={styles.conflictTag}>{conflictTags[a.id]}</span> : null}<span className={styles.labelIndicators}>{a.color ? <span className={styles.tagColorDot} style={{background: a.color}} aria-hidden="true"/> : null}{a.reminderAt != null ? <span className={styles.labelReminder} role="img" aria-label="Reminder set">{"\ue872"}</span> : null}{holding ? <span className={styles.labelHold} role="img" aria-label="Assigned hold">{"\ue815"}</span> : null}{label.vertical ? <span role="img" aria-label={label.vertical === "climb" ? "Climbing" : "Descending"}>{label.vertical === "climb" ? "\ue83a" : "\ue837"}</span> : null}</span><AircraftLabelIdentity type={a.type} callsign={a.callsign}/><span>{label.flight}</span>{label.additional ? <span>{label.additional}</span> : null}</button>
+            onContextMenu={event => {event.preventDefault(); event.stopPropagation();}} onClick={event => {event.stopPropagation(); suppressTagClick.current = false;}}><SeparationTagLines conflicts={conflicts} agl={agl} callsign={callsignOf} side={tagOffset.x < 0 ? "left" : "right"} filled={other => pairFilled(a.id, other)}/>{conflictTags?.[a.id] ? <span className={styles.conflictTag}>{conflictTags[a.id]}</span> : null}<span className={styles.labelIndicators}>{a.color ? <span className={styles.tagColorDot} style={{background: a.color}} aria-hidden="true"/> : null}{a.reminderAt != null ? <span className={styles.labelReminder} role="img" aria-label="Reminder set">{"\ue872"}</span> : null}{holding ? <span className={styles.labelHold} role="img" aria-label="Assigned hold">{"\ue815"}</span> : null}{label.vertical ? <span role="img" aria-label={label.vertical === "climb" ? "Climbing" : "Descending"}>{label.vertical === "climb" ? "\ue83a" : "\ue837"}</span> : null}</span><AircraftLabelIdentity type={a.type} callsign={a.callsign}/><span>{label.flight}</span>{label.additional ? <span>{label.additional}</span> : null}</button>
         </> : null}
       </div>;
     })}
@@ -749,7 +757,10 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
       <svg width="22" height="28" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7.5 17 L11 25 L14.5 23.5 L11 15.8 L18.5 15.5 Z"/></svg>
       <span>Mentor</span>
     </div> : null}
+    {trainee?.state ? <TraineeScopeLayer state={trainee.state} name={trainee.name} aircraft={aircraft} airport={airport} environment={radarEnvironment} project={project} scale={camera.scale} size={size}/> : null}
+    {trainee?.messages ? <div className={styles.traineeMessagesSlot}>{trainee.messages}</div> : null}
     {overlay}
+    {staffAlerts ? <SeparationPanel accountId={accountId} incidents={currentIncidents(separation, terrainAlerts, callsignOf)} elapsed={elapsed} selected={selected} onSelect={id => onSelect(id)} onHover={setHoveredIncident}/> : null}
     {terrainOn ? <TerrainReadout extremes={terrainView} error={terrainGrid.error} onRetry={terrainGrid.retry} scope={container} grid={terrainGrid.data} camera={camera} size={size}
       aircraft={terrainReference !== undefined && selectedAircraft ? {callsign: selectedAircraft.callsign, altitude: terrainReference} : undefined}
       reference={options.terrainReference} onStepReference={direction => setOptions(o => ({...o, terrainReference: stepTerrainReference(o.terrainReference, direction, AIRPORT.elevation)}))}/> : null}
@@ -759,7 +770,7 @@ function ScopeView({controllerPositionId, controllerPositionIds, controllers, tr
 }
 /** Both roles animate at the display's frame rate between authoritative motion
  * frames. A background staff tab's throttled timer no longer makes the mentee jump. */
-function useRadarAircraft(snapshot: Aircraft[], running: boolean, autoReadback: boolean, airport: Airport, radarEnvironment?: RadarEnvironment, weather?: import("./model").ExerciseWeather) {
+function useRadarAircraft(snapshot: Aircraft[], running: boolean, autoReadback: boolean, airport: Airport, radarEnvironment?: RadarEnvironment, weather?: import("./model").ExerciseWeather, timeScale = 1) {
   const {predictAircraft} = useMemo(() => engineFor({airport: airport.icao, airportDataVersion: airport.dataVersion, radarEnvironment, weather, traffic:snapshot}), [airport, radarEnvironment, weather, snapshot]);
   const latest = useRef({snapshot, time: 0});
   const [frame, setFrame] = useState<{snapshot: Aircraft[]; aircraft: Aircraft[]} | null>(null);
@@ -769,10 +780,10 @@ function useRadarAircraft(snapshot: Aircraft[], running: boolean, autoReadback: 
     let handle = 0, last = -Infinity;
     const draw = (now: number) => {
       const current = latest.current;
-      if (now - last >= 1000 / 30 - 1) {last = now; setFrame({snapshot: current.snapshot, aircraft: predictAircraft(current.snapshot, (now - current.time) / 1000, autoReadback)});}
+      if (now - last >= 1000 / 30 - 1) {last = now; setFrame({snapshot: current.snapshot, aircraft: predictAircraft(current.snapshot, (now - current.time) / 1000 * timeScale, autoReadback)});}
       handle = requestAnimationFrame(draw);
     };
     handle = requestAnimationFrame(draw); return () => cancelAnimationFrame(handle);
-  }, [running, autoReadback, predictAircraft]);
+  }, [running, autoReadback, predictAircraft, timeScale]);
   return running && frame?.snapshot === snapshot ? frame.aircraft : snapshot;
 }

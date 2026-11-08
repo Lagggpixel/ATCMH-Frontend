@@ -8,6 +8,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=sweatbox-engine . ./src/simulator/
 RUN --mount=type=cache,id=atcmh-next-linux-amd64,target=/app/.next/cache,sharing=locked npm run build
 RUN node src/simulator/build-maintenance.mjs
 
@@ -20,6 +21,7 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=previous-static-assets --chown=nextjs:nodejs . ./.next/static/
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/maintenance ./maintenance
 COPY --chown=nextjs:nodejs storage ./storage

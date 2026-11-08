@@ -4,7 +4,7 @@ import {airportCallsign, getAirport, defaultRunway} from "./airports";
 import {useEffect, useRef, useState, useSyncExternalStore} from "react";
 import {SpeakerHigh} from "@phosphor-icons/react/dist/csr/SpeakerHigh";
 import {SpeakerSlash} from "@phosphor-icons/react/dist/csr/SpeakerSlash";
-import {RadioAudio as RadioPlayer, aviationSpeech, browserAudioPreference, browserAudioActivation, radioMessageText} from "./radio-audio";
+import {RadioAudio as RadioPlayer, aviationSpeech, browserAudioPreference, browserAudioActivation, browserSpeechOutput, radioMessageText} from "./radio-audio";
 import {browserPocketSpeechOutput} from "./pocket-output";
 import type {Exercise, Frequency} from "./model";
 import styles from "./Simulator.module.css";
@@ -18,10 +18,11 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   const close = () => {setOpen(false); settingsButton.current?.focus();};
   useEffect(() => player.start(resilientSpeechOutput(browserPocketSpeechOutput(csrf, text => {
     const current = currentExercise.current;
-    const message = current.messages.find(m => radioMessageText(m, current.aircraft.map(a => a.callsign)) === text);
+    const callsigns = current.aircraft.map(a => a.callsign);
+    const message = current.messages.find(m => radioMessageText(m, callsigns) === text);
     const messageId = message?.id ?? (aviationSpeech(current.publishedAtis) === text ? "published-atis" : undefined);
     return messageId ? {sessionId: current.id, messageId} : undefined;
-  }), null, 15000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
+  }), browserSpeechOutput(), 3000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
   useEffect(() => browserAudioActivation(player.activate), [player]);
   useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
   const lastMessage = exercise.messages.findLast(m => scope === "all" || m.frequency === scope);

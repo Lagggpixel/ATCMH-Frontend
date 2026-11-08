@@ -1,5 +1,6 @@
 "use client";
 import {randomCallsign} from "./callsigns";
+import {profileForType} from "./aircraft-performance";
 import LocalAircraftDialog from "./LocalAircraftDialog";
 import MentorContextMenu, {type ScopeContext} from "./MentorContextMenu";
 import SpawnAircraftDialog from "./SpawnAircraftDialog";
@@ -120,7 +121,7 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
     setDraft(d => {
       let roll = 0;
       const callsign = randomCallsign(d.aircraft.map(a => a.seed.callsign), () => rolls[roll++ % rolls.length]);
-      return ({...d, aircraft: [...d.aircraft, {key, initial: true, seed: seedFromAircraft({...next, callsign}), ...(!air ? {gateId: scenarioGates.find(g => !d.aircraft.some(a => a.gateId === g.id))?.id ?? scenarioGates[0].id} : {})}].map(normalizeAircraft)});
+      return ({...d, aircraft: [...d.aircraft, {key, initial: true, seed: seedFromAircraft({...next, callsign, performanceProfile: profileForType(next.type)}), ...(!air ? {gateId: scenarioGates.find(g => !d.aircraft.some(a => a.gateId === g.id))?.id ?? scenarioGates[0].id} : {})}].map(normalizeAircraft)});
     }); select(key);
   };
   const placeAtGate = useCallback((aircraftId: string, gateId: string) => setDraft(d => ({...d, aircraft: d.aircraft.map(spec => spec.key === aircraftId ? placeAircraftAtGate(spec, gateId, AIRPORT) : spec)})), [AIRPORT]);

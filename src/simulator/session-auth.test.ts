@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {authorizeSessionRequest} from "./server/session-auth";
+import {authorizeSessionRequest, clearSessionAccessCache} from "./server/session-auth";
+
+// These cases change the backend's answers between calls; the short reuse of a confirmed sign-in is tested on its own.
+process.env.SWEATBOX_ACCESS_CACHE_MS = "0";
 import {csrfTokenFor} from "../lib/central-auth";
 import {SessionError} from "./sessions";
 import {createSessionApi} from "./server/session-api";
@@ -92,6 +95,69 @@ test("every simulator seat enforces staff/admin/tester access, central sign-in, 
     process.env.SIMULATOR_ENABLED = "false"; await assert.rejects(authorizeSessionRequest(request(), false), status(404));
   } finally {
     globalThis.fetch = originalFetch;
+    for (const name of names) {if (before[name] === undefined) delete process.env[name]; else process.env[name] = before[name];}
+  }
+});
+
+test("an unreachable or failing sign-in service is temporary (503), never a signed-out 401", async t => {
+  const names = ["SIMULATOR_ENABLED", "DASHBOARD_API_URL", "EXAMS_AUTH_KEY", "EXAMS_CSRF_SECRET", "FRONTEND_PUBLIC_ORIGIN"] as const;
+  const before = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  Object.assign(process.env, {SIMULATOR_ENABLED: "true", DASHBOARD_API_URL: "https://api.test", EXAMS_AUTH_KEY: "test-key", EXAMS_CSRF_SECRET: "test-csrf-secret-for-simulator-tests", FRONTEND_PUBLIC_ORIGIN: "https://atcmh.test"});
+  let introspection: () => Promise<Response> = async () => {throw new TypeError("fetch failed");};
+  t.mock.method(globalThis, "fetch", async (input: unknown) => String(input).includes("/admin/me")
+    ? Response.json({role: "staff", canManageAllAssignments: true, canAccessSimulator: true})
+    : introspection());
+  const request = () => new Request("https://atcmh.test/api/simulator/sessions", {headers: {cookie: "__Host-atcmh_session=synthetic-session-token-for-tests-only"}});
+  const status = (expected: number) => (e: unknown) => e instanceof SessionError && e.status === expected;
+  try {
+    await assert.rejects(authorizeSessionRequest(request(), true), status(503));
+    for (const code of [500, 502, 503, 504, 408, 429]) {
+      introspection = async () => new Response("unavailable", {status: code});
+      await assert.rejects(authorizeSessionRequest(request(), true), status(503), String(code));
+    }
+    introspection = async () => new Response("not json", {status: 200});
+    await assert.rejects(authorizeSessionRequest(request(), true), status(503));
+    // A clear answer that the session is not valid still signs the user out.
+    introspection = async () => new Response("expired", {status: 401});
+    await assert.rejects(authorizeSessionRequest(request(), true), status(401));
+    introspection = async () => Response.json({active: false});
+    await assert.rejects(authorizeSessionRequest(request(), true), status(401));
+  } finally {
+    for (const name of names) {if (before[name] === undefined) delete process.env[name]; else process.env[name] = before[name];}
+  }
+});
+
+test("a confirmed sign-in is reused briefly so live commands skip the backend round trips", async t => {
+  const names = ["SIMULATOR_ENABLED", "DASHBOARD_API_URL", "EXAMS_AUTH_KEY", "EXAMS_CSRF_SECRET", "FRONTEND_PUBLIC_ORIGIN", "SWEATBOX_ACCESS_CACHE_MS"] as const;
+  const before = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  Object.assign(process.env, {SIMULATOR_ENABLED: "true", DASHBOARD_API_URL: "https://api.test", EXAMS_AUTH_KEY: "test-key", EXAMS_CSRF_SECRET: "test-csrf-secret-for-simulator-tests", FRONTEND_PUBLIC_ORIGIN: "https://atcmh.test", SWEATBOX_ACCESS_CACHE_MS: "15000"});
+  clearSessionAccessCache();
+  let now = 1_000_000, calls = 0, active = true;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "fetch", async (input: unknown) => {
+    calls++;
+    return String(input).includes("/admin/me")
+      ? Response.json({role: "staff", canManageAllAssignments: true, canAccessSimulator: true})
+      : Response.json({active, accountId: "101", discordId: "650180912486678528", expiresAt: "2099-01-01T00:00:00Z", impersonating: false});
+  });
+  const request = (token = "synthetic-session-token-for-tests-only") => new Request("https://atcmh.test/api/simulator/sessions", {headers: {cookie: `__Host-atcmh_session=${token}`}});
+  try {
+    await authorizeSessionRequest(request(), true);
+    assert.equal(calls, 2);
+    now += 10_000; await authorizeSessionRequest(request(), true);
+    assert.equal(calls, 2);
+    // A different sign-in is never served from another user's entry.
+    await authorizeSessionRequest(request("another-synthetic-session-token-for-tests"), true);
+    assert.equal(calls, 4);
+    // After the reuse window the backend is asked again, and a revoked sign-in is honoured.
+    now += 6_000; active = false;
+    await assert.rejects(authorizeSessionRequest(request(), true), (e: unknown) => e instanceof SessionError && e.status === 401);
+    assert.equal(calls, 6);
+    // Signed-out answers are not reused.
+    active = true; await authorizeSessionRequest(request(), true);
+    assert.equal(calls, 8);
+  } finally {
+    clearSessionAccessCache();
     for (const name of names) {if (before[name] === undefined) delete process.env[name]; else process.env[name] = before[name];}
   }
 });

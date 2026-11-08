@@ -10,7 +10,7 @@ import {exerciseSchema} from "./protocol";
 import {ReplayTimeline, replayDelta} from "./replays";
 import {advanceScenario} from "./scenario-engine";
 import {TerrainImpacts} from "./server/terrain-impacts";
-import {airborne, radarTrafficStateError} from "./radar";
+import {airborne, radarTakeoffAircraft, radarTrafficStateError} from "./radar";
 import type {DepartureAirport} from "./departure-airports";
 const origin: DepartureAirport = {icao: "TEST", name: "Nearby", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}}]};
 test("saved returning traffic remains airborne above a lower destination airport", () => {
@@ -147,4 +147,67 @@ test("Ground & Tower departures request transition once airborne and head for th
   assert.ok(Math.abs(((engine.bearing(cleared.position, {x: 0, y: 0}) - cleared.targetHeading + 540) % 360) - 180) < 1);
   const quiet = createLocalAircraft(selection, "quiet", {origin, placement: "takeoff", callsign: "TEST124", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower", call: "quiet"});
   assert.equal(quiet.originDeparture?.callPending, undefined);
+});
+
+
+test("three-character departure identifiers survive scenario and exercise validation", () => {
+  const shortOrigin = {...origin, icao: "ABC"};
+  const selection = {airport: "EGPH", trainingStation: "EGPH:local"};
+  const local = createLocalAircraft(selection, "local", {origin: shortOrigin, placement: "takeoff", callsign: "TEST123", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower"});
+  const localScenario = scenarioSchema.parse(JSON.parse(JSON.stringify(addLocalScenarioAircraft(blankScenario(selection), local, undefined, 0))));
+  const localExercise = createScenarioExercise(localScenario, "test").exercise;
+  assert.equal(exerciseSchema.parse(localExercise).aircraft[0].originDeparture?.icao, "ABC");
+
+  const radarScenario = blankScenario({airport: "EGPH", trainingStation: "EGPH:approach"});
+  const radarExercise = engineFor(radarScenario).initialExercise(); radarExercise.aircraft = [];
+  const radar = createSpawnAircraft(radarExercise, "remote", {origin: shortOrigin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
+  radarScenario.aircraft = [{key: "remote", initial: true, seed: seedFromAircraft(radar)}];
+  const parsed = scenarioSchema.parse(JSON.parse(JSON.stringify(radarScenario)));
+  const started = createScenarioExercise(parsed, "test").exercise;
+  assert.equal(exerciseSchema.parse(started).aircraft[0].originDeparture?.icao, "ABC");
+  started.aircraft[0].originDeparture!.icao = "AB";
+  assert.equal(exerciseSchema.safeParse(started).success, false);
+});
+
+
+test("departure airport markers sequence to the outbound leg after the runway climb", () => {
+  const selection = {airport: "EGPH", trainingStation: "EGPH:approach"}, engine = engineFor(selection);
+  const cases = [
+    {name: "TEST", x: 8.4, next: 1},
+    {name: "START", x: 8.4, next: 1},
+    {name: "FIX", x: 8.4, next: 0},
+    {name: "TEST", x: 20, next: 0},
+  ];
+  for (const entry of cases) {
+    const state = engine.initialExercise();
+    const a = createSpawnAircraft(state, "remote", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
+    a.flightPlan = [{name: entry.name, x: entry.x, y: 0}, {name: "OUTBOUND", x: 30, y: 0}];
+    a.radar!.navigation = "route"; state.aircraft = [a];
+    const flown = fly(state, 100).aircraft[0];
+    assert.equal(flown.radar!.departure, undefined);
+    assert.equal(flown.radar!.routeIndex, entry.next, entry.name);
+    if (entry.next === 1) assert.ok(flown.targetHeading > 45 && flown.targetHeading < 135, "tracks outbound, not back to airport");
+  }
+});
+
+test("departure sequencing preserves an explicitly selected waypoint and procedure fix", () => {
+  const selection = {airport: "EGPH", trainingStation: "EGPH:approach"}, engine = engineFor(selection);
+  for (const procedure of [false, true]) {
+    const state = engine.initialExercise();
+    const a = createSpawnAircraft(state, "remote", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
+    a.flightPlan = [{name: "TEST", x: 8.4, y: 0, ...(procedure ? {procedure: {key: "sid", type: "SID" as const, name: "TEST1"}} : {})}, {name: "NEXT", x: 30, y: 0}, {name: "SELECTED", x: 40, y: 0}];
+    a.radar!.navigation = "route"; a.radar!.routeIndex = procedure ? 0 : 2; state.aircraft = [a];
+    assert.equal(fly(state, 100).aircraft[0].radar!.routeIndex, procedure ? 0 : 2);
+  }
+});
+
+
+test("a controlled-airport departure sequences its own airport marker", () => {
+  const selection = {airport: "EGPH", trainingStation: "EGPH:approach"}, engine = engineFor(selection), state = engine.initialExercise();
+  const airport = getAirport(selection), a = radarTakeoffAircraft(engine.newAircraft("local", false), airport, "24");
+  a.flightPlan = [{name: "EGPH", ...a.position}, {name: "NEXT", x: a.position.x + 25, y: a.position.y + 25}];
+  a.radar!.navigation = "route"; state.aircraft = [a];
+  const flown = fly(state, 100).aircraft[0];
+  assert.equal(flown.radar!.departure, undefined);
+  assert.equal(flown.radar!.routeIndex, 1);
 });

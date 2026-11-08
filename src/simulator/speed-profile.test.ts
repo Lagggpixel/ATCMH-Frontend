@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, applyEnvelope, initialExercise, patternTargets, predictAircraft, restoreExercise, runwayGeometry, speedProfile} from "./engine";
+import {AIRCRAFT_PERFORMANCE} from "./aircraft-performance";
 import {DEFAULTS, type Aircraft, type Runway} from "./model";
 import {envelopeSchema, exerciseSchema, menteeActionAllowed, speedTargetsSchema} from "./protocol";
 import {blankScenario, createScenarioExercise, scenarioFromExercise, scenarioSchema, seedFromAircraft} from "./scenarios";
@@ -37,13 +38,14 @@ test("aircraft accelerate and decelerate gradually, while predictions use the sa
   assert.deepEqual(predictAircraft(state.aircraft, 1).map(a => a.position), advance(state, 1).aircraft.map(a => a.position));
 });
 
-test("profiled aircraft target 220 kt on downwind while respecting explicit speed settings", () => {
+test("profiled aircraft fly downwind at up to 220 kt, never above their inbound or maximum speed, while respecting explicit speed settings", () => {
   const state = initialExercise(); state.running = true; state.aircraft = [state.aircraft[0]];
   const a = state.aircraft[0];
   Object.assign(a, {mode: "pattern", leg: "downwind", extended: true, speed: 175, targetSpeed: 175, speedMode: "auto"});
   for (const profile of ["C172", "C208", "TBM9", "DH8D", "A320", "B738", "B77W"] as const) {
     a.performanceProfile = profile;
-    assert.equal(speedProfile(a).target, 220, profile);
+    const performance = AIRCRAFT_PERFORMANCE.find(p => p.id === profile)!;
+    assert.equal(speedProfile(a).target, Math.min(220, performance.inbound, performance.max), profile);
   }
   a.performanceProfile = "A320";
   let next = advance(state, 5).aircraft[0];

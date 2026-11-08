@@ -1,10 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {hitFixSymbol, layoutFixLabels, projectFixSymbols} from "./scope-fix-labels";
+import {hitFixSymbol, layoutFixLabels, projectFixSymbols, selectScopeFixes} from "./scope-fix-labels";
 
 const size = {width: 800, height: 600}, camera = {center: {x: 0, y: 0}, scale: 10};
 const measure = (name: string) => name.length * 7;
 const fixes = Array.from({length: 441}, (_,i) => ({id: `F${String(i).padStart(4, "0")}`, point: {x: (i % 21 - 10) * 2, y: (Math.floor(i / 21) - 10) * 2}}));
+
+test("fix selection stays stable while zooming reveals detail and preserves routes and navaids", () => {
+  const candidates = [...fixes, {id: "VOR", point: {x: 0, y: 0}, waypointType: "VOR"}];
+  const route = [{x: 2, y: 2, name: "F0242"}];
+  const wide = selectScopeFixes(candidates, route, 4);
+  const close = selectScopeFixes(candidates, route, 20);
+  const ids = (items: typeof candidates) => items.map(item => item.id).sort();
+  assert.ok(wide.length < close.length && close.length < candidates.length);
+  assert.ok(wide.some(fix => fix.id === "F0242") && wide.some(fix => fix.id === "VOR"));
+  assert.deepEqual(ids(wide), ids(selectScopeFixes([...candidates].reverse(), route, 4)));
+  assert.ok(wide.every(item => close.some(other => other.id === item.id)), "coarse cell winners survive finer cells");
+});
+
+test("route names survive a completely crowded cluster", () => {
+  const points = [{id: "ROUTE", point: {x: 0, y: 0}}, {id: "OTHER", point: {x: 0, y: 0}}];
+  const symbols = projectFixSymbols(points, [{x: 0, y: 0, name: "ROUTE"}], camera, size);
+  assert.ok(layoutFixLabels(symbols, size, measure, "auto").some(label => label.symbol.id === "ROUTE"));
+});
 
 test("dense auto labels declutter while every visible fix keeps its symbol", () => {
   const symbols = projectFixSymbols(fixes, undefined, camera, size);

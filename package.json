@@ -1,9 +1,14 @@
 {
   "name": "atcmh-frontend",
   "private": true,
-  "version": "26.10.61",
+  "version": "26.11.7",
   "scripts": {
+    "sweatbox:engine": "node scripts/prepare-sweatbox-engine.mjs",
+    "predev": "npm run sweatbox:engine",
     "dev": "next dev",
+    "presweatbox:runtime": "npm run sweatbox:engine",
+    "sweatbox:runtime": "node --import tsx scripts/sweatbox-runtime.ts",
+    "prebuild": "npm run sweatbox:engine",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

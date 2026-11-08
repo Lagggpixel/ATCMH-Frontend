@@ -33,7 +33,9 @@ function missed(type:ApproachType,trigger:Trigger,automatic:boolean,station:"app
    state=until(state,s=>s.aircraft[0].radar!.navigation==="missed",5);
   }
  }
- assert.equal(state.aircraft[0].radar!.navigation,"missed");const missedAt=state;
+ assert.equal(state.aircraft[0].radar!.navigation,"missed");
+ if (["tower", "unicom"].includes(state.aircraft[0].frequency ?? "")) {state=fly(state,.5);state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"frequency",frequency:"approach"}});state=fly(state,.5);}
+ const missedAt=state;
  assert.equal(state.aircraft[0].radar!.captured,false);assert.equal(state.aircraft[0].radar!.localizer,false);assert.equal(state.aircraft[0].radar!.glideslope,false);
  state=until(state,s=>(s.aircraft[0].frequency===station||s.aircraft[0].frequency==="approach")&&s.aircraft[0].altitude>=airport.elevation+1000);
  const b=state.aircraft[0];assert.ok(b.active);assert.ok(b.altitude>missedAt.aircraft[0].altitude||missedAt.aircraft[0].altitude>=airport.elevation+1000);
@@ -57,7 +59,7 @@ test("a vectored-pattern missed approach clears circuit guidance and can return 
  const a=state.aircraft[0],points=engineFor(state).patternTargets(a);a.position={x:(points.crosswind.x+points.downwind.x)/2,y:(points.crosswind.y+points.downwind.y)/2};a.altitude=getAirport(state).elevation+1500;
  state=issue(state,{type:"expect-approach",approachId:null,vectors:true});state=issue(state,trafficHandoff(state));
  assert.ok(state.aircraft[0].radar!.patternJoin);
- state=send(state,{kind:"pilot",aircraftId:a.id,text:"",request:{id:state.aircraft[0].frequency === "unicom" ? "unicom-go-around" : "missed-approach",runway:a.runway!}});state=until(state,s=>s.aircraft[0].frequency==="approach",5);
+ state=send(state,{kind:"pilot",aircraftId:a.id,text:"",request:{id:state.aircraft[0].frequency === "unicom" ? "unicom-go-around" : "missed-approach",runway:a.runway!}});state=fly(state,.5);state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"frequency",frequency:"approach"}});state=until(state,s=>s.aircraft[0].frequency==="approach",5);
  assert.equal(state.aircraft[0].radar!.guidance,undefined);assert.equal(state.aircraft[0].radar!.patternJoin,undefined);vectorBack(state,"ils","full-stop");
 });
 test("a low assigned missed altitude still permits the Tower-to-Approach return",()=>{
@@ -65,6 +67,6 @@ test("a low assigned missed altitude still permits the Tower-to-Approach return"
  const a=state.aircraft[0],p=state.radarEnvironment!.approaches.find(p=>p.runway===a.runway)!,g=approachGeometry(getAirport(state),p.runway);
  a.position={x:g.threshold.x-g.vector.x*.5,y:g.threshold.y-g.vector.y*.5};a.heading=a.targetHeading=g.heading;a.altitude=getAirport(state).elevation+300;a.frequency="tower";
  Object.assign(a.radar!,{navigation:"approach",expected:p.id,cleared:p.id,captured:true,transferred:true});delete a.radar!.report;
- state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"missed-approach",altitude:{unit:"feet",value:1000}}});state=until(state,s=>s.aircraft[0].frequency==="approach",60);
+ state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"missed-approach",altitude:{unit:"feet",value:1000}}});state=send(state,{kind:"maneuver",aircraftId:a.id,command:{type:"frequency",frequency:"approach"}});state=until(state,s=>s.aircraft[0].frequency==="approach",60);
  assert.ok(state.aircraft[0].altitude<=1000);assert.equal(state.aircraft[0].radar!.targetAltitude!.value,1000);assert.equal(state.messages.filter(m=>m.text.includes("executing missed approach")).length,1);
 });

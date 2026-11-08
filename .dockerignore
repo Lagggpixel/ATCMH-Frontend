@@ -12,7 +12,9 @@ coverage
 !.env.example
 .superpowers
 docs
-scripts
+scripts/*
+!scripts/prepare-sweatbox-engine.mjs
+!scripts/sweatbox-engine-lock.json
 tests
 **/*.test.*
 **/*.case.ts

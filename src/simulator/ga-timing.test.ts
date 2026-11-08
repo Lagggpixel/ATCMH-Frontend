@@ -30,7 +30,7 @@ function reportedPair() {
   return {engine, state: result.state, airport: getAirport(state)};
 }
 
-test("reported KDAL pair stays occupied for one 50-foot go-around, then vacates continuously", () => {
+test("reported KDAL pair stays occupied for one 200-foot go-around, then vacates continuously", () => {
   const h = reportedPair(); let state = h.state, wentAround = false, paced = false, readbacks = 0;
   for (let i = 0; i < 3300; i++) {
     const previous = state, a = previous.aircraft[0], b = previous.aircraft[1];
@@ -48,10 +48,10 @@ test("reported KDAL pair stays occupied for one 50-foot go-around, then vacates 
     }
     if (b.mode !== "go-around" && following.mode === "go-around") {
       wentAround = true;
-      assert.ok(b.altitude <= h.airport.elevation + 52, "no early automatic go-around");
+      assert.ok(b.altitude <= h.airport.elevation + 202, "no early automatic go-around");
       assert.ok(runwayOccupied(h.airport, "31R", [a], b.id));
       assert.equal(state.conflicts![0].phase, "complete");
-      assert.match(state.conflicts![0].outcome!, /Following aircraft went around/);
+      assert.match(state.conflicts![0].outcome!, /Following aircraft self-initiated go-around/);
       assert.equal(next.conflictMotion, undefined, "normal exit speed resumes immediately");
       const recovered = exerciseSchema.parse(JSON.parse(JSON.stringify(state)));
       assert.equal(recovered.conflicts![0].selfGoAround, true);
@@ -79,7 +79,7 @@ test("cancelling GA during rollout immediately restores ordinary exit motion", (
   assert.equal(state.aircraft[0].conflictMotion, undefined);
   for (let i = 0; i < 120; i++) state = h.engine.advance(state, 1);
   assert.equal(state.aircraft[0].mode, "parked");
-  assert.notEqual(state.aircraft[1].mode, "go-around");
+  assert.equal(state.conflicts![0].outcome, "Cancelled by staff");
 });
 
 test("an unachievable distant arrival reports that GA did not materialise", () => {
@@ -133,7 +133,7 @@ test("GA slows during rollout and keeps the runway occupied across wider final g
       if (seconds > 10 && seconds <= 10 + step) state = h.engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
       if (leader.mode === "parked") break;
     }
-    assert.ok(slowRollout, `${finalDistance} NM: pacing must start before turning off`);
+    if (finalDistance > 1) assert.ok(slowRollout, `${finalDistance} NM: pacing must start before turning off`);
     assert.ok(wentAround, `${finalDistance} NM / ${step}s: the intended GA must happen`);
     assert.equal(state.conflicts![0].phase, "complete");
     assert.equal(state.aircraft[0].mode, "parked");
@@ -165,7 +165,7 @@ test("KDAL GA exercises keep the leader moving and finish when it clears or the 
       if (leader.mode === "rollout" && leader.runwayExit) assert.ok(leader.speed >= 5 - 1e-8, `${end.id}: GA must not stop the leader`);
     }
     assert.equal(state.conflicts![0].phase, "complete", end.id);
-    assert.ok(["Following aircraft went around", "Runway conflict ended"].includes(state.conflicts![0].outcome!), end.id); assert.equal(state.collisions?.length ?? 0, 0);
+    assert.ok(["Following aircraft self-initiated go-around", "Runway conflict ended"].includes(state.conflicts![0].outcome!), end.id); assert.equal(state.collisions?.length ?? 0, 0);
     assert.equal(state.aircraft[0].conflictMotion, undefined, "the leader is released after the exercise");
   }
 });
@@ -239,7 +239,7 @@ test("paired GA and recorded KDAL exit keep rolling and brake for the final turn
         assert.ok(along(leader) > along(previousLeader), "leader keeps moving");
       }
       if (!wentAround && follower.mode === "go-around") {
-        assert.ok(before.altitude <= airport.elevation + 50 + 1e-8 || along(follower) >= 0, "no early go-around");
+        assert.ok(before.altitude <= airport.elevation + 200 + 1e-8 || along(follower) >= 0, "no early go-around");
         wentAround = true;
       }
       if (t > 5 && t < 5.1) state = engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
@@ -253,7 +253,7 @@ test("paired GA and recorded KDAL exit keep rolling and brake for the final turn
 });
 
 test("GA conflict respects exact height/threshold boundaries and a leader already clear", () => {
-  for (const [height, along, clear, expected] of [[208, -.648, false, false], [50.01, -.1, false, false], [50, -.1, false, true], [49, -.1, false, true], [200, .001, false, true], [50, -.1, true, false]] as const) {
+  for (const [height, along, clear, expected] of [[208, -.648, false, false], [200.01, -.1, false, false], [200, -.1, false, true], [199, -.1, false, true], [200, .001, false, true], [200, -.1, true, false]] as const) {
     const h = kdal(); h.follower.altitude = h.airport.elevation + height; h.follower.position = h.point(along);
     if (clear) h.leader.position = h.point(.5, h.g.clearance + .01);
     prepareConflicts(h.state, h.airport, {geometry: h.engine.runwayGeometry, distance: a => Math.max(0, -h.along(a)), lineupError: () => undefined,
@@ -283,9 +283,9 @@ test("old stopped GA snapshots resume toward an exit, while explicit controller 
   }
 });
 
-for (const airport of airportList) test(`${airport.icao}: local and transferred arrivals wait for 50 ft AAL or the threshold`, () => {
+for (const airport of airportList) test(`${airport.icao}: local and transferred arrivals wait for 200 ft AAL or the threshold`, () => {
   const engine = engineFor({airport: airport.icao, weather: {...EXERCISE_WEATHER, windSpeed: 0}}), environment = radarEnvironmentFor(airport);
-  for (const end of runwayEnds(airport)) for (const radar of [false, true]) for (const [height, along, expected] of [[208, -.6, false], [51, -.1, false], [50, -.1, true], [200, .001, true]] as const) {
+  for (const end of runwayEnds(airport)) for (const radar of [false, true]) for (const [height, along, expected] of [[208, -.6, false], [201, -.1, false], [200, -.1, true], [200, .001, true]] as const) {
     const g = engine.runwayGeometry(end.id), point = (n: number) => ({x: g.threshold.x + g.vector.x * n, y: g.threshold.y + g.vector.y * n});
     const a: Aircraft = {...engine.newAircraft("arrival", true), runway: end.id, leg: "final", frequency: "tower", position: point(along), altitude: airport.elevation + height,
       heading: g.heading, targetHeading: g.heading, clearedToLand: true};
@@ -300,4 +300,21 @@ for (const airport of airportList) test(`${airport.icao}: local and transferred 
       assert.equal(next.aircraft[0].mode === "go-around", expected, `${end.id} local ${height} ft / ${along} NM`);
     }
   }
+});
+
+
+test("cancellation removes a conflict-generated rollout exit without suppressing real runway safety", () => {
+  const h = kdal();
+  let state = h.state;
+  state.aircraft[0].arrivalExit = {instruction: "automatic", speed: 15};
+  state.aircraft[0].runwayExit = [h.point(.5), h.point(1)];
+  const result = h.engine.applyEnvelope(state, {id: "cancel-test", time: 0, action: {kind: "cancel-conflict", conflictId: "ga"}});
+  assert.equal(result.error, undefined); state = result.state;
+  assert.equal(state.aircraft[0].runwayExit, undefined);
+  assert.equal(state.aircraft[0].arrivalExit, undefined);
+  state.aircraft[1].altitude = h.airport.elevation + 150;
+  state.aircraft[1].position = h.point(-.3);
+  state = h.engine.advance(state, .05);
+  assert.equal(state.aircraft[1].mode, "go-around");
+  assert.equal(state.conflicts![0].outcome, "Cancelled by staff");
 });

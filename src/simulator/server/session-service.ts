@@ -11,14 +11,15 @@ import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise}
 import {menteeActionAllowed} from "../protocol";
 import type {Envelope, Exercise} from "../model";
 import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type AssignedSession, type SessionMode, type SessionPreview, type SessionSummary} from "../sessions";
-import {advanceScenario, executeScenarioEvent} from "../scenario-engine";
+import {advanceScenario, executeScenarioEvent, rewindScenario} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 import {demoPresenter} from "../demonstration";
-import {prepareSessionSpeech, sessionSpeechTexts} from "./speech-preparation";
 
 /** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee; superAdmin may spectate. */
+/** Reads a session's own recording back at a given exercise time. */
+export type RecordedHistory = (sessionId: string, elapsed: number) => Promise<Exercise | null>;
 export interface Actor {accountId: string; staff: boolean; displayName?: string; discordId?: string; simulatorAccess?: boolean; canAssign?: boolean; superAdmin?: boolean}
 export interface Seat {token: string; accountId: string; expiresAt: number; displayName?: string; discordId?: string}
 export interface SessionAssignment {discordId: string; name?: string; assignedAt: number; assignedBy: string; assignedByName?: string}
@@ -78,11 +79,43 @@ export function endDemonstration(record: SessionRecord) {
   delete exercise.demonstration;
   record.exercise = exercise; record.contentRevision++;
 }
+
+/** The recorded `past` state, paused, with the session's current settings. Pending readbacks are re-armed for the
+ * pilots that are automatic now, and scenario events that ran later are rearmed with their actions. */
+export function rewoundExercise(current: Exercise, past: Exercise, envelopeId: string, scenario?: ScenarioRuntime): Exercise {
+  const settings = new Map(current.aircraft.map(a => [a.id, a.automatic]));
+  let next: Exercise = {...structuredClone(past), revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, timeScale: current.timeScale,
+    positions: current.positions, demonstration: current.demonstration, positionPresence: current.positionPresence, positionFeedback: current.positionFeedback, bookmarks: current.bookmarks,
+    processed: scenario ? rewindScenario(scenario, past.elapsed, current.processed) : current.processed, rewind: {id: envelopeId, from: current.elapsed, to: past.elapsed}};
+  for (const key of ["timeScale", "demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback"] as const) if (next[key] === undefined) delete next[key];
+  for (const a of next.aircraft) {const automatic = settings.get(a.id); if (automatic === undefined) delete a.automatic; else a.automatic = automatic;}
+  // The session switch clears and re-arms every pilot's latest pending instruction from this moment.
+  next = applyEnvelope(next, {id: `${envelopeId}:readbacks`, time: 0, action: {kind: "auto-readback", enabled: !!current.autoReadback}}).state;
+  if (current.autoReadback === undefined) delete next.autoReadback;
+  return {...next, revision: current.revision + 1, processed: [...next.processed.filter(entry => entry !== `${envelopeId}:readbacks`).slice(-511), envelopeId]};
+}
+
 export class SessionService {
-  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader, private prepareSpeech = prepareSessionSpeech) {}
+  constructor(private store: SessionStore, private now = Date.now, private uuid = randomUUID, private sightings: SightingProvider = airportSightings, private terrain: TerrainImpactProvider = terrainImpacts, private weather?: SessionWeatherLoader, private history?: RecordedHistory) {}
   private staff(actor: Actor) {if (!actor.staff) throw new SessionError("forbidden", "Moderator access is required.", 403);}
   private seat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
-    if (role === "spectator") {assertSuperAdmin(actor); return;}
+    for (const seat of this.checkSeat(record, actor, role, token, now)) seat.expiresAt = now + SESSION_LEASE_MS;
+  }
+  /**
+   * A frame only needs the locked write path to advance exercise time or renew this page's seat.
+   * Otherwise another viewer ticked within the last frame interval and a plain read is current enough,
+   * so the number of session writes no longer grows with the number of open pages.
+   */
+  private frameNeedsWrite(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number) {
+    if (now - record.tickAt >= SESSION_FRAME_MS || now < record.tickAt) return true;
+    if (record.exercise.demonstration && !demonstrationLive(record, now)) return true;
+    // Errors are raised again, with their normal handling, by the write path.
+    try {return this.checkSeat(record, actor, role, token, now).some(seat => seat.expiresAt - now < SESSION_LEASE_MS / 2);}
+    catch {return true;}
+  }
+  /** Validates this page's seat and returns the seats to renew, without changing the record. */
+  private checkSeat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number): Seat[] {
+    if (role === "spectator") {assertSuperAdmin(actor); return [];}
     if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
     // A bandboxing seat holds several positions with one token; all of them are renewed together.
     const held = role === "mentee" ? positionsForToken(record, token) : [], positionId = held[0];
@@ -91,8 +124,7 @@ export class SessionService {
       throw new SessionError("seat-lost", "This page no longer holds its seat. Return to the session and join again.", 409);
     if (held.some(id => record.positionState?.[id].assignment && !assignmentMatches(record.positionState[id].assignment, actor))) throw new SessionError("not-assigned", "This controller position is assigned to another trainee.", 403);
     if (role === "mentee" && record.exercise.positions?.length && !positionId) throw new SessionError("seat-lost", "Choose a controller position and rejoin.", 409);
-    for (const id of held) record.positionState![id].seat!.expiresAt = now + SESSION_LEASE_MS;
-    seat.expiresAt = now + SESSION_LEASE_MS;
+    return [...held.map(id => record.positionState![id].seat!), ...(held.includes(positionId) ? [] : [seat])];
   }
   private view(record: SessionRecord, role: SessionMode, now: number, positionIds: string[] = []) {
     const positionId = positionIds[0];
@@ -110,6 +142,7 @@ export class SessionService {
     }
     if (role === "mentee") delete exercise.callsignReservations;
     if (role === "mentee") delete exercise.conflicts;
+    if (role === "mentee") delete exercise.interceptFeedback;
     const visible = {...exercise, positionPresence: positionPresence(record, now)};
     if (role === "mentee" && positionId) {
       visible.messages = exercise.messages.filter(m => m.positionId && positionIds.includes(m.positionId) || m.frequency === "atis");
@@ -129,10 +162,11 @@ export class SessionService {
     if (occupied && gap > 0 && gap <= SESSION_LEASE_MS / 1000) {
       this.sightings.apply(record.exercise);
       const collision = record.exercise.collisions?.at(-1)?.id;
+      const interceptFeedback = record.exercise.interceptFeedback?.at(-1)?.id;
       // Match ordinary stream cadence so engine caps cannot discard time and
       // scenario events/readbacks take effect before later movement is simulated.
       for (let at = record.tickAt; at < now;) {
-        const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000;
+        const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000 * (record.exercise.timeScale ?? 1);
         if (record.scenario) {
           const result = advanceScenario(record.exercise, record.scenario, seconds, stepAt);
           record.exercise = result.exercise; if (result.changed) record.contentRevision++;
@@ -142,6 +176,7 @@ export class SessionService {
         at = stepAt;
       }
       if (record.exercise.collisions?.at(-1)?.id !== collision) record.contentRevision++;
+      if (record.exercise.interceptFeedback?.at(-1)?.id !== interceptFeedback) record.contentRevision++;
     }
     record.tickAt = now;
     // A mentor or spectator who closes the page or loses the connection hands control back on their own.
@@ -164,7 +199,6 @@ export class SessionService {
   /** `requested` lists the positions a mentor wants to work (comma separated); `takeover` moves this account's own seat from another page. */
   async join(actor: Actor, id: string, role: SessionMode, token: string, requested?: string, takeover = false) {
     if (role === "spectator") return this.frame(actor, id, role, token);
-    let speech: string[] = [];
     const view = await this.store.transaction(id, record => {
       if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
       const now = this.now();
@@ -186,10 +220,8 @@ export class SessionService {
         for (const positionId of held) record.positionState[positionId] = {...record.positionState[positionId], seat: {...joined}};
       } else record[role] = joined;
       record.updatedAt = now;
-      speech = sessionSpeechTexts(record);
       return this.view(record, role, now, held);
     });
-    this.prepareSpeech(actor.accountId, speech, process.env.FRONTEND_PUBLIC_ORIGIN ?? "atcmh");
     return view;
   }
   /**
@@ -229,6 +261,13 @@ export class SessionService {
         });
       return this.view(record, role, now, positionsForToken(record, token));
     }
+    const current = await this.store.read(id), readAt = this.now();
+    if (!this.frameNeedsWrite(current, actor, role, token, readAt)) {
+      const view = this.view(current, role, readAt, positionsForToken(current, token));
+      this.sightings.request(view.exercise);
+      this.terrain.request(view.exercise);
+      return view;
+    }
     const view = await this.store.transaction(id, record => {
       const now = this.now();
       this.seat(record, actor, role, token, now); this.tick(record, now);
@@ -241,6 +280,7 @@ export class SessionService {
   }
   async dispatch(actor: Actor, id: string, role: SessionMode, token: string, envelope: Envelope) {
     let report: Awaited<ReturnType<typeof requestSessionWeather>>;
+    if (envelope.action.kind === "rewind") return this.rewind(actor, id, role, token, envelope.id, envelope.action.seconds);
     if (envelope.action.kind === "reset" && this.weather) {
       const airport = await this.store.transaction(id, record => {this.staff(actor); this.seat(record, actor, role, token, this.now()); return getAirport(record.exercise).icao;});
       report = await requestSessionWeather(airport, this.weather);
@@ -301,6 +341,28 @@ export class SessionService {
         const result = advanceScenario(record.exercise, record.scenario, 0, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
       }
+      return {revision: record.exercise.revision};
+    });
+  }
+  /** Restores the session's own recording from `seconds` of exercise time ago, paused so the mentor can brief before resuming. */
+  private async rewind(actor: Actor, id: string, role: SessionMode, token: string, envelopeId: string, seconds: number) {
+    if (role === "mentee") throw new SessionError("forbidden", "Only the mentor can rewind the session.", 403);
+    // A retried envelope whose first attempt committed returns that result instead of rewinding again.
+    const first = await this.store.transaction(id, record => {
+      this.staff(actor); const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.exercise.processed.includes(envelopeId)) return {done: record.exercise.revision};
+      this.tick(record, now); return {target: Math.max(0, record.exercise.elapsed - seconds)};
+    });
+    if ("done" in first) return {revision: first.done};
+    const past = this.history ? await this.history(id, first.target) : null;
+    if (!past) throw new SessionError("rewind-unavailable", "The recording does not reach that far back yet.", 409);
+    return this.store.transaction(id, record => {
+      const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.exercise.processed.includes(envelopeId)) return {revision: record.exercise.revision};
+      if (record.scenario?.finished) throw new SessionError("attempt-finished", "This attempt is finished. Create a new session from Sessions.", 409);
+      this.tick(record, now);
+      record.exercise = rewoundExercise(record.exercise, past, envelopeId, record.scenario);
+      record.contentRevision++; record.updatedAt = now;
       return {revision: record.exercise.revision};
     });
   }

@@ -61,17 +61,31 @@ test("playback reuses an in-progress preparation instead of restarting it", asyn
   output.dispose?.();
 });
 
-test("queued messages generate concurrently and a completed later message waits for its turn", async () => {
+test("play promotes the shared server job before consuming the preparation", async () => {
+  let promoted = 0, samples = 0, release!: () => void;
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  const playback: PocketPlayback = {activate() {}, begin() {}, append() {samples++;}, finish: async () => {}, cancel() {}, dispose() {}};
+  const output = createPocketSpeechOutput(async () => new ReadableStream({start(c) {stream = c;}}), playback,
+    async () => {promoted++; await new Promise<void>(resolve => {release = resolve;});});
+  output.prepare?.("shared", settings); await tick(); stream.enqueue(frame);
+  output.speak("shared", settings, () => {}, () => assert.fail("failed")); await tick();
+  assert.equal(promoted, 1); assert.equal(samples, 0);
+  release(); await tick(); assert.equal(samples, 1);
+  stream.enqueue(done); stream.close(); await tick(); output.dispose?.();
+});
+
+test("only one queued preparation runs until the head is promoted to playback", async () => {
   const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>(), requested: string[] = [], played: number[] = [];
   const playback: PocketPlayback = {activate() {}, begin() {}, append(samples) {played.push(samples[0]);}, finish: async () => {}, cancel() {}, dispose() {}};
   const output = createPocketSpeechOutput(async text => {
     requested.push(text); return new ReadableStream({start(controller) {streams.set(text, controller);}});
   }, playback);
-  output.prepare?.("first", settings); output.prepare?.("second", settings); output.prepare?.("third", settings);
-  await tick(); assert.deepEqual(requested, ["first", "second", "third"]);
-  streams.get("second")!.enqueue(frame); streams.get("second")!.enqueue(done); streams.get("second")!.close();
   let firstEnded = 0, secondEnded = 0;
+  output.prepare?.("first", settings); output.prepare?.("second", settings); output.prepare?.("third", settings);
+  await tick(); assert.deepEqual(requested, ["first"]);
   output.speak("first", settings, () => firstEnded++, () => assert.fail("first failed"));
+  await tick(); assert.deepEqual(requested, ["first", "second"]);
+  streams.get("second")!.enqueue(frame); streams.get("second")!.enqueue(done); streams.get("second")!.close();
   await tick(); assert.deepEqual(played, []);
   streams.get("first")!.enqueue(frame); streams.get("first")!.enqueue(done); streams.get("first")!.close();
   await tick(); assert.equal(firstEnded, 1); assert.deepEqual(played, [.5]);

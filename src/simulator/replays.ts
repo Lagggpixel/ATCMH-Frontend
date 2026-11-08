@@ -15,12 +15,16 @@ export const recordingLabel = (replay: ReplaySummary) => replay.kind === "record
 
 /** The trainer's pointer, clicks and sent commands during a demonstration, in replay seconds. */
 export interface ReplayDemoMark {at: number; point?: Point; down?: true; click?: true; sent?: {callsign: string; text: string; path: string[]}}
+/** A trainee's controller state (selection, open messages, drags, zoom) or a sent command, in replay seconds. */
+export interface ReplayTraineeMark {at: number; positionId: string; /** The trainee account that produced it. */ accountId?: string; state?: import("./trainee-overlay").TraineeView; sent?: {callsign: string; text: string; path: string[]}}
 export interface ReplayDelta {
   state: Partial<Omit<Exercise, "aircraft">>;
   /** Optional exercise fields that ended, such as a demonstration. */
   unset?: (keyof Exercise)[];
   aircraft: {id: string; value?: Partial<Aircraft>; unset?: (keyof Aircraft)[]; remove?: true}[];
   demo?: ReplayDemoMark[];
+  /** Each trainee position's own controller state and sent commands, for the replay's trainee overlay. */
+  shadow?: ReplayTraineeMark[];
 }
 export interface ReplayFrame {sequence: number; at: number; delta: ReplayDelta; interpolate: boolean}
 export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; frames: ReplayFrame[]; next: number | null; positionFeedback?: Record<string, string>; feedbackPositions?: Exercise["positions"]}
@@ -29,8 +33,14 @@ export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; 
 export function participantReplay(detail: ReplayDetail, accountId: string): ReplayDetail {
   const positions = new Set(detail.replay.participants.filter(p => p.role === "mentee" && p.accountId === accountId).flatMap(p => p.positionId ? [p.positionId] : []));
   const feedback = (value: Record<string, string>) => Object.fromEntries(Object.entries(value).filter(([id]) => positions.has(id)));
-  return {...detail, ...(detail.positionFeedback ? {positionFeedback: feedback(detail.positionFeedback)} : {}), initial: detail.initial ? {...detail.initial, ...(detail.initial.positionFeedback ? {positionFeedback: feedback(detail.initial.positionFeedback)} : {})} : null,
-    frames: detail.frames.map(frame => frame.delta.state.positionFeedback ? {...frame, delta: {...frame.delta, state: {...frame.delta.state, positionFeedback: feedback(frame.delta.state.positionFeedback)}}} : frame)};
+  const visible = (state: Partial<Exercise>) => {const copy = {...state}; delete copy.interceptFeedback; if (copy.positionFeedback) copy.positionFeedback = feedback(copy.positionFeedback); return copy;};
+  return {...detail, ...(detail.positionFeedback ? {positionFeedback: feedback(detail.positionFeedback)} : {}), initial: detail.initial ? visible(detail.initial) as Exercise : null,
+    frames: detail.frames.map(frame => {
+      // A trainee replays only the controls they produced; a later or earlier occupant of the same seat stays private.
+      const shadow = frame.delta.shadow?.filter(mark => mark.accountId === accountId);
+      const delta = {...frame.delta, state: visible(frame.delta.state)}; delete delta.shadow;
+      return {...frame, delta: shadow?.length ? {...delta, shadow} : delta};
+    })};
 }
 
 /** Drop transport deduplication IDs and redundant trails, never radio messages or aircraft state. */
@@ -41,16 +51,17 @@ export function replayState(exercise: Exercise): Exercise {
 export function replayDelta(before: Exercise, after: Exercise): ReplayDelta {
   const state: ReplayDelta["state"] = {};
   for (const key of Object.keys(after) as (keyof Exercise)[]) {
-    if (key !== "aircraft" && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+    if (key !== "aircraft" && before[key] !== after[key] && JSON.stringify(before[key]) !== JSON.stringify(after[key]))
       Object.assign(state, {[key]: after[key]});
   }
   const previous = new Map(before.aircraft.map(a => [a.id, a]));
   const aircraft: ReplayDelta["aircraft"] = after.aircraft.flatMap(a => {
     const old = previous.get(a.id); previous.delete(a.id);
     if (!old) return [{id: a.id, value: a}];
+    if (old === a) return [];
     const value: Partial<Aircraft> = {};
     for (const key of Object.keys(a) as (keyof Aircraft)[]) {
-      if (JSON.stringify(old[key]) !== JSON.stringify(a[key])) Object.assign(value, {[key]: a[key]});
+      if (old[key] !== a[key] && JSON.stringify(old[key]) !== JSON.stringify(a[key])) Object.assign(value, {[key]: a[key]});
     }
     // An optional field disappearing must also be removed when applying the delta.
     const unset = (Object.keys(old) as (keyof Aircraft)[]).filter(key => !(key in a));
@@ -99,4 +110,10 @@ export class ReplayTimeline {
         altitude: a.altitude + (b.altitude - a.altitude) * fraction, speed: a.speed + (b.speed - a.speed) * fraction};
     })};
   }
+}
+/** The latest recorded state at or before `elapsed` exercise seconds, following any earlier rewinds. Null if the recording starts later. */
+export function recordedStateAt(initial: Exercise, deltas: ReplayDelta[], elapsed: number): Exercise | null {
+  let state = initial, best: Exercise | null = initial.elapsed <= elapsed + 1e-6 ? initial : null;
+  for (const delta of deltas) {state = applyReplayDelta(state, delta); if (state.elapsed <= elapsed + 1e-6) best = state;}
+  return best;
 }

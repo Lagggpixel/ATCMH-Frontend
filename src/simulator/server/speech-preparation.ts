@@ -46,7 +46,7 @@ export function prepareSessionSpeech(accountId: string, texts: readonly string[]
     const scopeId = sessionId ? createHmac("sha256", token).update(JSON.stringify([namespace, "session", sessionId])).digest("hex") : undefined;
     for (const text of texts) {
       const key = createHmac("sha256", token).update(JSON.stringify([scopeId ?? anonymousId, text])).digest("hex");
-      if (preparing.has(key) || preparing.size >= 16) continue;
+      if (preparing.has(key) || preparing.size >= 1) continue;
       preparing.add(key);
       try {
         const response = await fetch(new URL("speech", url.endsWith("/") ? url : `${url}/`), {method: "POST", headers: {authorization: `Bearer ${token}`, "content-type": "application/json"},

@@ -108,6 +108,7 @@
 .liveCountdown{text-align:center;min-width:60px}.liveCountdown time{display:block;font-size:22px;font-variant-numeric:tabular-nums;color:var(--dashboard-accent)}
 .liveRow{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 0;border-top:1px solid var(--dashboard-border)}.liveRow time{color:var(--dashboard-muted);font-variant-numeric:tabular-nums;padding-top:1px}
 .liveTag{font-size:11px;color:var(--dashboard-muted);border:1px solid var(--dashboard-border);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.liveHeldUp{color:var(--dashboard-danger-text)!important}
 .liveDone summary{cursor:pointer;padding-top:4px}.liveDone[open] summary{margin-bottom:6px}
 .livePanel.livePanel button,.finishDialog.finishDialog button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 10px;font-size:12px;border:1px solid var(--dashboard-border);border-radius:6px;background:transparent;color:var(--dashboard-ink);cursor:pointer;white-space:nowrap}
 .livePanel.livePanel button:hover:not(:disabled),.finishDialog.finishDialog button:hover:not(:disabled){background:var(--dashboard-selected)}

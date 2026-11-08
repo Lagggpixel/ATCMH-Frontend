@@ -1,12 +1,12 @@
 import type {DemoBatch, DemoController, DemoState} from "../demonstration";
 
 /** One frame of the trainer's activity as stored for replays: exercise time plus the batch. */
-export interface DemoTraceEntry {elapsed: number; batch: Omit<DemoBatch, "seq">}
+export interface DemoTraceEntry {elapsed: number; batch: Omit<DemoBatch, "seq">; accountId?: string}
 interface Channel {
   seq: number; state?: DemoState; batches: DemoBatch[];
   seedSeq: number; seed?: DemoController;
   listeners: Set<() => void>;
-  seats: Map<string, {role: string; until: number}>;
+  seats: Map<string, {role: string; until: number; accountId?: string}>;
   active: boolean; trace: DemoTraceEntry[]; touched: number;
 }
 const TRUST_MS = 5_000, KEEP_BATCHES = 32, KEEP_TRACE = 600, IDLE_MS = 10 * 60_000;
@@ -30,9 +30,9 @@ export class DemoHub {
   private notify(channel: Channel) {for (const listener of [...channel.listeners]) listener();}
   /** Called after each authorised stream frame: the seat token may post for a few seconds. Spectators'
    * frames are unlocked reads that can lag, so they leave `active` (undefined) to the seated pages. */
-  trust(id: string, role: string, token: string, active: boolean | undefined) {
+  trust(id: string, role: string, token: string, active: boolean | undefined, accountId?: string) {
     const channel = this.channel(id);
-    channel.seats.set(token, {role, until: this.now() + TRUST_MS});
+    channel.seats.set(token, {role, until: this.now() + TRUST_MS, ...(accountId ? {accountId} : {})});
     if (active === undefined) return;
     if (channel.active && !active) {channel.state = undefined; channel.seed = undefined; channel.batches = [];}
     channel.active = active;
@@ -41,14 +41,16 @@ export class DemoHub {
     const channel = this.channels.get(id), seat = channel?.seats.get(token);
     return !!channel?.active && !!seat && seat.role === role && seat.until > this.now();
   }
-  publish(id: string, batch: DemoBatch) {
+  /** The account whose stream vouched for this token, so a replay knows who produced each update. */
+  seatAccount(id: string, token: string) {return this.channels.get(id)?.seats.get(token)?.accountId;}
+  publish(id: string, batch: DemoBatch, accountId?: string) {
     const channel = this.channel(id);
     const stored = {...batch, seq: ++channel.seq};
     if (batch.state) channel.state = batch.state;
     channel.batches.push(stored);
     if (channel.batches.length > KEEP_BATCHES) channel.batches.splice(0, channel.batches.length - KEEP_BATCHES);
     const {seq: _seq, ...entry} = batch;
-    channel.trace.push({elapsed: batch.elapsed, batch: entry});
+    channel.trace.push({elapsed: batch.elapsed, batch: entry, ...(accountId ? {accountId} : {})});
     if (channel.trace.length > KEEP_TRACE) channel.trace.splice(0, channel.trace.length - KEEP_TRACE);
     this.notify(channel);
   }
@@ -82,6 +84,10 @@ export class DemoHub {
     channel.listeners.add(listener);
     return () => {channel.listeners.delete(listener);};
   }
+  /** How many streams are reading this channel. The trainee's page uses it to pick its send rate. */
+  watchers(id: string) {return this.channels.get(id)?.listeners.size ?? 0;}
+  /** Every channel whose key starts with `prefix`, for draining all of a session's positions at once. */
+  keys(prefix: string) {return [...this.channels.keys()].filter(key => key.startsWith(prefix));}
   drainTrace(id: string) {
     const channel = this.channels.get(id);
     if (!channel?.trace.length) return [];
@@ -89,5 +95,7 @@ export class DemoHub {
     return trace;
   }
 }
-const shared = globalThis as typeof globalThis & {sweatboxDemoHub?: DemoHub};
+const shared = globalThis as typeof globalThis & {sweatboxDemoHub?: DemoHub; sweatboxShadowHub?: DemoHub};
 export const demoHub = shared.sweatboxDemoHub ??= new DemoHub();
+/** The reverse mirror: each trainee's controller state for staff overlays, keyed `sessionId:positionId`. */
+export const shadowHub = shared.sweatboxShadowHub ??= new DemoHub();

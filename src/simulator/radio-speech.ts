@@ -19,16 +19,24 @@ function cardinal(value: number): string {
   const unit = value < 1000 ? 100 : 1000, label = unit === 100 ? "hundred" : "thousand";
   return `${cardinal(Math.floor(value / unit))} ${label}${value % unit ? ` ${cardinal(value % unit)}` : ""}`;
 }
+const callsignMatchers = new Map<string, RegExp | null>();
+function callsignMatcher(callsigns: readonly string[]): RegExp | null {
+  const key = JSON.stringify(callsigns);
+  if (callsignMatchers.has(key)) return callsignMatchers.get(key)!;
+  const names = [...new Set(callsigns.map(c => c.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
+  const escaped = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const matcher = names.length ? new RegExp(`(?<![a-z0-9])(?:${escaped.join("|")})(?![a-z0-9])`, "gi") : null;
+  if (callsignMatchers.size >= 8) callsignMatchers.delete(callsignMatchers.keys().next().value!);
+  callsignMatchers.set(key, matcher);
+  return matcher;
+}
 /** Speech-only formatting: logs/replays retain their original numeric values and ICAO codes. */
 export function aviationSpeech(text: string, callsigns: readonly string[] = []): string {
   text = text.replace(/\b(via\s+)(.*?)(?=,\s*(?:hold|will hold|contact|cleared)\b|[.;]|$)/gi, (_, prefix: string, route: string) =>
     prefix + route.replace(/\b[A-Z]{1,3}\d{0,2}\b/g, identifier))
     .replace(/\b(taxiway\s+)([A-Z]{1,3}\d{0,2})\b/gi, (_, prefix: string, name: string) => prefix + identifier(name));
-  const names = [...new Set(callsigns.map(c => c.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
-  if (names.length) {
-    const escaped = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    text = text.replace(new RegExp(`(?<![a-z0-9])(?:${escaped.join("|")})(?![a-z0-9])`, "gi"), spokenCallsign);
-  }
+  const matcher = callsignMatcher(callsigns);
+  if (matcher) text = text.replace(matcher, spokenCallsign);
   return radioInitialismSpeech(text)
     .replace(/\b(\d{1,3}(?:,\d{3})|\d{1,5})ft\b/gi, (_, value: string) => `${value} feet`)
     .replace(/\b(wind\s+\d{1,3}\s+at\s+)(\d{1,3})\b/gi, (_, prefix: string, speed: string) => `${prefix}${digits(speed)}`)

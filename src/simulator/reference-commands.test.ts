@@ -4,7 +4,7 @@ import {randomUUID} from "node:crypto";
 import {catalogFor, type MenuEntry, positionReportText} from "./catalog";
 import {engineFor, applyEnvelope, advance} from "./engine";
 import {getAirport} from "./airports";
-import {type Action, type Exercise, type Aircraft, type Instruction, pendingCommands, type Message} from "./model";
+import {type Action, type Exercise, type Aircraft, type Instruction, pendingCommands, fuelForState, type Message} from "./model";
 import {exerciseSchema, instructionSchema} from "./protocol";
 import {ALTITUDES, altitudeFeet} from "./radar";
 import {KNOT_SPEEDS_HIGH, MACH_SPEEDS} from "./radar-speed";
@@ -223,6 +223,16 @@ test("Request Approach suggests Expect Approach with a direct Radar Vectors Send
 const act=(state:Exercise,action:Action)=>{const r=applyEnvelope(state,{id:crypto.randomUUID(),time:0,action});assert.equal(r.error,undefined);return r.state;};
 
 const fixture=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+test("new aircraft and fuel selections use the requested endurance defaults",()=>{
+ const a=engineFor().newAircraft("fuel-default",true);
+ assert.deepEqual(a.fuel,{state:"normal",enduranceMinutes:120});
+ assert.deepEqual(fuelForState("normal",{state:"minimum",enduranceMinutes:9}),{state:"normal",enduranceMinutes:120});
+ assert.deepEqual(fuelForState("minimum",a.fuel),{state:"minimum",enduranceMinutes:30});
+ assert.deepEqual(fuelForState("emergency",a.fuel),{state:"emergency",enduranceMinutes:15});
+ assert.deepEqual(fuelForState("unknown",{state:"normal",enduranceMinutes:77}),{state:"unknown",enduranceMinutes:77});
+ assert.deepEqual(fuelForState("normal",{state:"emergency",enduranceMinutes:10,declared:"emergency"}),{state:"normal",enduranceMinutes:120,declared:"emergency"});
+});
 
 test("fuel requests require actual airborne fuel state, flight time and confirmation",()=>{
  let state=fixture();state.autoReadback=false;const a=state.aircraft[0];a.fuel={state:"minimum",enduranceMinutes:23};const c=catalogFor();

@@ -1,6 +1,6 @@
 import {airportTrainingError, getAirport} from "../airports";
 import {fetchWeatherReport} from "./weather-provider";
-import {applySessionWeather, requestSessionWeather} from "./session-weather";
+import {applySessionWeather, requestSessionWeather, type SessionWeatherLoader} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction, afterWriteCommit} from "../../lib/simulator-db";
@@ -22,6 +22,8 @@ const scenarioRecord = (r: ScenarioRow): ScenarioRecord => {
 
 /** Authoring and scenario lifecycle mutations share the existing SQL transaction context with sessions. */
 export class TrainingService {
+  constructor(private readonly weather: SessionWeatherLoader = fetchWeatherReport) {}
+
   async scenarios(actor: Actor) {
     staff(actor);
     return (await queryReadOnly<ScenarioRow[]>("SELECT s.*,r.definition AS published_definition FROM simulator_scenarios s LEFT JOIN simulator_scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.published_revision ORDER BY s.updated_at DESC")).map(scenarioRecord).filter(record => !isRadarStation(record.draft.trainingStation));
@@ -95,7 +97,7 @@ export class TrainingService {
         return {sessionId: previous.session_id};
       }
     }
-    const weather = await requestSessionWeather(getAirport(weatherDefinition).icao, fetchWeatherReport);
+    const weather = await requestSessionWeather(getAirport(weatherDefinition).icao, this.weather);
     return withWriteTransaction(async connection => {
       const [rows] = await connection.execute<ScenarioRow[]>("SELECT * FROM simulator_scenarios WHERE id=? FOR UPDATE", [scenarioId]);
       if (!rows[0]) throw unavailable();
@@ -144,7 +146,7 @@ export class TrainingService {
   async restart(actor: Actor, sessionId: string, attemptId: string) {
     staff(actor);
     const airport = await sqlSessionStore.transaction(sessionId, record => {availableControl(record, actor, Date.now()); return getAirport(record.exercise).icao;});
-    const report = await requestSessionWeather(airport, fetchWeatherReport);
+    const report = await requestSessionWeather(airport, this.weather);
     return withWriteTransaction(async connection => {
       const value = await sqlSessionStore.transaction(sessionId, record => {
         if (!record.scenario?.attemptId) throw unavailable();

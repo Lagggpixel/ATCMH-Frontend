@@ -13,7 +13,7 @@ test("3 NM final spacing holds after transition joins, on every KDAL runway and 
     const point = (along: number, side: number) => ({x: g.threshold.x + g.vector.x * along - g.vector.y * side, y: g.threshold.y + g.vector.y * along + g.vector.x * side});
     const along = (a: Aircraft) => (a.position.x - g.threshold.x) * g.vector.x + (a.position.y - g.threshold.y) * g.vector.y;
     const traffic = ["follower", "leader"].map((id, i): Aircraft => ({...e.newAircraft(id, true), runway, leg: "downwind", hand: i ? leaderHand : hand,
-      position: point(i ? -2.9 : -1.7, (i ? leaderHand : hand) === "left" ? 3 : -3), heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360,
+      position: point(i ? -2.9 : -1.7, (i ? leaderHand : hand) === "left" ? 3 : -3), heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360, clearedToLand: true,
       ...(speeds ? {speedMode: "manual", speed: speeds[i], targetSpeed: speeds[i]} : {})}));
     let state: Exercise = {...e.initialExercise(), aircraft: traffic, running: true};
     // The follower has just finished transition and is assigned entry plus sequence.
@@ -42,7 +42,7 @@ for (const airport of airportList) test(`${airport.icao}: automatic 3 NM spacing
   for (const end of runwayEnds(airport)) for (const hand of ["left", "right"] as const) {
     const e = engineFor({airport: airport.icao}), g = e.runwayGeometry(end.id);
     const point = (along: number) => ({x: g.threshold.x + g.vector.x * along - g.vector.y * (hand === "left" ? 3 : -3), y: g.threshold.y + g.vector.y * along + g.vector.x * (hand === "left" ? 3 : -3)});
-    let state: Exercise = {...e.initialExercise(), running: true, aircraft: ["follower", "leader"].map((id, i) => ({...e.newAircraft(id, true), runway: end.id, hand, leg: "downwind", heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360, position: point(i ? -2.9 : -1.7)}))};
+    let state: Exercise = {...e.initialExercise(), running: true, aircraft: ["follower", "leader"].map((id, i) => ({...e.newAircraft(id, true), runway: end.id, hand, leg: "downwind", heading: (g.heading + 180) % 360, targetHeading: (g.heading + 180) % 360, position: point(i ? -2.9 : -1.7), clearedToLand: true}))};
     state = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: "follower", command: {type: "sequence", number: 2, traffic: `${hand} downwind`}}}).state;
     const saved = structuredClone(state);
     assert.deepEqual(e.predictAircraft(state.aircraft, 1).map(a => a.position), advance(state, 1).aircraft.map(a => a.position));

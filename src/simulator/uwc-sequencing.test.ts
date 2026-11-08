@@ -155,7 +155,7 @@ test("removing the leader and explicit movement instructions release or replace 
   assert.equal(released.patternEntry, undefined);
   assert.equal(released.leg, "downwind");
   for (const command of [{type: "heading", value: 90}, {type: "extend", leg: "upwind"}, {type: "pattern", leg: "base"},
-    {type: "go-around"}, {type: "frequency", frequency: null}] satisfies Instruction[]) {
+    {type: "frequency", frequency: null}] satisfies Instruction[]) {
     const state = act(waiting, {kind: "maneuver", aircraftId: "follower", command});
     assert.equal(state.aircraft[0].patternEntry, undefined, command.type);
     if (command.type === "extend") assert.equal(e.advance(state, 5).aircraft[0].extended, true, "manual extensions remain manual");

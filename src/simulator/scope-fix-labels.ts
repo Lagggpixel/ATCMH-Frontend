@@ -15,6 +15,26 @@ function rank(key: string) {
   return hash >>> 0;
 }
 
+/** A stable geographic grid approximates zoom-dependent aviation tiles. Only
+ * background fixes are thinned; navaids and selected aircraft routes remain. */
+export function selectScopeFixes(fixes: ScopeNavigationFix[], route: RoutePoint[] | undefined, scale: number): ScopeNavigationFix[] {
+  if (!Number.isFinite(scale) || scale <= 0) return fixes;
+  // Power-of-two cells are anchored to the airport, so panning does not reshuffle them.
+  const cellSize = 2 ** Math.ceil(Math.log2(72 / scale));
+  const cells = new Map<string, {fix: ScopeNavigationFix; key: string; rank: number}>();
+  const retained: ScopeNavigationFix[] = [];
+  for (const fix of fixes) {
+    if (fix.routeOnly || navigationKind(fix) !== "fix" || route?.some(point => Math.hypot(point.x - fix.point.x, point.y - fix.point.y) < .001)) {
+      retained.push(fix); continue;
+    }
+    const key = `${fix.id}:${fix.point.x}:${fix.point.y}`;
+    const cell = `${Math.floor(fix.point.x / cellSize)}:${Math.floor(fix.point.y / cellSize)}`;
+    const score = rank(key), current = cells.get(cell);
+    if (!current || score < current.rank || score === current.rank && key < current.key) cells.set(cell, {fix, key, rank: score});
+  }
+  return [...retained, ...Array.from(cells.values(), item => item.fix)];
+}
+
 export function projectFixSymbols(fixes: ScopeNavigationFix[], route: RoutePoint[] | undefined, camera: {center: Point; scale: number}, size: Viewport): FixSymbol[] {
   return fixes.map(fix => ({
     id: fix.id, key: `${fix.id}:${fix.point.x}:${fix.point.y}`,
@@ -56,11 +76,17 @@ export function layoutFixLabels(symbols: FixSymbol[], size: Viewport, measure: (
       {x: symbol.x - width / 2, y: symbol.y - height - 10},
       {x: symbol.x - width / 2, y: symbol.y + 10},
     );
+    let placed = false;
     for (const position of positions) {
       const label = {...position, width, height, symbol};
       const padded = {x: label.x - 4, y: label.y - 4, width: width + 8, height: height + 8};
       if (mode === "auto" && (padded.x < 0 || padded.y < 0 || padded.x + padded.width > size.width || padded.y + padded.height > size.height || collides(padded))) continue;
-      labels.push(label); reserve(padded); break;
+      labels.push(label); reserve(padded); placed = true; break;
+    }
+    // A selected route should remain identifiable even in an unavoidable cluster.
+    if (!placed && symbol.route && mode === "auto") {
+      const label = {...positions[0], width, height, symbol};
+      labels.push(label); reserve({x: label.x - 4, y: label.y - 4, width: width + 8, height: height + 8});
     }
   }
   return labels;
