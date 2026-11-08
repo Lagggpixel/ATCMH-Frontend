@@ -1,5 +1,5 @@
 import {DEMO_SENT_VISIBLE_MS, type DemoBatch, type DemoGroundDraft, type DemoState} from "./demonstration";
-import type {ReplayTraineeMark} from "./replays";
+import type {ReplayParticipant, ReplayTraineeMark} from "./replays";
 import {buildGroundRoute, groundPointKey} from "./ground-route";
 import type {Airport, GroundRoute} from "./model";
 import type {DemoFrame} from "./shared-transport";
@@ -87,14 +87,19 @@ export function traineeReplayMarks(entries: readonly {elapsed: number; batch: Om
 /** The positions a replay recorded trainee controls for, in first-seen order. */
 export const replayTraineePositions = (marks: readonly ReplayTraineeMark[]) => [...new Set(marks.map(mark => mark.positionId))];
 
-/** One position's controls at a replay time: the latest state, and the latest sent command for 7 s. */
+/** One position's controls at a replay time: the latest state, and the latest sent command for 7 s, each
+ * with the account that produced it, so a seat handover labels each mark with its own trainee. */
 export function replayTraineeAt(marks: readonly ReplayTraineeMark[], positionId: string, time: number) {
-  let state: TraineeView | null = null, sent: (NonNullable<ReplayTraineeMark["sent"]> & {at: number}) | null = null;
+  let state: TraineeView | null = null, stateBy: string | undefined, sent: (NonNullable<ReplayTraineeMark["sent"]> & {at: number; accountId?: string}) | null = null;
   for (const mark of marks) {
     if (mark.at > time) break;
     if (mark.positionId !== positionId) continue;
-    if (mark.state) state = mark.state;
-    if (mark.sent) sent = {...mark.sent, at: mark.at};
+    if (mark.state) {state = mark.state; stateBy = mark.accountId;}
+    if (mark.sent) sent = {...mark.sent, at: mark.at, ...(mark.accountId ? {accountId: mark.accountId} : {})};
   }
-  return {state, sent: sent && time - sent.at <= DEMO_SENT_VISIBLE_MS / 1000 ? sent : null};
+  return {state, stateBy, sent: sent && time - sent.at <= DEMO_SENT_VISIBLE_MS / 1000 ? sent : null};
 }
+
+/** The name to show for a recorded mark: the trainee whose account produced it, never just whoever held the seat first. */
+export const replayTraineeName = (participants: readonly ReplayParticipant[], accountId: string | undefined) =>
+  accountId ? participants.find(p => p.accountId === accountId)?.name || undefined : undefined;

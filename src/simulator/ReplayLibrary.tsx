@@ -26,7 +26,7 @@ import type {Message} from "./model";
 import {DemoSentCard} from "./DemoMirror";
 import {replayDemoAt} from "./demonstration";
 import {traineeReplayEvents} from "./replay-events";
-import {readTraineeControls, replayTraineeAt, replayTraineePositions, traineeShortcut, writeTraineeControls, type TraineeControlsSetting} from "./trainee-overlay";
+import {readTraineeControls, replayTraineeAt, replayTraineeName, replayTraineePositions, traineeShortcut, writeTraineeControls, type TraineeControlsSetting} from "./trainee-overlay";
 import {TraineeControlsSwitch, TraineeMessages} from "./TraineeOverlay";
 import Scope from "./Scope";
 import {InterceptFeedback, MessageLog} from "./MessagePanel";
@@ -143,7 +143,6 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
   }), [accountId]);
   const [traineePick, setTraineePick] = useState<string>();
   const traineePosition = traineePositions.includes(traineePick ?? "") ? traineePick! : traineePositions[0];
-  const traineeName = replay.participants.find(p => p.role === "mentee" && (p.positionId ?? "main") === traineePosition)?.name || undefined;
   const traineeLabel = (id: string) => initial?.positions?.find(p => p.id === id)?.name ?? (id === "main" ? "Mentee" : id);
   const showTrainee = traineeControls.show && !!traineePosition;
   useEffect(() => {
@@ -153,6 +152,8 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
     return () => window.removeEventListener("keydown", key);
   }, [traineePositions.length, traineeControls.show, changeTraineeControls]);
   const trainee = showTrainee ? replayTraineeAt(traineeMarks, traineePosition, time) : null;
+  // Each mark is labelled with the mentee who produced it, so a seat handover never borrows the earlier occupant's name.
+  const traineeName = replayTraineeName(replay.participants, trainee?.stateBy), traineeSentName = replayTraineeName(replay.participants, trainee?.sent?.accountId);
   const list = useMemo(() => {
     const base = moments ?? [];
     if (!base.length || !showTrainee) return base;
@@ -175,7 +176,7 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
       <div className={styles.scope}>
         {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope staffAlertsEnabled={mentor} messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
           conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
-          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} trainee={trainee ? {name: traineeName, state: trainee.state, followZoom: traineeControls.followZoom, messages: <TraineeMessages name={traineeName} state={trainee.state} exercise={exercise}/>} : undefined} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : trainee?.sent ? <DemoSentCard sent={trainee.sent} by={traineeName ?? "Mentee"}/> : undefined}/></div>
+          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} trainee={trainee ? {name: traineeName, state: trainee.state, followZoom: traineeControls.followZoom, messages: <TraineeMessages name={traineeName} state={trainee.state} exercise={exercise}/>} : undefined} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : trainee?.sent ? <DemoSentCard sent={trainee.sent} by={traineeSentName ?? "Mentee"}/> : undefined}/></div>
           : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
         {incident ? <div className={styles.incident} role="status"><span className={`${styles.k} ${markClass[incident.kind]}`}/><span><strong>{incident.label}</strong> · {incident.detail} · {timeLabel(incident.at)}{incident.end !== undefined && incident.end > incident.at ? ` to ${timeLabel(incident.end)}` : ""}</span></div> : null}
       </div>

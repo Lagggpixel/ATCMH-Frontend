@@ -75,3 +75,31 @@ test("the switch is on by default and offers zoom following and a position picke
   const off = renderToStaticMarkup(React.createElement(TraineeControlsSwitch, {...props, show: false}));
   assert.doesNotMatch(off, /Follow/);
 });
+
+test("after a seat handover, the replay labels each control with the trainee who produced it", async () => {
+  const {replayTraineeAt, replayTraineeName} = await import("./trainee-overlay");
+  const {DemoSentCard} = require("./DemoMirror") as typeof import("./DemoMirror");
+  const exercise = initialExercise(), aircraft = exercise.aircraft[0];
+  const participants = [{role: "mentee" as const, accountId: "alice", name: "Alice", positionId: "north"}, {role: "mentee" as const, accountId: "bob", name: "Bob", positionId: "north"}];
+  const marks = [
+    {at: 1, positionId: "north", accountId: "alice", state: state({messageId: aircraft.id})},
+    {at: 5, positionId: "north", accountId: "bob", state: state({messageId: aircraft.id})},
+    {at: 6, positionId: "north", accountId: "bob", sent: {callsign: aircraft.callsign, text: "Descend", path: []}},
+  ];
+  const render = (time: number) => {
+    const at = replayTraineeAt(marks, "north", time);
+    const name = replayTraineeName(participants, at.stateBy), sentName = replayTraineeName(participants, at.sent?.accountId);
+    return renderToStaticMarkup(React.createElement(React.Fragment, null,
+      at.sent ? React.createElement(DemoSentCard, {sent: at.sent, by: sentName ?? "Mentee"}) : null,
+      React.createElement(TraineeMessages, {name, state: at.state, exercise})));
+  };
+  const before = render(2);
+  assert.match(before, /Alice&#x27;s open messages/);
+  const after = render(7);
+  assert.match(after, new RegExp(`Bob sent to ${aircraft.callsign}`));
+  assert.match(after, /Bob&#x27;s open messages/);
+  assert.doesNotMatch(after, /Alice/, "Bob's controls never borrow Alice's name");
+  // Bob's own filtered replay still lists Alice as a participant on north; the mark's account decides.
+  assert.equal(replayTraineeName(participants, "bob"), "Bob");
+  assert.equal(replayTraineeName(participants, undefined), undefined, "an unattributed mark falls back to the generic label");
+});
