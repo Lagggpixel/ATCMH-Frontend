@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -18,7 +19,7 @@ const assign = (e: Engine, s: Exercise, command: Instruction) => {
 
 const tick = (e: Engine, s: Exercise, seconds: number) => {for (let i = 0; i < seconds; i++) s = e.advance(s, 1); return s;};
 
-const radar = () => {const e = engineFor({trainingStation: "EGPH:approach"}), s = e.initialExercise(); s.running = true; delete s.aircraft[0].radar!.report; return {e, s};};
+const radar = () => {const e = engineFor({trainingStation: "EGPH:approach"}), s = withFixedReadbackDelay(e.initialExercise()); s.running = true; delete s.aircraft[0].radar!.report; return {e, s};};
 
 const synthetic: Airport = {
   ...getAirport(), elevation: 0,
@@ -34,7 +35,7 @@ const synthetic: Airport = {
 };
 
 function ground(): {e: Engine; s: Exercise; a: Aircraft} {
-  const e = createAirportEngine(synthetic), s = e.initialExercise(); s.running = true; s.autoReadback = false;
+  const e = createAirportEngine(synthetic), s = withFixedReadbackDelay(e.initialExercise()); s.running = true; s.autoReadback = false;
   const a = e.newAircraft("operational", false); s.aircraft = [a];
   Object.assign(a, {runway: "36", frequency: "tower", position: {x: 0, y: .1}, heading: 0, targetHeading: 0});
   return {e, s, a};
@@ -231,7 +232,7 @@ test("runway exit instructions reach the named hold or cross to the far side", (
 });
 
 test("Tower approach restriction releases on final, and Follow changes speed toward leading traffic", () => {
-  const e = engineFor(), s = e.initialExercise(); s.running = true; s.autoReadback = false; s.aircraft = [e.newAircraft("speed", true)];
+  const e = engineFor(), s = withFixedReadbackDelay(e.initialExercise()); s.running = true; s.autoReadback = false; s.aircraft = [e.newAircraft("speed", true)];
   const a = s.aircraft[0], g = e.runwayGeometry(a.runway!); a.mode = "heading"; a.leg = "final"; a.heading = a.targetHeading = g.heading;
   a.position = {x: g.threshold.x - g.vector.x * 4.1, y: g.threshold.y - g.vector.y * 4.1};
   let next = assign(e, s, {type: "radar-speed", mode: "approach", value: 160, until: 4});
@@ -267,7 +268,7 @@ test("back-taxi Ground handoff follows mapped exits at airports with mapped grou
     for (const pair of airportRunways(airport)) for (const end of pair.ends) {
       const g = e.runwayGeometry(end.id), a = e.newAircraft("mapped", false);
       Object.assign(a, {runway: end.id, frequency: "tower", position: {x: g.threshold.x + (g.departure.x - g.threshold.x) * .99, y: g.threshold.y + (g.departure.y - g.threshold.y) * .99}, heading: (g.heading + 180) % 360});
-      let s = {...e.initialExercise(), aircraft: [a], running: true, autoReadback: false};
+      let s = {...withFixedReadbackDelay(e.initialExercise()), aircraft: [a], running: true, autoReadback: false};
       // These mapped-stand airports do not have connected runway exit geometry.
       if (airport.icao === "LIME" && ["12", "30"].includes(end.id) || airport.icao === "VNLK") {
         assert.match(backTaxiRoute(airport, a, end.id, true).error!, /No mapped runway exit/);
@@ -285,7 +286,7 @@ test("back-taxi Ground handoff follows mapped exits at airports with mapped grou
 });
 
 test("guard reaches an untuned aircraft without granting other controller commands", () => {
-  const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
+  const engine = engineFor({trainingStation: "EGPH:approach"}), state = withFixedReadbackDelay(engine.initialExercise());
   const aircraft = engine.newAircraft("guard-test", true); aircraft.frequency = "center"; state.aircraft = [aircraft];
   const command: Instruction = {type: "atc", action: "guard", frequency: "approach", variant: "contact"};
   assert.equal(engine.validateControllerMessage(state, aircraft, command, "approach"), null);
@@ -316,7 +317,7 @@ const point = (runway: string, along: number, lateral = 0) => {
   return {x: g.threshold.x + along * g.vector.x - lateral * g.vector.y, y: g.threshold.y + along * g.vector.y + lateral * g.vector.x};
 };
 
-const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...withFixedReadbackDelay(engine.initialExercise()), aircraft, running: true});
 
 const assignForTrainerImprovements = (state: Exercise, instruction: Instruction) => act(state, {kind: "maneuver", aircraftId: state.aircraft[0].id, command: instruction});
 

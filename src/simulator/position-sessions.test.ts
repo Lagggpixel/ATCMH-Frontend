@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -16,7 +17,7 @@ async function harness() {
   const first: Actor = {accountId: "first", discordId: "100000000000000002", staff: false, displayName: "First trainee"};
   const second: Actor = {accountId: "second", discordId: "100000000000000003", staff: false, displayName: "Second trainee"};
   const third: Actor = {accountId: "third", discordId: "100000000000000004", staff: false, displayName: "Third trainee"};
-  const exercise = engineFor({airport: "LGAV", trainingStation: "LGAV:approach"}).initialExercise(randomUUID());
+  const exercise = withFixedReadbackDelay(engineFor({airport: "LGAV", trainingStation: "LGAV:approach"}).initialExercise(randomUUID()));
   const positions = facilities.filter(f => f.airport === "LGAV" && f.type === "approach").slice(0, 3).map((f, i) => ({id: `approach-${i + 1}`, name: ["Initial", "Final", "South"][i], service: "approach" as const, facilityId: f.id, mhz: f.mhz}));
   const session = await service.create(trainer, "Approach splits", exercise);
   const control = randomUUID(); await service.join(trainer, session.id, "staff", control);

@@ -84,10 +84,10 @@ export function endDemonstration(record: SessionRecord) {
  * pilots that are automatic now, and scenario events that ran later are rearmed with their actions. */
 export function rewoundExercise(current: Exercise, past: Exercise, envelopeId: string, scenario?: ScenarioRuntime): Exercise {
   const settings = new Map(current.aircraft.map(a => [a.id, a.automatic]));
-  let next: Exercise = {...structuredClone(past), revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, timeScale: current.timeScale,
+  let next: Exercise = {...structuredClone(past), revision: current.revision + 1, running: false, pausedByStaff: true, pauseVisibility: "visible", autoReadback: current.autoReadback, readbackDelay: current.readbackDelay, timeScale: current.timeScale,
     positions: current.positions, demonstration: current.demonstration, positionPresence: current.positionPresence, positionFeedback: current.positionFeedback, bookmarks: current.bookmarks,
     processed: scenario ? rewindScenario(scenario, past.elapsed, current.processed) : current.processed, rewind: {id: envelopeId, from: current.elapsed, to: past.elapsed}};
-  for (const key of ["timeScale", "demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback"] as const) if (next[key] === undefined) delete next[key];
+  for (const key of ["timeScale", "demonstration", "positionPresence", "positionFeedback", "bookmarks", "positions", "autoReadback", "readbackDelay"] as const) if (next[key] === undefined) delete next[key];
   for (const a of next.aircraft) {const automatic = settings.get(a.id); if (automatic === undefined) delete a.automatic; else a.automatic = automatic;}
   // The session switch clears and re-arms every pilot's latest pending instruction from this moment.
   next = applyEnvelope(next, {id: `${envelopeId}:readbacks`, time: 0, action: {kind: "auto-readback", enabled: !!current.autoReadback}}).state;

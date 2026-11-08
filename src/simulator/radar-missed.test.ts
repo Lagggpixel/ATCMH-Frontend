@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor,restoreExercise} from "./engine";
@@ -9,7 +10,7 @@ import type {ApproachType} from "./model";
 
 type Trigger="commanded"|"pilot-after-tower"|"automatic"|"threshold"|"unstable-tower";
 function missed(type:ApproachType,trigger:Trigger,automatic:boolean,station:"approach"|"center"="approach"){
- let state=engineFor({airport:"EGPH",trainingStation:`EGPH:${station}`}).initialExercise();state.running=true;state.autoReadback=automatic;
+ let state=withFixedReadbackDelay(engineFor({airport:"EGPH",trainingStation:`EGPH:${station}`}).initialExercise());state.running=true;state.autoReadback=automatic;
  const a=state.aircraft[0],airport=getAirport(state),p=state.radarEnvironment!.approaches.find(p=>p.type===type&&p.runway==="24")!,g=approachGeometry(airport,p.runway);
  a.position={x:g.threshold.x-g.vector.x*8,y:g.threshold.y-g.vector.y*8};a.heading=a.targetHeading=g.heading;a.altitude=2500;a.speed=a.targetSpeed=180;a.speedMode="auto";delete a.radar!.report;
  if(type==="gps")a.flightPlan=[{x:g.threshold.x-g.vector.x*7.5,y:g.threshold.y-g.vector.y*7.5,finalApproachFix:true},{...g.threshold}];
@@ -55,7 +56,7 @@ for(const type of["ils","gps","visual"]as const)for(const outcome of["full-stop"
 for(const type of["ils","gps","visual"]as const)for(const trigger of["threshold","unstable-tower"]as const)test(`${type} ${trigger}: automatic missed can be vectored for another approach`,()=>{vectorBack(missed(type,trigger,false),type,"full-stop");});
 
 test("a vectored-pattern missed approach clears circuit guidance and can return for ILS",()=>{
- let state=engineFor({airport:"EGPH",trainingStation:"EGPH:approach"}).initialExercise();state.running=true;state.autoReadback=false;
+ let state=withFixedReadbackDelay(engineFor({airport:"EGPH",trainingStation:"EGPH:approach"}).initialExercise());state.running=true;state.autoReadback=false;
  const a=state.aircraft[0],points=engineFor(state).patternTargets(a);a.position={x:(points.crosswind.x+points.downwind.x)/2,y:(points.crosswind.y+points.downwind.y)/2};a.altitude=getAirport(state).elevation+1500;
  state=issue(state,{type:"expect-approach",approachId:null,vectors:true});state=issue(state,trafficHandoff(state));
  assert.ok(state.aircraft[0].radar!.patternJoin);
@@ -63,7 +64,7 @@ test("a vectored-pattern missed approach clears circuit guidance and can return 
  assert.equal(state.aircraft[0].radar!.guidance,undefined);assert.equal(state.aircraft[0].radar!.patternJoin,undefined);vectorBack(state,"ils","full-stop");
 });
 test("a low assigned missed altitude still permits the Tower-to-Approach return",()=>{
- let state=engineFor({airport:"EGPH",trainingStation:"EGPH:approach"}).initialExercise();state.running=true;state.autoReadback=false;
+ let state=withFixedReadbackDelay(engineFor({airport:"EGPH",trainingStation:"EGPH:approach"}).initialExercise());state.running=true;state.autoReadback=false;
  const a=state.aircraft[0],p=state.radarEnvironment!.approaches.find(p=>p.runway===a.runway)!,g=approachGeometry(getAirport(state),p.runway);
  a.position={x:g.threshold.x-g.vector.x*.5,y:g.threshold.y-g.vector.y*.5};a.heading=a.targetHeading=g.heading;a.altitude=getAirport(state).elevation+300;a.frequency="tower";
  Object.assign(a.radar!,{navigation:"approach",expected:p.id,cleared:p.id,captured:true,transferred:true});delete a.radar!.report;

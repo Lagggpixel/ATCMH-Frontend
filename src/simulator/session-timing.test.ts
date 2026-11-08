@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import test from "node:test";
@@ -13,7 +14,7 @@ import {SESSION_FRAME_MS, SESSION_LEASE_MS} from "./sessions";
 const staff: Actor = {accountId: "101", staff: true};
 const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-7, `${actual} != ${expected}`);
 function flight(mode: "local" | "approach", speed = 360): Exercise {
-  const engine = engineFor({trainingStation: `EGPH:${mode}`}), exercise = engine.initialExercise();
+  const engine = engineFor({trainingStation: `EGPH:${mode}`}), exercise = withFixedReadbackDelay(engine.initialExercise());
   const a = mode === "local" ? engine.newAircraft("air", true) : exercise.aircraft[0];
   Object.assign(a, {position: {x: 50, y: 50}, heading: 90, targetHeading: 90, speed, targetSpeed: speed, speedMode: "manual", altitude: 10000, mode: "heading", leavingCircuit: true});
   delete a.performanceProfile;

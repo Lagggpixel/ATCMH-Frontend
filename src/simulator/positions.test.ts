@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -15,7 +16,7 @@ import type {Action, Exercise, Instruction} from "./model";
 const selection = {airport: "LGAV", trainingStation: "LGAV:approach"};
 export const approachPositions = (): ControllerPosition[] => facilities.filter(f => f.airport === "LGAV" && f.type === "approach").slice(0, 3).map((f, i) => ({id: `approach-${i + 1}`, name: ["Initial", "Final", "South"][i], service: "approach", facilityId: f.id, mhz: f.mhz}));
 export function splitExercise(): Exercise {
-  const exercise = engineFor(selection).initialExercise(randomUUID());
+  const exercise = withFixedReadbackDelay(engineFor(selection).initialExercise(randomUUID()));
   exercise.positions = approachPositions(); exercise.aircraft[0].positionId = exercise.positions[0].id;
   exercise.running = true; return exercise;
 }
@@ -27,7 +28,7 @@ export const transfer = (exercise: Exercise, target = exercise.positions![1]): I
 
 test("fresh environments activate only the primary channel of each selected service", () => {
   for (const mode of ["local", "approach", "center"] as const) {
-    const airport = getAirport(selection), env = freshFacilityEnvironment(airport, mode, engineFor(selection).initialExercise().radarEnvironment!);
+    const airport = getAirport(selection), env = freshFacilityEnvironment(airport, mode, withFixedReadbackDelay(engineFor(selection).initialExercise()).radarEnvironment!);
     for (const service of mode === "local" ? ["ground", "tower"] : mode === "approach" ? ["approach"] : []) {
       const channels = facilities.filter(f => f.airport === airport.icao && f.type === service);
       assert.equal(channels.filter(f => env.facilityActivity?.[f.id]).length, 1);
@@ -37,7 +38,7 @@ test("fresh environments activate only the primary channel of each selected serv
   }
 });
 test("explicit activity overrides survive fresh environment initialization", () => {
-  const p = approachPositions(), base = engineFor(selection).initialExercise().radarEnvironment!;
+  const p = approachPositions(), base = withFixedReadbackDelay(engineFor(selection).initialExercise()).radarEnvironment!;
   const env = freshFacilityEnvironment(getAirport(selection), "approach", {...base, facilityActivity: {[p[0].facilityId]: false, [p[1].facilityId]: true}});
   assert.equal(env.facilityActivity?.[p[0].facilityId], false); assert.equal(env.facilityActivity?.[p[1].facilityId], true);
 });

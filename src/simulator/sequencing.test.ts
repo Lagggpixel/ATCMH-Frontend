@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, autoReadbacks, applyEnvelope, followedAircraft, headingProjection, initialExercise, newAircraft, patternTargets, restoreExercise, runwayGeometry, sequenceStatus, engineFor} from "./engine";
@@ -8,10 +9,14 @@ let serial = 0;
 
 function act(state: Exercise, action: Action) {const result = applyEnvelope(state, {id: `seq-${++serial}`, time: serial, action}); assert.equal(result.error, undefined); return result.state;}
 
-function send(state: Exercise, command: Instruction) {return act(state, {kind: "command", aircraftId: "follower", frequency: "tower", command, text: command.type});}
+function send(state: Exercise, command: Instruction) {
+  state = act(state, {kind: "command", aircraftId: "follower", frequency: "tower", command, text: command.type});
+  // Sequence-order fixtures start with an accepted clearance, not an unread transmission.
+  return command.type === "sequence" || command.type === "land" ? act(state, {kind: "pilot", aircraftId: "follower", replyTo: state.messages.at(-1)!.id, assign: true, text: "Readback"}) : state;
+}
 
 function traffic() {
-  const state = initialExercise();
+  const state = withFixedReadbackDelay(initialExercise());
   const follower = newAircraft("follower", true), first = newAircraft("first", true), second = newAircraft("second", true), otherRunway = newAircraft("other", true);
   Object.assign(follower, {leg: "downwind", position: patternTargets(follower).crosswind});
   Object.assign(first, {position: runwayGeometry().threshold});
@@ -22,12 +27,12 @@ function traffic() {
 
 const sequence = (number = 2, leg = "Final"): Instruction => ({type: "sequence", number, traffic: leg});
 
-test("staff sees the pending batch but can answer only its latest command, once", () => {
+test("only the latest unread command remains pending and can be answered once", () => {
   let state = traffic();
   state = send(state, {type: "pattern", leg: "base"}); const old = state.messages.at(-1)!.id;
   state = send(state, {type: "extend", leg: "downwind"});
   state = send(state, {type: "speed", value: 180}); const latest = state.messages.at(-1)!.id;
-  assert.equal(pendingCommands(state, "follower").length, 3);
+  assert.equal(pendingCommands(state, "follower").length, 1);
   const obsolete = applyEnvelope(state, {id: "obsolete", time: 1, action: {kind: "pilot", aircraftId: "follower", text: "Old", replyTo: old, assign: true}});
   assert.match(obsolete.error!, /latest/); assert.equal(obsolete.state, state);
   state = act(state, {kind: "pilot", aircraftId: "follower", text: "180", replyTo: latest, assign: true});
@@ -144,10 +149,12 @@ test("pattern entry after a transition restores its follow link on manual and au
 });
 
 test("sequencing survives a stale spoken leg and rejects circular follow dependencies", () => {
-  const e = engineFor({airport: "EGPH"}); let s = e.initialExercise();
+  const e = engineFor({airport: "EGPH"}); let s = withFixedReadbackDelay(e.initialExercise());
   s.aircraft = ["a", "b"].map((id, i) => {const a = e.newAircraft(id, true); a.leg = "downwind"; a.position = {...e.patternTargets(a).crosswind, x: e.patternTargets(a).crosswind.x + i}; return a;});
   const first = e.applyEnvelope(s, {id: "follow-b", time: 1, action: {kind: "command", aircraftId: "a", frequency: "tower", command: {type: "sequence", number: 2, traffic: "Final"}, text: "number 2 traffic final"}});
-  assert.equal(first.error, undefined); assert.equal(first.state.aircraft[0].sequence?.followingId, "b"); s = first.state;
+  assert.equal(first.error, undefined); assert.equal(first.state.aircraft[0].sequence, undefined); s = first.state;
+  s = act(s, {kind: "pilot", aircraftId: "a", replyTo: "follow-b", assign: true, text: "Number 2"});
+  assert.equal(s.aircraft[0].sequence?.followingId, "b");
   const second = e.applyEnvelope(s, {id: "follow-a", time: 2, action: {kind: "command", aircraftId: "b", frequency: "tower", command: {type: "sequence", number: 2, traffic: patternLegLabel(s.aircraft[0])}, text: "number 2"}});
   assert.match(second.error!, /follow each other/); assert.equal(second.state, s);
 });
@@ -155,7 +162,7 @@ test("sequencing survives a stale spoken leg and rejects circular follow depende
 test("Heathrow resequencing respects the assigned leader ahead of a closer downwind aircraft", () => {
   const e = engineFor({airport: "EGLL"});
   for (const automatic of [false, true]) for (const maneuver of [false, true]) {
-    let state = e.initialExercise(); state.autoReadback = automatic;
+    let state = withFixedReadbackDelay(e.initialExercise()); state.autoReadback = automatic;
     state.aircraft = [
       {id: "speedbird", callsign: "Speedbird 401", leg: "final", position: {x: 17.89135879507937, y: .5604686266992776}, patternFinalDistance: 19.01268000535787},
       {id: "lufthansa", callsign: "Lufthansa 402", leg: "downwind", position: {x: 7.175049921033803, y: 4.370040176992097}, patternFinalDistance: 8.316314307151016},
@@ -171,6 +178,7 @@ test("Heathrow resequencing respects the assigned leader ahead of a closer downw
         ? {kind: "maneuver", aircraftId, command}
         : {kind: "command", aircraftId, frequency: "tower", command, text: `Number ${number}, traffic ${traffic}`}});
       assert.equal(result.error, undefined); state = result.state;
+      if (!maneuver) state = act(state, {kind: "pilot", aircraftId, replyTo: state.messages.at(-1)!.id, assign: true, text: "Readback"});
     };
     issue("emirates", 2, "Final");
     assert.equal(state.aircraft[2].sequence?.followingId, "speedbird", "number two follows the established first arrival");
@@ -186,7 +194,7 @@ test("Heathrow resequencing respects the assigned leader ahead of a closer downw
 });
 
 test("arrival numbers retain multi-aircraft follow chains and discard expired links", () => {
-  const e = engineFor({airport: "EGPH"}), state = e.initialExercise();
+  const e = engineFor({airport: "EGPH"}), state = withFixedReadbackDelay(e.initialExercise());
   state.aircraft = ["third", "second", "first", "fourth"].map((id, i) => {
     const a = e.newAircraft(id, true), g = e.runwayGeometry(a.runway!);
     return {...a, leg: "final" as const, position: {x: g.threshold.x - g.vector.x * (i + 2), y: g.threshold.y - g.vector.y * (i + 2)}};
@@ -202,7 +210,7 @@ test("arrival numbers retain multi-aircraft follow chains and discard expired li
 test("Swiss number three follows Air France rather than counting unjoined Heathrow arrivals", () => {
   const e = engineFor({airport: "EGLL"});
   for (const automatic of [false, true]) {
-    let state = e.initialExercise(); state.autoReadback = automatic; state.running = true;
+    let state = withFixedReadbackDelay(e.initialExercise()); state.autoReadback = automatic; state.running = true;
     state.aircraft = [
       {id: "virgin", callsign: "Virgin 403 Heavy", mode: "pattern", position: {x: 2.528973875018822, y: -.33962044505148237}},
       {id: "airfrance", callsign: "Air France 404", mode: "pattern", position: {x: 14.151003828297476, y: -.28762339003263426}},
@@ -214,7 +222,8 @@ test("Swiss number three follows Air France rather than counting unjoined Heathr
     const command: Instruction = {type: "pattern", leg: "downwind", hand: "left", runway: "27L", sequence: {number: 3, traffic: "Final"}};
     const result = e.applyEnvelope(state, {id: `swiss-command-${++serial}`, time: serial, action: {kind: "command", aircraftId: "swiss", frequency: "tower", command, text: "Enter left downwind runway 27L, number 3, traffic final"}});
     assert.equal(result.error, undefined); state = result.state;
-    assert.equal(state.aircraft[2].sequence?.followingId, "airfrance");
+    assert.equal(state.aircraft[2].sequence, undefined);
+    assert.equal(state.messages.at(-1)!.readbackSequence?.followingId, "airfrance");
     const commandId = state.messages.at(-1)!.id;
     if (automatic) {
       state.elapsed += 2;

@@ -34,6 +34,8 @@ import {sessionCode, sessionPath} from "./sessions";
 import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import IntentionsControls from "./IntentionsControls";
 import AutomaticHelp from "./AutomaticHelp";
+import ReadbackTiming from "./ReadbackTiming";
+import {DEFAULT_READBACK_DELAY} from "./model";
 import LandingOutcomeControl from "./LandingOutcomeControl";
 import SpeedControls from "./SpeedControls";
 import DeleteAircraftDialog from "./DeleteAircraftDialog";
@@ -85,6 +87,7 @@ export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio,
     <p className={workspace.menuHeading}>Run</p>
     <div className={workspace.menuRow}><PauseVisibilitySelect exercise={exercise} owner={owner} dispatch={dispatch} visibility={pauseVisibility} onVisibility={setPauseVisibility}/></div>
     <div data-simulator-tour="automatic" className={`${styles.automaticRow} ${workspace.menuRow}`}><button className={styles.autoReadback} role="switch" aria-checked={!!exercise.autoReadback} disabled={!owner} onClick={() => dispatch({kind: "auto-readback", enabled: !exercise.autoReadback})}><span><strong>Automatic pilot actions</strong></span><span className={styles.autoReadbackSwitch} aria-hidden="true"/></button><AutomaticHelp/></div>
+    <ReadbackTiming delay={exercise.readbackDelay ?? DEFAULT_READBACK_DELAY} enabled={owner} dispatch={dispatch}/>
     {panels.length ? <><p className={workspace.menuHeading}>Exercise</p>{panels.map(item => <button key={item.id} type="button" className={workspace.menuItem} onClick={event => {event.currentTarget.closest("details")?.removeAttribute("open"); setPanel(item.id);}}>{item.icon}{item.label}{item.status ? <small className={workspace.menuTrail}>{item.status}</small> : null}</button>)}</> : null}
     <div className={workspace.menuFacilities}><FacilityControls exercise={exercise} dispatch={dispatch} connected={owner}/></div>
     <span className={workspace.menuDivider} aria-hidden="true"/>

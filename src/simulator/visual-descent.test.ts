@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -10,7 +11,7 @@ import {exerciseSchema} from "./protocol";
 
 const calm = {...EXERCISE_WEATHER, windSpeed: 0};
 function fixture(icao = "EGPH", height = 2000, miles = 5.5, lateral = 0) {
-  const state = engineFor({airport: icao, trainingStation: `${icao}:approach`, weather: calm}).initialExercise();
+  const state = withFixedReadbackDelay(engineFor({airport: icao, trainingStation: `${icao}:approach`, weather: calm}).initialExercise());
   const airport = getAirport(state), a = state.aircraft[0], environment = state.radarEnvironment!;
   const p = environment.approaches.find(p => p.type === "visual")!, g = approachGeometry(airport, p.runway, p);
   Object.assign(a, {position: {x: g.threshold.x - g.vector.x * miles - g.vector.y * lateral, y: g.threshold.y - g.vector.y * miles + g.vector.x * lateral},

@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {getAirport} from "./airports";
@@ -19,7 +20,7 @@ test("overlapping runway protections require both crossing clearances at the sha
   const holds = result.path.filter(p => p.hold);
   assert.deepEqual(holds.map(p => p.runway), ["14", "04L"]);
   assert.deepEqual({x: holds[0].x, y: holds[0].y}, {x: holds[1].x, y: holds[1].y});
-  const engine = engineFor({airport: "KBOS"}), exercise = engine.initialExercise();
+  const engine = engineFor({airport: "KBOS"}), exercise = withFixedReadbackDelay(engine.initialExercise());
   const a = exercise.aircraft[0];
   a.taxiPath = result.path; a.taxiIndex = result.path.indexOf(holds[0]); a.position = {x: holds[0].x, y: holds[0].y};
   a.mode = "taxi"; a.holding = true; a.speed = 0; a.targetSpeed = 15;
@@ -62,7 +63,7 @@ test("engine radio readbacks release overlapping runway holds one at a time", ()
   const a = engine.newAircraft("crossing", false);
   Object.assign(a, {position, frequency: "ground", mode: "taxi", holding: true, speed: 0, targetSpeed: 0,
     taxiPath: [{...position}, {...position, hold: true, runway: "14"}, {...position, hold: true, runway: "04L"}, {x: 0, y: .1}], taxiIndex: 1});
-  let state = {...engine.initialExercise(), aircraft: [a], running: true, autoReadback: true};
+  let state = {...withFixedReadbackDelay(engine.initialExercise()), aircraft: [a], running: true, autoReadback: true};
   const send = (runway: string, id: string) => engine.applyEnvelope(state, {id, time: 0, action: {kind: "command", aircraftId: a.id, frequency: "ground", command: {type: "cross", runway}, text: `Cross runway ${runway}`}});
   const first = send("14", "first"); assert.equal(first.error, undefined); state = first.state;
   assert.equal(state.aircraft[0].holding, true, "sending the clearance alone does not release the hold");

@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -11,7 +12,7 @@ import {ReplayTimeline, replayDelta} from "./replays";
 import type {Instruction} from "./model";
 
 function fixture(station: "approach" | "center" = "approach") {
-  const engine = engineFor({airport: "EGPH", trainingStation: `EGPH:${station}`}), state = engine.initialExercise();
+  const engine = engineFor({airport: "EGPH", trainingStation: `EGPH:${station}`}), state = withFixedReadbackDelay(engine.initialExercise());
   state.running = true; state.autoReadback = true;
   const airport = getAirport(state), env = state.radarEnvironment!, a = state.aircraft[0];
   const p = env.approaches.find(p => p.id === "gps-24")!, g = approachGeometry(airport, p.runway);

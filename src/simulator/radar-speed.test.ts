@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -11,7 +12,7 @@ import {EXERCISE_WEATHER} from "./model";
 import {exerciseSchema, instructionSchema, menteeActionAllowed} from "./protocol";
 import type {Action, Exercise, RadarSpeedInstruction} from "./model";
 function fixture(mode: "approach" | "center" = "approach") {
-  const engine = engineFor({trainingStation: `EGPH:${mode}`}), state = engine.initialExercise();
+  const engine = engineFor({trainingStation: `EGPH:${mode}`}), state = withFixedReadbackDelay(engine.initialExercise());
   state.running = true; state.autoReadback = false; state.aircraft = [engine.newAircraft("a", true)];
   state.aircraft[0].callsign = "Speedbird 1"; delete state.aircraft[0].radar!.report; return state;
 }

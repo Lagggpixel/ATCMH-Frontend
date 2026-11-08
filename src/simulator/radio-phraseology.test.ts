@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -20,7 +21,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
     [0, 180, "turn left heading 180"],
     [90, 224, "turn right heading 220"],
   ] as const) {
-    let state = engineFor({trainingStation: `EGPH:${mode}`}).initialExercise();
+    let state = withFixedReadbackDelay(engineFor({trainingStation: `EGPH:${mode}`}).initialExercise());
     state.running = true; state.autoReadback = true;
     state = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: state.aircraft[0].id, command: {type: "vector", altitude: {unit: "feet", value: 6000}}}}).state;
     const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.heading = magneticToTrue(from, getAirport(state)); delete a.radar!.report;
@@ -40,7 +41,7 @@ for (const mode of ["approach", "center"] as const) test(`${mode}: turn wording 
 
 test("manual and automatic check-ins use feet below 18000 and spoken flight levels above", () => {
   for (const [altitude, phrase] of [[4000, "4,000ft"], [17500, "17,500ft"], [18000, "18,000ft"], [35000, "35,000ft"]] as const) {
-    const state = engineFor({trainingStation: "EGPH:approach"}).initialExercise(); state.running = true; state.autoReadback = true;
+    const state = withFixedReadbackDelay(engineFor({trainingStation: "EGPH:approach"}).initialExercise()); state.running = true; state.autoReadback = true;
     const a = state.aircraft[0]; a.callsign = "Speedbird 1"; a.altitude = altitude; a.radar!.flight = "departure";
     const expected = `Speedbird 1, with you at ${phrase}`, catalog = catalogFor(getAirport(state));
     assert.equal(checkInTransmission(a), expected);
@@ -51,7 +52,7 @@ test("manual and automatic check-ins use feet below 18000 and spoken flight leve
 
 test("approach requests display compact initialisms and ICAO codes, and speak airport names", () => {
   for (const airport of ["EGPH", "EGLL"]) {
-    const state = engineFor({airport, trainingStation: `${airport}:approach`}).initialExercise(), a = state.aircraft[0]; a.callsign = "Speedbird 1";
+    const state = withFixedReadbackDelay(engineFor({airport, trainingStation: `${airport}:approach`}).initialExercise()), a = state.aircraft[0]; a.callsign = "Speedbird 1";
     const catalog = catalogFor(getAirport(state)), request = catalog.resolvePilotRequest({requestId: "request-approach"})!;
     const destination = airport === "EGPH" ? "Edinburgh" : "Heathrow";
     assert.equal(catalog.pilotRequestText(a, request, a.runway!, false, {exercise: state}), `Speedbird 1, requesting ILS approach at ${airport}`);
@@ -74,10 +75,10 @@ test("calm clearances and routed taxiway speech use the correct words", () => {
   assert.equal(weatherCategory({...EXERCISE_WEATHER, visibilityKm: 16, rawMetar: "KDAL 241200Z 00000KT 10SM FEW020 SCT080"}), "VFR");
 });
 
-const fixture=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+const fixture=()=>withFixedReadbackDelay(engineFor({trainingStation:"EGPH:approach"}).initialExercise());
 
 test("Tower inbound call retains choices, ATIS, position and landing intention",()=>{
- const a=engineFor().newAircraft("a",true),state=engineFor().initialExercise();state.publishedDraft={...state.atis,letter:"BRAVO"};
+ const a=engineFor().newAircraft("a",true),state=withFixedReadbackDelay(engineFor().initialExercise());state.publishedDraft={...state.atis,letter:"BRAVO"};
  const c=catalogFor(),request=c.resolvePilotRequest({requestId:"inbound-option"})!;
  assert.match(c.pilotRequestText(a,request,"24",false,{exercise:state}),/is .* miles to the .* inbound for Touch and Go with information BRAVO/);
  assert.match(c.pilotRequestText(a,request,"24",false,{inbound:"ils",exercise:state}),/inbound on the ILS for Touch and Go Runway 24 with information BRAVO/);
@@ -96,7 +97,7 @@ const actForTrainerImprovements = (state: Exercise, action: Action) => {
 
 const kdal = getAirport({airport: "KDAL"}), engine = engineFor({airport: "KDAL"}), catalog = catalogFor(kdal);
 
-const stateOf = (aircraft: Aircraft[]): Exercise => ({...engine.initialExercise(), aircraft, running: true});
+const stateOf = (aircraft: Aircraft[]): Exercise => ({...withFixedReadbackDelay(engine.initialExercise()), aircraft, running: true});
 
 test("inbound and runway-change requests use current location, altitude and published ATIS", () => {
   const a = {...engine.newAircraft("a", true), callsign: "N714KG", position: {x: Math.SQRT1_2 * 5, y: -Math.SQRT1_2 * 5}, altitude: 1500};
