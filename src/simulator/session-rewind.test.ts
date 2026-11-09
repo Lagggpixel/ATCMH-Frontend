@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -74,7 +75,7 @@ test("a rewind keeps recording into the same replay, while a reset starts a new 
     return [[], null];
   }};
   const record = (exercise: Exercise, contentRevision: number) => ({id: "s", ownerId: "o", title: "T", createdAt: 0, updatedAt: 0, tickAt: 0, contentRevision, exercise, staff: null, mentee: null});
-  const start = {...initialExercise("rec"), elapsed: 60};
+  const start = {...withFixedReadbackDelay(initialExercise("rec")), elapsed: 60};
   await recordReplay(connection, record(start, 1));
   const back = {...start, elapsed: 30, rewind: {id: "r1", from: 60, to: 30}};
   await recordReplay(connection, record(back, 2), record(start, 1));
@@ -87,7 +88,7 @@ test("a rewind keeps recording into the same replay, while a reset starts a new 
 
 test("rewinding re-arms the pending readbacks of automatic pilots and keeps each pilot's current setting", () => {
   const send = (state: Exercise, action: Action) => {const result = applyEnvelope(state, {id: randomUUID(), time: 0, action}); assert.equal(result.error, undefined); return result.state;};
-  let past = send({...initialExercise("rewind-readback"), running: true}, {kind: "auto-readback", enabled: true});
+  let past = send({...withFixedReadbackDelay(initialExercise("rewind-readback")), running: true}, {kind: "auto-readback", enabled: true});
   past = send(past, {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
   const pending = past.messages.at(-1)!;
   // Recorded frames drop the timer; the live session has since flown the aircraft by hand.
@@ -131,7 +132,7 @@ test("automatic readbacks keep their real-time delay at 2× and 4×, including a
     const send = (action: Action) => service.dispatch(staff, session.id, "staff", control, {id: randomUUID(), time, action});
     const frame = async (ms: number) => {time += ms; await service.frame(staff, session.id, "staff", control); return store.records.get(session.id)!.exercise;};
     const readbacks = (state: Exercise) => state.messages.filter(m => m.sender === "pilot" && m.commandId !== undefined).length;
-    await send({kind: "auto-readback", enabled: true}); await send({kind: "play"}); await send({kind: "time-scale", scale});
+    await send({kind: "readback-delay", delay: {min: 1.5, max: 1.5}}); await send({kind: "auto-readback", enabled: true}); await send({kind: "play"}); await send({kind: "time-scale", scale});
     const aircraftId = store.records.get(session.id)!.exercise.aircraft[0].id;
     await send({kind: "command", aircraftId, frequency: "tower", text: "cleared to land", command: {type: "land", runway: "24", number: 1}});
     let state = await frame(400);

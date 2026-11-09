@@ -15,26 +15,31 @@ function cameraControls(motion: ScopeCameraMotion, publish: (camera: MapCamera) 
     };
     frame = requestAnimationFrame(tick);
   };
-  return {
+  // While locked, pointers still tap aircraft but nothing pans or zooms.
+  const controls = {
+    locked: false,
     motion, stop,
+    lock: (locked: boolean) => {controls.locked = locked; if (locked) stop();},
     sync: (camera: MapCamera, size: MapSize, notify: (camera: MapCamera) => void) => {
       if (size.height <= 0) return;
       motion.camera = clampCamera(camera, size); motion.size = size; publish = notify;
       if (motion.camera !== camera) publish(motion.camera);
     },
     reset: (next: MapCamera, size = motion.size) => {stop(); motion.size = size; motion.reset(next); publish(motion.camera);},
-    down: (id: number, point: Point, type: string, doubleTap: boolean) => {stop(); motion.down(id, point, performance.now(), type, doubleTap);},
-    move: (id: number, point: Point, navigate = true) => {motion.move(id, point, performance.now(), navigate); if (navigate) publish(motion.camera);},
+    down: (id: number, point: Point, type: string, doubleTap: boolean) => {stop(); motion.down(id, point, performance.now(), type, doubleTap && !controls.locked);},
+    move: (id: number, point: Point, navigate = true) => {const pan = navigate && !controls.locked; motion.move(id, point, performance.now(), pan); if (pan) publish(motion.camera);},
     up: (id: number) => {const tap = motion.up(id, performance.now()); if (!motion.pointers.size) animate(); return tap;},
     cancel: (id?: number) => {if (id !== undefined && !motion.pointers.has(id)) return; stop(); motion.cancel(id);},
-    wheel: (point: Point, delta: number, mode: number, magnify: boolean) => {stop(); motion.wheel(point, delta, mode, magnify); publish(motion.camera);},
-    magnify: (point: Point, factor: number) => {stop(); motion.magnify(point, factor); publish(motion.camera);},
-    zoom: (factor: number) => {stop(); motion.zoom(factor); animate();},
+    wheel: (point: Point, delta: number, mode: number, magnify: boolean) => {if (controls.locked) return; stop(); motion.wheel(point, delta, mode, magnify); publish(motion.camera);},
+    magnify: (point: Point, factor: number) => {if (controls.locked) return; stop(); motion.magnify(point, factor); publish(motion.camera);},
+    zoom: (factor: number) => {if (controls.locked) return; stop(); motion.zoom(factor); animate();},
   };
+  return controls;
 }
 
-export function useScopeCamera(camera: MapCamera, setCamera: (camera: MapCamera) => void, size: MapSize) {
+export function useScopeCamera(camera: MapCamera, setCamera: (camera: MapCamera) => void, size: MapSize, locked = false) {
   const [controls] = useState(() => cameraControls(new ScopeCameraMotion(camera, size), setCamera));
+  useLayoutEffect(() => controls.lock(locked), [controls, locked]);
   useLayoutEffect(() => {controls.sync(camera, size, setCamera);}, [camera, size, setCamera, controls]);
   useEffect(() => {
     const cancel = () => controls.cancel();

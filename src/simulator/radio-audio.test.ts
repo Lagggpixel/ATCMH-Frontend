@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advance, applyEnvelope, autoReadbacks, initialExercise} from "./engine";
@@ -19,7 +20,7 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
   };
   const player = immediatePlayer();
   const close = player.start(output);
-  let exercise = initialExercise();
+  let exercise = withFixedReadbackDelay(initialExercise());
   player.observe(exercise, true, scope);
   const enable = () => {player.setEnabled(true); played.at(-1)!.end(); played.length = 0;};
   const observe = (messages: Message[], connected = true, nextScope = scope) => {exercise = {...exercise, revision: exercise.revision + 1, messages}; player.observe(exercise, connected, nextScope);};
@@ -63,7 +64,7 @@ test("opening a session never prepares ATIS; published broadcasts are generated 
   const h = harness(), prepared: string[] = [];
   h.output.prepare = text => prepared.push(text);
   const player = new RadioAudio(), close = player.start(h.output);
-  const exercise = {...initialExercise(), publishedAtis: "Edinburgh information Alpha. Wind 240 at 5."};
+  const exercise = {...withFixedReadbackDelay(initialExercise()), publishedAtis: "Edinburgh information Alpha. Wind 240 at 5."};
   player.observe(exercise, true, "tower");
   assert.equal(prepared.length, 0);
   assert.equal(h.played.length, 0);
@@ -84,7 +85,7 @@ test("reviewed drafts debounce without transmitting, and cancel on replacement, 
   h.player.prepareDraft("Fly heading 90"); t.mock.timers.tick(999); assert.equal(drafts.length, 0);
   t.mock.timers.tick(1); assert.deepEqual(drafts, ["Fly heading zero nine zero"]); assert.equal(h.played.length, 0);
   h.player.prepareDraft("muted draft"); h.player.setEnabled(false); t.mock.timers.tick(1000); assert.equal(drafts.length, 1);
-  h.enable(); h.player.prepareDraft("paused draft"); h.player.observe(initialExercise(), true, "all", true);
+  h.enable(); h.player.prepareDraft("paused draft"); h.player.observe(withFixedReadbackDelay(initialExercise()), true, "all", true);
   t.mock.timers.tick(1000); assert.equal(drafts.length, 1); assert.equal(h.played.length, 0);
   h.close(); t.mock.timers.reset();
 });
@@ -114,7 +115,7 @@ test("queued transmissions wait 500 ms after the preceding audio, including when
   const output: SpeechOutput = {voices: () => [{id: "v", name: "Voice", language: "en-GB", local: true}], onVoicesChanged: () => () => {},
     speak: (_text, _settings, end) => {played.push({end});}, cancel() {}};
   const player = new RadioAudio(), close = player.start(output);
-  const state = initialExercise(); player.observe(state, true, "all");
+  const state = withFixedReadbackDelay(initialExercise()); player.observe(state, true, "all");
   player.observe({...state, messages: [message("one")]}, true, "all");
   assert.equal(played.length, 1); played[0].end();
   t.mock.timers.tick(200);
@@ -127,7 +128,7 @@ test("queued transmissions wait 500 ms after the preceding audio, including when
 test("automatic readback is prepared from the pending command and only the actual reply is played", () => {
   const h = harness(), prepared: string[] = [];
   h.output.prepareReadback = text => prepared.push(text);
-  let state = {...initialExercise(), running: true, autoReadback: true};
+  let state = {...withFixedReadbackDelay(initialExercise()), running: true, autoReadback: true};
   h.player.observe(state, true, "all");
   const sent = applyEnvelope(state, {id: "command", time: 1, action: {kind: "command", aircraftId: "demo-ground", frequency: "ground", text: "Easy 571, hold position", command: {type: "stop"}}});
   assert.equal(sent.error, undefined); state = sent.state;
@@ -142,7 +143,7 @@ test("automatic readback is prepared from the pending command and only the actua
 test("a speculative readback cannot play when the authoritative reply is unable", () => {
   const h = harness(), prepared: string[] = [];
   h.output.prepareReadback = text => prepared.push(text);
-  let state = {...initialExercise(), running: true, autoReadback: true};
+  let state = {...withFixedReadbackDelay(initialExercise()), running: true, autoReadback: true};
   h.player.observe(state, true, "all");
   const sent = applyEnvelope(state, {id: "clearance", time: 1, action: {kind: "command", aircraftId: "demo-air", frequency: "tower", text: "Speedbird 124, cleared for takeoff runway 24", command: {type: "takeoff", runway: "24"}}});
   assert.equal(sent.error, undefined); state = sent.state; h.player.observe(state, true, "all");
@@ -228,7 +229,7 @@ test("Delta 64's takeoff readback is played once after a brief connection interr
 });
 test("changing exercise or resetting elapsed time establishes a fresh baseline", () => {
   const h = harness(); h.enable();
-  const state: Exercise = {...initialExercise("exercise-a"), elapsed: 60, messages: [message("history")]};
+  const state: Exercise = {...withFixedReadbackDelay(initialExercise("exercise-a")), elapsed: 60, messages: [message("history")]};
   h.player.observe(state, true, "all"); assert.equal(h.played.length, 0);
   h.player.observe({...state, messages: [...state.messages, message("new")]}, true, "all"); assert.equal(h.played.length, 1);
   h.player.observe({...state, elapsed: 0}, true, "all"); assert.equal(h.cancelled(), 1); h.close();
@@ -244,7 +245,7 @@ test("voice settings apply to the next message and tests/replays queue without i
 
 test("a published ATIS is read in full once, across retuning and new messages", () => {
   const h = harness("ground");
-  const state = {...initialExercise(), publishedAtis: "Edinburgh information ALPHA. Runway 24. Wind 240 at 10. QNH 1001. Advise on initial contact."};
+  const state = {...withFixedReadbackDelay(initialExercise()), publishedAtis: "Edinburgh information ALPHA. Runway 24. Wind 240 at 10. QNH 1001. Advise on initial contact."};
   h.player.observe(state, true, "ground");
   assert.equal(h.played.length, 1); assert.equal(h.played[0].text, aviationSpeech(state.publishedAtis));
   h.player.observe(state, true, "tower");
@@ -259,7 +260,7 @@ test("a published ATIS is read in full once, across retuning and new messages", 
 test("ATIS history and muted/offline publications never replay on recovery", () => {
   const h = harness();
   h.player.setEnabled(false);
-  const state = {...initialExercise(), publishedAtis: "Edinburgh information BRAVO."};
+  const state = {...withFixedReadbackDelay(initialExercise()), publishedAtis: "Edinburgh information BRAVO."};
   h.player.observe(state, true, "atis");
   h.enable(); h.player.observe(state, true, "ground");
   assert.equal(h.played.length, 0);
@@ -276,6 +277,17 @@ test("repeated autoplay denials during one tap never discard the queued transmis
     assert.equal(h.played.at(-1)!.text, h.played[0].text);
   }
   h.played.at(-1)!.end(); assert.equal(h.player.getSnapshot().speaking, ""); assert.equal(h.player.getSnapshot().error, "");
+  h.close();
+});
+
+test("a blocked browser marks audio as waiting until the next interaction or mute", () => {
+  const h = harness(); h.observe([message("blocked")]);
+  assert.equal(h.player.getSnapshot().waiting, false);
+  h.played[0].error(new DOMException("Interaction required", "NotAllowedError"));
+  assert.equal(h.player.getSnapshot().waiting, true);
+  h.player.activate(); assert.equal(h.player.getSnapshot().waiting, false);
+  h.played.at(-1)!.error(new DOMException("Interaction required", "NotAllowedError"));
+  h.player.setEnabled(false); assert.equal(h.player.getSnapshot().waiting, false);
   h.close();
 });
 
@@ -328,7 +340,7 @@ test("ILS and GPS display compactly while both current and historical messages s
 
 test("staff requests received behind the pause screen are queued and spoken once on resume", () => {
   const h = harness("ground"); h.enable();
-  const state = {...initialExercise(), pausedByStaff: true};
+  const state = {...withFixedReadbackDelay(initialExercise()), pausedByStaff: true};
   h.player.observe(state, true, "ground", true);
   const request = message("staff-request", "ground", "pilot");
   const received = {...state, messages: [request]};
@@ -368,7 +380,7 @@ test("registration callsigns use phonetic letters and individual digits", () => 
 
 test("live transmissions, referenced traffic and replay all normalize callsigns without changing the message log", () => {
   const h = harness();
-  const state = initialExercise(); state.aircraft[0].callsign = "Speedbird 104"; state.aircraft[1].callsign = "N714KG";
+  const state = withFixedReadbackDelay(initialExercise()); state.aircraft[0].callsign = "Speedbird 104"; state.aircraft[1].callsign = "N714KG";
   h.player.observe(state, true, "all");
   const controller = {...message("callsign-controller"), text: "Speedbird 104, follow N714KG, Runway 24. Contact Tower on 118.70."};
   const pilot = {...message("callsign-pilot", "ground", "pilot"), text: "Following N714KG, Speedbird 104."};
@@ -394,7 +406,7 @@ test("the browser receives explicit spoken callsigns for transmissions and manua
   try {
     const player = immediatePlayer(), close = player.start(browserSpeechOutput());
     try {
-      const state = initialExercise(); state.aircraft[0].callsign = "N714KG"; state.aircraft[1].callsign = "Speedbird 104";
+      const state = withFixedReadbackDelay(initialExercise()); state.aircraft[0].callsign = "N714KG"; state.aircraft[1].callsign = "Speedbird 104";
       player.observe(state, true, "all");
       const request = {...message("browser-callsign", "tower", "pilot"), text: "N714KG, following Speedbird 104."};
       player.observe({...state, messages: [request]}, true, "all");
@@ -409,7 +421,7 @@ test("the browser receives explicit spoken callsigns for transmissions and manua
 
 
 test("split radio hears only its tuned channel and monitoring changes never replay backlog", () => {
-  const h = harness("ground"), exercise = {...initialExercise(), positions: [{id: "initial", name: "Initial", service: "approach" as const, facilityId: "first", mhz: "118.47"}]};
+  const h = harness("ground"), exercise = {...withFixedReadbackDelay(initialExercise()), positions: [{id: "initial", name: "Initial", service: "approach" as const, facilityId: "first", mhz: "118.47"}]};
   h.player.observe(exercise, true, "approach", false, "initial");
   const wrong = {...message("other", "tower"), positionId: "final"}, right = {...message("own", "approach"), positionId: "initial"};
   h.player.observe({...exercise, messages: [wrong, right]}, true, "approach", false, "initial");

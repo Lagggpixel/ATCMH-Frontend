@@ -5,7 +5,7 @@ import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
 import {buildGroundRoute, canRouteGround, destinationAt, groundPointKey, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import {followedCamera, type DemoGroundDraft, type DemoState} from "./demonstration";
-import {TraineeScopeLayer, type TraineeScopeView} from "./TraineeOverlay";
+import {TraineeFollowFrame, TraineeMenu, TraineeScopeLayer, type TraineeScopeView} from "./TraineeOverlay";
 import {planParkingRoute} from "./taxi-routing";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
@@ -21,8 +21,7 @@ import {defaultAirport, runwayEnds} from "./airports";
 import {aircraftTagVisible, EXERCISE_WEATHER, type Airport, type Aircraft, type Frequency, type GroundRoute, type Point, type TaxiPoint, type RadarEnvironment} from "./model";
 import {airborne, vectorPreview} from "./radar";
 import {outsideVectorCircle, VECTOR_CANCEL_RADIUS, VECTOR_HOLD_MS, type VectorTarget} from "./vector-drag";
-import {terrainCoordinates} from "./terrain";
-import VectorTerrain from "./VectorTerrain";
+import VectorPreviewBox, {VectorDetails} from "./VectorPreviewBox";
 import {radarSeparationAlerts, terrainClearance} from "./radar-safety";
 import SeparationPanel, {SeparationTagLines} from "./SeparationAlerts";
 import {currentIncidents} from "./separation-incidents";
@@ -65,29 +64,9 @@ import {useFlightPlanPreview} from "./flight-plan-preview";
 export {initialOptions, trafficVisible} from "./scope-options";
 export type {ScopeOptions} from "./scope-options";
 
-function VectorPreviewBox({point, size, children}: {point: Point; size: {width: number; height: number}; children: React.ReactNode}) {
-  const box = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const element = box.current, scope = element?.parentElement;
-    if (!element || !scope) return;
-    const position = () => {
-      element.style.left = `${point.x}px`; element.style.top = `${point.y}px`;
-      const bounds = element.getBoundingClientRect(), map = scope.getBoundingClientRect();
-      const dx = bounds.left < map.left ? map.left - bounds.left : Math.min(0, map.right - bounds.right);
-      const dy = bounds.top < map.top ? map.top - bounds.top : Math.min(0, map.bottom - bounds.bottom);
-      element.style.left = `${point.x + dx}px`; element.style.top = `${point.y + dy}px`;
-    };
-    position();
-    const observer = new ResizeObserver(position);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [point.x, point.y, size.width, size.height]);
-  return <div ref={box} className={styles.vectorPreviewBox} role="status" aria-label="Vector details">{children}</div>;
-}
-
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
-interface Props {staffAlertsEnabled?: boolean; controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; /** Session simulation speed; predicted motion runs at the same rate. */ timeScale?: number; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
+interface Props {staffAlertsEnabled?: boolean; controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; /** Top right: seat notices and toasts. */ notices?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; /** Session simulation speed; predicted motion runs at the same rate. */ timeScale?: number; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
   /** Trainer demonstrating: reports drafts so the trainee can watch them. */
   onDemoScope?: (scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => void;
   /** Trainee watching: the trainer's drafts and view, shown instead of this page's own. */
@@ -101,7 +80,7 @@ export default function Scope(props: Props) {
   const identity = scopePreferenceKey(props.accountId, (props.airport ?? defaultAirport).icao, props.radarMode ?? "local", props.frequency);
   return <ScopeView key={identity ?? `${(props.airport ?? defaultAirport).icao}:${props.radarMode ?? "local"}:${props.frequency}`} {...props} preferenceKey={identity}/>;
 }
-function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer, trainee}: Props & {preferenceKey?: string}) {
+function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, notices, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer, trainee}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
   // Aircraft of positions this controller does not hold stay on the scope but off its frequency.
   const heldKey = controllerPositionIds?.join(",") ?? controllerPositionId ?? "";
@@ -283,28 +262,25 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
   const project = (p: Point) => ({x: size.width / 2 + (p.x - camera.center.x) * camera.scale, y: size.height / 2 - (p.y - camera.center.y) * camera.scale});
   const openAirport = (airports: ScopeAirport[], point: Point) => {if (airports.length === 1) setSelectedAirport(airports[0]); setAirportView({kind: "menu", airports, point}); setPopup(null); setRevealedFixKey(null); setTap(null); onSelect(null);};
   useEffect(() => {
-    if (!focusRequest) return;
+    if (!focusRequest || trainee?.follow) return;
     const target = snapshot.find(a => a.id === focusRequest.id);
     const frame = requestAnimationFrame(() => {if (target) setCamera(current => ({...current, center: {...target.position}}));});
     return () => cancelAnimationFrame(frame);
     // A new request centers once; ordinary traffic updates must not interrupt panning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
-  const navigationCamera = useScopeCamera(camera, setCamera, size);
+  // Following the trainee shows exactly their view, and the staff radar's own zoom and pan wait until following stops.
+  const traineeCamera = trainee?.follow && trainee.state?.camera ? trainee.state.camera : undefined;
+  const followingTrainee = !!trainee?.follow;
+  const navigationCamera = useScopeCamera(camera, setCamera, size, followingTrainee);
   // A trainee following a demonstration sees the area the trainer sees, fitted to this screen.
+  const followTarget = followCamera ?? traineeCamera;
   useEffect(() => {
-    if (!followCamera || !size.width || !size.height) return;
-    const frame = requestAnimationFrame(() => setCamera(followedCamera(followCamera, size)));
+    if (!followTarget || !size.width || !size.height) return;
+    const frame = requestAnimationFrame(() => setCamera(followedCamera(followTarget, size)));
     return () => cancelAnimationFrame(frame);
-  }, [followCamera, size]);
-  // Following the trainee's zoom copies only the scale: the staff page keeps its own pan.
-  const traineeScale = trainee?.followZoom && trainee.state?.camera && size.width && size.height ? followedCamera(trainee.state.camera, size).scale : null;
-  useEffect(() => {
-    if (!traineeScale) return;
-    const frame = requestAnimationFrame(() => setCamera(current => Math.abs(current.scale - traineeScale) < 1e-9 ? current : {...current, scale: traineeScale}));
-    return () => cancelAnimationFrame(frame);
-  }, [traineeScale]);
-  const zoom = (factor: number) => {if (!vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
+  }, [followTarget, size]);
+  const zoom = (factor: number) => {if (!followingTrainee && !vectorDrag.current && !groundDrag.current && !tagDrag.current && !gateDrag.current) navigationCamera.zoom(factor);};
   useLayoutEffect(() => {
     const node = container.current;
     if (!node) return;
@@ -509,7 +485,6 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
   const vector = vectorAircraft && shownVector && outsideVectorCircle(vectorAircraft.position, shownVector.point, camera.scale) ? vectorPreview(vectorAircraft, shownVector.point, AIRPORT, radarEnvironment, camera.scale) : null;
   const vectorScreen = vector ? project(vector.point) : null;
   const vectorLabelPoint = vectorScreen ?? (shownVector ? project(shownVector.point) : null);
-  const terrainPoint = vector ? terrainCoordinates(AIRPORT, vector.point) : null;
   const dismissAircraftMenu = () => {setTap(null); onSelect(null);};
   const selectAt = (a: Aircraft, event: {clientX: number; clientY: number; detail: number}) => {
     const bounds = container.current!.getBoundingClientRect(), at = project(a.position);
@@ -624,11 +599,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
         {vectorScreen ? <><line x1={project(vectorAircraft.position).x} y1={project(vectorAircraft.position).y} x2={vectorScreen.x} y2={vectorScreen.y}/><circle aria-label="Vector target" cx={vectorScreen.x} cy={vectorScreen.y} r={VECTOR_CANCEL_RADIUS / 2}/></> : null}
       </svg>
       {vectorLabelPoint && shownVector ? <VectorPreviewBox point={vectorLabelPoint} size={size}>
-        {shownVector.initial ? <><span>Drag to Vector</span><span>{vectorAircraft.callsign.slice(0, 10)}</span></> : !vector ? <span>Cancel</span> : <>
-        <span>{String(vector.heading || 360).padStart(3, "0")}° {String(Math.floor(vector.nm)).padStart(3, "0")}NM</span>
-        <span>{vector.minutes === null ? "—mn" : `${Math.ceil(vector.minutes)}mn`} - {terrainPoint && <VectorTerrain key={`${airport.icao}:${shownVector?.aircraftId}`} {...terrainPoint}/>}</span>
-        {vector.target ? <span>Direct To {vector.target.name}</span> : vector.fix ? <span>{vector.fix}</span> : null}
-        </>}
+        <VectorDetails initial={shownVector.initial} callsign={vectorAircraft.callsign} vector={vector} airport={AIRPORT} aircraftId={shownVector.aircraftId}/>
       </VectorPreviewBox> : null}
     </> : null}
     {aircraft.filter(a => trafficVisible(displayedAircraft(a), options.filter, frequency)).map(a => {
@@ -736,9 +707,9 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     <div className={styles.scopeButtons}>
       {staffAlerts ? <TerrainButton on={options.terrain} onToggle={() => setOptions(o => ({...o, terrain: !o.terrain}))}/> : null}
       <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => {setAirportView(null); setPopup(popup === "options" || popup === "hide" ? null : "options");}}><Gear size={32} weight="fill"/></button>
-      <button aria-label="Zoom in" onClick={() => zoom(2)}><MagnifyingGlassPlus size={32} weight="bold"/></button>
-      <button aria-label="Zoom out" onClick={() => zoom(0.5)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
-      <button aria-label="Recenter airport" onClick={() => navigationCamera.reset(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
+      <button aria-label="Zoom in" disabled={followingTrainee} title={followingTrainee ? "Stop following to move your own view" : undefined} onClick={() => zoom(2)}><MagnifyingGlassPlus size={32} weight="bold"/></button>
+      <button aria-label="Zoom out" disabled={followingTrainee} title={followingTrainee ? "Stop following to move your own view" : undefined} onClick={() => zoom(0.5)}><MagnifyingGlassMinus size={32} weight="bold"/></button>
+      <button aria-label="Recenter airport" disabled={followingTrainee} title={followingTrainee ? "Stop following to move your own view" : undefined} onClick={() => navigationCamera.reset(airportCamera(size.width, size.height, frequency === "all"))}><Crosshair size={32} weight="bold"/></button>
     </div>
     {popup === "options" ? <div className={styles.optionsMenu} role="menu" aria-label="Scope options">{scopeOptionRows.map(([key, label]) => <button key={key} role="menuitemcheckbox" aria-checked={options[key]} onClick={() => {const enabled = !options[key]; setOptions(o => ({...o, [key]: enabled})); if (key === "airspaces") setPopup(null);}}><span aria-hidden="true">{options[key] ? "✓" : ""}</span>{label}</button>)}<button role="menuitem" aria-haspopup="menu" onClick={() => setPopup("hide")}><span aria-hidden="true">{options.filter !== "none" ? "✓" : ""}</span>Hide Traffic <span className={styles.arrow} aria-hidden="true">›</span></button><button role="menuitemcheckbox" aria-checked={options.windsAloft} onClick={() => setOptions(o => ({...o, windsAloft: !o.windsAloft}))}><span aria-hidden="true">{options.windsAloft ? "✓" : ""}</span>Winds Aloft</button><button role="menuitem" onClick={() => {setProcedureOverlays([]); setPopup(null);}}><span aria-hidden="true">×</span>Clear All Procedures</button></div> : null}
     {revealedFix ? <span role="tooltip" className={styles.fixTooltip} style={{left: Math.max(6, Math.min(size.width - 130, revealedFix.x + 12)), top: Math.max(6, Math.min(size.height - 32, revealedFix.y - 30))}}>{revealedFix.id} · {revealedFix.route && !revealedFix.background ? "Flight plan" : revealedFix.kind === "fix" ? "Fix" : revealedFix.kind.toUpperCase()}</span> : null}
@@ -758,8 +729,11 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       <span>Mentor</span>
     </div> : null}
     {trainee?.state ? <TraineeScopeLayer state={trainee.state} name={trainee.name} aircraft={aircraft} airport={airport} environment={radarEnvironment} project={project} scale={camera.scale} size={size}/> : null}
+    {trainee?.state && trainee.menu ? <TraineeMenu state={trainee.state} name={trainee.name} aircraft={aircraft} scope={container} project={project} menu={trainee.menu}/> : null}
+    {followingTrainee ? <TraineeFollowFrame name={trainee?.name} onStop={trainee?.onStopFollow}/> : null}
     {trainee?.messages ? <div className={styles.traineeMessagesSlot}>{trainee.messages}</div> : null}
     {overlay}
+    {notices}
     {staffAlerts ? <SeparationPanel accountId={accountId} incidents={currentIncidents(separation, terrainAlerts, callsignOf)} elapsed={elapsed} selected={selected} onSelect={id => onSelect(id)} onHover={setHoveredIncident}/> : null}
     {terrainOn ? <TerrainReadout extremes={terrainView} error={terrainGrid.error} onRetry={terrainGrid.retry} scope={container} grid={terrainGrid.data} camera={camera} size={size}
       aircraft={terrainReference !== undefined && selectedAircraft ? {callsign: selectedAircraft.callsign, altitude: terrainReference} : undefined}

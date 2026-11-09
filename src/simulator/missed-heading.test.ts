@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -11,7 +12,7 @@ import type {Instruction} from "./model";
 
 const leaves = (entries: MenuEntry[]): Instruction[] => entries.flatMap(e => e.instruction ? [e.instruction] : leaves(e.children ?? []));
 for (const mode of ["approach", "center"]) for (const automatic of [true, false]) for (const heading of [10, 180, 360]) test(`${mode} Automatic ${automatic}: missed heading ${heading} turns after accepted readback and restore`, () => {
-  let state = engineFor({trainingStation: `EGPH:${mode}`}).initialExercise(); state.running = true; state.autoReadback = automatic;
+  let state = withFixedReadbackDelay(engineFor({trainingStation: `EGPH:${mode}`}).initialExercise()); state.running = true; state.autoReadback = automatic;
   const a = state.aircraft[0], airport = getAirport(state);
   a.radar!.expected = a.radar!.cleared = state.radarEnvironment!.approaches[0].id; delete a.radar!.report;
   a.heading = a.targetHeading = magneticToTrue(90, airport);
@@ -38,6 +39,6 @@ for (const mode of ["approach", "center"]) for (const automatic of [true, false]
   assert.equal(after.radar!.navigation, "missed");
 });
 for (const heading of [-1, 361, NaN]) test(`missed approach rejects invalid heading ${heading}`, () => {
-  const engine = engineFor({trainingStation: "EGPH:approach"}), a = engine.initialExercise().aircraft[0];
+  const engine = engineFor({trainingStation: "EGPH:approach"}), a = withFixedReadbackDelay(engine.initialExercise()).aircraft[0];
   assert.match(engine.validateAssignment(a, {type: "missed-approach", heading, altitude: {unit: "feet", value: 6000}})!, /heading from 0 to 360/);
 });

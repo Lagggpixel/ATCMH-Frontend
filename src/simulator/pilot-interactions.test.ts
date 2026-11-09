@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -20,12 +21,12 @@ function send(state: Exercise, command: Instruction, aircraftId = "demo-air") {
   return act(state, {kind: "command", aircraftId, command, text: instructionText(a, command), frequency: a.frequency!});
 }
 const tick = (state: Exercise, seconds = 1.5) => autoReadbacks(advance(state, seconds), 2000, randomUUID);
-const active = () => ({...initialExercise(), running: true, autoReadback: true});
+const active = () => ({...withFixedReadbackDelay(initialExercise()), running: true, autoReadback: true});
 function request(state: Exercise, selection: PilotRequestSelection, aircraftId = "demo-air") {
   return act(state, {kind: "pilot", aircraftId, text: "Replaced with current server phraseology", request: selection});
 }
 function threshold(autoReadback: boolean) {
-  const state = {...initialExercise(), running: true, autoReadback};
+  const state = {...withFixedReadbackDelay(initialExercise()), running: true, autoReadback};
   const a = state.aircraft[0], g = runwayGeometry();
   Object.assign(a, {position: {...g.threshold}, heading: g.heading, altitude: AIRPORT.elevation, speed: 135});
   return state;
@@ -43,7 +44,7 @@ test("airborne directional departure requests and mentee approvals cover all fou
     assert.equal(state.messages.length, 2, "departure approval has no dedicated pilot readback");
     assert.equal(state.aircraft[0].targetHeading, heading); assert.equal(state.aircraft[0].leavingCircuit, true);
   }
-  assert.ok(!pilotRequests(initialExercise().aircraft[1]).some(r => r.id === "departure-direction"));
+  assert.ok(!pilotRequests(withFixedReadbackDelay(initialExercise()).aircraft[1]).some(r => r.id === "departure-direction"));
 });
 
 test("pushback and both taxi variants use the latest broadcast, never the unpublished ATIS draft", () => {
@@ -56,7 +57,7 @@ test("pushback and both taxi variants use the latest broadcast, never the unpubl
   }
   state = request(state, {id: "taxi-runway", runway: "06", includeRunway: false}, "demo-ground");
   assert.equal(state.messages.at(-1)!.text, "Edinburgh Ground, Easy 201 ready to taxi with information BRAVO");
-  const noAtis = initialExercise();
+  const noAtis = withFixedReadbackDelay(initialExercise());
   assert.equal(pilotRequestText(noAtis.aircraft[1], resolvePilotRequest({requestId: "pushback"})!, "24", false, {exercise: noAtis}), "Easy 571, ready for pushback");
 });
 
@@ -204,7 +205,7 @@ test("runway changes, cancellation and circuit wrap revoke both permissions; lat
 });
 
 test("scheduled directional requests preserve choices; scheduled go-around has the same staff behavior", () => {
-  const definition = scenarioFromExercise(initialExercise(), "Pilot interactions");
+  const definition = scenarioFromExercise(withFixedReadbackDelay(initialExercise()), "Pilot interactions");
   definition.events = [{id: "departure", title: "Departure", trigger: {type: "manual"}, actions: [{type: "request", aircraftKey: "aircraft-1", requestId: "departure-direction", runway: "24", direction: "west"}]},
     {id: "go", title: "Go Around", trigger: {type: "manual"}, actions: [{type: "request", aircraftKey: "aircraft-1", requestId: "go-around", runway: "24"}]}];
   const {exercise, runtime} = createScenarioExercise(definition, "session", randomUUID());

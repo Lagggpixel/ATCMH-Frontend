@@ -27,7 +27,8 @@ import {DemoSentCard} from "./DemoMirror";
 import {replayDemoAt} from "./demonstration";
 import {traineeReplayEvents} from "./replay-events";
 import {readTraineeControls, replayTraineeAt, replayTraineeName, replayTraineePositions, traineeShortcut, writeTraineeControls, type TraineeControlsSetting} from "./trainee-overlay";
-import {TraineeControlsSwitch, TraineeMessages} from "./TraineeOverlay";
+import {TraineeControlsSwitch, TraineeMessages, traineeMenuRenderer} from "./TraineeOverlay";
+import {RadarNotices, REWIND_TOAST_MS} from "./RadarNotices";
 import Scope from "./Scope";
 import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import ReplayIndex from "./ReplayIndex";
@@ -96,7 +97,7 @@ function FeedbackEditor({detail, csrf, onSaved}: {detail: ReplayDetail; csrf: st
   </form> : <button type="button" className={styles.btn} onClick={() => {setPosition(""); setDraft(detail.replay.feedback ?? ""); setEditing(true);}}>Edit feedback</button>}</section>;
 }
 
-const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration, trainee: styles.kTrainee};
+const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration, trainee: styles.kTrainee, rewind: styles.kRewind};
 type PanelTab = "moments" | "radio" | "atis";
 
 function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId: string; mentor: boolean}) {
@@ -130,6 +131,7 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
   }, [playing, speed, replay.duration]);
   const seek = (value: number, keepPlaying = false) => {if (!keepPlaying) setPlaying(false); position.current = Math.max(0, Math.min(replay.duration, value)); setTime(position.current);};
   const exercise = timeline?.at(time);
+  const [rewindClosed, setRewindClosed] = useState<string | null>(null);
   const demoMarks = useMemo(() => frames.flatMap(frame => frame.delta.demo ?? []), [frames]);
   const demo = replayDemoAt(demoMarks, time);
   // The mentee's recorded controls: each mentor account keeps its own switch, shared with the live radar.
@@ -160,6 +162,8 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
     const commands = traineeReplayEvents(traineeMarks, traineePosition, replay.duration).map(event => ({...event, label: "Mentee command", detail: `${event.label} · ${event.detail}`}));
     return [base[0], ...[...base.slice(1, -1), ...commands].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)), base[base.length - 1]];
   }, [moments, showTrainee, traineeMarks, traineePosition, replay.duration]);
+  // A rewind shows a toast for six seconds of watching as playback passes it.
+  const rewindShown = list.findLast(m => m.kind === "rewind" && m.rewind && time >= m.at && time - m.at < REWIND_TOAST_MS / 1000 * speed && m.id !== rewindClosed);
   const active = currentMoment(list, time), previous = adjacentMoment(list, time, -1), next = adjacentMoment(list, time, 1);
   const incident = list.find(m => (m.kind === "separation" || m.kind === "terrain" || m.kind === "collision") && m.at <= time && time <= Math.max(m.end ?? m.at, m.at + 5));
   const radar = exercise ? trainingMode(exercise) : "local";
@@ -176,18 +180,19 @@ function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId:
       <div className={styles.scope}>
         {exercise ? <div className={`${liveTheme.theme} ${styles.scopeInner}`}><Scope staffAlertsEnabled={mentor} messages={exercise.messages} accountId={accountId} showProjectedPaths={false} elapsed={exercise.elapsed} weather={exercise.weather}
           conflictTags={mentor ? Object.fromEntries(exercise.aircraft.map(a => [a.id, conflictLabels(exercise.conflicts, a.id)])) : undefined}
-          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} trainee={trainee ? {name: traineeName, state: trainee.state, followZoom: traineeControls.followZoom, messages: <TraineeMessages name={traineeName} state={trainee.state} exercise={exercise}/>} : undefined} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : trainee?.sent ? <DemoSentCard sent={trainee.sent} by={traineeSentName ?? "Mentee"}/> : undefined}/></div>
+          radarEnvironment={exercise.radarEnvironment} radarMode={radar === "local" ? undefined : radar} airport={getAirport(exercise)} aircraft={exercise.aircraft} running={false} frequency="all" selected={selected} onSelect={setSelected} demoPointer={demo.pointer} notices={rewindShown ? <RadarNotices notices={[]} onClose={() => {}} rewind={{id: rewindShown.id, from: rewindShown.rewind!.from, to: rewindShown.rewind!.to}} rewindBy="Mentor" onCloseRewind={() => setRewindClosed(rewindShown.id)}/> : undefined} trainee={trainee ? {name: traineeName, state: trainee.state, follow: traineeControls.follow, onStopFollow: () => changeTraineeControls({follow: false}), menu: traineeMenuRenderer(exercise, getAirport(exercise)), messages: <TraineeMessages name={traineeName} state={trainee.state} exercise={exercise}/>} : undefined} overlay={demo.sent ? <DemoSentCard sent={demo.sent}/> : trainee?.sent ? <DemoSentCard sent={trainee.sent} by={traineeSentName ?? "Mentee"}/> : undefined}/></div>
           : <p className={styles.scopeEmpty}>{replay.kind === "unavailable" ? "Only the session summary is available. Movement and radio messages were not recorded." : "No recorded state to show."}</p>}
         {incident ? <div className={styles.incident} role="status"><span className={`${styles.k} ${markClass[incident.kind]}`}/><span><strong>{incident.label}</strong> · {incident.detail} · {timeLabel(incident.at)}{incident.end !== undefined && incident.end > incident.at ? ` to ${timeLabel(incident.end)}` : ""}</span></div> : null}
       </div>
-      {playable ? <div className={styles.menteeControls}><TraineeControlsSwitch show={traineeControls.show && traineePositions.length > 0} followZoom={traineeControls.followZoom} onShow={show => changeTraineeControls({show})} onFollowZoom={followZoom => changeTraineeControls({followZoom})} positions={traineePositions.map(id => ({id, name: traineeLabel(id)}))} position={traineePosition} onPosition={setTraineePick} disabled={!traineePositions.length}/>{traineePositions.length ? null : <small>Mentee controls weren&apos;t recorded in this replay.</small>}</div> : null}
+      {playable ? <div className={styles.menteeControls}><TraineeControlsSwitch name={traineeName} show={traineeControls.show && traineePositions.length > 0} follow={traineeControls.follow} onShow={show => changeTraineeControls({show})} onFollow={follow => changeTraineeControls({follow})} positions={traineePositions.map(id => ({id, name: traineeLabel(id), trainee: replay.participants.find(p => p.role === "mentee" && p.positionId === id)?.name}))} position={traineePosition} onPosition={setTraineePick} disabled={!traineePositions.length}/>{traineePositions.length ? null : <small>Mentee controls weren&apos;t recorded in this replay.</small>}</div> : null}
       {replay.kind === "snapshot" ? <p className={styles.note}>Only the final state is available for this older session.</p> : null}
       {replay.kind === "recording" && replay.duration <= 0 ? <p className={styles.note}>This session ended before any exercise time elapsed. You can review its saved state, but there is no playback.</p> : null}
       {replay.partial && replay.kind === "recording" ? <p className={styles.note}>Recording starts at exercise time {timeLabel(initial?.elapsed ?? 0)}.</p> : null}
       {playable ? <div className={styles.transport} role="group" aria-label="Replay playback">
         <div className={styles.track}>
           <div className={styles.marks} aria-hidden="true">{list.filter(m => m.kind !== "start" && m.kind !== "end").map(m => <i key={m.id} className={`${styles.mark} ${markClass[m.kind]}`} style={{left: pct(m.at)}}/>)}
-            {list.filter(m => m.end !== undefined && m.end > m.at).map(m => <i key={`${m.id}:span`} className={`${styles.span} ${markClass[m.kind]}`} style={{left: pct(m.at), width: `calc(${pct(m.end! - m.at)} + 2px)`}}/>)}</div>
+            {list.filter(m => m.end !== undefined && m.end > m.at).map(m => <i key={`${m.id}:span`} className={`${styles.span} ${markClass[m.kind]}`} style={{left: pct(m.at), width: `calc(${pct(m.end! - m.at)} + 2px)`}}/>)}
+            {list.filter(m => m.rewind && m.rewind.start < m.at).map(m => <i key={`${m.id}:rewound`} className={styles.rewound} style={{left: pct(m.rewind!.start), width: pct(m.at - m.rewind!.start)}}/>)}</div>
           <input aria-label="Replay position" aria-valuetext={`${timeLabel(time)} of ${timeLabel(replay.duration)}`} style={{"--replay-progress": pct(time)} as CSSProperties} type="range" min={0} max={replay.duration} step={.01} value={time} onChange={event => seek(Number(event.target.value))}/>
         </div>
         <div className={styles.controls}>

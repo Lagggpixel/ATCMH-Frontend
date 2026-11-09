@@ -408,28 +408,55 @@
 .topBanner {overflow:visible;position:relative;z-index:25}
 .topBanner>span:first-child {min-width:0;flex:1}
 .staffToolbar {position:relative;z-index:25}
-.radioAudio {display:flex;align-items:center;flex-shrink:0;gap:2px;font-size:12px;white-space:nowrap}
-.radioAudio .audioToggle,.radioAudio .audioSettingsToggle {padding:5px 8px;border:1px solid var(--dashboard-border);border-radius:3px;font-size:12px;display:flex;align-items:center;gap:6px;min-height:28px;white-space:nowrap}
+.radioAudio {position:relative;display:flex;align-items:center;flex-shrink:0;font-size:12px;white-space:nowrap}
+.radioAudio .audioToggle {padding:5px 9px;border:1px solid var(--dashboard-border);border-radius:6px;font-size:12px;display:flex;align-items:center;gap:6px;min-height:28px;white-space:nowrap}
 .audioToggle svg {width:17px;height:17px;flex-shrink:0}
-.audioToggle[aria-pressed=true] {color:var(--dashboard-ink);border-color:var(--dashboard-border)}
-.audioSettings {position:fixed;right:20px;top:48px;z-index:45;width:min(350px,calc(100vw - 40px));max-height:calc(100dvh - 70px);overflow:auto;white-space:normal;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);box-shadow:0 10px 35px #000b;padding:16px;font:14px/1.4 "Simulator Fira",sans-serif;color:var(--dashboard-ink)}
-.audioSettings header {display:flex;align-items:center;justify-content:space-between;gap:12px}
-.audioSettings header button {font-size:20px!important;line-height:1;padding:4px 8px!important;border:0!important}
-.audioSettings p {font-size:12px;color:var(--dashboard-muted);margin:10px 0;line-height:1.5}
-.audioSettings label {display:block;font-size:12px;margin:14px 0}
-.audioSettings output {float:right;font-family:"Simulator Mono",monospace}
-.audioSettings input,.audioSettings select {display:block;width:100%;margin-top:6px;font-size:13px!important}
-.audioSettings input[type=range] {padding:0;cursor:pointer}
-.audioSettings>div:not(.audioStatus) {display:flex;flex-wrap:wrap;gap:6px}
-.radioAudio .audioSettings button {border:1px solid var(--dashboard-border);padding:6px 9px;font-size:12px;display:inline-flex;justify-content:center;white-space:normal}
-.audioStatus {border-top:1px solid var(--dashboard-border);padding-top:10px;margin-top:10px;color:var(--dashboard-ink);font-size:12px;overflow-wrap:anywhere}
-.audioError {position:fixed;top:48px;right:20px;padding:8px 12px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:12px;white-space:normal}
+.audioToggle .audioCaret {width:13px;height:13px;opacity:.75}
+.audioToggle[aria-expanded=true] {border-color:var(--dashboard-link)}
+.audioToggle[data-state=muted],.audioToggle[data-state=unavailable] {color:var(--dashboard-muted)}
+.simulator .radioAudio .audioToggle[data-state=blocked] {border-color:var(--dashboard-link);color:var(--dashboard-link)}
+.audioHear {color:var(--dashboard-muted)}
+.audioSettings {position:fixed;right:20px;top:48px;z-index:45;width:min(360px,calc(100vw - 40px));max-height:calc(100dvh - 70px);overflow:auto;white-space:normal;background:var(--dashboard-surface);border:1px solid var(--dashboard-border);border-radius:10px;box-shadow:0 10px 35px #000b;padding:14px 16px;font:14px/1.4 "Simulator Fira",sans-serif;color:var(--dashboard-ink);display:flex;flex-direction:column;gap:6px}
+.audioSettings header {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.audioSettings header strong {flex:1}
+.audioSettings p {font-size:12px;color:var(--dashboard-muted);margin:0;line-height:1.5}
+.audioSettings label {display:flex;align-items:center;gap:10px;font-size:13px;min-height:40px}
+.audioSettings select {flex:1;min-height:36px;font-size:13px!important}
+.audioSettings output {font-family:"Simulator Mono",monospace;font-size:12px;min-width:44px;text-align:right}
+.audioSettings small {display:block;font-size:12px;color:var(--dashboard-muted)}
+.audioRange>span {width:64px}
+.audioRange input {flex:1;padding:0;cursor:pointer;accent-color:var(--dashboard-link)}
+.audioSwitch {justify-content:space-between}
+.audioSwitch>span {flex:1}
+.audioSwitch input {appearance:none;-webkit-appearance:none;flex:none;width:38px;height:22px;margin:0;border-radius:11px;background:var(--dashboard-border);position:relative;cursor:pointer;transition:background .15s}
+.audioSwitch input::after {content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.audioSwitch input:checked {background:var(--dashboard-link)}
+.audioSwitch input:checked::after {transform:translateX(16px)}
+.audioSwitch input:focus-visible {outline:2px solid var(--dashboard-link);outline-offset:2px}
+.audioSwitch input:disabled {opacity:.5;cursor:default}
+.audioHearList {border:0;border-top:1px solid var(--dashboard-border);border-bottom:1px solid var(--dashboard-border);margin:4px 0;padding:8px 0}
+.audioHearList legend {float:left;width:100%;padding:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dashboard-link)}
+.audioHearList label {padding:0 8px;border-radius:6px;cursor:pointer;min-height:44px}
+.audioHearList label[data-selected] {background:var(--dashboard-selected)}
+.audioHearList input {margin:0;accent-color:var(--dashboard-link)}
+.audioMhz {margin-left:auto;font-family:"Simulator Mono",monospace;font-size:12px;color:var(--dashboard-muted)}
+.radioAudio .audioSettings button {border:1px solid var(--dashboard-border);border-radius:6px;padding:6px 10px;font-size:13px;display:inline-flex;align-items:center;gap:6px;min-height:36px}
+.radioAudio .audioSettings .audioVoiceRow {border:0;border-top:1px solid var(--dashboard-border);border-radius:0;padding:10px 0 0;margin-top:4px;width:100%;text-align:left;min-height:44px}
+.radioAudio .audioSettings .audioBack {border:0;padding:4px;min-height:32px}
+.audioSettings button svg {width:15px;height:15px;flex:none}
+.audioActions {display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.audioStatus {border-top:1px solid var(--dashboard-border);padding-top:10px;margin-top:6px;color:var(--dashboard-ink);font-size:12px;overflow-wrap:anywhere}
+@media(max-width:900px),(max-height:550px) {
+  .audioSettings {top:0;right:0;bottom:0;width:min(340px,100vw);max-height:none;border-radius:0;border-width:0 0 0 1px;padding:12px 14px calc(12px + env(safe-area-inset-bottom)) 14px}
+  .radioAudio .audioSettings button,.audioSettings label {min-height:44px}
+}
 .utility {z-index:30}
 @media(max-width:1200px) {
   .staffToolbar {gap:6px;padding:0 10px}
   .staffToolbar>button,.staffToolbar .openMentee {padding:5px 9px;font-size:12px}
   .staffToolbar .staffTitle>span {margin-left:5px}
-  .topBanner .audioToggle>span {display:none}
+  .topBanner .audioToggle>span,.topBanner .audioToggle .audioCaret {display:none}
+  .topBanner .audioToggle[data-state=blocked]>span {display:inline}
 }
 @media(max-width:1000px) {.staffTitle>span {display:none}}
 .followingRing {position:absolute; width:44px; height:44px; border:2px solid var(--dashboard-link); border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:4;}
@@ -455,7 +482,7 @@
 .topBanner small {display:block;margin-top:3px;color:var(--dashboard-ink);font-size:12px;line-height:1.4}
 .menteeSimulator .topBanner small a {color:var(--dashboard-ink);text-decoration:underline;text-underline-offset:3px}
 .menteeSimulator .topBanner>span:last-child {font-size:12px;color:var(--dashboard-ink)}
-.menteeSimulator .radioAudio button {min-height:32px;padding:6px 10px;background:var(--trainer-surface);border-color:var(--trainer-border)}
+.menteeSimulator .radioAudio .audioToggle {min-height:32px;padding:6px 10px;background:var(--trainer-surface);border-color:var(--trainer-border)}
 .menteeSimulator .sidebar {grid-column:1;grid-row:1/-1;display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:18px 10px;background:var(--trainer-surface);border-right:1px solid var(--trainer-border)}
 .trainerBrand {display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 26px;white-space:nowrap}
 .trainerBrand strong {font-size:20px;letter-spacing:.04em;color:var(--trainer-accent)}
@@ -830,7 +857,7 @@
 .menteeSimulator .topBanner {height:calc(34 * var(--controller-unit));min-height:0;padding:0 calc(6 * var(--controller-unit));gap:calc(8 * var(--controller-unit));font-size:calc(11 * var(--controller-unit));border:0;white-space:nowrap}
 .menteeSimulator .topBanner>span:first-child {white-space:nowrap;text-overflow:ellipsis;overflow:hidden;line-height:1}
 .menteeSimulator .topBanner small {display:none}
-.menteeSimulator .topBanner :is(.radioAudio button,.fullscreenControl button) {min-height:0;height:calc(30 * var(--controller-unit));padding:calc(3 * var(--controller-unit)) calc(5 * var(--controller-unit));font-size:calc(11 * var(--controller-unit))}
+.menteeSimulator .topBanner :is(.radioAudio .audioToggle,.fullscreenControl button) {min-height:0;height:calc(30 * var(--controller-unit));padding:calc(3 * var(--controller-unit)) calc(5 * var(--controller-unit));font-size:calc(11 * var(--controller-unit))}
 .menteeSimulator .sidebar {padding:0;gap:0;overflow-y:auto}
 .menteeSimulator .sidebar>button {flex:1 0 0;min-height:calc(48 * var(--controller-unit));padding:calc(4 * var(--controller-unit)) 1px;gap:calc(4 * var(--controller-unit));border:0;border-radius:0}
 .menteeSimulator .strip {height:calc(75 * var(--controller-unit));min-height:calc(75 * var(--controller-unit));padding:0;margin:0;border:0;border-bottom:1px solid #0003;border-radius:0;gap:0;grid-template-columns:minmax(0,1fr) calc(64 * var(--controller-unit));touch-action:pan-y}
@@ -979,7 +1006,7 @@
   .menteeSimulator .topBanner {height:32px;min-height:0;flex-wrap:nowrap;font-size:11px}
   .menteeSimulator .topBanner>span:nth-of-type(2) {display:none}
   .menteeSimulator .topBanner>.fullscreenControl {display:flex}
-  .menteeSimulator .topBanner :is(.radioAudio button,.fullscreenControl button) {height:30px;font-size:11px}
+  .menteeSimulator .topBanner :is(.radioAudio .audioToggle,.fullscreenControl button) {height:30px;font-size:11px}
   .menteeSimulator .sidebar>button {font-size:11px;gap:4px}
   .menteeSimulator .facilityLabel small {font-size:10px}
   .menteeSimulator .frequencyValue {max-width:100%;white-space:normal;font-size:9px;letter-spacing:normal}
@@ -997,7 +1024,7 @@
 .staffSimulator .messageLogTitle {font-size:calc(12 * var(--controller-font-unit))}
 .staffSimulator .messageMeta {font-size:calc(10 * var(--controller-font-unit))}
 .staffSimulator .messageMeta time {font-family:inherit}
-.staffSimulator .staffToolbar .radioAudio button {font-size:calc(12 * var(--controller-font-unit))}
+.staffSimulator .staffToolbar .radioAudio .audioToggle {font-size:calc(12 * var(--controller-font-unit))}
 .staffSimulator .controlFields button {text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
 @media (orientation:landscape) and (max-height:550px) and (min-width:568px) {
   .staffSimulator {--staff-display-unit:.65px}
@@ -1084,10 +1111,10 @@
 .demoSwitch:disabled {opacity:.55;cursor:not-allowed}
 .demoBusy {display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
 .demoBusy button {height:26px;padding:0 10px;border:1px solid var(--dashboard-border);border-radius:4px;background:var(--dashboard-surface);color:var(--dashboard-ink);font-size:12px;cursor:pointer}
-.demoSwitch>span {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
-.demoSwitch>span::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
-.demoSwitch[aria-checked=true]>span {border-color:var(--dashboard-link)}
-.demoSwitch[aria-checked=true]>span::after {transform:translateX(12px);background:var(--dashboard-link)}
+.demoSwitch>span[aria-hidden] {width:30px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--dashboard-border);border-radius:10px;background:var(--dashboard-bg)}
+.demoSwitch>span[aria-hidden]::after {content:"";display:block;width:12px;height:12px;border-radius:50%;background:var(--dashboard-muted)}
+.demoSwitch[aria-checked=true]>span[aria-hidden] {border-color:var(--dashboard-link)}
+.demoSwitch[aria-checked=true]>span[aria-hidden]::after {transform:translateX(12px);background:var(--dashboard-link)}
 .demoHandedBack {border-color:#91e98d;background:#1d3320;color:#c9f5c6}
 
 /* Bandbox: one Approach button and a banner for a controller holding several positions. */
@@ -1099,13 +1126,9 @@
 /* Keep incident controls accessible when the conflict panel is open. */
 .scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}
 /* Trainee controls: the trainee's own selection, drags and open messages on a staff radar. Read-only. */
-.traineeControls {display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
-.traineeControls label {display:inline-flex;align-items:center;gap:6px;font-size:13px}
-.traineeControls select {max-width:160px}
 .traineeRing {position:absolute;width:46px;height:46px;border:2px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:0 0 0 1px #06121f}
 .traineeRing span {position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font-size:11px;font-weight:600;white-space:nowrap}
 .traineeVector {z-index:5}
-.traineeVectorLabel {position:absolute;transform:translate(10px,-50%);padding:2px 6px;border:1px solid #499cff;background:#06121fcc;color:#cfe4ff;font-size:12px;white-space:nowrap;pointer-events:none;z-index:6}
 .traineeMessagesSlot {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 15px);bottom:26px;max-width:min(300px,40%);max-height:55%;display:flex;pointer-events:none;z-index:5}
 .traineeMessages {display:flex;flex-direction:column;min-width:200px;overflow:hidden;border:2px solid #499cff;border-radius:6px;background:#0b1622ee;color:#e8edf2;font-size:13px}
 .traineeMessages header {display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:#499cff;color:#06121f}
@@ -1113,3 +1136,90 @@
 .traineeMenuPath {margin:0;padding:6px 10px 0;color:#9bcaff;font-size:12px}
 .traineeMessages ul {margin:0;padding:6px 0;list-style:none;overflow:hidden}
 .traineeMessages li {padding:3px 10px}
+
+/* Trainee controls pill: one fixed-width control, so toggling never moves the bar. */
+.traineeControls {position:relative;display:inline-flex;align-items:stretch;height:32px;flex-shrink:0;border:1px solid var(--dashboard-border,#3a4854);border-radius:16px;overflow:visible;font-size:13px;white-space:nowrap}
+.traineeControls[data-on] {border-color:#499cff}
+.staffToolbar .traineeControls>button {display:inline-flex;align-items:center;gap:6px;height:100%;margin:0;padding:0 12px;border:0;border-radius:0;background:transparent;color:var(--dashboard-muted,#9fb0bc);cursor:pointer}
+.staffToolbar .traineeControls>button svg {width:16px;height:16px}
+.staffToolbar .traineeControls>.traineeShow {width:170px;justify-content:flex-start;border-radius:16px 0 0 16px}
+.staffToolbar .traineeControls>.traineeShow>span {overflow:hidden;text-overflow:ellipsis}
+.staffToolbar .traineeControls>.traineeFollow {border-left:1px solid var(--dashboard-border,#3a4854);border-radius:0 16px 16px 0}
+.staffToolbar .traineeControls[data-on]>.traineeShow,.staffToolbar .traineeControls>.traineeFollow[aria-checked=true] {background:#499cff22;color:#cfe4ff}
+.staffToolbar .traineeControls[data-on]>.traineeFollow {border-left-color:#499cff}
+.staffToolbar .traineeControls>button:disabled {opacity:.5;cursor:not-allowed}
+.staffToolbar .traineeControls>button:focus-visible {outline:2px solid #499cff;outline-offset:-2px}
+.traineePicker {position:absolute;right:0;top:calc(100% + 8px);z-index:45;min-width:240px;padding:6px;display:grid;gap:2px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008}
+.traineePicker>p {margin:4px 8px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9bcaff}
+.staffToolbar .traineePicker button {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:34px;padding:6px 10px;border:0;border-radius:4px;background:transparent;color:#edf2f5;text-align:left}
+.staffToolbar .traineePicker button:hover:not(:disabled) {background:#ffffff0b}
+.staffToolbar .traineePicker button[aria-checked=true] {background:#499cff22;color:#cfe4ff}
+.staffToolbar .traineePicker button small {color:#9fb0bc}
+.staffToolbar .traineePicker .traineePickerHide {margin-top:4px;border-top:1px solid #27333c;border-radius:0;color:#9fb0bc}
+@media(max-width:1000px) {.staffToolbar .traineeControls>.traineeShow {width:auto;max-width:120px}}
+
+/* Following the trainee: a blue frame tells the trainer their own zoom and pan are paused. */
+.traineeFollowFrame {position:absolute;inset:0;border:3px solid #499cff;pointer-events:none;z-index:24}
+.traineeFollowChip {position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:26;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);padding:5px 6px 5px 12px;border-radius:16px;background:#499cff;color:#06121f;font-size:12px;font-weight:600;white-space:nowrap}
+.traineeFollowChip>span {overflow:hidden;text-overflow:ellipsis}
+.traineeFollowChip button {flex-shrink:0;padding:3px 10px;border:0;border-radius:12px;background:#06121f;color:#cfe4ff;font-size:12px;cursor:pointer}
+
+/* The trainee's own aircraft menu and vector box, copied read-only with a blue outline. */
+.traineeMenu {outline:2px solid #499cff;outline-offset:2px;border-radius:2px;pointer-events:none;z-index:8}
+.traineeMenuTag {position:absolute;left:0;bottom:calc(100% + 6px);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font:600 11px/1.5 system-ui,sans-serif;white-space:nowrap}
+.traineeVectorBox {outline:2px solid #499cff;outline-offset:0;z-index:6}
+
+/* Trainer notices: top right, newest first. Seat notices stay until closed; rewinds fade. */
+.radarNotices {position:absolute;top:12px;right:12px;z-index:27;display:flex;flex-direction:column;gap:8px;width:min(340px,calc(100% - 24px));pointer-events:none}
+.radarNotices>* {pointer-events:auto}
+.seatNotice,.rewindToast {position:relative;display:flex;align-items:flex-start;gap:10px;padding:10px 8px 10px 12px;border:1px solid #2f5a42;border-left:3px solid #59d38c;border-radius:6px;background:#0f1a15f2;color:#e8eef2;font-size:13px;line-height:1.4;box-shadow:0 8px 24px #0007}
+.seatNotice[data-kind=left] {border-color:#5d3f2f;border-left-color:#ffb18a;background:#1c1410f2}
+.seatNotice p {flex:1;margin:0}
+.seatNoticeDot {flex-shrink:0;width:8px;height:8px;margin-top:6px;border-radius:50%;background:#59d38c}
+.seatNotice[data-kind=left] .seatNoticeDot {background:#ffb18a}
+.seatNotice button,.rewindToast button {flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:4px;background:transparent;color:#9fb0bc;cursor:pointer}
+.seatNotice button:hover,.rewindToast button:hover {background:#ffffff12;color:#fff}
+.seatNotice button svg,.rewindToast button svg {width:14px;height:14px}
+.rewindToast {overflow:hidden;border-color:#5d3f2f;border-left-color:#ffb18a;background:#1c1410f2}
+.rewindToast>div {flex:1;display:grid;gap:2px}
+.rewindToast strong {color:#ffb18a}
+.rewindToast>div span {color:#c8d2d9;font-size:12px;font-family:"Simulator Mono",monospace}
+.rewindToastBar {position:absolute;left:0;bottom:0;height:2px;width:100%;background:#ffb18a;transform-origin:left;animation:rewindToastShrink linear forwards}
+@keyframes rewindToastShrink {from {transform:scaleX(1)} to {transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce) {.rewindToastBar {animation:none;display:none}}
+
+/* Top bar: icons always, words only when there is room. */
+.toolbarSpacer {flex:1 1 0;min-width:0}
+.staffSubtitle {margin-left:8px;color:var(--staff-muted,#9fb0bc);font-size:12px;font-weight:400}
+.toolbarPanel {position:absolute;right:16px;top:100%;width:0;height:0;display:flex;justify-content:flex-end}
+.toolbarPanel>* {position:absolute;right:0;top:-8px}
+.menuAlert {display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ffb18a;color:#22140d;font-size:11px;font-weight:700}
+.speedSelect.speedSelect {width:auto;height:32px;padding:0 6px}
+.rewindControl {position:relative;display:flex}
+.staffToolbar .rewindControl>button {height:32px;padding:0 10px;background:transparent;border:1px solid var(--dashboard-border,#3a4854);border-radius:4px;color:var(--dashboard-ink,#edf2f5)}
+.staffToolbar .rewindControl>button[aria-expanded=true] {border-color:#ffb18a;color:#ffb18a}
+.staffToolbar .rewindControl>button svg {width:15px;height:15px}
+.rewindPanel {position:absolute;left:0;top:calc(100% + 8px);z-index:45;width:280px;padding:14px;display:grid;gap:10px;background:#141c22;border:1px solid #3a4854;border-radius:8px;box-shadow:0 12px 32px #0008;color:#edf2f5;font-size:13px;cursor:default}
+.rewindPanel h2 {margin:0;font-size:14px;font-weight:600}
+.rewindPanel p {margin:0;color:#9fb0bc;font-size:12px}
+.rewindChoices {display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #3a4854;border-radius:4px;overflow:hidden}
+.staffToolbar .rewindChoices button {justify-content:center;height:32px;padding:0;border:0;border-left:1px solid #3a4854;border-radius:0;background:transparent;color:#edf2f5;font-size:12px}
+.staffToolbar .rewindChoices button:first-child {border-left:0}
+.staffToolbar .rewindChoices button[aria-checked=true] {background:#ffb18a;color:#22140d;font-weight:600}
+.staffToolbar .rewindChoices button:disabled {opacity:.4;cursor:not-allowed}
+.rewindPanel .rewindLanding {color:#edf2f5;font-size:13px}
+.rewindLanding strong {font-family:"Simulator Mono",monospace;color:#ffb18a}
+.rewindActions {display:flex;justify-content:flex-end;gap:8px}
+.staffToolbar .rewindActions button {height:32px;padding:0 12px;border:1px solid #3a4854;border-radius:4px;background:transparent;color:#edf2f5}
+.staffToolbar .rewindActions .rewindConfirm {border-color:#ffb18a;background:#ffb18a;color:#22140d;font-weight:600}
+.staffToolbar .rewindActions .rewindConfirm:disabled {opacity:.5;cursor:not-allowed}
+.pauseVisibility {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px;font-size:13px;color:#edf2f5}
+.pauseVisibility select {max-width:160px;height:30px;padding:0 6px;background:#0d1216;color:#edf2f5;border:1px solid #3a4854;border-radius:4px}
+.hearSelect {position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--dashboard-border,#3a4854);border-radius:4px;color:var(--dashboard-muted,#9fb0bc);font-size:12px;white-space:nowrap}
+.hearSelect svg {width:16px;height:16px}
+.hearSelect select {max-width:150px;height:28px;padding:0 4px;border:0;background:transparent;color:var(--dashboard-ink,#edf2f5);font-size:12px}
+@media(max-width:1000px) {
+  .toolbarText {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+  .staffSubtitle {display:none}
+  .hearSelect select {max-width:90px}
+}

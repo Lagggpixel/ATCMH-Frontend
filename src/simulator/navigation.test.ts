@@ -85,8 +85,9 @@ test("sequencing resolves the preceding arrival and survives readbacks/reload", 
   const command = entry.instruction!;
   assert.equal(command.type, "sequence");
   state = act(state, {kind: "command", aircraftId: a.id, frequency: "tower", command, text: instructionText(a, command)});
-  assert.equal(state.aircraft[0].sequence?.followingId, "demo-ground");
-  state = act(state, {kind: "pilot", aircraftId: a.id, replyTo: state.messages.at(-1)!.id, text: "Number 2"});
+  assert.equal(state.aircraft[0].sequence, undefined);
+  assert.equal(state.messages.at(-1)!.readbackSequence?.followingId, "demo-ground");
+  state = act(state, {kind: "pilot", aircraftId: a.id, replyTo: state.messages.at(-1)!.id, assign: true, text: "Number 2"});
   assert.equal(exerciseSchema.parse(state).aircraft[0].sequence?.number, 2);
 });
 

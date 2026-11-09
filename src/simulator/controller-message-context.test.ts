@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -14,7 +15,7 @@ const find = (entries: MenuEntry[], ...labels: string[]): MenuEntry => {
 };
 const fixture = (station: "ground" | "tower" | "approach" | "center" = "approach") => {
   const engine = engineFor({trainingStation: `EGPH:${station === "ground" ? "tower" : station}`});
-  const state = engine.initialExercise(); state.running = true; state.autoReadback = true; state.messages = [];
+  const state = withFixedReadbackDelay(engine.initialExercise()); state.running = true; state.autoReadback = true; state.messages = [];
   const aircraft = engine.newAircraft("context", station !== "ground");
   aircraft.frequency = station; delete aircraft.radar?.report;
   state.aircraft = [aircraft];

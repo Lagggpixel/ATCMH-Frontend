@@ -20,8 +20,14 @@ export function conditionLabel(event: ScenarioEvent, events: ScenarioEvent[]) {
   return `When ${text}${event.trigger.delay ? `, then ${event.trigger.delay} s` : ""}`;
 }
 
-export default function LiveScenarioPanel({scenario, elapsed, running, connected, onEvent, canControl = connected}: {canControl?: boolean; scenario: ScenarioStaffView; elapsed: number; running: boolean; connected: boolean; onEvent: (id: string, decision: "run" | "retry" | "skip") => void}) {
-  const [open, setOpen] = useState(false);
+/** Events waiting on the trainer: blocked ones, and manual releases that are due. */
+export const scenarioAttention = (scenario: ScenarioStaffView) => scenario.finished ? 0 : scenario.events.filter(e => !closed(e) && needsTrainer(e)).length;
+
+export default function LiveScenarioPanel({scenario, elapsed, running, connected, onEvent, canControl = connected, open: openAt, onClose}: {canControl?: boolean; scenario: ScenarioStaffView; elapsed: number; running: boolean; connected: boolean; onEvent: (id: string, decision: "run" | "retry" | "skip") => void;
+  /** Opened from a menu instead of its own button. */ open?: boolean; onClose?: () => void}) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = openAt !== undefined, open = controlled ? openAt : ownOpen;
+  const setOpen = (value: boolean) => {if (controlled) {if (!value) onClose?.();} else setOwnOpen(value);};
   const events = scenario.events, done = events.filter(closed), active = scenario.finished ? [] : events.filter(e => !closed(e));
   const attention = active.filter(needsTrainer);
   const next = active.filter(e => e.trigger.type === "time" && e.status === "scheduled").sort((a, b) => (a.trigger.type === "time" ? a.trigger.at : 0) - (b.trigger.type === "time" ? b.trigger.at : 0))[0];
@@ -34,7 +40,7 @@ export default function LiveScenarioPanel({scenario, elapsed, running, connected
   for (const e of attention) for (const id of heldUp.get(e.id)!) if (!stuckBehind.has(id)) stuckBehind.set(id, e);
   const titleOf = (id: string) => events.find(e => e.id === id)?.title ?? "another event";
   return <div className={styles.liveAnchor}>
-    <button data-simulator-tour="timeline" className={styles.liveToggle} disabled={!connected} aria-expanded={open} onClick={() => setOpen(!open)}><ListBullets aria-hidden="true"/>Scenario{scenario.finished ? <span className={styles.liveMuted}>· finished</span> : nextAt !== undefined ? <span className={styles.liveMuted}>· next <time>{timeLabel(Math.max(0, nextAt - elapsed))}</time></span> : !active.length ? <span className={styles.liveMuted}>· all events done</span> : null}{attention.length ? <span className={styles.liveBadge} aria-label={`${attention.length} need you`}>{attention.length}</span> : null}</button>
+    {controlled ? null : <button data-simulator-tour="timeline" className={styles.liveToggle} disabled={!connected} aria-expanded={open} onClick={() => setOpen(!open)}><ListBullets aria-hidden="true"/>Scenario{scenario.finished ? <span className={styles.liveMuted}>· finished</span> : nextAt !== undefined ? <span className={styles.liveMuted}>· next <time>{timeLabel(Math.max(0, nextAt - elapsed))}</time></span> : !active.length ? <span className={styles.liveMuted}>· all events done</span> : null}{attention.length ? <span className={styles.liveBadge} aria-label={`${attention.length} need you`}>{attention.length}</span> : null}</button>}
     {open ? <section className={styles.livePanel} aria-label="Scenario">
       <header><div><h2>{scenario.title}</h2><p>{done.length} of {events.length} events done{scenario.finished ? " · Attempt finished" : ""}</p></div><button className={styles.liveIcon} onClick={() => setOpen(false)} aria-label="Close scenario"><X aria-hidden="true"/></button></header>
       <div className={styles.liveProgress} aria-hidden="true"><span style={{width: `${events.length ? done.length / events.length * 100 : 0}%`}}/></div>

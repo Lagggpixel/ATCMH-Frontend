@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import {magneticToTrue} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -11,7 +12,7 @@ import {exerciseSchema} from "./protocol";
 import type {Action, Exercise, Instruction} from "./model";
 
 function fixture(mode: "approach" | "center" = "approach") {
-  const engine = engineFor({trainingStation: `EGPH:${mode}`}), state = engine.initialExercise();
+  const engine = engineFor({trainingStation: `EGPH:${mode}`}), state = withFixedReadbackDelay(engine.initialExercise());
   state.aircraft = [state.aircraft[0]]; state.running = true; state.autoReadback = true;
   state.aircraft[0].callsign = "Speedbird 1"; delete state.aircraft[0].radar!.report; return state;
 }
@@ -157,7 +158,7 @@ test("radar session separation includes local traffic, excludes Tower-only pairs
 });
 
 test("documented independent ILS finals require both aircraft to stay established and aligned", () => {
-  const state = engineFor({airport: "EBBR", trainingStation: "EBBR:approach"}).initialExercise();
+  const state = withFixedReadbackDelay(engineFor({airport: "EBBR", trainingStation: "EBBR:approach"}).initialExercise());
   const airport = getAirport(state), env = state.radarEnvironment!, base = env.approaches[0];
   env.approaches = ["25L", "25R"].map(runway => ({...base, id: runway, runway, type: "ils" as const}));
   const a = state.aircraft[0], b = {...structuredClone(a), id: "b"};
@@ -175,7 +176,7 @@ test("documented independent ILS finals require both aircraft to stay establishe
 });
 
 for (const runways of [["16R", "17L"], ["16R", "18"], ["17L", "18"], ["34L", "35R"], ["34L", "36"], ["35R", "36"]]) test(`Istanbul independent ILS configuration includes ${runways.join("/")}`, () => {
-  const state = engineFor({airport: "LTFM", trainingStation: "LTFM:approach"}).initialExercise();
+  const state = withFixedReadbackDelay(engineFor({airport: "LTFM", trainingStation: "LTFM:approach"}).initialExercise());
   const airport = getAirport(state), env = state.radarEnvironment!, base = env.approaches[0];
   env.approaches = runways.map(runway => ({...base, id: runway, runway, type: "ils" as const}));
   const a = state.aircraft[0], b = {...structuredClone(a), id: "b"};
@@ -262,7 +263,7 @@ for (const mode of ["approach", "center"] as const) for (const excess of [1, 250
   assert.notEqual(a.radar!.report, "missed");
 });
 
-const fixtureForInfiniteFlightParity=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+const fixtureForInfiniteFlightParity=()=>withFixedReadbackDelay(engineFor({trainingStation:"EGPH:approach"}).initialExercise());
 
 for (const mode of ["approach", "center"] as const) test(`${mode}: an accepted holding altitude permits heading-only exit from the hold`, () => {
   let state = fixture(mode);

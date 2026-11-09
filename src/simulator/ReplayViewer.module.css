@@ -67,6 +67,10 @@
 .k.kDemonstration{border-radius:50% 50% 2px 2px}
 .kTrainee{background:#499cff}
 .k.kTrainee{border-radius:50% 50% 50% 2px}
+.kRewind{background:#ffb18a}
+.k.kRewind{border-radius:50% 2px 50% 50%}
+/* The stretch a mentor rewind undid: hatched, so it reads as time that was replayed. */
+.rewound{position:absolute;top:22px;height:8px;border-radius:2px;background:repeating-linear-gradient(135deg,#ffb18a99 0 3px,transparent 3px 6px);border:1px solid #ffb18a66;box-sizing:border-box}
 .menteeControls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 20px;font-size:14px;color:var(--dashboard-ink)}
 .menteeControls small{color:var(--dashboard-muted, inherit);opacity:.8}
 .kMeta{background:transparent;border:2px solid var(--dashboard-muted);border-radius:50%}

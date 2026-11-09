@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
@@ -9,7 +10,7 @@ import {exerciseSchema} from "./protocol";
 
 const local = engineFor({trainingStation: "EGPH:local"});
 function fixture() {
-  const state = local.initialExercise(randomUUID()), a = local.newAircraft("crossing", false);
+  const state = withFixedReadbackDelay(local.initialExercise(randomUUID())), a = local.newAircraft("crossing", false);
   Object.assign(a, {mode: "taxi", position: {x: 5, y: 5}, heading: 0, targetHeading: 0, speed: 15, targetSpeed: 15, taxiIndex: 1,
     taxiPath: [{x: 5, y: 5}, {x: 5, y: 5.03}, {x: 5, y: 5.06}, {x: 5, y: 5.12, hold: true, runway: "24"}, {x: 5, y: 5.2}, {x: 5, y: 5.3, hold: true, runway: "24"}]});
   state.aircraft = [a]; state.running = true; state.autoReadback = false;

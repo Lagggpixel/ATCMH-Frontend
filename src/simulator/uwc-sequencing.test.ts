@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor} from "./engine";
@@ -20,7 +21,7 @@ function act(state: Exercise, action: Action) {
 }
 
 function fixture(runway = "13L", speeds = [220, 220]) {
-  const state = e.initialExercise(); state.running = true;
+  const state = withFixedReadbackDelay(e.initialExercise()); state.running = true;
   state.aircraft = [runway, parallels[runway]].map((runway, i): Aircraft => {
     const g = e.runwayGeometry(runway);
     return {...e.newAircraft(i ? "leader" : "follower", true), runway, frequency: "tower", mode: "pattern", leg: "upwind",
@@ -179,7 +180,7 @@ test("pending entries round-trip through replay deltas but cannot become scenari
 });
 
 test("UWC tolerates different legs and altitudes and survives the natural base turn", () => {
-  const e = engineFor({airport: "KJFK"}), s = e.initialExercise(); s.running = true;
+  const e = engineFor({airport: "KJFK"}), s = withFixedReadbackDelay(e.initialExercise()); s.running = true;
   s.aircraft = ["a", "b"].map((id, i) => {const a = e.newAircraft(id, true); a.runway = i ? "22R" : "22L"; a.mode = "pattern"; a.leg = "downwind"; a.landing = "touch-and-go"; a.position = e.patternTargets(a).crosswind; a.altitude = 1513 + i * 1000; a.speed = a.targetSpeed = 180; return a;});
   s.aircraft[1].leg = "crosswind";
   const result = e.applyEnvelope(s, {id: "uwc", time: 1, action: {kind: "conflict", conflict: "uwc", aircraftId: "a", otherId: "b"}});

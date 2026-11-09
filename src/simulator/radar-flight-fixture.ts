@@ -1,3 +1,4 @@
+import {withFixedReadbackDelay} from "./test-exercise";
 import {trueToMagnetic} from "./magnetic-headings";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
@@ -27,7 +28,7 @@ export function issue(state:Exercise,command:Instruction){
  return state.autoReadback?fly(state,2):send(state,{kind:"pilot",aircraftId:a.id,text:"Read back",replyTo:message.id,assign:true});
 }
 export function first(type:Arrival,automatic:boolean,station:"approach"|"center"="approach"){
- const engine=engineFor({airport:"EGPH",trainingStation:`EGPH:${station}`});let state=engine.initialExercise();state.running=true;state.autoReadback=automatic;
+ const engine=engineFor({airport:"EGPH",trainingStation:`EGPH:${station}`});let state=withFixedReadbackDelay(engine.initialExercise());state.running=true;state.autoReadback=automatic;
  const a=state.aircraft[0],airport=getAirport(state),p=state.radarEnvironment!.approaches.find(p=>p.type===(type==="vectors"?"ils":type)&&p.runway==="24")!,g=approachGeometry(airport,p.runway);
  a.landing="touch-and-go";a.runway=p.runway;a.speed=a.targetSpeed=180;a.speedMode="auto";delete a.radar!.report;
  if(type==="gps")a.flightPlan=[{x:g.threshold.x-g.vector.x*5,y:g.threshold.y-g.vector.y*5,finalApproachFix:true},{...g.threshold}];
