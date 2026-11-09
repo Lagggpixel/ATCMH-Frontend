@@ -82,6 +82,11 @@ test("the caption names the step the trainee is on, in one short line", () => {
   assert.equal(traineePath(["Approach", "Expect", "ILS 27R"]), "… › Expect › ILS 27R", "long paths keep the last two steps");
   assert.equal(traineeStep(state({selectedId: "a1", ground: {aircraftId: "a1", kind: "pushback", controls: [], destination: {type: "point"}, holds: {}}})), "Pushback draft");
   assert.equal(traineeStep(state({selectedId: "a1", vectorDraft: {aircraftId: "a1", point: {x: 0, y: 0}, initial: true}})), "Vector");
+  const drag = state({selectedId: "a1", vectorDraft: {aircraftId: "a2", point: {x: 0, y: 0}}});
+  assert.equal(traineeFocus(drag), "a2");
+  assert.equal(traineeStep(drag, null), "Cancel");
+  assert.equal(traineeStep(drag, {heading: 280, nm: 12}), "Vector 280° · 12NM");
+  assert.equal(traineeStep(drag, {heading: 280, nm: 12, target: "LAM"}), "Direct To LAM");
 });
 
 test("the trainee's menus are not copied onto the radar; the caption peeks at them on request", () => {

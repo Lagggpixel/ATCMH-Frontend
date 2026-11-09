@@ -1,5 +1,5 @@
 "use client";
-import {useEffect, useRef, useState, type ReactNode} from "react";
+import {useEffect, useId, useRef, useState, type ReactNode} from "react";
 import {Crosshair} from "@phosphor-icons/react/dist/csr/Crosshair";
 import {Eye} from "@phosphor-icons/react/dist/csr/Eye";
 import {CaretDown} from "@phosphor-icons/react/dist/csr/CaretDown";
@@ -96,10 +96,66 @@ export function traineePeek(trainee: TraineeScopeView, aircraft: readonly Aircra
   return target && trainee.menu ? trainee.menu(target, state) : null;
 }
 
-/** The trainee's selection ring and drags, in the staff radar's own projection. Under the ring, one caption says
- * what they are doing; their menus and message lists are not copied onto the radar, but `peek` shows them on hover or tap. */
+const RING_SIZE = 34;
+const CAPTION_OFFSET = RING_SIZE / 2 + 4;
+const CAPTION_HEIGHT = 18;
+const PEEK_GAP = 4;
+const PEEK_MAX_HEIGHT = 220;
+
+function TraineeCaption({who, step, ring, size, peek}: {who: string; step: string | null; ring: Point; size: {width: number; height: number}; peek?: ReactNode}) {
+  const [peeking, setPeeking] = useState<"preview" | "pinned" | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const aboveSpace = ring.y - CAPTION_OFFSET;
+  const belowSpace = size.height - ring.y - CAPTION_OFFSET;
+  const above = belowSpace < CAPTION_HEIGHT + PEEK_GAP + PEEK_MAX_HEIGHT && aboveSpace > belowSpace;
+  const height = Math.min(PEEK_MAX_HEIGHT, (above ? aboveSpace : belowSpace) - CAPTION_HEIGHT - PEEK_GAP);
+  const peekable = !!step && !!peek && height > 0;
+  const open = peekable && peeking !== null;
+  const width = Math.max(0, Math.min(260, size.width - 8));
+  const anchorLeft = ring.x - RING_SIZE / 2;
+  const left = Math.max(4, Math.min(anchorLeft, size.width - width - 4));
+
+  useEffect(() => {
+    if (!open) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      if (root.current?.contains(document.activeElement)) root.current.querySelector("button")?.focus();
+      setPeeking(null);
+    };
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setPeeking(null);
+    };
+    document.addEventListener("keydown", escape);
+    document.addEventListener("pointerdown", outside, true);
+    return () => {
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("pointerdown", outside, true);
+    };
+  }, [open]);
+
+  const stop = (event: {stopPropagation: () => void}) => event.stopPropagation();
+  const closePreview = () => setPeeking(value => value === "preview" ? null : value);
+  const label = <><strong>{who}</strong>{step ? <span>{step}</span> : null}</>;
+  return <div ref={root} className={styles.traineeCaption} data-above={above || undefined} data-align-right={left < anchorLeft || undefined}
+    style={{left, top: ring.y + (above ? -CAPTION_OFFSET : CAPTION_OFFSET), width}}
+    onPointerLeave={() => {if (!root.current?.contains(document.activeElement)) closePreview();}}
+    onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget)) closePreview();}}
+    onPointerDown={stop} onClick={stop} onDoubleClick={stop} onContextMenu={stop}>
+    {peekable ? <button type="button" aria-expanded={open} aria-controls={open ? id : undefined} title={`Show ${possessive(who)} list (view only)`}
+      onPointerEnter={event => {if (event.pointerType === "mouse") setPeeking(value => value ?? "preview");}}
+      onFocus={() => setPeeking(value => value ?? "preview")}
+      onClick={() => setPeeking(value => value === "pinned" ? null : "pinned")}>{label}</button>
+      : <span className={styles.traineeCaptionStatic}>{label}</span>}
+    {open ? <div className={styles.traineePeekBridge}><div id={id} className={styles.traineePeek} role="group" aria-label={`${possessive(who)} list, view only`} tabIndex={0} style={{maxHeight: height}}>
+      <fieldset disabled>{peek}</fieldset>
+    </div></div> : null}
+  </div>;
+}
+
+/** The trainee's selection, current step and drags in the staff radar's projection. */
 export function TraineeScopeLayer({state, name, aircraft, airport, environment, project, scale, size, peek}: {state: TraineeView; name?: string; aircraft: readonly Aircraft[]; airport: Airport; environment?: RadarEnvironment; project: (p: Point) => Point; scale: number; size: {width: number; height: number}; peek?: ReactNode}) {
-  const [peeking, setPeeking] = useState<"hover" | "pinned" | null>(null);
   const focus = traineeFocus(state), focused = focus ? aircraft.find(a => a.id === focus) : undefined;
   const ring = focused ? project(focused.position) : null;
   const dragged = state.vectorDraft ? aircraft.find(a => a.id === state.vectorDraft!.aircraftId) : undefined;
@@ -108,26 +164,18 @@ export function TraineeScopeLayer({state, name, aircraft, airport, environment, 
   const route = traineeGroundRoute(airport, state.ground);
   const routeAircraft = state.ground ? aircraft.find(a => a.id === state.ground!.aircraftId) : undefined;
   const who = name ?? "Mentee";
-  const step = traineeStep(state, preview ? {heading: preview.heading, nm: preview.nm, ...(preview.target ? {target: preview.target.name} : preview.fix ? {target: preview.fix} : {})} : null);
-  const peekable = !!step && !!peek && !state.vectorDraft && !state.ground;
-  const open = peekable && peeking !== null;
-  // A different step closes a pinned peek, so it never shows an older list.
-  const [lastStep, setLastStep] = useState(step);
-  if (step !== lastStep) {setLastStep(step); if (peeking) setPeeking(null);}
-  const stop = (event: {stopPropagation: () => void}) => event.stopPropagation();
+  const step = traineeStep(state, preview ? {heading: preview.heading, nm: preview.nm, target: preview.target?.name} : null);
+  // Identical captions can refer to different aircraft or different full menu paths.
+  const captionKey = JSON.stringify([who, focus, state.frequency, state.messageId, state.menuPath, state.quickPicker, step]);
   return <>
     {route ? <GroundRouteOverlay airport={airport} route={route} aircraftType={routeAircraft?.type} project={project} scale={scale} bounds={size} onMove={() => {}} color={TRAINEE_BLUE} label={`${who}'s draft ground route`}/> : null}
     {from && dragged ? <svg className={`${styles.vectorOverlay} ${styles.traineeVector}`} width={size.width} height={size.height} role="img" aria-label={`${who} is vectoring ${dragged.callsign}`} fill="none" stroke={TRAINEE_BLUE}>
       <circle cx={from.x} cy={from.y} r={VECTOR_CANCEL_RADIUS}/>
       {to ? <><line x1={from.x} y1={from.y} x2={to.x} y2={to.y}/><circle cx={to.x} cy={to.y} r={VECTOR_CANCEL_RADIUS / 2}/></> : null}
     </svg> : null}
-    {ring && focused ? <span className={styles.traineeRing} role="img" aria-label={`${who} has ${focused.callsign} selected${step ? `: ${step}` : ""}`} style={{left: ring.x, top: ring.y}}/> : null}
-    {ring && focused ? <div className={styles.traineeCaption} style={{left: ring.x, top: ring.y}} onPointerLeave={() => setPeeking(p => p === "hover" ? null : p)} onPointerDown={stop} onClick={stop} onDoubleClick={stop} onContextMenu={stop}>
-      {peekable ? <button type="button" aria-expanded={open} title={`Show ${who}\u2019s list (view only)`} onPointerEnter={event => {if (event.pointerType === "mouse") setPeeking(p => p ?? "hover");}} onFocus={() => setPeeking(p => p ?? "hover")} onBlur={() => setPeeking(p => p === "hover" ? null : p)} onKeyDown={event => {if (event.key === "Escape") {event.stopPropagation(); setPeeking(null);}}} onClick={() => setPeeking(p => p === "pinned" ? null : "pinned")}>
-        <strong>{who}</strong><span>{step}</span>
-      </button> : <span className={styles.traineeCaptionStatic}><strong>{who}</strong>{step ? <span>{step}</span> : null}</span>}
-      {open ? <div className={styles.traineePeek} role="group" aria-label={`${who}\u2019s list, view only`}><div inert>{peek}</div></div> : null}
-    </div> : null}
+    {ring && focused ? <span className={styles.traineeRing} role="img" aria-label={`${who} has ${focused.callsign} selected`} style={{left: ring.x, top: ring.y, width: RING_SIZE, height: RING_SIZE}}/> : null}
+    {ring && ring.x >= 0 && ring.x <= size.width && ring.y >= 0 && ring.y <= size.height
+      ? <TraineeCaption key={captionKey} who={who} step={step} ring={ring} size={size} peek={state.vectorDraft || state.ground ? null : peek}/> : null}
   </>;
 }
 

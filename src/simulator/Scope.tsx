@@ -292,7 +292,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     const bounds = node.getBoundingClientRect(); measure(bounds.width, bounds.height);
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     resize.observe(node);
-    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.traineePeek}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
+    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.traineeCaption}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
     const manipulatingAircraft = () => !!(vectorDrag.current || groundDrag.current || tagDrag.current || gateDrag.current);
     let gestureScale: number | null = null;
     const wheel = (event: WheelEvent) => {
@@ -507,7 +507,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
   const offSurface = (event: React.PointerEvent) => !(event.target instanceof Element && event.target.closest(`.${styles.mapSurface}`));
   const pinchTouch = (event: React.PointerEvent) => {
     if (event.isPrimary) touches.current.clear();
-    if (event.pointerType !== "touch" || event.target instanceof Element && event.target.closest(`.${styles.contextAnchor}, .${styles.traineePeek}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`)) return;
+    if (event.pointerType !== "touch" || event.target instanceof Element && event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`)) return;
     touches.current.set(event.pointerId, scopePoint(event));
     if (touches.current.size < 2) return;
     suppressClick.current = true; suppressTagClick.current = true;
@@ -522,7 +522,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     if (!touches.current.delete(event.pointerId) || !offSurface(event)) return;
     if (event.type === "pointercancel") navigationCamera.cancel(event.pointerId); else navigationCamera.up(event.pointerId);
   };
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();} pinchTouch(event);}}
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {if (event.target instanceof Element && event.target.closest(`.${styles.traineeCaption}`)) return; navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();} pinchTouch(event);}}
     onPointerMoveCapture={followTouch} onPointerUpCapture={releaseTouch} onPointerCancelCapture={releaseTouch}>
     <div className={styles.mapSurface} onPointerDown={event => {
       if (event.button !== 0 || vectorDrag.current) return;

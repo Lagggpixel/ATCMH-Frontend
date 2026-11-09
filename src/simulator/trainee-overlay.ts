@@ -40,8 +40,8 @@ export function latestShadowState(current: DemoState | null, frame: DemoFrame): 
   return frame.state ?? current;
 }
 
-/** The aircraft the trainee is working: the one whose messages are open, otherwise the one selected. */
-export const traineeFocus = (state: TraineeView | null) => state ? state.messageId ?? state.selectedId : null;
+/** An active drag can belong to a different aircraft from the previous selection. */
+export const traineeFocus = (state: TraineeView | null) => state ? state.vectorDraft?.aircraftId ?? state.ground?.aircraftId ?? state.messageId ?? state.selectedId : null;
 
 /** The trainee's taxi or pushback drag, rebuilt from its control points like the trainee's own preview. */
 export function traineeGroundRoute(airport: Airport, ground: DemoGroundDraft | null): GroundRoute | undefined {
@@ -75,7 +75,11 @@ export const traineePath = (labels: readonly string[]) => labels.length > 2 ? ["
 /** What the trainee is doing right now, in a few words for the caption under their ring; null when nothing is open. */
 export function traineeStep(state: TraineeView | null, vector?: {heading: number; nm: number; target?: string} | null): string | null {
   if (!state) return null;
-  if (state.vectorDraft) return state.vectorDraft.initial || !vector ? "Vector" : vector.target ? `Direct To ${vector.target}` : `Vector ${degrees(vector.heading)} \u00b7 ${Math.floor(vector.nm)}NM`;
+  if (state.vectorDraft) {
+    if (state.vectorDraft.initial) return "Vector";
+    if (!vector) return "Cancel";
+    return vector.target ? `Direct To ${vector.target}` : `Vector ${degrees(vector.heading)} \u00b7 ${Math.floor(vector.nm)}NM`;
+  }
   if (state.ground) return state.ground.kind === "pushback" ? "Pushback draft" : "Taxi route draft";
   if (state.messageId) return traineePath(state.menuPath);
   if (!traineeMenuAircraft(state)) return null;
