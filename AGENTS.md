@@ -1,4 +1,16 @@
-## Current release pointer (2026-11-09; 26.11.10)
+## Current release pointer (2026-11-09; 26.11.11)
+
+ATCMH frontend and standalone Sweatbox web/retention run **26.11.11** on verified Portainer endpoint **3 local / Server-2**, stacks **30 atcmh / 66 sweatbox**. The checked images were built locally for **linux/amd64**, published as **26.11.11** and **latest**, and deployed with one fresh-pull update per stack. Use a new version for the next release. This pointer supersedes the historical release and checkout notes below.
+
+The release adds optional session names, redesigns **Radio > Reply**, shows aircraft History while an aircraft is selected and restores the full session log on deselection, and suppresses stale rewind notices on reload or seat takeover. The live toolbar also drops the adjacent session name and code. Deployed source commits are ATCMH Frontend **3b38ef45158207a8cfa705cc3887e8deb5010683** and standalone Simulator **42abab9fb789211c6ca1c788e5bccd95f00d5591**. The clean detached release checkouts are **ATCMH/build/combined-release-26.11.11/Frontend** and **ATCMH/build/combined-release-26.11.11/Simulator**. The later release-pointer commits document those deployed sources.
+
+Node **24.22.1** passed **4,313 ATCMH / 4,209 standalone** tests with **one standalone skip**. A stale handoff wording assertion was corrected and the complete standalone gate passed on rerun. Both lint runs, local production builds with TypeScript, and shared parity (**45 pinned engine / 510 mirrored files / 14 assets**) passed. Exact-image and public Playwright/Chrome checks covered session naming, Radio Reply, aircraft History, the session log, rewind and seat takeover, radar and toolbar regressions, anonymous gates, and health/version. Browser QA used synthetic sessions and intercepted writes at desktop and tablet widths, with a phone orientation check.
+
+All **193 ATCMH / 140 standalone** public static files matched the checked images byte for byte, including **165 / 118** carried forward. Pre- and post-deployment retention dry runs passed. The runtime comparison verified Compose, environments, mounts, networks and resource settings. All six services were running with zero restarts and zero OOM kills, and all configured health checks were healthy. Portainer recreated the companion containers with their existing images and settings (**backend 26.11.0 / speech 26.11.1**). All **22 unrelated containers** retained their identities, images and states.
+
+Published indexes are ATCMH **sha256:1cce8832c6d671808fe9f18724c7e9dca11e58ec3230c462fe4c1db63ffcba95** and standalone **sha256:7e0f58eb9e21d9dece28bb7413a00e8731063c1488803f6ba18c7047acb7ccc9**. Current-user DPAPI recovery is in **Documents/Codex/releases/atcmh/26.11.11/before.clixml** and **Documents/Codex/releases/sweatbox/26.11.11/before.clixml**. Keep decrypted recovery private. The frozen sources, logs and receipts are in each release checkout's **build/release**. Sanitized evidence, screenshots and **release-summary.json** are in **C:/Users/Reid/.codex/visualizations/2026/11/09/01a1bea6-f314-7590-bc1c-6a06ea2ed7e9**. Further deployment verification is read-only.
+
+## Previous release pointer (2026-11-09; 26.11.10)
 
 At the user's request, all pending radar/UI fixes are committed and pushed to both remote main branches, built locally for linux/amd64 and deployed once through verified Portainer endpoint **3 local / Server-2**, stacks **30 atcmh / 66 sweatbox**. Both web/retention pairs now run **26.11.10**. Never reuse this version or repeat these completed stack updates. Application commits: Frontend **88edfc017d3f3d7f77fddb9222e7bb36577b2f21**, Simulator **8e1bd0b860c2153f518cb1b69328b702be7f973f** (includes fix commit 83bc7e5 and a changelog encoding correction). Later instruction-only commits record verification and do not alter deployed runtime. This supersedes older release and dirty-primary-checkout pointers below.
 
@@ -10,7 +22,7 @@ All **165 ATCMH / 118 standalone** static files are public and byte-identical to
 
 Published indexes: ATCMH **sha256:f92629e16d950e8aa2d0573cc05245cf6464bf0c194a4fb51def6473b3f2cf8c**; standalone **sha256:f6917f3452683e622fe16de0e58568445a4316290c35913db54c4b84c8e1e8b0**. Current-user DPAPI recovery is **Documents/Codex/releases/atcmh/26.11.10/before.clixml** and **sweatbox/26.11.10/before.clixml**; never display decrypted content. Frozen sources, complete check/build/publication/deployment logs and receipts are in each clean release checkout's **build/release**. Sanitized evidence, screenshots, read-only verification helpers and **release-summary.json** are at **C:/Users/Reid/.codex/visualizations/2026/11/09/01a1be4c-6654-7e30-975a-c477655fe7a5**. Further deployment verification is read-only.
 
-## Current release pointer (2026-11-08; 26.11.7)
+## Verified release (2026-11-08; 26.11.7)
 
 ATCMH frontend and standalone Sweatbox web/retention are deployed as **26.11.7** on verified Portainer endpoint **3 local / Server-2**, stacks **30 atcmh / 66 sweatbox**. Each stack received exactly one fresh-pull update. Never reuse this version or repeat the completed updates or migrations. All nine reviewed PRs are merged: Simulator **#7, #8, #9, #10, #11** and Frontend **#21, #22, #23, #24**. Backend had no reviewed PR requiring a release.
 
