@@ -150,6 +150,20 @@ for (const type of ["ils", "gps", "visual"] as const) test(`${type}: reaching th
   const result = f.engine.autoReadbacks(f.state, 1000, randomUUID);
   assert.match(result.messages.at(-1)!.unableReason!, /Reached decision height/);
 });
+for (const transferred of [false, true]) test(`ILS: runway missed approach explains ${transferred ? "missing capture" : "missing capture and transfer"}`, () => {
+  const f = fixture("approach", "ils", .01);
+  Object.assign(f.a.radar!, {captured: false, localizer: true, glideslope: false, clearanceAltitudeChecked: true, transferred});
+  f.a.frequency = transferred ? "tower" : "approach";
+  f.a.altitude = f.airport.elevation + 500; f.step(false);
+  assert.equal(f.a.radar!.navigation, "missed");
+  const expected = transferred ? "Reached the runway without capturing the approach."
+    : "Reached the runway without capturing the approach or transferring to Tower or another landing frequency.";
+  assert.equal(f.a.radar!.missedReason, expected);
+  // Tower reports are delivered after the aircraft returns to Approach.
+  f.a.frequency = "approach";
+  const result = f.engine.autoReadbacks(f.state, 1000, randomUUID);
+  assert.equal(result.messages.at(-1)!.unableReason, expected);
+});
 test("a Tower missed approach retains its explanation through reporting and frequency changes", () => {
   const f = fixture("approach", "ils", .5); f.a.frequency = "tower"; f.a.radar!.transferred = true;
   f.a.altitude = f.glide + 300; f.step();

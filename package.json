@@ -21,7 +21,8 @@
     "release:check": "node scripts/release.mjs check",
     "release:qa": "node scripts/release.mjs qa",
     "release:publish": "node scripts/release.mjs publish",
-    "release:deploy": "node scripts/release.mjs deploy"
+    "release:deploy": "node scripts/release.mjs deploy",
+    "approach:lab": "node --import tsx tools/approach-lab/server.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

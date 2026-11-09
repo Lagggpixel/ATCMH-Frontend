@@ -198,6 +198,7 @@ test("commands and successive ATIS choices update locally, survive stale frames,
     await until(() => client.getSnapshot().connected);
     const command = client.dispatch({kind: "command", aircraftId: initial.aircraft[0].id, frequency: "tower", command: {type: "land", option: true}, text: "Cleared for the option"});
     assert.equal(client.getSnapshot().exercise.messages.at(-1)?.text, "Cleared for the option");
+    assert.deepEqual(client.getSnapshot().authoritativeExercise.messages, initial.messages, "radio must wait for the server message");
     assert.equal(client.getSnapshot().exercise.aircraft[0].assigned?.landing, true);
     assert.equal(client.getSnapshot().exercise.aircraft[0].clearedToLand, initial.aircraft[0].clearedToLand, "pilot motion remains authoritative");
     frame(); await new Promise(resolve => setTimeout(resolve, 10)); assert.equal(client.getSnapshot().exercise.messages.length, initial.messages.length + 1);
@@ -214,5 +215,14 @@ test("commands and successive ATIS choices update locally, survive stale frames,
     const b = requests.shift()!; b.resolve(Response.json({revision: 2})); assert.equal(await second, true);
     frame({...initial, revision: 2, atis: nextDraft, processed: [a.envelope.id, b.envelope.id]});
     await until(() => client.getSnapshot().exercise.revision === 2); assert.deepEqual(client.getSnapshot().exercise.atis, nextDraft);
+    const accepted = client.dispatch({kind: "command", aircraftId: initial.aircraft[0].id, frequency: "tower", command: {type: "land", option: true}, text: "Cleared for the option"});
+    await until(() => requests.length === 1);
+    const delivery = requests.shift()!;
+    delivery.resolve(Response.json({revision: 3})); assert.equal(await accepted, true);
+    assert.deepEqual(client.getSnapshot().authoritativeExercise.messages, initial.messages);
+    const transmission = {...client.getSnapshot().exercise.messages.at(-1)!, text: "Easy 571, cleared for the option"};
+    frame({...client.getSnapshot().authoritativeExercise, revision: 3, messages: [transmission]});
+    await until(() => client.getSnapshot().authoritativeExercise.revision === 3);
+    assert.deepEqual(client.getSnapshot().authoritativeExercise.messages, [transmission]);
   } finally {stop(); globalThis.fetch = originalFetch; globalThis.window = originalWindow;}
 });

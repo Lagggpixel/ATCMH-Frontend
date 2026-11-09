@@ -16,8 +16,9 @@ export interface DemoFrame {seq: number; state?: DemoState; batches: DemoBatch[]
 /** A trainee's own controller state, relayed to a staff page that asked for that position. */
 export interface ShadowFrame extends DemoFrame {positionId: string}
 
-export interface SharedSessionView {positionId?: string; positionIds?: string[]; detail?: Record<string, unknown>; queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
-const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: initialExercise(), connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
+export interface SharedSessionView {positionId?: string; positionIds?: string[]; detail?: Record<string, unknown>; queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; authoritativeExercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
+const INITIAL_EXERCISE = initialExercise();
+const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: INITIAL_EXERCISE, authoritativeExercise: INITIAL_EXERCISE, connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
 export async function sessionJson(response: Response) {
   const value = await response.json();
   if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status, retryAt: value.retryAt, detail: value.detail});
@@ -28,7 +29,6 @@ export class SharedSession {
   private view = INITIAL;
   private quickCommands = new QuickCommandManager();
   private shortcutPaths = new Map<string, string[]>();
-  private authoritativeExercise = INITIAL.exercise;
   private pendingTagAngles = new Map<string, {angle: number; revision?: number}>();
   private optimistic = new Map<string, {envelope: Envelope; revision?: number}>();
   private listeners = new Set<() => void>();
@@ -78,8 +78,7 @@ export class SharedSession {
   getServerSnapshot = () => INITIAL;
   private update(patch: Partial<SharedSessionView>) {
     if (patch.connected === false && this.role === "spectator") this.controlsEnabled = false;
-    if (patch.exercise) this.authoritativeExercise = patch.exercise;
-    const saved = this.authoritativeExercise;
+    const saved = patch.exercise ?? this.view.authoritativeExercise;
     for (const [id, pending] of this.pendingTagAngles) {
       if (!saved.aircraft.some(a => a.id === id && a.active) || pending.revision !== undefined && saved.revision >= pending.revision)
         this.pendingTagAngles.delete(id);
@@ -102,7 +101,7 @@ export class SharedSession {
         }), messages: [...exercise.messages, {id, aircraftId: action.aircraftId, frequency: action.frequency, time, sender: "controller", text: action.text, instruction: action.command, ...(action.replyTo ? {replyTo: action.replyTo} : {})}]};
       }
     }
-    this.view = {...this.view, ...patch, exercise}; this.listeners.forEach(listener => listener());
+    this.view = {...this.view, ...patch, exercise, authoritativeExercise: saved}; this.listeners.forEach(listener => listener());
   }
   clearError = () => this.update({error: null});
   dispatch = (action: Action, path?: string[]) => {
@@ -202,12 +201,12 @@ export class SharedSession {
       if (value.type === "snapshot") {
         const exercise = exerciseSchema.parse(value.exercise);
         if (exercise.id !== this.id) throw new Error("Received a frame for another session.");
-        if (exercise.revision < this.authoritativeExercise.revision) return;
+        if (exercise.revision < this.view.authoritativeExercise.revision) return;
         this.update({positionId: value.positionId ?? this.view.positionId, positionIds: value.positionIds ?? this.view.positionIds, exercise, scenario: value.scenario, connected: true, owner: this.canControl(), session: value.session, status: "Session connected", fatal: null, code: null});
       } else if (value.type === "motion") {
         const motion = motionSchema.parse(value.state);
-        if (motion.id === this.id && motion.revision >= this.authoritativeExercise.revision)
-          this.update({exercise: {...this.authoritativeExercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
+        if (motion.id === this.id && motion.revision >= this.view.authoritativeExercise.revision)
+          this.update({exercise: {...this.view.authoritativeExercise, ...motion}, session: value.session, connected: true, owner: this.canControl(), status: "Session connected"});
       } else if (value.type === "presence") this.update({session: value.session});
       else if (value.type === "demo") for (const listener of this.demoListeners) listener(value as DemoFrame);
       else if (value.type === "demo-seed") for (const listener of this.seedListeners) listener(value.controller as DemoController);

@@ -4,9 +4,10 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, wrongReadbackText} from "./engine";
 import {catalogFor} from "./catalog";
-import {getAirport} from "./airports";
+import {frequenciesFor, getAirport} from "./airports";
 import {climbRate} from "./aircraft-performance";
-import {pilotAutomatic, type Action, type Exercise} from "./model";
+import {pendingPilotMessage, pendingRequestCount, pilotAutomatic, type Action, type Exercise} from "./model";
+import {envelopeSchema, menteeActionAllowed} from "./protocol";
 
 const send = (state: Exercise, action: Action) => {
   const result = applyEnvelope(state, {id: randomUUID(), time: 0, action});
@@ -67,6 +68,35 @@ test("trainers can declare a medical emergency or engine failure, and an engine 
   assert.equal(climbRate(medical.aircraft[0]), before);
   // Ground traffic cannot declare an airborne emergency.
   assert.ok(!catalogFor(getAirport(state)).pilotRequests(state.aircraft[1]).some(r => r.id === "engine-failure"));
+});
+
+test("trainees can acknowledge both Mayday declarations with one transmission and no automatic readback", () => {
+  for (const id of ["medical-emergency", "engine-failure"] as const) {
+    const state = automatic(), [air] = state.aircraft, airport = getAirport(state);
+    const frequency = "tower" as const, catalog = catalogFor(airport);
+    const declared = send(state, {kind: "pilot", aircraftId: air.id, text: "", request: {id, runway: "24"}});
+    const request = pendingPilotMessage(declared, air.id, frequency);
+    assert.equal(request?.request?.id, id);
+    const [suggestion] = catalog.requestMessageMenu(frequency, air, request);
+    assert.equal(suggestion.label, "Roger Mayday");
+    assert.equal(suggestion.suggested, true);
+    assert.ok(suggestion.instruction);
+    const expected = `${air.callsign}, ${frequenciesFor(airport).tower.name}, Roger MAYDAY`;
+    assert.equal(catalog.instructionText(air, suggestion.instruction), expected);
+    const envelope = envelopeSchema.parse({id: randomUUID(), time: 0, action: {kind: "command", aircraftId: air.id, frequency,
+      command: suggestion.instruction, text: "Client text", replyTo: request!.id}});
+    assert.ok(menteeActionAllowed(envelope.action, declared));
+    const {state: acknowledged, error} = applyEnvelope(declared, envelope);
+    assert.equal(error, undefined);
+    const message = acknowledged.messages.at(-1)!;
+    assert.equal(message.text, expected);
+    assert.equal(message.replyTo, request!.id);
+    assert.equal(message.autoReadbackAt, undefined);
+    assert.equal(pendingRequestCount(acknowledged, air.id, frequency), 0);
+    const pending = pendingPilotMessage(acknowledged, air.id, frequency);
+    assert.ok(!catalog.requestMessageMenu(frequency, air, pending).some(entry => entry.label === "Roger Mayday"));
+    assert.match(applyEnvelope(acknowledged, {...envelope, id: randomUUID()}).error ?? "", /unanswered Mayday/);
+  }
 });
 
 test("a radio failure that starts while a readback is queued cancels that readback", () => {

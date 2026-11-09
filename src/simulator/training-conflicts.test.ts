@@ -62,7 +62,9 @@ test("Unable cancels UWC and releases both aircraft into their original circuits
 test("GA validates leader order/full-stop runway and slows only the landed leader", () => {
   const h = fixture("ga"); h.a.landing = "touch-and-go"; assert.match(h.start()!, /full-stop/); h.a.landing = "full-stop";
   h.b.runway = "22R"; assert.match(h.start()!, /same runway/); h.b.runway = "22L"; assert.equal(h.start(), undefined);
-  h.a.mode = "rollout"; h.a.altitude = h.airport.elevation; prepareConflicts(h.state, h.airport, h.support);
+  const g = h.engine.runwayGeometry(h.a.runway!);
+  h.a.mode = "rollout"; h.a.altitude = h.airport.elevation; h.a.position = {x: g.threshold.x + g.vector.x * .2, y: g.threshold.y + g.vector.y * .2};
+  prepareConflicts(h.state, h.airport, h.support);
   assert.equal(h.a.conflictMotion?.slowExit, true); assert.equal(h.b.conflictMotion?.slowExit, undefined);
 });
 test("mentors can prepare GA before clearance or with option clearance and full-stop intentions", () => {
