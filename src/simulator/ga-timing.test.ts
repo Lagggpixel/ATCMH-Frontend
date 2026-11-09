@@ -82,27 +82,34 @@ test("cancelling GA during rollout immediately restores ordinary exit motion", (
   assert.equal(state.conflicts![0].outcome, "Cancelled by staff");
 });
 
-test("an unachievable distant arrival reports that GA did not materialise", () => {
-  const h = reportedPair(); let state = h.state;
-  const g = h.engine.runwayGeometry("31R"), b = state.aircraft[1];
-  b.position = {x: g.threshold.x - g.vector.x * 20, y: g.threshold.y - g.vector.y * 20};
-  b.heading = b.targetHeading = g.heading; b.bankAngle = 0; b.altitude = h.airport.elevation + 1500;
-  delete b.sequence;
-  for (let i = 0; i < 300 && state.conflicts![0].phase !== "cancelled"; i++) state = h.engine.advance(state, 1);
-  assert.equal(state.conflicts![0].phase, "cancelled");
-  assert.match(state.conflicts![0].outcome!, /did not materialise/);
-  assert.equal(state.aircraft[0].conflictMotion, undefined);
-  assert.notEqual(state.aircraft[1].mode, "go-around");
-});
-
-test("a controller's explicit exit instruction retains its ordinary vacating speed", () => {
-  const h = reportedPair(); let state = h.state;
-  for (let i = 0; i < 65; i++) state = h.engine.advance(state, 1);
-  const instructed = h.engine.applyEnvelope(state, {id: "exit", time: 2, action: {kind: "maneuver", aircraftId: "leader", command: {type: "exit-runway", side: "left", expedite: true}}});
-  assert.equal(instructed.error, undefined); state = instructed.state;
-  assert.equal(state.aircraft[0].arrivalExit!.instruction, "exit-runway");
-  state = h.engine.advance(state, .1);
-  assert.equal(state.aircraft[0].conflictMotion?.speedLimit, undefined);
+test("a distant following arrival keeps the instructed leader on the runway until cancellation", () => {
+  for (const step of [.05, 1, 5]) {
+    const h = reportedPair(), g = h.engine.runwayGeometry("31R"); let state = h.state;
+    const b = state.aircraft[1];
+    b.position = {x: g.threshold.x - g.vector.x * 20, y: g.threshold.y - g.vector.y * 20};
+    b.heading = b.targetHeading = g.heading; b.bankAngle = 0; b.altitude = h.airport.elevation + 1500; delete b.sequence;
+    for (let t = 0; t < 65; t += step) state = h.engine.advance(state, step);
+    const instructed = h.engine.applyEnvelope(state, {id: "exit", time: 2, action: {kind: "maneuver", aircraftId: "leader", command: {type: "exit-runway", side: "left", expedite: true}}});
+    assert.equal(instructed.error, undefined); state = instructed.state;
+    assert.equal(state.aircraft[0].arrivalExit!.instruction, "exit-runway");
+    for (let t = 0; t < 140; t += step) state = h.engine.advance(state, step);
+    assert.equal(state.conflicts![0].phase, "active");
+    const a = state.aircraft[0], lateral = (a.position.x - g.threshold.x) * g.vector.y - (a.position.y - g.threshold.y) * g.vector.x;
+    const pair = airportRunways(h.airport).find(p => p.ends.some(e => e.id === "31R"))!;
+    assert.ok(Math.abs(lateral) < (pair.widthFeet ?? 150) / (2 * 6076), "leader stays inside runway edges");
+    assert.equal(a.arrivalExit!.instruction, "exit-runway");
+    state = h.engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    let completed = structuredClone(state);
+    Object.assign(completed.aircraft[1], {position: {x: g.threshold.x - g.vector.x * .1, y: g.threshold.y - g.vector.y * .1}, altitude: h.airport.elevation + 49, leg: "final", mode: "pattern"});
+    completed = h.engine.advance(completed, step);
+    assert.equal(completed.conflicts![0].phase, "complete");
+    assert.equal(completed.aircraft[1].mode, "go-around");
+    for (let t = 0; t < 120; t += step) completed = h.engine.advance(completed, step);
+    assert.equal(runwayOccupied(h.airport, "31R", completed.aircraft, "follower"), false, "assigned exit resumes after go-around");
+    state = h.engine.applyEnvelope(state, {id: "cancel", time: 3, action: {kind: "cancel-conflict", conflictId: "ga"}}).state;
+    for (let t = 0; t < 120; t += step) state = h.engine.advance(state, step);
+    assert.equal(runwayOccupied(h.airport, "31R", state.aircraft, "follower"), false, "assigned exit resumes after cancellation");
+  }
 });
 
 test("GA slows during rollout and keeps the runway occupied across wider final gaps", () => {
@@ -128,7 +135,7 @@ test("GA slows during rollout and keeps the runway occupied across wider final g
       }
       if (!wentAround && follower.mode === "go-around") {
         wentAround = true;
-        assert.ok(runwayOccupied(h.airport, "31R", [leader], follower.id), `${finalDistance} NM: leader cleared too soon`);
+        assert.ok(runwayOccupied(h.airport, "31R", [previous], follower.id), `${finalDistance} NM: leader cleared too soon`);
       }
       if (seconds > 10 && seconds <= 10 + step) state = h.engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
       if (leader.mode === "parked") break;
@@ -259,7 +266,7 @@ test("GA conflict respects exact height/threshold boundaries and a leader alread
     prepareConflicts(h.state, h.airport, {geometry: h.engine.runwayGeometry, distance: a => Math.max(0, -h.along(a)), lineupError: () => undefined,
       instruct: a => {a.mode = "go-around"; a.leg = "upwind";}});
     assert.equal(h.follower.mode === "go-around", expected);
-    assert.equal(h.leader.conflictMotion?.holdRunway, undefined);
+    assert.equal(h.leader.conflictMotion?.holdRunway, clear || expected ? undefined : true);
   }
 });
 

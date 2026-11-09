@@ -11,6 +11,9 @@ COPY . .
 COPY --from=sweatbox-engine . ./src/simulator/
 RUN --mount=type=cache,id=atcmh-next-linux-amd64,target=/app/.next/cache,sharing=locked npm run build
 RUN node src/simulator/build-maintenance.mjs
+# This Alpine image uses musl; Next.js also traces the incompatible glibc builds.
+RUN rm -rf /app/.next/standalone/node_modules/@img/sharp-linux-x64 \
+    /app/.next/standalone/node_modules/@img/sharp-libvips-linux-x64
 
 FROM node:24-alpine AS runner
 WORKDIR /app

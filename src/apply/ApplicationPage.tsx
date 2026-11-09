@@ -62,6 +62,19 @@ export default function ApplicationPage() {
         return () => { current = false; };
     }, [applicationType, hasDiscord, hasIfc, session]);
 
+    useEffect(() => {
+        if (!applicationType || application?.status !== "SUBMITTING") return;
+        let cancelled = false;
+        const timer = window.setTimeout(() => {
+            void ApiUtils.getCurrentApplication(applicationType).then(next => {
+                if (!cancelled) setApplication(next);
+            }).catch(() => {
+                if (!cancelled) setRequestError("We could not check your application status. Refresh this page or contact a Moderator.");
+            });
+        }, 3000);
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [applicationType, application]);
+
     const visibleQuestions = useMemo(
         () => questions ? visibleApplicationQuestions(questions, answers) : [],
         [answers, questions],
@@ -150,7 +163,7 @@ export default function ApplicationPage() {
         const activeType = applicationTypes.find(option => option.value === application.applicationType);
         const title = application.status === "DIFFERENT_APPLICATION_IN_PROGRESS" && activeType
             ? `${activeType.label} application already in progress` : copy.title;
-        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{title}</h1><p>{copy.detail}</p>{application.superAdminBypassActive === true ? <AdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
+        return <main className={styles.page}><section className={styles.stateCard}><p className={styles.eyebrow}>{selectedType.label}</p><h1>{title}</h1><p>{copy.detail}</p>{requestError ? <p className={styles.error} role="alert">{requestError}</p> : null}{application.superAdminBypassActive === true ? <AdminBypassNotice/> : null}<a className={styles.primary} href={discordUrl}>Open Discord</a></section></main>;
     }
     if (requestError && (!questions || !application)) return <State title="Application unavailable" detail="We could not load your application." error={requestError}/>;
     if (!questions || !application) return <State title="Loading your application" detail="Checking eligibility and restoring any saved answers." loading/>;

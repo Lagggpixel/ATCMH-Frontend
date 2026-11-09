@@ -22,7 +22,7 @@ function harness(scope: "all" | "ground" | "tower" = "all") {
   const close = player.start(output);
   let exercise = withFixedReadbackDelay(initialExercise());
   player.observe(exercise, true, scope);
-  const enable = () => {player.setEnabled(true); played.at(-1)!.end(); played.length = 0;};
+  const enable = () => {player.setEnabled(true); played.length = 0;};
   const observe = (messages: Message[], connected = true, nextScope = scope) => {exercise = {...exercise, revision: exercise.revision + 1, messages}; player.observe(exercise, connected, nextScope);};
   return {player, played, enable, observe, close, output, voiceChange: () => voiceListener(), cancelled: () => cancelled};
 }
@@ -72,11 +72,11 @@ test("opening a session never prepares ATIS; published broadcasts are generated 
   close(); h.close();
   for (const muted of [true, false]) {
     const another = new RadioAudio(), cleanup = another.start(h.output, {read: () => !muted, write() {}});
-    another.observe(exercise, true, "tower", !muted); assert.equal(prepared.length, 0); cleanup();
+    another.observe(exercise, true, "tower"); assert.equal(prepared.length, 0); cleanup();
   }
 });
 
-test("reviewed drafts debounce without transmitting, and cancel on replacement, mute or pause", t => {
+test("reviewed drafts debounce without transmitting and cancel on replacement or mute", t => {
   t.mock.timers.enable({apis: ["setTimeout"]});
   const h = harness(), drafts: string[] = [];
   h.output.prepareDraft = text => {drafts.push(text);};
@@ -85,8 +85,6 @@ test("reviewed drafts debounce without transmitting, and cancel on replacement, 
   h.player.prepareDraft("Fly heading 90"); t.mock.timers.tick(999); assert.equal(drafts.length, 0);
   t.mock.timers.tick(1); assert.deepEqual(drafts, ["Fly heading zero nine zero"]); assert.equal(h.played.length, 0);
   h.player.prepareDraft("muted draft"); h.player.setEnabled(false); t.mock.timers.tick(1000); assert.equal(drafts.length, 1);
-  h.enable(); h.player.prepareDraft("paused draft"); h.player.observe(withFixedReadbackDelay(initialExercise()), true, "all", true);
-  t.mock.timers.tick(1000); assert.equal(drafts.length, 1); assert.equal(h.played.length, 0);
   h.close(); t.mock.timers.reset();
 });
 test("oversized drafts and outputs without speculative support do not schedule preparation", t => {
@@ -153,14 +151,22 @@ test("a speculative readback cannot play when the authoritative reply is unable"
   h.player.observe(state, true, "all"); h.played[0].end();
   assert.match(h.played[1].text, /^Unable/); assert.notEqual(h.played[1].text, prepared[0]); h.close();
 });
-test("muted history stays silent but an unseen readback arriving during reconnect is retained", () => {
-  const h = harness(); h.player.setEnabled(false); h.observe([message("old")]); h.enable();
-  h.observe([message("old")]); assert.equal(h.played.length, 0);
-  h.observe([message("old")], false); h.observe([message("old"), message("while-offline")], true);
+test("muted commands never prepare or play, including history delivered after re-enabling", () => {
+  const h = harness(), prepared: string[] = [];
+  h.output.prepare = text => prepared.push(text);
+  h.player.setEnabled(false);
+  const old = [message("muted-one"), message("muted-two")];
+  h.observe(old); h.player.say("Muted voice test");
+  assert.deepEqual(prepared, []); assert.deepEqual(h.played, []);
+  h.observe(old, false); h.player.setEnabled(true);
+  assert.deepEqual(prepared, []); assert.deepEqual(h.played, []);
+  const backlog = [...old, message("delayed-muted")];
+  const fresh = {...message("first-after-enable"), time: h.player.getSnapshot().enabledSince + 1};
+  h.observe([...backlog, fresh], true);
+  assert.deepEqual(prepared, []);
   assert.equal(h.played.length, 1);
-  h.played[0].end();
-  h.observe([message("old"), message("while-offline"), message("new")]); assert.equal(h.played.length, 2);
-  h.close();
+  assert.match(h.played[0].text, /first-after-enable/);
+  h.played[0].end(); h.close();
 });
 
 test("explicit audio choice survives remounts without persisting online consent or playback failures", () => {
@@ -338,17 +344,22 @@ test("ILS and GPS display compactly while both current and historical messages s
   assert.equal(radioDisplayText("G-ABCD, visual approach. X-ray."), "G-ABCD, visual approach. X-ray.");
 });
 
-test("staff requests received behind the pause screen are queued and spoken once on resume", () => {
-  const h = harness("ground"); h.enable();
-  const state = {...withFixedReadbackDelay(initialExercise()), pausedByStaff: true};
-  h.player.observe(state, true, "ground", true);
-  const request = message("staff-request", "ground", "pilot");
-  const received = {...state, messages: [request]};
-  h.player.observe(received, true, "ground", true); h.player.observe(received, true, "ground", true);
-  assert.equal(h.played.length, 0);
-  h.player.observe({...received, pausedByStaff: false}, true, "ground", false);
-  assert.equal(h.played.length, 1); assert.match(h.played[0].text, /^Easy five seven one/);
-  h.played[0].end(); h.player.observe(received, true, "ground", false); assert.equal(h.played.length, 1); h.close();
+for (const visibility of ["visible", "hidden"] as const) test(`radio plays through a ${visibility} pause without replaying on resume`, () => {
+  const h = harness("ground");
+  const first = message("before-pause");
+  const state = {...initialExercise(), running: true, messages: [first]};
+  h.player.observe(state, true, "ground");
+  assert.equal(h.played.length, 1);
+  const paused = {...state, running: false, pausedByStaff: true, pauseVisibility: visibility};
+  h.player.observe(paused, true, "ground");
+  assert.equal(h.cancelled(), 0);
+  const received = {...paused, messages: [first, message("staff-request", "ground", "pilot")]};
+  h.player.observe(received, true, "ground");
+  h.played[0].end();
+  assert.equal(h.played.length, 2); assert.match(h.played[1].text, /staff-request/);
+  h.played[1].end();
+  h.player.observe({...received, running: true, pausedByStaff: false}, true, "ground");
+  assert.equal(h.played.length, 2); h.close();
 });
 
 test("airline callsigns and radio quantities keep their correct spoken formats", () => {
@@ -422,13 +433,13 @@ test("the browser receives explicit spoken callsigns for transmissions and manua
 
 test("split radio hears only its tuned channel and monitoring changes never replay backlog", () => {
   const h = harness("ground"), exercise = {...withFixedReadbackDelay(initialExercise()), positions: [{id: "initial", name: "Initial", service: "approach" as const, facilityId: "first", mhz: "118.47"}]};
-  h.player.observe(exercise, true, "approach", false, "initial");
+  h.player.observe(exercise, true, "approach", "initial");
   const wrong = {...message("other", "tower"), positionId: "final"}, right = {...message("own", "approach"), positionId: "initial"};
-  h.player.observe({...exercise, messages: [wrong, right]}, true, "approach", false, "initial");
+  h.player.observe({...exercise, messages: [wrong, right]}, true, "approach", "initial");
   assert.equal(h.played.length, 1); assert.match(h.played[0].text, /own/);
-  h.player.observe({...exercise, messages: [wrong, right]}, true, "all", false, "all");
+  h.player.observe({...exercise, messages: [wrong, right]}, true, "all", "all");
   assert.equal(h.played.length, 1, "switching monitoring cancels the old queue and baselines history");
-  h.player.observe({...exercise, messages: [wrong, right, message("new", "tower")]}, true, "all", false, "all");
+  h.player.observe({...exercise, messages: [wrong, right, message("new", "tower")]}, true, "all", "all");
   assert.equal(h.played.length, 2); assert.match(h.played[1].text, /new/); h.close();
 });
 

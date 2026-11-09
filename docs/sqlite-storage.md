@@ -1,5 +1,7 @@
 # Simulator SQLite storage
 
+On 2026-10-31, the migrated production simulator tables were removed from MariaDB after encrypted historical exports were checked. Those exports are stale relative to SQLite, and a full restore test has not been performed. The earlier cutover procedure below describes the migration at the time; do not assume its MariaDB source tables still exist or restore them blindly. See the root project `AGENTS.md` for recovery details.
+
 `SIMULATOR_SQLITE_PATH` selects the imported SQLite database for simulator sessions,
 replays and frames, scenarios and revisions, attempts, assignments, staff preferences,
 position feedback and owner interventions. Account authentication and email preferences

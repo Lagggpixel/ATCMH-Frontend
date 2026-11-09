@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approach Lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>Approach Lab</strong><span>Simulator flight path explorer</span></div></div>
+    <div class="header-note"><span class="live-dot"></span> LOCAL SIMULATION</div>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar" aria-label="Simulation settings">
+      <div class="intro"><h1>Set up an arrival</h1><p>Place an aircraft and see how it joins the runway.</p></div>
+      <form id="settings">
+        <div class="section-heading"><span>01</span><h2>Airport &amp; aircraft</h2></div>
+        <div class="field-grid">
+          <label>Airport<select id="airport" name="airport"></select></label>
+          <label>Runway<select id="runway" name="runway"></select></label>
+          <label class="full">Aircraft profile<select id="profile" name="profile"></select></label>
+        </div>
+        <div class="section-heading"><span>02</span><h2>Starting position</h2></div>
+        <p class="hint">Offsets are in nautical miles from the selected runway threshold. Click the map to place the aircraft.</p>
+        <div class="field-grid">
+          <label>East / west <span class="unit">NM</span><input id="east" name="east" type="number" min="-100" max="100" step="0.1" value="5" required></label>
+          <label>North / south <span class="unit">NM</span><input id="north" name="north" type="number" min="-100" max="100" step="0.1" value="4" required></label>
+          <label>Heading <span class="unit">° TRUE</span><input id="heading" name="heading" type="number" min="0" max="360" step="1" value="225" required></label>
+          <label>Initial airspeed <span class="unit">KT IAS</span><input id="speed" name="speed" type="number" min="40" max="600" step="1" value="163" required></label>
+          <label>Altitude <span class="unit">FT MSL</span><input id="altitude" name="altitude" type="number" min="1" max="60000" step="1" value="1500" required></label>
+          <label>Run for <span class="unit">MIN</span><select id="minutes" name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="40">40 minutes</option></select></label>
+        </div>
+        <div class="section-heading"><span>03</span><h2>Instruction</h2></div>
+        <div class="segmented" role="group" aria-label="Instruction">
+          <label><input type="radio" name="mode" value="visual" checked><span>Visual approach</span></label>
+          <label><input type="radio" name="mode" value="rv"><span>RV → Traffic</span></label>
+        </div>
+        <label id="tower-label" class="check"><input id="tower" type="checkbox" checked><span>Assume handoff to Tower after clearance</span></label>
+        <details class="weather"><summary>Wind settings <span id="wind-summary">Calm</span></summary>
+          <div class="field-grid"><label>Wind from <span class="unit">° TRUE</span><input id="windDirection" type="number" value="0" min="0" max="360" step="1"></label><label>Wind speed <span class="unit">KT</span><input id="windSpeed" type="number" value="0" min="0" max="100" step="1"></label></div>
+        </details>
+        <button class="run" id="run" type="submit"><span class="run-icon">▶</span> Run simulation <span class="key">↵</span></button>
+      </form>
+      <div class="sidebar-foot">Uses the local simulator engine and airport data.<br>No live session or production data is changed.</div>
+    </aside>
+    <section class="content" aria-label="Flight path">
+      <div class="content-top"><div><span class="eyebrow">FLIGHT PATH</span><h2 id="map-title">EGLL <span>/</span> 27L</h2></div><div class="map-actions"><span class="north">↑ <b>N</b></span><button id="zoom-out" type="button" aria-label="Zoom out">−</button><span id="zoom-label">20 NM</span><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="fit" type="button">Fit path</button></div></div>
+      <div id="map-wrap" class="map-wrap"><svg id="map" viewBox="0 0 1000 700" role="img" aria-label="Runway and simulated aircraft path. Click to place the aircraft."></svg><div class="map-overlay"><span class="legend-line"></span> Simulated path <span class="legend-runway"></span> Runway <span class="legend-dashed"></span> Extended centerline</div><div class="map-hint">CLICK MAP TO PLACE AIRCRAFT</div></div>
+      <div class="result" aria-live="polite"><div><span class="result-label">RESULT</span><div class="result-line"><span id="outcome-dot" class="result-dot"></span><strong id="outcome">Ready to simulate</strong><span id="result-time"></span></div><p id="reason">Choose an instruction and run the simulation.</p></div><div class="status-block"><span>SIMULATED FLIGHT</span><strong id="stage">—</strong></div></div>
+      <div class="playback"><button id="play" class="play-button" type="button" disabled aria-label="Play simulation">▶</button><span id="play-time" class="time">00:00</span><input id="timeline" type="range" min="0" max="0" value="0" step="1" disabled aria-label="Simulation timeline"><span id="duration" class="time muted">00:00</span><div class="telemetry"><span>ALT <b id="read-alt">—</b></span><span>IAS <b id="read-speed">—</b></span><span>HDG <b id="read-heading">—</b></span></div></div>
+      <div class="bottom"><div><h3>Flight events</h3><div id="events" class="events"><span class="empty">Events will appear after a run.</span></div></div><p class="disclaimer">A simulator forecast, not real-world flight guidance. The visual run assumes a Tower handoff when selected; RV runs are handed to Traffic / UNICOM.</p></div>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

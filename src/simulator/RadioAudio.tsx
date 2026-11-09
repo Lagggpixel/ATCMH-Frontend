@@ -18,7 +18,7 @@ import styles from "./Simulator.module.css";
 /** A controller position a trainer can choose to hear; "" hears every position. */
 export interface HearOption {id: string; name: string; mhz: string}
 
-export default function RadioAudio({exercise, connected, scope, accountId, role, csrf, player, channel, paused = false, hear}: {exercise: Exercise; connected: boolean; scope: Frequency | "all"; accountId: string; role: "staff" | "mentee"; csrf: string; player: RadioPlayer; channel?: string; paused?: boolean;
+export default function RadioAudio({exercise, connected, scope, accountId, role, csrf, player, channel, hear}: {exercise: Exercise; connected: boolean; scope: Frequency | "all"; accountId: string; role: "staff" | "mentee"; csrf: string; player: RadioPlayer; channel?: string;
   /** Trainers only: which position's radio to hear. Shown when the session has more than one position. */
   hear?: {options: HearOption[]; value: string; onChange: (positionId: string) => void}}) {
   const audio = useSyncExternalStore(player.subscribe, player.getSnapshot, player.getServerSnapshot);
@@ -39,7 +39,7 @@ export default function RadioAudio({exercise, connected, scope, accountId, role,
   }), browserSpeechOutput(), 3000), browserAudioPreference(accountId, role)), [player, accountId, role, csrf]);
   // Automatic retries must not rerender controlled settings inputs during their click events.
   useEffect(() => {if (!open) return browserAudioActivation(player.activate);}, [player, open]);
-  useEffect(() => {player.observe(exercise, connected, scope, paused, channel);}, [player, exercise, connected, scope, paused, channel]);
+  useEffect(() => {player.observe(exercise, connected, scope, channel);}, [player, exercise, connected, scope, channel]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {if (event.target instanceof Node && !root.current?.contains(event.target)) {setOpen(false); setPage("main");}};

@@ -235,7 +235,10 @@ export class ApiUtils {
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({applicationType, answers}),
         });
-        await ApiUtils.ensureOk(response);
+        if (!response.ok) {
+            const body = await response.json().catch(() => null) as {error?: string; errors?: Record<string, string>} | null;
+            throw new Error(body?.errors?.recruiterName || body?.error || "Your application could not be submitted. Please try again.");
+        }
         return ApiUtils.applicationState(await ApiUtils.parseJson(response));
     }
 

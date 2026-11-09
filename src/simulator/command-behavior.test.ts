@@ -93,9 +93,44 @@ for (const [side, heading, windDirection] of [[-1, 35, 90], [1, 325, 270]] as co
   assert.ok(Math.abs(next.aircraft[0].position.x) <= .2);
 });
 
+for (const [side, heading, windDirection] of [[-1, 45, 90], [1, 315, 270]] as const) {
+  for (const command of [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "ils-24", navigation: "filed"}] as Instruction[]) {
+    test(`${command.type}: captures a nearby leg from the ${side < 0 ? "left" : "right"} with wind`, () => {
+      const {s} = radar(), a = s.aircraft[0];
+      s.weather = {...EXERCISE_WEATHER, windDirection, windSpeed: 15}; const e = engineFor(s);
+      Object.assign(a, {position: {x: side * .03, y: 0}, heading, targetHeading: heading, speed: 180, targetSpeed: 180, flightPlan: [{x: 0, y: -10}, {x: 0, y: 30}, {x: 0, y: 45}]});
+      a.radar!.routeIndex = 1;
+      let next = assign(e, s, command);
+      assert.equal(next.aircraft[0].radar!.filedJoin?.turning, true);
+      assert.equal(next.aircraft[0].heading, heading);
+      for (let i = 0; i < 250 && next.aircraft[0].radar!.filedJoin; i++) next = tick(e, next, 1);
+      assert.equal(next.aircraft[0].radar!.filedJoin, undefined);
+      assert.equal(next.aircraft[0].radar!.routeIndex, 1);
+      assert.ok(Math.abs(next.aircraft[0].position.x) <= .15);
+      next = tick(e, next, 30);
+      assert.equal(next.aircraft[0].radar!.navigation, "route");
+    });
+  }
+}
+
+test("a nearby filed capture is accepted at the delayed pilot readback", () => {
+  for (const command of [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "ils-24", navigation: "filed"}] as Instruction[]) {
+    const {s} = radar(), a = s.aircraft[0]; s.weather = {...EXERCISE_WEATHER, windSpeed: 0}; s.autoReadback = true;
+    const e = engineFor(s);
+    Object.assign(a, {position: {x: -.03, y: 0}, heading: 20, targetHeading: 20, speed: 180, targetSpeed: 180, flightPlan: [{x: 0, y: -10}, {x: 0, y: 30}]});
+    a.radar!.routeIndex = 1;
+    const sent = e.applyEnvelope(s, {id: randomUUID(), time: 1, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Continue as filed", command}});
+    assert.equal(sent.error, undefined);
+    const after = e.autoReadbacks(tick(e, sent.state, 2), 3000, randomUUID);
+    assert.doesNotMatch(after.messages.at(-1)!.text, /^Unable/);
+    assert.equal(after.aircraft[0].radar!.navigation, "route");
+    assert.equal(after.aircraft[0].radar!.filedJoin?.turning, true);
+  }
+});
+
 test("continue as filed produces an unable readback when the route cannot be captured", () => {
   const commands: Instruction[] = [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "ils-24", navigation: "filed"}];
-  for (const command of commands) for (const [position, heading] of [[{x: -2, y: 0}, 90], [{x: -2, y: 0}, 315], [{x: 2, y: 0}, 45], [{x: -.03, y: 0}, 45], [{x: -2, y: 40}, 35]] as const) {
+  for (const command of commands) for (const [position, heading] of [[{x: -2, y: 0}, 90], [{x: -2, y: 0}, 315], [{x: 2, y: 0}, 45], [{x: -.03, y: 0}, 90], [{x: -.03, y: 29.8}, 45], [{x: -.03, y: -10.5}, 45], [{x: -2, y: 40}, 35]] as const) {
     const {e, s} = radar(), a = s.aircraft[0];
     Object.assign(a, {position, heading, targetHeading: heading, speed: 180, targetSpeed: 180, flightPlan: [{x: 0, y: -10}, {x: 0, y: 30}]});
     a.radar!.routeIndex = 1; s.autoReadback = true;

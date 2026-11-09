@@ -20,12 +20,12 @@ export interface SpeechOutput {
   onStatusChanged?(listener: (status: string) => void): () => void;
 }
 interface AudioState extends VoiceSettings {
-  available: boolean; enabled: boolean; voices: RadioVoice[]; speaking: string; error: string; status: string;
+  available: boolean; enabled: boolean; enabledSince: number; voices: RadioVoice[]; speaking: string; error: string; status: string;
   /** The browser blocked playback; the next interaction retries the queued transmission. */
   waiting: boolean;
 }
 export const DEFAULT_RADIO_RATE = 1;
-const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: "", waiting: false};
+const INITIAL_STATE: AudioState = {allowOnline: false, available: false, enabled: true, enabledSince: 0, voices: [], voice: "", rate: DEFAULT_RADIO_RATE, volume: 1, speaking: "", error: "", status: "", waiting: false};
 export interface AudioPreference {
   read(): boolean | undefined; write(enabled: boolean): void;
   readVoiceSettings?(): Pick<VoiceSettings, "voice" | "rate"> | undefined;
@@ -74,7 +74,6 @@ export class RadioAudio {
   private failureCount = 0;
   private callsigns: string[] = [];
   private generation = 0;
-  private paused = false;
   private waitingForRetry = false;
   private draftGeneration = 0;
   private draftTimer?: ReturnType<typeof setTimeout>;
@@ -87,8 +86,8 @@ export class RadioAudio {
   prepareDraft = (text: string) => {
     this.cancelDraft();
     const generation = this.draftGeneration;
-    if (this.output?.prepareDraft && text.trim() && text.length <= 200 && this.state.enabled && !this.paused) this.draftTimer = setTimeout(() => {
-      if (generation === this.draftGeneration && this.state.enabled && !this.paused)
+    if (this.output?.prepareDraft && text.trim() && text.length <= 200 && this.state.enabled) this.draftTimer = setTimeout(() => {
+      if (generation === this.draftGeneration && this.state.enabled)
         this.output?.prepareDraft?.(aviationSpeech(text, this.callsigns), this.state);
     }, 1000);
     return () => {if (generation === this.draftGeneration) this.cancelDraft();};
@@ -111,7 +110,7 @@ export class RadioAudio {
     refresh();
     return () => {unsubscribe?.(); unsubscribeStatus?.(); this.stop(); output?.dispose?.(); this.output = null; this.previous = null; this.seen.clear();};
   }
-  observe(exercise: Exercise, connected: boolean, scope: Frequency | "all", paused = false, channel?: string) {
+  observe(exercise: Exercise, connected: boolean, scope: Frequency | "all", channel?: string) {
     this.callsigns = exercise.aircraft.map(a => a.callsign);
     const previous = this.previous;
     const baseline = !previous || previous.channel !== channel || previous.id !== exercise.id || exercise.elapsed < previous.elapsed || (!exercise.messages.length && this.seen.size > 0);
@@ -122,22 +121,15 @@ export class RadioAudio {
       this.prepared = false; this.readbackCandidates.clear(); this.readbackSource = "";
       if (interrupted) this.queue.unshift(interrupted);
     }
-    if (paused && !this.paused && this.state.speaking) {
-      const interrupted = this.state.speaking;
-      this.generation++; this.output?.cancel(); this.update({speaking: ""});
-      this.prepared = false; this.readbackCandidates.clear(); this.readbackSource = "";
-      this.queue.unshift(interrupted);
-    }
-    if (paused) this.cancelDraft();
-    this.paused = paused;
-    const fresh = baseline || !connected ? [] : exercise.messages.filter(m => !this.seen.has(m.id) && (!exercise.positions?.length || scope === "all" || m.frequency === scope));
-    if (baseline || connected) this.seen = new Set(exercise.messages.map(m => m.id));
+    const fresh = baseline || !connected || !this.state.enabled ? [] : exercise.messages.filter(m =>
+      m.time >= this.state.enabledSince && !this.seen.has(m.id) && (!exercise.positions?.length || scope === "all" || m.frequency === scope));
+    if (baseline || connected || !this.state.enabled) this.seen = new Set(exercise.messages.map(m => m.id));
     this.previous = {id: exercise.id, connected, elapsed: exercise.elapsed, atis: exercise.publishedAtis, channel};
     if (this.state.enabled && connected) {
       for (const message of fresh) this.queue.push(radioMessageText(message, this.callsigns));
       if (!baseline && previous.atis !== exercise.publishedAtis && exercise.publishedAtis !== "ATIS UNAVAILABLE") this.queue.push(aviationSpeech(exercise.publishedAtis));
       this.next();
-      if (this.output?.prepareReadback && !paused && exercise.running && (exercise.autoReadback || exercise.aircraft.some(a => a.automatic))) {
+      if (this.output?.prepareReadback && exercise.running && (exercise.autoReadback || exercise.aircraft.some(a => a.automatic))) {
         const source = JSON.stringify([scope, Boolean(exercise.positions?.length),
           exercise.aircraft.map(a => [a.id, a.callsign, a.frequency]),
           exercise.messages.map(m => [m.id, m.commandId, m.retractedBy, m.acknowledged, m.autoReadbackAt, m.instruction, m.text, m.frequency])]);
@@ -146,7 +138,7 @@ export class RadioAudio {
         const candidates = new Set<string>();
         for (const aircraft of exercise.aircraft) {
           const command = pendingCommands(exercise, aircraft.id).at(-1);
-          if (!command?.instruction || command.autoReadbackAt === undefined || (scope !== "all" && command.frequency !== scope)) continue;
+          if (!command?.instruction || command.time < this.state.enabledSince || command.autoReadbackAt === undefined || (scope !== "all" && command.frequency !== scope)) continue;
           const text = aviationSpeech(pilotReadback(aircraft.callsign, command.text, command.instruction), this.callsigns);
           candidates.add(text);
           if (!this.readbackCandidates.has(text)) {this.prepared = true; this.output?.prepareReadback?.(text, this.state);}
@@ -156,12 +148,13 @@ export class RadioAudio {
     }
   }
   setEnabled(enabled: boolean) {
+    const wasEnabled = this.state.enabled;
     this.stop();
     if (enabled) this.output?.activate?.();
     this.preference?.write(enabled);
-    this.update({enabled: enabled && this.state.available, error: ""});
-    // Speak directly from the click gesture to unlock browser audio playback.
-    if (this.state.enabled) this.say("Radio audio enabled.");
+    // Skip older transmissions even if their server frame arrives after enabling.
+    const enabledSince = enabled && !wasEnabled ? Date.now() : this.state.enabledSince;
+    this.update({enabled: enabled && this.state.available, enabledSince, error: ""});
   }
   /** Retry blocked autoplay from the next simulator interaction, without changing
    * the user's saved audio choice or requiring an off/on toggle. */
@@ -193,7 +186,7 @@ export class RadioAudio {
     if (this.state.speaking) this.update({speaking: ""});
   }
   private next() {
-    if (!this.output || !this.state.enabled || this.previous?.connected === false || this.paused || this.waitingForRetry || !this.queue.length) return;
+    if (!this.output || !this.state.enabled || this.previous?.connected === false || this.waitingForRetry || !this.queue.length) return;
     // Generate all queued transmissions independently while preserving playback order.
     if (this.state.speaking || this.gapTimer) {
       for (const text of this.queue) {this.prepared = true; this.output.prepare?.(text, this.state);}

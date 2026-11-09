@@ -256,6 +256,7 @@ for (const mode of ["approach", "center"] as const) for (const excess of [1, 250
   const glide = airport.elevation + 50 + 8 * 6076.12 * Math.tan(p.glideAngle * Math.PI / 180);
   const initialAltitude = original.altitude = glide + excess;
   const state = clear(initial, "visual"), a = state.aircraft[0], environment = state.radarEnvironment!;
+  assert.equal(a.radar!.approachIntercept?.visualRecovery, undefined);
   for (let t = 0; t < 60; t += .05) moveRadar(a, .05, airport, environment, [], true);
   assert.equal(a.radar!.navigation, "approach"); assert.equal(a.radar!.cleared, p.id);
   assert.equal(a.radar!.clearanceAltitudeChecked, true); assert.equal(a.radar!.captured, true);
