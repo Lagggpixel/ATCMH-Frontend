@@ -6,12 +6,12 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {getAirport} from "./airports";
 import {initialExercise} from "./engine";
 import type {DemoState} from "./demonstration";
-import {latestShadowState, readTraineeControls, traineeControlsKey, traineeFocus, traineeShortcut, writeTraineeControls} from "./trainee-overlay";
+import {latestShadowState, readTraineeControls, traineeControlsKey, traineeFocus, traineePath, traineeShortcut, traineeStep, writeTraineeControls} from "./trainee-overlay";
 
 // Components import CSS modules; class names are not under test.
 const require = createRequire(import.meta.url);
 require.extensions[".css"] = module => {module.exports = {};};
-const {TraineeControlsSwitch, TraineeMessages, TraineeScopeLayer} = require("./TraineeOverlay") as typeof import("./TraineeOverlay");
+const {TraineeControlsSwitch, TraineeMessages, TraineeScopeLayer, traineePeek} = require("./TraineeOverlay") as typeof import("./TraineeOverlay");
 
 const state = (extra: Partial<DemoState> = {}): DemoState => ({
   frequency: "approach", selectedId: null, messageId: null, menuPath: [], dismissedStrips: {},
@@ -60,12 +60,45 @@ test("the staff radar draws the trainee's ring, vector and open messages in blue
   assert.match(layer, new RegExp(`Alex has ${aircraft.callsign} selected`));
   assert.match(layer, /Alex is vectoring/);
   assert.match(layer, /stroke="#499cff"/);
-  assert.match(layer, /\d{3}° \d{3}NM/);
+  assert.match(layer, /Vector \d{3}° · \d+NM/, "the caption gives the heading in place of a details box");
+  assert.doesNotMatch(layer, /aria-expanded/, "a drag has nothing to peek at");
   assert.equal(renderToStaticMarkup(React.createElement(TraineeMessages, {name: "Alex", state: state({selectedId: aircraft.id}), exercise})), "", "no list until the trainee opens messages");
   const messages = renderToStaticMarkup(React.createElement(TraineeMessages, {name: "Alex", state: state({messageId: aircraft.id}), exercise}));
   assert.match(messages, new RegExp(`Alex&#x27;s open messages`));
   assert.match(messages, /<li/);
   assert.doesNotMatch(messages, /<button/, "the staff copy cannot send");
+});
+
+test("the caption names the step the trainee is on, in one short line", () => {
+  assert.equal(traineeStep(null), null);
+  assert.equal(traineeStep(state({selectedId: "a1", quickHidden: true})), null, "selected with no menu open: just their name");
+  assert.equal(traineeStep(state({selectedId: "a1"})), "Menu open");
+  assert.equal(traineeStep(state({selectedId: "a1", quickPicker: "altitude"})), "Assign Altitude");
+  assert.equal(traineeStep(state({selectedId: "a1", quickPicker: "altitude", vectorHeading: 270})), "Assign Altitude · 270°");
+  assert.equal(traineeStep(state({selectedId: "a1", vectorHeading: 0})), "Vector 360°");
+  assert.equal(traineeStep(state({selectedId: "a1", quickPicker: "direct-altitude", vectorTarget: {index: 2, name: "LAM", point: {x: 0, y: 0}}})), "Direct To LAM + Altitude");
+  assert.equal(traineeStep(state({selectedId: "a1", messageId: "a1", menuPath: ["Request Hold", "Present Position"]})), "Request Hold › Present Position");
+  assert.equal(traineeStep(state({messageId: "a1"})), "Other Message");
+  assert.equal(traineePath(["Approach", "Expect", "ILS 27R"]), "… › Expect › ILS 27R", "long paths keep the last two steps");
+  assert.equal(traineeStep(state({selectedId: "a1", ground: {aircraftId: "a1", kind: "pushback", controls: [], destination: {type: "point"}, holds: {}}})), "Pushback draft");
+  assert.equal(traineeStep(state({selectedId: "a1", vectorDraft: {aircraftId: "a1", point: {x: 0, y: 0}, initial: true}})), "Vector");
+});
+
+test("the trainee's menus are not copied onto the radar; the caption peeks at them on request", () => {
+  const exercise = initialExercise(), aircraft = exercise.aircraft[0];
+  const project = (p: {x: number; y: number}) => ({x: 400 + p.x * 20, y: 300 - p.y * 20});
+  const view = state({selectedId: aircraft.id, quickPicker: "altitude"});
+  const menu = () => React.createElement("div", null, "copied menu");
+  const trainee = {name: "Sam", state: view, follow: false, menu};
+  const peek = traineePeek(trainee, exercise.aircraft);
+  assert.ok(peek, "the open menu is available to peek at");
+  const layer = renderToStaticMarkup(React.createElement(TraineeScopeLayer, {state: view, name: "Sam", aircraft: exercise.aircraft, airport: getAirport(exercise), project, scale: 20, size: {width: 800, height: 600}, peek}));
+  assert.match(layer, />Sam<\/strong><span>Assign Altitude<\/span>/);
+  assert.match(layer, /aria-expanded="false"/);
+  assert.doesNotMatch(layer, /copied menu/, "closed until hovered or tapped");
+  assert.equal(traineePeek({...trainee, state: state({selectedId: aircraft.id, quickHidden: true})}, exercise.aircraft), null);
+  const messages = React.createElement("p", null, "list");
+  assert.equal(traineePeek({...trainee, state: state({messageId: aircraft.id}), messages}, exercise.aircraft), messages);
 });
 
 test("the trainee control is one pill: controls and Follow, with a picker only when there are several trainees", () => {
