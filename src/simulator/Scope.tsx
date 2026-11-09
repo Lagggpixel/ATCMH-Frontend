@@ -5,7 +5,7 @@ import GroundRouteOverlay, {GroundHoldLabels} from "./GroundRouteOverlay";
 import GroundRouteEditor, {useGroundRoute, type GroundRouteMode, type SendGroundClearance, type PlanGroundTaxi} from "./GroundRouteEditor";
 import {buildGroundRoute, canRouteGround, destinationAt, groundPointKey, groundRouteKind, hitGroundRoute, snapGroundControl} from "./ground-route";
 import {followedCamera, type DemoGroundDraft, type DemoState} from "./demonstration";
-import {TraineeFollowFrame, TraineeMenu, TraineeScopeLayer, type TraineeScopeView} from "./TraineeOverlay";
+import {TraineeFollowFrame, TraineeScopeLayer, traineePeek, type TraineeScopeView} from "./TraineeOverlay";
 import {planParkingRoute} from "./taxi-routing";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
@@ -292,7 +292,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     const bounds = node.getBoundingClientRect(); measure(bounds.width, bounds.height);
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     resize.observe(node);
-    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
+    const blocked = (event: Event) => event.target instanceof Element && !!event.target.closest(`.${styles.contextAnchor}, .${styles.traineeCaption}, .${styles.optionsMenu}, [data-airport-panel], .${styles.scopeButtons}, .${styles.groundRouteEditor}`);
     const manipulatingAircraft = () => !!(vectorDrag.current || groundDrag.current || tagDrag.current || gateDrag.current);
     let gestureScale: number | null = null;
     const wheel = (event: WheelEvent) => {
@@ -522,7 +522,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
     if (!touches.current.delete(event.pointerId) || !offSurface(event)) return;
     if (event.type === "pointercancel") navigationCamera.cancel(event.pointerId); else navigationCamera.up(event.pointerId);
   };
-  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();} pinchTouch(event);}}
+  return <div data-simulator-tour="radar" className={styles.scope} ref={container} tabIndex={-1} onDragStart={event => {if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[contenteditable="true"]')) event.preventDefault();}} aria-label={`${AIRPORT.icao} radar scope`} onContextMenu={event => {if (!onScopeContextMenu || (event.target as HTMLElement).closest("button,input,select,a,[data-airport-panel]")) return; event.preventDefault(); const point = vectorPoint(event), originIcao = nearestDepartureAirport(airportCandidates, departureAirports(AIRPORT, mapLayers.data), point, project); onScopeContextMenu({point, screen: {x: event.clientX, y: event.clientY}, originIcao});}} onPointerDownCapture={event => {if (event.target instanceof Element && event.target.closest(`.${styles.traineeCaption}`)) return; navigationCamera.stop(); if (!event.isPrimary) {cancelVector(); cancelTag(); cancelGate(); cancelGroundDrag();} pinchTouch(event);}}
     onPointerMoveCapture={followTouch} onPointerUpCapture={releaseTouch} onPointerCancelCapture={releaseTouch}>
     <div className={styles.mapSurface} onPointerDown={event => {
       if (event.button !== 0 || vectorDrag.current) return;
@@ -728,10 +728,8 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       <svg width="22" height="28" viewBox="0 0 22 28"><path d="M2 2 L2 22 L7.5 17 L11 25 L14.5 23.5 L11 15.8 L18.5 15.5 Z"/></svg>
       <span>Mentor</span>
     </div> : null}
-    {trainee?.state ? <TraineeScopeLayer state={trainee.state} name={trainee.name} aircraft={aircraft} airport={airport} environment={radarEnvironment} project={project} scale={camera.scale} size={size}/> : null}
-    {trainee?.state && trainee.menu ? <TraineeMenu state={trainee.state} name={trainee.name} aircraft={aircraft} scope={container} project={project} menu={trainee.menu}/> : null}
+    {trainee?.state ? <TraineeScopeLayer state={trainee.state} name={trainee.name} aircraft={aircraft} airport={airport} environment={radarEnvironment} project={project} scale={camera.scale} size={size} peek={traineePeek(trainee, aircraft)}/> : null}
     {followingTrainee ? <TraineeFollowFrame name={trainee?.name} onStop={trainee?.onStopFollow}/> : null}
-    {trainee?.messages ? <div className={styles.traineeMessagesSlot}>{trainee.messages}</div> : null}
     {overlay}
     {notices}
     {staffAlerts ? <SeparationPanel accountId={accountId} incidents={currentIncidents(separation, terrainAlerts, callsignOf)} elapsed={elapsed} selected={selected} onSelect={id => onSelect(id)} onHover={setHoveredIncident}/> : null}

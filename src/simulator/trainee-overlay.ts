@@ -1,4 +1,4 @@
-import {DEMO_SENT_VISIBLE_MS, type DemoBatch, type DemoGroundDraft, type DemoState} from "./demonstration";
+import {DEMO_SENT_VISIBLE_MS, type DemoBatch, type DemoGroundDraft, type DemoState, type QuickPicker} from "./demonstration";
 import type {ReplayParticipant, ReplayTraineeMark} from "./replays";
 import {buildGroundRoute, groundPointKey} from "./ground-route";
 import type {Airport, GroundRoute} from "./model";
@@ -40,8 +40,8 @@ export function latestShadowState(current: DemoState | null, frame: DemoFrame): 
   return frame.state ?? current;
 }
 
-/** The aircraft the trainee is working: the one whose messages are open, otherwise the one selected. */
-export const traineeFocus = (state: TraineeView | null) => state ? state.messageId ?? state.selectedId : null;
+/** An active drag can belong to a different aircraft from the previous selection. */
+export const traineeFocus = (state: TraineeView | null) => state ? state.vectorDraft?.aircraftId ?? state.ground?.aircraftId ?? state.messageId ?? state.selectedId : null;
 
 /** The trainee's taxi or pushback drag, rebuilt from its control points like the trainee's own preview. */
 export function traineeGroundRoute(airport: Airport, ground: DemoGroundDraft | null): GroundRoute | undefined {
@@ -65,6 +65,31 @@ export const traineeView = (state: TraineeView): TraineeView => ({frequency: sta
 
 /** The aircraft whose popup menu the trainee has open: selected, not dismissed, and not replaced by the message list. */
 export const traineeMenuAircraft = (state: TraineeView | null) => state && state.selectedId && !state.messageId && !state.quickHidden && !state.vectorDraft ? state.selectedId : null;
+
+const PICKER_STEPS: Record<QuickPicker, string> = {altitude: "Assign Altitude", approach: "Clear for Approach", missed: "Missed Approach", reminder: "Set Reminder", color: "Set Color", "direct-altitude": "Direct To + Altitude"};
+const degrees = (heading: number) => `${String(Math.round(heading) || 360).padStart(3, "0")}\u00b0`;
+
+/** A message path short enough for one line: the last two steps, with the rest folded. */
+export const traineePath = (labels: readonly string[]) => labels.length > 2 ? ["\u2026", ...labels.slice(-2)].join(" \u203a ") : labels.length ? labels.join(" \u203a ") : "Other Message";
+
+/** What the trainee is doing right now, in a few words for the caption under their ring; null when nothing is open. */
+export function traineeStep(state: TraineeView | null, vector?: {heading: number; nm: number; target?: string} | null): string | null {
+  if (!state) return null;
+  if (state.vectorDraft) {
+    if (state.vectorDraft.initial) return "Vector";
+    if (!vector) return "Cancel";
+    return vector.target ? `Direct To ${vector.target}` : `Vector ${degrees(vector.heading)} \u00b7 ${Math.floor(vector.nm)}NM`;
+  }
+  if (state.ground) return state.ground.kind === "pushback" ? "Pushback draft" : "Taxi route draft";
+  if (state.messageId) return traineePath(state.menuPath);
+  if (!traineeMenuAircraft(state)) return null;
+  const picker = state.quickPicker;
+  if (picker === "direct-altitude" && state.vectorTarget) return `Direct To ${state.vectorTarget.name} + Altitude`;
+  const heading = state.vectorHeading !== undefined ? degrees(state.vectorHeading) : null;
+  if (picker) return heading && picker !== "reminder" && picker !== "color" ? `${PICKER_STEPS[picker]} \u00b7 ${heading}` : PICKER_STEPS[picker];
+  if (state.vectorTarget) return `Direct To ${state.vectorTarget.name}`;
+  return heading ? `Vector ${heading}` : "Menu open";
+}
 
 /** Turns one position's shadow trace into replay marks on the replay clock: each change of state, at
  * most one per fixed tenth of a second, and every sent command. Each mark keeps the account that produced

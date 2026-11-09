@@ -8,6 +8,9 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  * layout changes. Say mentor/mentee, and trim radar-only sentences. Add to the London calendar day it shipped.
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
+  {date: "2026-11-09", updates: [
+    {title: "Quieter view of your mentee's menus", description: "Your mentee's open menus and message lists no longer cover the map. A short line under their blue ring now says what they're doing, such as Taxi route draft or Takeoff › Cleared for Takeoff. Hover over or tap that line to see their list, view only. Replays show the same line."},
+  ]},
   {date: "2026-11-08", updates: [
     {title: "Choose pilot readback timing", description: "Session now has a Readback delay slider below Automatic pilot actions. Move its two handles from 0 to 10 seconds in 0.1-second steps; changes save automatically, and Reset restores the default random 2.0–2.5 second wait. Pilots follow valid instructions as they read them back. A newer instruction replaces any unread instruction for that aircraft."},
   ]},

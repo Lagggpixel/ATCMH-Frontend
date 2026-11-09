@@ -1126,16 +1126,29 @@
 /* Keep incident controls accessible when the conflict panel is open. */
 .scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}
 /* Trainee controls: the trainee's own selection, drags and open messages on a staff radar. Read-only. */
-.traineeRing {position:absolute;width:46px;height:46px;border:2px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:0 0 0 1px #06121f}
-.traineeRing span {position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font-size:11px;font-weight:600;white-space:nowrap}
+.traineeRing {position:absolute;box-sizing:border-box;border:3px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:inset 0 0 0 1px #06121f}
 .traineeVector {z-index:5}
-.traineeMessagesSlot {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 15px);bottom:26px;max-width:min(300px,40%);max-height:55%;display:flex;pointer-events:none;z-index:5}
-.traineeMessages {display:flex;flex-direction:column;min-width:200px;overflow:hidden;border:2px solid #499cff;border-radius:6px;background:#0b1622ee;color:#e8edf2;font-size:13px}
-.traineeMessages header {display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:#499cff;color:#06121f}
-.traineeMessages header small {font-weight:600}
-.traineeMenuPath {margin:0;padding:6px 10px 0;color:#9bcaff;font-size:12px}
-.traineeMessages ul {margin:0;padding:6px 0;list-style:none;overflow:hidden}
-.traineeMessages li {padding:3px 10px}
+.traineeMessages {display:flex;flex-direction:column;color:#e8edf2;font-size:12px}
+.traineeMessages ul {margin:0;padding:4px 0;list-style:none}
+.traineeMessages li {padding:3px 10px;overflow-wrap:anywhere}
+/* The trainee's caption: who, and the step they are on, one line under their ring. Hover or tap peeks at the list. */
+.traineeCaption {position:absolute;z-index:6;display:flex;flex-direction:column;align-items:flex-start;pointer-events:none}
+.traineeCaption[data-align-right=true] {align-items:flex-end}
+.traineeCaption[data-above=true] {flex-direction:column-reverse;transform:translateY(-100%)}
+.traineeCaption>button,.simulator .traineeCaption>button,.traineeCaptionStatic {display:inline-flex;align-items:stretch;box-sizing:border-box;max-width:100%;height:18px;margin:0;padding:0;border:1px solid #499cff;border-radius:9px;overflow:hidden;background:#0b1622d9;color:#cfe4ff;font:500 11px/16px system-ui,sans-serif;white-space:nowrap}
+.traineeCaption>button,.simulator .traineeCaption>button {pointer-events:auto;cursor:pointer}
+.traineeCaption>button:hover,.simulator .traineeCaption>button:hover,.traineeCaption>button[aria-expanded=true] {background:#132a44}
+.traineeCaption>button:focus-visible,.simulator .traineeCaption>button:focus-visible {outline:2px solid #cfe4ff;outline-offset:2px}
+.traineeCaption>button>strong,.traineeCaptionStatic>strong {max-width:100%;padding:0 7px;overflow:hidden;text-overflow:ellipsis;background:#499cff;color:#06121f;font-weight:600}
+.traineeCaption>button>strong:has(+span),.traineeCaptionStatic>strong:has(+span) {max-width:50%}
+.traineeCaption>button>span,.traineeCaptionStatic>span {min-width:0;padding:0 8px 0 7px;overflow:hidden;text-overflow:ellipsis}
+.traineePeekBridge {width:min(240px,100%);padding-top:4px;pointer-events:auto}
+.traineeCaption[data-above=true] .traineePeekBridge {padding:0 0 4px}
+.traineePeek {box-sizing:border-box;overflow:auto;overscroll-behavior:contain;border:1px solid #499cff;border-radius:6px;background:#0b1622f2;box-shadow:0 6px 20px #0008}
+.traineePeek>fieldset {min-inline-size:0;margin:0;padding:0;border:0}
+.traineePeek .aircraftMenu {min-width:0;max-height:none;overflow:visible;padding:2px 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.traineePeek .aircraftMenu button,.simulator .traineePeek .aircraftMenu button {height:auto;min-height:0;padding:4px 10px;font-size:12px}
+.traineePeek .altitudeChoices {max-height:none;overflow:visible}
 
 /* Trainee controls pill: one fixed-width control, so toggling never moves the bar. */
 .traineeControls {position:relative;display:inline-flex;align-items:stretch;height:32px;flex-shrink:0;border:1px solid var(--dashboard-border,#3a4854);border-radius:16px;overflow:visible;font-size:13px;white-space:nowrap}
@@ -1163,11 +1176,6 @@
 .traineeFollowChip {position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:26;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);padding:5px 6px 5px 12px;border-radius:16px;background:#499cff;color:#06121f;font-size:12px;font-weight:600;white-space:nowrap}
 .traineeFollowChip>span {overflow:hidden;text-overflow:ellipsis}
 .traineeFollowChip button {flex-shrink:0;padding:3px 10px;border:0;border-radius:12px;background:#06121f;color:#cfe4ff;font-size:12px;cursor:pointer}
-
-/* The trainee's own aircraft menu and vector box, copied read-only with a blue outline. */
-.traineeMenu {outline:2px solid #499cff;outline-offset:2px;border-radius:2px;pointer-events:none;z-index:8}
-.traineeMenuTag {position:absolute;left:0;bottom:calc(100% + 6px);padding:1px 7px;border-radius:9px;background:#499cff;color:#06121f;font:600 11px/1.5 system-ui,sans-serif;white-space:nowrap}
-.traineeVectorBox {outline:2px solid #499cff;outline-offset:0;z-index:6}
 
 /* Trainer notices: top right, newest first. Seat notices stay until closed; rewinds fade. */
 .radarNotices {position:absolute;top:12px;right:12px;z-index:27;display:flex;flex-direction:column;gap:8px;width:min(340px,calc(100% - 24px));pointer-events:none}
