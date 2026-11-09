@@ -7,6 +7,7 @@ import {approachGeometry, assignRadar, moveRadar, visualClearanceUnable} from ".
 import {EXERCISE_WEATHER} from "./model";
 import {exerciseSchema} from "./protocol";
 import {advancePerformance} from "./aircraft-performance";
+import {withFixedReadbackDelay} from "./test-exercise";
 
 for (const side of [-1, 1]) for (const along of [4, 5, 7]) for (const lateral of [3, 4, 5]) {
   test(`EGLL 27L visual diagonal ${along}/${side * lateral} joins and lands`, () => {
@@ -37,7 +38,7 @@ for (const height of [500, 4000]) test(`a close visual clearance at ${height}ft 
   assignRadar(a, {type: "expect-approach", approachId: p.id}, airport, env);
   assert.equal(visualClearanceUnable(a, {type: "vector", approachId: p.id}, airport, env, weather), null);
   state.running = true; state.autoReadback = true;
-  const sent = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
+  const sent = applyEnvelope(withFixedReadbackDelay(state, 2), {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
   assert.equal(sent.error, undefined);
   let reply = autoReadbacks(advance(sent.state, 2), 3000, randomUUID);
   assert.doesNotMatch(reply.messages.at(-1)!.text, /^Unable/);
@@ -100,7 +101,7 @@ for (const side of [-1, 1]) for (const windDirection of [0, 90, 180, 270]) test(
     altitude: 1500, speed: 163, targetSpeed: 163, speedMode: "auto"});
   assignRadar(a, {type: "expect-approach", approachId: p.id}, airport, env);
   state.running = true; state.autoReadback = true;
-  const sent = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
+  const sent = applyEnvelope(withFixedReadbackDelay(state, 2), {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
   assert.equal(sent.error, undefined);
   state = autoReadbacks(advance(sent.state, 2), 3000, randomUUID);
   assert.doesNotMatch(state.messages.at(-1)!.text, /^Unable/);
@@ -126,7 +127,7 @@ for (const side of [-1, 1]) for (const speed of [180, 250]) test(`base visual at
     altitude: airport.elevation + 1000, speed, targetSpeed: speed});
   assignRadar(a, {type: "expect-approach", approachId: p.id}, airport, env);
   state.running = true; state.autoReadback = true;
-  const sent = applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
+  const sent = applyEnvelope(withFixedReadbackDelay(state, 2), {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Visual", command: {type: "vector", approachId: p.id}}});
   assert.equal(sent.error, undefined); state = autoReadbacks(advance(sent.state, 2), 3000, randomUUID);
   assert.doesNotMatch(state.messages.at(-1)!.text, /^Unable/);
   assert.equal(state.aircraft[0].radar!.cleared, p.id);

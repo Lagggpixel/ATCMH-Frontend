@@ -59,7 +59,10 @@ export function simulate(input: LabInput) {
   const text = input.mode === "visual" ? `TEST 1, cleared visual runway ${runway.id} approach` : "TEST 1, contact Traffic on 122.80";
   result = engine.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "command", aircraftId: a.id, frequency: "approach", text, command}});
   if (result.error) throw new Error(result.error);
-  state = engine.autoReadbacks(engine.advance(result.state, 2), 2000, randomUUID);
+  const readbackTime = result.state.messages.at(-1)?.autoReadbackAt;
+  if (readbackTime === undefined) throw new Error("The simulator did not schedule a pilot readback.");
+  const readbackTimestamp = Math.ceil(readbackTime * 1000);
+  state = engine.autoReadbacks(engine.advance(result.state, readbackTime - result.state.elapsed), readbackTimestamp, randomUUID);
   const messages = state.messages.map(message => ({text: message.text, reason: message.unableReason}));
   const reply = messages.find(message => /^Unable\b/i.test(message.text));
   const points: LabPoint[] = [];
@@ -79,13 +82,13 @@ export function simulate(input: LabInput) {
   sample(a, 0);
   let current = state.aircraft[0];
   if (!reply && input.mode === "visual" && input.tower) {
-    result = engine.applyEnvelope(state, {id: randomUUID(), time: 2, action: {kind: "maneuver", aircraftId: a.id, command: {type: "frequency", frequency: "tower"}}});
+    result = engine.applyEnvelope(state, {id: randomUUID(), time: readbackTimestamp, action: {kind: "maneuver", aircraftId: a.id, command: {type: "frequency", frequency: "tower"}}});
     if (result.error) throw new Error(result.error);
     state = result.state; current = state.aircraft[0];
   }
-  sample(current, 2);
+  sample(current, readbackTime);
   if (!reply && current.radar?.patternJoin?.status === "unable") {outcome = "Unable"; reason = current.radar.patternJoin.reason ?? "Unable to join the pattern.";}
-  for (let seconds = 2; !reply && outcome === "In progress" && seconds < duration; ) {
+  for (let seconds = readbackTime; !reply && outcome === "In progress" && seconds < duration; ) {
     const step = Math.min(5, duration - seconds);
     state = engine.advance(state, step); seconds += step;
     current = state.aircraft.find(item => item.id === a.id)!;

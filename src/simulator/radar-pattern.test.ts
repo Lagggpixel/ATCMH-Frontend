@@ -7,12 +7,13 @@ import {airportList, getAirport} from "./airports";
 import {approachGeometry, radarHeading, radarGuidanceLabel} from "./radar";
 import {exerciseSchema} from "./protocol";
 import {DEFAULTS, type Action, type Exercise} from "./model";
+import {withFixedReadbackDelay} from "./test-exercise";
 
 function send(state: Exercise, action: Action, id = randomUUID()) {
   const result = applyEnvelope(state, {id, time: 1000, action});assert.equal(result.error, undefined);return result.state;
 }
 function fixture(code = "EGPH", hand: "left" | "right" = "left") {
-  const engine = engineFor({airport: code, trainingStation: `${code}:approach`}), state = engine.initialExercise();
+  const engine = engineFor({airport: code, trainingStation: `${code}:approach`}), state = withFixedReadbackDelay(engine.initialExercise());
   state.aircraft[0].hand = hand;delete state.aircraft[0].radar!.report;
   const a = state.aircraft[0], points = engine.patternTargets(a);
   a.position = {x: (points.crosswind.x + points.downwind.x) / 2, y: (points.crosswind.y + points.downwind.y) / 2};

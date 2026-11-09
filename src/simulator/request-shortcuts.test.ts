@@ -37,10 +37,10 @@ test("contextual replies add a first shortcut and retain the complete ordinary c
   }
 });
 
-test("all other requests retain the normal menu with no suggested command or generic Unable", () => {
+test("requests without contextual replies retain the normal menu", () => {
   const state = initialExercise();
   for (const a of state.aircraft) for (const request of pilotRequests(a)) {
-    if (["pushback", "runway-change", "cross-runway", "go-around", "transition"].includes(request.id)) continue;
+    if (["pushback", "runway-change", "cross-runway", "go-around", "transition", "medical-emergency", "engine-failure"].includes(request.id)) continue;
     const message: Message = {id: "request", aircraftId: a.id, sender: "pilot", text: "pilot request", frequency: a.frequency!, time: 1, request: {id: request.id, runway: "24"}};
     const menu = requestMessageMenu(a.frequency!, a, message, state.aircraft, state.messages);
     assert.deepEqual(menuContent(menu), menuContent(messageMenu(a.frequency!, a, [], message)));
