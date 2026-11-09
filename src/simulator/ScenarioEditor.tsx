@@ -1,4 +1,5 @@
 "use client";
+import {ScenarioLaunchDialog} from "./SessionNameDialog";
 import {randomCallsign} from "./callsigns";
 import {profileForType} from "./aircraft-performance";
 import LocalAircraftDialog from "./LocalAircraftDialog";
@@ -52,6 +53,7 @@ export default function ScenarioEditor({id}: {id: string}) {
 
 function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: string}) {
   const router = useRouter();
+  const [launching, setLaunching] = useState<ScenarioRecord | null>(null);
   const [record, setRecord] = useState<ScenarioRecord | null>(null), [draft, setDraft] = useState<ScenarioDefinition>(() => blankScenario());
   const [creating, setCreating] = useState(id === "new");
   const AIRPORT = getAirport(draft), {newAircraft} = engineFor(draft), scenarioGates = gatesFor(AIRPORT);
@@ -216,7 +218,10 @@ function Editor({id, csrf, accountId}: {id: string; csrf: string; accountId: str
       <label className={styles.switchRow}>Automatic readbacks<input type="checkbox" checked={!!preview.exercise.autoReadback} onChange={e => {const enabled = e.target.checked; setPreview(current => current ? {...current, exercise: applyEnvelope(current.exercise, {id: crypto.randomUUID(), time: Date.now(), action: {kind: "auto-readback", enabled}}).state} : current);}}/></label>
       <h3 className={styles.kicker}>Radio</h3>
       <ol className={styles.radioLog}>{preview.exercise.messages.slice(-15).map(m => <li key={m.id}><small>{preview.exercise.aircraft.find(a => a.id === m.aircraftId)?.callsign ?? (m.sender === "controller" ? "Controller" : "Pilot")}</small>{m.text}</li>)}{!preview.exercise.messages.length ? <li className={styles.outlineNote}>{preview.exercise.running ? "No radio calls yet." : "Start the test to see radio calls here."}</li> : null}</ol>
-      {record?.publishedRevision ? <footer><button className={styles.button} disabled={busy} onClick={async () => {setBusy(true); try {const value = await trainingRequest(csrf, `scenarios/${record.id}`, {action: "launch", revision: record.publishedRevision}); router.push(`/sweatbox/staff?session=${value.sessionId}`);} catch (e) {setError((e as Error).message); setBusy(false);}}}>Start a session from r{record.publishedRevision}</button><small>Uses the published revision, not this draft</small></footer> : null}
+      {record?.publishedRevision ? <footer><button className={styles.button} disabled={busy} onClick={() => setLaunching(record)}>Start a session from r{record.publishedRevision}</button><small>Uses the published revision, not this draft</small></footer> : null}
+      {launching ? <ScenarioLaunchDialog scenario={launching} csrf={csrf} onClose={() => setLaunching(null)} onCreated={id => {
+      setLaunching(null); router.push(`/sweatbox/staff?session=${id}`);
+    }}/> : null}
     </div> : notes ? <div className={styles.inspectorFields}><p className={styles.kicker}>Mentor notes</p><label>Notes only mentors see during the session<textarea rows={10} maxLength={6000} value={draft.instructorNotes} onChange={e => setDraft({...draft, instructorNotes: e.target.value})}/></label></div> : event ? <ScenarioEventEditor event={event} definition={draft} onChange={value => setDraft(d => ({...d, events: d.events.map(e => e.id === value.id ? value : e)}))} onRemove={() => {setDraft(d => ({...d, events: d.events.filter(e => e.id !== event.id)})); setEventId("");}} onPickPosition={() => setEditMode("condition")}/> : a && spec ? <ScenarioAircraftInspector key={selected} definition={draft} aircraft={a} onChange={setDraft} onRemove={removeAircraft} editMode={editMode} onEditMode={setEditMode} onPlanTaxi={runway => setTaxiRequest({aircraftId: selected, runway, serial: Date.now()})} onError={setError}/> : <ScenarioSetup compact definition={draft} onChange={setDraft} locked={!!draft.aircraft.length || !!draft.events.length}/>}
     </aside>
     <ScenarioTimeline events={draft.events} selected={eventId} broken={brokenEvents} preview={preview} open={timeline} onToggle={() => setTimeline(!timeline)} onSelect={openEvent} onAdd={addEvent} onRun={runAt} onMove={index => setDraft(d => {const events = [...d.events]; [events[index - 1], events[index]] = [events[index], events[index - 1]]; return {...d, events};})}/>

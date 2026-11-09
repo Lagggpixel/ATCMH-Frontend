@@ -2,6 +2,7 @@
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import {Warning} from "@phosphor-icons/react/dist/csr/Warning";
+import {SessionNameField} from "./SessionNameDialog";
 import MenteePicker, {assignMentee, type Mentee} from "./MenteePicker";
 import {trainingRequest} from "./TrainingLibrary";
 import {sessionJson} from "./shared-transport";
@@ -45,6 +46,7 @@ function DialogBody({state, csrf, canAssign, scenarios, onClose, onDone, onBusy}
 }) {
   const pending = useRef(false);
   const launch = useRef<{scenarioId: string; revision: number; requestId: string} | null>(null);
+  const [name, setName] = useState(""), [submitted, setSubmitted] = useState(false);
   const [scenarioId, setScenarioId] = useState(state.kind === "new" ? state.scenarioId ?? "" : "");
   const [mentee, setMentee] = useState<Mentee | null>(state.kind === "assign" ? assignedMentee(state.session) : null);
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -61,7 +63,8 @@ function DialogBody({state, csrf, canAssign, scenarios, onClose, onDone, onBusy}
   const create = () => run(async () => {
     if (!chosen) throw new Error("Choose a published scenario.");
     if (launch.current?.scenarioId !== chosen.id) launch.current = {scenarioId: chosen.id, revision: chosen.publishedRevision, requestId: crypto.randomUUID()};
-    const data = await trainingRequest(csrf, `scenarios/${chosen.id}`, {action: "launch", revision: launch.current.revision, requestId: launch.current.requestId});
+    setSubmitted(true);
+    const data = await trainingRequest(csrf, `scenarios/${chosen.id}`, {action: "launch", revision: launch.current.revision, requestId: launch.current.requestId, sessionName: name.trim() || undefined});
     if (!data.sessionId) throw new Error("The session could not be confirmed. Try again.");
     launch.current = null;
     if (!mentee) return {notice: "Session created and paused.", created: data.sessionId};
@@ -81,8 +84,9 @@ function DialogBody({state, csrf, canAssign, scenarios, onClose, onDone, onBusy}
   return <>
     {kind === "new" ? <form onSubmit={event => {event.preventDefault(); void create();}}>
       <h2>Start a session</h2>
-      {scenarios.length ? <label>Published scenario<select value={chosen?.id} onChange={event => setScenarioId(event.target.value)}>{scenarios.map(s => <option key={s.id} value={s.id}>{s.draft.title} · {s.ownerName || s.ownerId} · Revision {s.publishedRevision}</option>)}</select></label>
+      {scenarios.length ? <label>Published scenario<select disabled={busy || submitted} value={chosen?.id} onChange={event => setScenarioId(event.target.value)}>{scenarios.map(s => <option key={s.id} value={s.id}>{s.draft.title} · {s.ownerName || s.ownerId} · Revision {s.publishedRevision}</option>)}</select></label>
         : <p>No published scenarios yet. <Link href="/sweatbox/scenarios">Open Scenarios →</Link></p>}
+      {chosen ? <SessionNameField value={name} onChange={setName} placeholder={chosen.published?.title ?? chosen.draft.title} disabled={busy} readOnly={submitted}/> : null}
       {scenarios.length && canAssign ? <fieldset className={staff.pickerFieldset}><legend>Mentee <span>(optional)</span></legend><MenteePicker value={mentee} onChange={setMentee} disabled={busy}/></fieldset> : null}
       {chosen ? <p className={staff.airport}>{environmentLabel(chosen.published ?? chosen.draft)} · Starts paused</p> : null}
       {failure}

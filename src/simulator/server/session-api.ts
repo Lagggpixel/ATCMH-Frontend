@@ -3,7 +3,7 @@ import type {SessionWeatherLoader} from "./session-weather";
 import {z} from "zod/v3";
 import {controllerPositionsSchema, envelopeSchema} from "../protocol";
 import {invalidRequestMessage} from "../request-validation";
-import {SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
+import {SESSION_NAME_MAX_LENGTH, SESSION_FRAME_MS, SessionError, parseSessionEntry} from "../sessions";
 import {notifyAssignment, notifyFeedback, type AssignmentNotice} from "./assignment-notifications";
 import {authorizeSessionRequest} from "./session-auth";
 import {SessionService, type Actor, type SessionStore} from "./session-service";
@@ -41,6 +41,7 @@ export async function readBody(request: Request, limit: number, message: string)
   return JSON.parse(text) as unknown;
 }
 const body = (request: Request) => readBody(request, 2_000_000, "This exercise is too large to save.");
+export const sessionNameSchema = z.string().trim().min(1, "Enter a session name.").max(SESSION_NAME_MAX_LENGTH);
 export function createSessionApi(store: SessionStore, authorize = authorizeSessionRequest, requireLocal = async (_id: string) => {}, weather: SessionWeatherLoader = fetchWeatherReport,
   notify: (notice: AssignmentNotice) => Promise<boolean> = notifyAssignment, hub: DemoHub = sharedDemoHub, shadow: DemoHub = sharedShadowHub) {
 const service = new SessionService(store, undefined, undefined, undefined, undefined, weather, recordedSessionState);
@@ -86,6 +87,12 @@ async function sessionOperation(request: Request, id: string, operation: string)
       return Response.json({ended: true}, {headers: noStore});
     }
     if (operation === "stream") return await stream(request, id);
+    if (operation === "rename") {
+      const actor = await authorize(request, true);
+      const value = z.object({sessionName: sessionNameSchema.nullable()}).strict().parse(await body(request));
+      await requireLocal(id);
+      return Response.json({session: await service.rename(actor, id, value.sessionName)}, {headers: noStore});
+    }
     if (operation === "positions") {
       const actor = await authorize(request, true), value = z.object({positions: controllerPositionsSchema}).strict().parse(await body(request));
       await requireLocal(id);

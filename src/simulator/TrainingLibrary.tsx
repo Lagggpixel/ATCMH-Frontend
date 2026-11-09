@@ -1,4 +1,5 @@
 "use client";
+import {ScenarioLaunchDialog} from "./SessionNameDialog";
 import {environmentLabel} from "./airports";
 import TrainerNotice from "./TrainerNotice";
 import {modeLabel} from "./session-status";
@@ -9,13 +10,13 @@ import Link from "next/link";
 import {useRouter} from "next/navigation";
 import SessionAccess from "./SessionAccess";
 import LearningFrame from "../learning/LearningFrame";
-import {sessionJson} from "./shared-transport";
+import {sessionJson, trainingRequest} from "./shared-transport";
 import type {ScenarioRecord} from "./scenarios";
 import styles from "./LibraryPages.module.css";
 import ui from "./Sweatbox.module.css";
 import cards from "./ScenarioCards.module.css";
 
-export const trainingRequest = (csrf: string, resource: string, value: object) => fetch(`/api/simulator/training/${resource}`, {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf}, body: JSON.stringify(value)}).then(sessionJson);
+export {trainingRequest} from "./shared-transport";
 export function TrainingNav({active}: {active?: "sessions" | "scenarios" | "replays"}) {
   return <nav className={styles.nav} aria-label="Sweatbox library">{([
     ["sessions", "/sweatbox", "Sessions"], ["scenarios", "/sweatbox/scenarios", "Scenarios"],
@@ -27,6 +28,7 @@ export default function TrainingLibrary() {
 }
 function Library({csrf, accountId}: {csrf: string; accountId: string}) {
   const router = useRouter();
+  const [launching, setLaunching] = useState<ScenarioRecord | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
   const [mine, setMine] = useState(false), [search, setSearch] = useState("");
   const [retry, setRetry] = useState(0);
@@ -66,7 +68,7 @@ function Library({csrf, accountId}: {csrf: string; accountId: string}) {
               <small>{s.draft.airport || "EGPH"} · {modeLabel(s.draft)} · {s.draft.aircraft.length} aircraft · by {author(s)}</small>
             </div>
             <Link className={`${ui.btn} ${ui.quiet}`} href={`/sweatbox/scenarios/${s.id}`}>{editable ? "Edit" : "View"}<span className={ui.srOnly}> {s.draft.title}</span></Link>
-            {published ? <button type="button" className={ui.btn} disabled={busy} onClick={() => void run(`scenarios/${s.id}`, {action: "launch", revision: s.publishedRevision}, data => router.push(`/sweatbox?session=${data.sessionId}`))}>Start session<span className={ui.srOnly}> from {s.draft.title}</span></button>
+            {published ? <button type="button" className={ui.btn} disabled={busy} onClick={() => setLaunching(s)}>Start session<span className={ui.srOnly}> from {s.draft.title}</span></button>
               : <button type="button" className={ui.btn} disabled title="Publish this scenario in the editor to start sessions from it">Publish to start</button>}
             <RowActions title={s.draft.title}><button disabled={busy} onClick={() => void run("scenarios", {draft: {...s.draft, title: `${s.draft.title.slice(0, 70)} (copy)`}}, data => router.push(`/sweatbox/scenarios/${data.scenario.id}`))}>Duplicate</button></RowActions>
           </div>
@@ -75,6 +77,9 @@ function Library({csrf, accountId}: {csrf: string; accountId: string}) {
       <p className={ui.meta}>Writing and editing scenarios needs a computer, or a tablet in landscape.</p>
     </main>
     <footer className={ui.footer}><TrainerNotice/></footer>
+    {launching ? <ScenarioLaunchDialog scenario={launching} csrf={csrf} onClose={() => setLaunching(null)} onCreated={id => {
+      setLaunching(null); router.push(`/sweatbox?session=${id}`);
+    }}/> : null}
   </div>;
 }
 

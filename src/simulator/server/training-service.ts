@@ -73,20 +73,20 @@ export class TrainingService {
     const rows = await queryReadOnly<RevisionRow[]>("SELECT definition FROM simulator_scenario_revisions WHERE scenario_id=? AND revision=?", [scenarioId, revision]);
     if (!rows[0]) throw unavailable(); return storedScenarioSchema.parse(JSON.parse(rows[0].definition));
   }
-  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string, weather?: Awaited<ReturnType<typeof requestSessionWeather>>) {
+  private async launch(actor: Actor, definition: ScenarioDefinition, scenarioId: string, revision: number, requestId?: string, weather?: Awaited<ReturnType<typeof requestSessionWeather>>, sessionName?: string) {
     const unavailableMode = airportTrainingError(definition);
     if (unavailableMode) throw new SessionError("invalid-scenario", unavailableMode, 400);
     rejectMovedRadar(definition);
     const attemptId = requestId ?? randomUUID(), generation = randomUUID();
     const created = createScenarioExercise(definition, "pending", generation);
     Object.assign(created.runtime, {scenarioId, revision, attemptId});
-    const session = await new SessionService(sqlSessionStore).create(actor, definition.title, applySessionWeather(created.exercise, weather), created.runtime);
+    const session = await new SessionService(sqlSessionStore).create(actor, sessionName ?? definition.title, applySessionWeather(created.exercise, weather), created.runtime);
     await withWriteTransaction(async connection => {
       await connection.execute("INSERT INTO simulator_attempts (id,owner_id,scenario_id,revision,session_id,started_at,status,feedback) VALUES (?,?,?,?,?,?, 'active','')", [attemptId, actor.accountId, scenarioId, revision, session.id, Date.now()]);
     });
     return {sessionId: session.id};
   }
-  async launchScenario(actor: Actor, scenarioId: string, revision: number, requestId?: string) {
+  async launchScenario(actor: Actor, scenarioId: string, revision: number, requestId?: string, sessionName?: string) {
     staff(actor);
     const weatherDefinition = await this.revision(actor, scenarioId, revision);
     if (requestId) {
@@ -111,7 +111,7 @@ export class TrainingService {
           return {sessionId: previous.session_id};
         }
       }
-      return this.launch(actor, definition, scenarioId, revision, requestId, weather);
+      return this.launch(actor, definition, scenarioId, revision, requestId, weather, sessionName);
     });
   }
   async finish(actor: Actor, sessionId: string, feedback: string, attemptId: string) {

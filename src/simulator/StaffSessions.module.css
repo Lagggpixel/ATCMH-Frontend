@@ -144,4 +144,5 @@
 .pickerFieldset{border:0;padding:0;margin:24px 0 0}
 .pickerFieldset legend{font-size:14px;font-weight:650;padding:0}.pickerFieldset legend span{font-weight:400;color:var(--dashboard-muted)}
 .dialog .assignNote{margin:16px 0 0;padding:12px 14px;border:1px solid var(--dashboard-border);border-radius:8px;background:var(--dashboard-secondary,var(--dashboard-surface));color:var(--dashboard-ink);font-size:14px}
+.dialog .sessionName::placeholder{color:var(--dashboard-muted);opacity:1}
 .dialog form>p:first-of-type{margin:0}

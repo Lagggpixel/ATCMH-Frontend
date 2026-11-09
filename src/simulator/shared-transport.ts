@@ -19,6 +19,8 @@ export interface ShadowFrame extends DemoFrame {positionId: string}
 export interface SharedSessionView {positionId?: string; positionIds?: string[]; detail?: Record<string, unknown>; queuedCommands: number; quickCommands: QuickCommand[]; scenario?: ScenarioStaffView; exercise: Exercise; authoritativeExercise: Exercise; connected: boolean; owner: boolean; error: string | null; status: string; session: SessionSummary | null; fatal: string | null; code: string | null}
 const INITIAL_EXERCISE = initialExercise();
 const INITIAL: SharedSessionView = {queuedCommands: 0, quickCommands: [], exercise: INITIAL_EXERCISE, authoritativeExercise: INITIAL_EXERCISE, connected: false, owner: false, error: null, status: "Joining session…", session: null, fatal: null, code: null};
+export const trainingRequest = (csrf: string, resource: string, value: object) => fetch(`/api/simulator/training/${resource}`, {method: "POST", headers: {"content-type": "application/json", "x-csrf-token": csrf}, body: JSON.stringify(value)}).then(sessionJson);
+
 export async function sessionJson(response: Response) {
   const value = await response.json();
   if (!response.ok) throw Object.assign(new Error(value.error ?? "Sessions are unavailable. Try again."), {code: value.code, status: response.status, retryAt: value.retryAt, detail: value.detail});

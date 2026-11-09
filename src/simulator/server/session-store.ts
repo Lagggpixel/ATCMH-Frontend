@@ -10,6 +10,7 @@ import {availableControl, type Seat, type SessionAssignment, type SessionRecord,
 import {recordReplay} from "./replay-store";
 
 interface SessionRow extends RowDataPacket {
+  scenario_title?: string | null; scenario_finished?: string | null;
   position_state?: string | null; controller_positions?: string | null;
   airport?: string | null; airport_data_version?: string | null; training_station?: string | null;
   id: string; owner_id: string; owner_name: string | null; title: string; created_at: number; updated_at: number;
@@ -44,11 +45,12 @@ export const sqlSessionStore: SessionStore = {
     });
   },
   async list(now) {
-    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,position_state,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.positions')) AS controller_positions,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.feedback')) AS scenario_feedback FROM simulator_sessions ORDER BY updated_at DESC");
+    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,position_state,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.positions')) AS controller_positions,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.feedback')) AS scenario_feedback,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.definition.title')) AS scenario_title,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.finished')) AS scenario_finished FROM simulator_sessions ORDER BY updated_at DESC");
     return rows.map(row => {
       const staff = row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null;
       const mentee = row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null;
       return {...(row.controller_positions ? {positions: positionPresence({exercise: {positions: JSON.parse(row.controller_positions)} as Exercise, positionState: row.position_state ? JSON.parse(row.position_state) : undefined}, now)} : {}), id: row.id, airport: row.airport ?? "EGPH", airportDataVersion: row.airport_data_version ?? undefined, trainingStation: row.training_station ?? undefined, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, title: row.title, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at),
+        ...(row.scenario_title ? {scenario: {title: row.scenario_title, finished: row.scenario_finished === "true"}} : {}),
         ...(staff && staff.expiresAt > now ? {staffId: staff.accountId, staffName: staff.displayName} : {}),
         ...(mentee && mentee.expiresAt > now ? {menteeId: mentee.accountId, menteeName: mentee.displayName} : {}),
         staffOccupied: !!staff && staff.expiresAt > now, menteeOccupied: !!mentee && mentee.expiresAt > now || !!row.position_state && Object.values(JSON.parse(row.position_state) as Record<string, {seat?: Seat}>).some(p => !!p.seat && p.seat.expiresAt > now),
@@ -73,6 +75,7 @@ export const sqlSessionStore: SessionStore = {
       await recordReplay(connection, record, before);
       await connection.execute("UPDATE simulator_sessions SET updated_at=?,tick_at=?,content_revision=?,snapshot=?,staff_seat=?,mentee_seat=? WHERE id=?",
         [record.updatedAt, record.tickAt, record.contentRevision, JSON.stringify(record.exercise), record.staff ? JSON.stringify(record.staff) : null, record.mentee ? JSON.stringify(record.mentee) : null, id]);
+      if (record.title !== before.title) await connection.execute("UPDATE simulator_sessions SET title=? WHERE id=?", [record.title, id]);
       if (record.scenario) await connection.execute("UPDATE simulator_sessions SET scenario_runtime=? WHERE id=?", [JSON.stringify(record.scenario), id]);
       if (JSON.stringify(record.positionState ?? null) !== JSON.stringify(before.positionState ?? null)) await connection.execute("UPDATE simulator_sessions SET position_state=? WHERE id=?", [record.positionState ? JSON.stringify(record.positionState) : null, id]);
       if (JSON.stringify(record.assignment ?? null) !== JSON.stringify(before.assignment ?? null))

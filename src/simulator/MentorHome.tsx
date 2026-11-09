@@ -6,6 +6,7 @@ import LearningFrame from "../learning/LearningFrame";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import {canAccessStaffSimulator} from "./feature";
 import SessionAccess, {SessionNotice} from "./SessionAccess";
+import {EditSessionNameDialog} from "./SessionNameDialog";
 import SessionDialogs, {type SessionDialogState} from "./SessionDialogs";
 import {previewSession} from "./SessionEntry";
 import StaffTutorial from "./StaffTutorial";
@@ -45,7 +46,8 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
     if (openId && !loading) document.getElementById(`session-${openId}`)?.scrollIntoView({block: "nearest"});
   }, [openId, loading]);
   const query = search.trim().toLowerCase();
-  const listed = sessions.filter(s => (!mine || isMine(s, accountId)) && `${s.title} ${s.airport ?? "EGPH"} ${sessionCode(s.id, s.airport)} ${menteeName(s)} ${s.staffName ?? ""} ${s.ownerName ?? ""}`.toLowerCase().includes(query));
+  const [renaming, setRenaming] = useState<SessionSummary | null>(null);
+  const listed = sessions.filter(s => (!mine || isMine(s, accountId)) && `${s.title} ${s.scenario?.title ?? ""} ${s.airport ?? "EGPH"} ${sessionCode(s.id, s.airport)} ${menteeName(s)} ${s.staffName ?? ""} ${s.ownerName ?? ""}`.toLowerCase().includes(query));
   const groups = [["Happening now", listed.filter(isActive)], ["Not running", listed.filter(s => !isActive(s))]] as const;
   const tourId = (groups[0][1][0] ?? groups[1][1][0])?.id;
   const menteeLink = (session: SessionSummary) => new URL(joinPath(sessionCode(session.id, session.airport)), window.location.origin).href;
@@ -87,12 +89,14 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
           const seats = split ? <PositionChips positions={split}/> : <SeatChip label="Mentee" person={mentee || undefined} presence={s.menteeOccupied ? "on" : isActive(s) ? "wait" : "off"} assign={assign}/>;
           return <SessionRow key={s.id} id={s.id} airport={s.airport ?? "EGPH"} title={s.title} mode={modeLabel(s)} trainerLabel="Mentor" trainer={s.staffName?.trim() || s.ownerName?.trim() || ""} trainerPresence={s.staffOccupied ? "on" : isActive(s) ? "wait" : "off"}
             status={state} tone={status.tone} enter={enter} seats={seats} open={open} onToggle={() => toggle(s.id)} tour="mentee-sharing" details={<>
+              {s.scenario && s.title !== s.scenario.title ? <p className={ui.meta}>Scenario · {s.scenario.title}</p> : null}
               {split ? <PositionTable positions={split} onCopy={() => void copy(s, "link")}/> : null}
               <div className={row.actions}>
                 <span className={row.code}>Code <strong>{code}</strong></span>
                 <button type="button" className={ui.linkButton} onClick={() => void copy(s, "code")}>Copy code</button>
                 <button type="button" className={ui.linkButton} onClick={() => void copy(s, "link")}>Copy Mentee link</button>
                 {canAssign && !split ? <button type="button" className={ui.linkButton} onClick={() => setDialog({kind: "assign", session: s})}>{s.assignedMenteeId ? "Change Mentee" : "Assign a Mentee"}</button> : null}
+                {s.ownerId === accountId ? <button type="button" className={ui.linkButton} onClick={() => setRenaming(s)}>Edit session name</button> : null}
                 {superAdmin ? <a className={ui.linkButton} href={sessionPath("spectator", s.id)} style={{display: "inline-flex", alignItems: "center"}}>Spectate<span className={ui.srOnly}> {s.title}</span></a> : null}
                 <button type="button" className={`${ui.linkButton} ${ui.dangerLink} ${row.push}`} onClick={() => setDialog({kind: "end", session: s})}>Archive…<span className={ui.srOnly}> {s.title}</span></button>
               </div>
@@ -104,6 +108,11 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
     </main>
     <footer className={ui.footer}><TrainerNotice/></footer>
     {notice ? <div className={ui.notification}><p role="status">{notice}</p><button type="button" aria-label="Dismiss notification" onClick={() => setNotice("")}>×</button></div> : null}
+    {renaming ? <EditSessionNameDialog session={renaming} csrf={csrf} onClose={() => setRenaming(null)} onSaved={session => {
+      library.current?.invalidate();
+      setSessions(current => current.map(s => s.id === session.id ? session : s));
+      setRenaming(null); setNotice("Session name saved."); void library.current?.refresh();
+    }}/> : null}
     <SessionDialogs state={dialog} csrf={csrf} canAssign={canAssign} scenarios={scenarios} onClose={() => setDialog(null)} onBusy={busy => {if (busy) library.current?.invalidate();}}
       onDone={result => {
         setDialog(null); setNotice(result.notice);

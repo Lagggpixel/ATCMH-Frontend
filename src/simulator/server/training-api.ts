@@ -2,7 +2,7 @@ import {z} from "zod/v3";
 import {scenarioSchema, storedScenarioSchema} from "../scenarios";
 import {SessionError} from "../sessions";
 import {authorizeSessionRequest} from "./session-auth";
-import {sessionFailure} from "./session-api";
+import {sessionNameSchema, sessionFailure} from "./session-api";
 import {TrainingService} from "./training-service";
 
 const uuid = z.string().uuid(), version = z.number().int().positive();
@@ -28,7 +28,7 @@ export function createTrainingApi(service: TrainingOperations = new TrainingServ
             const action = z.object({action: z.enum(["save", "publish", "launch"])}).parse(raw).action;
             if (action === "save") {const input = z.object({draft: storedScenarioSchema, version}).parse(raw); value = {scenario: await service.save(actor, input.draft, id, input.version)};}
             else if (action === "publish") value = {scenario: await service.publish(actor, id, z.object({version}).parse(raw).version)};
-            else {const input = z.object({action: z.literal("launch"), revision: version, requestId: uuid.optional()}).strict().parse(raw); value = await service.launchScenario(actor, id, input.revision, input.requestId);}
+            else {const input = z.object({action: z.literal("launch"), revision: version, requestId: uuid.optional(), sessionName: sessionNameSchema.optional()}).strict().parse(raw); value = await service.launchScenario(actor, id, input.revision, input.requestId, input.sessionName);}
           }
         } else {
           if (!id) throw new SessionError("not-found", "Attempt unavailable.", 404);

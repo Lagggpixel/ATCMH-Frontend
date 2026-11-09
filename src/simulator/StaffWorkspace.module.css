@@ -58,17 +58,25 @@
 .formRow>.wide,.formRow>[class*=checkLabel] {grid-column:1/-1}
 .sendRow {display:grid;gap:10px}
 .panel .fields .sendRow output {display:block;min-height:36px;box-sizing:border-box;padding:8px 10px;border:1px solid var(--ws-line);border-radius:4px;background:var(--ws-bg);color:var(--ws-ink);font-size:calc(14 * var(--controller-font-unit,1px));line-height:1.45}
-.muted {color:var(--ws-muted)!important}
 
 /* Reply: the transmission, then explicit outcomes. */
-.reply {display:grid;gap:14px}
-.replyMessage {display:grid;gap:6px;min-width:0}
-.eyebrow {font-size:calc(12 * var(--controller-font-unit,1px));color:var(--ws-muted)}
-.panel .fields .replyMessage output {font-size:calc(14 * var(--controller-font-unit,1px));line-height:1.5;color:var(--ws-ink)}
-.replyActions {display:grid;gap:8px}
-.replyActions>div {display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.panel .fields .replyActions button {width:100%}
-.panel .fields .replyActions>button {min-height:42px;font-size:calc(12 * var(--controller-font-unit,1px))}
+.reply {display:grid;gap:16px;min-width:0}
+.replyMessage {display:grid;gap:8px;min-width:0}
+.panel .fields .replyMessage output {padding:0;border:0;border-radius:0;background:none;color:var(--ws-muted);font-size:calc(14 * var(--controller-font-unit,1px));line-height:1.45}
+.panel .fields .replyMessage output[data-transmission=true] {padding-inline-start:12px;border-inline-start:2px solid var(--ws-cyan);color:var(--ws-ink)}
+.replyActions {display:grid;border:1px solid var(--ws-line-strong);border-radius:4px}
+.panel .fields .replyActions button {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;width:100%;min-height:54px;padding:9px 12px;border:0;border-radius:0;text-align:start;text-transform:none}
+.panel .fields .replyActions button+button {border-top:1px solid var(--ws-line-strong)}
+.panel .fields .replyActions button[data-follow=true] {background:#ffb18a22;box-shadow:inset 3px 0 var(--ws-accent)}
+.panel .fields .replyActions button[data-follow=true]:hover:not(:disabled) {background:#ffb18a33}
+.panel .fields .replyActions button:focus-visible {outline:2px solid var(--ws-accent);outline-offset:-2px}
+.replyActions strong,.replyActions small {display:block}
+.replyActions strong {font-size:calc(15 * var(--controller-font-unit,1px));font-weight:600;line-height:1.35}
+.replyActions svg {width:14px;height:14px;color:var(--ws-muted)}
+.replySettings {display:grid;gap:8px;padding-top:12px;border-top:1px solid var(--ws-line-strong);min-width:0}
+.panel .fields .replySettings h3 {font-size:calc(15 * var(--controller-font-unit,1px));color:var(--ws-ink);letter-spacing:0;text-transform:none}
+.panel .fields .replyAutomation {display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px}
+.panel .fields .replySettings [class*=checkLabel] {min-height:32px}
 
 /* Flight, pattern and route controls. */
 .flightSection,.patternView {display:grid;gap:16px;min-width:0}
@@ -187,6 +195,7 @@
 .menuFacilities summary small {margin-left:auto;font-size:calc(12 * var(--controller-font-unit,1px));color:#9fb0bc}
 .menuFacilities label {display:flex;align-items:center;gap:8px;min-height:30px;padding:0 10px 0 28px;color:#edf2f5}
 .menuFacilities input {width:16px;height:16px;accent-color:#ffb18a}
+.menuSessionName.menuSessionName {margin:6px 10px;font-size:calc(14 * var(--controller-font-unit,1px));font-weight:650;overflow-wrap:anywhere}
 .menuHeading.menuHeading {margin:6px 10px 2px;font-size:calc(11 * var(--controller-font-unit,1px));font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#ffb18a}
 .menuDivider {display:block;height:1px;margin:4px 6px;background:#27333c}
 .menuItem.menuItem {display:flex;gap:10px;align-items:center;width:100%;box-sizing:border-box;min-height:36px;padding:8px 10px;border:0;border-radius:4px;color:#edf2f5;font-size:calc(13 * var(--controller-font-unit,1px));text-decoration:none;background:transparent;text-align:left;transition:background-color .15s}

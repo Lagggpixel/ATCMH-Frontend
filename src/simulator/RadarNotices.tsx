@@ -3,7 +3,6 @@ import {useEffect, useRef, useState} from "react";
 import {X} from "@phosphor-icons/react/dist/csr/X";
 import type {Exercise} from "./model";
 import {EMPTY_SEAT_MEMORY, mergeSeatNotices, seatNoticeUpdate, traineeSeats, type SeatNotice} from "./seat-presence";
-import type {SessionSummary} from "./sessions";
 import styles from "./Simulator.module.css";
 
 export const REWIND_TOAST_MS = 6000;
@@ -31,21 +30,23 @@ export function useSeatNotices(session: Seats, running: boolean, enabled: boolea
   return {notices, close: (id: string) => setNotices(current => current.filter(notice => notice.id !== id))};
 }
 
-/** A toast for each new rewind this page sees; one already there when the page opened is not news. */
-export function useRewindToast(rewind: Exercise["rewind"]) {
+/** Use the first live snapshot as the baseline. A null rewind means it has not arrived yet. */
+export function useRewindToast(rewind: Exercise["rewind"] | null) {
   const [shown, setShown] = useState<NonNullable<Exercise["rewind"]> | null>(null);
-  const first = useRef(rewind?.id);
-  const id = rewind?.id;
+  const lastSeenId = useRef<string | undefined | null>(null);
+  const id = rewind === null ? null : rewind?.id;
   useEffect(() => {
-    if (!rewind || id === first.current) return;
-    first.current = id;
+    if (id === null) return;
+    const previousId = lastSeenId.current;
+    lastSeenId.current = id;
+    if (!rewind || previousId === null || previousId === id) return;
     const show = requestAnimationFrame(() => setShown(rewind));
     const hide = setTimeout(() => setShown(current => current?.id === id ? null : current), REWIND_TOAST_MS);
     return () => {cancelAnimationFrame(show); clearTimeout(hide);};
     // Only a new rewind restarts the toast.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-  return {rewind: shown, close: () => setShown(null)};
+  return {rewind: shown?.id === id ? shown : null, close: () => setShown(null)};
 }
 
 /** Top right of the radar: seat notices and the rewind toast, newest on top. */

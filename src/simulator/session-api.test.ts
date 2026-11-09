@@ -2,9 +2,39 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {createSessionApi} from "./server/session-api";
+import {blankScenario, createScenarioExercise} from "./scenarios";
 import {MemoryStore} from "./session-test-store";
 import {SessionError} from "./sessions";
 import {SessionService} from "./server/session-service";
+
+test("only the session owner can edit or clear a name, independently of the scenario", async () => {
+  const store = new MemoryStore(), service = new SessionService(store);
+  const owner = {accountId: "trainer", staff: true};
+  const definition = {...blankScenario(), title: "Published exercise"};
+  const {exercise, runtime} = createScenarioExercise(definition, "pending", randomUUID());
+  const {id} = await service.create(owner, definition.title, exercise, runtime);
+  const api = createSessionApi(store, async (request, staff) => {
+    assert.equal(staff, true);
+    const accountId = request.headers.get("cookie");
+    if (!accountId) throw new SessionError("unauthorized", "Sign in", 401);
+    return {accountId, staff};
+  });
+  const rename = (sessionName: unknown, cookie = owner.accountId) => api.sessionOperation(new Request("https://example.test", {
+    method: "POST", headers: {cookie}, body: JSON.stringify({sessionName}),
+  }), id, "rename");
+  assert.equal((await rename("New name", "")).status, 401);
+  assert.equal((await rename("New name", "another-trainer")).status, 403);
+  for (const invalid of ["   ", "a".repeat(81), 123, undefined]) assert.equal((await rename(invalid)).status, 400);
+  const named = await rename("  Practice with Alex  ");
+  assert.equal(named.status, 200);
+  const {session} = await named.json();
+  assert.equal(session.title, "Practice with Alex");
+  assert.equal(session.scenario.title, definition.title);
+  assert.equal((await store.read(id)).scenario?.definition.title, definition.title);
+  const cleared = await rename(null);
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json()).session.title, definition.title);
+});
 
 test("HTTP session contract streams shared commands, rejects duplicate seats and closes ended sessions", async () => {
   const store = new MemoryStore();
@@ -27,6 +57,11 @@ test("HTTP session contract streams shared commands, rejects duplicate seats and
   const packet = async () => {const {value} = await reader.read(); return JSON.parse(new TextDecoder().decode(value).slice(6).trim());};
   try {
     const first = await packet(); assert.equal(first.type, "snapshot"); assert.equal(first.exercise.id, session.id);
+    const renamed = await api.sessionOperation(request("POST", {sessionName: "Live practice"}), session.id, "rename");
+    assert.equal(renamed.status, 200);
+    let live = await packet();
+    for (let i = 0; i < 5 && live.session.title !== "Live practice"; i++) live = await packet();
+    assert.equal(live.session.title, "Live practice");
     const command = {role: "staff", token: control, envelope: {id: randomUUID(), time: 0, action: {kind: "pause"}}};
     assert.equal((await api.sessionOperation(request("POST", command), session.id, "commands")).status, 200);
     let paused = await packet(); while (paused.type === "presence") paused = await packet();

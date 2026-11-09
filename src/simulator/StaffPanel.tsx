@@ -30,7 +30,7 @@ import ScenarioFlightPlan from "./ScenarioFlightPlan";
 
 import {arrivalWorkflow} from "./arrival-workflow";
 import {MAX_AIRCRAFT,  intentionsOf, pendingCommands, stripRunway, type Action, type Aircraft, type Exercise, type Frequency, type Instruction, type Leg, type Runway, type Direction} from "./model";
-import {sessionCode, sessionPath} from "./sessions";
+import {sessionPath} from "./sessions";
 import {InterceptFeedback, MessageLog} from "./MessagePanel";
 import IntentionsControls from "./IntentionsControls";
 import AutomaticHelp from "./AutomaticHelp";
@@ -78,12 +78,13 @@ function aircraftPhase(a: Aircraft) {
   return "Airborne";
 }
 
-export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, onFinish, extra, mentee, panels = [], subtitle, tutorial, observer, demonstrate}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {/** The mentee controls pill. */ mentee?: ReactNode; /** Tools opened from the Session menu, drawn beside it. */ panels?: ToolbarPanel[]; /** Who and where, beside the session code. */ subtitle?: string; demonstrate?: {on: boolean; available: boolean; onToggle: () => void; busy?: string; onWatch?: () => void}; onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle: string; scenario?: boolean; onRestart?: () => void; onFinish?: () => void; extra?: ReactNode; tutorial?: ReactNode; observer?: {label: string; enabled: boolean; connected: boolean; onToggle: () => void}}) {
+export function StaffToolbar({exercise, dispatch, owner, status, onReset, audio, sessionId, sessionTitle, scenario = false, onRestart, onFinish, extra, mentee, panels = [], tutorial, observer, demonstrate}: Pick<Props, "exercise" | "dispatch" | "owner" | "status"> & {/** The mentee controls pill. */ mentee?: ReactNode; /** Tools opened from the Session menu, drawn beside it. */ panels?: ToolbarPanel[]; demonstrate?: {on: boolean; available: boolean; onToggle: () => void; busy?: string; onWatch?: () => void}; onReset: () => void; audio: ReactNode; sessionId: string; sessionTitle?: string; scenario?: boolean; onRestart?: () => void; onFinish?: () => void; extra?: ReactNode; tutorial?: ReactNode; observer?: {label: string; enabled: boolean; connected: boolean; onToggle: () => void}}) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [pauseVisibility, setPauseVisibility] = useState<PauseVisibility>(exercise.pauseVisibility ?? "visible");
   const [panel, setPanel] = useState<string | null>(null);
   const elapsed = `${String(Math.floor(exercise.elapsed / 60)).padStart(2, "0")}:${String(Math.floor(exercise.elapsed % 60)).padStart(2, "0")}`;
-  return <header data-simulator-tour="toolbar" className={`${styles.staffToolbar} ${workspace.toolbar}`}><Link data-simulator-tour="return-sessions" href="/sweatbox/staff" aria-label="Return to sessions">ATCMH Sweatbox</Link><span className={styles.staffTitle} title={`${sessionTitle} · ${sessionId}`}>/ <span>{sessionCode(sessionId, exercise.airport)}</span>{subtitle ? <small className={styles.staffSubtitle}>{subtitle}</small> : null}</span>{observer ? <div className={styles.ownerObserver}><span>{observer.label}</span><button type="button" aria-pressed={observer.enabled} disabled={!observer.connected} onClick={observer.onToggle}>{observer.enabled ? "Disable controls" : "Enable controls"}</button></div> : null}<span className={`${styles.exerciseStatus} ${workspace.clock}`} data-running={exercise.running || undefined} title={status}><span>{owner ? exercise.running ? "Running" : "Paused" : status}</span> <time>{elapsed}</time></span><PauseControls exercise={exercise} owner={owner} dispatch={dispatch} visibility={pauseVisibility}/>{demonstrate ? <button type="button" role="switch" className={styles.demoSwitch} aria-checked={demonstrate.on} disabled={!demonstrate.available && !demonstrate.on} title={demonstrate.busy ? `${demonstrate.busy} is demonstrating` : demonstrate.available || demonstrate.on ? "Take the controller seat while your mentee watches" : "Your mentee must be connected, and the exercise running"} onClick={demonstrate.onToggle}><span aria-hidden="true"/><span className={styles.toolbarText}>Demonstrate</span></button> : null}{demonstrate?.busy ? <span className={styles.demoBusy} role="status">{demonstrate.busy} is demonstrating{demonstrate.onWatch ? <button type="button" onClick={demonstrate.onWatch}>Watch</button> : null}</span> : null}{extra}<span className={styles.toolbarSpacer} aria-hidden="true"/>{mentee}{audio}{tutorial}<StaffMenu alert={panels.reduce((sum, item) => sum + (item.alert ?? 0), 0)}>
+  return <header data-simulator-tour="toolbar" className={`${styles.staffToolbar} ${workspace.toolbar}`}><Link data-simulator-tour="return-sessions" href="/sweatbox/staff" aria-label="Return to sessions">ATCMH Sweatbox</Link>{observer ? <div className={styles.ownerObserver}><span>{observer.label}</span><button type="button" aria-pressed={observer.enabled} disabled={!observer.connected} onClick={observer.onToggle}>{observer.enabled ? "Disable controls" : "Enable controls"}</button></div> : null}<span className={`${styles.exerciseStatus} ${workspace.clock}`} data-running={exercise.running || undefined} title={status}><span>{owner ? exercise.running ? "Running" : "Paused" : status}</span> <time>{elapsed}</time></span><PauseControls exercise={exercise} owner={owner} dispatch={dispatch} visibility={pauseVisibility}/>{demonstrate ? <button type="button" role="switch" className={styles.demoSwitch} aria-checked={demonstrate.on} disabled={!demonstrate.available && !demonstrate.on} title={demonstrate.busy ? `${demonstrate.busy} is demonstrating` : demonstrate.available || demonstrate.on ? "Take the controller seat while your mentee watches" : "Your mentee must be connected, and the exercise running"} onClick={demonstrate.onToggle}><span aria-hidden="true"/><span className={styles.toolbarText}>Demonstrate</span></button> : null}{demonstrate?.busy ? <span className={styles.demoBusy} role="status">{demonstrate.busy} is demonstrating{demonstrate.onWatch ? <button type="button" onClick={demonstrate.onWatch}>Watch</button> : null}</span> : null}{extra}<span className={styles.toolbarSpacer} aria-hidden="true"/>{mentee}{audio}{tutorial}<StaffMenu alert={panels.reduce((sum, item) => sum + (item.alert ?? 0), 0)}>
+    {sessionTitle ? <p className={workspace.menuSessionName}>{sessionTitle}</p> : null}
     <p className={workspace.menuHeading}>Run</p>
     <div className={workspace.menuRow}><PauseVisibilitySelect exercise={exercise} owner={owner} dispatch={dispatch} visibility={pauseVisibility} onVisibility={setPauseVisibility}/></div>
     <div data-simulator-tour="automatic" className={`${styles.automaticRow} ${workspace.menuRow}`}><button className={styles.autoReadback} role="switch" aria-checked={!!exercise.autoReadback} disabled={!owner} onClick={() => dispatch({kind: "auto-readback", enabled: !exercise.autoReadback})}><span><strong>Automatic pilot actions</strong></span><span className={styles.autoReadbackSwitch} aria-hidden="true"/></button><AutomaticHelp/></div>
@@ -130,7 +131,6 @@ const radioTasks: readonly Task[] = [
   {id: "reply", label: "Reply"}, {id: "request", label: "Pilot request"},
   {id: "aircraft-log", label: "History"}, {id: "expectations", label: "Expectations"},
 ];
-const sessionTask: Task = {id: "global-log", label: "Session log"};
 const setupTasks: readonly Task[] = [{id: "intentions", label: "Intentions"}, {id: "routes", label: "Routes & position"}, {id: "speeds", label: "Speeds"}, {id: "details", label: "Details"}];
 const flightTasksFor = (a: Aircraft | undefined): readonly Task[] => a?.radar
   ? [{id: "flight", label: "Vectors & speed"}, {id: "navigation", label: "Approach & recovery"}]
@@ -188,16 +188,17 @@ export default function StaffPanel(props: Props) {
     </header>
     {!collapsed ? <>
       {a ? <nav className={workspace.taskRail} aria-label={`${tab} tasks`} onKeyDown={event => moveFocus(event, "horizontal")}>
-        {tasks.map(taskButton)}{tab === "Radio" ? taskButton(sessionTask) : null}
+        {tasks.map(taskButton)}
       </nav> : null}
-      <div key={a?.id ?? "log"} className={`${styles.controlContent} ${workspace.content}`} id={`${id}-content`} role={a ? "tabpanel" : undefined} aria-labelledby={a ? `${id}-${tab}` : undefined} data-log={!a || section === "global-log" || undefined}>
-        {!a || section === "global-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/><InterceptFeedback notes={props.exercise.interceptFeedback}/></> : section === "aircraft-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/><InterceptFeedback notes={props.exercise.interceptFeedback} aircraftId={a.id}/></> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
+      <div key={a?.id ?? "log"} className={`${styles.controlContent} ${workspace.content}`} id={`${id}-content`} role={a ? "tabpanel" : undefined} aria-labelledby={a ? `${id}-${tab}` : undefined} data-log={!a || undefined}>
+        {!a ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} messages={props.exercise.messages} frequency="all" title="Session message log"/><InterceptFeedback notes={props.exercise.interceptFeedback}/></> : section === "aircraft-log" ? <><MessageLog showUnableReasons airport={getAirport(props.exercise)} key={a.id} messages={props.exercise.messages} frequency="all" aircraftId={a.id} title={`${a.callsign} message history`}/><InterceptFeedback notes={props.exercise.interceptFeedback} aircraftId={a.id}/></> : <AircraftControls key={a.id} {...props} selected={a} section={section}/>}
       </div>
     </> : null}
   </section>;
 }
 
 function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, onEditMode, onPlanTaxi, owner, section, prepareSpeech}: Props & {selected: Aircraft; section: string}) {
+  const replyId = useId();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [headingDraft, setHeading] = useState<string | null>(null);
   const heading = headingDraft ?? String(magneticHeadingLabel(a.targetHeading, getAirport(exercise)));
@@ -231,7 +232,9 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
   useEffect(() => {if (owner && canMessage && section === "request" && speechDraft) return prepareSpeech?.(speechDraft);}, [owner, canMessage, section, speechDraft, prepareSpeech]);
   const arrival = arrivalWorkflow(exercise, a);
   const reply = (unable = false, assign = false) => {if (lastCommand) dispatch({kind: "pilot", aircraftId: a.id, text: unable ? `Unable, ${a.callsign}` : readbackText(a.callsign, lastCommand.text, lastCommand.instruction), replyTo: lastCommand.id, assign});};
-  const switching = lastCommand?.instruction?.type === "frequency" && lastCommand.instruction.frequency;
+  const handoff = lastCommand?.instruction?.type === "frequency" && lastCommand.instruction.frequency ? lastCommand.instruction : undefined;
+  const followLabel = handoff ? handoff.whenReady ? "Readback & queue switch" : "Readback & switch" : "Readback & follow";
+  const followEffect = handoff ? handoff.whenReady ? "Transmit and switch frequency when ready" : "Transmit and switch frequency" : "Transmit and apply the instruction";
   return <fieldset disabled={!owner} className={`${styles.controlFields} ${workspace.fields}`}>
     {section === "expectations" && sequenceStatus(a, exercise.aircraft) ? <p className={styles.controlHint} role="status">{sequenceStatus(a, exercise.aircraft)}</p> : null}
     {section === "expectations" ? <>
@@ -256,21 +259,32 @@ function AircraftControls({exercise, selected: a, dispatch, onSelect, editMode, 
       {!canMessage ? <p className={styles.controlHint}>Select a controller frequency to send messages.</p> : null}
     </section> : null}
     {section === "reply" ? <section className={workspace.reply} aria-label="Reply to controller">
-      <label className={workspace.formRow}>This pilot<select aria-label="Pilot actions for this aircraft" disabled={!owner} value={a.automatic === undefined ? "session" : a.automatic ? "on" : "off"} onChange={event => dispatch({kind: "aircraft-automatic", aircraftId: a.id, enabled: event.target.value === "session" ? null : event.target.value === "on"})}>
-        <option value="session">Follows the session ({exercise.autoReadback ? "automatic" : "by hand"})</option><option value="on">Always automatic</option><option value="off">By hand</option>
-      </select></label>
-      <div className={workspace.formRow}>
-        <label className={styles.checkLabel} title="The next automatic readback gets one value wrong, and the pilot waits for a correction"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.wrongReadback} onChange={event => edit({pilotFault: {...a.pilotFault, wrongReadback: event.target.checked}})}/>Wrong next readback</label>
-        <label className={styles.checkLabel} title="No readbacks or calls; instructions are not followed until the radio is restored"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.radioFailure} onChange={event => edit({pilotFault: {...a.pilotFault, radioFailure: event.target.checked}})}/>Radio failure</label>
-        <label className={styles.checkLabel} title="Hold this aircraft still while the rest of the session keeps running"><input type="checkbox" disabled={!owner} checked={!!a.frozen} onChange={event => edit({frozen: event.target.checked})}/>Freeze in place</label>
+      <div className={workspace.replyMessage}>
+        <h3>{lastCommand ? waiting.length > 1 ? `${waiting.length} awaiting reply` : "Awaiting reply" : radio ? "Last controller message" : "Controller reply"}</h3>
+        <output data-transmission={!!lastCommand || !!radio}>{lastCommand?.text ?? (radio ? latestController?.text : undefined) ?? "No command awaiting response"}</output>
       </div>
       {a.emergency ? <p className={styles.controlHint} role="status">{a.emergency === "engine" ? "Engine failure declared · climb rate halved" : "Medical emergency declared"}</p> : null}
-      <div className={workspace.replyMessage}><span className={workspace.eyebrow}>Last controller command{waiting.length > 1 ? ` · ${waiting.length} awaiting response` : ""}</span><output className={lastCommand || radio ? undefined : workspace.muted}>{lastCommand?.text ?? (radio ? latestController?.text : undefined) ?? "No command awaiting response"}</output></div>
-      <div className={workspace.replyActions}>
-        <button className={styles.primaryButton} disabled={!lastCommand || !canMessage || !!assignmentError} title={lastCommand ? assignmentError ?? "Acknowledge and follow this instruction" : undefined} onClick={() => reply(false, true)}>{switching ? lastCommand.instruction!.type === "frequency" && lastCommand.instruction!.whenReady ? "Readback & queue switch" : "Readback & switch" : "Readback & follow"}</button>
-        <div><button disabled={!lastCommand || !canMessage} title={switching ? "Read back only; the aircraft stays on its current frequency." : "Read back without assigning the instruction"} onClick={() => reply()}>Readback only</button><button disabled={!lastCommand || !canMessage} onClick={() => reply(true)}>Unable</button></div>
-      </div>
+      {lastCommand ? <div className={workspace.replyActions}>
+        {[
+          {id: "follow", label: followLabel, detail: followEffect, onClick: () => reply(false, true), disabled: !!assignmentError},
+          {id: "readback", label: "Readback only", detail: handoff ? "Transmit and stay on this frequency" : "Transmit without applying the instruction", onClick: () => reply()},
+          {id: "unable", label: "Unable", detail: "Tell the controller you cannot comply", onClick: () => reply(true)},
+        ].map(({id, label, detail, onClick, disabled}) => <button key={id} type="button" data-follow={id === "follow"} disabled={!canMessage || disabled} onClick={onClick} aria-labelledby={`${replyId}-${id}`} aria-describedby={`${replyId}-${id}-detail`}>
+          <span><strong id={`${replyId}-${id}`}>{label}</strong><small id={`${replyId}-${id}-detail`}>{detail}</small></span><CaretRight aria-hidden="true"/>
+        </button>)}
+      </div> : null}
       {!canMessage || lastCommand && assignmentError ? <p className={styles.controlHint} role="status">{!canMessage ? "Select a controller frequency to send messages." : assignmentError}</p> : null}
+      <div className={workspace.replySettings}>
+        <h3>Pilot settings</h3>
+        <label className={workspace.replyAutomation}>Automation<select aria-label="Pilot actions for this aircraft" disabled={!owner} value={a.automatic === undefined ? "session" : a.automatic ? "on" : "off"} onChange={event => dispatch({kind: "aircraft-automatic", aircraftId: a.id, enabled: event.target.value === "session" ? null : event.target.value === "on"})}>
+          <option value="session">Follows the session ({exercise.autoReadback ? "automatic" : "by hand"})</option><option value="on">Always automatic</option><option value="off">By hand</option>
+        </select></label>
+        <div>
+          <label className={styles.checkLabel} title="The next automatic readback gets one value wrong, and the pilot waits for a correction"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.wrongReadback} onChange={event => edit({pilotFault: {...a.pilotFault, wrongReadback: event.target.checked}})}/>Wrong next readback</label>
+          <label className={styles.checkLabel} title="No readbacks or calls; instructions are not followed until the radio is restored"><input type="checkbox" disabled={!owner} checked={!!a.pilotFault?.radioFailure} onChange={event => edit({pilotFault: {...a.pilotFault, radioFailure: event.target.checked}})}/>Radio failure</label>
+          <label className={styles.checkLabel} title="Hold this aircraft still while the rest of the session keeps running"><input type="checkbox" disabled={!owner} checked={!!a.frozen} onChange={event => edit({frozen: event.target.checked})}/>Freeze in place</label>
+        </div>
+      </div>
     </section> : null}
     {section === "intentions" ? a.radar ? <RadarSeedControls aircraft={a} airport={AIRPORT} environment={exercise.radarEnvironment ?? radarEnvironmentFor(AIRPORT)} onEdit={edit} staffCompact includeRoutes={false}/> : <IntentionsControls airport={AIRPORT} aircraft={a} onEdit={edit} staffCompact/> : null}
     {(section === "flight" || section === "navigation") && a.radar ? <RadarStaffControls aircraft={a} exercise={exercise} onManeuver={maneuver} staffView={section === "navigation" ? "navigation" : "flight"}/> : null}

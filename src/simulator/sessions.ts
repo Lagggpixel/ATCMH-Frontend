@@ -32,6 +32,8 @@ export function parseSessionEntry(input: string): {code: string} | {id: string} 
 }
 export const joinPath = (code: string) => `/sweatbox/join?code=${encodeURIComponent(code)}`;
 export const sessionPath = (role: SessionMode, id: string) => `/sweatbox/${role}/${id}`;
+export const SESSION_NAME_MAX_LENGTH = 80;
+export const DEFAULT_SESSION_TITLE = "Training session";
 export const SESSION_LEASE_MS = 15_000;
 export const SESSION_FRAME_MS = 200;
 

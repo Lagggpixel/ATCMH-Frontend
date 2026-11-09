@@ -9,6 +9,9 @@ export interface ChangelogDay {readonly date: string; readonly updates: readonly
  */
 export const CHANGELOG: readonly ChangelogDay[] = [
   {date: "2026-11-09", updates: [
+    {title: "Clearer aircraft replies", description: "Radio > Reply shows the controller instruction first. Each reply option explains what happens when you send it."},
+    {title: "Aircraft history and session log", description: "With an aircraft selected, use Radio > History to see its messages. Clear the selection to see the full session log."},
+    {title: "Optional session names", description: "Give a session its own name when you start it. You can change or clear the name later from Sessions. A blank name uses the scenario title."},
     {title: "Quieter view of your mentee's menus", description: "Your mentee's open menus and message lists no longer cover the map. A short line under their blue ring now says what they're doing, such as Taxi route draft or Takeoff › Cleared for Takeoff. Hover over or tap that line to see their list, view only. Replays show the same line."},
   ]},
   {date: "2026-11-08", updates: [

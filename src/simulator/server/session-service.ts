@@ -10,7 +10,7 @@ import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise} from "../engine";
 import {menteeActionAllowed} from "../protocol";
 import type {Envelope, Exercise} from "../model";
-import {SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type AssignedSession, type SessionMode, type SessionPreview, type SessionSummary} from "../sessions";
+import {DEFAULT_SESSION_TITLE, SESSION_FRAME_MS, SESSION_LEASE_MS, SessionError, type AssignedSession, type SessionMode, type SessionPreview, type SessionSummary} from "../sessions";
 import {advanceScenario, executeScenarioEvent, rewindScenario} from "../scenario-engine";
 import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
@@ -183,6 +183,14 @@ export class SessionService {
     if (record.exercise.demonstration && !demonstrationLive(record, now)) endDemonstration(record);
   }
   list(actor: Actor) {this.staff(actor); return this.store.list(this.now());}
+  async rename(actor: Actor, id: string, sessionName: string | null) {
+    this.staff(actor);
+    return this.store.transaction(id, record => {
+      if (record.ownerId !== actor.accountId) throw new SessionError("forbidden", "Only the session owner can edit its name.", 403);
+      record.title = sessionName ?? record.scenario?.definition.title ?? DEFAULT_SESSION_TITLE;
+      return summary(record, this.now());
+    });
+  }
   async create(actor: Actor, title: string, imported?: Exercise, scenario?: ScenarioRuntime) {
     this.staff(actor);
     const now = this.now(), id = this.uuid();

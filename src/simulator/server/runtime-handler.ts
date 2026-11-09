@@ -14,7 +14,7 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
   const sessions = createSessionApi(sqlSessionStore, authorizeDelegation, requireLocalSession, weather);
   const training = createTrainingApi(new TrainingService(weather), authorizeDelegation);
   const replays = createReplayApi(authorizeDelegation);
-  const operations = new Set(["join", "leave", "commands", "events", "assign", "demo", "shadow", "positions", "position-assignment"]);
+  const operations = new Set(["join", "leave", "commands", "events", "assign", "demo", "shadow", "positions", "position-assignment", "rename"]);
   return async (request: Request): Promise<Response> => {
     try {
       requireGateway(request, key);

@@ -62,6 +62,8 @@ export async function recordReplay(connection: ReplayConnection, record: Session
     row = {id, session_id: record.id, attempt_id: record.scenario?.attemptId ?? null, status: "recording", duration: 0, sequence_no: 0, content_revision: record.contentRevision, last_state: JSON.stringify(state), participants: JSON.stringify(participants(record))} as ReplayRow;
   }
   if (row.status !== "recording") return;
+  if (before && before.title !== record.title && row.title !== record.title)
+    await connection.execute("UPDATE simulator_replays SET title=? WHERE id=?", [record.title, row.id]);
   const previous = exerciseSchema.parse(JSON.parse(row.last_state)), elapsed = Math.max(0, state.elapsed - previous.elapsed);
   const ended = closing ?? (record.scenario?.finished ? "finished" : undefined);
   const changed = record.contentRevision !== Number(row.content_revision);
