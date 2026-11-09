@@ -2,7 +2,15 @@ import {withFixedReadbackDelay} from "./test-exercise";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {AIRPORT, applyEnvelope, followedAircraft, initialExercise, newAircraft, patternTargets, predictAircraft, runwayGeometry} from "./engine";
-import {scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
+import {outsideAircraftRing, scopeFollowTarget, scopeNavigationFixes} from "./scope-overlays";
+
+test("the vector cancellation boundary uses the selection ring at each zoom level", () => {
+  const aircraft = {x: 0, y: 0};
+  assert.equal(outsideAircraftRing(aircraft, {x: 1.55, y: 0}, 10), false);
+  assert.equal(outsideAircraftRing(aircraft, {x: 1.551, y: 0}, 10), true);
+  assert.equal(outsideAircraftRing(aircraft, {x: .775, y: 0}, 20), false);
+  assert.equal(outsideAircraftRing(aircraft, {x: .776, y: 0}, 20), true);
+});
 
 test("hiding background waypoints keeps only the selected flight plan, including saved fixes during a navigation outage", () => {
   const fixes = [{id: "FIRST", point: {x: 1, y: 2}}, {id: "OTHER", point: {x: 3, y: 4}}];

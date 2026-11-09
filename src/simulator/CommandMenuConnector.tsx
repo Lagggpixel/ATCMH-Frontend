@@ -1,8 +1,6 @@
 import {useId, useLayoutEffect, useRef, type RefObject} from "react";
+import {AIRCRAFT_RING_RADIUS, AIRCRAFT_RING_STROKE} from "./scope-overlays";
 import styles from "./Simulator.module.css";
-
-// A 3px stroke leaves a 28px opening around the 26px aircraft symbol.
-const SELECTION_RING_RADIUS = 15.5;
 
 /** IF 26.4 RenderExtendedFlightStripCircle and UIUtils.ScaleValue.
  * The circle belongs to the open extended strip, never ordinary map selection. */
@@ -45,7 +43,7 @@ export default function CommandMenuConnector({aircraftId, rootRef}: {aircraftId:
           if (next !== previous) {
             circle.setAttribute("cx", String(cx)); circle.setAttribute("cy", String(cy));
             group.setAttribute("stroke-width", String(stroke));
-            path.setAttribute("d", `M ${menu.left - origin.left} ${y - origin.top} H ${cx + SELECTION_RING_RADIUS} M ${menu.left - origin.left - 2 / density} ${menu.top - origin.top} V ${menu.bottom - origin.top}`);
+            path.setAttribute("d", `M ${menu.left - origin.left} ${y - origin.top} H ${cx + AIRCRAFT_RING_RADIUS} M ${menu.left - origin.left - 2 / density} ${menu.top - origin.top} V ${menu.bottom - origin.top}`);
           }
         }
       }
@@ -57,5 +55,5 @@ export default function CommandMenuConnector({aircraftId, rootRef}: {aircraftId:
     draw();
     return () => cancelAnimationFrame(frame);
   }, [aircraftId, rootRef]);
-  return <svg className={styles.commandConnector} data-extended-strip-aircraft={aircraftId} aria-hidden="true" focusable="false"><defs><clipPath id={clipId}><rect ref={clipRef}/></clipPath></defs><g ref={groupRef} clipPath={`url(#${clipId})`} fill="none" strokeWidth="2" visibility="hidden"><circle ref={circleRef} r={SELECTION_RING_RADIUS} strokeWidth="3" stroke="#ee82ee"/><path ref={pathRef} stroke="#ee82ee"/></g></svg>;
+  return <svg className={styles.commandConnector} data-extended-strip-aircraft={aircraftId} aria-hidden="true" focusable="false"><defs><clipPath id={clipId}><rect ref={clipRef}/></clipPath></defs><g ref={groupRef} clipPath={`url(#${clipId})`} fill="none" strokeWidth="2" visibility="hidden"><circle ref={circleRef} r={AIRCRAFT_RING_RADIUS} strokeWidth={AIRCRAFT_RING_STROKE} stroke="#ee82ee"/><path ref={pathRef} stroke="#ee82ee"/></g></svg>;
 }

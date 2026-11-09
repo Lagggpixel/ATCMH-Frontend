@@ -1,5 +1,15 @@
-import type {Aircraft, RadarEnvironment} from "./model";
+import type {Aircraft, Point, RadarEnvironment} from "./model";
 import {navigationKind} from "./navigation-symbols";
+
+// Use the same CSS-pixel geometry for the selected aircraft and the vector origin.
+export const AIRCRAFT_RING_DIAMETER = 34;
+export const AIRCRAFT_RING_STROKE = 3;
+export const AIRCRAFT_RING_RADIUS = (AIRCRAFT_RING_DIAMETER - AIRCRAFT_RING_STROKE) / 2;
+export const VECTOR_TARGET_RADIUS = 12.5;
+
+export function outsideAircraftRing(aircraft: Point, pointer: Point, scale: number) {
+  return Math.hypot(pointer.x - aircraft.x, pointer.y - aircraft.y) * scale > AIRCRAFT_RING_RADIUS;
+}
 
 export type ScopeNavigationFix = RadarEnvironment["fixes"][number] & {routeOnly?: true};
 

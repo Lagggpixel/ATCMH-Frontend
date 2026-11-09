@@ -627,8 +627,8 @@
 
 /* Airborne controller popups and previews. */
 .vectorOverlay {position:absolute;inset:0;pointer-events:none;z-index:6;stroke-width:calc(3 * var(--controller-unit,1px))}
-.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;max-width:100%;padding:calc(4 * var(--controller-unit,1px));display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:rgb(0 0 0 / 65%);color:#fff;text-align:center;text-shadow:0 1px 2px #000,0 0 1px #000;font:400 14px/1.35 "Simulator Mono",monospace;transform:translate(-50%,calc(-100% - 46 * var(--controller-unit,1px)))}
-.vectorPreviewBox span {display:block;max-width:100%;overflow-wrap:anywhere}
+.vectorPreviewBox {position:absolute;z-index:7;pointer-events:none;width:max-content;white-space:nowrap;padding:calc(4 * var(--controller-unit,1px));display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:rgb(0 0 0 / 65%);color:#fff;text-align:center;text-shadow:0 1px 2px #000,0 0 1px #000;font:400 14px/1.35 "Simulator Mono",monospace;transform:translate(-50%,calc(-100% - 46 * var(--controller-unit,1px)))}
+.vectorPreviewBox span {display:block}
 .radarQuick {min-width:200px;max-height:55vh;overflow:auto;padding:4px 0}
 .altitudeChoices {max-height:38vh;overflow:auto;overscroll-behavior:contain}
 .radarQuick p {padding:8px 12px;font-size:12px;color:var(--dashboard-ink)}
@@ -1126,11 +1126,16 @@
 /* Keep incident controls accessible when the conflict panel is open. */
 .scope:has([data-conflict-overlay]) [data-separation-panel] {top:auto;bottom:12px}
 /* Trainee controls: the trainee's own selection, drags and open messages on a staff radar. Read-only. */
-.traineeRing {position:absolute;box-sizing:border-box;border:3px solid #499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:inset 0 0 0 1px #06121f}
+.traineeRing {position:absolute;box-sizing:border-box;border-style:solid;border-color:#499cff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:4;box-shadow:inset 0 0 0 1px #06121f}
 .traineeVector {z-index:5}
 .traineeMessages {display:flex;flex-direction:column;color:#e8edf2;font-size:12px}
 .traineeMessages ul {margin:0;padding:4px 0;list-style:none}
 .traineeMessages li {padding:3px 10px;overflow-wrap:anywhere}
+.traineeMessagePanel {position:absolute;right:calc(clamp(46px,3.8vw,72px) + 15px);bottom:26px;width:300px;max-width:40%;max-height:55%;overflow:hidden;border:2px solid #499cff;border-radius:6px;background:#0b1622ee;font-size:13px;z-index:7}
+.traineeMessagePanel header {display:flex;justify-content:space-between;gap:12px;padding:6px 10px;background:#499cff;color:#06121f;overflow-wrap:anywhere}
+.traineeMessagePanel header small {font-weight:600}
+.traineeMessagePanel p {margin:0;padding:6px 10px 0;color:#9bcaff;font-size:12px;overflow-wrap:anywhere}
+.traineeMessagePanel ul {min-height:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;padding:6px 0}
 /* The trainee's caption: who, and the step they are on, one line under their ring. Hover or tap peeks at the list. */
 .traineeCaption {position:absolute;z-index:6;display:flex;flex-direction:column;align-items:flex-start;pointer-events:none}
 .traineeCaption[data-align-right=true] {align-items:flex-end}

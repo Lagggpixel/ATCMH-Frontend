@@ -124,11 +124,16 @@
 .clock::before {content:"";width:8px;height:8px;border-radius:50%;background:#e9bf7d;flex-shrink:0;transition:background-color .2s}
 .clock[data-running]::before {background:#a0dca5;animation:wsPulse 2s ease-in-out infinite}
 .clock time {color:var(--dashboard-ink)}
+/* Reserve the longer running label so playback cannot change the wrap point. */
+.clock>span {min-width:4.5em}
 .toolbar [class*=pauseControls] {gap:10px}
 .toolbar [class*=pauseControls] label {flex-direction:row;align-items:center;gap:8px;font-size:calc(12 * var(--controller-font-unit,1px));color:var(--dashboard-muted);white-space:nowrap}
 .toolbar [class*=pauseControls] select {height:32px;padding:0 8px;font-size:calc(13 * var(--controller-font-unit,1px))}
 .toolbar.toolbar [class*=playButton] {height:32px;padding:0 12px;border:1px solid #4d6d53;border-radius:4px;transition:background-color .15s,border-color .15s}
 .toolbar.toolbar [class*=playButton] svg {width:14px;height:14px}
+@media(min-width:1001px) {
+  .toolbar [class*=playButton] [class*=toolbarText] {min-width:3em;text-align:center}
+}
 .divider {width:1px;height:24px;background:#2a343c;flex-shrink:0}
 
 /* Aircraft list. */
@@ -160,7 +165,8 @@
 .rosterEmpty {padding:12px 10px;font-size:calc(13 * var(--controller-font-unit,1px));line-height:1.5;color:#9fb0bc}
 
 /* Session menu: a short list, with the destructive action last. */
-.sessionMenu {position:relative;flex-shrink:0;font-size:calc(13 * var(--controller-font-unit,1px))}
+/* Keep the right-aligned popup in the viewport even when Session wraps alone. */
+.sessionMenu {position:relative;flex-shrink:0;margin-left:auto;font-size:calc(13 * var(--controller-font-unit,1px))}
 .sessionMenu>summary {display:flex;align-items:center;gap:8px;min-height:32px;cursor:pointer;padding:0 12px;list-style:none;border-radius:4px;color:#edf2f5;transition:background-color .15s}
 .sessionMenu>summary:hover,.sessionMenu[open]>summary {background:#ffffff0d}
 .sessionMenu>summary::-webkit-details-marker {display:none}

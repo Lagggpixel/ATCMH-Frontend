@@ -60,6 +60,8 @@ test("the staff radar draws the trainee's ring, vector and open messages in blue
   assert.match(layer, new RegExp(`Alex has ${aircraft.callsign} selected`));
   assert.match(layer, /Alex is vectoring/);
   assert.match(layer, /stroke="#499cff"/);
+  assert.equal((layer.match(/<circle\b/g) ?? []).length, 1, "only the vector destination adds a circle");
+  assert.match(layer, /width:34px;height:34px;border-width:3px/, "the existing selection ring marks the origin");
   assert.match(layer, /Vector \d{3}° · \d+NM/, "the caption gives the heading in place of a details box");
   assert.doesNotMatch(layer, /aria-expanded/, "a drag has nothing to peek at");
   assert.equal(renderToStaticMarkup(React.createElement(TraineeMessages, {name: "Alex", state: state({selectedId: aircraft.id}), exercise})), "", "no list until the trainee opens messages");
