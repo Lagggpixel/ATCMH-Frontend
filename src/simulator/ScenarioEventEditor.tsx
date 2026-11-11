@@ -1,5 +1,5 @@
 "use client";
-import {pilotRequests, resolvePilotRequest, type PilotRequestId} from "./catalog";
+import {catalogFor, resolvePilotRequest, type PilotRequestId} from "./catalog";
 import {engineFor} from "./engine";
 import {getAirport, defaultRunway, runwayEnds, trainingMode} from "./airports";
 import type {Airport, Frequency} from "./model";
@@ -15,6 +15,7 @@ import styles from "./Training.module.css";
 
 export function defaultEvent(definition: ScenarioDefinition): ScenarioEvent {
   const airport = getAirport(definition), {newAircraft} = engineFor(definition);
+  const {pilotRequests} = catalogFor(airport, definition.radarEnvironment, definition.weather);
   const aircraft = definition.aircraft[0];
   return {id: crypto.randomUUID().slice(0, 32), title: "Pilot request", trigger: {type: "time", at: 60}, actions: aircraft ? [{type: "request", aircraftKey: aircraft.key, requestId: (pilotRequests({...newAircraft("preview", false), ...aircraft.seed})[0]?.id ?? "frequency-change"), runway: defaultRunway(airport)}] : [{type: "note", text: "Instructor note"}]};
 }
@@ -43,6 +44,7 @@ export function eventSummary(event: ScenarioEvent, definition: ScenarioDefinitio
 export default function ScenarioEventEditor({event, definition, onChange, onRemove, onPickPosition}: {event: ScenarioEvent; definition: ScenarioDefinition; onChange: (event: ScenarioEvent) => void; onRemove: () => void; onPickPosition: () => void}) {
   const first = definition.aircraft[0]?.key ?? "";
   const airport = getAirport(definition), {newAircraft} = engineFor(definition);
+  const {pilotRequests} = catalogFor(airport, definition.radarEnvironment, definition.weather);
   const patch = (value: Partial<ScenarioEvent>) => onChange({...event, ...value});
   const action = (index: number, value: ScenarioAction) => patch({actions: event.actions.map((a, i) => i === index ? value : a)});
   const condition = event.trigger.type === "condition" ? event.trigger.condition : null;
