@@ -22,7 +22,15 @@ export function appendFlightPlan(existing: RoutePoint[], incoming: RoutePoint[])
   const points = structuredClone(existing), added = structuredClone(incoming);
   const last = points.at(-1), first = added[0];
   if (last && first && last.name === first.name && Math.hypot(last.x - first.x, last.y - first.y) < .000001) {
+    const min = Math.max(last.altitudeConstraint?.min ?? 0, first.altitudeConstraint?.min ?? 0);
+    const max = Math.min(last.altitudeConstraint?.max ?? 60000, first.altitudeConstraint?.max ?? 60000);
+    if (min > max) throw new Error(`The procedure altitude restrictions at ${first.name ?? "the join"} conflict. Edit the joining fix before adding this procedure.`);
     points[points.length - 1] = {...first, ...last}; added.shift();
+    if (!last.altitudeConstraint && first.altitudeConstraint) points[points.length - 1].altitudeConstraint = first.altitudeConstraint;
+    if (last.altitudeConstraint && first.altitudeConstraint) points[points.length - 1].altitudeConstraint = {
+      ...(last.altitudeConstraint.min !== undefined || first.altitudeConstraint.min !== undefined ? {min} : {}),
+      ...(last.altitudeConstraint.max !== undefined || first.altitudeConstraint.max !== undefined ? {max} : {}),
+    };
   }
   if (points.length + added.length > 200) throw new Error("This flight plan would exceed 200 waypoints. Remove some legs before adding the complete procedure.");
   return [...points, ...added];
@@ -39,6 +47,12 @@ export function flightPlanPatch(aircraft: Aircraft, flightPlan: RoutePoint[], li
   const routeIndex = !live || preparingDeparture ? 0 : kept ?? Math.min(r.routeIndex, flightPlan.length);
   const navigation = !flightPlan.length ? r.navigation === "route" || !live ? "heading" : r.navigation : preparingDeparture && !aircraft.flightPlan.length ? "route" : live || aircraft.flightPlan.length ? r.navigation : "route";
   return {flightPlan, radar: {...r, routeIndex, navigation}, ...(!flightPlan.length ? {followRouteAltitudes: undefined} : r.departure && (!live || !aircraft.flightPlan.length) ? {followRouteAltitudes: true} : {})};
+}
+
+/** Adding a procedure opts its profile in; ordinary edits preserve the trainer's choice. */
+export function addedFlightPlanPatch(aircraft: Aircraft, incoming: RoutePoint[], live = false): Partial<Aircraft> {
+  return {...flightPlanPatch(aircraft, appendFlightPlan(aircraft.flightPlan, incoming), live),
+    ...(incoming.some(point => point.procedure) ? {followRouteAltitudes: true, starDescent: undefined} : {})};
 }
 
 /** One row of the editor: a lone fix, or consecutive fixes added from one procedure. */
@@ -154,8 +168,16 @@ export async function typedRoutePoints(catalog: NavigationCatalog, entries: Type
 
 export function legAltitudeLabel(points: RoutePoint[], index: number, initialAltitude: number) {
   const target = points[index].altitude;
+  if (target === undefined && points[index].altitudeConstraint) return procedureAltitudeLabel(points[index].altitudeConstraint!);
   if (target === undefined) return "Maintain previous altitude";
   let previous = initialAltitude;
   for (let i = 0; i < index; i++) previous = points[i].altitude ?? previous;
   return `${target > previous ? "Climb to" : target < previous ? "Descend to" : "Maintain"} ${target >= 18000 ? `FL${target / 100}` : `${target.toLocaleString("en-GB")} ft`}`;
+}
+
+export function procedureAltitudeLabel(bounds: NonNullable<RoutePoint["altitudeConstraint"]>) {
+  const format = (value: number) => value >= 18000 && value % 100 === 0 ? `FL${value / 100}` : `${value.toLocaleString("en-GB")} ft`;
+  if (bounds.min === bounds.max) return `At ${format(bounds.min!)}`;
+  if (bounds.min !== undefined && bounds.max !== undefined) return `Between ${format(bounds.min)} and ${format(bounds.max)}`;
+  return bounds.min !== undefined ? `At or above ${format(bounds.min)}` : `At or below ${format(bounds.max!)}`;
 }

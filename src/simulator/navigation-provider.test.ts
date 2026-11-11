@@ -16,7 +16,7 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
     sources[code] = {version: 1, icao: code, revision: `${code}-revision`, waypoints: [{...fix, id: "fix-1"}], procedures: [
       {id: "procedure-1", identifier: "TEST1", type: "SID", routes: [
         {id: "single", transition: null, points: [fix]},
-        {id: "complete", transition: "TEST", simplified: true, points: [fix, {...fix, identifier: "NEXT", lat: fix.lat + 1 / 60}]},
+        {id: "complete", transition: "TEST", simplified: true, points: [{...fix, altitudeConstraint: {min: 4321, max: 6400}}, {...fix, identifier: "NEXT", lat: fix.lat + 1 / 60, altitudeConstraint: {max: 875}}]},
       ]},
     ]};
   }
@@ -58,6 +58,7 @@ test("provider single-fix segments keep the KDAL and PHOG catalogues and route i
       const complete = await (await api(request(code, "complete"))).json();
       assert.equal(catalogue.procedures[0].routes[1].simplified, true);
       assert.equal(complete.simplified, true);
+      assert.deepEqual(complete.points.map((point: {altitudeConstraint: unknown}) => point.altitudeConstraint), [{min: 4321, max: 6400}, {max: 875}]);
       assert.deepEqual(complete.points.map((point: {name: string}) => point.name), ["TEST", "NEXT"]);
       assert.deepEqual(appendFlightPlan(route.points, complete.points), complete.points);
     }

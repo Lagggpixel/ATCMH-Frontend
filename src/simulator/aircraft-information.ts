@@ -7,7 +7,14 @@ import {flightPlanItems} from "./scenario-flight-plan";
 
 const thousands = (value: number) => Math.round(value).toLocaleString("en-US");
 const fixLabel = (point: RoutePoint, index: number) => point.name || point.fixId || `WPT${index + 1}`;
-const altitudeOf = (point: RoutePoint) => point.altitude !== undefined && point.altitude > 0 ? thousands(point.altitude) : "";
+const altitudeOf = (point: RoutePoint) => {
+  if (point.altitude !== undefined) return point.altitude > 0 ? thousands(point.altitude) : "";
+  const bounds = point.altitudeConstraint;
+  if (!bounds) return "";
+  if (bounds.min === bounds.max) return thousands(bounds.min!);
+  if (bounds.min !== undefined && bounds.max !== undefined) return `${thousands(bounds.min)}–${thousands(bounds.max)}`;
+  return bounds.min !== undefined ? `≥${thousands(bounds.min)}` : `≤${thousands(bounds.max!)}`;
+};
 
 /** Infinite Flight 26.4 Information panel route: identifiers joined by ", ", procedures as NAME(FIX@ALT, FIX). */
 export function flightPlanText(points: readonly RoutePoint[]): string {

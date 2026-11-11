@@ -9,7 +9,7 @@ import {Path} from "@phosphor-icons/react/dist/csr/Path";
 import {useNavigationCatalog} from "./use-navigation-catalog";
 import {useScopeMapData} from "./use-scope-map-data";
 import type {ScopeMapData} from "./scope-map-data";
-import {appendedFixes, appendFlightPlan, flightPlanPatch, loadNavigationRoute, navigationSearch, parseTypedRoute, tagProcedure, typedRoutePoints, type NavigationFilter} from "./scenario-flight-plan";
+import {appendedFixes, addedFlightPlanPatch, loadNavigationRoute, navigationSearch, parseTypedRoute, tagProcedure, typedRoutePoints, type NavigationFilter} from "./scenario-flight-plan";
 import {setFlightPlanPreview} from "./flight-plan-preview";
 import type {NavigationRoute} from "./navigation-data";
 import type {Aircraft, Airport, RoutePoint} from "./model";
@@ -81,13 +81,13 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
   const add = () => {
     if (!catalog || !incoming?.length) return;
     try {
-      const flightPlan = appendFlightPlan(a.flightPlan, incoming);
+      const patch = addedFlightPlanPatch(a, incoming, live);
       if (typing) {
-        onEdit({...flightPlanPatch(a, flightPlan, live), navigationSource: ready!.source, ...(ready!.star ? {arrivalProcedure: ready!.star} : {})});
+        onEdit({...patch, navigationSource: ready!.source, ...(ready!.star ? {arrivalProcedure: ready!.star} : {})});
         onAdded(`Added ${parsed!.entries.map(entry => entry.name).join(", ")}.`);
       } else {
         const navigation = ready?.route;
-        onEdit({...flightPlanPatch(a, flightPlan, live), navigationSource: {revision: catalog.revision, ...(navigation ? {procedureId: navigation.procedureId, routeId: navigation.routeId} : {})}, ...(navigation?.type === "STAR" ? {arrivalProcedure: navigation.name} : {})});
+        onEdit({...patch, navigationSource: {revision: catalog.revision, ...(navigation ? {procedureId: navigation.procedureId, routeId: navigation.routeId} : {})}, ...(navigation?.type === "STAR" ? {arrivalProcedure: navigation.name} : {})});
         onAdded(`Added ${current!.name}${route ? ` via ${route.name}` : ""}.`);
       }
       close(); input.current?.focus();
@@ -101,7 +101,7 @@ export default function FlightPlanAddPanel({aircraft: a, airport, live, onEdit, 
     document.getElementById(`${id}-${nextItem.id}`)?.scrollIntoView({block: "nearest"});
   };
   const loading = !!key && !ready, loadError = ready?.error;
-  const canAdd = !!adding.length && !loading && !loadError && (!typing || !!parsed && !parsed.error);
+  const canAdd = !!incoming?.length && !loading && !loadError && (!typing || !!parsed && !parsed.error);
   const last = a.flightPlan.at(-1), addLabel = typing ? "Add route" : current ? `Add ${current.name}` : "Add";
 
   // Typed words in order: resolved ones, then the first that failed, then the rest unchecked.
