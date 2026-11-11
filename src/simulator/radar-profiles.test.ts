@@ -117,6 +117,40 @@ test("aircraft without a performance profile separate IAS, TAS, ground speed and
   assert.notEqual(Math.round(a.groundSpeed!), a.speed); assert.notEqual(a.track, a.heading);
 });
 
+for (const station of ["local", "approach", "center"] as const) for (const performanceProfile of [undefined, "A320"] as const) {
+  test(`${station}/${performanceProfile ?? "no profile"}: altitude and wind affect ground travel without changing IAS`, () => {
+    function fly(altitude: number, windDirection = 0, windSpeed = 0) {
+      const weather = {...EXERCISE_WEATHER, temperature: 15, qnh: 1013.25, windDirection, windSpeed};
+      const engine = engineFor({trainingStation: `EGPH:${station}`, weather}), state = engine.initialExercise();
+      const a = engine.newAircraft("speed-wind", true);
+      Object.assign(a, {position: {x: 50, y: 50}, mode: "heading", heading: 90, targetHeading: 90,
+        altitude, speed: 250, targetSpeed: 250, speedMode: "manual", performanceProfile, leavingCircuit: true});
+      if (station !== "local") {a.radar = {station, navigation: "heading", routeIndex: 0}; a.frequency = station;}
+      state.aircraft = [a]; state.running = true;
+      const after = engine.advance(state, 5).aircraft[0];
+      const x = (after.position.x - a.position.x) * 720, y = (after.position.y - a.position.y) * 720;
+      assert.equal(after.speed, 250, "IAS stays assigned");
+      assert.equal(after.altitude, altitude);
+      assert.ok(Math.abs(Math.hypot(x, y) - after.groundSpeed!) < 1e-7, "GS matches actual displacement");
+      return {a: after, x, y};
+    }
+    const low = fly(1000), middle = fly(10000), high = fly(30000);
+    // Independent approximate ISA checkpoints, rather than reusing the velocity helper as the oracle.
+    for (const [sample, min, max] of [[low, 252, 256], [middle, 289, 292], [high, 407, 411]] as const)
+      assert.ok(sample.a.groundSpeed! > min && sample.a.groundSpeed! < max, `${sample.a.altitude} ft: ${sample.a.groundSpeed} kt`);
+    assert.ok(high.a.groundSpeed! > middle.a.groundSpeed! && middle.a.groundSpeed! > low.a.groundSpeed!);
+
+    const headwind = fly(10000, 90, 30), tailwind = fly(10000, 270, 30), crosswind = fly(10000, 0, 30);
+    assert.ok(Math.abs(headwind.x - (middle.x - 30)) < 1e-7, "wind from ahead subtracts 30 kt");
+    assert.ok(Math.abs(tailwind.x - (middle.x + 30)) < 1e-7, "wind from behind adds 30 kt");
+    assert.ok(Math.abs(crosswind.x - middle.x) < 1e-7);
+    assert.ok(Math.abs(crosswind.y + 30) < 1e-7, "north wind drifts south");
+    assert.ok(Math.abs(crosswind.a.groundSpeed! - Math.hypot(middle.x, 30)) < 1e-7);
+    assert.equal(crosswind.a.heading, 90);
+    assert.ok(crosswind.a.track! > 90, "ground track includes crosswind drift");
+  });
+}
+
 test("Mach instructions and the displayed Mach share altitude, temperature and pressure", () => {
   const e = engineFor({airport: "KDAL"});
   for (const profile of [undefined, "A320"] as const) for (const temperature of [-10, 15, 35]) for (const altitude of [18000, 30000, 39000]) {

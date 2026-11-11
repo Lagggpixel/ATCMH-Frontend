@@ -4,7 +4,7 @@ import {aircraftLabel, aircraftLabelIdentity, towerDistance} from "./aircraft-la
 import {engineFor, applyEnvelope} from "./engine";
 import {getAirport} from "./airports";
 import {exerciseSchema} from "./protocol";
-import type {Frequency, Message} from "./model";
+import {EXERCISE_WEATHER, type Frequency, type Message} from "./model";
 
 const engine = engineFor({trainingStation: "EGPH:approach"});
 const airport = getAirport({airport: "EGPH"});
@@ -33,8 +33,19 @@ for (const station of ["ground", "tower", "approach", "departure", "center"] as 
   assert.equal(label.flight, "159 227KT" + (station === "tower" ? " 10NM" : ""));
   assert.equal(label.additional, undefined);
   a.groundSpeed = 0; assert.match(aircraftLabel(a, airport, station).flight, / 0KT/);
-  delete a.groundSpeed; a.speed = 99.9; assert.match(aircraftLabel(a, airport, station).flight, / 99KT/);
+  delete a.groundSpeed; a.speed = 99.9; a.mode = "taxi"; assert.match(aircraftLabel(a, airport, station).flight, / 99KT/);
   a.altitude = -199; assert.match(aircraftLabel(a, airport, station).flight, /^-1 /);
+});
+
+test("new airborne tags use altitude and session winds before their first motion sample", () => {
+  const a = aircraft(); delete a.groundSpeed;
+  Object.assign(a, {heading: 90, altitude: 0, speed: 200});
+  const weather = {...EXERCISE_WEATHER, windDirection: 90, windSpeed: 30, qnh: 1013.25, temperature: 15};
+  assert.match(aircraftLabel(a, airport, "approach", undefined, [], weather).flight, / 170KT$/);
+  weather.windDirection = 270;
+  assert.match(aircraftLabel(a, airport, "approach", undefined, [], weather).flight, / 230KT$/);
+  a.altitude = 10000; a.speed = 250; weather.windSpeed = 0;
+  assert.match(aircraftLabel(a, airport, "approach", undefined, [], weather).flight, / 290KT$/);
 });
 
 test("Tower distance uses native spherical geometry, independent of altitude and destination", () => {

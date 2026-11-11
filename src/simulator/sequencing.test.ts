@@ -124,9 +124,41 @@ test("30-second trails expire by exercise time at every speed and survive wire s
 });
 
 test("heading projection is straight, white-line geometry for current heading and 30 seconds of current speed", () => {
-  const a = {...newAircraft("a", true), position: {x: 1, y: 2}, heading: 90, targetHeading: 180, speed: 120} as Aircraft;
+  const a = {...newAircraft("a", true), position: {x: 1, y: 2}, heading: 90, targetHeading: 180, speed: 120, groundSpeed: 120} as Aircraft;
   assert.deepEqual(headingProjection(a), [a.position, {x: 2, y: 2}]);
   assert.equal(DEFAULTS.radarSeconds, 30);
+});
+
+test("heading projection stays ahead of the nose despite wind drift, turns and route guidance", () => {
+  for (const heading of [0, 45, 90, 180, 270, 359]) {
+    const a = {...newAircraft("wind-projection", true), position: {x: 1, y: 2}, heading,
+      targetHeading: (heading + 90) % 360, track: (heading + 25) % 360, speed: 200, groundSpeed: 300};
+    const before = structuredClone(a), points = headingProjection(a);
+    assert.equal(points.length, 2);
+    assert.deepEqual(points[0], a.position);
+    const dx = points[1].x - points[0].x, dy = points[1].y - points[0].y;
+    assert.ok(Math.abs(Math.hypot(dx, dy) - 2.5) < 1e-10, "30 seconds of current ground speed");
+    assert.ok(Math.abs(dx - 2.5 * Math.sin(heading * Math.PI / 180)) < 1e-10);
+    assert.ok(Math.abs(dy - 2.5 * Math.cos(heading * Math.PI / 180)) < 1e-10);
+    assert.deepEqual(a, before, "drawing does not change flight state");
+  }
+});
+
+test("zero ground speed produces no heading projection even with nonzero IAS", () => {
+  const a = {...newAircraft("stopped-projection", true), groundSpeed: 0, speed: 200};
+  assert.deepEqual(headingProjection(a), [a.position, a.position]);
+});
+
+test("heading projection derives its length from session weather before the first motion sample", () => {
+  const weather = {windDirection: 90, windSpeed: 30, qnh: 1013.25, temperature: 15, visibilityKm: 10, reference: "Projection test"};
+  const engine = engineFor({weather});
+  const a = {...engine.newAircraft("new-projection", true), mode: "heading" as const, altitude: 0,
+    position: {x: 1, y: 2}, heading: 90, speed: 200};
+  delete a.groundSpeed;
+  const line = engine.headingProjection(a);
+  assert.ok(Math.abs(line[1].x - 1 - 170 / 120) < 1e-10);
+  assert.equal(line[1].y, 2);
+  assert.equal(a.groundSpeed, undefined, "rendering does not manufacture a recorded motion sample");
 });
 
 test("pattern entry after a transition restores its follow link on manual and automatic assignment", () => {

@@ -610,7 +610,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       const color = appearance.iconColor, tagColor = appearance.textColor;
       const labelStyle={color:tagColor,backgroundColor:"transparent","--label-steady":tagColor} as React.CSSProperties;
       const station = labelFrequency ?? (frequency === "all" ? radarMode ?? (a.frequency === "ground" ? "ground" : "tower") : frequency);
-      const label = aircraftLabel(a, AIRPORT, station, radarEnvironment, messages);
+      const label = aircraftLabel(a, AIRPORT, station, radarEnvironment, messages, weather);
       const holding = label.holding;
       const tagAngle = tagDraft?.aircraftId === a.id ? tagDraft.angle : a.tagAngle;
       const tagOffset = tagAngle === undefined ? {x: a.tag === "left" ? -28 : 28, y: -25} : {x: Math.cos(tagAngle * Math.PI / 180) * Math.hypot(28, 25), y: Math.sin(tagAngle * Math.PI / 180) * Math.hypot(28, 25)};

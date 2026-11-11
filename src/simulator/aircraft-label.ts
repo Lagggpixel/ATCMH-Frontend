@@ -3,12 +3,12 @@ import {controllerStripText} from "./controller-strip";
 import {environmentWithDestinations} from "./aviation";
 import {radarEnvironmentFor, radarFlightLabel} from "./radar";
 import {terrainCoordinates} from "./terrain";
-import type {Aircraft, Airport, Frequency, Message, RadarEnvironment} from "./model";
+import type {Aircraft, Airport, ExerciseWeather, Frequency, Message, RadarEnvironment} from "./model";
 
 /** IF 26.4 MapControl.RenderAircraftTextATC. Station is the viewing
  * controller's facility, independent of the aircraft's tuned frequency. */
-export function aircraftLabel(a: Aircraft, airport: Airport, station: Frequency, environment?: RadarEnvironment, messages: readonly Message[] = []) {
-  const flight = radarFlightLabel(a, airport).flight;
+export function aircraftLabel(a: Aircraft, airport: Airport, station: Frequency, environment?: RadarEnvironment, messages: readonly Message[] = [], weather?: ExerciseWeather) {
+  const flight = radarFlightLabel(a, airport, undefined, weather).flight;
   const radarStation = ["approach", "departure", "center"].includes(station);
   const strip = radarStation ? controllerStripText(a, airport, environmentWithDestinations(airport, environment ?? radarEnvironmentFor(airport), [a]), messages) : undefined;
   return {

@@ -1,5 +1,5 @@
-import type {Aircraft, Airport, ExerciseWeather} from "./model";
-import {flightVelocity, trueAirspeed} from "./aircraft-performance";
+import {EXERCISE_WEATHER, type Aircraft, type Airport, type ExerciseWeather} from "./model";
+import {aircraftGroundSpeed, trueAirspeed} from "./aircraft-performance";
 import {machKnots} from "./radar-speed";
 import {trueToMagnetic} from "./magnetic-headings";
 
@@ -11,10 +11,9 @@ export function simulatedPilotUsername(aircraftId: string): string {
   return `${["skyroute", "cloudpilot", "flightdeck", "vectorflyer"][value % 4]}${Math.floor(value / 4) % 10000}`;
 }
 
-export function aircraftMessageHeading(a: Aircraft, airport: Airport, weather?: ExerciseWeather) {
+export function aircraftMessageHeading(a: Aircraft, airport: Airport, weather: ExerciseWeather = EXERCISE_WEATHER) {
   const ground = ["parked", "pushback", "taxi", "lineup", "rollout"].includes(a.mode);
-  const velocity = flightVelocity(a, weather);
-  const groundSpeed = a.groundSpeed ?? (ground ? a.speed : Math.hypot(velocity.x, velocity.y));
+  const groundSpeed = aircraftGroundSpeed(a, weather);
   const tas = !ground ? trueAirspeed(a.speed, a.altitude, weather) : a.speed;
   const mach = Math.max(0, tas / machKnots(1, a.altitude, weather));
   const trueHeading = Math.round((a.heading % 360 + 360) % 360);
