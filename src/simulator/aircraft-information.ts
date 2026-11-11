@@ -1,4 +1,6 @@
-import type {Aircraft, Airport, RoutePoint} from "./model";
+import {EXERCISE_WEATHER, type Aircraft, type Airport, type ExerciseWeather, type RoutePoint} from "./model";
+import {aircraftGroundSpeed, trueAirspeed} from "./aircraft-performance";
+import {machKnots} from "./radar-speed";
 import {frequenciesFor} from "./airports";
 import {magneticHeadingLabel} from "./magnetic-headings";
 import {flightPlanItems} from "./scenario-flight-plan";
@@ -27,12 +29,9 @@ export function procedureLines(points: readonly RoutePoint[]): string[] {
   return flightPlanItems([...points]).flatMap(item => item.procedure ? [`${item.procedure.type.toUpperCase().padEnd(10)}: ${item.procedure.name}`] : []);
 }
 
-/** Approximate Mach from IAS (ISA, no compressibility correction); enough for a readout. */
-export function machNumber(ias: number, altitude: number): number {
-  const feet = Math.max(0, altitude);
-  const tas = ias * (1 + .02 * feet / 1000);
-  const kelvin = Math.max(216.65, 288.15 - .0019812 * feet);
-  return tas / (661.47 * Math.sqrt(kelvin / 288.15));
+/** Approximate Mach from IAS using session atmosphere, without instrument or compressibility corrections. */
+export function machNumber(ias: number, altitude: number, weather?: ExerciseWeather): number {
+  return trueAirspeed(ias, altitude, weather) / machKnots(1, altitude, weather);
 }
 
 export interface SimulatedPilot {
@@ -64,13 +63,13 @@ export function simulatedPilot(aircraft: Pick<Aircraft, "id" | "callsign">): Sim
   };
 }
 
-export function aircraftSummary(aircraft: Aircraft, airport: Airport) {
+export function aircraftSummary(aircraft: Aircraft, airport: Airport, weather: ExerciseWeather = EXERCISE_WEATHER) {
   const trueHeading = Math.round(aircraft.heading) % 360 || 360;
-  const groundSpeed = Math.round(aircraft.groundSpeed ?? aircraft.speed);
+  const groundSpeed = Math.round(aircraftGroundSpeed(aircraft, weather));
   const ias = Math.round(aircraft.speed);
   return {
     position: `${thousands(Math.max(0, aircraft.altitude))}ft ${magneticHeadingLabel(aircraft.heading, airport)}°M ${trueHeading}°T`,
-    speeds: `GS: ${groundSpeed} IAS: ${ias} Mach: ${machNumber(ias, aircraft.altitude).toFixed(2)} ${aircraft.active ? "Active" : "Inactive"}`,
+    speeds: `GS: ${groundSpeed} IAS: ${ias} Mach: ${machNumber(aircraft.speed, aircraft.altitude, weather).toFixed(2)} ${aircraft.active ? "Active" : "Inactive"}`,
   };
 }
 

@@ -11,7 +11,7 @@ import {conflictLabels, type ConflictKind} from "./training-conflicts";
 import ConflictOverlay from "./ConflictOverlay";
 import AircraftInformation from "./AircraftInformation";
 import FullscreenButton from "./FullscreenButton";
-import type {Airport} from "./model";
+import type {Airport, ExerciseWeather} from "./model";
 import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore} from "react";
 import {Pause} from "@phosphor-icons/react/dist/csr/Pause";
 import {ListBullets} from "@phosphor-icons/react/dist/csr/ListBullets";
@@ -420,7 +420,7 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     {scopeContext && layout === "staff" ? <MentorContextMenu local={mode === "local"} onConflict={kind => {const a = exercise.aircraft.find(a => a.id === scopeContext.aircraftId); if (!a || a.altitude <= AIRPORT.elevation + 1 || !["pattern", "heading"].includes(a.mode)) {setTrainingError("Select an airborne arrival first."); setScopeContext(null); return;} if (kind === "uwc" && a.landing !== "touch-and-go") {setTrainingError("UWC requires touch-and-go intentions."); setScopeContext(null); return;} if (kind === "ga" && a.landing !== "full-stop") {setTrainingError("GA requires full-stop intentions for the first aircraft."); setScopeContext(null); return;} setPair({kind, first: a.id}); setSelectedId(a.id); setScopeContext(null); setEditMode("");}} target={scopeContext} callsign={exercise.aircraft.find(a => a.id === scopeContext.aircraftId)?.callsign} enabled={view.owner && view.connected} onClose={() => setScopeContext(null)} onSpawn={() => {setSpawnAt({point: scopeContext.point}); setScopeContext(null);}} onSpawnAirport={originIcao => {setSpawnAt({originIcao}); setScopeContext(null);}} onDelete={() => {setDeleteId(scopeContext.aircraftId!); setScopeContext(null);}}/> : null}
     {spawnAt && layout === "staff" ? <SpawnAircraftDialog accountId={accountId} exercise={exercise} position={spawnAt.point} originIcao={spawnAt.originIcao} enabled={view.owner && view.connected} dispatch={dispatch} onSpawned={select} onClose={() => setSpawnAt(null)}/> : null}
     {deleteId && layout === "staff" && exercise.aircraft.find(a => a.id === deleteId) ? <DeleteAircraftDialog aircraft={exercise.aircraft.find(a => a.id === deleteId)!} enabled={view.owner && view.connected} dispatch={dispatch} onDeleted={() => {if (selectedId === deleteId) select(null);}} onClose={() => setDeleteId(null)}/> : null}
-    {utility && selected && !paused ? <UtilityPanel airport={AIRPORT} label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
+    {utility && selected && !paused ? <UtilityPanel airport={AIRPORT} weather={exercise.weather} label={utility} aircraft={selected} dispatch={dispatch} onClose={() => setUtility(null)}/> : null}
     {paused && !hiddenByPause ? <div className={styles.visiblePause} role="status">Exercise paused · Viewing only</div> : null}
     {!view.connected || view.status.startsWith("Connection interrupted") ? <div className={styles.connectionBanner} role="status" aria-live="polite">{view.status}<span>{view.queuedCommands > 0 ? `${view.queuedCommands} command${view.queuedCommands === 1 ? "" : "s"} waiting for acknowledgement` : "Your scenario is saved. Waiting for the connection to return."}</span>{view.queuedCommands > 0 ? <button onClick={transport.cancelQueued}>Cancel unsent commands</button> : null}</div> : null}
     {presenceNotice ? <div className={styles.seatPresenceNotice} role="status" aria-live="polite">{presenceNotice}</div> : null}
@@ -436,9 +436,9 @@ setVectorHeading(undefined); setVectorTarget(undefined); setQuickHidden(false); 
     <CrashAlert exercise={exercise} connected={view.connected} accountId={accountId} role={role}/>
   </main>;
 }
-function UtilityPanel({airport, label, aircraft: a, dispatch, onClose}: {airport: Airport; label: ContextAction; aircraft: Aircraft; dispatch: (a: Action) => void; onClose: () => void}) {
+function UtilityPanel({airport, label, aircraft: a, weather, dispatch, onClose}: {airport: Airport; label: ContextAction; aircraft: Aircraft; weather?: ExerciseWeather; dispatch: (a: Action) => void; onClose: () => void}) {
   const edit = (patch: Partial<Aircraft>) => {dispatch({kind: "edit", aircraftId: a.id, patch}); onClose();};
-  if (label === "information") return <AircraftInformation airport={airport} aircraft={a} className={`${styles.utility} ${styles.aircraftInformation}`} onClose={onClose}/>;
+  if (label === "information") return <AircraftInformation airport={airport} aircraft={a} weather={weather} className={`${styles.utility} ${styles.aircraftInformation}`} onClose={onClose}/>;
   return <section className={styles.utility} role="dialog" aria-label={CONTEXT_ACTIONS[label]} aria-modal="true"><header>{CONTEXT_ACTIONS[label]}<button aria-label="Close dialog" onClick={onClose}>×</button></header>
     {label === "tag" ? <div className={styles.colorChoices}>{(["auto", "default"] as const).map(tag => <button key={tag} onClick={() => edit({tag})}>{tag === "auto" ? "Automatic Position" : tag === "default" ? "Default Position" : tag === "left" ? "Left" : "Right"}</button>)}</div> : null}
   </section>;

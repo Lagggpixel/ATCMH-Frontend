@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {flightPlanText, machNumber, procedureLines, simulatedPilot} from "./aircraft-information";
-import type {RoutePoint} from "./model";
+import {aircraftSummary, flightPlanText, machNumber, procedureLines, simulatedPilot} from "./aircraft-information";
+import {aircraftMessageHeading} from "./aircraft-message-heading";
+import {engineFor} from "./engine";
+import {getAirport} from "./airports";
+import {EXERCISE_WEATHER, type Aircraft, type RoutePoint} from "./model";
 
 const fix = (name: string, altitude?: number): RoutePoint => ({x: 0, y: 0, name, ...(altitude !== undefined ? {altitude} : {})});
 const sid = {key: "a", type: "SID" as const, name: "SUMMA2"};
@@ -32,4 +35,27 @@ test("Mach readout rises with altitude at the same IAS", () => {
   assert.ok(machNumber(0, 0) === 0);
   assert.ok(Math.abs(machNumber(276, 34000) - .8) < .08);
   assert.ok(machNumber(250, 30000) > machNumber(250, 10000));
+});
+
+test("new aircraft information separates GS and IAS using session wind before a motion sample", () => {
+  const engine = engineFor({airport: "EGPH"}), airport = getAirport({airport: "EGPH"});
+  const a: Aircraft = {...engine.newAircraft("new-information", true), mode: "heading", heading: 90, altitude: 0, speed: 200};
+  delete a.groundSpeed;
+  for (const [windDirection, expected] of [[90, 170], [270, 230], [0, 202]] as const) {
+    const weather = {...EXERCISE_WEATHER, windDirection, windSpeed: 30, qnh: 1013.25, temperature: 15};
+    assert.match(aircraftSummary(a, airport, weather).speeds, new RegExp(`^GS: ${expected} IAS: 200 `));
+    assert.match(aircraftMessageHeading(a, airport, weather).speed, new RegExp(`^GS: ${expected} IAS: 200 `));
+  }
+  const calm = {...EXERCISE_WEATHER, windSpeed: 0, qnh: 1013.25, temperature: 15};
+  a.altitude = 10000; a.speed = 250;
+  assert.match(aircraftSummary(a, airport, calm).speeds, /^GS: 291 IAS: 250 /);
+  for (const temperature of [-10, 35]) {
+    const weather = {...calm, temperature};
+    const summary = aircraftSummary(a, airport, weather).speeds, heading = aircraftMessageHeading(a, airport, weather).speed;
+    assert.equal(summary.match(/Mach: (\d+\.\d+)/)![1], heading.match(/ M(\d+\.\d+)/)![1]);
+  }
+  a.groundSpeed = 0;
+  assert.match(aircraftSummary(a, airport, calm).speeds, /^GS: 0 IAS: 250 /, "recorded zero remains authoritative");
+  delete a.groundSpeed; a.mode = "taxi"; a.speed = 20;
+  assert.match(aircraftSummary(a, airport, calm).speeds, /^GS: 20 IAS: 20 /, "surface speed needs no density or wind correction");
 });

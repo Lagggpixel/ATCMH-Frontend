@@ -1,7 +1,7 @@
 "use client";
 import type {ReactNode} from "react";
 import {aircraftSummary, flightPlanText, procedureLines, simulatedPilot, tunedFrequency} from "./aircraft-information";
-import type {Aircraft, Airport} from "./model";
+import type {Aircraft, Airport, ExerciseWeather} from "./model";
 import styles from "./AircraftInformation.module.css";
 
 function Section({title, children}: {title: string; children: ReactNode}) {
@@ -9,8 +9,8 @@ function Section({title, children}: {title: string; children: ReactNode}) {
 }
 
 /** Infinite Flight 26.4 Information panel: Summary, User, Flight Plan and Procedures under one Aircraft tab. */
-export default function AircraftInformation({airport, aircraft: a, className, onClose}: {airport: Airport; aircraft: Aircraft; className: string; onClose: () => void}) {
-  const summary = aircraftSummary(a, airport), pilot = simulatedPilot(a), frequency = tunedFrequency(a, airport);
+export default function AircraftInformation({airport, aircraft: a, weather, className, onClose}: {airport: Airport; aircraft: Aircraft; weather?: ExerciseWeather; className: string; onClose: () => void}) {
+  const summary = aircraftSummary(a, airport, weather), pilot = simulatedPilot(a), frequency = tunedFrequency(a, airport);
   const route = flightPlanText(a.flightPlan), procedures = procedureLines(a.flightPlan);
   return <section className={`${className} ${styles.panel}`} role="dialog" aria-label={`Information ${a.callsign}`}>
     <div className={styles.head}><div className={styles.top}>
