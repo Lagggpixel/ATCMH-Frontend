@@ -4,7 +4,7 @@ import {radarApproachExempt, radarSeparationAlerts, separationLabel, terrainClea
 import {applyReplayDelta, type ReplayFrame} from "./replays";
 import {rawTerrainElevation, terrainCoordinates} from "./terrain";
 
-export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration" | "trainee" | "rewind";
+export type ReplayEventKind = "separation" | "terrain" | "bookmark" | "demonstration" | "trainee" | "rewind" | "ai";
 export interface ReplayEvent {
   id: string; kind: ReplayEventKind; at: number; end?: number;
   label: string; detail: string; aircraftIds: string[];
@@ -12,7 +12,7 @@ export interface ReplayEvent {
   rewind?: {from: number; to: number; start: number};
 }
 export interface ReplaySnapshot {at: number; state: Exercise}
-export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration", trainee: "Mentee command", rewind: "Mentor rewind"};
+export const replayEventLabel = {separation: "Separation incident", terrain: "Terrain incident", bookmark: "Replay bookmark", demonstration: "Mentor demonstration", trainee: "Mentee command", rewind: "Mentor rewind", ai: "AI trainee"};
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 const length = (seconds: number) => {const whole = Math.max(0, Math.round(seconds)), minutes = Math.floor(whole / 60), rest = whole % 60; return minutes ? `${minutes} min${rest ? ` ${rest} s` : ""}` : `${rest} s`;};
@@ -90,6 +90,14 @@ export function replayEvents(snapshots: ReplaySnapshot[], duration: number): Rep
 export function traineeReplayEvents(marks: readonly {at: number; positionId: string; sent?: {callsign: string; text: string}}[], positionId: string, duration: number): ReplayEvent[] {
   return marks.filter(mark => mark.positionId === positionId && mark.sent && mark.at <= duration)
     .map((mark, i) => ({id: `trainee:${positionId}:${mark.at}:${i}`, kind: "trainee" as const, at: mark.at, label: mark.sent!.callsign, detail: mark.sent!.text, aircraftIds: []}));
+}
+/** Recorded events only: seeking never reruns a controller. */
+export function aiReplayEvents(frames: readonly ReplayFrame[], duration: number): ReplayEvent[] {
+  return frames.flatMap(frame => (frame.delta.ai ?? []).map((event, index) => ({
+    id: `ai:${frame.sequence}:${index}`, kind: "ai" as const, at: frame.at,
+    label: `AI ${event.kind}`, detail: event.reason?.detail ?? event.summary?.reason.detail ?? event.outcome ?? event.kind,
+    aircraftIds: event.reason?.aircraftIds ?? event.summary?.reason.aircraftIds ?? [],
+  }))).filter(event => event.at <= duration);
 }
 export const compareReplayEvents = (a: ReplayEvent, b: ReplayEvent) => a.at - b.at || a.id.localeCompare(b.id);
 

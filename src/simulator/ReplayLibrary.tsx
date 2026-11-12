@@ -97,7 +97,7 @@ function FeedbackEditor({detail, csrf, onSaved}: {detail: ReplayDetail; csrf: st
   </form> : <button type="button" className={styles.btn} onClick={() => {setPosition(""); setDraft(detail.replay.feedback ?? ""); setEditing(true);}}>Edit feedback</button>}</section>;
 }
 
-const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration, trainee: styles.kTrainee, rewind: styles.kRewind};
+const markClass: Record<ReplayMoment["kind"], string> = {start: styles.kMeta, end: styles.kMeta, bookmark: styles.kBookmark, separation: styles.kSeparation, terrain: styles.kTerrain, collision: styles.kTerrain, demonstration: styles.kDemonstration, trainee: styles.kTrainee, rewind: styles.kRewind, ai: styles.kAi};
 type PanelTab = "moments" | "radio" | "atis";
 
 function Playback({detail, accountId, mentor}: {detail: ReplayDetail; accountId: string; mentor: boolean}) {

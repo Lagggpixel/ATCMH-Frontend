@@ -9,6 +9,8 @@ import {TraineeFollowFrame, TraineeScopeLayer, traineePeek, type TraineeScopeVie
 import {planParkingRoute} from "./taxi-routing";
 import type {MapCamera} from "./scope-camera";
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
+import {createContext, useContext} from "react";
+import type {ControllerAgentSummary} from "./controller-agent-evidence";
 import AircraftSymbol from "./AircraftSymbol";
 import AircraftLabelIdentity from "./AircraftLabelIdentity";
 import {aircraftLabel} from "./aircraft-label";
@@ -66,6 +68,7 @@ export type {ScopeOptions} from "./scope-options";
 
 const iconFlashClasses = {pending: styles.pendingAircraft, reminder: styles.reminderAircraft, extended: styles.extendedAircraftPulse};
 const labelFlashClasses = {pending: styles.pendingAircraftLabel, reminder: styles.reminderAircraftLabel, extended: styles.extendedAircraftLabel};
+export const ScopeAiContext = createContext<{forecast?: ControllerAgentSummary["forecast"]; frozen?: boolean}>({});
 interface Props {staffAlertsEnabled?: boolean; controllerPositionId?: string; /** Every position a bandboxing controller holds; defaults to controllerPositionId alone. */ controllerPositionIds?: readonly string[]; controllers?: import("./positions").PositionPresence[]; traineeName?: string; controlledServices?: string[]; labelFrequency?: Frequency; messages?: readonly import("./model").Message[]; accountId?: string; overlay?: import("react").ReactNode; /** Top right: seat notices and toasts. */ notices?: import("react").ReactNode; missingStripControls?: readonly string[]; elapsed?: number; openStripId?: string; onGroundClearance?: SendGroundClearance; sentGroundRoute?: GroundRoute; groundRouteCleared?: boolean; cameraStore?: Map<string, MapCamera>; cameraKey?: string; weather?: import("./model").ExerciseWeather;conflictTags?: Record<string, string>; conflictTargets?: readonly string[]; focusRequest?: {id: string; serial: number}; measureVectors?: boolean; onScopeContextMenu?: (target: ScopeContext) => void; showProjectedPaths?: boolean; gates?: readonly GateTarget[]; selectedGate?: string; onGateSelect?: (gateId: string) => void; onGateDrop?: (aircraftId: string, gateId: string) => void; airport?: Airport; radarEnvironment?: RadarEnvironment; radarMode?: "approach" | "center"; onVector?: (aircraftId: string, heading: number, release: Point, target?: VectorTarget) => void; contextPoint?: Point; onTagAngle?: (aircraftId: string, angle: number) => void; pendingAircraft?: readonly string[]; giveWayTargets?: readonly string[]; aircraft: Aircraft[]; running: boolean; autoReadback?: boolean; /** Session simulation speed; predicted motion runs at the same rate. */ timeScale?: number; frequency: Frequency | "all"; selected: string | null; onSelect: (id: string | null) => void; onAirport?: () => void; onPoint?: (point: Point) => void; editMode?: string; context?: (aircraft: Aircraft, onPlanTaxi?: PlanGroundTaxi) => React.ReactNode; groundRouteMode?: Exclude<GroundRouteMode, "controller">; groundRouteRequest?: {aircraftId: string; runway?: string; serial: number};
   /** Trainer demonstrating: reports drafts so the trainee can watch them. */
   onDemoScope?: (scope: {vectorDraft: DemoState["vectorDraft"]; ground: DemoGroundDraft | null}) => void;
@@ -82,6 +85,8 @@ export default function Scope(props: Props) {
 }
 function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, controllerPositionIds, controllers, traineeName, controlledServices, labelFrequency, messages, preferenceKey, overlay, notices, missingStripControls, elapsed = 0, openStripId, onGroundClearance, sentGroundRoute, groundRouteCleared, cameraStore, cameraKey = "scope", weather,conflictTags, conflictTargets, focusRequest, measureVectors = false, onScopeContextMenu, showProjectedPaths = true, airport = defaultAirport, radarEnvironment: configuredEnvironment, radarMode, onVector, contextPoint, onTagAngle, pendingAircraft, giveWayTargets, aircraft: snapshot, running, autoReadback = false, timeScale = 1, frequency, selected, onSelect, onPoint, editMode, context, gates, selectedGate, onGateSelect, onGateDrop, groundRouteMode, groundRouteRequest, onDemoScope, mirrorVector, mirrorGround, followCamera, demoPointer, trainee}: Props & {preferenceKey?: string}) {
   const AIRPORT = airport;
+  const ai = useContext(ScopeAiContext);
+  const [showAiForecast, setShowAiForecast] = useState(false);
   // Aircraft of positions this controller does not hold stay on the scope but off its frequency.
   const heldKey = controllerPositionIds?.join(",") ?? controllerPositionId ?? "";
   const foreign = useCallback((positionId?: string) => !!heldKey && !heldKey.split(",").includes(positionId ?? ""), [heldKey]);
@@ -111,7 +116,7 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       ? {center: {x: (bounds.left + bounds.right) / 2, y: (bounds.bottom + bounds.top) / 2}, scale: Math.min(width * .9 / (bounds.right - bounds.left), height * .84 / (bounds.top - bounds.bottom))}
       : {center: {x: 0, y: 0}, scale: width / 1.8};
   }, [airport, radarMode, radarEnvironment?.range]);
-  const aircraft = useRadarAircraft(snapshot, running, autoReadback, airport, radarEnvironment, weather, timeScale);
+  const aircraft = useRadarAircraft(snapshot, running && !ai.frozen, autoReadback, airport, radarEnvironment, weather, timeScale);
   const staffAlerts = staffAlertsEnabled && frequency === "all" && !!radarMode;
   const separation = staffAlerts ? radarSeparationAlerts(snapshot, radarEnvironment, frequency, AIRPORT, radarMode) : new Map<string, import("./radar-safety").SeparationAlert[]>();
   const terrainSamples = useAircraftTerrain(snapshot, airport, staffAlerts);
@@ -702,9 +707,11 @@ function ScopeView({staffAlertsEnabled = true, accountId, controllerPositionId, 
       {tap?.id === selected && tap.choices.length > 1 ? <div className={`${styles.aircraftMenu} ${styles.radarQuick}`} role="menu" aria-label="Choose aircraft">{tap.choices.map(id => {const a = snapshot.find(item => item.id === id); return a ? <button key={id} role="menuitem" onClick={() => {setTap({...tap, id, choices: []}); onSelect(id);}}>{a.callsign}</button> : null;})}</div> : aircraftContext}
     </>} : null}/>
     {following && trafficVisible(following, options.filter, frequency) ? <span role="img" aria-label={`Traffic to follow: ${following.callsign}`} className={styles.followingRing} style={{left: project(following.position).x, top: project(following.position).y}}/> : null}
+    {showAiForecast && ai.forecast ? <><svg aria-hidden="true" style={{position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none"}}>{ai.forecast.paths.filter(path => !selected || path.aircraftId === selected).map(path => <polyline key={path.aircraftId} fill="none" stroke="#56dcf1" strokeWidth="2" strokeDasharray="5 4" points={path.points.slice(0, 121).map(point => {const p = project(point.position); return `${p.x},${p.y}`;}).join(" ")}/>)}</svg><div className={styles.pathLegend} style={{top: 60, bottom: "auto", color: "#56dcf1"}}>AI forecast · observed {ai.forecast.observedElapsed.toFixed(1)} s · horizon {ai.forecast.horizonSeconds} s · uncertain simulation prediction</div></> : null}
     {selectedAircraft && frequency === "all" && (showProjectedPaths || taxiLine.length > 1) ? <div className={styles.pathLegend}>{taxiLine.length > 1 ? <>Taxi route</> : prediction.unavailable ? <>Projected path unavailable. <button type="button" onClick={prediction.retry}>Retry prediction</button></> : <>Projected path · {selectedAircraft.mode}<br/>{!selectedAircraft.radar && ["pattern", "takeoff", "lineup", "go-around", "rollout"].includes(selectedAircraft.mode) ? <>Solid: {selectedAircraft.hand} traffic · Dotted: {selectedAircraft.hand === "left" ? "right" : "left"} traffic{selectedAircraft.optionHand ? <><br/>After option: {selectedAircraft.optionHand} traffic</> : null}</> : null}</>}</div> : null}
     {editMode ? <div className={styles.editHint}>Click to reposition selected aircraft</div> : null}
     <div className={styles.scopeButtons}>
+      {ai.forecast ? <button type="button" aria-label="AI forecast" title="AI forecast" aria-pressed={showAiForecast} onClick={() => setShowAiForecast(value => !value)}>AI</button> : null}
       {staffAlerts ? <TerrainButton on={options.terrain} onToggle={() => setOptions(o => ({...o, terrain: !o.terrain}))}/> : null}
       <button aria-label="Scope options" aria-expanded={popup === "options" || popup === "hide"} onClick={() => {setAirportView(null); setPopup(popup === "options" || popup === "hide" ? null : "options");}}><Gear size={32} weight="fill"/></button>
       <button aria-label="Zoom in" disabled={followingTrainee} title={followingTrainee ? "Stop following to move your own view" : undefined} onClick={() => zoom(2)}><MagnifyingGlassPlus size={32} weight="bold"/></button>

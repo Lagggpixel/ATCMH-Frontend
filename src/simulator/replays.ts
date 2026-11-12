@@ -1,4 +1,5 @@
 import type {Aircraft, Exercise, Point} from "./model";
+import type {ReplayAiEvent} from "./controller-agent-evidence";
 
 export interface ReplayParticipant {accountId: string; name?: string; role: "staff" | "mentee"; positionId?: string; positionName?: string}
 export interface ReplaySummary {
@@ -25,6 +26,8 @@ export interface ReplayDelta {
   demo?: ReplayDemoMark[];
   /** Each trainee position's own controller state and sent commands, for the replay's trainee overlay. */
   shadow?: ReplayTraineeMark[];
+  /** Bounded passive AI decisions and interventions recorded at this frame. */
+  ai?: ReplayAiEvent[];
 }
 export interface ReplayFrame {sequence: number; at: number; delta: ReplayDelta; interpolate: boolean}
 export interface ReplayDetail {replay: ReplaySummary; initial: Exercise | null; frames: ReplayFrame[]; next: number | null; positionFeedback?: Record<string, string>; feedbackPositions?: Exercise["positions"]}
@@ -38,7 +41,7 @@ export function participantReplay(detail: ReplayDetail, accountId: string): Repl
     frames: detail.frames.map(frame => {
       // A trainee replays only the controls they produced; a later or earlier occupant of the same seat stays private.
       const shadow = frame.delta.shadow?.filter(mark => mark.accountId === accountId);
-      const delta = {...frame.delta, state: visible(frame.delta.state)}; delete delta.shadow;
+      const delta = {...frame.delta, state: visible(frame.delta.state)}; delete delta.shadow; delete delta.ai;
       return {...frame, delta: shadow?.length ? {...delta, shadow} : delta};
     })};
 }

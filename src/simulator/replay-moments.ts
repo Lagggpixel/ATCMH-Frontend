@@ -1,9 +1,9 @@
 import type {Exercise} from "./model";
 import {trainingMode} from "./airports";
-import {replayEvents, replaySnapshots} from "./replay-events";
+import {aiReplayEvents, replayEvents, replaySnapshots} from "./replay-events";
 import type {ReplayFrame} from "./replays";
 
-export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration" | "trainee" | "rewind";
+export type MomentKind = "start" | "end" | "bookmark" | "separation" | "terrain" | "collision" | "demonstration" | "trainee" | "rewind" | "ai";
 export interface ReplayMoment {id: string; kind: MomentKind; at: number; end?: number; label: string; detail: string; aircraftIds: string[]; /** A mentor rewind: the stretch of the recording it undid, from `start` to `at`. */ rewind?: {from: number; to: number; start: number}}
 
 /**
@@ -14,6 +14,7 @@ export function replayMoments(initial: Exercise, frames: ReplayFrame[], final: E
   const start = initial.elapsed, within = (at: number) => at >= 0 && at <= duration;
   const callsign = (id: string) => final.aircraft.find(a => a.id === id)?.callsign ?? initial.aircraft.find(a => a.id === id)?.callsign;
   const moments: ReplayMoment[] = [];
+  moments.push(...aiReplayEvents(frames, duration));
   if (trainingMode(initial) === "local") {
     for (const mark of final.bookmarks ?? []) if (within(mark.elapsed - start))
       moments.push({id: `bookmark:${mark.id}`, kind: "bookmark", at: mark.elapsed - start, label: mark.label, detail: callsign(mark.aircraftId) ?? "Mentor bookmark", aircraftIds: [mark.aircraftId]});
