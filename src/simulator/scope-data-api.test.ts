@@ -4,6 +4,10 @@ import {getAirport} from "./airports";
 import {createScopeDataApi, fetchScopeMap, fetchScopeWinds} from "./server/scope-data-api";
 import {SessionError} from "./sessions";
 import type {ScopeMapData, ScopeWinds} from "./scope-map-data";
+import {departureAirports} from "./departure-airports";
+import {engineFor} from "./engine";
+import {createSpawnAircraft} from "./spawn-aircraft";
+import {exerciseSchema} from "./protocol";
 
 const map: ScopeMapData = {airport: "EGPH", airports: []};
 const winds: ScopeWinds = {airport: "EGPH", validAt: "2026-10-24T10:00:00Z", source: "https://open-meteo.com/", points: []};
@@ -54,6 +58,31 @@ test("map data projects real towered/uncontrolled airports without exposing upst
     assert.ok(Math.abs(result.approaches![0].threshold.y - 1) < 1e-8);
     assert.deepEqual(result.approaches?.[0].threshold, result.approaches?.[1].departure);
     assert.doesNotMatch(JSON.stringify(result), /"lat"|"lon"|test-only/);
+  } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
+});
+test("unpadded Hawaiian runway numbers remain selectable and create valid takeoffs", async () => {
+  const originalFetch = globalThis.fetch, base = process.env.INFINITE_HORIZON_API_URL, key = process.env.INFINITE_HORIZON_API_KEY;
+  process.env.INFINITE_HORIZON_API_URL = "https://navigation.test"; process.env.INFINITE_HORIZON_API_KEY = "test-only";
+  const airport = getAirport({airport: "PHOG"}), {lat, lon} = airport.origin;
+  const fields = [{icao: "PHJH", runways: ["2", "20"]}, {icao: "PHMK", runways: ["5", "23", "17", "35"]}, {icao: "PHUP", runways: ["7", "25"]},
+    {icao: "TEST", runways: ["8l", "26R", "09C", "0", "37", "H1"]}];
+  globalThis.fetch = async () => Response.json({icao: "PHOG",
+    airports: fields.map((field, index) => ({id: String(index), identifier: field.icao, name: field.icao, lat, lon, altitudeM: 100, isTowered: false})),
+    approaches: fields.flatMap(field => field.runways.map(runway => ({airportIcao: field.icao, runway, threshold: {lat, lon}, departure: {lat: lat + .01, lon}, ils: false})))});
+  try {
+    const result = await fetchScopeMap("PHOG"), origins = departureAirports(airport, result);
+    const expected = {PHJH: ["02", "20"], PHMK: ["05", "23", "17", "35"], PHUP: ["07", "25"], TEST: ["08L", "26R", "09C"]};
+    const state = engineFor({airport: "PHOG", trainingStation: "PHOG:approach"}).initialExercise();
+    for (const [icao, runways] of Object.entries(expected)) {
+      const origin = origins.find(item => item.icao === icao)!;
+      assert.deepEqual(origin.runways.map(end => end.id), runways);
+      for (const runway of runways) {
+        const aircraft = createSpawnAircraft(state, "takeoff-test", {origin, runway, airborne: false, callsign: "Test 123", type: "A320", landing: "full-stop", flight: "departure"});
+        assert.equal(aircraft.originDeparture?.runway, runway);
+        assert.deepEqual(aircraft.position, origin.runways.find(end => end.id === runway)!.threshold);
+        exerciseSchema.parse({...state, aircraft: [aircraft]});
+      }
+    }
   } finally {globalThis.fetch = originalFetch; if (base === undefined) delete process.env.INFINITE_HORIZON_API_URL; else process.env.INFINITE_HORIZON_API_URL = base; if (key === undefined) delete process.env.INFINITE_HORIZON_API_KEY; else process.env.INFINITE_HORIZON_API_KEY = key;}
 });
 test("expanded airport map accepts more than 150 airports without procedure payloads", async () => {

@@ -30,7 +30,8 @@ export async function fetchScopeMap(code: string): Promise<ScopeMapData> {
   return {airport: code,
     airports: source.airports.map(item => ({id: item.id, identifier: item.identifier, name: item.name, point: localPoint(airport, item.lat, item.lon), isTowered: item.isTowered, ...(item.altitudeM != null ? {elevationFeet: item.altitudeM * 3.28084} : {})})),
     navaids: (source.vors ?? []).map(item => ({id: item.identifier, point: localPoint(airport, item.lat, item.lon), waypointType: "VOR", ...(item.vorType ? {vorType: item.vorType} : {})})),
-    approaches: source.approaches.map(item => ({airportIcao: item.airportIcao, runway: item.runway, ils: item.ils, ...(item.localizer !== undefined ? {localizer: item.localizer} : {}),
+    // Imported runway numbers may omit their leading zero; saved departures use two digits.
+    approaches: source.approaches.map(item => ({airportIcao: item.airportIcao, runway: item.runway.trim().toUpperCase().replace(/^\d{1,2}/, number => number.padStart(2, "0")), ils: item.ils, ...(item.localizer !== undefined ? {localizer: item.localizer} : {}),
       threshold: localPoint(airport, item.threshold.lat, item.threshold.lon), departure: localPoint(airport, item.departure.lat, item.departure.lon)})),
   };
 }
