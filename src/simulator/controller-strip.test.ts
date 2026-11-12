@@ -1,12 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {randomUUID} from "node:crypto";
 import {controllerStripText} from "./controller-strip";
-import {engineFor, applyEnvelope} from "./engine";
+import {engineFor, applyEnvelope, advance, autoReadbacks, restoreExercise} from "./engine";
 import {getAirport} from "./airports";
 import type {Instruction, Message, RadarEnvironment, Action, Exercise} from "./model";
 import {controllerAircraft} from "./controller-state";
 import {radarFlightLabel} from "./radar";
 import {exerciseSchema} from "./protocol";
+import {aircraftLabel} from "./aircraft-label";
+import {withFixedReadbackDelay} from "./test-exercise";
 
 const airport = getAirport({airport: "PHOG"});
 
@@ -80,6 +83,48 @@ test("native local formatting and go-around guidance cleanup", () => {
 const act=(state:Exercise,action:Action)=>{const r=applyEnvelope(state,{id:crypto.randomUUID(),time:0,action});assert.equal(r.error,undefined);return r.state;};
 
 const fixture=()=>engineFor({trainingStation:"EGPH:approach"}).initialExercise();
+
+for (const station of ["approach", "center"] as const) for (const type of ["ils", "gps", "visual"] as const) for (const automatic of [false, true]) for (const heading of [undefined, 90]) {
+  test(`${station} ${type} missed approach retains expectation, Automatic ${automatic}, heading ${heading}`, () => {
+    let state = withFixedReadbackDelay(engineFor({trainingStation: `EGPH:${station}`}).initialExercise());
+    state.running = true; state.autoReadback = automatic;
+    const a = state.aircraft[0], airport = getAirport(state);
+    const approach = state.radarEnvironment!.approaches.find(p => p.type === type && p.runway === "24")!;
+    state = act(state, {kind: "maneuver", aircraftId: a.id, command: {type: "expect-approach", approachId: approach.id}});
+    Object.assign(state.aircraft[0].radar!, {navigation: "approach", cleared: approach.id, captured: true, localizer: true, glideslope: true});
+    const expected = {runway: approach.runway, additionalInfo: `${type === "visual" ? "VIS" : type.toUpperCase()} - ${airport.icao}`};
+    const checkDisplay = () => {
+      assert.deepEqual(controllerStripText(state.aircraft[0], airport, state.radarEnvironment!, state.messages), expected);
+      assert.equal(aircraftLabel(state.aircraft[0], airport, station, state.radarEnvironment, state.messages).additional, `${expected.additionalInfo} ${expected.runway}`);
+      assert.equal(controllerAircraft(state.aircraft[0]).radar!.expected, approach.id);
+    };
+    checkDisplay();
+    state = act(state, {kind: "command", aircraftId: a.id, frequency: station, text: "", command: {type: "missed-approach", altitude: {unit: "feet", value: 6000}, ...(heading === undefined ? {} : {heading})}});
+    checkDisplay();
+    assert.equal(controllerAircraft(state.aircraft[0]).radar!.cleared, undefined);
+    assert.equal(state.aircraft[0].radar!.cleared, approach.id, "pilot waits for readback");
+    if (automatic) state = autoReadbacks(advance(state, 1.5), 1500, randomUUID);
+    else state = act(state, {kind: "pilot", aircraftId: a.id, text: "Readback", replyTo: state.messages.at(-1)!.id, assign: true});
+    state = restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    checkDisplay();
+    const r = state.aircraft[0].radar!;
+    assert.equal(r.navigation, "missed"); assert.equal(r.cleared, undefined);
+    assert.equal(r.captured, false); assert.equal(r.localizer, false); assert.equal(r.glideslope, false);
+    state = act(state, {kind: "maneuver", aircraftId: a.id, command: {type: "vector", heading: 180}});
+    checkDisplay();
+    const replacement = state.radarEnvironment!.approaches.find(p => p.type === type && p.runway !== approach.runway)!;
+    state = act(state, {kind: "maneuver", aircraftId: a.id, command: {type: "expect-approach", approachId: replacement.id}});
+    assert.equal(controllerStripText(state.aircraft[0], airport, state.radarEnvironment!, state.messages).runway, replacement.runway);
+  });
+}
+
+test("missed approach retains radar-vector strip guidance and runway while leaving a hold", () => {
+  const a = aircraft();
+  const messages = [message({type: "expect-approach", approachId: null, vectors: true, runway: "02"}),
+    message({type: "atc", action: "hold", altitude: {unit: "feet", value: 5000}}),
+    message({type: "missed-approach", altitude: {unit: "feet", value: 6000}})];
+  assert.deepEqual(controllerStripText(a, airport, environment, messages), {runway: "02", additionalInfo: "RV - PHOG"});
+});
 
 test("sending updates controller assignments before pilot movement and survives JSON",()=>{
  let state=fixture();state.autoReadback=false;const a=state.aircraft[0],heading=a.targetHeading;

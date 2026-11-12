@@ -32,7 +32,8 @@ export function controllerStripText(aircraft: Aircraft, airport: Airport, enviro
     if (!c) continue;
     if (c.type === "expect-approach") {setApproach(c.approachId); if (!c.approachId && c.vectors) guidance = "RV";}
     else if (c.type === "vector" && c.approachId) setApproach(c.approachId);
-    else if (c.type === "missed-approach" || c.type === "go-around") {guidance = ""; holding = false;}
+    else if (c.type === "missed-approach") holding = false;
+    else if (c.type === "go-around") {guidance = ""; holding = false;}
     else if ((c.type === "pattern" || c.type === "land") && !guidance) guidance = "LOC";
     else if (c.type === "atc") {
       if (c.action === "flight-following") guidance = "FF";
