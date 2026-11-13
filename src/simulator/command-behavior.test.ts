@@ -4,7 +4,8 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {createAirportEngine, engineFor, applyEnvelope, autoReadbacks, advance, restoreExercise} from "./engine";
 import {getAirport, airportList, airportRunways, airportSelection} from "./airports";
-import {airportVisible} from "./command-navigation";
+import {airportVisible, courseTo} from "./command-navigation";
+import {headingForGroundTrack} from "./aircraft-performance";
 import {sightingTargetKey} from "./airport-sighting";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
 import {exerciseSchema, envelopeSchema, menteeActionAllowed} from "./protocol";
@@ -170,6 +171,40 @@ test("route mode alone does not make a wrong-way filed capture valid", () => {
   a.radar!.routeIndex = 1; a.radar!.navigation = "route";
   assert.match(e.validateAssignment(a, {type: "atc", action: "navigation", variant: "filed"})!, /Unable/);
 });
+
+for (const command of [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "gps-10", navigation: "filed"}] as Instruction[]) {
+  test(`${command.type}: a filed aircraft offset from its original leg accepts the TNCM replay instruction`, () => {
+    const e = engineFor({airport: "TNCM", trainingStation: "TNCM:approach"});
+    let s = withFixedReadbackDelay(e.initialExercise()); s.running = true; s.autoReadback = true;
+    const a = s.aircraft[0]; s.aircraft = [a]; delete a.radar!.report;
+    Object.assign(a, {position: {x: -85.786, y: -18.203}, heading: 78.8, targetHeading: 78.8, speed: 250, targetSpeed: 250, altitude: 2600,
+      flightPlan: [{name: "TISX", x: -96.590241, y: -20.369660}, {name: "GOUDA", x: -31.820763, y: -6.425884, altitudeConstraint: {min: 2600, max: 2600}}, {name: "AVAKI", x: -10.602116, y: -1.609600, altitudeConstraint: {min: 2600, max: 2600}}], followRouteAltitudes: true});
+    Object.assign(a.radar!, {navigation: "route", routeIndex: 1});
+    const before = JSON.stringify(a);
+    assert.equal(e.validateAssignment(a, command), null);
+    assert.equal(JSON.stringify(a), before, "validation must not mutate the aircraft");
+    const sent = e.applyEnvelope(s, {id: randomUUID(), time: 1, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Continue as filed", command}});
+    assert.equal(sent.error, undefined);
+    s = e.autoReadbacks(tick(e, sent.state, 2), 3000, randomUUID);
+    assert.doesNotMatch(s.messages.at(-1)!.text, /^Unable/);
+    assert.equal(s.aircraft[0].radar!.routeIndex, 1);
+    assert.equal(s.aircraft[0].radar!.filedJoin, undefined);
+    assert.equal(s.aircraft[0].radar!.cleared, undefined);
+    assert.equal(s.aircraft[0].altitude, 2600);
+  });
+
+  test(`${command.type}: continuing an active route preserves its banked turn and planned climb`, () => {
+    const {e, s} = radar(), a = s.aircraft[0];
+    a.flightPlan = [{x: a.position.x + 30, y: a.position.y, altitude: 6400}];
+    a.radar!.navigation = "route"; a.radar!.routeIndex = 0;
+    a.targetHeading = headingForGroundTrack(courseTo(a.position, a.flightPlan[0]), a, s.weather ?? EXERCISE_WEATHER); a.bankAngle = 18; a.followRouteAltitudes = true;
+    const c = command.type === "expect-approach" ? {...command, approachId: "gps-24"} : command;
+    const next = assign(e, s, c);
+    assert.equal(next.aircraft[0].bankAngle, 18);
+    assert.equal(next.aircraft[0].radar!.filedJoin, undefined);
+    assert.ok(tick(e, next, 10).aircraft[0].altitude > a.altitude);
+  });
+}
 
 test("STAR approvals descend along configured route constraints and survive reload", () => {
   for (const command of [{type: "atc", action: "star-descent", name: "TRAIN1"}, {type: "atc", action: "star-response", variant: "approve", name: "TRAIN1"}] as Instruction[]) {

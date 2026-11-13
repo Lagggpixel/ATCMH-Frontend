@@ -15,6 +15,8 @@ import RouteSetup from "./RouteSetup";
 import {ALTITUDES, altitudeFeet, altitudeLabel} from "./radar";
 import {flightPlanItems, flightPlanPatch, legAltitudeLabel, moveFlightPlanItem, moveFlightPlanRange, procedureAltitudeLabel, type FlightPlanItem} from "./scenario-flight-plan";
 import {setFlightPlanPreview} from "./flight-plan-preview";
+import {performanceFor} from "./aircraft-performance";
+import {automaticCruiseAltitude} from "./command-navigation";
 import type {Aircraft, Airport, RoutePoint} from "./model";
 import styles from "./ScenarioFlightPlan.module.css";
 
@@ -37,6 +39,10 @@ export default function ScenarioFlightPlan({aircraft: a, airport, onEdit, live =
   const section = useRef<HTMLElement>(null), list = useRef<HTMLOListElement>(null);
   const points = a.flightPlan, items = flightPlanItems(points), routeIndex = live && a.radar ? a.radar.routeIndex : -1;
   const next = live && a.radar?.navigation === "route" ? routeIndex : -1;
+  const automaticCruise = a.radar?.plannedCruiseAltitude ?? automaticCruiseAltitude(a);
+  const cruiseCeiling = performanceFor(a)?.ceiling ?? 60000;
+  const cruiseChoices = ALTITUDES.filter(altitude => altitudeFeet(altitude) > airport.elevation && altitudeFeet(altitude) <= cruiseCeiling);
+  const customCruise = typeof a.cruiseAltitude === "number" && !cruiseChoices.some(altitude => altitudeFeet(altitude) === a.cruiseAltitude);
   const change = (plan: RoutePoint[]) => onEdit(flightPlanPatch(a, plan, live));
   const removeRange = (start: number, end: number) => change(points.filter((_, i) => i < start || i > end));
 
@@ -110,7 +116,7 @@ export default function ScenarioFlightPlan({aircraft: a, airport, onEdit, live =
 
   const fixEditor = (point: RoutePoint, index: number, item?: FlightPlanItem) => <details className={styles.legEditor}><summary aria-label={`Edit ${fixName(point, index)}`}><DotsThreeVertical size={20} aria-hidden="true"/></summary><div className={styles.legFields}>
     {a.radar ? <label className={styles.check}><input type="checkbox" checked={!!point.finalApproachFix} onChange={event => change(points.map((p, i) => ({...p, finalApproachFix: i === index && event.target.checked ? true : undefined})))}/>Final approach fix (GPS)</label> : null}
-    <label>Altitude target at {fixName(point, index)}<select value={point.altitude ?? (point.altitudeConstraint ? "procedure" : "")} onChange={event => {const value = event.target.value, altitude = value && value !== "procedure" ? Number(value) : undefined; onEdit({...flightPlanPatch(a, points.map((p, i) => i === index ? {...p, altitude, ...(value === "" ? {altitudeConstraint: undefined} : {})} : p), live), ...((altitude !== undefined || value === "procedure") && a.followRouteAltitudes === undefined ? {followRouteAltitudes: true} : {})});}}><option value="">Maintain previous altitude</option>{point.altitudeConstraint ? <option value="procedure">Procedure: {procedureAltitudeLabel(point.altitudeConstraint)}</option> : null}{ALTITUDES.map(altitude => <option key={altitudeLabel(altitude)} value={altitudeFeet(altitude)}>{altitude.unit === "feet" ? `${altitude.value} ft MSL` : altitudeLabel(altitude)}</option>)}</select></label>
+    <label>Altitude target at {fixName(point, index)}<select value={point.altitude ?? (point.altitudeConstraint ? "procedure" : "")} onChange={event => {const value = event.target.value, altitude = value && value !== "procedure" ? Number(value) : undefined; onEdit({...flightPlanPatch(a, points.map((p, i) => i === index ? {...p, altitude, ...(value === "" ? {altitudeConstraint: undefined} : {})} : p), live), ...((altitude !== undefined || value === "procedure") && a.followRouteAltitudes === undefined ? {followRouteAltitudes: true} : {})});}}><option value="">No altitude restriction</option>{point.altitudeConstraint ? <option value="procedure">Procedure: {procedureAltitudeLabel(point.altitudeConstraint)}</option> : null}{ALTITUDES.map(altitude => <option key={altitudeLabel(altitude)} value={altitudeFeet(altitude)}>{altitude.unit === "feet" ? `${altitude.value} ft MSL` : altitudeLabel(altitude)}</option>)}</select></label>
     <label>Speed target at {fixName(point, index)} (kt)<input type="number" min={80} max={600} step={1} placeholder="Automatic" key={`${a.id}:${index}:${point.speed}`} defaultValue={point.speed ?? ""} onBlur={event => {if (event.currentTarget.validity.valid) {const speed = event.target.value ? Number(event.target.value) : undefined; change(points.map((p, i) => i === index ? {...p, speed} : p));}}}/></label>
     <div className={styles.actions}>{item ? <><button type="button" disabled={item === items[0]} onClick={() => moveItem(item, -1)}><ArrowUp size={16} aria-hidden="true"/>Earlier</button><button type="button" disabled={item === items.at(-1)} onClick={() => moveItem(item, 1)}><ArrowDown size={16} aria-hidden="true"/>Later</button></> : null}<button type="button" onClick={() => removeRange(index, index)}><Trash size={16} aria-hidden="true"/>Remove</button></div>
   </div></details>;
@@ -127,7 +133,7 @@ export default function ScenarioFlightPlan({aircraft: a, airport, onEdit, live =
     if (!procedure) {
       const point = points[start];
       return <li key={`fix-${start}`} data-start={start} className={className}>
-        <div className={styles.itemRow} {...rowEvents}>{handle}<span className={styles.number}>{start + 1}</span><div className={styles.legName}><strong>{fixLabel(point, start)}</strong><span className={styles.profile}>{legAltitudeLabel(points, start, a.altitude)}</span></div><small className={styles.direct}>DCT</small></div>
+        <div className={styles.itemRow} {...rowEvents}>{handle}<span className={styles.number}>{start + 1}</span><div className={styles.legName}><strong>{fixLabel(point, start)}</strong><span className={styles.profile}>{point.altitude === undefined && !point.altitudeConstraint ? "No altitude restriction" : legAltitudeLabel(points, start, a.altitude)}</span></div><small className={styles.direct}>DCT</small></div>
         {fixEditor(point, start, item)}
       </li>;
     }
@@ -145,7 +151,7 @@ export default function ScenarioFlightPlan({aircraft: a, airport, onEdit, live =
         <button type="button" className={styles.danger} onClick={() => {removeRange(start, end); setNotice(`Removed ${procedure.name}.`);}}><Trash size={16} aria-hidden="true"/>Remove procedure</button>
       </div></details>
       {open ? <ol className={styles.groupLegs} aria-label={`${procedure.name} fixes`}>{fixes.map((point, offset) => {const index = start + offset; return <li key={index} className={`${styles.groupLeg} ${index < routeIndex ? styles.passed : ""}`}>
-        <div className={styles.groupLegRow}><span className={styles.number}>{index + 1}</span><div className={styles.legName}><strong>{fixLabel(point, index)}</strong><span className={styles.profile}>{legAltitudeLabel(points, index, a.altitude)}</span></div></div>
+        <div className={styles.groupLegRow}><span className={styles.number}>{index + 1}</span><div className={styles.legName}><strong>{fixLabel(point, index)}</strong><span className={styles.profile}>{point.altitude === undefined && !point.altitudeConstraint ? "No altitude restriction" : legAltitudeLabel(points, index, a.altitude)}</span></div></div>
         {fixEditor(point, index)}
       </li>;})}</ol> : null}
     </li>;
@@ -163,7 +169,9 @@ export default function ScenarioFlightPlan({aircraft: a, airport, onEdit, live =
     {a.radar ? <div className={styles.guidance}><label>{live ? "Guidance" : "Initial guidance"}<select value={a.radar.navigation} onChange={event => onEdit({radar: {...a.radar!, navigation: event.target.value as "heading" | "route", routeIndex: 0, filedJoin: undefined, gpsApproach: undefined, cleared: undefined, captured: false, localizer: false, glideslope: false, clearanceAltitudeChecked: false}})}><option value="heading">Fly heading</option><option value="route" disabled={!points.length}>Follow flight plan</option>{!["heading", "route"].includes(a.radar.navigation) ? <option value={a.radar.navigation}>{a.radar.navigation}</option> : null}</select></label>
       {live && a.radar.departure ? <p className={styles.help}>After the automatic takeoff and initial climb, the selected guidance takes effect.</p> : null}
       {live && !a.radar.departure ? <p className={styles.help}>Editing the plan keeps current guidance. Select Follow flight plan to start at the first fix, or use a controller instruction to rejoin.</p> : null}
-      <label className={styles.check}><input type="checkbox" disabled={!points.length} checked={!!a.followRouteAltitudes} onChange={event => onEdit({followRouteAltitudes: event.target.checked, starDescent: undefined})}/>Follow planned climbs and descents</label><p className={styles.help}>Controller instructions override planned altitude targets. For GPS approaches, mark the final approach fix; an unmarked straight-in plan uses its last fix before the runway as a schematic FAF.</p></div> : null}
+      <label>Cruise altitude<select disabled={!points.length} value={a.cruiseAltitude ?? ""} onChange={event => onEdit({cruiseAltitude: event.target.value ? Number(event.target.value) : null, radar: {...a.radar!, plannedCruiseAltitude: undefined, routeDescending: undefined}})}><option value="">Automatic · {automaticCruise.toLocaleString("en-US")}ft</option>{customCruise ? <option value={a.cruiseAltitude!}>{a.cruiseAltitude!.toLocaleString("en-US")}ft{a.cruiseAltitude! > cruiseCeiling ? ` (aircraft limit ${cruiseCeiling.toLocaleString("en-US")}ft)` : ""}</option> : null}{cruiseChoices.map(altitude => <option key={altitudeLabel(altitude)} value={altitudeFeet(altitude)}>{altitudeLabel(altitude)}</option>)}</select></label>
+      <p className={styles.help}>Automatic chooses a departure cruise level from route length and aircraft type. Airborne arrivals keep their current level. Descent starts when needed to meet upcoming waypoint restrictions.</p>
+      <label className={styles.check}><input type="checkbox" disabled={!points.length} checked={!!a.followRouteAltitudes} onChange={event => onEdit({followRouteAltitudes: event.target.checked, starDescent: undefined})}/>Follow planned climbs and descents</label><p className={styles.help}>Controller altitude instructions take priority over cruise and planned restrictions. For GPS approaches, mark the final approach fix; an unmarked straight-in plan uses its last fix before the runway as a schematic FAF.</p></div> : null}
     <details className={styles.secondary}><summary>Destination and diversion</summary><RouteSetup aircraft={a} onEdit={onEdit} includeWaypoints={false}/></details>
     {points.length ? <button type="button" className={styles.clearButton} onClick={() => {onEdit({...flightPlanPatch(a, [], live), navigationSource: undefined, followRouteAltitudes: undefined, arrivalProcedure: undefined}); setNotice("Flight plan cleared.");}}>Clear flight plan</button> : null}
   </section>;
