@@ -64,7 +64,7 @@ test("published exact, minimum, maximum and window altitudes guide actual aircra
     const engine = engineFor({trainingStation: "EGPH:approach"}), state = engine.initialExercise();
     state.running = true; const a = state.aircraft[0];
     a.altitude = start; a.radar!.navigation = "route"; a.radar!.routeIndex = 0; delete a.radar!.targetAltitude; delete a.radar!.report;
-    a.flightPlan = []; Object.assign(a, addedFlightPlanPatch(a, tagProcedure([{x: a.position.x + 30, y: a.position.y, altitudeConstraint}], {type: "STAR", name: "TEST"})));
+    a.flightPlan = []; Object.assign(a, addedFlightPlanPatch(a, tagProcedure([{x: a.position.x + .1, y: a.position.y, altitudeConstraint}], {type: "STAR", name: "TEST"})));
     const next = engine.advance(state, 1), flown = next.aircraft[0];
     const height = flown.radar!.targetAltitude!;
     assert.equal(height.value * (height.unit === "flight-level" ? 100 : 1), target);
@@ -81,6 +81,8 @@ test("route progression respects the next bound, unconstrained fixes hold the pr
   Object.assign(a, addedFlightPlanPatch(a, points));
   let next = engine.advance(state, 1); assert.equal(next.aircraft[0].radar!.targetAltitude?.value, 6400);
   next.aircraft[0].radar!.routeIndex = 1; next = engine.advance(next, 1);
+  assert.equal(next.aircraft[0].radar!.targetAltitude?.value, 6400, "hold cruise while the lower restriction remains far ahead");
+  next.aircraft[0].position = {x: points[1].x - .1, y: points[1].y}; next = engine.advance(next, 1);
   assert.equal(next.aircraft[0].radar!.targetAltitude?.value, 4321);
   next.aircraft[0].radar!.routeIndex = 2; next = engine.advance(next, 1);
   assert.equal(next.aircraft[0].radar!.targetAltitude?.value, 4321);
@@ -89,6 +91,43 @@ test("route progression respects the next bound, unconstrained fixes hold the pr
   assert.equal(commanded.error, undefined);
   assert.equal(commanded.state.aircraft[0].followRouteAltitudes, undefined);
   assert.equal(engine.advance(commanded.state, 1).aircraft[0].radar!.targetAltitude?.value, 4000);
+});
+
+test("planned climb looks through unrestricted fixes, holds cruise and preserves that choice after reload", () => {
+  for (const altitude of [{altitude: 6500}, {altitudeConstraint: {min: 6500, max: 6500}}, {altitudeConstraint: {min: 6500}}, {altitudeConstraint: {min: 6500, max: 9200}}]) {
+    const e = engineFor({trainingStation: "EGPH:approach"});
+    let s = e.initialExercise(); s.running = true; const a = s.aircraft[0]; s.aircraft = [a];
+    a.altitude = 1200; a.followRouteAltitudes = true; a.cruiseAltitude = 10000;
+    Object.assign(a.radar!, {navigation: "route", routeIndex: 0, climbUntilAssigned: true}); delete a.radar!.report; delete a.radar!.targetAltitude;
+    a.flightPlan = [{x: a.position.x + 30, y: a.position.y}, {x: a.position.x + 60, y: a.position.y, ...altitude}, {x: a.position.x + 90, y: a.position.y}];
+    s = e.advance(s, 1);
+    assert.deepEqual(s.aircraft[0].radar!.targetAltitude, {unit: "feet", value: 10000});
+    assert.equal(s.aircraft[0].radar!.climbUntilAssigned, undefined);
+    assert.ok(s.aircraft[0].altitude > 1200);
+    s = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(s))));
+    s.aircraft[0].radar!.routeIndex = 2;
+    assert.equal(e.advance(s, 1).aircraft[0].radar!.targetAltitude?.value, 10000);
+  }
+});
+
+test("Continue as Filed enables a planned climb without replacing a controller altitude", () => {
+  for (const command of [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "gps-24", navigation: "filed"}] as Instruction[]) {
+    for (const assigned of [false, true]) {
+      const e = engineFor({trainingStation: "EGPH:approach"}), s = e.initialExercise(); s.running = true;
+      const a = s.aircraft[0]; s.aircraft = [a]; a.altitude = 1200; delete a.radar!.report; delete a.followRouteAltitudes;
+      a.flightPlan = [{x: a.position.x, y: a.position.y - 10}, {x: a.position.x, y: a.position.y + 30}, {x: a.position.x, y: a.position.y + 60, altitude: 6400}];
+      a.heading = a.targetHeading = 0; delete a.track; a.radar!.navigation = "route"; a.radar!.routeIndex = 1;
+      if (assigned) {a.radar!.targetAltitude = {unit: "feet", value: 4000}; delete a.radar!.altitudeFromRoute;}
+      else delete a.radar!.targetAltitude;
+      const sent = e.applyEnvelope(s, {id: randomUUID(), time: 0, action: {kind: "maneuver", aircraftId: a.id, command}});
+      assert.equal(sent.error, undefined);
+      const next = e.advance(sent.state, 1);
+      assert.equal(next.aircraft[0].radar!.targetAltitude?.value, assigned ? 4000 : 6400);
+      assert.equal(next.aircraft[0].radar!.altitudeFromRoute, assigned ? undefined : true);
+      assert.equal(next.aircraft[0].radar!.cleared, undefined);
+      assert.ok(next.aircraft[0].altitude > 1200);
+    }
+  }
 });
 
 test("joining procedure restrictions preserves both bounds, authored targets and source objects", () => {

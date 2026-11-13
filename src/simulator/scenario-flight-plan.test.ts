@@ -130,6 +130,7 @@ test("planned climbs and descents move the aircraft and survive scenario and rep
   let next = engine.advance(state, 1); assert.ok(next.aircraft[0].altitude > 5000);
   next = engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(next))));
   next.aircraft[0].radar!.routeIndex = 1; const before = next.aircraft[0].altitude;
+  next.aircraft[0].position = {x: a.flightPlan[1].x - 1, y: a.flightPlan[1].y};
   next = engine.advance(next, 1); assert.ok(next.aircraft[0].altitude < before);
 });
 
