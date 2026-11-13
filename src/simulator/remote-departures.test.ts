@@ -37,6 +37,26 @@ function fly(state: ReturnType<ReturnType<typeof engineFor>["initialExercise"]>,
   for (let n = 0; n < seconds; n++) state = engine.advance(state, 1);
   return state;
 }
+
+test("below-sea-level remote departures save, reload and climb from actual runway elevation", () => {
+  const definition = blankScenario({airport: "KSAN", trainingStation: "KSAN:approach"});
+  const engine = engineFor(definition), initial = engine.initialExercise();
+  const belowSea = {...origin, icao: "KNJK", elevation: -42};
+  const aircraft = createSpawnAircraft(initial, "el-centro", {origin: belowSea, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "return"});
+  assert.equal(aircraft.altitude, -42);
+  definition.aircraft = [{key: "el-centro", initial: true, seed: seedFromAircraft(aircraft)}];
+  const parsed = scenarioSchema.parse(JSON.parse(JSON.stringify(definition)));
+  const restored = createScenarioExercise(parsed, "negative-runway", "generation").exercise;
+  assert.equal(restored.aircraft[0].originDeparture?.elevation, -42);
+  exerciseSchema.parse(JSON.parse(JSON.stringify(restored)));
+  const moved = fly(restored, 120);
+  assert.ok(moved.aircraft[0].altitude > 1000);
+  assert.equal(exerciseSchema.safeParse(JSON.parse(JSON.stringify(moved))).success, true);
+  const replay = new ReplayTimeline(restored, [{sequence: 1, at: 120, delta: replayDelta(restored, moved), interpolate: false}]);
+  assert.deepEqual(replay.at(120).aircraft[0].originDeparture, moved.aircraft[0].originDeparture);
+  const invalid = structuredClone(aircraft); invalid.altitude = -2001;
+  assert.equal(exerciseSchema.safeParse({...restored, aircraft: [invalid]}).success, false);
+});
 for (const mode of ["approach", "center"] as const) test(`${mode} remote runway survives scenario, live validation, replay state and initial climb`, () => {
   const definition = blankScenario({airport: "EGPH", trainingStation: `EGPH:${mode}`});
   const engine = engineFor(definition), exercise = engine.initialExercise(); exercise.aircraft = [];

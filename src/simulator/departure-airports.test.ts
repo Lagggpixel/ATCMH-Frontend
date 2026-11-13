@@ -33,6 +33,20 @@ test("map shortcut chooses the nearest usable airport within the screen hit radi
   assert.equal(nearestDepartureAirport(candidates, origins, {x: 4, y: 0}, project), undefined);
 });
 
+test("verified below-sea-level departure airports retain their real elevations", () => {
+  const airport = getAirport({airport: "KSAN"});
+  const map: ScopeMapData = {airport: airport.icao, airports: [
+    {id: "KNJK", identifier: "KNJK", name: "El Centro", point: {x: 70, y: 0}, isTowered: true, elevationFeet: -42},
+    {id: "BAD", identifier: "BAD", name: "Invalid elevation", point: {x: 71, y: 0}, isTowered: true, elevationFeet: -2001},
+  ], approaches: [
+    {airportIcao: "KNJK", runway: "08", threshold: {x: 70, y: 0}, departure: {x: 71, y: 0}, ils: false},
+    {airportIcao: "BAD", runway: "08", threshold: {x: 71, y: 0}, departure: {x: 72, y: 0}, ils: false},
+  ]};
+  const origins = departureAirports(airport, map);
+  assert.equal(origins.find(origin => origin.icao === "KNJK")?.elevation, -42);
+  assert.equal(origins.some(origin => origin.icao === "BAD"), false);
+});
+
 
 test("three-character departure identifiers are offered only with usable runway data", () => {
   const airport = getAirport({airport: "EGPH"});
