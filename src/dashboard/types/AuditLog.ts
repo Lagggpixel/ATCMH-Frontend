@@ -17,3 +17,8 @@ export interface AuditLogFilterMetadata {
     targetTypes: string[];
     actors: Array<{id: string; name: string}>;
 }
+
+export interface AccountAuditLogPage {
+    logs: AuditLog[];
+    nextBeforeId: string | null;
+}

@@ -18,6 +18,7 @@ import {availableUserName} from "@/src/lib/user-display-name";
 import AdminUnauthorizedScreen from "./AdminUnauthorizedScreen.tsx";
 import AdminLoadingScreen from "./AdminLoadingScreen.tsx";
 import AccountMentorApplications from "./AccountMentorApplications";
+import AccountAuditLogs from "./AccountAuditLogs";
 import styles from "./AdminAccounts.module.css";
 
 const operations: Array<{value: AdminOperation; label: string}> = [
@@ -37,7 +38,7 @@ const accountName = (account: AccountSummary) => {
     const active = account.identities.filter(identity => identity.active !== false);
     return active.map(identity => availableUserName(identity.displayName)).find(Boolean) ?? (active[0] ? identityLabel(active[0]) : "Unlinked account");
 };
-const detailTabs = [{id: "overview", label: "Overview"}, {id: "history", label: "History"}, {id: "management", label: "Management"}] as const;
+const detailTabs = [{id: "overview", label: "Overview"}, {id: "history", label: "History"}, {id: "audit", label: "Audit logs"}, {id: "management", label: "Management"}] as const;
 type DetailTab = typeof detailTabs[number]["id"];
 
 function StatusBadge({status}: {status: string}) {
@@ -232,6 +233,7 @@ export default function AdminAccounts({csrfToken, adminUser, loaded, onSessionCh
                 }}>{tab.label}</button>)}</div>
                 <div id={`account-panel-${activeTab}`} role="tabpanel" aria-labelledby={`account-tab-${activeTab}`} className={styles.tabPanel} tabIndex={0}>
                 {activeTab === "overview" ? <><AccountOverview account={selected} canViewIpAddresses={adminUser.canViewIpAddresses === true}/>{csrfToken && adminUser.canReviewMentorApplications && <AccountMentorApplications key={selected.id} accountId={selected.id} name={accountName(selected)} token={csrfToken}/>}</> : null}
+                {activeTab === "audit" && csrfToken ? (adminUser.canViewAuditLogs ? <AccountAuditLogs key={selected.id} accountId={selected.id} token={csrfToken}/> : <p>You do not have access to audit logs.</p>) : null}
                 {activeTab === "management" ? <><div className={styles.sectionHeading}><h3>Management action</h3><p>Review a preview before confirming a change. A reason is required.</p></div><form className={styles.mutation} onSubmit={submitPreview}><fieldset disabled={actionBusy}>
                     <label>Action<select value={draft.operation} onChange={e => {const operation = e.target.value as AdminOperation; editDraft(operation === "SWAP_MERGE_IDENTITY" ? {operation, targetAccountId: selected.mergeTargetAccountId ?? "", subject: "", displayName: ""} : {operation});}}>{operations.filter(operation => (!operation.value.startsWith("IMPERSONATE") || adminUser.canImpersonate) && (operation.value !== "SWAP_MERGE_IDENTITY" || (selected.status === "MERGED" && Boolean(selected.mergeTargetAccountId)))).map(operation => <option value={operation.value} key={operation.value}>{operation.label}</option>)}</select></label>
                     {["LINK", "REASSIGN", "UNLINK"].includes(draft.operation) ? <div className={styles.formRow}><label>Provider<select value={draft.provider} onChange={e => editDraft({provider: e.target.value as "DISCORD" | "IFC", subject: ""})}><option>DISCORD</option><option>IFC</option></select></label><label>Provider subject<input required value={draft.subject} onChange={e => editDraft({subject: e.target.value})}/></label><label>Display name<input value={draft.displayName} onChange={e => editDraft({displayName: e.target.value})}/></label></div> : null}

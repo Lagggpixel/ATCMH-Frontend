@@ -8,7 +8,7 @@ import type {AutoMatchCandidate, AutoMatchLeniency, WaitlistHelperPreferences} f
 import type {AdminUser} from "../types/AdminUser.ts";
 import type {BotHealth} from "../types/BotHealth.ts";
 import type {AdminAssignment, AdminAssignmentPayload} from "../types/AdminAssignment.ts";
-import type {AuditLog, AuditLogFilterMetadata} from "../types/AuditLog.ts";
+import type {AuditLog, AuditLogFilterMetadata, AccountAuditLogPage} from "../types/AuditLog.ts";
 import type {AdminManual} from "../types/AdminManual.ts";
 import type {SessionAssignment} from "../types/SessionAssignment.ts";
 import type {
@@ -306,6 +306,13 @@ export class ApiUtils {
         const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/accounts/${encodeURIComponent(accountId)}`, csrfToken);
         await ApiUtils.ensureOk(response);
         return await ApiUtils.parseJson<AccountDetail>(response) as AccountDetail;
+    }
+
+    static async getAccountAuditLogs(csrfToken: string, accountId: string, beforeId?: string): Promise<AccountAuditLogPage> {
+        const query = beforeId ? `?${new URLSearchParams({beforeId})}` : "";
+        const response = await ApiUtils.fetchWithAuth(`${dashboardApiUrl}/admin/accounts/${encodeURIComponent(accountId)}/audit-logs${query}`, csrfToken);
+        await ApiUtils.ensureOk(response);
+        return await ApiUtils.parseJson<AccountAuditLogPage>(response) as AccountAuditLogPage;
     }
 
     static async previewAccountMutation(csrfToken: string, mutation: AdminMutationRequest): Promise<AdminMutationPreview> {
