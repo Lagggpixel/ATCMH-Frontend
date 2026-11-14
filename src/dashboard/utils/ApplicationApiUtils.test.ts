@@ -1,8 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {ApiUtils, configureDashboardApiUrl} from "./ApiUtils";
+import {ApiUtils, ApplicationValidationError, configureDashboardApiUrl} from "./ApiUtils";
 
 const state = {applicationType: "mentor", status: "DRAFT", answers: {region: "Europe"}, applicationId: "app-1", version: 3};
+
+test("recruiter options are fetched with the applicant session and are never cached", async () => {
+    configureDashboardApiUrl("https://dashboard-api.test");
+    const originalFetch = globalThis.fetch;
+    let request: Request | undefined;
+    globalThis.fetch = async (input, init) => {
+        request = new Request(input, init);
+        return Response.json(["PilotA350", "Syncline"]);
+    };
+    try {
+        assert.deepEqual(await ApiUtils.getApplicationRecruiters(), ["PilotA350", "Syncline"]);
+        assert.equal(new URL(request!.url).pathname, "/applications/recruiters");
+        assert.equal(request!.credentials, "include");
+        assert.equal(request!.cache, "no-store");
+        globalThis.fetch = async () => Response.json([{recruiterId: "42", recruiterName: "PilotA350"}]);
+        await assert.rejects(ApiUtils.getApplicationRecruiters(), /could not be loaded/);
+    } finally { globalThis.fetch = originalFetch; }
+});
+
+test("server recruiter rejection remains a field validation error for stale option recovery", async () => {
+    configureDashboardApiUrl("https://dashboard-api.test");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => Response.json({errors: {recruiterName: "Select a registered recruiter."}}, {status: 400});
+    try {
+        await assert.rejects(ApiUtils.submitCurrentApplication("csrf", "mentor", {recruiterName: "Removed"}), reason =>
+            reason instanceof ApplicationValidationError && reason.errors.recruiterName === "Select a registered recruiter.");
+    } finally { globalThis.fetch = originalFetch; }
+});
 
 test("application APIs use the shared question order and cookie-backed CSRF mutations", async () => {
     configureDashboardApiUrl("https://dashboard-api.test");

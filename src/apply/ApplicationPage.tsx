@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import {useSearchParams} from "next/navigation";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useState, type ReactNode} from "react";
 import type {ApplicationQuestion, WebsiteApplicationState} from "@/src/dashboard/types/ApplicationQuestion";
-import {ApiUtils} from "@/src/dashboard/utils/ApiUtils";
+import {ApiUtils, ApplicationValidationError} from "@/src/dashboard/utils/ApiUtils";
 import {loginPath} from "@/src/dashboard/utils/AuthSessionUtils";
 import {discordUrl} from "@/src/marketing/SiteHeader";
 import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
@@ -18,6 +18,8 @@ import {
 } from "./application-form-state";
 import WeeklyAvailabilityEditor from "./WeeklyAvailabilityEditor";
 import {RegionInput, TimezoneInput} from "./LocationInputs";
+import RecruiterPicker from "./RecruiterPicker";
+import {registeredRecruiter} from "./recruiter-selection";
 import styles from "./ApplicationPage.module.css";
 
 const statusCopy: Partial<Record<WebsiteApplicationState["status"], {title: string; detail: string}>> = {
@@ -44,6 +46,32 @@ export default function ApplicationPage() {
     const [busy, setBusy] = useState<"save" | "submit" | "restart">();
     const [confirmRestart, setConfirmRestart] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [recruiters, setRecruiters] = useState<string[]>([]);
+    const [recruitersLoading, setRecruitersLoading] = useState(true);
+    const [recruitersError, setRecruitersError] = useState<string>();
+    const [recruitersAttempt, setRecruitersAttempt] = useState(0);
+
+    useEffect(() => {
+        if (!session || !applicationType || !hasDiscord || !hasIfc) return;
+        const controller = new AbortController();
+        void ApiUtils.getApplicationRecruiters(controller.signal).then(names => {
+            if (controller.signal.aborted) return;
+            setRecruiters(names);
+            setRecruitersError(undefined);
+            setRecruitersLoading(false);
+        }).catch(() => {
+            if (controller.signal.aborted) return;
+            setRecruitersError("Recruiters unavailable.");
+            setRecruitersLoading(false);
+        });
+        return () => controller.abort();
+    }, [applicationType, hasDiscord, hasIfc, recruitersAttempt, session]);
+
+    const retryRecruiters = () => {
+        setRecruitersLoading(true);
+        setRecruitersError(undefined);
+        setRecruitersAttempt(current => current + 1);
+    };
 
     useEffect(() => {
         if (!session || !applicationType || !hasDiscord || !hasIfc) return;
@@ -79,6 +107,9 @@ export default function ApplicationPage() {
         () => questions ? visibleApplicationQuestions(questions, answers) : [],
         [answers, questions],
     );
+    const recruiterRequired = visibleQuestions.some(question => question.key === "recruiterName");
+    const recruiterBlocked = recruiterRequired && (recruitersLoading || Boolean(recruitersError)
+        || Boolean(errors.recruiterName) || !registeredRecruiter(answers.recruiterName ?? "", recruiters));
 
     const changeAnswer = (key: string, value: string) => {
         setAnswers(current => questions ? pruneApplicationAnswers(questions, {...current, [key]: value}) : {...current, [key]: value});
@@ -88,13 +119,15 @@ export default function ApplicationPage() {
 
     const persist = async (submit: boolean) => {
         if (!session || !applicationType || !questions) return;
-        const nextErrors = submit ? validateApplicationAnswers(questions, answers) : {};
+        const nextErrors = submit ? validateApplicationAnswers(questions, answers, recruiters) : {};
+        if (recruiterBlocked) nextErrors.recruiterName = "Select a registered recruiter.";
         setErrors(nextErrors);
         if (Object.keys(nextErrors).length) {
             document.getElementById(`application-${Object.keys(nextErrors)[0]}`)?.focus();
             return;
         }
         const cleanAnswers = pruneApplicationAnswers(questions, answers);
+        if (recruiterRequired) cleanAnswers.recruiterName = registeredRecruiter(cleanAnswers.recruiterName, recruiters)!;
         setBusy(submit ? "submit" : "save");
         setRequestError(undefined);
         setSaved(false);
@@ -106,6 +139,12 @@ export default function ApplicationPage() {
             setAnswers(initializeApplicationAnswers(questions, next.answers ?? cleanAnswers));
             setSaved(!submit);
         } catch (reason) {
+            if (reason instanceof ApplicationValidationError) {
+                setErrors(reason.errors);
+                if (reason.errors.recruiterName) retryRecruiters();
+                document.getElementById(`application-${Object.keys(reason.errors)[0]}`)?.focus();
+                return;
+            }
             setRequestError(reason instanceof Error ? reason.message : String(reason));
         } finally {
             setBusy(undefined);
@@ -174,10 +213,13 @@ export default function ApplicationPage() {
         <div className={styles.progress} aria-label={`${visibleQuestions.length} application questions`}><span>{visibleQuestions.filter(question => answers[question.key]?.trim()).length} of {visibleQuestions.length} answered</span><span>{application.status === "DRAFT" ? "Draft saved" : "Not submitted"}</span></div>
         {requestError ? <p className={styles.error} role="alert">{requestError}</p> : null}
         <form className={styles.form} onSubmit={event => { event.preventDefault(); void persist(true); }}>
-            {visibleQuestions.map((question, index) => <QuestionField key={question.key} question={question} index={index} value={answers[question.key] ?? ""} error={errors[question.key]} onChange={value => changeAnswer(question.key, value)}/>)}
+            {visibleQuestions.map((question, index) => <QuestionField key={question.key} question={question} index={index} value={answers[question.key] ?? ""} error={errors[question.key]} onChange={value => changeAnswer(question.key, value)}
+                recruiterPicker={question.key === "recruiterName" ? <RecruiterPicker id={`application-${question.key}`} value={answers[question.key] ?? ""}
+                    recruiters={recruiters} loading={recruitersLoading} loadError={recruitersError} error={errors[question.key]}
+                    disabled={Boolean(busy)} onRetry={retryRecruiters} onChange={value => changeAnswer(question.key, value)}/> : undefined}/>)}
             <div className={styles.formActions}>
-                <div><button className={styles.secondary} type="button" disabled={Boolean(busy)} onClick={() => void persist(false)}>{busy === "save" ? "Saving…" : "Save draft"}</button>{saved ? <span role="status">Draft saved.</span> : null}</div>
-                <button className={styles.primaryButton} type="submit" disabled={Boolean(busy)}>{busy === "submit" ? "Submitting…" : "Submit application"}</button>
+                <div><button className={styles.secondary} type="button" disabled={Boolean(busy) || recruiterBlocked} onClick={() => void persist(false)}>{busy === "save" ? "Saving…" : "Save draft"}</button>{saved ? <span role="status">Draft saved.</span> : null}</div>
+                <button className={styles.primaryButton} type="submit" disabled={Boolean(busy) || recruiterBlocked}>{busy === "submit" ? "Submitting…" : "Submit application"}</button>
             </div>
         </form>
         <section className={styles.discordAlternative}><div><h2>Prefer to apply in Discord?</h2><p>Discord remains available as a legacy alternative, but switching does not carry over any website answers.</p></div><button type="button" onClick={() => setConfirmRestart(true)}>Restart in Discord</button></section>
@@ -191,21 +233,22 @@ function AdminBypassNotice() {
     </aside>;
 }
 
-function QuestionField({question, index, value, error, onChange}: {question: ApplicationQuestion; index: number; value: string; error?: string; onChange: (value: string) => void}) {
+function QuestionField({question, index, value, error, onChange, recruiterPicker}: {question: ApplicationQuestion; index: number; value: string; error?: string; onChange: (value: string) => void; recruiterPicker?: ReactNode}) {
     const id = `application-${question.key}`;
     const className = question.dependsOnKey ? `${styles.question} ${styles.conditionalQuestion}` : styles.question;
-    const helpText = question.inputType === "WEEKLY_AVAILABILITY"
+    const helpText = recruiterPicker ? null : question.inputType === "WEEKLY_AVAILABILITY"
         ? "Times are in UTC. Turn on the days you are available, then choose a start and end time."
         : question.inputType === "REGION" ? question.helpText || "Choose the broad region where you live. This helps us match you with a mentor."
             : question.inputType === "TIMEZONE" ? question.helpText || "Choose your current UTC offset, use your browser suggestion, or enter the time on your clock."
                 : question.helpText;
-    const describedBy = [helpText ? `${id}-help` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+    const describedBy = recruiterPicker ? `${id}-feedback`
+        : [helpText ? `${id}-help` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
     return <fieldset className={className} aria-describedby={describedBy}>
         <legend id={`${id}-label`}><span>{String(index + 1).padStart(2, "0")}</span>{question.prompt}</legend>
         {question.inputType === "WEEKLY_AVAILABILITY"
             ? <p id={`${id}-help`} className={styles.help}>Times are in UTC. Turn on the days you are available, then choose a start and end time.</p>
             : helpText ? <p id={`${id}-help`} className={styles.help}>{helpText}</p> : null}
-        {question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} aria-describedby={describedBy} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
+        {recruiterPicker ?? (question.inputType === "YES_NO" ? <div className={styles.choiceRow}>{["yes", "no"].map(option => <label key={option}><input id={option === "yes" ? id : undefined} type="radio" name={question.key} value={option} aria-describedby={describedBy} checked={value === option} onChange={() => onChange(option)}/><span>{option === "yes" ? "Yes" : "No"}</span></label>)}</div>
             : question.inputType === "WEEKLY_AVAILABILITY" ? <WeeklyAvailabilityEditor id={id} value={value} onChange={onChange}/>
                 : question.inputType === "REGION" ? <RegionInput id={id} value={value} describedBy={describedBy} invalid={Boolean(error)} onChange={onChange}/>
                     : question.inputType === "TIMEZONE" ? <TimezoneInput id={id} value={value} describedBy={describedBy} invalid={Boolean(error)} onChange={onChange}/>
@@ -220,8 +263,8 @@ function QuestionField({question, index, value, error, onChange}: {question: App
                         value={value}
                         onChange={event => onChange(event.target.value)}
                     />
-                )}
-        {error ? <p id={`${id}-error`} className={styles.fieldError} role="alert">{error}</p> : null}
+                ))}
+        {error && !recruiterPicker ? <p id={`${id}-error`} className={styles.fieldError} role="alert">{error}</p> : null}
     </fieldset>;
 }
 
