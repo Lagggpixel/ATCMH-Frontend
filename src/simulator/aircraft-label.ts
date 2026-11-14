@@ -1,13 +1,14 @@
 import {aircraftCatalogEntry} from "./aircraft-catalog";
 import {controllerStripText} from "./controller-strip";
 import {environmentWithDestinations} from "./aviation";
-import {radarEnvironmentFor, radarFlightLabel} from "./radar";
+import {altitudeLabel, radarEnvironmentFor, radarFlightLabel} from "./radar";
+import {trueToMagnetic} from "./magnetic-headings";
 import {terrainCoordinates} from "./terrain";
 import type {Aircraft, Airport, ExerciseWeather, Frequency, Message, RadarEnvironment} from "./model";
 
 /** IF 26.4 MapControl.RenderAircraftTextATC. Station is the viewing
  * controller's facility, independent of the aircraft's tuned frequency. */
-export function aircraftLabel(a: Aircraft, airport: Airport, station: Frequency, environment?: RadarEnvironment, messages: readonly Message[] = [], weather?: ExerciseWeather) {
+export function aircraftLabel(a: Aircraft, airport: Airport, station: Frequency, environment?: RadarEnvironment, messages: readonly Message[] = [], weather?: ExerciseWeather, showTargets = false) {
   const flight = radarFlightLabel(a, airport, undefined, weather).flight;
   const radarStation = ["approach", "departure", "center"].includes(station);
   const strip = radarStation ? controllerStripText(a, airport, environmentWithDestinations(airport, environment ?? radarEnvironmentFor(airport), [a]), messages) : undefined;
@@ -16,7 +17,19 @@ export function aircraftLabel(a: Aircraft, airport: Airport, station: Frequency,
     additional: strip && strip.additionalInfo !== "----" ? `${strip.additionalInfo} ${strip.runway}` : undefined,
     holding: strip ? /(?:^| - )HOLD(?:$| )/.test(strip.additionalInfo) : a.atcManeuver?.kind === "hold",
     vertical: Math.abs(a.verticalSpeed ?? 0) > 250 ? a.verticalSpeed! > 0 ? "climb" as const : "descent" as const : undefined,
+    targets: showTargets ? aircraftTargetLabel(a, airport) : undefined,
   };
+}
+
+/** Pilot guidance, not pending controller assignments. Keep this separate from
+ * the shared flight label so trainee and demonstration views cannot reveal it. */
+export function aircraftTargetLabel(a: Aircraft, airport: Airport) {
+  const r = a.radar;
+  const altitude = r?.targetAltitude ? altitudeLabel(r.targetAltitude)
+    : r?.climbUntilAssigned ? "UNRESTRICTED"
+      : `${Math.round(a.transitionAltitude ?? (a.atcManeuver?.kind === "hold" ? a.atcManeuver.altitude : a.altitude)).toLocaleString("en-US")}ft`;
+  const heading = (Math.round(trueToMagnetic(a.targetHeading, airport)) + 360) % 360 || 360;
+  return `ALT ${altitude} · HDG ${String(heading).padStart(3, "0")}° · IAS ${Math.round(a.targetSpeed)}KT`;
 }
 
 /** Native Geodesy.Distance(Ellipsoid.Default): atan2(|cross|, dot),
