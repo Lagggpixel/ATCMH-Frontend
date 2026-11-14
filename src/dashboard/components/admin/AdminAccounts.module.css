@@ -137,6 +137,9 @@
 .recordList dl div { display: grid; grid-template-columns: minmax(100px, .4fr) 1fr; gap: 10px; }
 .recordList dt { color: var(--muted-text); overflow-wrap: anywhere; }
 .recordList dd { margin: 0; overflow-wrap: anywhere; }
+.recordList pre { max-width: 100%; padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--dashboard-secondary, var(--surface-2-color)); border-radius: 6px; }
+.auditButton { margin-top: 14px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--dashboard-surface, var(--surface-color)); color: var(--text-color); cursor: pointer; font: inherit; }
+.auditButton:disabled { opacity: .6; cursor: wait; }
 .ipTableWrap { overflow-x: auto; }
 .ipTable { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; font-size: .8rem; }
 .ipTable th, .ipTable td { padding: 10px 6px; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
