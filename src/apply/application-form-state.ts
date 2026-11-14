@@ -1,6 +1,7 @@
 import type {ApplicationQuestion, ApplicationType} from "@/src/dashboard/types/ApplicationQuestion";
 import {defaultWeeklyAvailabilityAnswer, isCanonicalWeeklyAvailability} from "./weekly-availability";
 import {normalizeRegionAnswer, normalizeTimezoneAnswer} from "./location-input";
+import {registeredRecruiter} from "./recruiter-selection";
 
 export const applicationTypes: Array<{value: ApplicationType; label: string; description: string}> = [
     {value: "mentor", label: "Full mentorship", description: "Structured written and practical preparation with a dedicated mentor."},
@@ -73,11 +74,14 @@ export function initializeApplicationAnswers(
 export function validateApplicationAnswers(
     questions: ApplicationQuestion[],
     answers: Record<string, string>,
+    recruiters: readonly string[] = [],
 ): Record<string, string> {
     const errors: Record<string, string> = {};
     for (const question of visibleApplicationQuestions(questions, answers)) {
         const value = answers[question.key]?.trim() ?? "";
-        if (!value) errors[question.key] = "Please answer this question.";
+        if (question.key === "recruiterName" && !registeredRecruiter(value, recruiters)) {
+            errors[question.key] = "Select a registered recruiter.";
+        } else if (!value) errors[question.key] = "Please answer this question.";
         else if (question.inputType === "POSITIVE_INTEGER" && (!/^\d+$/.test(value) || Number(value) < 1)) {
             errors[question.key] = "Enter a whole number greater than zero.";
         } else if (question.inputType === "YES_NO" && !["yes", "no"].includes(value.toLowerCase())) {

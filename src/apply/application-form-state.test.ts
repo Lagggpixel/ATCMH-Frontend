@@ -55,10 +55,24 @@ test("switching a parent answer prunes hidden website progress instead of submit
 
 test("submission validation covers every currently visible required answer", () => {
     assert.deepEqual(validateApplicationAnswers(questions, {appliedIfatc: "yes", hasRecruiter: "yes", region: "EU"}), {
-        recruiterName: "Please answer this question.",
+        recruiterName: "Select a registered recruiter.",
     });
     const numeric = [question("attemptCount", 1, {inputType: "POSITIVE_INTEGER"})];
     assert.equal(validateApplicationAnswers(numeric, {attemptCount: "0"}).attemptCount, "Enter a whole number greater than zero.");
+});
+
+test("only an applicant with a recruiter needs a registered name, including restored drafts", () => {
+    const names = ["PilotA350", "Syncline"];
+    const answers = {appliedIfatc: "yes", hasRecruiter: "yes", region: "EU"};
+    for (const recruiterName of ["", "Unknown", "Sam (username: PilotA350)"]) {
+        assert.equal(validateApplicationAnswers(questions, {...answers, recruiterName}, names).recruiterName,
+            "Select a registered recruiter.");
+    }
+    assert.deepEqual(validateApplicationAnswers(questions, {...answers, recruiterName: "PilotA350"}, names), {});
+    assert.deepEqual(validateApplicationAnswers(questions, {...answers, hasRecruiter: "no"}, names), {});
+    assert.deepEqual(validateApplicationAnswers(questions, {appliedIfatc: "no", region: "EU"}, []), {});
+    assert.equal(validateApplicationAnswers(questions, {...answers, recruiterName: "PilotA350"}, []).recruiterName,
+        "Select a registered recruiter.");
 });
 
 test("weekly availability starts with the backend-compatible seven-day default", () => {

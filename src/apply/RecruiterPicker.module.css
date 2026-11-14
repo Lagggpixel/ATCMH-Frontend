@@ -1,0 +1,21 @@
+.root { position: relative; min-width: 0; margin-top: 1rem; }
+.trigger { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; min-width: 0; height: 3.0625rem; padding: .8rem .9rem; border: 1px solid rgba(148,163,184,.32); border-radius: .7rem; background: #091322; color: var(--foreground); font: inherit; text-align: left; cursor: pointer; }
+.trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trigger > svg, .feedback svg { display: block; flex: none; }
+.trigger > svg { color: #a4b9d4; }
+.placeholder { color: var(--muted); }
+.trigger[aria-invalid=true] { border-color: #f48d93; background: rgba(127,29,29,.15); }
+.trigger:disabled { cursor: not-allowed; opacity: .65; }
+.trigger:focus-visible, .popup input:focus-visible, .feedback button:focus-visible { outline: 3px solid #9bbcff; outline-offset: 2px; }
+.popup { position: absolute; z-index: 20; top: calc(3.0625rem + .4rem); left: 0; right: 0; display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid #455b78; border-radius: .7rem; background: #101e31; box-shadow: 0 16px 40px #0008; }
+.above { top: auto; bottom: calc(100% + .4rem); }
+.popup input { flex: none; width: calc(100% - 1rem); min-width: 0; height: 2.65rem; margin: .5rem; padding: .65rem .75rem; border: 1px solid #455b78; border-radius: .4rem; background: #091322; color: var(--foreground); font: inherit; }
+.options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .25rem; }
+.options > div { overflow-wrap: anywhere; padding: .75rem; border-radius: .35rem; cursor: pointer; }
+.options > div[aria-selected=true] { color: #a9cbff; font-weight: 750; }
+.active { background: #244467; }
+.noResults { margin: 0; padding: .75rem 1rem 1rem; color: var(--muted); font-size: .875rem; }
+.feedback { height: 2.25rem; padding-top: .5rem; color: var(--muted); font-size: .8125rem; line-height: 1.25rem; }
+.feedback > span { display: flex; align-items: center; gap: .5rem; }
+.error { color: #fca5ac; }
+.feedback button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }

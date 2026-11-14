@@ -55,6 +55,12 @@ export type AdminUserAuthResult =
 
 export type EligibilityRequirementStatus = "pass" | "fail" | "manual";
 
+export class ApplicationValidationError extends Error {
+    constructor(public readonly errors: Record<string, string>, message: string) {
+        super(message);
+    }
+}
+
 export interface EligibilityRequirement {
     id: string;
     label: string;
@@ -129,6 +135,18 @@ export class ApiUtils {
         });
         await ApiUtils.ensureOk(response);
         return await ApiUtils.parseJson<ApplicationQuestion[]>(response) ?? [];
+    }
+
+    static async getApplicationRecruiters(signal?: AbortSignal): Promise<string[]> {
+        const response = await fetch(`${dashboardApiUrl}/applications/recruiters`, {
+            credentials: "include", cache: "no-store", signal,
+        });
+        await ApiUtils.ensureOk(response);
+        const names = await ApiUtils.parseJson<unknown>(response);
+        if (!Array.isArray(names) || names.some(name => typeof name !== "string" || !name.trim())) {
+            throw new Error("The recruiter list could not be loaded.");
+        }
+        return names as string[];
     }
 
     static async getMentorApplicationContext(): Promise<MentorApplicationContext> {
@@ -237,6 +255,9 @@ export class ApiUtils {
         });
         if (!response.ok) {
             const body = await response.json().catch(() => null) as {error?: string; errors?: Record<string, string>} | null;
+            if (response.status === 400 && body?.errors) {
+                throw new ApplicationValidationError(body.errors, body.errors.recruiterName || body.error || "Please check your answers.");
+            }
             throw new Error(body?.errors?.recruiterName || body?.error || "Your application could not be submitted. Please try again.");
         }
         return ApiUtils.applicationState(await ApiUtils.parseJson(response));
