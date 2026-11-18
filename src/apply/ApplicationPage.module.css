@@ -63,6 +63,8 @@
 .formActions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem .25rem 0; border-top: 1px solid rgba(148,163,184,.2); }
 .formActions > div { display: flex; align-items: center; gap: .75rem; }
 .formActions span { color: #86efac; font-size: .84rem; }
+.submitFeedback { min-height: 1.25rem; margin: .5rem .25rem 0; text-align: end; font-size: .84rem; line-height: 1.25rem; }
+.submitFeedback a { color: var(--accent); text-decoration: underline; }
 .primaryButton { border: 1px solid var(--primary); background: var(--primary); color: white; }
 .secondary { border: 1px solid var(--border); background: transparent; color: var(--foreground); }
 .primaryButton:disabled, .secondary:disabled, .danger:disabled { opacity: .55; cursor: not-allowed; }
