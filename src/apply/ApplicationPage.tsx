@@ -108,8 +108,14 @@ export default function ApplicationPage() {
         [answers, questions],
     );
     const recruiterRequired = visibleQuestions.some(question => question.key === "recruiterName");
+    const selectedRecruiter = recruiterRequired ? registeredRecruiter(answers.recruiterName ?? "", recruiters) : undefined;
     const recruiterBlocked = recruiterRequired && (recruitersLoading || Boolean(recruitersError)
-        || Boolean(errors.recruiterName) || !registeredRecruiter(answers.recruiterName ?? "", recruiters));
+        || Boolean(errors.recruiterName) || !selectedRecruiter);
+    const recruiterSubmitMessage = !recruiterBlocked ? null
+        : recruitersLoading ? "Loading recruiter list…"
+            : recruitersError ? "Retry loading the recruiter list."
+                : recruiters.length === 0 ? "No registered recruiters are available."
+                    : "Choose a registered recruiter to submit.";
 
     const changeAnswer = (key: string, value: string) => {
         setAnswers(current => questions ? pruneApplicationAnswers(questions, {...current, [key]: value}) : {...current, [key]: value});
@@ -127,7 +133,7 @@ export default function ApplicationPage() {
             return;
         }
         const cleanAnswers = pruneApplicationAnswers(questions, answers);
-        if (recruiterRequired) cleanAnswers.recruiterName = registeredRecruiter(cleanAnswers.recruiterName, recruiters)!;
+        if (selectedRecruiter) cleanAnswers.recruiterName = selectedRecruiter;
         setBusy(submit ? "submit" : "save");
         setRequestError(undefined);
         setSaved(false);
@@ -219,8 +225,12 @@ export default function ApplicationPage() {
                     disabled={Boolean(busy)} onRetry={retryRecruiters} onChange={value => changeAnswer(question.key, value)}/> : undefined}/>)}
             <div className={styles.formActions}>
                 <div><button className={styles.secondary} type="button" disabled={Boolean(busy) || recruiterBlocked} onClick={() => void persist(false)}>{busy === "save" ? "Saving…" : "Save draft"}</button>{saved ? <span role="status">Draft saved.</span> : null}</div>
-                <button className={styles.primaryButton} type="submit" disabled={Boolean(busy) || recruiterBlocked}>{busy === "submit" ? "Submitting…" : "Submit application"}</button>
+                <button className={styles.primaryButton} type="submit" disabled={Boolean(busy) || recruiterBlocked}
+                    aria-describedby={recruiterBlocked ? "application-recruiter-submit-feedback" : undefined}>{busy === "submit" ? "Submitting…" : "Submit application"}</button>
             </div>
+            {recruiterRequired ? <p id="application-recruiter-submit-feedback" className={styles.submitFeedback} aria-live="polite">
+                {recruiterSubmitMessage ? <a href={recruitersError ? "#application-recruiterName-retry" : "#application-recruiterName"}>{recruiterSubmitMessage}</a> : null}
+            </p> : null}
         </form>
         <section className={styles.discordAlternative}><div><h2>Prefer to apply in Discord?</h2><p>Discord remains available as a legacy alternative, but switching does not carry over any website answers.</p></div><button type="button" onClick={() => setConfirmRestart(true)}>Restart in Discord</button></section>
         {confirmRestart ? <RestartConfirmation busy={busy === "restart"} onCancel={() => setConfirmRestart(false)} onConfirm={() => void restartInDiscord()}/> : null}

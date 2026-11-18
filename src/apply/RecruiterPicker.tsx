@@ -30,7 +30,8 @@ export default function RecruiterPicker({id, value, recruiters, loading, loadErr
     const selected = registeredRecruiter(value, recruiters);
     const message = loadError ? "Recruiters unavailable."
         : loading ? "Loading recruiters…"
-            : error || (value && !selected ? "Select a registered recruiter." : "");
+            : recruiters.length === 0 ? "No registered recruiters are available."
+                : error || (!selected ? "Select a registered recruiter." : "");
     const invalid = !loading && Boolean(loadError || error || value && !selected);
     const results = recruiters.filter(name => name.toLowerCase().includes(query.trim().toLowerCase()));
 
@@ -131,7 +132,7 @@ export default function RecruiterPicker({id, value, recruiters, loading, loadErr
         <div id={`${id}-feedback`} className={styles.feedback} aria-live="polite">
             {message ? <span className={invalid ? styles.error : undefined}>
                 {invalid ? <WarningCircleIcon size={16} aria-hidden="true"/> : null}{message}
-                {loadError ? <button type="button" onClick={onRetry}>Retry</button> : null}
+                {loadError ? <button id={`${id}-retry`} type="button" onClick={onRetry}>Retry</button> : null}
             </span> : null}
         </div>
     </div>;
