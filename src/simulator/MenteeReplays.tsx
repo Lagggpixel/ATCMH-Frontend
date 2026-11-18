@@ -46,7 +46,7 @@ function Replays() {
         <div className={styles.heroSide}>
           <span>In this replay</span>
           <div className={styles.tags}><span className={ui.tag}>{recordingLabel(latest)}</span></div>
-          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={`/sweatbox/replays/${latest.id}`}>{canPlayReplay(latest) ? "Watch replay" : "View summary"}</Link>
+          <Link className={`${ui.btn} ${ui.primary} ${ui.large}`} href={`/sweatbox/mentee/replays/${latest.id}`}>{canPlayReplay(latest) ? "Watch replay" : "View summary"}</Link>
         </div>
       </section> : null}
       <section aria-labelledby="all-heading" className={ui.panel}>
@@ -59,7 +59,7 @@ function Replays() {
               <p className={ui.meta}>{[date.format(replay.endedAt), minutes(replay.duration), `${replay.airport ?? "EGPH"} ${modeLabel(replay)}`, mentor && `Mentor ${mentor}`].filter(Boolean).join(" · ")}</p>
               <p className={replay.feedback ? styles.feedback : `${styles.feedback} ${styles.noFeedback}`}>{replay.feedback ?? "Your Mentor didn’t leave feedback for this session."}</p>
             </div>
-            <Link className={`${ui.btn} ${playable ? ui.primary : ""}`} href={`/sweatbox/replays/${replay.id}`}>{playable ? "Watch" : "View summary"}<span className={ui.srOnly}> {replay.title}</span></Link>
+            <Link className={`${ui.btn} ${playable ? ui.primary : ""}`} href={`/sweatbox/mentee/replays/${replay.id}`}>{playable ? "Watch" : "View summary"}<span className={ui.srOnly}> {replay.title}</span></Link>
           </article>;
         }) : <div className={ui.empty}><h3>No replays yet</h3><p>When your Mentor archives a session you took part in, its recording and feedback appear here.</p><Link className={ui.btn} href="/sweatbox/mentee">Back to Your sweatbox</Link></div>}
         {replays?.length && next !== null ? <div className={ui.panelFoot}><span>Showing {replays.length}</span><button type="button" className={ui.btn} disabled={loading} onClick={() => {setLoading(true); setOffset(next);}}>{loading ? "Loading…" : "Load more"}</button></div> : null}

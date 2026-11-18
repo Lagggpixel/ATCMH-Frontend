@@ -32,6 +32,13 @@ export type EndlessDefinition = z.infer<typeof endlessDefinition>;
 export type EndlessStream = EndlessDefinition["streams"][number];
 export type EndlessIssue = typeof endlessIssues[number];
 
+export function radarStreamRunways(stream: EndlessStream) {
+  return {
+    departure: stream.departureRunway ?? (stream.kind === "arrival" ? undefined : stream.runway),
+    arrival: stream.arrivalRunway ?? (stream.kind === "arrival" ? stream.runway : undefined),
+  };
+}
+
 export const londonCenter = "9113b47a-2bfe-82eb-ceec-fda5022a8cfa";
 const stream = (name: string, kind: EndlessStream["kind"], rate: number, origin: string, destination: string, runway: string): EndlessStream =>
   ({name, kind, rate, origin, destination, runway});

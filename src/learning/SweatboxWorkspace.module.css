@@ -13,6 +13,8 @@
 .actions{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
 .backLink{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;border-radius:8px;color:var(--dashboard-muted);font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap}
 .backLink:hover{color:var(--dashboard-link)}
+.roleSwitch{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--dashboard-border);border-radius:8px;color:var(--dashboard-ink);font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap}
+.roleSwitch:hover{background:var(--dashboard-selected)}
 .account{flex:0 0 auto;min-height:44px;color:var(--dashboard-ink)}
 .account :global(.nav-auth-loading){display:block;width:44px;height:44px;border-radius:50%;background:var(--dashboard-secondary)}
 .account :global(.nav-user-menu){position:relative}
@@ -36,3 +38,6 @@
  .nav a svg{display:block}
  .nav a[aria-current="page"]{background:var(--dashboard-selected)}
 }
+@media(max-width:430px){.headerInner{gap:6px;padding-inline:max(12px,env(safe-area-inset-left,0px)) max(12px,env(safe-area-inset-right,0px))}.brand{gap:6px}.brand strong{font-size:14px}.roleSwitch{font-size:12px;padding-inline:7px}}
+@media(max-width:390px){.brand strong{max-width:84px;white-space:normal}}
+@media(max-width:365px){.headerInner{padding-inline:max(8px,env(safe-area-inset-left,0px)) max(8px,env(safe-area-inset-right,0px))}.brand strong{max-width:56px;font-size:12px}.roleSwitch{font-size:11px}}

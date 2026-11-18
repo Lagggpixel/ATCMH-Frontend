@@ -27,6 +27,11 @@ export interface EndlessEvent {
   aircraftId?: string;
   issue?: EndlessIssue;
 }
+type EndlessIncident = Pick<EndlessEvent, "ordinal" | "at" | "label"> & {kind: "separation" | "runway" | "collision" | "terrain"};
+export interface EndlessRunSummary extends EndlessCounts {
+  draining: boolean;
+  incident?: EndlessIncident;
+}
 interface Traffic {
   stream: number;
   entered: boolean;
@@ -75,6 +80,14 @@ export function initializeEndless(scenario: CompiledEndless, seed: number) {
     counts: {released: 0, completed: 0, skipped: 0, separation: 0, runway: 0, collisions: 0, terrain: 0, unresolved: 0},
   };
   return {exercise, runtime};
+}
+
+export function endlessRunSummary(runtime: EndlessRuntime): EndlessRunSummary {
+  const incident = runtime.events.findLast((event): event is EndlessIncident =>
+    event.kind === "separation" || event.kind === "runway" || event.kind === "collision" || event.kind === "terrain");
+  return {...runtime.counts, draining: runtime.draining, ...(incident ? {incident: {
+    ordinal: incident.ordinal, at: incident.at, kind: incident.kind, label: incident.label,
+  }} : {})};
 }
 
 export function endlessReport(runtime: EndlessRuntime, duration: number): EndlessReport {

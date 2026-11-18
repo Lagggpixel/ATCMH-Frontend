@@ -17,12 +17,29 @@ type FrameRow = RowDataPacket & {sequence_no: number; at_seconds: number; delta:
 export async function listEndless(owner: string) {
   const [custom, runs, replays] = await Promise.all([
     queryReadOnly<CustomRow[]>("SELECT id,version,definition FROM simulator_endless_scenarios WHERE owner_id=? ORDER BY updated_at DESC LIMIT 100", [owner]),
-    queryReadOnly<(RowDataPacket & {id: string; title: string; airport: string})[]>(
-      "SELECT id,title,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport FROM simulator_sessions WHERE owner_id=? AND JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.endlessRun.ended'))='false' ORDER BY updated_at DESC LIMIT 50", [owner]),
-    queryReadOnly<(RowDataPacket & {id: string; title: string; duration: number; ended_at: number})[]>(
-      "SELECT id,title,duration,ended_at FROM simulator_replays WHERE owner_id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NOT NULL ORDER BY ended_at DESC LIMIT 50", [owner]),
+    queryReadOnly<(RowDataPacket & {id: string; title: string; airport: string; elapsed: unknown; counts: unknown})[]>(
+      "SELECT id,title,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_EXTRACT(snapshot,'$.elapsed') AS elapsed,JSON_EXTRACT(snapshot,'$.endlessRun.counts') AS counts FROM simulator_sessions WHERE owner_id=? AND JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.endlessRun.ended'))='false' ORDER BY updated_at DESC LIMIT 50", [owner]),
+    queryReadOnly<(RowDataPacket & {id: string; title: string; duration: number; ended_at: number; report: unknown})[]>(
+      "SELECT id,title,duration,ended_at,JSON_EXTRACT(last_state,'$.endlessReview.report') AS report FROM simulator_replays WHERE owner_id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NOT NULL ORDER BY ended_at DESC LIMIT 50", [owner]),
   ]);
-  return {custom: custom.map(row => ({id: row.id, version: Number(row.version), definition: endlessDefinition.parse(JSON.parse(row.definition))})), runs, replays};
+  return {custom: custom.map(row => ({id: row.id, version: Number(row.version), definition: endlessDefinition.parse(JSON.parse(row.definition))})),
+    runs: runs.map(({id, title, airport, elapsed, counts}) => {
+      const c = json<Partial<EndlessReport>>(counts);
+      return {id, title, airport, elapsed: Number(json(elapsed) ?? 0), completed: Number(c?.completed ?? 0), released: Number(c?.released ?? 0)};
+    }),
+    replays: replays.map(({id, title, duration, ended_at, report}) => {
+      const r = json<EndlessReport>(report);
+      return {id, title, duration: Number(duration), ended_at: Number(ended_at), ...(r ? {report: {
+        score: r.score ?? null, separation: r.separation ?? 0, runway: r.runway ?? 0, collisions: r.collisions ?? 0, terrain: r.terrain ?? 0,
+        unresolved: r.unresolved ?? 0, airport: r.definition?.airport, mode: r.definition?.mode}} : {})};
+    })};
+}
+
+/** JSON_EXTRACT values arrive parsed or as text depending on the driver's column typing. */
+function json<T>(value: unknown): T | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== "string") return value as T;
+  try {return JSON.parse(value) as T;} catch {return undefined;}
 }
 
 export async function saveEndlessDefinition(owner: string, id: string, expectedVersion: number, definition: EndlessDefinition) {

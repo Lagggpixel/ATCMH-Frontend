@@ -17,7 +17,7 @@ import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 import {demoPresenter} from "../demonstration";
-import {advanceEndless, endlessReport, startEndless, type EndlessRuntime} from "../endless/runtime";
+import {advanceEndless, endlessReport, endlessRunSummary, startEndless, type EndlessRuntime} from "../endless/runtime";
 import {assertEndlessAccess, restrictEndlessAction} from "./endless-access";
 
 /** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee; superAdmin may spectate. */
@@ -69,7 +69,7 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.staff && record.staff.expiresAt > now ? {staffId: record.staff.accountId, staffName: record.staff.displayName} : {}),
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now || allPositionSeats(record).some(s => s.expiresAt > now),
-    ...(record.endless ? {endless: {draining: record.endless.draining, released: record.endless.counts.released, completed: record.endless.counts.completed, skipped: record.endless.counts.skipped}} : {}),
+    ...(record.endless ? {endless: endlessRunSummary(record.endless)} : {}),
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {}),
     ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {}),
     ...(record.scenario?.feedback ? {hasFeedback: true} : {})};

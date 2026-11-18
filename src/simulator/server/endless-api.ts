@@ -1,7 +1,7 @@
 
 import {randomInt, randomUUID} from "node:crypto";
 import {z} from "zod/v3";
-import {AIRPORT_IDS, getAirport} from "../airports";
+import {AIRPORT_IDS, getAirport, runwayEnds} from "../airports";
 import {compileEndless, endlessSectors} from "../endless/compile";
 import {endlessDefinition, endlessPresets} from "../endless/definition";
 import {initializeEndless} from "../endless/runtime";
@@ -22,7 +22,10 @@ const requestSchema = z.discriminatedUnion("action", [
 ]);
 const noStore = {headers: {"cache-control": "private, no-store"}};
 const service = new SessionService(sqlSessionStore);
-const airportList = () => AIRPORT_IDS.map(icao => ({icao, sectors: endlessSectors(getAirport({airport: icao})).map(({id, name}) => ({id, name}))}));
+const airportList = () => AIRPORT_IDS.map(icao => {
+  const airport = getAirport({airport: icao});
+  return {icao, runways: [...new Set(runwayEnds(airport).map(end => end.id))], sectors: endlessSectors(airport).map(({id, name}) => ({id, name}))};
+});
 
 export function createEndlessApi(authorize = authorizeSessionRequest, loadNavigation = fetchNavigationData) {
   return async (request: Request) => {

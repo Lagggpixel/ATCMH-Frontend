@@ -1,7 +1,7 @@
 export type SessionRole = "staff" | "mentee";
 export type SessionMode = SessionRole | "spectator";
 export interface SessionSummary {
-  endless?: {draining: boolean; released: number; completed: number; skipped: number};
+  endless?: import("./endless/runtime").EndlessRunSummary;
   positions?: import("./positions").PositionPresence[];
   airport?: string; airportDataVersion?: string; trainingStation?: string;
   id: string; title: string; createdAt: number; updatedAt: number;

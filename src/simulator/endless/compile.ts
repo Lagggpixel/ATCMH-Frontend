@@ -5,7 +5,7 @@ import type {Airport, Point, RadarApproach, RoutePoint} from "../model";
 import {gatesFor} from "../scenarios";
 import {appendFlightPlan, tagProcedure} from "../scenario-flight-plan";
 import {approachEntry, insideSector, nmBetween, sectorEntry} from "./geometry";
-import {endlessDefinition, type EndlessDefinition, type EndlessStream} from "./definition";
+import {endlessDefinition, radarStreamRunways, type EndlessDefinition, type EndlessStream} from "./definition";
 import type {NavigationSource} from "../server/navigation-api";
 
 type Procedure = NavigationSource["procedures"][number];
@@ -71,8 +71,9 @@ function procedureOptions(airport: Airport, source: NavigationSource, type: "SID
 function compileRoutes(
   stream: EndlessStream, definition: EndlessDefinition, airport: Airport, origins: NavigationSource, arrivals: NavigationSource, boundary?: Point[],
 ) {
-  const departure = selectEnd(airportApproaches(airport, stream.origin), stream.departureRunway ?? (stream.kind !== "arrival" ? stream.runway : undefined));
-  const arrival = selectEnd(airportApproaches(airport, stream.destination), stream.arrivalRunway ?? (stream.kind === "arrival" ? stream.runway : undefined));
+  const runways = radarStreamRunways(stream);
+  const departure = selectEnd(airportApproaches(airport, stream.origin), runways.departure);
+  const arrival = selectEnd(airportApproaches(airport, stream.destination), runways.arrival);
   const destination = arrival.threshold;
   const source = departure.threshold;
   if (boundary) {
