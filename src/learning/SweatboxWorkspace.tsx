@@ -7,7 +7,7 @@ import {MonitorPlay} from "@phosphor-icons/react/dist/csr/MonitorPlay";
 import {FileText} from "@phosphor-icons/react/dist/csr/FileText";
 import {ClockCounterClockwise} from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
 import {House} from "@phosphor-icons/react/dist/csr/House";
-import {UserCircle} from "@phosphor-icons/react/dist/csr/UserCircle";
+import {Infinity} from "@phosphor-icons/react/dist/csr/Infinity";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
 import {canAccessStaffSimulator} from "../simulator/feature";
 import AppearanceMenu from "../dashboard/theme/AppearanceMenu";
@@ -21,11 +21,11 @@ const trainerLinks = [
   {key: "sessions", href: "/sweatbox", label: "Sessions", Icon: MonitorPlay, exact: true, also: "/sweatbox/staff"},
   {key: "scenarios", href: "/sweatbox/scenarios", label: "Scenarios", Icon: FileText, exact: false},
   {key: "replays", href: "/sweatbox/replays", label: "Replays", Icon: ClockCounterClockwise, exact: false},
-  {key: "mentee", href: "/sweatbox/mentee", label: "Your sweatbox", Icon: UserCircle, exact: true},
 ] as const satisfies readonly NavLink[];
 const menteeLinks = [
-  {key: "mentee", href: "/sweatbox/mentee", label: "Your sweatbox", Icon: House, exact: true},
-  {key: "mentee-replays", href: "/sweatbox/mentee/replays", label: "Your replays", Icon: ClockCounterClockwise, exact: false},
+  {key: "mentee", href: "/sweatbox/mentee", label: "Sweatbox", Icon: House, exact: true},
+  {key: "mentee-replays", href: "/sweatbox/mentee/replays", label: "Replays", Icon: ClockCounterClockwise, exact: false},
+  {key: "endless", href: "/sweatbox/endless", label: "Endless", Icon: Infinity, exact: false},
 ] as const satisfies readonly NavLink[];
 interface NavLink {key: string; href: string; label: string; Icon: typeof House; exact: boolean; also?: string}
 const normalise = (path: string) => path.replace(/^\/simulator(?=\/|$)/, "/sweatbox").replace(/\/$/, "") || "/";
@@ -37,8 +37,9 @@ function Brand({href}: {href: string}) {
 /** One slim top bar on wider screens; on phones the same links become a bottom tab bar. */
 export default function SweatboxWorkspace({children}: {children: ReactNode}) {
   const pathname = normalise(usePathname());
-  // Mentees admitted by an assignment see only their own pages; Mentors keep the library and gain Your sweatbox.
-  const {adminUser, session} = usePortalAuth(), trainer = canAccessStaffSimulator(adminUser);
+  const {adminUser, session} = usePortalAuth();
+  const canTrain = canAccessStaffSimulator(adminUser);
+  const trainer = canTrain && !/^\/sweatbox\/(mentee|endless)(\/|$)/.test(pathname);
   const links = trainer ? trainerLinks : menteeLinks, home = trainer ? "/sweatbox" : "/sweatbox/mentee";
   return <div className={styles.workspace} data-mentee={!trainer || undefined}>
     <a className={styles.skip} href="#learning-content">Skip to content</a>
@@ -55,6 +56,7 @@ export default function SweatboxWorkspace({children}: {children: ReactNode}) {
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Full navigation restores the main site's restrictive media CSP. */}
           <a className={styles.backLink} href="/">Back to ATCMH</a>
           <AppearanceMenu/>
+          {canTrain ? <a className={styles.roleSwitch} href={trainer ? "/sweatbox/mentee" : "/sweatbox/staff"}>{trainer ? "Switch to Trainee" : "Switch to Trainer"}</a> : null}
           <div className={styles.account}><AuthNavigation showLogin={false} menuLinks={trainer ? [{href: CHANGELOG_PATH, label: "Changelog"}] : undefined}/></div>
         </div>
       </div>

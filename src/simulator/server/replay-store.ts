@@ -5,6 +5,8 @@ import {exerciseSchema} from "../protocol";
 import {demoReplayMarks} from "../demonstration";
 import {demoHub, shadowHub} from "./demo-hub";
 import {traineeReplayMarks} from "../trainee-overlay";
+import {endlessReport} from "../endless/runtime";
+import {appendEndlessIndex} from "./endless-store";
 import {recordedStateAt, replayDelta, replayState, type ReplayDetail, type ReplayFrame, type ReplayParticipant, type ReplaySummary} from "../replays";
 import {SessionError} from "../sessions";
 import type {Exercise} from "../model";
@@ -56,30 +58,33 @@ export async function recordReplay(connection: ReplayConnection, record: Session
   }
   const state = replayState(record.exercise), now = Math.max(record.updatedAt, record.tickAt);
   if (!row) {
-    const id = record.scenario?.attemptId ?? randomUUID(), partial = !!before && !reset;
+    const id = record.endless ? record.id : record.scenario?.attemptId ?? randomUUID(), partial = !!before && !reset;
+    const initial = JSON.stringify(record.endless ? {...state, endlessRun: true} : state);
     await connection.execute("INSERT INTO simulator_replays (id,session_id,attempt_id,owner_id,owner_name,title,started_at,content_revision,initial_state,last_state,participants,partial) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-      [id, record.id, record.scenario?.attemptId ?? null, record.ownerId, record.ownerName ?? null, record.title, now, record.contentRevision, JSON.stringify(state), JSON.stringify(state), JSON.stringify(participants(record)), partial ? 1 : 0]);
+      [id, record.id, record.scenario?.attemptId ?? null, record.ownerId, record.ownerName ?? null, record.title, now, record.contentRevision, initial, JSON.stringify(state), JSON.stringify(participants(record)), partial ? 1 : 0]);
     row = {id, session_id: record.id, attempt_id: record.scenario?.attemptId ?? null, status: "recording", duration: 0, sequence_no: 0, content_revision: record.contentRevision, last_state: JSON.stringify(state), participants: JSON.stringify(participants(record))} as ReplayRow;
   }
   if (row.status !== "recording") return;
   if (before && before.title !== record.title && row.title !== record.title)
     await connection.execute("UPDATE simulator_replays SET title=? WHERE id=?", [record.title, row.id]);
   const previous = exerciseSchema.parse(JSON.parse(row.last_state)), elapsed = Math.max(0, state.elapsed - previous.elapsed);
-  const ended = closing ?? (record.scenario?.finished ? "finished" : undefined);
+  const ended = closing ?? (record.endless?.ended ? "ended" : record.scenario?.finished ? "finished" : undefined);
   const changed = record.contentRevision !== Number(row.content_revision);
   let sequence = Number(row.sequence_no), duration = Number(row.duration);
   if (elapsed >= 1 || changed || ended) {
     duration += elapsed; sequence++;
+    if (record.endless) await appendEndlessIndex(connection, row.id, sequence, Number(row.duration), previous);
     // The trainer's pointer and commands since the last frame ride along with it.
     const demo = demoReplayMarks(demoHub.drainTrace(record.id), duration, state.elapsed);
     // So do each mentee position's own controls, for the replay's mentee overlay.
     const prefix = `${record.id}:`;
     const shadow = shadowHub.keys(prefix).flatMap(key => traineeReplayMarks(shadowHub.drainTrace(key), key.slice(prefix.length), duration, state.elapsed)).sort((a, b) => a.at - b.at);
-    const delta = {...replayDelta(previous, state), ...(demo.length ? {demo} : {}), ...(shadow.length ? {shadow} : {})};
+    const events = record.endless?.events.filter(event => event.ordinal > (before?.endless?.ordinal ?? 0));
+    const delta = {...replayDelta(previous, state), ...(events?.length ? {endless: events} : {}), ...(demo.length ? {demo} : {}), ...(shadow.length ? {shadow} : {})};
     // Recordings begun before compact storage finish in the JSON format they started in.
     if (!await appendCompactFrame(connection, row.id, Number(row.sequence_no), previous, {sequence, at: duration, delta, interpolate: !changed}, !!ended, now))
       await connection.execute("INSERT INTO simulator_replay_frames (replay_id,sequence_no,at_seconds,delta,interpolate) VALUES (?,?,?,?,?)", [row.id, sequence, duration, JSON.stringify(delta), changed ? 0 : 1]);
-    await connection.execute("UPDATE simulator_replays SET last_state=?,sequence_no=?,duration=?,content_revision=? WHERE id=?", [JSON.stringify(state), sequence, duration, record.contentRevision, row.id]);
+    await connection.execute("UPDATE simulator_replays SET last_state=?,sequence_no=?,duration=?,content_revision=? WHERE id=?", [JSON.stringify(ended && record.endless ? {...state, endlessReview: {report: endlessReport(record.endless, state.elapsed), events: record.endless.events}} : state), sequence, duration, record.contentRevision, row.id]);
   }
   const people = JSON.stringify(participants(record, JSON.parse(row.participants)));
   if (people !== row.participants) await connection.execute("UPDATE simulator_replays SET participants=? WHERE id=?", [people, row.id]);
@@ -134,6 +139,7 @@ export async function listReplays(offset: number, filters: ReplayFilters = {}) {
     recordedWhere.push("LOCATE(LOWER(?),LOWER(CONCAT_WS(' ',title,participants,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(initial_state,'$.airport')),'EGPH'))))>0"); recordedValues.push(filters.search);
     legacyWhere.push("LOCATE(LOWER(?),LOWER(CONCAT_WS(' ',JSON_UNQUOTE(JSON_EXTRACT(r.definition,'$.title')),a.owner_id,a.learner_id,'EGPH')))>0"); legacyValues.push(filters.search);
   }
+  recordedWhere.push("JSON_EXTRACT(initial_state,'$.endlessRun') IS NULL");
   const recordedClause = recordedWhere.length ? ` AND ${recordedWhere.join(" AND ")}` : "";
   const legacyClause = legacyWhere.length ? ` AND ${legacyWhere.join(" AND ")}` : "";
   const [recordings, legacy] = await Promise.all([
@@ -146,7 +152,7 @@ export async function listReplays(offset: number, filters: ReplayFilters = {}) {
 /** With menteeId, only a replay that account took part in as the Mentee is readable. */
 /** The newest finished replay of a session that has since been archived. */
 export async function endedReplay(sessionId: string): Promise<ReplaySummary | null> {
-  const rows = await queryReadOnly<ReplayRow[]>("SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback FROM simulator_replays WHERE session_id=? AND ended_at IS NOT NULL ORDER BY ended_at DESC,id DESC LIMIT 1", [sessionId]);
+  const rows = await queryReadOnly<ReplayRow[]>("SELECT id,session_id,owner_id,owner_name,title,started_at,ended_at,status,duration,participants,partial,feedback FROM simulator_replays WHERE session_id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NULL ORDER BY ended_at DESC,id DESC LIMIT 1", [sessionId]);
   return rows[0] ? summary(rows[0]) : null;
 }
 /** Every frame of a replay, from compact chunks or the older JSON rows. */
@@ -176,7 +182,7 @@ export async function hasReplayAtAirport(accountId: string, airport: string): Pr
 }
 
 async function readAnyReplay(id: string, after: number, all: boolean): Promise<ReplayDetail> {
-  const rows = await queryReadOnly<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL", [id]);
+  const rows = await queryReadOnly<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NULL", [id]);
   if (!rows[0]) {
     const old = await queryReadOnly<LegacyRow[]>(`${legacySelect} WHERE a.id=? AND a.status<>'active'`, [id]);
     if (!old[0]) throw new SessionError("not-found", "This replay is unavailable or the session is still recording.", 404);

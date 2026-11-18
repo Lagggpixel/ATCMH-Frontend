@@ -421,6 +421,55 @@
         "runwayGeometry": "Joined OSM runway centerline segments; true headings derived from projected endpoints",
         "standDeduplication": "B29 and C12 branch lines retain their OSM geometry as taxilanes; a single parking line for each ends nearest the mapped terminal gate node. C12 area also compared with rounded 18 January 2024 Lido chart https://randomflightdatabase.fr/cartes/Lido1/KBOS.pdf."
       }
+    },
+    {
+      "icao": "KCOS",
+      "data": "/simulator/data/kcos.json",
+      "sourceDate": "2026-11-18",
+      "dataVersion": "abb27ff84564d943e82e64908bfd2fefd4c90cae7e6ed22d0e6c378dbb35de8e",
+      "bounds": [
+        -104.729,
+        38.779,
+        -104.677,
+        38.832
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-104.729,38.779,-104.677,38.832"
+      ],
+      "sources": {
+        "osmSha256": "26816a71749b42f28cfd52443490a064cbbc05478c9600892d2ad16697c6ceb6",
+        "airportsSha256": "8d406ed66ccc287f75b718a6681fa73d080ba61332bad47abf46bd3e21171558",
+        "runwaysSha256": "bfb54ee68ef51f69b72d535fc5dfeaeda34a81e51fcd4702386d1414078f414a",
+        "runways": "FAA NASR effective 2026-10-29, APT_RWY.csv and APT_RWY_END.csv, exported in the importer CSV schema",
+        "faaNasr": "https://nfdc.faa.gov/webContent/28DaySub/28DaySubscription_Effective_2026-10-29.zip"
+      }
+    },
+    {
+      "icao": "MMMX",
+      "data": "/simulator/data/mmmx.json",
+      "sourceDate": "2026-11-18",
+      "dataVersion": "d421bf10a9e2fc7bf42eac7b2d0118ad67dae5cd02f6e8d6f4527ddf6075a099",
+      "bounds": [
+        -99.106,
+        19.413,
+        -99.048,
+        19.46
+      ],
+      "osmExtracts": [
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.106,19.413,-99.0915,19.425",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.0915,19.413,-99.077,19.425",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.106,19.425,-99.0915,19.437",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.0915,19.425,-99.077,19.437",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.077,19.413,-99.048,19.437",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.106,19.437,-99.077,19.46",
+        "https://api.openstreetmap.org/api/0.6/map?bbox=-99.077,19.437,-99.048,19.46"
+      ],
+      "sources": {
+        "osmSha256": "80424ed595ae60049bfa044c55d2a85c87d0db4574f322ae4c834dc50bdac725",
+        "airportsSha256": "8d406ed66ccc287f75b718a6681fa73d080ba61332bad47abf46bd3e21171558",
+        "runwaysSha256": "eb3d10aa1809a1fc36f7d66c6a52b1b6fe887b14e857c6405c6208961d86e66b",
+        "airportOperator": "https://www.aicm.com.mx/obligaciones/Archivos/MemoriaDocumentalAICM.pdf"
+      }
     }
   ]
 }

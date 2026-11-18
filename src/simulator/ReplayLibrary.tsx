@@ -39,12 +39,13 @@ import styles from "./ReplayViewer.module.css";
 const ended = new Intl.DateTimeFormat("en-GB", {day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC"});
 const people = (detail: ReplayDetail, role: "staff" | "mentee") => detail.replay.participants.filter(p => p.role === role).map(p => p.name || p.accountId).join(", ");
 
-export default function ReplayLibrary({id}: {id?: string}) {
+export default function ReplayLibrary({id, trainee = false}: {id?: string; trainee?: boolean}) {
   if (!id) return <LearningFrame product="Sweatbox"><SessionAccess embedded role="staff" returnTo="/sweatbox/replays">{(_csrf, accountId) => <ReplayIndex accountId={accountId}/>}</SessionAccess></LearningFrame>;
   // Mentees may open a replay too; the server only returns ones they took part in.
-  return <DashboardThemeProvider><div className={styles.theme}><SessionAccess embedded allowMentee role="mentee" returnTo={`/sweatbox/replays/${id}`}>
-    {(csrf, accountId, access) => <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId} csrf={csrf} mentor={access.simulator}/>}
-  </SessionAccess></div></DashboardThemeProvider>;
+  const viewer = <SessionAccess embedded allowMentee role="mentee" returnTo={`/sweatbox/${trainee ? "mentee/" : ""}replays/${id}`}>
+    {(csrf, accountId, access) => <ReplayViewer key={`${id}:${accountId}`} id={id} accountId={accountId} csrf={csrf} mentor={access.simulator && !trainee}/>}
+  </SessionAccess>;
+  return <div className={styles.theme}>{trainee ? <LearningFrame product="Sweatbox">{viewer}</LearningFrame> : <DashboardThemeProvider>{viewer}</DashboardThemeProvider>}</div>;
 }
 
 function ReplayViewer({id, accountId, mentor, csrf}: {id: string; accountId: string; mentor: boolean; csrf: string}) {

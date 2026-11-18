@@ -2,6 +2,20 @@
   "verifiedOn": "2026-10-18",
   "source": "InfiniteHorizon navigation database: if_runway_end, if_localizer, if_glideslope",
   "airports": {
+    "KCOS": {
+      "13": { "localizer": false, "glideslope": false },
+      "31": { "localizer": false, "glideslope": false },
+      "17L": { "localizer": true, "glideslope": true },
+      "35R": { "localizer": true, "glideslope": true },
+      "17R": { "localizer": false, "glideslope": false },
+      "35L": { "localizer": true, "glideslope": true }
+    },
+    "MMMX": {
+      "05L": { "localizer": false, "glideslope": false },
+      "23R": { "localizer": false, "glideslope": false },
+      "05R": { "localizer": true, "glideslope": true },
+      "23L": { "localizer": true, "glideslope": true }
+    },
     "CYUL": {
       "06L": {
         "localizer": true,
@@ -571,6 +585,14 @@
   },
   "highTerrainVerifiedOn": "2026-10-19",
   "airportSources": {
+    "KCOS": {
+      "verifiedOn": "2026-11-18",
+      "source": "FAA NASR 2026-10-29 runway-end records"
+    },
+    "MMMX": {
+      "verifiedOn": "2026-11-18",
+      "source": "AICM and SENEAM runway 05R/23L ILS documentation"
+    },
     "KBOS": {
       "verifiedOn": "2026-10-25",
       "source": "InfiniteHorizon if_runway_end / if_localizer / if_glideslope; read-only export"

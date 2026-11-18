@@ -2,6 +2,7 @@ import {z} from "zod/v3";
 import {messageSpeech} from "./message-speech";
 import {requireLocalSession} from "./radar-moved";
 import {createReplayApi} from "./replay-api";
+import {createEndlessApi} from "./endless-api";
 import {hasReplayAtAirport} from "./replay-store";
 import {authorizeDelegation, requireGateway} from "./runtime-identity";
 import {createSessionApi, sessionFailure} from "./session-api";
@@ -14,6 +15,7 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
   const sessions = createSessionApi(sqlSessionStore, authorizeDelegation, requireLocalSession, weather);
   const training = createTrainingApi(new TrainingService(weather), authorizeDelegation);
   const replays = createReplayApi(authorizeDelegation);
+  const endless = createEndlessApi(authorizeDelegation);
   const operations = new Set(["join", "leave", "commands", "events", "assign", "demo", "shadow", "positions", "position-assignment", "rename"]);
   return async (request: Request): Promise<Response> => {
     try {
@@ -35,6 +37,7 @@ export function createRuntimeHandler(key: string, weather?: SessionWeatherLoader
         const messageId = z.string().min(1).max(256).parse(searchParams.get("messageId"));
         return Response.json(messageSpeech(await sqlSessionStore.read(sessionId), actor, messageId));
       }
+      if (pathname === "/api/simulator/endless" && (method === "GET" || method === "POST")) return endless(request);
       const route = /^\/api\/simulator\/(sessions|training|replays)(?:\/([^/]+))?(?:\/([^/]+))?$/.exec(pathname);
       if (route) {
         const [, resource, id, operation] = route;

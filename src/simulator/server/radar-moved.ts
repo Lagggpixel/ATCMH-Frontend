@@ -6,6 +6,6 @@ export function rejectMovedRadar(selection: {trainingStation?: string}) {
   if (isRadarStation(selection.trainingStation)) throw new SessionError("radar-moved", "Radar training has moved to simulator.lagggpixel.com.", 410);
 }
 export async function requireLocalSession(id: string) {
-  const rows = await queryReadOnly<(RowDataPacket & {station: string | null})[]>("SELECT JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS station FROM simulator_sessions WHERE id=?", [id]);
-  rejectMovedRadar({trainingStation: rows[0]?.station ?? undefined});
+  const rows = await queryReadOnly<(RowDataPacket & {station: string | null; endless: string | null})[]>("SELECT JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS station, JSON_EXTRACT(snapshot,'$.endlessRun.version') AS endless FROM simulator_sessions WHERE id=?", [id]);
+  if (!rows[0]?.endless) rejectMovedRadar({trainingStation: rows[0]?.station ?? undefined});
 }

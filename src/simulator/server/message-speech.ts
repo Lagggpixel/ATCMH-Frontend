@@ -1,10 +1,12 @@
 import {aviationSpeech} from "../radio-speech";
+import {assertEndlessAccess} from "./endless-access";
 import {SessionError} from "../sessions";
 import {menteeAccess, type Actor, type SessionRecord} from "./session-service";
 import {assignmentMatches} from "./position-state";
 
 /** Read-only authorization; fetching speech never ticks a session or renews a seat. */
 export function messageSpeech(record: SessionRecord, actor: Actor, messageId: string, now = Date.now()): string {
+  if (record.endless) assertEndlessAccess(record, {...actor, staff: actor.staff || record.staff?.accountId === actor.accountId && record.staff.expiresAt > now}, "staff");
   const trainer = !!actor.superAdmin || !!(record.staff?.accountId === actor.accountId && record.staff.expiresAt > now);
   if (!trainer) menteeAccess(record, actor);
   const held = Object.entries(record.positionState ?? {}).filter(([, state]) => state.seat?.accountId === actor.accountId && state.seat.expiresAt > now && (!state.assignment || assignmentMatches(state.assignment, actor))).map(([id]) => id);

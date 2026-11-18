@@ -5,6 +5,7 @@ import type {PositionAssignment} from "./position-state";
 import {ownsAircraft} from "../positions";
 import {facilities} from "../aviation";
 import {getAirport} from "../airports";
+import {catalogFor} from "../catalog";
 import {applySessionWeather, requestSessionWeather, type SessionWeatherLoader} from "./session-weather";
 import {randomUUID} from "node:crypto";
 import {advance, applyEnvelope, autoReadbacks, initialExercise, restoreExercise} from "../engine";
@@ -16,6 +17,8 @@ import {scenarioStaffView, type ScenarioRuntime} from "../scenarios";
 import {terrainImpacts, type TerrainImpactProvider} from "./terrain-impacts";
 import {airportSightings, type SightingProvider} from "./airport-sightings";
 import {demoPresenter} from "../demonstration";
+import {advanceEndless, endlessReport, endlessRunSummary, startEndless, type EndlessRuntime} from "../endless/runtime";
+import {assertEndlessAccess, restrictEndlessAction} from "./endless-access";
 
 /** simulatorAccess is false only for a signed-in user admitted solely as an assigned mentee; superAdmin may spectate. */
 /** Reads a session's own recording back at a given exercise time. */
@@ -30,6 +33,7 @@ export interface SessionRecord {
   staff: Seat | null; mentee: Seat | null;
   positionState?: Record<string, PositionState>;
   scenario?: ScenarioRuntime;
+  endless?: EndlessRuntime;
   assignment?: SessionAssignment | null;
 }
 export interface SessionStore {
@@ -56,6 +60,7 @@ export function assertSuperAdmin(actor: Actor) {
   if (!actor.staff || !actor.superAdmin) throw new SessionError("forbidden", "Only Superadmins can spectate sessions.", 403);
 }
 export function availableControl(record: SessionRecord, actor: Actor, now: number) {
+  if (record.endless) {assertEndlessAccess(record, actor, "staff", true); throw new SessionError("endless-run", "Manage this run from Endless practice.", 409);}
   if (record.staff && record.staff.expiresAt > now && record.staff.accountId !== actor.accountId)
     throw new SessionError("seat-occupied", "Another staff member is controlling this session. Wait until they leave before changing the attempt or ending it.", 409);
 }
@@ -64,6 +69,7 @@ export function summary(record: SessionRecord, now: number): SessionSummary {
     ...(record.staff && record.staff.expiresAt > now ? {staffId: record.staff.accountId, staffName: record.staff.displayName} : {}),
     ...(record.mentee && record.mentee.expiresAt > now ? {menteeId: record.mentee.accountId, menteeName: record.mentee.displayName} : {}),
     staffOccupied: !!record.staff && record.staff.expiresAt > now, menteeOccupied: !!record.mentee && record.mentee.expiresAt > now || allPositionSeats(record).some(s => s.expiresAt > now),
+    ...(record.endless ? {endless: endlessRunSummary(record.endless)} : {}),
     ...(record.scenario ? {scenario: {title: record.scenario.definition.title, finished: record.scenario.finished}} : {}),
     ...(record.assignment ? {assignedMenteeId: record.assignment.discordId, assignedMenteeName: record.assignment.name} : {}),
     ...(record.scenario?.feedback ? {hasFeedback: true} : {})};
@@ -115,6 +121,7 @@ export class SessionService {
   }
   /** Validates this page's seat and returns the seats to renew, without changing the record. */
   private checkSeat(record: SessionRecord, actor: Actor, role: SessionMode, token: string, now: number): Seat[] {
+    assertEndlessAccess(record, actor, role);
     if (role === "spectator") {assertSuperAdmin(actor); return [];}
     if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
     // A bandboxing seat holds several positions with one token; all of them are renewed together.
@@ -156,7 +163,7 @@ export class SessionService {
     if (this.terrain.apply(record.exercise)) record.contentRevision++;
     const occupied = [record.staff, record.mentee, ...allPositionSeats(record)].some(seat => seat && seat.expiresAt > now);
     const lost = allPositionSeats(record).some(s => s.expiresAt <= now && s.expiresAt > record.tickAt);
-    if (lost && record.exercise.running) {record.exercise = {...record.exercise, running: false, pausedByStaff: true, pauseVisibility: "visible", revision: record.exercise.revision + 1}; record.contentRevision++;}
+    if ((lost || record.endless && !occupied) && record.exercise.running) {record.exercise = {...record.exercise, running: false, pausedByStaff: true, pauseVisibility: "visible", revision: record.exercise.revision + 1}; record.contentRevision++;}
     const gap = (now - record.tickAt) / 1000;
     // Recover delayed connected updates, but never simulate an offline interval.
     if (occupied && gap > 0 && gap <= SESSION_LEASE_MS / 1000) {
@@ -167,7 +174,11 @@ export class SessionService {
       // scenario events/readbacks take effect before later movement is simulated.
       for (let at = record.tickAt; at < now;) {
         const stepAt = Math.min(at + SESSION_FRAME_MS, now), seconds = (stepAt - at) / 1000 * (record.exercise.timeScale ?? 1);
-        if (record.scenario) {
+        if (record.endless) {
+          const ordinal = record.endless.ordinal;
+          record.exercise = advanceEndless(record.exercise, record.endless, seconds, stepAt);
+          if (record.endless.ordinal !== ordinal) record.contentRevision++;
+        } else if (record.scenario) {
           const result = advanceScenario(record.exercise, record.scenario, seconds, stepAt);
           record.exercise = result.exercise; if (result.changed) record.contentRevision++;
         } else record.exercise = advance(record.exercise, seconds);
@@ -186,6 +197,7 @@ export class SessionService {
   async rename(actor: Actor, id: string, sessionName: string | null) {
     this.staff(actor);
     return this.store.transaction(id, record => {
+      if (record.endless) {assertEndlessAccess(record, actor, "staff", true); throw new SessionError("endless-run", "Use the selected scenario title for this run.", 409);}
       if (record.ownerId !== actor.accountId) throw new SessionError("forbidden", "Only the session owner can edit its name.", 403);
       record.title = sessionName ?? record.scenario?.definition.title ?? DEFAULT_SESSION_TITLE;
       return summary(record, this.now());
@@ -208,6 +220,7 @@ export class SessionService {
   async join(actor: Actor, id: string, role: SessionMode, token: string, requested?: string, takeover = false) {
     if (role === "spectator") return this.frame(actor, id, role, token);
     const view = await this.store.transaction(id, record => {
+      assertEndlessAccess(record, actor, role);
       if (role === "staff") this.staff(actor); else menteeAccess(record, actor);
       const now = this.now();
       const held = role === "mentee" ? this.chooseHeld(record, actor, token, now, requested) : [];
@@ -257,6 +270,7 @@ export class SessionService {
     if (role === "spectator") {
       assertSuperAdmin(actor);
       const record = await this.store.read(id), now = this.now();
+      assertEndlessAccess(record, actor, role);
       const occupied = [record.staff, record.mentee, ...allPositionSeats(record)].some(seat => seat && seat.expiresAt > now);
       // Observation never ticks, renews seats or keeps an idle session moving.
       if (!occupied) record.exercise = {...record.exercise, running: false};
@@ -295,7 +309,15 @@ export class SessionService {
     }
     return this.store.transaction(id, async record => {
       const now = this.now(); this.seat(record, actor, role, token, now);
+      if (record.endless && envelope.action.kind === "maneuver") {
+        const {aircraftId, command} = envelope.action;
+        const aircraft = record.exercise.aircraft.find(item => item.id === aircraftId);
+        if (!aircraft?.frequency) throw new SessionError("endless-handoff", "This aircraft is not on your frequency.", 409);
+        const catalog = catalogFor(getAirport(record.exercise), record.exercise.radarEnvironment, record.exercise.weather);
+        envelope = {...envelope, action: {kind: "command", aircraftId, command, frequency: aircraft.frequency, text: catalog.instructionText(aircraft, command)}};
+      }
       const {action} = envelope;
+      if (record.endless) restrictEndlessAction(record, action);
       // A bandbox acts for all its positions; a demonstration acts for every position the demonstrated seat holds.
       const demonstrated = record.exercise.demonstration?.positionId;
       const acting = role === "mentee" ? positionsForToken(record, token) : demonstrated ? heldWith(record, demonstrated) : [];
@@ -345,6 +367,9 @@ export class SessionService {
       record.exercise = envelope.action.kind === "reset" && result.state !== record.exercise ? applySessionWeather(result.state, report) : result.state; record.updatedAt = now;
       if (envelope.action.kind === "demonstrate" && record.exercise.demonstration && !current) record.exercise.demonstration = {...record.exercise.demonstration,
         ...(actor.displayName ? {by: actor.displayName.slice(0, 128)} : {}), byId: actor.accountId, ...(role === "spectator" ? {spectator: true, until: now + SESSION_LEASE_MS} : {})};
+      if (record.endless && envelope.action.kind === "play" && record.exercise.running) {
+        record.exercise = startEndless(record.exercise, record.endless, now);
+      }
       if (record.scenario && envelope.action.kind === "play") {
         const result = advanceScenario(record.exercise, record.scenario, 0, now);
         record.exercise = result.exercise; if (result.changed) record.contentRevision++;
@@ -353,7 +378,32 @@ export class SessionService {
     });
   }
   /** Restores the session's own recording from `seconds` of exercise time ago, paused so the mentor can brief before resuming. */
+  async controlEndless(actor: Actor, id: string, action: "drain" | "end") {
+    this.staff(actor);
+    return this.store.transaction(id, record => {
+      if (!record.endless) throw new SessionError("not-found", "This Endless run is unavailable.", 404);
+      assertEndlessAccess(record, actor, "staff", true);
+      const now = this.now(), runtime = record.endless;
+      if (runtime.ended) return {ended: true, report: endlessReport(runtime, record.exercise.elapsed), replayId: id};
+      this.tick(record, now);
+      runtime.draining = true;
+      if (action === "end") {
+        runtime.ended = true;
+        record.exercise = {...record.exercise, running: false, revision: record.exercise.revision + 1};
+        record.staff = null;
+      }
+      record.contentRevision++;
+      record.updatedAt = now;
+      return runtime.ended ? {ended: true, report: endlessReport(runtime, record.exercise.elapsed), replayId: id} : {draining: true};
+    });
+  }
+
   private async rewind(actor: Actor, id: string, role: SessionMode, token: string, envelopeId: string, seconds: number) {
+    const endless = await this.store.read(id);
+    if (endless.endless) {
+      assertEndlessAccess(endless, actor, role);
+      throw new SessionError("endless-run", "Review earlier traffic after ending the run.", 409);
+    }
     if (role === "mentee") throw new SessionError("forbidden", "Only the mentor can rewind the session.", 403);
     // A retried envelope whose first attempt committed returns that result instead of rewinding again.
     const first = await this.store.transaction(id, record => {
@@ -401,6 +451,7 @@ export class SessionService {
       }
       if (record[role]?.token === token && record[role]?.accountId === actor.accountId) {
         this.tick(record, this.now()); record[role] = null;
+        if (record.endless && record.exercise.running) {record.exercise = {...record.exercise, running: false, revision: record.exercise.revision + 1}; record.contentRevision++;}
         if (role === "staff" && record.exercise.demonstration && !record.exercise.demonstration.spectator) endDemonstration(record);
       }
     });
@@ -416,6 +467,7 @@ export class SessionService {
     this.staff(actor);
     if (!actor.canAssign) throw new SessionError("forbidden", "Only mentors with Sweatbox access or administrators can assign mentees.", 403);
     return this.store.transaction(id, record => {
+      if (record.endless) {assertEndlessAccess(record, actor, "staff"); throw new SessionError("endless-run", "Endless runs have one controller and cannot be assigned.", 409);}
       const now = this.now(), previous = record.assignment?.discordId, changed = previous !== mentee?.discordId;
       if (!changed && mentee && record.assignment) record.assignment = {...record.assignment, ...(mentee.name ? {name: mentee.name} : {})};
       else record.assignment = mentee ? {discordId: mentee.discordId, ...(mentee.name ? {name: mentee.name} : {}), assignedAt: now, assignedBy: actor.accountId, ...(actor.displayName ? {assignedByName: actor.displayName} : {})} : null;

@@ -19,6 +19,7 @@ export interface ReplayDemoMark {at: number; point?: Point; down?: true; click?:
 /** A trainee's controller state (selection, open messages, drags, zoom) or a sent command, in replay seconds. */
 export interface ReplayTraineeMark {at: number; positionId: string; /** The trainee account that produced it. */ accountId?: string; state?: import("./trainee-overlay").TraineeView; sent?: {callsign: string; text: string; path: string[]}}
 export interface ReplayDelta {
+  endless?: import("./endless/runtime").EndlessEvent[];
   state: Partial<Omit<Exercise, "aircraft">>;
   /** Optional exercise fields that ended, such as a demonstration. */
   unset?: (keyof Exercise)[];
@@ -91,7 +92,7 @@ export function applyReplayDelta(before: Exercise, delta: ReplayDelta): Exercise
 /** Checkpoints bound seek work without copying every complete frame into memory. */
 export class ReplayTimeline {
   private checkpoints = new Map<number, Exercise>();
-  constructor(readonly initial: Exercise, readonly frames: ReplayFrame[]) {
+  constructor(readonly initial: Exercise, readonly frames: ReplayFrame[], private startAt = 0) {
     let state = initial; this.checkpoints.set(-1, state);
     frames.forEach((frame, i) => {state = applyReplayDelta(state, frame.delta); if (i % 60 === 59) this.checkpoints.set(i, state);});
   }
@@ -101,7 +102,7 @@ export class ReplayTimeline {
     const index = low - 1, checkpoint = Math.floor((index + 1) / 60) * 60 - 1;
     let state = this.checkpoints.get(checkpoint)!;
     for (let i = checkpoint + 1; i <= index; i++) state = applyReplayDelta(state, this.frames[i].delta);
-    const next = this.frames[index + 1], start = this.frames[index]?.at ?? 0;
+    const next = this.frames[index + 1], start = this.frames[index]?.at ?? this.startAt;
     if (!next?.interpolate || next.at <= start || next.at - start > 2) return state;
     const target = applyReplayDelta(state, next.delta), fraction = Math.max(0, Math.min(1, (time - start) / (next.at - start)));
     const targets = new Map(target.aircraft.map(a => [a.id, a]));

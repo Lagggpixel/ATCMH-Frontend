@@ -96,7 +96,7 @@ function Assigned() {
         <div className={ui.list}><div className={ui.item}><div className={ui.itemRow}>
           <div className={ui.itemMain}><strong>{last.title}</strong><small>{[last.airport ?? "EGPH", date.format(last.endedAt), `${Math.max(1, Math.round(last.duration / 60))} min`].join(" · ")}</small></div>
           <span className={`${ui.state} ${last.feedback ? ui.stateLive : ""}`}>{last.feedback ? "Feedback ready" : "No feedback"}</span>
-          <Link className={ui.btn} href={`/sweatbox/replays/${last.id}`}>{canPlayReplay(last) ? "Watch" : "View summary"}<span className={ui.srOnly}> {last.title}</span></Link>
+          <Link className={ui.btn} href={`/sweatbox/mentee/replays/${last.id}`}>{canPlayReplay(last) ? "Watch" : "View summary"}<span className={ui.srOnly}> {last.title}</span></Link>
         </div></div></div>
       </section> : null}
       {tip ? <p className={ui.tip}><strong>On iPhone or iPad?</strong> For a proper full screen, tap Share in Safari, then Add to Home Screen, and open Sweatbox from that icon.</p> : null}
