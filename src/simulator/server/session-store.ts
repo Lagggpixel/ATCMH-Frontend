@@ -8,6 +8,7 @@ import {exerciseSchema} from "../protocol";
 import {SessionError, type AssignedSession, type SessionSummary} from "../sessions";
 import {availableControl, type Seat, type SessionAssignment, type SessionRecord, type SessionStore} from "./session-service";
 import {recordReplay} from "./replay-store";
+import {readEndlessSnapshot, writeSessionSnapshot} from "./endless-access";
 
 interface SessionRow extends RowDataPacket {
   scenario_title?: string | null; scenario_finished?: string | null;
@@ -26,6 +27,7 @@ const assignmentColumns = (assignment: SessionAssignment | null | undefined) => 
 export function decodeSession(row: SessionRow): SessionRecord {
   return {id: row.id, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, title: row.title, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at),
     positionState: row.position_state ? JSON.parse(row.position_state) : undefined, tickAt: Number(row.tick_at), contentRevision: Number(row.content_revision), exercise: exerciseSchema.parse(JSON.parse(row.snapshot)),
+    ...readEndlessSnapshot(row.snapshot),
     ...(row.scenario_runtime ? {scenario: scenarioRuntimeSchema.parse(JSON.parse(row.scenario_runtime))} : {}),
     staff: row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null, mentee: row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null, assignment: decodeAssignment(row)};
 }
@@ -45,7 +47,7 @@ export const sqlSessionStore: SessionStore = {
     });
   },
   async list(now) {
-    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,position_state,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.positions')) AS controller_positions,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.feedback')) AS scenario_feedback,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.definition.title')) AS scenario_title,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.finished')) AS scenario_finished FROM simulator_sessions ORDER BY updated_at DESC");
+    const rows = await queryReadOnly<SessionRow[]>("SELECT id,owner_id,owner_name,title,created_at,updated_at,staff_seat,mentee_seat,position_state,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.positions')) AS controller_positions,assigned_mentee_id,assigned_mentee_name,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airportDataVersion')) AS airport_data_version,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.trainingStation')) AS training_station,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.feedback')) AS scenario_feedback,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.definition.title')) AS scenario_title,JSON_UNQUOTE(JSON_EXTRACT(scenario_runtime,'$.finished')) AS scenario_finished FROM simulator_sessions WHERE JSON_EXTRACT(snapshot,'$.endlessRun') IS NULL ORDER BY updated_at DESC");
     return rows.map(row => {
       const staff = row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null;
       const mentee = row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null;
@@ -61,9 +63,9 @@ export const sqlSessionStore: SessionStore = {
   async create(record) {
     await withWriteTransaction(async connection => {
       if (record.scenario) {
-        await connection.execute("INSERT INTO simulator_sessions (id,owner_id,title,created_at,updated_at,tick_at,content_revision,snapshot,scenario_runtime,owner_name) VALUES (?,?,?,?,?,?,?,?,?,?)", [record.id, record.ownerId, record.title, record.createdAt, record.updatedAt, record.tickAt, record.contentRevision, JSON.stringify(record.exercise), JSON.stringify(record.scenario), record.ownerName ?? null]);
+        await connection.execute("INSERT INTO simulator_sessions (id,owner_id,title,created_at,updated_at,tick_at,content_revision,snapshot,scenario_runtime,owner_name) VALUES (?,?,?,?,?,?,?,?,?,?)", [record.id, record.ownerId, record.title, record.createdAt, record.updatedAt, record.tickAt, record.contentRevision, writeSessionSnapshot(record), JSON.stringify(record.scenario), record.ownerName ?? null]);
       } else await connection.execute("INSERT INTO simulator_sessions (id,owner_id,title,created_at,updated_at,tick_at,content_revision,snapshot,owner_name) VALUES (?,?,?,?,?,?,?,?,?)",
-        [record.id, record.ownerId, record.title, record.createdAt, record.updatedAt, record.tickAt, record.contentRevision, JSON.stringify(record.exercise), record.ownerName ?? null]);
+        [record.id, record.ownerId, record.title, record.createdAt, record.updatedAt, record.tickAt, record.contentRevision, writeSessionSnapshot(record), record.ownerName ?? null]);
       await recordReplay(connection, record);
     });
   },
@@ -74,7 +76,7 @@ export const sqlSessionStore: SessionStore = {
       const record = decodeSession(rows[0]), before = structuredClone(record), result = await run(record);
       await recordReplay(connection, record, before);
       await connection.execute("UPDATE simulator_sessions SET updated_at=?,tick_at=?,content_revision=?,snapshot=?,staff_seat=?,mentee_seat=? WHERE id=?",
-        [record.updatedAt, record.tickAt, record.contentRevision, JSON.stringify(record.exercise), record.staff ? JSON.stringify(record.staff) : null, record.mentee ? JSON.stringify(record.mentee) : null, id]);
+        [record.updatedAt, record.tickAt, record.contentRevision, writeSessionSnapshot(record), record.staff ? JSON.stringify(record.staff) : null, record.mentee ? JSON.stringify(record.mentee) : null, id]);
       if (record.title !== before.title) await connection.execute("UPDATE simulator_sessions SET title=? WHERE id=?", [record.title, id]);
       if (record.scenario) await connection.execute("UPDATE simulator_sessions SET scenario_runtime=? WHERE id=?", [JSON.stringify(record.scenario), id]);
       if (JSON.stringify(record.positionState ?? null) !== JSON.stringify(before.positionState ?? null)) await connection.execute("UPDATE simulator_sessions SET position_state=? WHERE id=?", [record.positionState ? JSON.stringify(record.positionState) : null, id]);
@@ -114,10 +116,10 @@ export const sqlSessionStore: SessionStore = {
     const select = "SELECT id,title,owner_name,position_state,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.positions')) AS controller_positions,assigned_mentee_id,JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.airport')) AS airport FROM simulator_sessions";
     type Row = RowDataPacket & {id: string; title: string; owner_name: string | null; assigned_mentee_id: string | null; airport: string | null};
     let rows: Row[];
-    if ("id" in entry) rows = await queryReadOnly<Row[]>(`${select} WHERE id=?`, [entry.id]);
+    if ("id" in entry) rows = await queryReadOnly<Row[]>(`${select} WHERE id=? AND JSON_EXTRACT(snapshot,'$.endlessRun') IS NULL`, [entry.id]);
     else {
       const [airport, hex] = entry.code.split("-"), prefix = `${hex.slice(0, 8)}-${hex.slice(8, 12)}`.toLowerCase();
-      rows = (await queryReadOnly<Row[]>(`${select} WHERE id LIKE ? LIMIT 5`, [`${prefix}%`])).filter(row => (row.airport ?? "EGPH") === airport);
+      rows = (await queryReadOnly<Row[]>(`${select} WHERE id LIKE ? AND JSON_EXTRACT(snapshot,'$.endlessRun') IS NULL LIMIT 5`, [`${prefix}%`])).filter(row => (row.airport ?? "EGPH") === airport);
     }
     const row = rows.length === 1 ? rows[0] : undefined;
     return row ? {id: row.id, title: row.title, airport: row.airport ?? "EGPH", ...(row.owner_name ? {ownerName: row.owner_name} : {}), ...(row.assigned_mentee_id ? {assignedDiscordId: row.assigned_mentee_id} : {})} : null;

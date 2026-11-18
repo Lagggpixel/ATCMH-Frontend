@@ -11,16 +11,16 @@ export type PauseVisibility = "hidden" | "visible";
 export const REWIND_CHOICES = [30, 60, 120, 300] as const;
 
 /** Play/pause, speed and rewind: the controls a trainer reaches for during a session. */
-export default function PauseControls({exercise, owner, dispatch, visibility}: {exercise: Exercise; owner: boolean; dispatch: (action: Action) => void; visibility?: PauseVisibility}) {
+export default function PauseControls({exercise, owner, dispatch, visibility, practice}: {exercise: Exercise; owner: boolean; dispatch: (action: Action) => void; visibility?: PauseVisibility; practice?: boolean}) {
   const pauseAs = visibility ?? exercise.pauseVisibility ?? "visible";
   return <div className={styles.pauseControls}>
     <button data-simulator-tour="play-pause" className={styles.playButton} disabled={!owner} aria-label={exercise.running ? "Pause" : "Play"} onClick={() => dispatch(exercise.running ? {kind: "pause", visibility: pauseAs} : {kind: "play"})}>
       {exercise.running ? <Pause weight="fill" aria-hidden="true"/> : <Play weight="fill" aria-hidden="true"/>}<span className={styles.toolbarText}>{exercise.running ? "Pause" : "Play"}</span>
     </button>
-    <select className={styles.speedSelect} aria-label="Simulation speed" title="Simulation speed" disabled={!owner} value={exercise.timeScale ?? 1} onChange={event => dispatch({kind: "time-scale", scale: Number(event.target.value) as 1 | 2 | 4})}>
+    {!practice ? <select className={styles.speedSelect} aria-label="Simulation speed" title="Simulation speed" disabled={!owner} value={exercise.timeScale ?? 1} onChange={event => dispatch({kind: "time-scale", scale: Number(event.target.value) as 1 | 2 | 4})}>
       <option value={1}>1×</option><option value={2}>2×</option><option value={4}>4×</option>
-    </select>
-    <RewindButton exercise={exercise} owner={owner} dispatch={dispatch}/>
+    </select> : null}
+    {!practice ? <RewindButton exercise={exercise} owner={owner} dispatch={dispatch}/> : null}
   </div>;
 }
 

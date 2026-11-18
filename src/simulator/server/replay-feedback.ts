@@ -13,7 +13,7 @@ interface LegacyRow extends RowDataPacket {owner_id: string; learner_id: string 
 export async function updateReplayFeedback(id: string, actor: Actor, expected: string, feedback: string, notify = notifyFeedback) {
   if (!actor.staff) throw new SessionError("forbidden", "Trainer access is required.", 403);
   return withWriteTransaction(async connection => {
-    const [rows] = await connection.execute<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL FOR UPDATE", [id]);
+    const [rows] = await connection.execute<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NULL FOR UPDATE", [id]);
     const row = rows[0];
     if (row) {
       rejectMovedRadar(exerciseSchema.parse(JSON.parse(row.last_state)));
@@ -39,7 +39,7 @@ export async function updateReplayFeedback(id: string, actor: Actor, expected: s
 export async function updatePositionFeedback(id: string, actor: Actor, positionId: string, expected: string, feedback: string, notify = notifyFeedback) {
   if (!actor.staff) throw new SessionError("forbidden", "Trainer access is required.", 403);
   return withWriteTransaction(async connection => {
-    const [rows] = await connection.execute<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL FOR UPDATE", [id]);
+    const [rows] = await connection.execute<ReplayRow[]>("SELECT * FROM simulator_replays WHERE id=? AND ended_at IS NOT NULL AND JSON_EXTRACT(initial_state,'$.endlessRun') IS NULL FOR UPDATE", [id]);
     const row = rows[0];
     if (!row) throw new SessionError("not-found", "This replay is unavailable.", 404);
     const state = exerciseSchema.parse(JSON.parse(row.last_state)); rejectMovedRadar(state);

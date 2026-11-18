@@ -137,3 +137,9 @@ documents; navigation to the guide loads a new document to apply its media polic
 Local design fixtures are in `design-evidence/learning-pages/mock-backend.mjs`.
 They use invented identities and in-memory edits, with no deployed API access.
 See the fixture header for startup settings and the editor preview URL.
+
+## Endless practice
+
+Open **Endless practice** from the staff Sessions page to choose a preset or save a custom scenario. The live run opens paused. Play starts the traffic feed. Stop new traffic lets you work aircraft already on scope, and End run saves the score and indexed replay to your Endless library.
+
+Apply [the Endless migration](migrations/2026-11-18-simulator-endless-practice.sql) to the simulator store before serving this version. It adds the private scenario and replay index tables on MariaDB or SQLite. The disposable SQLite fixture already applies it. Configure the existing InfiniteHorizon navigation endpoint for valid radar routes. Each run stores the navigation revisions validated at launch.

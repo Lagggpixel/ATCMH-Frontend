@@ -1,6 +1,7 @@
 "use client";
 import {useEffect, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
+import Link from "next/link";
 import {MagnifyingGlass} from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import LearningFrame from "../learning/LearningFrame";
 import {usePortalAuth} from "../platform/auth/PortalAuthProvider";
@@ -62,6 +63,7 @@ function Sessions({csrf, accountId, canAssign, superAdmin}: {csrf: string; accou
       <div className={ui.heading}>
         <h1>Sessions</h1>
         <div className={ui.headingActions}>
+          <Link className={ui.btn} href="/sweatbox/endless">Endless practice</Link>
           <StaffTutorial accountId={accountId} className={ui.linkButton}/>
           <button type="button" className={ui.linkButton} aria-expanded={joining} onClick={() => setJoining(open => !open)}>Join with a code</button>
           <button type="button" data-simulator-tour="new-session" className={`${ui.btn} ${ui.primary}`} disabled={loading} onClick={() => setDialog({kind: "new"})}>Start a session</button>

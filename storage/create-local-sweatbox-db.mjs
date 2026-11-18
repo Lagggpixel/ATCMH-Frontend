@@ -1,4 +1,4 @@
-import {closeSync, openSync, unlinkSync} from 'node:fs';
+import {closeSync, openSync, readFileSync, unlinkSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
@@ -21,6 +21,7 @@ export function createLocalSweatboxDb(path) {
     CREATE TABLE simulator_scenarios(id TEXT PRIMARY KEY, owner_id TEXT, owner_name TEXT, version INTEGER, published_revision INTEGER, updated_at INTEGER, draft TEXT);
     CREATE TABLE simulator_scenario_revisions(scenario_id TEXT, revision INTEGER, created_at INTEGER, definition TEXT, PRIMARY KEY(scenario_id,revision));
     CREATE TABLE simulator_attempts(id TEXT PRIMARY KEY, assignment_id TEXT, owner_id TEXT, learner_id TEXT, scenario_id TEXT, revision INTEGER, session_id TEXT, started_at INTEGER, finished_at INTEGER, status TEXT, feedback TEXT, elapsed REAL DEFAULT 0, result TEXT);
+    ${readFileSync(new URL('../migrations/2026-11-18-simulator-endless-practice.sql', import.meta.url), 'utf8')}
     COMMIT;`);
     } finally {db.close();}
   } catch (error) {

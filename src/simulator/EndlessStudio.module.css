@@ -1,0 +1,65 @@
+
+.page {
+  color-scheme: dark;
+  min-height: 100dvh;
+  padding: max(28px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 56px max(24px, env(safe-area-inset-left));
+  background: #101820;
+  color: #eaf2f7;
+}
+.page > * {max-width: 1210px; margin-inline: auto;}
+.page a {color: #9eeacb;}
+.page h1 {font-size: clamp(1.75rem, 4vw, 2.7rem); margin: .65rem 0 1.3rem; letter-spacing: -.035em;}
+.page h2 {font-size: 1.2rem; margin: 0 0 .7rem;}
+.page p {line-height: 1.5;}
+.page button, .page select, .page input, .page textarea {
+  font: inherit;
+  color: #eaf2f7;
+  background: #17232d;
+  border: 1px solid #40535f;
+  border-radius: 7px;
+  padding: .55rem .7rem;
+}
+.page button:not(:disabled) {cursor: pointer;}
+.page button:disabled {opacity: .55;}
+.page :is(button, a, input, select, textarea, summary):focus-visible {outline: 2px solid #a2ecd1; outline-offset: 3px;}
+.page button.primary {background: #a2ecd1; border-color: #a2ecd1; color: #112920; font-weight: 700;}
+.workbench {display: grid; grid-template-columns: minmax(215px, 275px) minmax(0, 1fr); gap: 24px;}
+.workbench aside, .main, .collections > div {background: #151f28; border: 1px solid #344552; border-radius: 13px; padding: 20px;}
+.workbench aside {align-self: start;}
+.choices {display: grid; gap: 7px; margin-bottom: 20px;}
+.choices button {text-align: left;}
+.choices button[aria-pressed="true"] {border-color: #a2ecd1; background: #223b38;}
+.brief {margin: 0 0 16px;}
+.brief ul {padding-left: 1.25rem; line-height: 1.6;}
+.meta {color: #a5bbc8; font-size: .92rem;}
+.actions {display: flex; flex-wrap: wrap; gap: 10px; align-items: center;}
+.error {color: #ffbfaa;}
+.editor {margin-top: 23px;}
+.editor fieldset {border: 1px solid #40535f; border-radius: 9px; padding: 14px; min-width: 0;}
+.editor legend {padding-inline: 6px; font-weight: 700;}
+.editor label {display: grid; gap: 5px; margin-bottom: 12px; min-width: 0;}
+.editor :is(input, select, textarea) {min-width: 0; width: 100%; box-sizing: border-box;}
+.fields {display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 13px;}
+.stream {margin-bottom: 12px; padding: 10px; border: 1px solid #40535f; border-radius: 8px;}
+.stream summary {cursor: pointer;}
+.stream[open] summary {margin-bottom: 12px;}
+.collections {display: grid; gap: 20px; grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 22px;}
+.collections ul {margin: 0; padding: 0; list-style: none;}
+.collections li {display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding-block: 7px;}
+.score {font-size: clamp(1.3rem, 3vw, 2rem); margin-block: 8px;}
+.metrics {display: flex; flex-wrap: wrap; gap: 12px 22px;}
+.metrics dt {color: #a5bbc8; font-size: .9rem;}
+.metrics dd {margin: 0; font-size: 1.2rem;}
+.scope {position: relative; isolation: isolate; height: clamp(360px, 60vh, 760px); margin-block: 16px; border: 1px solid #40535f; border-radius: 8px; overflow: hidden;}
+.seek {display: flex; align-items: center; flex-wrap: wrap; gap: 10px;}
+.seek label {display: flex; flex: 1 1 220px; align-items: center; gap: 10px;}
+.seek input {flex: 1; min-width: 60px;}
+.events {display: grid; gap: 7px; padding-left: 0; list-style: none;}
+.events button {text-align: left;}
+@media (max-width: 660px) {
+  .page {padding-inline: 14px;}
+  .workbench, .collections {grid-template-columns: 1fr;}
+  .workbench aside, .main, .collections > div {padding: 15px;}
+  .choices {grid-template-columns: repeat(2, minmax(0, 1fr));}
+}
+@media (max-width: 380px) {.fields {grid-template-columns: 1fr;}}
