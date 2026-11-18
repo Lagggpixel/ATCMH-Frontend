@@ -1,9 +1,9 @@
 {
-  "revision": "4d0d5c5e000298e4af28a4240b50d861aa49b0ed",
+  "revision": "1184d92867f9e8e50c2c92a0a98216006869b90f",
   "files": {
     "aircraft-performance.ts": "ba4eb3f56928e55d9c36893c69d1d1c7eb0bf274892c615fac859bc1b7165317",
     "airport-sighting.ts": "73bf895bd61d1eca1083da4185c4b6af532b4d84a5631aeaa2265d029690e9b8",
-    "airports.ts": "0312ef018e0aecfc3ea14c27bc8dfa8e3765b1fce5ce7badb9a464611c550761",
+    "airports.ts": "ca6e84e57dfd4fb37a1126fe936434d996e0f2662a0b0028103b7cc3727a4680",
     "arrival-procedure.ts": "3cdd666c494c9dd4c3167bce3685bf2e6a6965845dd275d3b65bb45c2964dee3",
     "atis-options.ts": "8be61078fb791aa46068df689be6844c5bf7bbb32201869a83a1d9aa71a2e69a",
     "aviation.ts": "4143c119701c0a5aab44cd0d4a3fbd265b1b23e8e372a7d728a2f02866b2e36b",
@@ -33,7 +33,7 @@
     "radar-safety.ts": "981689a2076c0c1cd6867822abcf9a3acabdab785c8e6e78a80af923993dfe59",
     "radar-speed.ts": "aaa979e6d5c5df8c38a1c6fe904e5a62b4e281b8189a9f3e9eebd897bb764e62",
     "radar.ts": "2f26289f2aae7315b4494df3ee97a65daeaa285ffea464d874ad7f1ab9513f24",
-    "radio-identifiers.ts": "6a4af0444c88b7ece3c65646ff9c025fcd50ecaba60313c53e8077acb07642a9",
+    "radio-identifiers.ts": "4df8ef1b79f199176829202e1595be078a9f5c0c815346b4949ddc39c63ea7b4",
     "reference-commands.ts": "f72145b52680d3ef0ff322638731538efe68479781f64f901e7263e7ed21bcee",
     "reference-menu.ts": "a08328a14d741179fb5ffe6cdda7696305b906e94eeacf038113b2ed59ad3e21",
     "runway-safety.ts": "fe1ed75facded39304693c480c790f11b0120ed577d16b04344dc047ed5a4466",

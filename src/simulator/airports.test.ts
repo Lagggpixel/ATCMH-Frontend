@@ -73,7 +73,8 @@ for (const airport of airportList) {
   test(`${airport.icao}: mapped departure routes retain runway holds and documented routing limits`, () => {
     assert.ok(gatesFor(airport).length);
     for (const end of runwayEnds(airport)) {
-      const route = gatesFor(airport).map(gate => planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, end.id)).find(route => route.path);
+      const gate = gatesFor(airport).find(gate => planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, end.id).path);
+      const route = gate && planTaxiRoute(airport, standPlacement(gate.id, false, airport)!.position, end.id);
       // Boston 14/32 and 33R have no stand-connected hold reachable under the existing
       // overlapping-runway protection. Preserve that refusal; staff route manually.
       if (airport.icao === "KBOS" && ["14", "32", "33R"].includes(end.id)) {assert.equal(route, undefined); continue;}

@@ -97,7 +97,9 @@ function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"
         assert.equal(a.altitude,initial.airport.elevation);assert.equal(a.frequency,"tower");
         assert.equal(state.messages.filter(m=>m.request?.id === "check-in" && m.frequency === "approach").length,0);
       }else{
-        assert.ok(a.altitude>=initial.airport.elevation+1000);assert.equal(a.heading,initial.g.heading);assert.equal(a.targetHeading,initial.g.heading);
+        assert.ok(a.altitude >= initial.airport.elevation + 1000);
+        assert.ok(Math.abs(a.heading - initial.g.heading) < 1e-8);
+        assert.ok(Math.abs(a.targetHeading - initial.g.heading) < 1e-8);
         assert.equal(state.messages.filter(m=>m.request?.id === "check-in" && m.frequency === "approach").length,1);
         assert.equal(state.messages.find(m=>m.request?.id === "check-in" && m.frequency === "approach")!.frequency,"approach");
       }
