@@ -13,7 +13,7 @@ import SessionAccess from "./SessionAccess";
 import {sessionJson} from "./shared-transport";
 import {endlessEndpoint, endlessRequest} from "./endless/client";
 import {sessionPath} from "./sessions";
-import {endlessIssues, endlessKinds, radarStreamRunways, separationFor, type EndlessDefinition, type EndlessStream} from "./endless/definition";
+import {endlessIssues, endlessKinds, maxEndlessStreams, radarStreamRunways, separationFor, type EndlessDefinition, type EndlessStream} from "./endless/definition";
 import styles from "./EndlessStudio.module.css";
 import ui from "./Sweatbox.module.css";
 
@@ -263,8 +263,8 @@ function Briefing({entry, definition, busy, launching, toggle, start, edit}: {
       <h2 id="endless-briefing">{definition.title}</h2>
     </div>
     <div>
-      <div className={styles.briefHead}><h3>Traffic</h3><span>{rate ? `${rate} an hour · about one every ${Math.round(600 / rate) / 10} min` : "All traffic is off"}</span></div>
-      <div className={styles.streams}>{definition.streams.map((stream, index) => {
+      <div className={styles.briefHead}><h3 id="endless-briefing-traffic">Traffic</h3><span>{rate ? `${rate} an hour · about one every ${Math.round(600 / rate) / 10} min` : "All traffic is off"}</span></div>
+      <div className={styles.streams} role="region" aria-labelledby="endless-briefing-traffic" tabIndex={0}>{definition.streams.map((stream, index) => {
         const on = stream.rate > 0;
         return <div className={`${styles.streamRow} ${styles[stream.kind]}`} key={index} data-off={!on || undefined}>
           <span className={styles.kindDot} aria-hidden="true"/>
@@ -348,7 +348,7 @@ function Builder({draft, airports, csrf, launch, onBack, onSaved}: {
     {ok: definition.streams.some(stream => stream.rate > 0), text: definition.streams.some(stream => stream.rate > 0) ? "At least one stream is on" : "Turn on at least one stream"},
     ...(definition.mode === "center" ? [{ok: !!definition.sector, text: definition.sector ? "Center boundary chosen" : "Choose a Center boundary"}] : []),
     {ok: !!definition.briefing.trim(), text: definition.briefing.trim() ? "Briefing written" : "Write a short briefing"},
-    {ok: definition.streams.length <= 24, text: `${definition.streams.length} of 24 streams`},
+    {ok: definition.streams.length <= maxEndlessStreams, text: `${definition.streams.length} of ${maxEndlessStreams} streams`},
   ];
   const valid = checks.every(check => check.ok);
   const save = async (start: boolean) => {
@@ -408,7 +408,7 @@ function Builder({draft, airports, csrf, launch, onBack, onSaved}: {
         </section>
 
         <section className={styles.panel} aria-labelledby="endless-streams">
-          <div className={styles.panelHead}><h2 id="endless-streams">Traffic streams</h2><span>Up to 24 streams · 0 to 120 aircraft an hour each</span></div>
+          <div className={styles.panelHead}><h2 id="endless-streams">Traffic streams</h2><span>Up to {maxEndlessStreams} streams · 0 to 120 aircraft an hour each</span></div>
           <div className={styles.table}>
             <div className={`${styles.tableRow} ${styles.tableHead}`} aria-hidden="true"><span>Type</span><span>Name</span><span>From → to</span><span>Runway</span><span>Per hour</span><span>On</span><span/></div>
             {definition.streams.map((stream, index) => {
@@ -444,7 +444,7 @@ function Builder({draft, airports, csrf, launch, onBack, onSaved}: {
                     <label className={styles.label} style={{gridColumn: "span 2"}}>En-route fixes<input className={styles.input} maxLength={400} value={stream.via ?? ""} placeholder="Space-separated identifiers" onChange={event => patch({via: event.target.value || undefined})}/></label>
                   </div> : <p className={styles.muted} style={{margin: 0}}>Ground & Tower streams have no route options.</p>}
                   <div className={styles.row}>
-                    <button className={`${ui.btn} ${ui.small}`} type="button" disabled={definition.streams.length >= 24}
+                    <button className={`${ui.btn} ${ui.small}`} type="button" disabled={definition.streams.length >= maxEndlessStreams}
                       onClick={() => {update({...definition, streams: [...definition.streams.slice(0, index + 1), {...stream, name: `${stream.name} copy`.slice(0, 100)}, ...definition.streams.slice(index + 1)]}); setOpen(index + 1);}}>Duplicate stream</button>
                     <button className={`${ui.btn} ${ui.small} ${ui.quiet} ${ui.danger}`} type="button" disabled={definition.streams.length < 2}
                       onClick={() => {update({...definition, streams: definition.streams.filter((_, i) => i !== index)}); setOpen(null);}}>Remove stream</button>
@@ -458,7 +458,7 @@ function Builder({draft, airports, csrf, launch, onBack, onSaved}: {
           </datalist>)}
           <div className={styles.adds}>
             <span>Add</span>
-            {kindsFor(definition.mode).map(kind => <button key={kind} type="button" className={styles[kind]} disabled={definition.streams.length >= 24}
+            {kindsFor(definition.mode).map(kind => <button key={kind} type="button" className={styles[kind]} disabled={definition.streams.length >= maxEndlessStreams}
               onClick={() => {update({...definition, streams: [...definition.streams, {...defaultStream(definition.airport, definition.mode, kind), runway: runwayInUse || definition.streams[0]?.runway || "24"}]}); setOpen(definition.streams.length);}}>
               <span className={styles.kindDot} aria-hidden="true"/>{kindLabels[kind]}
             </button>)}

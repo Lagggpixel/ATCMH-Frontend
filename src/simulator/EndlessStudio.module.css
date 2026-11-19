@@ -92,7 +92,7 @@
 .briefHead {display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px;}
 .briefHead h3 {margin: 0; font-size: 15px;}
 .briefHead span {font-size: 14px; font-weight: 600; text-align: right;}
-.streams {border: 1px solid var(--dashboard-border); border-radius: 10px; overflow: hidden;}
+.streams {max-height: min(38vh, 23rem); overflow-y: auto; border: 1px solid var(--dashboard-border); border-radius: 10px;}
 .streamRow {display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--dashboard-border);}
 .streamRow:first-child {border-top: 0;}
 .streamRow[data-off] > :not(button) {opacity: .55;}
