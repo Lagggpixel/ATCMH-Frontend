@@ -146,13 +146,18 @@ export async function compileEndless(input: EndlessDefinition, load: (airport: s
   }
   if (airports.size > 12) throw new Error("Use at most 12 airports in one scenario.");
   const nav = new Map(await Promise.all([...airports].map(async code => [code, await load(code)] as const)));
+  const arrivals = {hourlyRate: 0, nextSlot: 1};
+  const departures = {hourlyRate: 0, nextSlot: 1};
+  for (const {kind, rate} of active) {
+    const lane = kind === "arrival" ? arrivals : departures;
+    lane.hourlyRate += rate;
+  }
   const streams = active.map((stream, i): CompiledStream => {
     const interval = 3600 / stream.rate;
-    const parallel = definition.mode === "approach" && stream.kind === "arrival";
-    const priorParallel = active.slice(0, i).filter(s => s.kind === "arrival").length;
-    const firstAt = parallel ? interval * (1 + priorParallel / active.filter(s => s.kind === "arrival").length)
-      : definition.mode === "center" ? interval * (.35 + .65 * (i + 1) / active.length)
-        : definition.mode === "local" ? Math.min(interval, 10 + 20 * i) : interval;
+    // Radar departures and intra-sector flights share the same runway entries.
+    const lane = stream.kind === "arrival" ? arrivals : departures;
+    const firstAt = Math.min(interval, definition.mode === "local" ? 10 + 20 * i
+      : lane.nextSlot++ * 3600 / lane.hourlyRate);
     try {
       const route = definition.mode === "local" ? {variants: [], destination: {x: 0, y: 0}}
         : compileRoutes(stream, definition, airport, nav.get(stream.origin)!, nav.get(stream.destination)!, sector?.ring);
