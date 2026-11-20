@@ -10,9 +10,9 @@ import {exerciseSchema} from "./protocol";
 import {ReplayTimeline, replayDelta} from "./replays";
 import {advanceScenario} from "./scenario-engine";
 import {TerrainImpacts} from "./server/terrain-impacts";
-import {airborne, radarTakeoffAircraft, radarTrafficStateError} from "./radar";
+import {airborne, radarGuidanceLabel, radarTakeoffAircraft, radarTrafficStateError} from "./radar";
 import type {DepartureAirport} from "./departure-airports";
-const origin: DepartureAirport = {icao: "TEST", name: "Nearby", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}}]};
+const origin: DepartureAirport = {icao: "TEST", name: "Nearby", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9.4, y: 0}}]};
 test("saved returning traffic remains airborne above a lower destination airport", () => {
   const state = engineFor({airport: "KDAL", trainingStation: "KDAL:approach"}).initialExercise();
   state.aircraft = state.aircraft.slice(0, 1);
@@ -37,6 +37,105 @@ function fly(state: ReturnType<ReturnType<typeof engineFor>["initialExercise"]>,
   for (let n = 0; n < seconds; n++) state = engine.advance(state, 1);
   return state;
 }
+
+function afterRunwayClimb(state: Parameters<typeof fly>[0]) {
+  const engine = engineFor(state); state.running = true;
+  for (let t = 0; t < 120 && state.aircraft[0].radar?.departure; t += .05) state = engine.advance(state, .05);
+  assert.equal(state.aircraft[0].radar?.departure, undefined);
+  return state;
+}
+
+const runwayCases = [
+  {airport: "EGLL", icao: "EGMF", runway: "23", type: "A320", elevation: 420, length: .295, at: 0, fits: true},
+  {airport: "EDDL", icao: "EDRA", runway: "29", type: "A320", elevation: 250, length: 1616 / 6076.1155, at: 0, fits: true},
+  {airport: "EGLL", icao: "EGSQ", runway: "18", type: "A320", elevation: 36, length: .323, at: 0, fits: true},
+  {airport: "TNCM", icao: "TNCS", runway: "12", type: "C208", elevation: 60, length: .2125, at: 0, fits: true},
+  {airport: "KCOS", icao: "CO93", runway: "16", type: "A21N", elevation: 6700, length: .889, at: 40, fits: true},
+  {airport: "KCOS", icao: "5V4", runway: "17", type: "B38M", elevation: 6450, length: .751, at: 79, fits: true},
+  {airport: "KCOS", icao: "KLAA", runway: "36", type: "B738", elevation: 3705, length: 1.038, at: 0, fits: true},
+  {airport: "EGLL", icao: "TEST", runway: "09", type: "A320", elevation: 250, length: 140 ** 2 / (2 * 30 * 3600), at: 0, fits: true},
+  {airport: "KSAN", icao: "TEST", runway: "09", type: "A320", elevation: 250, length: 108 / 6076.1155, at: 0, fits: false},
+] as const;
+
+for (const {airport, icao, runway, type, elevation, length, at, fits} of runwayCases) {
+  test(`${airport}: ${type} ${fits ? "takes off" : "rejects takeoff"} from ${icao} ${runway} at full power`, async () => {
+    const definition = blankScenario({airport, trainingStation: `${airport}:approach`});
+    const engine = engineFor(definition);
+    const initial = engine.initialExercise();
+    initial.aircraft = [];
+    const short: DepartureAirport = {icao, name: icao, elevation, runways: [
+      {id: runway, threshold: {x: 8, y: 0}, departure: {x: 8 + length, y: 0}},
+    ]};
+    const a = createSpawnAircraft(initial, "jet", {origin: short, runway, airborne: false, callsign: "TEST123", type, landing: "full-stop", flight: "return"});
+    const manualSpawn = engine.applyEnvelope(initial, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft: a}});
+    assert.equal(manualSpawn.error, fits ? undefined : `${icao} runway ${runway} is too short for the ${type} in Sweatbox. Choose a longer runway or start airborne.`);
+
+    definition.aircraft = [{key: "jet", initial: at === 0, seed: seedFromAircraft(a)}];
+    if (at) definition.events = [{id: "spawn", title: "Depart", trigger: {type: "time", at}, actions: [{type: "spawn", aircraftKey: "jet"}]}];
+    const created = createScenarioExercise(scenarioSchema.parse(definition), "short-takeoff");
+    let state = created.exercise;
+    state.running = true;
+    const end = at + (fits ? 45 : 2);
+    for (let t = 0; t <= end; t++) state = advanceScenario(state, created.runtime, 1, t * 1000).exercise;
+    if (fits) {
+      assert.equal(state.aircraft.length, 1);
+      assert.ok(state.aircraft[0].altitude > elevation);
+      assert.equal(state.aircraft[0].takeoffOutcome, undefined);
+      return;
+    }
+    const parked = state.aircraft[0];
+    assert.equal(parked.mode, "parked");
+    assert.equal(parked.takeoffOutcome, "rejected");
+    assert.equal(parked.altitude, elevation);
+    assert.equal(parked.speed, 0);
+    assert.deepEqual(parked.position, a.position);
+    assert.equal(radarGuidanceLabel(parked, state.radarEnvironment!), "Takeoff rejected · insufficient runway");
+    assert.equal(state.messages.length, 0);
+
+    state = engine.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(state))));
+    const provider = new TerrainImpacts(async () => elevation + 100);
+    state = fly(state, 60);
+    provider.request(state);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    provider.apply(state);
+    assert.equal(state.aircraft[0].takeoffOutcome, "rejected");
+    assert.deepEqual(state.aircraft[0].position, a.position);
+    assert.equal(state.collisions?.length ?? 0, 0);
+    const replay = new ReplayTimeline(created.exercise, [{sequence: 1, at: state.elapsed, delta: replayDelta(created.exercise, state), interpolate: false}]);
+    assert.equal(replay.at(state.elapsed).aircraft[0].takeoffOutcome, "rejected");
+  });
+}
+
+test("a moving radar departure restored past the runway end brakes without rotating", () => {
+  const selection = {airport: "EGLL", trainingStation: "EGLL:approach"};
+  const engine = engineFor(selection), state = engine.initialExercise();
+  const a = createSpawnAircraft(state, "jet", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "return"});
+  a.position = {x: 9.41, y: 0};
+  a.speed = 140;
+  state.aircraft = [a];
+  const braking = fly(engine.restoreExercise(exerciseSchema.parse(state)), 1);
+  assert.ok(Math.abs(braking.aircraft[0].speed - 137.5) < 1e-7, "braking uses the normal 2.5 kt/s rate");
+  const stopped = fly(braking, 64).aircraft[0];
+  assert.equal(stopped.mode, "parked");
+  assert.equal(stopped.takeoffOutcome, "overrun");
+  assert.equal(stopped.speed, 0);
+  assert.equal(stopped.altitude, origin.elevation);
+});
+
+test("a light aircraft can depart from a runway that is too short for a jet", () => {
+  const selection = {airport: "EGLL", trainingStation: "EGLL:approach"};
+  const engine = engineFor(selection), state = engine.initialExercise();
+  const short = {...origin, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 8.03, y: 0}}]};
+  const a = createSpawnAircraft(state, "light", {origin: short, runway: "09", airborne: false, callsign: "TEST123", type: "C172", landing: "full-stop", flight: "return"});
+  state.aircraft = [];
+  const jet = createSpawnAircraft(state, "jet", {origin: short, runway: "09", airborne: false, callsign: "TEST124", type: "A320", landing: "full-stop", flight: "return"});
+  assert.match(engine.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft: jet}}).error!, /too short/);
+  const added = engine.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft: a}});
+  assert.equal(added.error, undefined);
+  const climbed = fly(added.state, 45).aircraft[0];
+  assert.equal(climbed.takeoffOutcome, undefined);
+  assert.ok(climbed.altitude > origin.elevation);
+});
 
 test("below-sea-level remote departures save, reload and climb from actual runway elevation", () => {
   const definition = blankScenario({airport: "KSAN", trainingStation: "KSAN:approach"});
@@ -67,14 +166,22 @@ for (const mode of ["approach", "center"] as const) test(`${mode} remote runway 
   assert.equal(createScenarioExercise(parsed, "test").exercise.aircraft[0].originDeparture?.icao, "TEST");
   const result = engine.applyEnvelope(exercise, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft: a}});
   assert.equal(result.error, undefined); const initial = structuredClone(result.state);
-  const moved = fly(result.state, 120); assert.equal(initial.aircraft[0].originDeparture?.phase, "roll");
+  const rolling = fly(result.state, 4);
+  assert.equal(rolling.aircraft[0].radar?.departure?.phase, "roll");
+  assert.ok(Math.abs(rolling.aircraft[0].speed - 120) < 1e-7, "A320 rolls at 30 kt/s");
+  const climbing = fly(rolling, 2);
+  assert.equal(climbing.aircraft[0].radar?.departure?.phase, "climb");
+  assert.ok(climbing.aircraft[0].altitude > origin.elevation);
+  const afterRotation = fly(climbing, 1);
+  assert.ok(Math.abs(afterRotation.aircraft[0].speed - climbing.aircraft[0].speed - 2.5) < 1e-7, "normal 2.5 kt/s acceleration resumes in flight");
+  const moved = fly(afterRotation, 113); assert.equal(initial.aircraft[0].originDeparture?.phase, "roll");
   assert.ok(moved.aircraft[0].altitude > 1250); assert.equal(moved.aircraft[0].heading, 90);
   assert.equal(exerciseSchema.safeParse(JSON.parse(JSON.stringify(moved))).success, true);
   const replay = new ReplayTimeline(initial, [{sequence: 1, at: 120, delta: replayDelta(initial, moved), interpolate: false}]);
   assert.deepEqual(replay.at(120).aircraft[0].originDeparture, moved.aircraft[0].originDeparture);
 });
 test("Ground & Tower departure climbs to controlled-airport overhead altitude then turns toward the airport", () => {
-  const selection = {airport: "EGPH", trainingStation: "EGPH:local"}; const engine = engineFor(selection);
+  const selection = {airport: "EGPH", trainingStation: "EGPH:local"};
   const a = createLocalAircraft(selection, "local", {origin, placement: "takeoff", callsign: "TEST123", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower"});
   const definition = addLocalScenarioAircraft(blankScenario(selection), a, undefined, 0);
   const parsed = scenarioSchema.parse(JSON.parse(JSON.stringify(definition)));
@@ -108,14 +215,36 @@ for (const type of ["C172", "B77W"]) test(`${type} rotates and climbs on an auto
   const selection = {airport: "EGPH", trainingStation: "EGPH:local"};
   const a = createLocalAircraft(selection, "local", {origin, placement: "takeoff", callsign: "TEST123", type, runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower"});
   const state = engineFor(selection).initialExercise(); state.aircraft = [a];
+  const rolling = fly(state, 2).aircraft[0];
+  assert.equal(rolling.originDeparture?.phase, "roll");
+  assert.ok(Math.abs(rolling.speed - (type === "C172" ? 36 : 48)) < 1e-7);
   const moved = fly(state, 180); assert.ok(moved.aircraft[0].altitude > origin.elevation);
+});
+
+for (const station of ["approach", "local"] as const) test(`${station}: short-runway boost gets an A320 airborne from 450 feet`, () => {
+  const selection = {airport: "EGPH", trainingStation: `EGPH:${station}`};
+  const engine = engineFor(selection), state = engine.initialExercise();
+  const short = {...origin, runways: [{...origin.runways[0], departure: {x: 8 + 450 / 6076.1155, y: 0}}]};
+  const options = {origin: short, runway: "09", callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"} as const;
+  const aircraft = station === "local"
+    ? createLocalAircraft(selection, "short", {...options, placement: "takeoff", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, frequency: "tower"})
+    : createSpawnAircraft(state, "short", {...options, airborne: false});
+  state.aircraft = [];
+  const spawned = engine.applyEnvelope(state, {id: randomUUID(), time: 0, action: {kind: "spawn", aircraft}});
+  assert.equal(spawned.error, undefined);
+  const rolling = fly(spawned.state, 2);
+  assert.ok(rolling.aircraft[0].speed > 60 && rolling.aircraft[0].speed <= 90, "only the short runway gets extra power");
+  assert.ok(rolling.aircraft[0].position.x < short.runways[0].departure.x);
+  const climbed = fly(rolling, 3).aircraft[0];
+  assert.ok(climbed.altitude > short.elevation);
+  assert.equal(climbed.takeoffOutcome, undefined);
 });
 
 test("Ground & Tower heading override during the climb keeps climbing", () => {
   const selection = {airport: "EGPH", trainingStation: "EGPH:local"}, engine = engineFor(selection);
   const a = createLocalAircraft(selection, "local", {origin, placement: "takeoff", callsign: "TEST123", type: "A320", runway: "09", distance: 5, leg: "downwind", hand: "left", height: 1500, speed: "auto", heading: 90, landing: "full-stop", flight: "departure", frequency: "tower"});
   const initial = engine.initialExercise(); initial.aircraft = [a];
-  const climbing = fly(initial, 60); const altitude = climbing.aircraft[0].altitude;
+  const climbing = fly(initial, 30); const altitude = climbing.aircraft[0].altitude;
   assert.ok(altitude > origin.elevation && altitude < getAirport(selection).elevation + 1500);
   const sent = engine.applyEnvelope(climbing, {id: randomUUID(), time: 1000, action: {kind: "maneuver", aircraftId: "local", command: {type: "heading", value: 180}}});
   assert.equal(sent.error, undefined); assert.ok(fly(sent.state, 20).aircraft[0].altitude > altitude);
@@ -146,7 +275,8 @@ test("radar accepts a nearby departure below a high controlled airport elevation
   const a = createSpawnAircraft(exercise, "remote", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
   definition.aircraft = [{key: "remote", initial: true, seed: seedFromAircraft(a)}];
   const created = createScenarioExercise(scenarioSchema.parse(definition), "test");
-  const state = fly(created.exercise, 100);
+  const state = fly(created.exercise, 65);
+  assert.equal(state.aircraft[0].radar?.departure, undefined);
   assert.ok(state.aircraft[0].altitude < getAirport(definition).elevation);
   assert.equal(exerciseSchema.safeParse(JSON.parse(JSON.stringify(state))).success, true);
 });
@@ -203,10 +333,12 @@ test("departure airport markers sequence to the outbound leg after the runway cl
     const a = createSpawnAircraft(state, "remote", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
     a.flightPlan = [{name: entry.name, x: entry.x, y: 0}, {name: "OUTBOUND", x: 30, y: 0}];
     a.radar!.navigation = "route"; state.aircraft = [a];
-    const flown = fly(state, 100).aircraft[0];
-    assert.equal(flown.radar!.departure, undefined);
+    const climbed = afterRunwayClimb(state), flown = climbed.aircraft[0];
     assert.equal(flown.radar!.routeIndex, entry.next, entry.name);
-    if (entry.next === 1) assert.ok(flown.targetHeading > 45 && flown.targetHeading < 135, "tracks outbound, not back to airport");
+    if (entry.next === 1) {
+      const outbound = fly(climbed, 1).aircraft[0];
+      assert.ok(outbound.targetHeading > 45 && outbound.targetHeading < 135, "tracks outbound");
+    }
   }
 });
 
@@ -217,7 +349,7 @@ test("departure sequencing preserves an explicitly selected waypoint and procedu
     const a = createSpawnAircraft(state, "remote", {origin, runway: "09", airborne: false, callsign: "TEST123", type: "A320", landing: "full-stop", flight: "departure"});
     a.flightPlan = [{name: "TEST", x: 8.4, y: 0, ...(procedure ? {procedure: {key: "sid", type: "SID" as const, name: "TEST1"}} : {})}, {name: "NEXT", x: 30, y: 0}, {name: "SELECTED", x: 40, y: 0}];
     a.radar!.navigation = "route"; a.radar!.routeIndex = procedure ? 0 : 2; state.aircraft = [a];
-    assert.equal(fly(state, 100).aircraft[0].radar!.routeIndex, procedure ? 0 : 2);
+    assert.equal(afterRunwayClimb(state).aircraft[0].radar!.routeIndex, procedure ? 0 : 2);
   }
 });
 

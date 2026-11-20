@@ -33,9 +33,12 @@ function setup(type: Arrival, outcome: Aircraft["landing"], automatic = false, c
 }
 function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"]) {
   let state=initial.state,touchdown: Exercise|undefined,vacating: Exercise|undefined;const id=state.aircraft[0].id;
-  for(let t=0;t<900;t+=.5){
+  for(let t=0;t<900;){
     const prior=state;
-    state=autoReadbacks(advance(state,.5),t*1000,randomUUID);const a=state.aircraft.find(a=>a.id===id);
+    // A touch-and-go can lift off again between half-second samples.
+    const nearFieldElevation = prior.aircraft[0].altitude < initial.airport.elevation + 50;
+    const step = !touchdown && outcome === "touch-and-go" && nearFieldElevation ? .05 : .5;
+    state=autoReadbacks(advance(state,step),t*1000,randomUUID);const a=state.aircraft.find(a=>a.id===id);
     if(a?.radar?.arrival?.phase==="vacating")vacating??=structuredClone(state);
     if(!a){
       assert.equal(outcome,"full-stop");assert.ok(touchdown);assert.ok(vacating,"must turn onto a mapped exit before despawning");
@@ -107,6 +110,7 @@ function complete(initial: ReturnType<typeof setup>, outcome: Aircraft["landing"
       assert.equal(state.messages.filter(m=>m.request?.id === "check-in" && m.frequency === "approach").length,outcome==="touch-and-go"?1:0);
       return {state,touchdown};
     }
+    t+=step;
   }
   assert.fail(`did not complete ${outcome}: ${JSON.stringify(state.aircraft[0].radar)} / ${state.aircraft[0].mode}`);
 }
