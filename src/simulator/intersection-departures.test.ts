@@ -6,7 +6,7 @@ import {engineFor} from "./engine";
 import {buildGroundRoute} from "./ground-route";
 import {envelopeSchema, exerciseSchema, motionSchema} from "./protocol";
 import {applyReplayDelta, replayDelta} from "./replays";
-import {acceleration, rotationSpeed} from "./aircraft-performance";
+import {acceleration, takeoffAcceleration, rotationSpeed} from "./aircraft-performance";
 import {buildTaxiGraph} from "./taxi-routing";
 import type {Aircraft, Exercise, Instruction} from "./model";
 
@@ -35,7 +35,7 @@ function clear(state: Exercise, command: Instruction) {
   return next;
 }
 
-for (const profile of [undefined, "A320", "B738", "C172"] as const) for (const lineup of [false, true]) {
+for (const profile of [undefined, "A320", "B738", "B77W", "C172"] as const) for (const lineup of [false, true]) {
   test(`KDAL 31L C5: ${profile ?? "legacy"} ${lineup ? "lineup then takeoff" : "direct takeoff"} respects performance without another transmission`, () => {
     let state = initial(profile);
     if (lineup) {
@@ -48,25 +48,21 @@ for (const profile of [undefined, "A320", "B738", "C172"] as const) for (const l
     state = clear(state, {type: "takeoff", runway, hand: "left"});
     assert.equal(state.aircraft[0].hand, "left");
     const messages = structuredClone(state.messages);
-    let previous = along(c5), maxSpeed = 0, airborne = false;
+    let previous = along(c5), airborne = false;
     for (let i = 0; i < 480 && !airborne && state.aircraft[0].mode !== "parked"; i++) {
       const before = state.aircraft[0]; state = engine.advance(state, .25);
       const a = state.aircraft[0], current = along(a.position);
-      if (before.mode === "takeoff") assert.ok(Math.abs(a.speed - before.speed) <= acceleration(a) * .25 + 1e-7, "original acceleration and braking limit");
+      if (before.mode === "takeoff") {
+        assert.ok(a.speed - before.speed <= takeoffAcceleration(a) * .25 + 1e-7, "takeoff power follows the aircraft profile");
+        assert.ok(before.speed - a.speed <= acceleration(a) * .25 + 1e-7, "braking keeps its original rate");
+      }
       assert.ok(current >= previous - 1e-6, "departure keeps the chosen intersection, without backtracking");
-      previous = current; maxSpeed = Math.max(maxSpeed, a.speed);
+      previous = current;
       airborne = a.altitude > airport.elevation + 1;
       assert.ok(current < length, "stops or rotates before the runway end");
     }
-    const a = state.aircraft[0];
-    assert.equal(airborne, profile === "C172");
-    if (!airborne) {
-      assert.equal(a.mode, "parked"); assert.equal(a.takeoffOutcome, "rejected"); assert.equal(a.speed, 0);
-      assert.ok(maxSpeed > 20 && maxSpeed < rotationSpeed(a), "attempts a roll, then rejects below rotation");
-      const stopped = {...a.position};
-      state = engine.autoReadbacks(engine.advance(state, 5), 100000, () => `unexpected-${++serial}`);
-      assert.deepEqual(state.aircraft[0].position, stopped);
-    }
+    assert.equal(airborne, true);
+    assert.equal(state.aircraft[0].takeoffOutcome, undefined);
     assert.deepEqual(state.messages, messages, "no automatic Unable, cancellation, or repeated ready call");
   });
 }
@@ -84,6 +80,37 @@ test("real C5 dragged taxi route retains its entry through taxi completion and d
   assert.ok(Math.abs(along(state.aircraft[0].position) - along(c5)) < .005);
   state = clear(state, {type: "takeoff", runway});
   assert.ok(state.aircraft[0].taxiPath.every(p => along(p) >= along(c5) - .005));
+});
+
+test("a departure with too little runway left rejects the roll and brakes before the end", () => {
+  let state = initial("B738");
+  Object.assign(state.aircraft[0], {mode: "takeoff", targetSpeed: 160,
+    position: {x: geometry.departure.x - geometry.vector.x * .1, y: geometry.departure.y - geometry.vector.y * .1}, heading: geometry.heading});
+  let maxSpeed = 0;
+  for (let i = 0; i < 90 && state.aircraft[0].mode !== "parked"; i++) {
+    state = engine.advance(state, 1);
+    maxSpeed = Math.max(maxSpeed, state.aircraft[0].speed);
+  }
+  const stopped = state.aircraft[0];
+  assert.equal(stopped.mode, "parked");
+  assert.equal(stopped.takeoffOutcome, "rejected");
+  assert.equal(stopped.speed, 0);
+  assert.equal(stopped.altitude, airport.elevation);
+  assert.ok(along(stopped.position) < length);
+  assert.ok(maxSpeed > 20 && maxSpeed < rotationSpeed(stopped));
+  assert.deepEqual(engine.advance(state, 5).aircraft[0].position, stopped.position);
+});
+
+test("a late intersection can depart with short-runway boost", () => {
+  let state = initial("B738");
+  Object.assign(state.aircraft[0], {mode: "takeoff", targetSpeed: 160,
+    position: {x: geometry.departure.x - geometry.vector.x * .13, y: geometry.departure.y - geometry.vector.y * .13}, heading: geometry.heading});
+  state = engine.advance(state, 1);
+  assert.ok(state.aircraft[0].speed > 28.8 && state.aircraft[0].speed <= 43.2);
+  for (let i = 0; i < 30 && state.aircraft[0].altitude === airport.elevation; i++) state = engine.advance(state, .25);
+  assert.ok(state.aircraft[0].altitude > airport.elevation);
+  assert.equal(state.aircraft[0].takeoffOutcome, undefined);
+  assert.ok(along(state.aircraft[0].position) < length);
 });
 
 test("a late, fast departure overruns while braking and cannot rotate beyond the runway", () => {
@@ -107,11 +134,16 @@ test("a late, fast departure overruns while braking and cannot rotate beyond the
   assert.deepEqual(state.messages, before.messages);
 });
 
-test("an earlier intersection permits an airliner takeoff at its original acceleration", () => {
+test("an earlier intersection permits an airliner takeoff with takeoff power", () => {
   let state = initial("B738"), a = state.aircraft[0];
   const entry = graph.points.find(p => Math.abs(along(p) - .05377466983255583) < 1e-7)!;
   a.position = {...entry}; a.taxiPath = [{...entry, runway}];
   state = clear(state, {type: "takeoff", runway});
+  for (let i = 0; i < 120 && state.aircraft[0].mode !== "takeoff"; i++) state = engine.advance(state, 1);
+  const rolling = state.aircraft[0];
+  assert.equal(rolling.mode, "takeoff");
+  state = engine.advance(state, 1);
+  assert.ok(Math.abs(state.aircraft[0].speed - rolling.speed - 28.8) < 1e-7, "B738 rolls at 28.8 kt/s");
   for (let i = 0; i < 120 && state.aircraft[0].altitude === airport.elevation; i++) state = engine.advance(state, 1);
   a = state.aircraft[0];
   assert.ok(a.altitude > airport.elevation); assert.equal(a.takeoffOutcome, undefined);
@@ -125,7 +157,7 @@ test("runtime departure outcomes cannot be set through an aircraft edit", () => 
 test("a repeated takeoff clearance during the roll keeps its progress and runway", () => {
   let state = clear(initial("B738"), {type: "takeoff", runway});
   for (let i = 0; i < 120 && state.aircraft[0].mode !== "takeoff"; i++) state = engine.advance(state, 1);
-  state = engine.advance(state, 5);
+  state = engine.advance(state, 2);
   assert.equal(state.aircraft[0].mode, "takeoff");
   assert.equal(state.aircraft[0].altitude, airport.elevation);
   const before = state.aircraft[0];

@@ -13,7 +13,7 @@ import {touchdownRadar} from "./radar";
 import type {DepartureAirport} from "./departure-airports";
 import type {Exercise, Instruction} from "./model";
 
-const origin: DepartureAirport = {icao: "TEST", name: "Remote departure", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9, y: 0}}]};
+const origin: DepartureAirport = {icao: "TEST", name: "Remote departure", elevation: 250, runways: [{id: "09", threshold: {x: 8, y: 0}, departure: {x: 9.4, y: 0}}]};
 function fixture(station: "approach" | "center" = "approach", remote = false) {
   const engine = engineFor({trainingStation: `EGPH:${station}`});
   const state = withFixedReadbackDelay(engine.initialExercise());

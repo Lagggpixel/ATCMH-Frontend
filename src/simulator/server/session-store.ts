@@ -4,6 +4,8 @@ import type {Exercise} from "../model";
 import type {RowDataPacket} from "mysql2/promise";
 import {queryReadOnly, withWriteTransaction} from "../../lib/simulator-db";
 import {scenarioRuntimeSchema} from "../scenarios";
+import {getAirport} from "../airports";
+import {correctInitialDepartureRunway} from "../departure-airports";
 import {exerciseSchema} from "../protocol";
 import {SessionError, type AssignedSession, type SessionSummary} from "../sessions";
 import {availableControl, type Seat, type SessionAssignment, type SessionRecord, type SessionStore} from "./session-service";
@@ -25,10 +27,16 @@ function decodeAssignment(row: SessionRow): SessionAssignment | null {
 }
 const assignmentColumns = (assignment: SessionAssignment | null | undefined) => [assignment?.discordId ?? null, assignment?.name ?? null, assignment?.assignedAt ?? null, assignment?.assignedBy ?? null, assignment?.assignedByName ?? null];
 export function decodeSession(row: SessionRow): SessionRecord {
+  const exercise = exerciseSchema.parse(JSON.parse(row.snapshot));
+  const scenario = row.scenario_runtime ? scenarioRuntimeSchema.parse(JSON.parse(row.scenario_runtime)) : undefined;
+  if (scenario && !scenario.finished && exercise.elapsed === 0) {
+    const airport = getAirport(exercise);
+    for (const aircraft of exercise.aircraft) correctInitialDepartureRunway(aircraft, airport);
+  }
   return {id: row.id, ownerId: row.owner_id, ownerName: row.owner_name ?? undefined, title: row.title, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at),
-    positionState: row.position_state ? JSON.parse(row.position_state) : undefined, tickAt: Number(row.tick_at), contentRevision: Number(row.content_revision), exercise: exerciseSchema.parse(JSON.parse(row.snapshot)),
+    positionState: row.position_state ? JSON.parse(row.position_state) : undefined, tickAt: Number(row.tick_at), contentRevision: Number(row.content_revision), exercise,
     ...readEndlessSnapshot(row.snapshot),
-    ...(row.scenario_runtime ? {scenario: scenarioRuntimeSchema.parse(JSON.parse(row.scenario_runtime))} : {}),
+    ...(scenario ? {scenario} : {}),
     staff: row.staff_seat ? JSON.parse(row.staff_seat) as Seat : null, mentee: row.mentee_seat ? JSON.parse(row.mentee_seat) as Seat : null, assignment: decodeAssignment(row)};
 }
 export const sqlSessionStore: SessionStore = {
