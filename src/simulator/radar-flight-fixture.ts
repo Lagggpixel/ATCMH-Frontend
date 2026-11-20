@@ -20,7 +20,15 @@ export function trafficHandoff(state: Exercise): Instruction {
 type Arrival=ApproachType|"vectors";
 export function send(state:Exercise,action:Action){const result=applyEnvelope(state,{id:randomUUID(),time:state.elapsed*1000,action});assert.equal(result.error,undefined);return result.state;}
 export function fly(state:Exercise,seconds:number){for(let t=0;t<seconds;t+=.5)state=autoReadbacks(advance(state,Math.min(.5,seconds-t)),state.elapsed*1000,randomUUID);return state;}
-export function until(state:Exercise,predicate:(s:Exercise)=>boolean,seconds=900){for(let t=0;t<seconds;t+=.5){state=fly(state,.5);if(predicate(state))return state;}assert.fail(`Flight did not complete: ${JSON.stringify(state.aircraft[0])}`);}
+export function until(state: Exercise, predicate: (s: Exercise) => boolean, seconds = 900, stepFor: (s: Exercise) => number = () => .5) {
+  for (let t = 0; t < seconds;) {
+    const step = stepFor(state);
+    state = fly(state, step);
+    if (predicate(state)) return state;
+    t += step;
+  }
+  assert.fail(`Flight did not complete: ${JSON.stringify(state.aircraft[0])}`);
+}
 export function issue(state:Exercise,command:Instruction){
  const a=state.aircraft[0],action:Action={kind:"command",aircraftId:a.id,frequency:a.frequency!,command,text:""};
  assert.ok(menteeActionAllowed(action,state),"learner must be able to control the aircraft on its returning Approach frequency");
@@ -75,6 +83,10 @@ export function finishApproach(state:Exercise){
   if(a.altitude===airport.elevation&&["rollout","takeoff"].includes(a.mode))touchdown=true;
   if(a.radar!.arrival?.phase==="vacating")vacating=true;
   return outcome==="touch-and-go"&&a.frequency==="approach"&&!a.radar!.departure;
+ }, 900, s => {
+  // The ground contact can be shorter than the normal half-second sample.
+  const nearFieldElevation = (s.aircraft[0]?.altitude ?? Infinity) < airport.elevation + 50;
+  return !touchdown && outcome === "touch-and-go" && nearFieldElevation ? .05 : .5;
  });
  assert.ok(touchdown,"the second approach must physically touch down");
  if(outcome==="full-stop"){assert.ok(vacating);assert.equal(state.aircraft.length,0);}
