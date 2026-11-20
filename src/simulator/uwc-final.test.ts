@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {engineFor} from "./engine";
 import {getAirport} from "./airports";
-import {acceleration} from "./aircraft-performance";
+import {acceleration, rotationSpeed, takeoffAcceleration} from "./aircraft-performance";
 import {EXERCISE_WEATHER, type Aircraft} from "./model";
 import {exerciseSchema, motionSchema} from "./protocol";
 import {applyReplayDelta, replayDelta} from "./replays";
@@ -37,7 +37,9 @@ test("UWC keeps finals within 0.1 NM and touches and goes together on both KDAL 
         const previous = state; state = h.engine.advance(state, .25);
         for (const a of state.aircraft) {
           const before = previous.aircraft.find(p => p.id === a.id)!;
-          assert.ok(Math.abs(a.speed - before.speed) <= acceleration(a) * .25 + 1e-7, "speed changes use normal acceleration");
+          const rolling = a.mode === "takeoff" && a.speed > before.speed && before.speed < rotationSpeed(before);
+          const rate = rolling ? takeoffAcceleration(before) : acceleration(a);
+          assert.ok(Math.abs(a.speed - before.speed) <= rate * .25 + 1e-7, "speed changes respect the rate for the phase of flight");
           assert.ok(Math.hypot(a.position.x - before.position.x, a.position.y - before.position.y) < .025, "continuous motion");
           if (a.conflictMotion?.speedTarget !== undefined) {paced = true; assert.ok(a.conflictMotion.speedTarget >= 135 && a.conflictMotion.speedTarget <= 165);}
           if ((a.circuit ?? 0) > (before.circuit ?? 0)) touchdown.set(a.id, state.elapsed);
