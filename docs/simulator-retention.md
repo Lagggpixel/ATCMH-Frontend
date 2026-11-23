@@ -11,7 +11,7 @@ The `atcmh-simulator-retention` service runs daily in ATCMH stack 30 using the f
 
 ## Maintenance
 
-Use a private shell with the normal `MYSQL_*` variables loaded from the service's protected environment. Do not put secrets into commands or paste database output. All simulator migrations must exist, including staff preferences and `migrations/2026-10-11-simulator-replays.sql`. Apply the replay migration before starting either the new frontend or maintenance image. The existing database identity needs SELECT/INSERT/UPDATE/DELETE on `simulator_replays` and `simulator_replay_frames`; verify permissions privately before release. There is no public maintenance API and no startup cleanup.
+Use a private shell with the normal `MYSQL_*` variables loaded from the service's protected environment. Do not put secrets into commands or paste database output. On MariaDB, apply [the simulator schema](../sql/schema.sql) before starting the frontend or maintenance image. The existing database identity needs SELECT/INSERT/UPDATE/DELETE on `simulator_replays` and `simulator_replay_frames`; verify permissions privately before release. There is no public maintenance API and no startup cleanup.
 
 From Frontend:
 

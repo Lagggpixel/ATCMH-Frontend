@@ -1,4 +1,4 @@
-import {closeSync, openSync, readFileSync, unlinkSync} from 'node:fs';
+import {closeSync, openSync, unlinkSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
@@ -21,7 +21,9 @@ export function createLocalSweatboxDb(path) {
     CREATE TABLE simulator_scenarios(id TEXT PRIMARY KEY, owner_id TEXT, owner_name TEXT, version INTEGER, published_revision INTEGER, updated_at INTEGER, draft TEXT);
     CREATE TABLE simulator_scenario_revisions(scenario_id TEXT, revision INTEGER, created_at INTEGER, definition TEXT, PRIMARY KEY(scenario_id,revision));
     CREATE TABLE simulator_attempts(id TEXT PRIMARY KEY, assignment_id TEXT, owner_id TEXT, learner_id TEXT, scenario_id TEXT, revision INTEGER, session_id TEXT, started_at INTEGER, finished_at INTEGER, status TEXT, feedback TEXT, elapsed REAL DEFAULT 0, result TEXT);
-    ${readFileSync(new URL('../migrations/2026-11-18-simulator-endless-practice.sql', import.meta.url), 'utf8')}
+    CREATE TABLE simulator_endless_scenarios(id VARCHAR(36) PRIMARY KEY, owner_id VARCHAR(256) NOT NULL, version INT NOT NULL, updated_at BIGINT NOT NULL, definition LONGTEXT NOT NULL);
+    CREATE TABLE simulator_endless_replay_index(replay_id VARCHAR(36) NOT NULL, sequence_no INT NOT NULL, at_seconds DOUBLE NOT NULL, snapshot LONGTEXT NOT NULL, PRIMARY KEY (replay_id, sequence_no));
+    CREATE INDEX simulator_endless_replay_time ON simulator_endless_replay_index (replay_id, at_seconds, sequence_no);
     COMMIT;`);
     } finally {db.close();}
   } catch (error) {

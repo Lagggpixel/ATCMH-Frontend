@@ -37,7 +37,7 @@ async function main() {
       try {await withWriteTransaction(async connection => {report = await replayTasks[task](connection, apply); if (!apply) throw rollback;});}
       catch (error) {if (error !== rollback) throw error;}
     } else {
-      if (task === "--install-compact-replays") throw new Error("Apply migrations/2026-11-07-simulator-compact-replays.sql to MariaDB instead.");
+      if (task === "--install-compact-replays") throw new Error("Apply migrations/schema.sql to MariaDB instead.");
       const connection = await mysql.createConnection(databaseUrlFromEnvironment());
       try {
         await connection.beginTransaction();

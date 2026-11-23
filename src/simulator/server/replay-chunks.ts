@@ -11,7 +11,7 @@ export const CHUNK_FRAMES = 60;
 export interface ChunkConnection {execute(sql: string, values: (string | number | null | Uint8Array)[]): Promise<[unknown, unknown]>}
 export interface ChunkRow extends RowDataPacket {replay_id?: string; chunk_no: number; first_sequence: number; last_sequence: number; frame_count: number; sealed: number | boolean; identities: string; data: Uint8Array | string}
 
-/** The SQLite table; MariaDB uses migrations/016-compact-replays.sql. Created only by maintenance. */
+/** SQLite table created by maintenance. MariaDB uses migrations/schema.sql. */
 export const SQLITE_CHUNKS_TABLE = "CREATE TABLE IF NOT EXISTS simulator_replay_chunks(replay_id TEXT NOT NULL REFERENCES simulator_replays(id) ON DELETE CASCADE, chunk_no INTEGER NOT NULL, first_sequence INTEGER NOT NULL, last_sequence INTEGER NOT NULL, frame_count INTEGER NOT NULL, sealed INTEGER NOT NULL DEFAULT 0, identities TEXT NOT NULL, created_at INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY(replay_id,chunk_no))";
 
 // Old images keep working on the same database: compact storage begins once maintenance adds the table.

@@ -142,4 +142,4 @@ See the fixture header for startup settings and the editor preview URL.
 
 Open **Endless practice** from the staff Sessions page to choose a preset or save a custom scenario. The live run opens paused. Play starts the traffic feed. Stop new traffic lets you work aircraft already on scope, and End run saves the score and indexed replay to your Endless library.
 
-Apply [the Endless migration](migrations/2026-11-18-simulator-endless-practice.sql) to the simulator store before serving this version. It adds the private scenario and replay index tables on MariaDB or SQLite. The disposable SQLite fixture already applies it. Configure the existing InfiniteHorizon navigation endpoint for valid radar routes. Each run stores the navigation revisions validated at launch.
+For MariaDB, apply [the simulator schema](sql/schema.sql) to `atcmh_lms` before serving Endless Practice. It includes the private scenario and replay index tables. The disposable SQLite setup creates both tables in its own dialect. Configure the existing InfiniteHorizon navigation endpoint for valid radar routes. Each run stores the navigation revisions validated at launch.
