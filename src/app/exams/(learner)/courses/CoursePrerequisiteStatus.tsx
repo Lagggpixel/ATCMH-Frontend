@@ -12,7 +12,7 @@ export default function CoursePrerequisiteStatus({prerequisites, hasUnavailableP
     <h3 className={styles.prerequisiteHeading}>Prerequisites</h3>
     {prerequisites.length > 0 ? <ul className={styles.prerequisiteList}>
       {prerequisites.map((prerequisite) => <li className={styles.prerequisiteItem} key={prerequisite.courseId}>
-        <Link href={`/exams/courses/${encodeURIComponent(prerequisite.courseId)}`}>{prerequisite.title}</Link>
+        <Link href={`/ground-school/${encodeURIComponent(prerequisite.courseId)}`}>{prerequisite.title}</Link>
         <span className={prerequisite.completed ? styles.prerequisiteComplete : styles.prerequisiteIncomplete}>
           {prerequisite.completed ? "Completed" : "Not complete"}
         </span>

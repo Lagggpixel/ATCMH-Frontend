@@ -36,12 +36,12 @@ test("other routes retain their original frame and media restrictions", () => {
 });
 
 
-test("course editor previews and course videos work after dashboard or exams client navigation", () => {
-    for (const path of ["/dashboard", "/dashboard/courses/abc/edit", "/exams", "/exams/courses/abc"]) {
+test("course editor previews and Ground School media work after dashboard, exams, or ground-school navigation", () => {
+    for (const path of ["/dashboard", "/dashboard/courses/abc/edit", "/exams", "/ground-school", "/ground-school/abc"]) {
         assert.match(csp(path), /img-src 'self' data: https: blob:;/);
         assert.match(csp(path), /media-src 'self' blob: https:;/);
     }
-    for (const path of ["/", "/dashboard-other", "/exams-other"]) {
+    for (const path of ["/", "/dashboard-other", "/exams-other", "/ground-school-other"]) {
         assert.doesNotMatch(csp(path), /img-src[^;]*blob:|media-src/);
     }
 });

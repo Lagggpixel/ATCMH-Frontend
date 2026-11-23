@@ -12,6 +12,8 @@ export default function nextConfig(phase: string): NextConfig {
       {source: "/sweatbox/mentee/assignments", destination: "/sweatbox/staff", permanent: false},
       {source: "/simulator", destination: "/sweatbox", permanent: true},
       {source: "/simulator/:section(staff|mentee|spectator|join|scenarios|replays|about|changelog|endless)/:path*", destination: "/sweatbox/:section/:path*", permanent: true},
+      {source: "/exams/courses", destination: "/ground-school", permanent: true},
+      {source: "/exams/courses/:path*", destination: "/ground-school/:path*", permanent: true},
     ],
     // Keep source routes and static assets stable while exposing Sweatbox URLs.
     rewrites: async () => [

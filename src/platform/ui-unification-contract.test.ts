@@ -70,8 +70,8 @@ test("active Exam Center attempts remain outside the framed navigation", () => {
   assert.match(learnerLayout, /<LearnerSiteFrame/);
   const learnerFrame = source("./LearnerSiteFrame.tsx");
   assert.match(learnerFrame, /<SiteFrame/);
-  assert.match(learnerFrame, /pathname === "\/exams\/courses" \|\| pathname.startsWith\("\/exams\/courses\/"\)/);
-  assert.match(learnerFrame, /<LearningFrame product="Courses">/);
+  assert.match(learnerFrame, /pathname === "\/ground-school" \|\| pathname.startsWith\("\/ground-school\/"\)/);
+  assert.match(learnerFrame, /<LearningFrame product="Ground School">/);
   assert.doesNotMatch(learnerLayout, /ExamLogoutButton|Sign out|accountAccessory/);
   assert.doesNotMatch(attemptLayout, /SiteFrame/);
   assert.match(attemptLayout, /getVerifiedCentralSession/);

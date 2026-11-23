@@ -10,7 +10,7 @@ import {AuthNavigation} from "@/src/marketing/SiteHeader";
 import styles from "./LearningFrame.module.css";
 import SweatboxWorkspace from "./SweatboxWorkspace";
 
-export default function LearningFrame({product, children}: {product: "Courses" | "Pilot Guide" | "Careers" | "Sweatbox"; children: ReactNode}) {
+export default function LearningFrame({product, children}: {product: "Ground School" | "Pilot Guide" | "Careers" | "Sweatbox"; children: ReactNode}) {
     const pathname = usePathname();
     if (product === "Sweatbox" && /^\/(?:sweatbox|simulator)(?:\/(?:staff|mentee|mentee\/replays(?:\/[^/]+)?|join|scenarios|replays|changelog|endless(?:\/replays\/[^/]+)?))?\/?$/.test(pathname))
         return <DashboardThemeProvider><SweatboxWorkspace>{children}</SweatboxWorkspace></DashboardThemeProvider>;

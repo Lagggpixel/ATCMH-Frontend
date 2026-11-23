@@ -41,6 +41,27 @@ export interface LearnerCourseSummary {
     locked: boolean;
     prerequisites: CoursePrerequisiteSummary[];
     hasUnavailablePrerequisites: boolean;
+    enrolled?: boolean;
+    enrollmentStatus?: CourseEnrollmentStatus | null;
+}
+
+export interface GroundSchoolThreadStatus {
+    id: string;
+    locked: boolean;
+    archived: boolean;
+    deleted?: boolean;
+    unreadCount: number;
+}
+
+export interface GroundSchoolStatus {
+    authenticated: boolean;
+    hasDiscord: boolean;
+    hasIfc: boolean;
+    ifcName: string | null;
+    inDiscord: boolean;
+    discordUnavailable?: boolean;
+    enrolledCourseCount: number;
+    thread: GroundSchoolThreadStatus | null;
 }
 
 export interface ManagedCourseSection {

@@ -4,9 +4,9 @@ export function securityHeadersFor(env: RuntimeEnvironment, nodeEnv: string | un
   const isProduction = nodeEnv === "production";
   const { dashboardApiUrl } = resolvePublicRuntimeConfig(env, nodeEnv);
   const guideMedia = ["/pilot-guide", "/dashboard/pilot-guide"].includes(pathname.replace(/\/$/, ""));
-  // Dashboard and Exams use client navigation, so their initial document must
-  // allow the course editor and reader media on subsequent routes.
-  const courseMedia = /^\/(?:dashboard|exams)(?:\/|$)/.test(pathname);
+  // Dashboard, Exams, and Ground School use client navigation, so their initial document must
+  // allow course editor/reader media and Ground School chat screenshot previews.
+  const courseMedia = /^\/(?:dashboard|exams|ground-school)(?:\/|$)/.test(pathname);
   const simulator = /^\/(?:sweatbox|simulator)(?:\/|$)/.test(pathname);
   const contentSecurityPolicy = [
     "default-src 'self'",

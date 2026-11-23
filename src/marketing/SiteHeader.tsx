@@ -7,7 +7,7 @@ import {usePortalAuth} from "@/src/platform/auth/PortalAuthProvider";
 import {homeLoginHref} from "@/src/platform/auth/login-routing";
 import {headerAuthState} from "@/src/platform/auth/header-state";
 import AppearanceMenu from "@/src/dashboard/theme/AppearanceMenu";
-import {canAccessPilotGuide, canViewAdminPreview} from "@/src/platform/auth/admin-preview-access";
+import {canAccessPilotGuide} from "@/src/platform/auth/admin-preview-access";
 import ProfileAvatar from "@/src/platform/auth/ProfileAvatar";
 import {profileDisplayName} from "@/src/platform/auth/profile-avatar";
 
@@ -20,11 +20,13 @@ const marketingNavLinks = [
   {label: "Apply", href: "/apply"},
   {label: "Leaderboard", href: "/leaderboard"},
   {label: "Exam Center", href: "/exams"},
+  {label: "Ground School", href: "/ground-school"},
 ];
 
 function UserMenu({showDashboard, showWraps, menuLinks = [], onLogout}: {showDashboard: boolean; showWraps: boolean; menuLinks?: readonly MenuLink[]; onLogout: () => void}) {
   const pathname = usePathname();
-  const AccountLink = pathname === "/dashboard/pilot-guide" || pathname === "/pilot-guide" || pathname.startsWith("/exams/courses") ? "a" : Link;
+  const AccountLink = pathname === "/dashboard/pilot-guide" || pathname === "/pilot-guide"
+    || pathname.startsWith("/ground-school") || pathname.startsWith("/exams/courses") ? "a" : Link;
   const {session, avatarUrl} = usePortalAuth();
   return <details className="nav-user-menu">
     <summary aria-label="Open account menu">
@@ -55,7 +57,6 @@ function NavigationLinks() {
   const {adminUser, loading, error} = usePortalAuth();
   const links = [
     ...marketingNavLinks,
-    ...(!loading && !error && canViewAdminPreview(adminUser) ? [{label: "Courses", href: "/exams/courses"}] : []),
     ...(!loading && !error && canAccessPilotGuide(adminUser) ? [{label: "Pilot Guide", href: "/pilot-guide"}] : []),
   ];
 
@@ -72,7 +73,7 @@ function NavigationLinks() {
 
   return <>{links.map(link => {
     const active = link.href === "/exams" ? pathname.startsWith("/exams") && !pathname.startsWith("/exams/courses")
-      : link.href === "/exams/courses" ? pathname.startsWith("/exams/courses") : pathname === link.href;
+      : link.href === "/ground-school" ? pathname.startsWith("/ground-school") || pathname.startsWith("/exams/courses") : pathname === link.href;
     if (link.href === "/pilot-guide") return <a key={link.label} href={link.href} onClick={event => navigate(event, link.href)} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</a>;
     return <Link key={link.label} href={link.href} onClick={event => navigate(event, link.href)} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>{link.label}</Link>;
   })}</>;
@@ -81,7 +82,7 @@ function NavigationLinks() {
 export function SiteHeader({variant = "hero", showLogin = false}: {variant?: "hero" | "solid"; showLogin?: boolean}) {
   const [hasScrolled, setHasScrolled] = useState(false);
   const pathname = usePathname();
-  const coursePage = pathname.startsWith("/exams/courses");
+  const coursePage = pathname.startsWith("/ground-school") || pathname.startsWith("/exams/courses");
   const light = coursePage || pathname.startsWith("/careers");
   useEffect(() => {
     if (variant === "solid") return;

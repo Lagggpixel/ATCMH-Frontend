@@ -27,5 +27,5 @@ test("navigation modes unlock the intended leaves", () => {
 
 test("resume chooses the first accessible incomplete leaf and links target one leaf", () => {
   assert.equal(resumeSubsection(sections, groups, "sequential", new Set(["one"]))?.id, "two");
-  assert.equal(subsectionHref("course", "two"), "/exams/courses/course?subsection=two");
+  assert.equal(subsectionHref("course", "two"), "/ground-school/course?subsection=two");
 });

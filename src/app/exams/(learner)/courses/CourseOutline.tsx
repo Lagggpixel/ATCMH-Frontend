@@ -37,8 +37,8 @@ export default function CourseOutline({courseId, title, groups, sections, curren
   useEffect(() => { dialog.current?.close(); }, [currentId]);
 
   const identity = (mobile: boolean) => <div className={styles.outlineCourse}>
-    <Link className={styles.courseBack} href={preview ? "/dashboard/courses" : "/exams/courses"}><CaretLeftIcon size={18}/><span role="heading" aria-level={1} id={mobile ? "course-mobile-heading" : preview ? "course-preview-heading" : "course-reader-heading"}>{title}</span></Link>
-    <p>{preview ? "Staff course preview" : "Your course"}</p>
+    <Link className={styles.courseBack} href={preview ? "/dashboard/courses" : "/ground-school"}><CaretLeftIcon size={18}/><span role="heading" aria-level={1} id={mobile ? "course-mobile-heading" : preview ? "course-preview-heading" : "course-reader-heading"}>{title}</span></Link>
+    <p>{preview ? "Staff Ground School preview" : "Ground School"}</p>
     <div className={styles.outlineProgress}><div className={styles.progressTrack} role="progressbar" aria-label={preview ? "Preview lesson position" : "Course completion"} aria-valuenow={progressValue} aria-valuemin={0} aria-valuemax={sections.length}><span style={{width: `${sections.length ? progressValue / sections.length * 100 : 0}%`}}/></div><span>{progressValue} of {sections.length}</span></div>
     {onEdit ? <button type="button" className={styles.editCourse} onClick={onEdit}>Edit course</button> : null}
   </div>;

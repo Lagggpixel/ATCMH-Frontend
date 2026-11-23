@@ -32,5 +32,5 @@ export function resumeSubsection(
 }
 
 export function subsectionHref(courseId: string, sectionId: string, basePath?: string) {
-  return `${basePath ?? `/exams/courses/${encodeURIComponent(courseId)}`}?subsection=${encodeURIComponent(sectionId)}`;
+  return `${basePath ?? `/ground-school/${encodeURIComponent(courseId)}`}?subsection=${encodeURIComponent(sectionId)}`;
 }

@@ -1,0 +1,141 @@
+.gateCard {
+    max-width: 680px;
+    margin: 44px auto 64px;
+    padding: 32px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 12px;
+    background: var(--dashboard-surface);
+    display: grid;
+    gap: 16px;
+}
+
+.backLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--dashboard-link);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 650;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.backLink:hover {
+    text-decoration: underline;
+}
+
+.eyebrow {
+    margin: 0;
+    color: var(--dashboard-muted);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.gateCard h1 {
+    margin: 0;
+    font-size: clamp(24px, 2.8vw, 32px);
+    font-weight: 750;
+    letter-spacing: -.02em;
+    line-height: 1.2;
+}
+
+.copy {
+    margin: 0;
+    color: var(--dashboard-muted);
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.hint {
+    margin: 0;
+    padding: 12px 14px;
+    border-left: 3px solid var(--dashboard-button);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--dashboard-button) 8%, transparent);
+    color: var(--dashboard-text);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.feedback {
+    margin: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--dashboard-warning-text, #d4a94a);
+    border-radius: 8px;
+    background: var(--dashboard-warning-bg, rgb(212 169 74 / 12%));
+    color: var(--dashboard-warning-text, #8a630d);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.primary,
+.secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 650;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.primary {
+    border: 0;
+    background: var(--dashboard-button);
+    color: var(--dashboard-on-button);
+}
+
+.primary:not(:disabled):hover {
+    background: var(--dashboard-button-hover);
+}
+
+.secondary {
+    border: 1px solid var(--dashboard-border);
+    background: transparent;
+    color: var(--dashboard-text);
+}
+
+.secondary:not(:disabled):hover {
+    background: color-mix(in srgb, var(--dashboard-border) 35%, transparent);
+}
+
+.primary:disabled,
+.secondary:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+    .gateCard {
+        margin: 24px 16px 48px;
+        padding: 22px;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .primary,
+    .secondary {
+        width: 100%;
+    }
+}
