@@ -25,6 +25,7 @@ import AdminHealth from "./components/admin/AdminHealth";
 import DashboardWorkspace from "./DashboardWorkspace";
 
 const AdminPilotGuide = dynamic(() => import("./components/admin/AdminPilotGuide"));
+const MentorshipChannels = dynamic(() => import("./components/admin/mentorship-channels/MentorshipChannels"));
 
 const screenLabels = {
     sessions: "Sessions",
@@ -45,6 +46,7 @@ const screenLabels = {
     exams: "Exam Center",
     courses: "Ground School",
     "pilot-guide": "Pilot Guide",
+    "mentorship-channels": "Mentorship Channels",
 } as const;
 
 export default function DashboardRoute({frontendVersion}: {frontendVersion: string}) {
@@ -71,6 +73,7 @@ export default function DashboardRoute({frontendVersion}: {frontendVersion: stri
         case "roles": content = <AdminRoles/>; break;
         case "alt-accounts": content = <AdminAltAccounts csrfToken={state.token} adminUser={state.adminUser} loaded={state.loaded}/>; break;
         case "pilot-guide": content = <AdminPilotGuide loaded={!state.auth.loading} loggedIn={state.token != null} adminUser={state.adminUser} token={state.token}/>; break;
+        case "mentorship-channels": content = <MentorshipChannels loaded={!state.auth.loading && (state.token == null || state.loaded)} loggedIn={state.token != null} allowed={state.adminUser?.canViewMentorshipChannels === true}/>; break;
         case "exams": content = <ExamCenter token={state.token} users={state.users ?? []} view={route.view}/>; break;
         case "courses": content = <CourseCenter token={state.token} users={state.users ?? []} view={route.view} courseId={route.params?.courseId}/>; break;
     }

@@ -1,7 +1,7 @@
 Privacy Policy for ATC Mentorship Hub
 
 Effective date: July 10, 2026
-Last updated: October 11, 2026
+Last updated: November 25, 2026
 Website: https://www.atcmh.org/
 Discord bot: ATCMH Bot
 Operator: ATC Mentorship Hub, operated by Wanbin Cao
@@ -61,6 +61,8 @@ When you interact with the ATCMH Discord bot, or when the bot is used in a serve
 - message content only where necessary for a feature and only where the bot has access to that content
 
 The bot does not intentionally collect messages from channels it cannot access. The bot is not designed to record voice calls, video calls, or private conversations unless a specific feature is clearly enabled and disclosed.
+
+The Mentorship Channels archive records conversations in registered ATCMH mentorship channels and their Discord threads. It includes available historical transcripts, messages, attachments and embeds, and captures edits and deletions from the time the archive is enabled. Discord moderators and the ATCMH Super Admin can read this archive and download selected conversations for mentorship review. Access and downloads are logged.
 
 ## 2.4 Website Usage and Technical Data
 
@@ -197,6 +199,8 @@ We may retain:
 * backup copies until they are replaced, deleted, or overwritten through normal backup processes.
 
 Where information is no longer required in an identifiable form, we may delete, anonymise, or restrict access to it.
+
+Archived mentorship channel messages, earlier versions, deletion records, and preserved media have no automatic expiry. They are retained while needed for mentorship review, moderation, and dispute resolution. Section 7 describes how to request deletion.
 
 You may request deletion of your personal information as described in Section 7. Some information may be retained after a deletion request where retention is necessary for security, anti-abuse, audit integrity, unresolved disputes, legal obligations, or accurate historical mentorship records.
 

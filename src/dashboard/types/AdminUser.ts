@@ -14,6 +14,7 @@ export interface AdminUser {
     canManageApplicationQuestions?: boolean;
     canReviewMentorApplications?: boolean;
     canManagePilotGuide?: boolean;
+    canViewMentorshipChannels?: boolean;
     canAccessSimulator?: boolean;
     canAccessDashboard?: boolean;
     canManageRoles?: boolean;

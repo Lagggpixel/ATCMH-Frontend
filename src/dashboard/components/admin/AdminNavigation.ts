@@ -53,6 +53,7 @@ export const adminNavigationGroups = (adminUser: AdminUser | undefined, examCent
     navigationGroup("Administration", [{
         items: [
             {path: "/dashboard/stats", label: "Statistics"},
+            ...(adminUser?.canViewMentorshipChannels ? [{path: "/dashboard/mentorship-channels", label: "Mentorship Channels"}] : []),
             ...(canAccessPilotGuide(adminUser) ? [{path: "/dashboard/pilot-guide", label: "Pilot Guide"}] : []),
             ...(canViewHealth(adminUser) ? [{path: "/dashboard/health", label: "System Health"}] : []),
             ...(adminUser?.canManageAccounts ? [{path: "/dashboard/accounts", label: "Accounts"}] : []),
