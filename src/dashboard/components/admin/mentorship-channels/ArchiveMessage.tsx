@@ -1,7 +1,9 @@
 "use client";
 
 import {Fragment, useState, type ReactNode} from "react";
-import {API, archiveLink, authorName, readArchive, type ArchiveMessage, type ArchiveRevision, type ArchiveStream, type DiscordBody, type Embed, type Emoji, type MediaRef} from "./archive";
+import {API, archiveLink, authorName, readArchive, type ArchiveMessage, type ArchiveRevision, type ArchiveStream, type DiscordBody, type Embed, type MediaRef} from "./archive";
+import {AuthorName, Avatar} from "./ArchiveIdentity";
+import {EmojiImage, MessageReactions, ReactionSummary} from "./ArchiveReactions";
 import styles from "./mentorship-channels.module.css";
 
 const shortTime = new Intl.DateTimeFormat(undefined, {hour: "numeric", minute: "2-digit"});
@@ -26,15 +28,6 @@ function safeLink(raw?: string): string | undefined {
 function ExternalLink({url, children}: {url?: string; children: ReactNode}) {
     const href = safeLink(url);
     return href ? <a href={href} rel="noreferrer noopener" target="_blank">{children}</a> : children;
-}
-
-function EmojiImage({emoji}: {emoji: Emoji}) {
-    const valid = /^\d{1,20}$/.test(emoji.id ?? "");
-    if (!valid) return <>{emoji.name}</>;
-    const label = ":" + (emoji.name || "emoji") + ":";
-    // Discord assets use their native dimensions and animated formats.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img className={styles.emoji} src={"https://cdn.discordapp.com/emojis/" + emoji.id + (emoji.animated ? ".gif" : ".webp") + "?size=48"} alt={label} title={label} loading="lazy"/>;
 }
 
 function DiscordTimestamp({unix, format = "f"}: {unix: string; format?: string}) {
@@ -165,8 +158,6 @@ function MessageBody({body, root}: {body: DiscordBody; root: string}) {
                 {answer.poll_media?.text} <span>{body.poll?.results?.answer_counts?.find(count => count.id === answer.answer_id)?.count ?? 0} votes</span>
             </li>)}</ul>
         </div> : null}
-        {body.reactions?.length ? <div className={styles.reactions}>{body.reactions.map(({emoji, count}) =>
-            <span key={emoji.id ?? emoji.name}><EmojiImage emoji={emoji}/> {count}</span>)}</div> : null}
         {!body.content && !body.embeds?.length && !body.attachments?.length && !body.poll && !body.sticker_items?.length
             ? <span className={styles.muted}>{body.type && body.type !== 0 ? "Discord system message" : "Message content unavailable"}</span> : null}
     </>;
@@ -192,41 +183,10 @@ function MessageHistory({root, message}: {root: string; message: ArchiveMessage}
         {versions?.map((version, i) => <div className={styles.version} key={i}>
             <small>{version.kind === "recovered" ? "Change detected" : "Replaced"} {fullTime.format(version.changedMs)}</small>
             <MessageBody body={version.body} root={root}/>
+            <ReactionSummary reactions={version.body.reactions}/>
         </div>)}
         {versions?.length === 0 ? <p className={styles.muted}>Earlier versions are unavailable.</p> : null}
     </details>;
-}
-
-export function ParticipantName({role, children}: {role: "mentee" | "mentor"; children: string}) {
-    return <span className={styles.participant} data-participant={role}><span>{children}</span></span>;
-}
-
-function AuthorName({body, channel}: {body: DiscordBody; channel: ArchiveStream}) {
-    const name = authorName(body);
-    const id = body.author?.id;
-    if (id && id === channel.menteeId) return <ParticipantName role="mentee">{name}</ParticipantName>;
-    if (id && id === channel.mentorId) return <ParticipantName role="mentor">{name}</ParticipantName>;
-    return name;
-}
-
-function Avatar({body}: {body: DiscordBody}) {
-    const [failed, setFailed] = useState<string[]>([]);
-    const avatar = body.author?.avatar;
-    const id = body.author?.id;
-    let url: string | undefined;
-    if (id && /^[1-9]\d{0,19}$/.test(id)) {
-        const discriminator = Number(body.author?.discriminator);
-        const index = Number.isInteger(discriminator) && discriminator > 0
-            ? discriminator % 5 : Number((BigInt(id) >> BigInt(22)) % BigInt(6));
-        const fallback = `https://cdn.discordapp.com/embed/avatars/${index}.png`;
-        const custom = avatar && /^(a_)?[0-9a-f]{32}$/.test(avatar)
-            ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.webp?size=80` : undefined;
-        url = custom && !failed.includes(custom) ? custom : !failed.includes(fallback) ? fallback : undefined;
-    }
-    // eslint-disable-next-line @next/next/no-img-element
-    return url ? <img className={styles.avatar} src={url} alt="" loading="lazy" referrerPolicy="no-referrer"
-        onError={() => setFailed(previous => [...previous, url])}/>
-        : <span className={styles.avatar} aria-hidden="true">{authorName(body).slice(0, 2).toUpperCase()}</span>;
 }
 
 export function ArchiveMessageRow({message, channel, grouped, active, thread, replyMessage}: {
@@ -240,27 +200,29 @@ export function ArchiveMessageRow({message, channel, grouped, active, thread, re
     const deleted = message.deletedMs != null;
     const link = archiveLink(root, message.streamId, message.id);
     return <article id={"archive-message-" + message.id} className={styles.message} data-active={active} data-grouped={grouped} tabIndex={active ? -1 : undefined}>
-        {!grouped ? <Avatar key={body.author?.id ?? authorName(body)} body={body}/> : <time className={styles.groupedTime} title={fullTime.format(date)}>{shortTime.format(date)}</time>}
+        {!grouped ? <Avatar key={body.author?.id ?? authorName(body)} author={body.author}/> : <time className={styles.groupedTime} title={fullTime.format(date)}>{shortTime.format(date)}</time>}
         <div className={styles.messageMain}>
             {reply?.message_id ? <a className={styles.reply} href={archiveLink(root, reply.channel_id ? "d" + reply.channel_id : message.streamId, reply.message_id)}>
                 ↪ {replyMessage && !replyMessage.deletedMs && !replyMessage.body.erased
-                    ? <><AuthorName body={replyMessage.body} channel={channel}/> · {replyMessage.body.content?.split("\n", 1)[0].slice(0, 100) || "Message"}</>
+                    ? <><AuthorName author={replyMessage.body.author} channel={channel}/> · {replyMessage.body.content?.split("\n", 1)[0].slice(0, 100) || "Message"}</>
                     : "Reply to message"}
             </a> : null}
             {!grouped ? <div className={styles.messageHeading}>
-                <strong><AuthorName body={body} channel={channel}/></strong>
+                <strong><AuthorName author={body.author} channel={channel}/></strong>
                 {body.author?.bot ? <span className={styles.bot}>APP</span> : null}
                 <a href={link} title={fullTime.format(date)}><time dateTime={date.toISOString()}>{messageTime(date)}</time></a>
             </div> : null}
             {deleted ? <details className={styles.deleted}>
                 <summary>Message deleted · {message.deletedRecovered ? "Detected" : "Recorded"} {fullTime.format(message.deletedMs!)}</summary>
                 <MessageBody key={"body-" + body.last_change_ms} body={body} root={root}/>
+                <MessageReactions message={message} channel={channel}/>
                 {body.last_change_ms != null ? <MessageHistory key={"history-" + body.last_change_ms} message={message} root={root}/> : null}
             </details> : <>
                 <MessageBody key={"body-" + body.last_change_ms} body={body} root={root}/>
                 {edited != null && Number.isFinite(edited) ? <span className={styles.edited} title={fullTime.format(edited)}>
                     {body.last_change_kind === "recovered" ? "Change detected" : body.last_change_kind === "embed" ? "Embed updated" : "Edited"} {shortTime.format(edited)}
                 </span> : null}
+                <MessageReactions message={message} channel={channel}/>
                 {body.last_change_ms != null ? <MessageHistory key={"history-" + body.last_change_ms} message={message} root={root}/> : null}
             </>}
             {thread ? <a className={styles.threadLink} href={archiveLink(root, thread.id)}>↳ Open {thread.title}</a> : null}

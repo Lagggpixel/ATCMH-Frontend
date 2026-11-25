@@ -5,7 +5,8 @@ import {CaretLeftIcon, SlidersHorizontalIcon, XIcon} from "@phosphor-icons/react
 import AdminLoadingScreen from "../AdminLoadingScreen";
 import AdminLoginScreen from "../AdminLoginScreen";
 import AdminErrorScreen from "../AdminErrorScreen";
-import {ArchiveMessageRow, ParticipantName} from "./ArchiveMessage";
+import {ArchiveMessageRow} from "./ArchiveMessage";
+import {ParticipantName} from "./ArchiveIdentity";
 import {
     API, ArchiveError, archiveLink, archiveLocation, archiveRange, authorName, channelNames, readArchive,
     type ArchiveConversation, type ArchiveLocation, type ArchivePage, type ArchiveRange, type ArchiveStream, type RangePreset,

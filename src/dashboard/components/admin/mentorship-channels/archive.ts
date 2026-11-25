@@ -48,8 +48,28 @@ export interface Emoji {
     animated?: boolean;
 }
 
+export interface ArchiveReaction {
+    count: number;
+    count_details?: {normal?: number; burst?: number};
+    emoji: Emoji;
+}
+
+export type ReactionKind = "normal" | "burst";
+
+export interface ArchiveAuthor {
+    id?: string;
+    display_name?: string;
+    global_name?: string;
+    username?: string;
+    avatar?: string | null;
+    discriminator?: string;
+    bot?: boolean;
+}
+
+export interface ReactionPage {users: (ArchiveAuthor & {id: string})[]; next?: string}
+
 export interface DiscordBody {
-    author?: {id?: string; display_name?: string; global_name?: string; username?: string; avatar?: string; discriminator?: string; bot?: boolean};
+    author?: ArchiveAuthor;
     content?: string;
     type?: number;
     flags?: number;
@@ -61,7 +81,7 @@ export interface DiscordBody {
     edited_timestamp?: string;
     last_change_ms?: number;
     last_change_kind?: "edit" | "embed" | "recovered";
-    reactions?: {count: number; emoji: Emoji}[];
+    reactions?: ArchiveReaction[];
     poll?: {
         question?: {text?: string};
         answers?: {answer_id: number; poll_media?: {text?: string; emoji?: Emoji}}[];

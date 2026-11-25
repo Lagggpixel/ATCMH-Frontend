@@ -18,6 +18,9 @@
 :global(.dashboard-theme):has([data-mentorship-channels]) :global(.site-footer) { display: none; }
 
 .workspace {
+    --mentee-text: #673da0;
+    --mentor-text-start: #ad340b;
+    --mentor-text-end: #7d5606;
     display: grid;
     grid-template-columns: clamp(220px, 23vw, 310px) minmax(0, 1fr);
     flex: 1;
@@ -26,6 +29,12 @@
     color: var(--dashboard-ink);
     background: var(--dashboard-surface);
 }
+:global(html[data-dashboard-theme="dark"]) .workspace {
+    --mentee-text: #d8b5ff;
+    --mentor-text-start: #fd560e;
+    --mentor-text-end: #ffcd50;
+}
+:global(html[data-dashboard-theme="dark"]) .channel:is(:hover, [aria-current]) { --mentor-text-start: #ff7645; }
 .workspace button, .workspace input, .workspace select {
     font: inherit;
     color: inherit;
@@ -82,24 +91,16 @@
 .channel strong, .channel small { display: block; }
 .channel small, .muted, .channelTitle p, .notice { color: var(--dashboard-muted); }
 .channel small { margin-top: .12rem; }
-.participant {
-    padding-inline: .2em;
-    border-radius: .22em;
-    background: #191919;
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
-}
-.participant[data-participant="mentee"] { color: #d8b5ff; }
-.participant[data-participant="mentor"] { color: #fd560e; }
-@supports (background-clip: text) {
-    .participant[data-participant="mentor"] > span {
-        background: linear-gradient(90deg, #fd560e, #ffcd50);
-        background-clip: text;
-        color: transparent;
+.participant[data-participant="mentee"] { color: var(--mentee-text); }
+.participant[data-participant="mentor"] { color: var(--mentor-text-start); }
+@media (forced-colors: none) {
+    @supports (background-clip: text) {
+        .participant[data-participant="mentor"] {
+            background-image: linear-gradient(90deg, var(--mentor-text-start), var(--mentor-text-end));
+            background-clip: text;
+            color: transparent;
+        }
     }
-}
-@media (forced-colors: active) {
-    .participant[data-participant="mentor"] > span { background: none; color: inherit; }
 }
 .reader {
     min-height: 0;
@@ -223,8 +224,59 @@
 .threadLink { display: inline-block; margin-top: .3rem; }
 .poll { padding-inline-start: .9rem; }
 .poll span { margin-inline-start: .3rem; color: var(--dashboard-muted); }
-.reactions { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .3rem; font-size: .82rem; }
-.reactions > span { background: var(--dashboard-inset); border-radius: .5rem; padding: 0 .32rem; }
+.reactions { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+.workspace .reactionChip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    min-height: 32px;
+    padding: .2rem .55rem;
+    border: 1px solid var(--dashboard-border);
+    border-radius: .55rem;
+    background: var(--dashboard-inset);
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+}
+.workspace button.reactionChip:hover, .workspace .reactionChip[aria-pressed="true"] {
+    border-color: var(--dashboard-link);
+    background: var(--dashboard-selected);
+}
+.reactionDialog {
+    width: min(430px, calc(100% - 2rem));
+    max-height: min(540px, calc(100dvh - 2rem));
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--dashboard-border);
+    border-radius: .85rem;
+    background: var(--dashboard-surface);
+    color: var(--dashboard-ink);
+}
+.reactionDialog::backdrop { background: var(--dashboard-backdrop, rgb(9 20 43 / 54%)); }
+.reactionPanel { display: flex; flex-direction: column; max-height: inherit; padding-bottom: .65rem; }
+.reactionPanel > :is(header, .reactionChoices, .reactionKinds) { flex: none; }
+.reactionHeader { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem .7rem .45rem 1rem; }
+.reactionHeader h3 { margin: 0; font-size: 1.15rem; }
+.reactionChoices {
+    display: flex;
+    gap: .4rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: .2rem 1rem .65rem;
+    border-bottom: 1px solid var(--dashboard-border);
+}
+.reactionKinds { display: flex; gap: .4rem; padding: .65rem 1rem .3rem; }
+.workspace .reactionKinds button { min-height: 32px; background: transparent; border-color: transparent; font-size: .82rem; }
+.workspace .reactionKinds button[aria-pressed="true"] { background: var(--dashboard-selected); color: var(--dashboard-link); }
+.reactionKinds span { margin-inline-start: .2em; }
+.reactionRoster { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.reactionRoster ul { display: grid; list-style: none; gap: .2rem; margin: 0; padding: .45rem 1rem; }
+.reactionRoster li { display: flex; align-items: center; gap: .65rem; min-height: 44px; }
+.reactionRoster li strong { min-width: 0; overflow-wrap: anywhere; }
+.reactionRoster .avatar { flex: none; width: 32px; height: 32px; }
+.reactionStatus { margin: .8rem 1rem; color: var(--dashboard-muted); font-size: .9rem; }
+.workspace .reactionMore { display: block; margin: .45rem auto; color: var(--dashboard-link); }
 .dialog, .optionsSheet { width: min(430px, calc(100% - 2rem)); border: 1px solid var(--dashboard-border); border-radius: .65rem; padding: 1.2rem; background: var(--dashboard-surface); color: var(--dashboard-ink); }
 .dialog::backdrop, .optionsSheet::backdrop { background: var(--dashboard-backdrop, rgb(9 20 43 / 54%)); }
 .dialog h3 { margin: 0 0 .45rem; }
@@ -286,6 +338,17 @@
         padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
         overflow-y: auto;
     }
+    .reactionDialog {
+        position: fixed;
+        inset: auto 0 0;
+        width: 100%;
+        max-width: none;
+        max-height: min(570px, 75dvh);
+        margin: 0;
+        border-radius: .9rem .9rem 0 0;
+    }
+    .reactionPanel { padding-bottom: calc(.75rem + env(safe-area-inset-bottom)); }
+    .workspace button.reactionChip, .workspace .reactionKinds button, .workspace .reactionMore { min-height: 44px; }
     .timeline { padding-top: .3rem; }
     .workspace .older { min-height: 44px; margin: 0 auto; border-color: transparent; background: transparent; color: var(--dashboard-link); font-size: .88rem; }
     .day { margin: .45rem 0 .6rem; }
