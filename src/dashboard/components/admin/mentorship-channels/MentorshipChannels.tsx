@@ -1,12 +1,12 @@
 "use client";
 
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
-import {CaretLeftIcon, SlidersHorizontalIcon, XIcon} from "@phosphor-icons/react";
+import {ArchiveIcon, CaretLeftIcon, HashStraightIcon, InfoIcon, SlidersHorizontalIcon, XIcon} from "@phosphor-icons/react";
 import AdminLoadingScreen from "../AdminLoadingScreen";
 import AdminLoginScreen from "../AdminLoginScreen";
 import AdminErrorScreen from "../AdminErrorScreen";
 import {ArchiveMessageRow} from "./ArchiveMessage";
-import {ParticipantName} from "./ArchiveIdentity";
+import {MenteeName, ParticipantName} from "./ArchiveIdentity";
 import {
     API, ArchiveError, archiveLink, archiveLocation, archiveRange, authorName, channelNames, readArchive,
     type ArchiveConversation, type ArchiveLocation, type ArchivePage, type ArchiveRange, type ArchiveStream, type RangePreset,
@@ -15,7 +15,7 @@ import styles from "./mentorship-channels.module.css";
 
 const dayFormat = new Intl.DateTimeFormat(undefined, {dateStyle: "long"});
 const syncTime = new Intl.DateTimeFormat(undefined, {hour: "numeric", minute: "2-digit"});
-const initialRange: ArchiveRange = {preset: "14", start: "", end: ""};
+const initialRange: ArchiveRange = {preset: "all", start: "", end: ""};
 const rangeLabels: Record<RangePreset, string> = {
     14: "2 weeks", 30: "30 days", 60: "60 days", 90: "90 days", all: "All time", custom: "Custom",
 };
@@ -25,12 +25,26 @@ function status(problem: unknown, message: string) {
         ? "You no longer have access to this archive." : message;
 }
 
-function ChannelNames({names}: {names: ReturnType<typeof channelNames>}) {
-    if (!names.mentee) return names.title;
-    return <>
-        <ParticipantName role="mentee">{names.mentee}</ParticipantName>{" - "}
-        {names.mentor ? <ParticipantName role="mentor">{names.mentor}</ParticipantName> : "N/A"}
-    </>;
+function channelState(channel: ArchiveStream) {
+    if (channel.kind === "legacy" || channel.state === "closed") return "Archived";
+    if (channel.state === "unavailable") return "Unavailable";
+    if (channel.state === "importing") return "Importing";
+    return "Live";
+}
+
+function mentorshipOutcome(channel: ArchiveStream) {
+    if (channel.mentorshipState === "terminated") return "Terminated";
+    if (channel.mentorshipState === "passed") return "Passed";
+    return null;
+}
+
+function ChannelIcon({archived}: {archived: boolean}) {
+    const Icon = archived ? ArchiveIcon : HashStraightIcon;
+    return <span className={styles.channelIcon} aria-hidden="true"><Icon size={18}/></span>;
+}
+
+function ChannelMentor({name, fallback}: {name?: string; fallback: string}) {
+    return name ? <ParticipantName role="mentor">{name}</ParticipantName> : <span className={styles.unassigned}>{fallback}</span>;
 }
 
 export default function MentorshipChannels({loaded, loggedIn, allowed}: {loaded: boolean; loggedIn: boolean; allowed: boolean}) {
@@ -73,12 +87,24 @@ function ChannelWorkspace() {
     }, [retry]);
 
     const term = search.trim().toLowerCase();
-    const shown = channels.map(channel => ({channel, names: channelNames(channel)})).filter(({channel, names}) =>
-        names.title.toLowerCase().includes(term) &&
-        (filter === "all" || (filter === "archive") === (channel.kind === "legacy" || channel.state === "closed")));
+    const shown = channels.map(channel => {
+        const source = channelState(channel);
+        return {channel, names: channelNames(channel), source, outcome: mentorshipOutcome(channel)};
+    }).filter(({names, source}) => names.title.toLowerCase().includes(term) &&
+        (filter === "all" || (filter === "archive") === (source === "Archived")));
     const selected = channels.find(channel => channel.id === location.root) ?? (!location.root ? shown[0]?.channel : undefined);
     const params = archiveRange(range)?.toString() ?? null;
     const toggleRetry = () => { setLoadState("loading"); setRetry(value => value + 1); };
+
+    const updateChannel = useCallback((latest: ArchiveStream) => {
+        setChannels(previous => {
+            const existing = previous.find(channel => channel.id === latest.id);
+            if (!existing || (existing.state === latest.state && existing.mentorshipState === latest.mentorshipState &&
+                existing.menteeColor === latest.menteeColor && existing.menteeName === latest.menteeName &&
+                existing.mentorName === latest.mentorName && existing.title === latest.title)) return previous;
+            return previous.map(channel => channel.id === latest.id ? latest : channel);
+        });
+    }, []);
 
     function backToChannels() {
         setMobileConversation(false);
@@ -108,24 +134,33 @@ function ChannelWorkspace() {
                 {loadState === "ready" && !shown.length ? <p className={styles.notice}>
                     {channels.length ? "No channels match this search." : "No mentorship channels have been imported yet."}
                 </p> : null}
-                {shown.map(({channel, names}) => <a key={channel.id} href={archiveLink(channel.id)} className={styles.channel}
+                {shown.map(({channel, names, source, outcome}) => <a key={channel.id} href={archiveLink(channel.id)} className={styles.channel}
+                    title={names.title} aria-label={[names.title, source, outcome].filter(Boolean).join(", ")}
                     onClick={() => setMobileConversation(true)} aria-current={selected?.id === channel.id ? "page" : undefined}>
-                    <span className={styles.channelIcon} aria-hidden="true">{channel.kind === "legacy" || channel.state === "closed" ? "▤" : "#"}</span>
-                    <span><strong><ChannelNames names={names}/></strong><small>{channel.kind === "legacy" || channel.state === "closed" ? "Archived" : channel.state === "unavailable" ? "Unavailable" : channel.state === "importing" ? "Importing" : "Live"}</small></span>
+                    <ChannelIcon archived={source === "Archived"}/>
+                    <span className={styles.channelRow}>
+                        <span className={styles.channelMentee}>
+                            {names.mentee ? <MenteeName channel={channel}>{names.mentee}</MenteeName> : names.title}
+                        </span>
+                        {outcome ? <span className={`${styles.channelState} ${styles.channelOutcome}`} data-state={outcome}>{outcome}</span> : null}
+                        {names.mentee ? <span className={styles.channelMentor}><ChannelMentor name={names.mentor} fallback={names.missingMentor}/></span> : null}
+                        <span className={styles.channelState} data-state={source}>{source}</span>
+                    </span>
                 </a>)}
             </div>
         </aside>
         {selected ? <Conversation key={selected.id} initialChannel={selected} location={location} range={range}
-            rangeQuery={params} setRange={setRange} back={backToChannels}/>
+            rangeQuery={params} setRange={setRange} back={backToChannels} onChannelUpdate={updateChannel}/>
             : <div className={styles.placeholder}>
                 {loadState === "ready" && location.root ? <><button className={styles.mobileBack} type="button" onClick={backToChannels}>← Channels</button><p>Channel unavailable.</p></> : <p>Select a channel to read its conversation.</p>}
             </div>}
     </section>;
 }
 
-function Conversation({initialChannel, location, range, rangeQuery, setRange, back}: {
+function Conversation({initialChannel, location, range, rangeQuery, setRange, back, onChannelUpdate}: {
     initialChannel: ArchiveStream; location: ArchiveLocation; range: ArchiveRange; rangeQuery: string | null;
     setRange: (value: ArchiveRange) => void; back: () => void;
+    onChannelUpdate: (channel: ArchiveStream) => void;
 }) {
     const root = initialChannel.id;
     const [detail, setDetail] = useState<ArchiveConversation>();
@@ -145,7 +180,11 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
             try {
                 if (initial || document.visibilityState === "visible") {
                     const next = await readArchive<ArchiveConversation>(API + "/" + root + (initial ? "" : "/state"), controller.signal);
-                    if (!controller.signal.aborted) { setDetail(next); setError(""); }
+                    if (!controller.signal.aborted) {
+                        setDetail(next);
+                        setError("");
+                        onChannelUpdate(next.channel);
+                    }
                 }
             } catch (problem) {
                 if (!controller.signal.aborted) {
@@ -158,7 +197,7 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
         }
         void refresh(true);
         return () => { controller.abort(); clearTimeout(timer); };
-    }, [root, reload]);
+    }, [root, reload, onChannelUpdate]);
 
     useEffect(() => () => exportRequest.current?.abort(), []);
 
@@ -169,10 +208,10 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
     const selectedThread = threads.find(thread => thread.id === view.stream);
     const threadUnavailable = !!(view.stream && detail && !selectedThread);
     const stream = selectedThread?.id ?? root;
-    const channelStatus = channel.kind === "legacy" || channel.state === "closed" ? "Archived"
-        : channel.state === "unavailable" ? "Discord source unavailable"
-        : channel.state === "importing" ? "Import in progress"
-        : channel.syncedMs ? "Synced at " + syncTime.format(channel.syncedMs) : "Live";
+    const state = channelState(channel);
+    const synced = state === "Live" && channel.syncedMs ? "Synced at " + syncTime.format(channel.syncedMs) : null;
+    const outcome = mentorshipOutcome(channel);
+    const channelStatus = state === "Unavailable" ? "Discord source unavailable" : state === "Importing" ? "Import in progress" : state;
 
     async function download() {
         if (rangeQuery == null || downloading || exportRequest.current) return;
@@ -233,13 +272,28 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
             <button className={styles.mobileToolbarButton} type="button" aria-label="Back to channels" onClick={back}>
                 <CaretLeftIcon size={22} aria-hidden="true"/>
             </button>
-            <div className={styles.channelTitle}>
-                <h2 title={names.title}><span className={styles.titleIcon} aria-hidden="true">{channel.kind === "legacy" ? "▤" : "#"}</span> <ChannelNames names={names}/></h2>
-                <p className={styles.desktopStatus}>{channelStatus}</p>
-                <p className={styles.mobileContext}>
-                    {selectedThread ? <span title={selectedThread.title}>{selectedThread.title}</span> : null}
-                    {selectedThread ? " · " : null}{rangeLabels[range.preset]}
-                </p>
+            <div className={styles.channelIdentity}>
+                <ChannelIcon archived={state === "Archived"}/>
+                <div className={styles.channelTitle}>
+                    <h2 title={names.title} aria-label={names.title}>{names.mentee ? <>
+                        <span className={styles.titleName}><MenteeName channel={channel}>{names.mentee}</MenteeName></span>
+                        <span className={styles.titleSeparator} aria-hidden="true"> - </span>
+                        <span className={styles.titleName}><ChannelMentor name={names.mentor} fallback={names.missingMentor}/></span>
+                    </> : names.title}</h2>
+                    <p className={styles.desktopStatus}>
+                        <span className={styles.channelState} data-state={state}>{channelStatus}</span>
+                        {outcome ? <>{" · "}<span className={styles.channelState} data-state={outcome}>{outcome}</span></> : null}
+                        {synced ? <><span aria-hidden="true"> · </span>{synced}</> : null}
+                    </p>
+                    <p className={styles.mobileContext}>
+                        {outcome ? <>
+                            <span className={styles.channelState} data-state={state}>{state}</span>{" · "}
+                            <span className={styles.channelState} data-state={outcome}>{outcome}</span>{" · "}
+                        </> : null}
+                        {selectedThread ? <span title={selectedThread.title}>{selectedThread.title}</span> : null}
+                        {selectedThread ? " · " : null}{rangeLabels[range.preset]}
+                    </p>
+                </div>
             </div>
             <button className={styles.mobileToolbarButton} type="button" aria-label="Conversation options" aria-haspopup="dialog"
                 onClick={() => options.current?.showModal()}>
@@ -248,7 +302,11 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
             <div className={styles.desktopControls}>{controls}</div>
         </header>
         {channel.kind === "legacy" ? <p className={styles.banner}>Legacy transcript · Author tags, recorded times, and message text are available.</p> : null}
-        {channel.gap || selectedThread?.gap ? <p className={styles.banner}>History coverage has gaps. Some Discord activity may be missing.</p> : null}
+        {channel.gap || selectedThread?.gap ? <details className={styles.coverage}>
+            <summary><InfoIcon size={16} aria-hidden="true"/> History may be incomplete</summary>
+            <p>{channel.kind === "legacy" ? "The imported transcript may be incomplete."
+                : "The archive may have missed older edits, deletions, or threads while the bot was offline or lacked Discord access."}</p>
+        </details> : null}
         {error ? <p className={styles.banner} role="alert">{error} <button type="button" onClick={() => setReload(value => value + 1)}>Retry</button></p> : null}
         {threadUnavailable ? <p className={styles.notice}>Thread unavailable. <a href={archiveLink(root)}>Open channel messages</a></p>
             : rangeQuery == null ? <p className={styles.notice}>Choose a valid start and end date.</p>
@@ -257,7 +315,7 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
             : !error ? <p className={styles.notice} role="status">Loading conversation…</p> : null}
         <dialog ref={options} className={styles.optionsSheet} aria-labelledby="mentorship-options-title">
             <header className={styles.optionsHeader}>
-                <div><h3 id="mentorship-options-title">Conversation options</h3><p>{channelStatus}</p></div>
+                <div><h3 id="mentorship-options-title">Conversation options</h3><p>{channelStatus}{outcome ? ` · ${outcome}` : ""}</p></div>
                 <button type="button" className={styles.iconButton} aria-label="Close conversation options" onClick={() => options.current?.close()}>
                     <XIcon size={20} aria-hidden="true"/>
                 </button>

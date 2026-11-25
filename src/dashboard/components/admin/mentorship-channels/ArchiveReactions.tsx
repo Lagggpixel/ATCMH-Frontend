@@ -108,7 +108,7 @@ function ReactionRoster({channel, message, emoji, kind}: {channel: ArchiveStream
 
     return <div className={styles.reactionRoster}>
         {page.users.length ? <ul aria-label="People who reacted">{page.users.map(user => <li key={user.id}>
-            <Avatar author={user}/><strong><AuthorName author={user} channel={channel}/></strong>
+            <Avatar author={user}/><span className={styles.authorLabel}><AuthorName author={user} channel={channel}/></span>
             {user.bot ? <span className={styles.bot}>APP</span> : null}
         </li>)}</ul> : null}
         {status === "loading" ? <p className={styles.reactionStatus} role="status">Loading people…</p> : null}

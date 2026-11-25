@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, type CSSProperties} from "react";
 import {authorName, type ArchiveAuthor, type ArchiveStream} from "./archive";
 import styles from "./mentorship-channels.module.css";
 
@@ -8,12 +8,29 @@ export function ParticipantName({role, children}: {role: "mentee" | "mentor"; ch
     return <span className={styles.participant} data-participant={role}>{children}</span>;
 }
 
+function DiscordRoleName({color, children}: {color?: string; children: string}) {
+    return color && /^#[0-9a-f]{6}$/i.test(color)
+        ? <span className={styles.participant} data-participant="discord" style={{"--discord-role-color": color} as CSSProperties}>{children}</span>
+        : children;
+}
+
+export function MenteeName({channel, children}: {channel: ArchiveStream; children: string}) {
+    if (channel.mentorshipState === "waitlisted") return children;
+    if (channel.mentorshipState === "passed") {
+        return <DiscordRoleName color={channel.menteeColor}>{children}</DiscordRoleName>;
+    }
+    return <ParticipantName role="mentee">{children}</ParticipantName>;
+}
+
 export function AuthorName({author, channel}: {author?: ArchiveAuthor; channel: ArchiveStream}) {
     const name = authorName({author});
     const id = author?.id;
-    if (id && id === channel.menteeId) return <ParticipantName role="mentee">{name}</ParticipantName>;
+    if (id && id === channel.menteeId) return <MenteeName channel={channel}>{name}</MenteeName>;
     if (id && id === channel.mentorId) return <ParticipantName role="mentor">{name}</ParticipantName>;
-    return name;
+    if (author?.archive_role === "mentor" || author?.archive_role === "mentee") {
+        return <ParticipantName role={author.archive_role}>{name}</ParticipantName>;
+    }
+    return <DiscordRoleName color={author?.archive_role_color}>{name}</DiscordRoleName>;
 }
 
 export function Avatar({author}: {author?: ArchiveAuthor}) {

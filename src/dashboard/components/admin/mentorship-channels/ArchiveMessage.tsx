@@ -208,7 +208,7 @@ export function ArchiveMessageRow({message, channel, grouped, active, thread, re
                     : "Reply to message"}
             </a> : null}
             {!grouped ? <div className={styles.messageHeading}>
-                <strong><AuthorName author={body.author} channel={channel}/></strong>
+                <span className={styles.authorLabel}><AuthorName author={body.author} channel={channel}/></span>
                 {body.author?.bot ? <span className={styles.bot}>APP</span> : null}
                 <a href={link} title={fullTime.format(date)}><time dateTime={date.toISOString()}>{messageTime(date)}</time></a>
             </div> : null}

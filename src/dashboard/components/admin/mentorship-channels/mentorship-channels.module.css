@@ -67,32 +67,52 @@
     padding: 1.1rem .95rem .75rem;
     border-bottom: 1px solid var(--dashboard-border);
 }
-.channelTools h2, .channelTitle h2 { margin: 0; font-weight: 740; font-size: 1.14rem; line-height: 1.25; }
+.channelTools h2 { margin: 0; font-weight: 740; font-size: 1.14rem; line-height: 1.25; }
 .channelTools input { width: 100%; min-width: 0; }
 .filters { display: flex; gap: .25rem; border-radius: .5rem; padding: .2rem; background: var(--dashboard-inset); }
 .filters button { flex: 1; min-height: 32px; border-color: transparent; background: transparent; font-size: .86rem; }
 .filters button[aria-pressed="true"] { border-color: var(--dashboard-border); background: var(--dashboard-surface); }
-.channelList { display: flex; flex-direction: column; gap: .25rem; overflow: auto; padding: .6rem .65rem; }
+.channelList { display: flex; flex-direction: column; gap: .2rem; overflow: auto; padding: .55rem .65rem; }
 .channel {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: .65rem;
-    padding: .65rem .75rem;
+    padding: .58rem .62rem;
     border: 1px solid transparent;
     border-radius: .55rem;
     color: var(--dashboard-ink) !important;
     text-decoration: none;
-    overflow-wrap: anywhere;
 }
 .channel:hover, .channel[aria-current] { background: var(--dashboard-selected); }
-.channel[aria-current] { border-color: var(--dashboard-border); box-shadow: inset 3px 0 var(--dashboard-link); }
-.channel[aria-current] strong { color: var(--dashboard-link); }
-.channelIcon { width: 1.25rem; flex: 0 0 auto; text-align: center; font-size: 1.2rem; color: var(--dashboard-muted); }
-.channel strong, .channel small { display: block; }
-.channel small, .muted, .channelTitle p, .notice { color: var(--dashboard-muted); }
-.channel small { margin-top: .12rem; }
+.channel[aria-current] { border-color: var(--dashboard-border); }
+.channelIcon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: .5rem;
+    background: var(--dashboard-inset);
+    color: var(--dashboard-muted);
+}
+.channel[aria-current] .channelIcon { color: var(--dashboard-link); }
+.channelRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: .14rem .5rem; }
+.channelMentee { grid-column: 1 / -1; font-size: .94rem; }
+.channelRow:has(.channelOutcome) .channelMentee { grid-column: 1; }
+.channelMentor { grid-area: 2 / 1; font-size: .84rem; }
+.channelState { grid-column: 2; justify-self: end; color: var(--dashboard-muted); font-size: .75rem; white-space: nowrap; }
+.channelRow > .channelState { grid-row: 2; }
+.channelRow > .channelOutcome { grid-row: 1; }
+.channelState:is([data-state="Live"], [data-state="Passed"]) { color: var(--dashboard-success-text, #256447); }
+.channelState[data-state="Terminated"] { color: var(--dashboard-danger-text, #9c283e); }
+.unassigned, .muted, .channelTitle p, .notice { color: var(--dashboard-muted); }
+.channelMentee, .channelMentor, .channelTitle h2, .mobileContext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant { font-weight: 400; }
 .participant[data-participant="mentee"] { color: var(--mentee-text); }
 .participant[data-participant="mentor"] { color: var(--mentor-text-start); }
+.participant[data-participant="discord"] { color: var(--discord-role-color); color: color-mix(in srgb, var(--discord-role-color), black 45%); }
+:global(html[data-dashboard-theme="dark"]) .participant[data-participant="discord"] { color: var(--discord-role-color); }
 @media (forced-colors: none) {
     @supports (background-clip: text) {
         .participant[data-participant="mentor"] {
@@ -112,22 +132,29 @@
     display: flex;
     position: relative;
     flex-wrap: wrap;
-    align-items: end;
-    gap: .6rem .75rem;
-    padding: .85rem 1.2rem;
+    align-items: center;
+    gap: .65rem 1.25rem;
+    padding: .8rem 1.1rem;
     border-bottom: 1px solid var(--dashboard-border);
 }
-.channelTitle { flex: 1 1 220px; align-self: center; min-width: 0; overflow-wrap: anywhere; }
-.channelTitle h2 { font-size: 1.3rem; }
-.titleIcon { color: var(--dashboard-muted); }
-.channelTitle p { margin: .18rem 0 0; font-size: .82rem; }
-.desktopControls { display: contents; }
+.channelIdentity { display: flex; flex: 1 1 270px; min-width: 0; align-items: center; gap: .75rem; }
+.channelIdentity .channelIcon { width: 2.5rem; height: 2.5rem; }
+.channelTitle { flex: 1; min-width: 0; }
+.channelTitle h2 { margin: 0; font-size: 1.2rem; font-weight: 400; line-height: 1.25; }
+.titleSeparator { color: var(--dashboard-muted); }
+.channelTitle p { margin: .24rem 0 0; font-size: .8rem; line-height: 1.25; }
+.desktopStatus .channelState { font-size: inherit; }
+.desktopControls { display: flex; flex-wrap: wrap; align-items: end; gap: .55rem; min-width: 0; }
 .range, .threadSelect, .customRange label { display: flex; flex-direction: column; gap: .15rem; font-size: .81rem; font-weight: 650; }
-.threadSelect { flex-basis: 100%; align-items: start; }
-.threadSelect select { max-width: 100%; }
-.customRange { display: flex; width: 100%; gap: .55rem; flex-wrap: wrap; }
+.threadSelect { min-width: 0; align-items: start; }
+.threadSelect select { max-width: min(100%, 14rem); }
+.customRange { display: flex; gap: .55rem; flex-wrap: wrap; }
 .customRange input { max-width: 100%; }
 .banner { margin: .7rem 1.2rem 0; border: 1px solid var(--dashboard-border); border-radius: .45rem; background: var(--dashboard-inset); padding: .5rem .75rem; font-size: .9rem; line-height: 1.4; }
+.coverage { margin: .55rem 1.2rem 0; padding: .4rem .55rem; color: var(--dashboard-muted); font-size: .84rem; }
+.coverage summary { width: fit-content; cursor: pointer; }
+.coverage summary svg { vertical-align: -.18em; margin-inline-end: .15rem; }
+.coverage p { margin: .35rem 0 0 1.15rem; max-width: 66ch; line-height: 1.4; }
 .notice { margin: .8rem; font-size: .95rem; }
 .placeholder { align-self: center; text-align: center; color: var(--dashboard-muted); }
 .timeline {
@@ -181,6 +208,7 @@
 }
 .messageMain { min-width: 0; line-height: 1.43; }
 .messageHeading { display: flex; flex-wrap: wrap; gap: .42rem; align-items: baseline; }
+.authorLabel { min-width: 0; overflow-wrap: anywhere; }
 .messageHeading a, .reply, .edited, .embedMeta, .history, .threadLink { font-size: .82rem; }
 .messageHeading a { color: var(--dashboard-muted); text-decoration: none; }
 .messageHeading a:hover { text-decoration: underline; }
@@ -273,7 +301,6 @@
 .reactionRoster { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 .reactionRoster ul { display: grid; list-style: none; gap: .2rem; margin: 0; padding: .45rem 1rem; }
 .reactionRoster li { display: flex; align-items: center; gap: .65rem; min-height: 44px; }
-.reactionRoster li strong { min-width: 0; overflow-wrap: anywhere; }
 .reactionRoster .avatar { flex: none; width: 32px; height: 32px; }
 .reactionStatus { margin: .8rem 1rem; color: var(--dashboard-muted); font-size: .9rem; }
 .workspace .reactionMore { display: block; margin: .45rem auto; color: var(--dashboard-link); }
@@ -301,14 +328,6 @@
 }
 .workspace .iconButton { display: grid; flex: none; }
 
-@media (min-width: 900px) {
-    .toolbar .threadSelect { order: 1; flex-basis: auto; }
-    .toolbar .threadSelect select { max-width: 15rem; }
-    .toolbar .range { order: 2; }
-    .toolbar .customRange { order: 3; width: auto; }
-    .toolbar .primary { order: 4; }
-}
-
 @media (max-width: 700px) {
     .workspace { display: flex; flex-direction: column; }
     .workspace:not([data-mobile-conversation="true"]) .reader, .workspace:not([data-mobile-conversation="true"]) .placeholder { display: none; }
@@ -323,9 +342,10 @@
         gap: .25rem;
         padding: .4rem .55rem;
     }
-    .desktopControls, .channelTitle .desktopStatus { display: none; }
-    .channelTitle :is(h2,.mobileContext) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .channelTitle h2 { font-size: 1.08rem; }
+    .desktopControls, .channelTitle .desktopStatus, .channelIdentity .channelIcon, .titleSeparator { display: none; }
+    .channelTitle h2 { font-size: 1rem; line-height: 1.23; }
+    .titleName { display: block; overflow: hidden; text-overflow: ellipsis; }
+    .titleName + .titleSeparator + .titleName { font-size: .88rem; }
     .channelTitle .mobileContext { display: block; font-size: .8rem; }
     .optionsSheet {
         position: fixed;
@@ -354,6 +374,7 @@
     .day { margin: .45rem 0 .6rem; }
     .channel { min-height: 44px; }
     .banner { margin: .5rem .7rem 0; }
+    .coverage { margin-inline: .7rem; }
     .avatar { width: 32px; height: 32px; }
     .message { grid-template-columns: 32px minmax(0, 1fr); }
     .reply { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

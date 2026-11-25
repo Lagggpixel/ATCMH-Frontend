@@ -13,6 +13,8 @@ export interface ArchiveStream {
     mentorId?: string;
     parentMessageId?: string;
     state: "importing" | "ready" | "closed" | "unavailable";
+    mentorshipState?: "waitlisted" | "picked_up" | "passed" | "terminated";
+    menteeColor?: string;
     syncedMs?: number;
     gap: boolean;
 }
@@ -64,6 +66,8 @@ export interface ArchiveAuthor {
     avatar?: string | null;
     discriminator?: string;
     bot?: boolean;
+    archive_role?: "mentee" | "mentor";
+    archive_role_color?: string;
 }
 
 export interface ReactionPage {users: (ArchiveAuthor & {id: string})[]; next?: string}
@@ -164,8 +168,9 @@ export function channelNames(channel: ArchiveStream) {
     const mentee = withoutDefaultDiscriminator(channel.menteeName?.trim() ?? "");
     const name = withoutDefaultDiscriminator(channel.mentorName?.trim() ?? "");
     const mentor = name && !/^(unknown mentor|n\/a)$/i.test(name) ? name : undefined;
-    const title = mentee ? `${mentee} - ${mentor ?? "N/A"}` : channel.title.replace(/ - Unknown mentor$/i, " - N/A");
-    return {mentee, mentor, title};
+    const missingMentor = channel.mentorshipState === "waitlisted" ? "Waitlist" : "N/A";
+    const title = mentee ? `${mentee} - ${mentor ?? missingMentor}` : channel.title.replace(/ - Unknown mentor$/i, " - N/A");
+    return {mentee, mentor, missingMentor, title};
 }
 
 function withoutDefaultDiscriminator(name: string) {
