@@ -197,20 +197,42 @@ function MessageHistory({root, message}: {root: string; message: ArchiveMessage}
     </details>;
 }
 
+export function ParticipantName({role, children}: {role: "mentee" | "mentor"; children: string}) {
+    return <span className={styles.participant} data-participant={role}><span>{children}</span></span>;
+}
+
+function AuthorName({body, channel}: {body: DiscordBody; channel: ArchiveStream}) {
+    const name = authorName(body);
+    const id = body.author?.id;
+    if (id && id === channel.menteeId) return <ParticipantName role="mentee">{name}</ParticipantName>;
+    if (id && id === channel.mentorId) return <ParticipantName role="mentor">{name}</ParticipantName>;
+    return name;
+}
+
 function Avatar({body}: {body: DiscordBody}) {
-    const [failed, setFailed] = useState(false);
+    const [failed, setFailed] = useState<string[]>([]);
     const avatar = body.author?.avatar;
     const id = body.author?.id;
-    const url = id && /^\d+$/.test(id) && avatar && /^(a_)?[0-9a-f]{32}$/.test(avatar)
-        ? "https://cdn.discordapp.com/avatars/" + id + "/" + avatar + ".webp?size=80" : undefined;
+    let url: string | undefined;
+    if (id && /^[1-9]\d{0,19}$/.test(id)) {
+        const discriminator = Number(body.author?.discriminator);
+        const index = Number.isInteger(discriminator) && discriminator > 0
+            ? discriminator % 5 : Number((BigInt(id) >> BigInt(22)) % BigInt(6));
+        const fallback = `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+        const custom = avatar && /^(a_)?[0-9a-f]{32}$/.test(avatar)
+            ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.webp?size=80` : undefined;
+        url = custom && !failed.includes(custom) ? custom : !failed.includes(fallback) ? fallback : undefined;
+    }
     // eslint-disable-next-line @next/next/no-img-element
-    return url && !failed ? <img className={styles.avatar} src={url} alt="" loading="lazy" onError={() => setFailed(true)}/>
+    return url ? <img className={styles.avatar} src={url} alt="" loading="lazy" referrerPolicy="no-referrer"
+        onError={() => setFailed(previous => [...previous, url])}/>
         : <span className={styles.avatar} aria-hidden="true">{authorName(body).slice(0, 2).toUpperCase()}</span>;
 }
 
-export function ArchiveMessageRow({message, root, grouped, active, thread, replyMessage}: {
-    message: ArchiveMessage; root: string; grouped: boolean; active: boolean; thread?: ArchiveStream; replyMessage?: ArchiveMessage;
+export function ArchiveMessageRow({message, channel, grouped, active, thread, replyMessage}: {
+    message: ArchiveMessage; channel: ArchiveStream; grouped: boolean; active: boolean; thread?: ArchiveStream; replyMessage?: ArchiveMessage;
 }) {
+    const root = channel.id;
     const body = message.body;
     const date = new Date(message.sentMs);
     const reply = body.message_reference;
@@ -222,11 +244,11 @@ export function ArchiveMessageRow({message, root, grouped, active, thread, reply
         <div className={styles.messageMain}>
             {reply?.message_id ? <a className={styles.reply} href={archiveLink(root, reply.channel_id ? "d" + reply.channel_id : message.streamId, reply.message_id)}>
                 ↪ {replyMessage && !replyMessage.deletedMs && !replyMessage.body.erased
-                    ? authorName(replyMessage.body) + " · " + (replyMessage.body.content?.split("\n", 1)[0].slice(0, 100) || "Message")
+                    ? <><AuthorName body={replyMessage.body} channel={channel}/> · {replyMessage.body.content?.split("\n", 1)[0].slice(0, 100) || "Message"}</>
                     : "Reply to message"}
             </a> : null}
             {!grouped ? <div className={styles.messageHeading}>
-                <strong>{authorName(body)}</strong>
+                <strong><AuthorName body={body} channel={channel}/></strong>
                 {body.author?.bot ? <span className={styles.bot}>APP</span> : null}
                 <a href={link} title={fullTime.format(date)}><time dateTime={date.toISOString()}>{messageTime(date)}</time></a>
             </div> : null}

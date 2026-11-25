@@ -5,9 +5,9 @@ import {CaretLeftIcon, SlidersHorizontalIcon, XIcon} from "@phosphor-icons/react
 import AdminLoadingScreen from "../AdminLoadingScreen";
 import AdminLoginScreen from "../AdminLoginScreen";
 import AdminErrorScreen from "../AdminErrorScreen";
-import {ArchiveMessageRow} from "./ArchiveMessage";
+import {ArchiveMessageRow, ParticipantName} from "./ArchiveMessage";
 import {
-    API, ArchiveError, archiveLink, archiveLocation, archiveRange, authorName, readArchive,
+    API, ArchiveError, archiveLink, archiveLocation, archiveRange, authorName, channelNames, readArchive,
     type ArchiveConversation, type ArchiveLocation, type ArchivePage, type ArchiveRange, type ArchiveStream, type RangePreset,
 } from "./archive";
 import styles from "./mentorship-channels.module.css";
@@ -22,6 +22,14 @@ const rangeLabels: Record<RangePreset, string> = {
 function status(problem: unknown, message: string) {
     return problem instanceof ArchiveError && [401, 403].includes(problem.status)
         ? "You no longer have access to this archive." : message;
+}
+
+function ChannelNames({names}: {names: ReturnType<typeof channelNames>}) {
+    if (!names.mentee) return names.title;
+    return <>
+        <ParticipantName role="mentee">{names.mentee}</ParticipantName>{" - "}
+        {names.mentor ? <ParticipantName role="mentor">{names.mentor}</ParticipantName> : "N/A"}
+    </>;
 }
 
 export default function MentorshipChannels({loaded, loggedIn, allowed}: {loaded: boolean; loggedIn: boolean; allowed: boolean}) {
@@ -63,10 +71,11 @@ function ChannelWorkspace() {
         return () => controller.abort();
     }, [retry]);
 
-    const shown = channels.filter(channel =>
-        channel.title.toLowerCase().includes(search.trim().toLowerCase()) &&
+    const term = search.trim().toLowerCase();
+    const shown = channels.map(channel => ({channel, names: channelNames(channel)})).filter(({channel, names}) =>
+        names.title.toLowerCase().includes(term) &&
         (filter === "all" || (filter === "archive") === (channel.kind === "legacy" || channel.state === "closed")));
-    const selected = channels.find(channel => channel.id === location.root) ?? (!location.root ? shown[0] : undefined);
+    const selected = channels.find(channel => channel.id === location.root) ?? (!location.root ? shown[0]?.channel : undefined);
     const params = archiveRange(range)?.toString() ?? null;
     const toggleRetry = () => { setLoadState("loading"); setRetry(value => value + 1); };
 
@@ -98,10 +107,10 @@ function ChannelWorkspace() {
                 {loadState === "ready" && !shown.length ? <p className={styles.notice}>
                     {channels.length ? "No channels match this search." : "No mentorship channels have been imported yet."}
                 </p> : null}
-                {shown.map(channel => <a key={channel.id} href={archiveLink(channel.id)} className={styles.channel}
+                {shown.map(({channel, names}) => <a key={channel.id} href={archiveLink(channel.id)} className={styles.channel}
                     onClick={() => setMobileConversation(true)} aria-current={selected?.id === channel.id ? "page" : undefined}>
                     <span className={styles.channelIcon} aria-hidden="true">{channel.kind === "legacy" || channel.state === "closed" ? "▤" : "#"}</span>
-                    <span><strong>{channel.title}</strong><small>{channel.kind === "legacy" || channel.state === "closed" ? "Archived" : channel.state === "unavailable" ? "Unavailable" : channel.state === "importing" ? "Importing" : "Live"}</small></span>
+                    <span><strong><ChannelNames names={names}/></strong><small>{channel.kind === "legacy" || channel.state === "closed" ? "Archived" : channel.state === "unavailable" ? "Unavailable" : channel.state === "importing" ? "Importing" : "Live"}</small></span>
                 </a>)}
             </div>
         </aside>
@@ -153,6 +162,7 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
     useEffect(() => () => exportRequest.current?.abort(), []);
 
     const channel = detail?.channel ?? initialChannel;
+    const names = channelNames(channel);
     const threads = useMemo(() => detail?.streams.filter(stream => stream.kind === "thread") ?? [], [detail]);
     const view = location.root === root ? location : {};
     const selectedThread = threads.find(thread => thread.id === view.stream);
@@ -217,13 +227,13 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
             <button type="button" className={styles.primary} disabled={rangeQuery == null || !detail} onClick={openExport}>Download JSON</button>
     </>;
 
-    return <section className={styles.reader} aria-label={channel.title}>
+    return <section className={styles.reader} aria-label={names.title}>
         <header className={styles.toolbar}>
             <button className={styles.mobileToolbarButton} type="button" aria-label="Back to channels" onClick={back}>
                 <CaretLeftIcon size={22} aria-hidden="true"/>
             </button>
             <div className={styles.channelTitle}>
-                <h2 title={channel.title}><span aria-hidden="true">{channel.kind === "legacy" ? "▤" : "#"}</span> {channel.title}</h2>
+                <h2 title={names.title}><span className={styles.titleIcon} aria-hidden="true">{channel.kind === "legacy" ? "▤" : "#"}</span> <ChannelNames names={names}/></h2>
                 <p className={styles.desktopStatus}>{channelStatus}</p>
                 <p className={styles.mobileContext}>
                     {selectedThread ? <span title={selectedThread.title}>{selectedThread.title}</span> : null}
@@ -241,7 +251,7 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
         {error ? <p className={styles.banner} role="alert">{error} <button type="button" onClick={() => setReload(value => value + 1)}>Retry</button></p> : null}
         {threadUnavailable ? <p className={styles.notice}>Thread unavailable. <a href={archiveLink(root)}>Open channel messages</a></p>
             : rangeQuery == null ? <p className={styles.notice}>Choose a valid start and end date.</p>
-            : detail ? <Timeline key={stream + "|" + rangeQuery + "|" + (view.message ?? "")} root={root} stream={stream}
+            : detail ? <Timeline key={stream + "|" + rangeQuery + "|" + (view.message ?? "")} channel={channel} stream={stream}
                 rangeQuery={rangeQuery} anchor={view.message} threads={threads}/>
             : !error ? <p className={styles.notice} role="status">Loading conversation…</p> : null}
         <dialog ref={options} className={styles.optionsSheet} aria-labelledby="mentorship-options-title">
@@ -269,9 +279,10 @@ function Conversation({initialChannel, location, range, rangeQuery, setRange, ba
     </section>;
 }
 
-function Timeline({root, stream, rangeQuery, anchor, threads}: {
-    root: string; stream: string; rangeQuery: string; anchor?: string; threads: ArchiveStream[];
+function Timeline({channel, stream, rangeQuery, anchor, threads}: {
+    channel: ArchiveStream; stream: string; rangeQuery: string; anchor?: string; threads: ArchiveStream[];
 }) {
+    const root = channel.id;
     const [pages, setPages] = useState<ArchivePage[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -395,7 +406,7 @@ function Timeline({root, stream, rangeQuery, anchor, threads}: {
                 message.sentMs - previous.sentMs < 7 * 60 * 1000;
             return <div key={message.id}>
                 {newDay ? <div className={styles.day}>{day}</div> : null}
-                <ArchiveMessageRow message={message} root={root} grouped={grouped} active={message.id === anchor}
+                <ArchiveMessageRow message={message} channel={channel} grouped={grouped} active={message.id === anchor}
                     thread={threadByMessage.get(message.id)} replyMessage={messageById.get(message.body.message_reference?.message_id ?? "")}/>
             </div>;
         })}

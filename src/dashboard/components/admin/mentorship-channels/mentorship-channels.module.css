@@ -82,6 +82,25 @@
 .channel strong, .channel small { display: block; }
 .channel small, .muted, .channelTitle p, .notice { color: var(--dashboard-muted); }
 .channel small { margin-top: .12rem; }
+.participant {
+    padding-inline: .2em;
+    border-radius: .22em;
+    background: #191919;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+.participant[data-participant="mentee"] { color: #d8b5ff; }
+.participant[data-participant="mentor"] { color: #fd560e; }
+@supports (background-clip: text) {
+    .participant[data-participant="mentor"] > span {
+        background: linear-gradient(90deg, #fd560e, #ffcd50);
+        background-clip: text;
+        color: transparent;
+    }
+}
+@media (forced-colors: active) {
+    .participant[data-participant="mentor"] > span { background: none; color: inherit; }
+}
 .reader {
     min-height: 0;
     min-width: 0;
@@ -99,7 +118,7 @@
 }
 .channelTitle { flex: 1 1 220px; align-self: center; min-width: 0; overflow-wrap: anywhere; }
 .channelTitle h2 { font-size: 1.3rem; }
-.channelTitle h2 span { color: var(--dashboard-muted); }
+.titleIcon { color: var(--dashboard-muted); }
 .channelTitle p { margin: .18rem 0 0; font-size: .82rem; }
 .desktopControls { display: contents; }
 .range, .threadSelect, .customRange label { display: flex; flex-direction: column; gap: .15rem; font-size: .81rem; font-weight: 650; }

@@ -9,6 +9,8 @@ export interface ArchiveStream {
     kind: "channel" | "thread" | "legacy";
     menteeName?: string;
     mentorName?: string;
+    menteeId?: string;
+    mentorId?: string;
     parentMessageId?: string;
     state: "importing" | "ready" | "closed" | "unavailable";
     syncedMs?: number;
@@ -47,7 +49,7 @@ export interface Emoji {
 }
 
 export interface DiscordBody {
-    author?: {id?: string; display_name?: string; global_name?: string; username?: string; avatar?: string; bot?: boolean};
+    author?: {id?: string; display_name?: string; global_name?: string; username?: string; avatar?: string; discriminator?: string; bot?: boolean};
     content?: string;
     type?: number;
     flags?: number;
@@ -134,6 +136,19 @@ export async function readArchive<T>(url: string, signal?: AbortSignal): Promise
 }
 
 export function authorName(body: DiscordBody) {
-    return body.author?.display_name || body.author?.global_name || body.author?.username || "Unknown author";
+    const name = body.author?.display_name || body.author?.global_name || body.author?.username || "";
+    return withoutDefaultDiscriminator(name) || "Unknown author";
+}
+
+export function channelNames(channel: ArchiveStream) {
+    const mentee = withoutDefaultDiscriminator(channel.menteeName?.trim() ?? "");
+    const name = withoutDefaultDiscriminator(channel.mentorName?.trim() ?? "");
+    const mentor = name && !/^(unknown mentor|n\/a)$/i.test(name) ? name : undefined;
+    const title = mentee ? `${mentee} - ${mentor ?? "N/A"}` : channel.title.replace(/ - Unknown mentor$/i, " - N/A");
+    return {mentee, mentor, title};
+}
+
+function withoutDefaultDiscriminator(name: string) {
+    return name.replace(/#0000$/, "");
 }
 
