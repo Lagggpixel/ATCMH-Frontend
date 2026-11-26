@@ -64,6 +64,13 @@ export function assertCanonicalEngine(root, checkout) {
   }
 }
 
+export function verifyPinnedEngine(root, checkout) {
+  const {revision, files} = readLock(root);
+  const ancestry = spawnSync("git", ["-C", checkout, "merge-base", "--is-ancestor", revision, "HEAD"]);
+  if (ancestry.error || ancestry.status !== 0) throw new Error("The pinned Sweatbox engine must be reachable from the Simulator checkout: " + revision);
+  readGitBlobs(checkout, revision, files);
+}
+
 export function prepareSharedEngine(root = project, {checkout = sharedEngineCheckout(root), docker = false, dryRun = false} = {}) {
   const {revision, files} = readLock(root);
   const native = join(root, "src", "simulator");
