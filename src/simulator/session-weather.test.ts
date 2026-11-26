@@ -203,7 +203,8 @@ test("scenario Mach-speed events use the session pressure and temperature immedi
   runtime.events.mach = {status: "waiting"};
   const before = applySessionWeather(exercise, observation("PHOG"));
   const envelope = {id: randomUUID(), time: 200, action: {kind: "maneuver", aircraftId: before.aircraft[0].id, command}} as const;
-  const expected = engineFor(before).applyEnvelope(before, envelope), stale = engineFor(runtime.definition).applyEnvelope(before, envelope);
+  const expected = engineFor(before).applyEnvelope(before, envelope);
+  const stale = engineFor(runtime.definition).applyEnvelope({...before, weather: runtime.definition.weather}, envelope);
   assert.equal(expected.error, undefined); assert.equal(stale.error, undefined);
   assert.ok(Math.abs(expected.state.aircraft[0].targetSpeed - stale.state.aircraft[0].targetSpeed) > .5, "fixture must expose the weather mismatch");
   const actual = executeScenarioEvent(before, runtime, "mach", 200);
