@@ -27,6 +27,7 @@ export const endlessDefinition = z.object({
     sid: short.optional(),
     via: z.string().trim().max(400).optional(),
     star: short.optional(),
+    entryFlightLevel: z.number().int().min(190).max(350).optional(),
   }).strict()).min(1).max(maxEndlessStreams),
 }).strict();
 export type EndlessDefinition = z.infer<typeof endlessDefinition>;
@@ -81,6 +82,17 @@ const approach = (dual: boolean): EndlessDefinition => ({
   ],
 });
 
+type PointMergeArrival = readonly [
+  origin: string, via: string, star: string, runway: string, entryFlightLevel: number, rate: number,
+];
+
+function pointMergeArrivals(airport: string, routes: readonly PointMergeArrival[]): EndlessStream[] {
+  return routes.map(([origin, via, star, runway, entryFlightLevel, rate]) => ({
+    ...stream(`${origin} via ${via} / ${star}`, "arrival", rate, origin, airport, runway),
+    via, star, entryFlightLevel,
+  }));
+}
+
 export const endlessPresets: Record<string, EndlessDefinition> = {
   edinburgh: {
     title: "Edinburgh Ground & Tower", airport: "EGPH", mode: "local", issuePercent: 0,
@@ -93,6 +105,46 @@ export const endlessPresets: Record<string, EndlessDefinition> = {
   },
   "heathrow-single": approach(false),
   "heathrow-dual": approach(true),
+  "istanbul-point-merge": {
+    title: "Istanbul Point Merge Approach", airport: "LTFM", mode: "approach", issuePercent: 20,
+    briefing: "Sequence 32 arrivals per hour through VASTE for 35R and 32 through EVBIR for 34L. Use the paired arcs to manage spacing before releasing traffic to each merge fix. Departures start disabled.",
+    streams: [
+      ...pointMergeArrivals("LTFM", [
+        ["LTAC", "NUGBA", "ATPI1A", "35R", 250, 7],
+        ["LTAI", "ATPIX", "ATPI1A", "35R", 250, 7],
+        ["LLBG", "ERSEN", "ERSE1A", "35R", 260, 6],
+        ["HECA", "SISPI", "ERSE1A", "35R", 260, 6],
+        ["OMDB", "TOKER", "ERSE1A", "35R", 280, 6],
+        ["OTHH", "INBET", "DRAM1A", "34L", 280, 6],
+        ["LROP", "RILEX", "RILE1A", "34L", 250, 7],
+        ["UUEE", "RIXEN", "RILE1A", "34L", 280, 6],
+        ["LGAV", "DRAMO", "DRAM1A", "34L", 250, 7],
+        ["EDDS", "AYTEK", "RILE1A", "34L", 280, 6],
+      ]),
+      stream("35L departures", "departure", 0, "LTFM", "LTAC", "35L"),
+      stream("34R departures", "departure", 0, "LTFM", "LROP", "34R"),
+    ],
+  },
+  "haneda-point-merge": {
+    title: "Tokyo Haneda Point Merge Approach", airport: "RJTT", mode: "approach", issuePercent: 20,
+    briefing: "Sequence 32 arrivals per hour through SHAFT for 16L and 32 through NEURO for 16R. Manage release timing and wake spacing independently on each runway. Departures start disabled.",
+    streams: [
+      ...pointMergeArrivals("RJTT", [
+        ["RJCC", "TEDIX", "GODINR", "16R", 240, 7],
+        ["RJFF", "SPENS", "XACL", "16L", 240, 7],
+        ["RJBB", "SPENS", "XACR", "16R", 220, 7],
+        ["RJOO", "SELNO", "XACL", "16L", 220, 7],
+        ["RJGG", "SPENS", "XACR", "16R", 220, 6],
+        ["ROAH", "TOPIT", "XACL", "16L", 240, 6],
+        ["RKSI", "LALID", "GODINR", "16R", 240, 6],
+        ["RCTP", "SELNO", "XACR", "16R", 240, 6],
+        ["ZSPD", "DOLBA", "AROSAL", "16L", 240, 6],
+        ["VHHH", "DOLBA", "AROSAL", "16L", 240, 6],
+      ]),
+      stream("16R departures", "departure", 0, "RJTT", "RJFF", "16R"),
+      stream("22 departures", "departure", 0, "RJTT", "RJCC", "22"),
+    ],
+  },
   london: {
     title: "London Center", airport: "EGLL", mode: "center", sector: londonCenter, issuePercent: 20,
     briefing: "Work London Center with Heathrow and Stansted. Sequence external arrivals, hand outbound flights to neighbouring Center, and coordinate traffic between the two airports.",

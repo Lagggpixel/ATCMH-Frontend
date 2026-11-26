@@ -2,12 +2,13 @@
 import {advance, applyEnvelope, engineFor, trimMessages} from "../engine";
 import {airportRunways, defaultRunway, getAirport} from "../airports";
 import {freshFacilityEnvironment, insideAirspace} from "../aviation";
-import {profileForType} from "../aircraft-performance";
+import {headingForGroundTrack, profileForType} from "../aircraft-performance";
 import {availableLocalGate, createLocalAircraft} from "../local-aircraft";
 import {MAX_AIRCRAFT, type Aircraft, type Exercise} from "../model";
 import {airborne, radarAircraft, radarEnvironmentFor, radarHeading} from "../radar";
 import {runwayOccupied} from "../runway-safety";
 import {standPlacement, gatesFor} from "../scenarios";
+import {pickEndlessCarrier} from "./catalog";
 import type {CompiledEndless, CompiledStream, RouteVariant} from "./compile";
 import {endlessIssues, separationFor, type EndlessIssue} from "./definition";
 import {distanceToSector, insideSector, nmBetween} from "./geometry";
@@ -36,6 +37,8 @@ interface Traffic {
   stream: number;
   entered: boolean;
   release: number;
+  tuneAltitude: number;
+  tuneBoundaryOffset: number;
   issue?: EndlessIssue;
   transfer?: string;
   completedAt?: number;
@@ -67,8 +70,10 @@ export function initializeEndless(scenario: CompiledEndless, seed: number) {
   if (scenario.definition.mode !== "local") {
     const airport = getAirport(scenario.selection);
     const base = radarEnvironmentFor(airport);
+    const fixes = new Map([...base.fixes, ...(scenario.fixes ?? [])].map(fix => [fix.id, fix]));
     exercise.radarEnvironment = freshFacilityEnvironment(airport, scenario.definition.mode, {
       ...base, range: scenario.range, ...(scenario.boundary ? {boundary: scenario.boundary} : {}),
+      fixes: [...fixes.values()].slice(0, 200),
       facilities: scenario.neighbours,
       ...(scenario.definition.sector ? {facilityActivity: {[scenario.definition.sector]: true}} : {}),
       handoffFacilityIds: scenario.neighbours.map(f => f.id),
@@ -137,33 +142,45 @@ function radarTraffic(exercise: Exercise, runtime: EndlessRuntime, stream: Compi
   const airport = getAirport(exercise), station = runtime.scenario.definition.mode === "center" ? "center" : "approach";
   const inbound = stream.definition.kind === "arrival", radar = radarAircraft(engineFor(exercise).newAircraft(id, true), station, airport);
   const route = structuredClone(variant.points);
-  const altitude = inbound ? (issue === "High profile" ? 31000 : station === "approach" ? 25000 : 25000 + 2000 * (opening ?? 0))
+  const entryFeet = (stream.definition.entryFlightLevel ?? 250) * 100;
+  const altitude = inbound ? (issue === "High profile" ? 31000 : station === "approach" ? entryFeet : Math.max(entryFeet, 25000 + 2000 * (opening ?? 0)))
     : (stream.departureElevation ?? airport.elevation) + 3000;
   const speed = inbound ? 285 : 210;
-  const heading = radarHeading(variant.spawn.position, route[variant.spawn.index]);
+  const performanceProfile = profileForType(type);
+  const rawHeading = radarHeading(variant.spawn.position, route[variant.spawn.index]);
+  const heading = exercise.weather ? headingForGroundTrack(rawHeading, {...radar, altitude, speed, type, performanceProfile}, exercise.weather) : rawHeading;
   const broken = issue === "No flight plan";
   const wrong = issue === "Unsuitable route or STAR";
-  const wrongPlan = wrong ? variant.alternate?.points ?? route.slice(0, Math.max(variant.spawn.index + 1, route.findIndex(p => p.procedure?.type === "STAR"))) : route;
+  const wrongPlan = wrong ? variant.alternate?.points ?? route : route;
+  const divergence = wrongPlan === route ? -1 : route.findIndex((point, index) => {
+    const alternate = wrongPlan[index];
+    return !alternate || nmBetween(point, alternate) > .001;
+  });
+  const routeIndex = Math.min(variant.spawn.index, divergence < 0 ? wrongPlan.length - 1 : Math.min(divergence, wrongPlan.length - 1));
   const runway = stream.definition.destination === airport.icao && inbound ? stream.definition.arrivalRunway ?? stream.definition.runway : defaultRunway(airport);
   return {
-    ...radar, callsign, type, performanceProfile: profileForType(type), position: variant.spawn.position,
+    ...radar, callsign, type, performanceProfile, position: variant.spawn.position,
     runway, altitude, heading, targetHeading: heading, speed, targetSpeed: speed,
+    frequency: inbound ? "unicom" as const : station,
     cruiseAltitude: inbound ? altitude : stream.definition.kind === "intra-sector" ? 9000 : 25000,
     flightPlan: broken ? [] : wrongPlan,
-    arrivalProcedure: wrong ? variant.alternate?.name : broken ? undefined : variant.star,
+    arrivalProcedure: broken ? undefined : wrong ? variant.alternate?.name ?? variant.star : variant.star,
     destination: {point: stream.destination, name: stream.definition.destination}, followRouteAltitudes: !broken && issue !== "High profile",
     radar: {...radar.radar!, navigation: broken ? "heading" as const : "route" as const,
-      routeIndex: broken ? 0 : Math.min(variant.spawn.index, wrongPlan.length - 1), flight: inbound ? undefined : "departure" as const, report: "check-in" as const},
+      routeIndex: broken ? 0 : routeIndex, flight: inbound ? undefined : "departure" as const,
+      report: inbound ? "approach-request" as const : "check-in" as const,
+      requestedApproach: !broken && inbound ? (wrong ? variant.alternate?.approachId ?? variant.approachId : variant.approachId) : undefined,
+      vnavFloor: !broken && issue !== "High profile" && inbound ? (wrong ? variant.alternate?.vnavFloor ?? variant.vnavFloor : variant.vnavFloor) : undefined},
   } satisfies Aircraft;
 }
 
 function release(exercise: Exercise, runtime: EndlessRuntime, index: number, now: number, opening?: number): Exercise {
   const stream = runtime.scenario.streams[index], serial = ++runtime.serial, entropy = hash(runtime.seed, serial);
-  const type = ["A320", "A321", "B738", "B789"][entropy % 4];
-  const id = `${exercise.id}-e${serial}`, callsign = `${["Speedbird", "Shamrock", "Easy", "KLM"][entropy % 4]} ${300 + serial}`;
+  const {callsign, type} = pickEndlessCarrier(runtime.scenario.definition.airport, stream.definition, entropy, serial);
+  const id = `${exercise.id}-e${serial}`;
   const local = runtime.scenario.definition.mode === "local";
   const inbound = stream.definition.kind === "arrival";
-  const issue = !local && inbound ? pickIssue(runtime, opening) : undefined;
+  let issue = !local && inbound ? pickIssue(runtime, opening) : undefined;
   const minimum = separationFor(runtime.scenario.definition.mode);
   const insufficientSpace = (aircraft: Aircraft) => exercise.aircraft.some(other => other.active
     && nmBetween(aircraft.position, other.position) < (minimum?.nm ?? 1)
@@ -172,12 +189,16 @@ function release(exercise: Exercise, runtime: EndlessRuntime, index: number, now
   if (exercise.aircraft.length < MAX_AIRCRAFT) {
     const choices = local ? [localAircraft(exercise, stream, id, callsign, type)]
       : stream.variants.map((_, i, items) => radarTraffic(exercise, runtime, stream, items[(entropy + i) % items.length], id, callsign, type, issue, opening));
-    const aircraft = choices.find(choice => choice && (choice.frequency === "ground" || !insufficientSpace(choice)));
+    const chosenIndex = choices.findIndex(choice => choice && (choice.frequency === "ground" || !insufficientSpace(choice)));
+    const aircraft = choices[chosenIndex];
     reason = choices.some(Boolean) ? "Entry spacing unavailable" : "All stands occupied";
     if (aircraft) {
       const result = applyEnvelope(exercise, {id: `${id}:spawn`, time: now, action: {kind: "spawn", aircraft}}, {suppressSpawnRequest: !local});
       if (!result.error) {
-        runtime.traffic[id] = {stream: index, release: exercise.elapsed, entered: !runtime.scenario.boundary || !inbound, ...(issue ? {issue} : {})};
+        const variant = stream.variants[(entropy + chosenIndex) % stream.variants.length];
+        if (issue === "Unsuitable route or STAR" && !variant?.alternate) issue = undefined;
+        runtime.traffic[id] = {stream: index, release: exercise.elapsed, entered: !runtime.scenario.boundary || !inbound,
+          tuneAltitude: 18500 + (entropy % 16) * 100, tuneBoundaryOffset: (entropy >>> 4) % 9, ...(issue ? {issue} : {})};
         runtime.counts.released++;
         mark(runtime, result.state, {kind: "release", label: `${callsign} · ${stream.definition.name}`, aircraftId: id, ...(issue ? {issue} : {})});
         return result.state;
@@ -276,7 +297,17 @@ function observe(exercise: Exercise, previous: Exercise, runtime: EndlessRuntime
       if (a && stream.definition.kind === "departure" && a.leavingCircuit && a.altitude > airport.elevation + 300 && nmBetween(a.position, {x: 0, y: 0}) >= 5) complete("Departed");
       if (a?.mode === "parked" && stream.definition.kind !== "departure" && parking.some(stand => nmBetween(a.position, stand) < .015)) complete("Parked");
     } else if (a) {
-      if (scenario.boundary && insideSector(scenario.boundary, a.position)) track.entered = true;
+      const inside = !!scenario.boundary && insideSector(scenario.boundary, a.position);
+      if (inside) track.entered = true;
+      if (a.active && !track.transfer && stream.definition.kind === "arrival" && a.frequency === "unicom") {
+        const inRange = mode === "approach" ? nmBetween(a.position, stream.destination) <= 35
+          : !!scenario.boundary && (inside || distanceToSector(scenario.boundary, a.position) <= (track.tuneBoundaryOffset ?? 0));
+        if (a.altitude <= (track.tuneAltitude ?? 18500) || inRange) {
+          a.frequency = mode;
+          delete a.guardTune;
+          if (a.radar && !a.radar.transferred) a.radar.report ??= "approach-request";
+        }
+      }
       const neighbour = scenario.neighbours.find(f => f.id === a.facilityId && f.type === a.frequency);
       const validTerminal = neighbour && neighbour.airport === stream.definition.destination;
       const outbound = stream.definition.kind === "departure";

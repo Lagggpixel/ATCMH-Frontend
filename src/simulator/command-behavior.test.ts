@@ -4,7 +4,7 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {createAirportEngine, engineFor, applyEnvelope, autoReadbacks, advance, restoreExercise} from "./engine";
 import {getAirport, airportList, airportRunways, airportSelection} from "./airports";
-import {airportVisible, courseTo} from "./command-navigation";
+import {airportVisible, courseTo, filedRouteJoin} from "./command-navigation";
 import {headingForGroundTrack} from "./aircraft-performance";
 import {sightingTargetKey} from "./airport-sighting";
 import {backTaxiRoute, progressiveRoute} from "./command-ground";
@@ -172,6 +172,35 @@ test("route mode alone does not make a wrong-way filed capture valid", () => {
   assert.match(e.validateAssignment(a, {type: "atc", action: "navigation", variant: "filed"})!, /Unable/);
 });
 
+test("continue as filed accepts a banked fly-by turn using session wind and rejects a wrong-way heading", () => {
+  const {e, s} = radar(), a = s.aircraft[0];
+  s.autoReadback = true; s.readbackDelay = {min: 0, max: 0};
+  s.weather = {...EXERCISE_WEATHER, windDirection: 180, windSpeed: 65};
+  const next = {x: 30, y: 0};
+  Object.assign(a, {position: {x: -.6, y: -.35}, heading: 0, speed: 180, targetSpeed: 180, bankAngle: 18,
+    flightPlan: [{x: 0, y: -20}, {x: 0, y: 0}, next]});
+  Object.assign(a.radar!, {navigation: "route", routeIndex: 2});
+  a.targetHeading = headingForGroundTrack(courseTo(a.position, next), a, s.weather);
+  assert.deepEqual(filedRouteJoin(a, s.weather), {});
+  assert.match(filedRouteJoin(a, EXERCISE_WEATHER).error!, /^Unable/);
+
+  const command: Instruction = {type: "atc", action: "navigation", variant: "filed"};
+  for (const wrongWay of [false, true]) {
+    const state = structuredClone(s), aircraft = state.aircraft[0];
+    if (wrongWay) aircraft.heading = aircraft.targetHeading = 270;
+    const id = randomUUID();
+    const sent = e.applyEnvelope(state, {id, time: 1, action: {kind: "command", aircraftId: a.id, frequency: "approach", text: "Continue as filed", command}});
+    assert.equal(sent.error, undefined);
+    const after = e.autoReadbacks(sent.state, 2, randomUUID), readback = after.messages.find(message => message.commandId === id);
+    assert.ok(readback);
+    if (wrongWay) assert.match(readback.text, /^Unable/);
+    else assert.match(readback.text, /^Continue as filed/i);
+    assert.equal(after.aircraft[0].radar!.navigation, "route");
+    assert.equal(after.aircraft[0].radar!.routeIndex, 2);
+    assert.equal(after.aircraft[0].radar!.filedJoin, undefined);
+  }
+});
+
 for (const command of [{type: "atc", action: "navigation", variant: "filed"}, {type: "expect-approach", approachId: "gps-10", navigation: "filed"}] as Instruction[]) {
   test(`${command.type}: a filed aircraft offset from its original leg accepts the TNCM replay instruction`, () => {
     const e = engineFor({airport: "TNCM", trainingStation: "TNCM:approach"});
@@ -215,6 +244,41 @@ test("STAR approvals descend along configured route constraints and survive relo
     next = e.restoreExercise(exerciseSchema.parse(JSON.parse(JSON.stringify(next)))); next = tick(e, next, 120);
     assert.ok(next.aircraft[0].altitude <= 4000); assert.equal(next.aircraft[0].radar!.navigation, "route");
   }
+});
+
+test("route VNAV descends through minimum-only STAR and approach fixes and holds the floor until cleared", () => {
+  let {s} = radar(); const a = s.aircraft[0];
+  s.weather = {...EXERCISE_WEATHER, windSpeed: 0}; const e = engineFor(s);
+  Object.assign(a, {position: {x: -20, y: -150}, heading: 0, targetHeading: 0, altitude: 25000, cruiseAltitude: 25000, followRouteAltitudes: true,
+    flightPlan: [
+      {x: -20, y: -50, altitudeConstraint: {min: 7000}, procedure: {key: "star", type: "STAR", name: "TRAIN1"}},
+      {x: -20, y: -30, altitudeConstraint: {min: 5000}, procedure: {key: "approach", type: "Approach", name: "ILS 24"}},
+      {x: -20, y: 0, altitude: 2000},
+    ]});
+  Object.assign(a.radar!, {navigation: "route", routeIndex: 0, vnavFloor: 3000});
+  assert.equal(a.radar!.cleared, undefined);
+
+  for (const [index, altitude] of [[0, 7000], [1, 5000]] as const) {
+    let inbound = s.aircraft[0];
+    for (let i = 0; i < 1800 && s.aircraft[0].radar!.routeIndex === index; i++) {
+      inbound = s.aircraft[0];
+      s = tick(e, s, 1);
+    }
+    assert.equal(s.aircraft[0].radar!.routeIndex, index + 1);
+    assert.deepEqual(inbound.radar!.targetAltitude, {unit: "feet", value: altitude});
+    assert.ok(inbound.altitude >= altitude && inbound.altitude <= altitude + 100, `Fix ${index + 1} altitude: ${inbound.altitude} ft`);
+  }
+  for (let i = 0; i < 600 && s.aircraft[0].altitude > 3000; i++) s = tick(e, s, 1);
+  assert.equal(s.aircraft[0].altitude, 3000);
+  s = tick(e, s, 30);
+  assert.equal(s.aircraft[0].radar!.routeIndex, 2);
+  assert.equal(s.aircraft[0].altitude, 3000);
+  assert.deepEqual(s.aircraft[0].radar!.targetAltitude, {unit: "feet", value: 3000});
+
+  s.aircraft[0].radar!.cleared = "ils-24";
+  for (let i = 0; i < 600 && s.aircraft[0].altitude >= 3000; i++) s = tick(e, s, 1);
+  assert.deepEqual(s.aircraft[0].radar!.targetAltitude, {unit: "feet", value: 2000});
+  assert.ok(s.aircraft[0].altitude < 3000);
 });
 
 test("approved diversion replaces destination and route; vector approval waits for vectors", () => {
@@ -357,6 +421,7 @@ test("back-taxi Ground handoff follows mapped exits at airports with mapped grou
 
 test("guard reaches an untuned aircraft without granting other controller commands", () => {
   const engine = engineFor({trainingStation: "EGPH:approach"}), state = withFixedReadbackDelay(engine.initialExercise());
+  state.running = true; state.autoReadback = false;
   const aircraft = engine.newAircraft("guard-test", true); aircraft.frequency = "center"; state.aircraft = [aircraft];
   const command: Instruction = {type: "atc", action: "guard", frequency: "approach", variant: "contact"};
   assert.equal(engine.validateControllerMessage(state, aircraft, command, "approach"), null);
@@ -372,7 +437,47 @@ test("guard reaches an untuned aircraft without granting other controller comman
   assert.equal(result.error, undefined); assert.equal(result.state.messages.at(-1)?.frequency, "approach");
   assert.equal(result.state.aircraft[0].frequency, "center");
   assert.deepEqual(result.state.aircraft[0].position, aircraft.position);
+  const after = engine.autoReadbacks(tick(engine, result.state, 2), 3000, randomUUID);
+  assert.equal(after.aircraft[0].frequency, "center");
+  assert.equal(after.messages.length, 1);
   aircraft.active = false; assert.ok(engine.validateControllerMessage(state, aircraft, command, "approach"));
+});
+
+test("send on guard retunes an automatic UNICOM arrival after the readback delay and triggers its approach request", () => {
+  const {e, s} = radar(), a = s.aircraft[0];
+  s.autoReadback = true; a.frequency = "unicom";
+  Object.assign(a.radar!, {report: "approach-request", requestedApproach: "ils-24"});
+
+  const before = e.autoReadbacks(tick(e, s, 1), 1000, randomUUID);
+  assert.equal(before.aircraft[0].frequency, "unicom");
+  assert.equal(before.messages.length, 0);
+
+  const command: Instruction = {type: "atc", action: "guard", frequency: "approach", variant: "contact"};
+  const sent = e.applyEnvelope(before, {id: randomUUID(), time: 1000, action: {kind: "command", aircraftId: a.id, frequency: "approach", command}});
+  assert.equal(sent.error, undefined);
+  const waiting = e.autoReadbacks(tick(e, sent.state, 1), 2000, randomUUID);
+  assert.equal(waiting.aircraft[0].frequency, "unicom");
+  assert.deepEqual(waiting.messages.map(m => m.sender), ["controller"]);
+
+  const after = e.autoReadbacks(tick(e, waiting, Math.ceil(s.readbackDelay!.max) - 1), 3000, randomUUID);
+  assert.equal(after.aircraft[0].frequency, "approach");
+  const replies = after.messages.filter(m => m.sender === "pilot");
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].aircraftId, a.id);
+  assert.equal(replies[0].frequency, "approach");
+  assert.equal(replies[0].request?.id, "request-approach");
+  assert.match(replies[0].text, /requesting ILS approach/i);
+  assert.equal(after.aircraft[0].radar!.report, undefined);
+});
+
+test("an automatic UNICOM arrival keeps its approach report armed without a frequency change", () => {
+  const {e, s} = radar(), a = s.aircraft[0];
+  s.autoReadback = true; a.frequency = "unicom";
+  Object.assign(a.radar!, {report: "approach-request", requestedApproach: "ils-24"});
+  const after = e.autoReadbacks(tick(e, s, 10), 10000, randomUUID);
+  assert.equal(after.aircraft[0].frequency, "unicom");
+  assert.equal(after.aircraft[0].radar!.report, "approach-request");
+  assert.equal(after.messages.length, 0);
 });
 
 const act = (state: Exercise, action: Action) => {
